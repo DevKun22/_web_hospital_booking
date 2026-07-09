@@ -446,12 +446,12 @@ export function PublicBookingWidget({
   return (
     <section
       id="booking"
-      className="mx-auto max-w-7xl scroll-mt-24 px-4 py-10 sm:px-6 lg:px-8"
+      className="ui-container scroll-mt-24 py-12 sm:py-16"
     >
       <ScrollReveal>
-        <div className="grid gap-6 rounded-md border border-[#cfe0f3] bg-gradient-to-b from-[#f4f9ff] via-white to-white p-4 shadow-[0_18px_50px_rgba(13,79,139,0.10)] ring-1 ring-[#e7f0fb] sm:p-5 lg:grid-cols-[minmax(0,1fr)_360px]">
+        <div className="grid gap-6 rounded-xl border border-[#cfe0f3] bg-gradient-to-b from-[#f4f9ff] via-white to-white p-3 shadow-[0_18px_50px_rgba(13,79,139,0.10)] ring-1 ring-[#e7f0fb] sm:p-5 lg:grid-cols-[minmax(0,1fr)_360px] lg:p-6">
           <div>
-            <div className="flex items-start gap-3 rounded-md border border-[#d8e9ff] bg-white/80 p-4 shadow-sm">
+            <div className="flex items-start gap-3 rounded-lg border border-[#d8e9ff] bg-white/90 p-4 shadow-sm sm:p-5">
               <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-md bg-[#e7f0fb] text-[#0d4f8b]">
                 <CalendarDays className="h-5 w-5" aria-hidden="true" />
               </span>
@@ -469,7 +469,23 @@ export function PublicBookingWidget({
               </div>
             </div>
 
-            <div className="mt-5 rounded-md border border-[#d8e9ff] bg-white p-4 shadow-sm">
+            <ol className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4" aria-label="Các bước đặt lịch">
+              {["Chọn dịch vụ", "Chọn thời gian", "Nhập thông tin", "Xác thực OTP"].map(
+                (label, index) => (
+                  <li
+                    key={label}
+                    className="flex min-w-0 items-center gap-2 rounded-lg border border-[#d8e9ff] bg-white px-3 py-2.5 text-xs font-semibold text-[#42526b]"
+                  >
+                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#e7f0fb] text-[#0d4f8b]">
+                      {index + 1}
+                    </span>
+                    <span className="truncate">{label}</span>
+                  </li>
+                ),
+              )}
+            </ol>
+
+            <div className="mt-4 rounded-lg border border-[#d8e9ff] bg-white p-4 shadow-sm sm:p-5">
               <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-[#172033]">
                 <span className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-[#e7f0fb] text-[#0d4f8b]">
                   <CalendarDays className="h-4 w-4" aria-hidden="true" />
@@ -488,7 +504,7 @@ export function PublicBookingWidget({
                     });
                     updateDraft({ timeSlotId: "" });
                   }}
-                  className="rounded-md border border-[#cfd8e6] bg-[#fbfdff] px-3 py-3 text-sm outline-none transition focus:border-[#0d4f8b] focus:bg-white focus:ring-2 focus:ring-[#cfe4fa]"
+                  className="ui-field px-3 py-2.5 text-sm"
                   disabled={loading}
                 >
                   <option value="">Chọn chuyên khoa</option>
@@ -515,7 +531,7 @@ export function PublicBookingWidget({
                         : { packageId: "", serviceMode: "DOCTOR_ONLY" },
                     );
                   }}
-                  className="rounded-md border border-[#cfd8e6] bg-[#fbfdff] px-3 py-3 text-sm outline-none transition focus:border-[#0d4f8b] focus:bg-white focus:ring-2 focus:ring-[#cfe4fa]"
+                  className="ui-field px-3 py-2.5 text-sm"
                   disabled={loading || !selection.departmentId}
                 >
                   <option value="__UNDECIDED__" disabled>
@@ -534,7 +550,7 @@ export function PublicBookingWidget({
                     updateSelection({ doctorId: event.target.value });
                     updateDraft({ timeSlotId: "" });
                   }}
-                  className="rounded-md border border-[#cfd8e6] bg-[#fbfdff] px-3 py-3 text-sm outline-none transition focus:border-[#0d4f8b] focus:bg-white focus:ring-2 focus:ring-[#cfe4fa]"
+                  className="ui-field px-3 py-2.5 text-sm"
                   disabled={loading || !selection.departmentId || !selection.serviceMode}
                 >
                   <option value="">Chọn bác sĩ</option>
@@ -556,7 +572,7 @@ export function PublicBookingWidget({
                 </div>
               ) : null}
 
-              <div className="mt-4 grid gap-4 rounded-md border border-[#e5ebf3] bg-[#f8fbff] p-3 md:grid-cols-[220px_minmax(0,1fr)]">
+              <div className="mt-4 grid gap-4 rounded-lg border border-[#e5ebf3] bg-[#f8fbff] p-3 sm:p-4 md:grid-cols-[220px_minmax(0,1fr)]">
                 <label className="block">
                   <span className="text-sm font-medium text-[#334155]">
                     Ngày khám
@@ -568,7 +584,7 @@ export function PublicBookingWidget({
                       updateDraft({ date: value, timeSlotId: "" })
                     }
                     ariaLabel="Ngày khám"
-                    className="mt-1 w-full rounded-md border border-[#cfd8e6] bg-white px-3 py-2.5 text-sm outline-none transition focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]"
+                    className="ui-field mt-1 w-full px-3 py-2.5 text-sm"
                   />
                   <span className="mt-1 block text-xs text-[#667892]">
                     Hiển thị theo ngày/tháng/năm, múi giờ Việt Nam
@@ -627,7 +643,7 @@ export function PublicBookingWidget({
               </div>
             </div>
 
-            <div className="mt-5 rounded-md border border-[#d8e9ff] bg-white p-4 shadow-sm">
+            <div className="mt-4 rounded-lg border border-[#d8e9ff] bg-white p-4 shadow-sm sm:p-5">
               <div className="flex items-start gap-3">
                 <span className="mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-[#e7f0fb] text-[#0d4f8b]">
                   <UserRound className="h-4 w-4" />
@@ -653,7 +669,7 @@ export function PublicBookingWidget({
                     onChange={(event) =>
                       updateDraft({ patientName: event.target.value })
                     }
-                    className="mt-1 w-full rounded-md border border-[#cfd8e6] bg-[#fbfdff] px-3 py-2.5 text-sm outline-none transition focus:border-[#0d4f8b] focus:bg-white focus:ring-2 focus:ring-[#cfe4fa]"
+                    className="ui-field mt-1 w-full px-3 py-2.5 text-sm"
                     required
                   />
                 </label>
@@ -674,7 +690,7 @@ export function PublicBookingWidget({
                       autoComplete="tel"
                       pattern="(0|\+84)[0-9]{9,10}"
                       placeholder="0901234567"
-                      className="w-full rounded-md border border-[#cfd8e6] bg-[#fbfdff] px-3 py-2.5 pl-9 text-sm outline-none transition focus:border-[#0d4f8b] focus:bg-white focus:ring-2 focus:ring-[#cfe4fa]"
+                      className="ui-field w-full px-3 py-2.5 pl-9 text-sm"
                       required
                     />
                   </div>
@@ -986,7 +1002,7 @@ export function PublicBookingWidget({
 
           <aside
             ref={resultRef}
-            className="scroll-mt-24 rounded-md border border-[#d8e9ff] bg-white p-4 shadow-sm lg:sticky lg:top-24 lg:self-start"
+            className="scroll-mt-24 rounded-lg border border-[#d8e9ff] bg-white p-4 shadow-sm lg:sticky lg:top-24 lg:self-start"
           >
             <div className="rounded-md border border-[#e5ebf3] bg-[#f8fbff] p-4">
               <p className="text-sm font-semibold text-[#172033]">

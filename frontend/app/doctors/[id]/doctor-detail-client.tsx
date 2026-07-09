@@ -2,9 +2,10 @@
 
 /* eslint-disable @next/next/no-img-element */
 
-import { CalendarDays, Clock, Loader2, Star, Stethoscope } from "lucide-react";
+import { ArrowRight, CalendarDays, Clock, Loader2, Star, Stethoscope } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { VietnamDateInput } from "@/components/ui/vietnam-date-input";
 import { type PublicSlot, usePublicAvailableSlots } from "@/lib/public-booking-query";
 import type { DoctorProfile } from "@/lib/types";
 
@@ -58,25 +59,25 @@ export function DoctorDetailClient({ doctor, initialDate, initialSlots }: Doctor
     `/?departmentId=${doctor.department.id}&doctorId=${doctor.id}&date=${toDateInputValue(slot.date)}&timeSlotId=${slot.id}#booking`;
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
-      <article className="rounded-md border border-[#dce3ee] bg-white p-5">
+    <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_380px]">
+      <article className="rounded-xl border border-[#cfe0f3] bg-white/95 p-5 shadow-[0_18px_48px_rgba(13,79,139,0.10)] ring-1 ring-[#e7f0fb] sm:p-6">
         <div className="flex flex-col gap-5 sm:flex-row">
           {doctor.user.avatar ? (
-            <img src={doctor.user.avatar} alt={doctor.user.fullName} className="h-36 w-36 rounded-md object-cover" />
+            <img src={doctor.user.avatar} alt={doctor.user.fullName} decoding="async" fetchPriority="high" className="h-36 w-36 rounded-lg border border-[#d8e9ff] object-cover shadow-sm" />
           ) : (
-            <div className="flex h-36 w-36 shrink-0 items-center justify-center rounded-md bg-[#e7f0fb] text-5xl font-semibold text-[#0d4f8b]">
+            <div className="flex h-36 w-36 shrink-0 items-center justify-center rounded-lg border border-[#d8e9ff] bg-[#e7f0fb] text-5xl font-semibold text-[#0d4f8b] shadow-sm">
               {firstLetter(doctor.user.fullName)}
             </div>
           )}
           <div className="min-w-0">
             <p className="text-sm font-semibold uppercase tracking-wide text-[#667892]">{doctor.department.name}</p>
-            <h1 className="mt-2 text-3xl font-semibold">{doctorName(doctor)}</h1>
+            <h1 className="mt-2 text-3xl font-semibold leading-tight sm:text-4xl">{doctorName(doctor)}</h1>
             <div className="mt-4 flex flex-wrap gap-2 text-sm text-[#667892]">
-              <span className="inline-flex items-center gap-2 rounded-md bg-[#f1f5f9] px-3 py-2">
+              <span className="inline-flex items-center gap-2 rounded-md border border-[#d8e9ff] bg-[#f8fbff] px-3 py-2">
                 <Stethoscope className="h-4 w-4 text-[#0d4f8b]" />
                 {doctor.specialization || "Khám chuyên khoa"}
               </span>
-              <span className="inline-flex items-center gap-2 rounded-md bg-[#f1f5f9] px-3 py-2">
+              <span className="inline-flex items-center gap-2 rounded-md border border-[#d8e9ff] bg-[#f8fbff] px-3 py-2">
                 <Clock className="h-4 w-4 text-[#0d4f8b]" />
                 {doctor.experience || 0} năm kinh nghiệm
               </span>
@@ -117,20 +118,20 @@ export function DoctorDetailClient({ doctor, initialDate, initialSlots }: Doctor
         ) : null}
       </article>
 
-      <aside className="rounded-md border border-[#dce3ee] bg-white p-5">
+      <aside className="h-fit rounded-xl border border-[#cfe0f3] bg-white/95 p-5 shadow-[0_18px_48px_rgba(13,79,139,0.08)] ring-1 ring-[#e7f0fb] lg:sticky lg:top-24">
         <div className="flex items-center gap-2 text-sm font-semibold text-[#172033]">
           <CalendarDays className="h-4 w-4 text-[#0d4f8b]" />
           Lịch trống theo ngày
         </div>
-        <input
-          type="date"
+        <VietnamDateInput
           min={initialDate}
           value={date}
-          onChange={(event) => {
-            setDate(event.target.value);
+          onChange={(value) => {
+            setDate(value);
             setSlotError("");
           }}
-          className="mt-4 w-full rounded-md border border-[#cfd8e6] px-3 py-2.5 text-sm outline-none focus:border-[#0d4f8b]"
+          ariaLabel="Ngày khám"
+          className="ui-field mt-4 w-full px-3 py-2.5 text-sm"
         />
 
         {slotError ? <div className="mt-3 rounded-md border border-[#f2b8b5] bg-[#fff3f2] px-3 py-2 text-sm text-[#b3261e]">{slotError}</div> : null}
@@ -145,10 +146,10 @@ export function DoctorDetailClient({ doctor, initialDate, initialSlots }: Doctor
             <Link
               key={slot.id}
               href={getSlotBookingUrl(slot)}
-              className="flex items-center justify-between rounded-md border border-[#cfd8e6] px-3 py-2.5 text-sm font-semibold text-[#42526b] transition hover:border-[#0d4f8b] hover:text-[#0d4f8b]"
+              className="flex items-center justify-between rounded-lg border border-[#cfd8e6] bg-white px-3 py-2.5 text-sm font-semibold text-[#42526b] transition hover:-translate-y-0.5 hover:border-[#0d4f8b] hover:bg-[#f8fbff] hover:text-[#0d4f8b]"
             >
               <span>{formatTime(slot.startTime)} - {formatTime(slot.endTime)}</span>
-              <span>Chọn</span>
+              <span className="inline-flex items-center gap-1 text-[#0d4f8b]">Chọn <ArrowRight className="h-3.5 w-3.5" /></span>
             </Link>
           )) : (
             <div className="rounded-md border border-dashed border-[#dce3ee] px-3 py-4 text-sm text-[#667892]">
@@ -157,8 +158,9 @@ export function DoctorDetailClient({ doctor, initialDate, initialSlots }: Doctor
           )}
         </div>
 
-        <Link href={bookingUrl} className="mt-5 inline-flex w-full items-center justify-center rounded-md bg-[#0d4f8b] px-4 py-3 text-sm font-semibold text-white hover:bg-[#083d6d]">
+        <Link href={bookingUrl} className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-md bg-[#0d4f8b] px-4 py-3 text-sm font-semibold text-white shadow-[0_12px_26px_rgba(13,79,139,0.22)] transition hover:-translate-y-0.5 hover:bg-[#083d6d]">
           Đặt lịch với bác sĩ này
+          <ArrowRight className="h-4 w-4" />
         </Link>
       </aside>
     </div>

@@ -22,15 +22,19 @@ import {
 } from "lucide-react";
 import useEmblaCarousel from "embla-carousel-react";
 import Image from "next/image";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import { BackToTopButton } from "@/components/public/back-to-top-button";
-import { PublicBookingWidget } from "@/components/public/public-booking-widget";
-import { PublicChatbotWidget } from "@/components/public/public-chatbot-widget";
 import { PublicConsultationRequest } from "@/components/public/public-consultation-request";
 import { PublicGlobalSearch } from "@/components/public/public-global-search";
+import { IdleMount, LazyMount } from "@/components/public/lazy-mount";
 import { ScrollReveal } from "@/components/public/scroll-reveal";
 import { usePublicSearchSuggestions } from "@/lib/public-search-query";
+import {
+  closePublicConsultation,
+  openPublicConsultation,
+} from "@/lib/public-ui-events";
 import type { Banner, DoctorProfile } from "@/lib/types";
 import type { PublicHomeData } from "./public-home-types";
 
@@ -39,6 +43,20 @@ type PublicHomeViewProps = {
   loading: boolean;
   error: string;
 };
+
+const PublicBookingWidget = dynamic(() =>
+  import("@/components/public/public-booking-widget").then(
+    (module) => module.PublicBookingWidget,
+  ),
+);
+
+const PublicChatbotWidget = dynamic(
+  () =>
+    import("@/components/public/public-chatbot-widget").then(
+      (module) => module.PublicChatbotWidget,
+    ),
+  { ssr: false },
+);
 
 const formatCurrency = (value: number) =>
   new Intl.NumberFormat("vi-VN", {
@@ -126,7 +144,15 @@ export function PublicHomeView({ data, loading, error }: PublicHomeViewProps) {
         }}
       />
 
-      <PublicBookingWidget data={data} loading={loading} />
+      <LazyMount
+        fallback={
+          <section id="booking" className="ui-container scroll-mt-24 py-12 sm:py-16">
+            <div className="skeleton-shimmer h-[420px] rounded-xl border border-[var(--border)]" aria-label="Đang chuẩn bị form đặt lịch" />
+          </section>
+        }
+      >
+        <PublicBookingWidget data={data} loading={loading} />
+      </LazyMount>
       <PublicConsultationRequest />
       <DepartmentSection
         departments={data.departments.slice(0, 6)}
@@ -148,7 +174,9 @@ export function PublicHomeView({ data, loading, error }: PublicHomeViewProps) {
         loading={loading}
       />
       <BackToTopButton />
-      <PublicChatbotWidget />
+      <IdleMount>
+        <PublicChatbotWidget />
+      </IdleMount>
     </main>
   );
 }
@@ -163,6 +191,22 @@ function PublicHeader({
   hotline: string;
 }) {
   const [mobileOpen, setMobileOpen] = useState(false);
+
+  useEffect(() => {
+    if (!mobileOpen) return;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setMobileOpen(false);
+    };
+    window.addEventListener("keydown", closeOnEscape);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [mobileOpen]);
   const navItems = [
     ["#departments", "Chuyên khoa"],
     ["#doctors", "Bác sĩ"],
@@ -181,11 +225,32 @@ function PublicHeader({
     "Quên mã lịch",
   ];
 
+  const handleNavigation = (
+    event: React.MouseEvent<HTMLAnchorElement>,
+    href: string,
+  ) => {
+    if (href === "#consultation") {
+      event.preventDefault();
+      openPublicConsultation();
+      setMobileOpen(false);
+      return;
+    }
+
+    if (!href.startsWith("#")) return;
+    const target = document.querySelector(href);
+    if (!target) return;
+    event.preventDefault();
+    closePublicConsultation();
+    target.scrollIntoView({ behavior: "smooth", block: "start" });
+    window.history.replaceState(null, "", href);
+    setMobileOpen(false);
+  };
+
   return (
-    <header className="sticky top-0 z-40 border-b border-[#dce3ee] bg-white/95 backdrop-blur">
-      <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-8">
+    <header className="sticky top-0 z-40 border-b border-[var(--border)] bg-white/95 shadow-[0_1px_0_rgba(15,23,42,0.02)] backdrop-blur-xl">
+      <div className="ui-container flex min-h-16 items-center justify-between gap-4 py-2">
         <Link href="/" className="flex min-w-0 items-center gap-3">
-          <span className="relative flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-md bg-[#e7f0fb] text-[#0d4f8b]">
+          <span className="relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-[var(--primary-soft)] text-[var(--primary)]">
             {logo ? (
               <Image
                 src={logo}
@@ -209,13 +274,13 @@ function PublicHeader({
           </span>
         </Link>
 
-        <nav className="hidden items-center gap-1 text-sm font-medium text-[#42526b] xl:flex">
+        <nav className="hidden items-center gap-1 text-sm font-medium text-[var(--text-soft)] xl:flex">
           {navItems.slice(0, 6).map(([href, label]) =>
             href.startsWith("/") ? (
               <Link
                 key={href}
                 href={href}
-                className="rounded-md px-3 py-2 hover:bg-[#f1f5f9]"
+                className="rounded-lg px-3 py-2 transition-colors hover:bg-[var(--surface-soft)] hover:text-[var(--primary)]"
               >
                 {label}
               </Link>
@@ -223,7 +288,8 @@ function PublicHeader({
               <a
                 key={href}
                 href={href}
-                className="rounded-md px-3 py-2 hover:bg-[#f1f5f9]"
+                onClick={(event) => handleNavigation(event, href)}
+                className="rounded-lg px-3 py-2 transition-colors hover:bg-[var(--surface-soft)] hover:text-[var(--primary)]"
               >
                 {label}
               </a>
@@ -235,14 +301,14 @@ function PublicHeader({
         <div className="hidden items-center gap-3 lg:flex">
           <a
             href={`tel:${hotline}`}
-            className="inline-flex items-center gap-2 rounded-md border border-[#cfd8e6] px-3 py-2 text-sm font-semibold text-[#0d4f8b]"
+            className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-[var(--border)] px-3 py-2 text-sm font-semibold text-[var(--primary)] transition-colors hover:bg-[var(--primary-soft)]"
           >
             <Phone className="h-4 w-4" />
             {hotline}
           </a>
           <a
             href="#booking"
-            className="inline-flex items-center gap-2 rounded-md bg-[#0d4f8b] px-4 py-2 text-sm font-semibold text-white hover:bg-[#083d6d]"
+            className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-[var(--primary)] px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-[var(--primary-hover)]"
           >
             Đặt lịch
             <ArrowRight className="h-4 w-4" />
@@ -252,8 +318,10 @@ function PublicHeader({
         <button
           type="button"
           onClick={() => setMobileOpen((current) => !current)}
-          className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-[#cfd8e6] text-[#42526b] lg:hidden"
-          aria-label="Mở menu"
+          className="inline-flex h-11 w-11 items-center justify-center rounded-lg border border-[var(--border)] text-[var(--text-soft)] transition-colors hover:bg-[var(--surface-soft)] lg:hidden"
+          aria-label={mobileOpen ? "Đóng menu" : "Mở menu"}
+          aria-expanded={mobileOpen}
+          aria-controls="public-mobile-navigation"
         >
           {mobileOpen ? (
             <X className="h-5 w-5" />
@@ -263,42 +331,16 @@ function PublicHeader({
         </button>
       </div>
 
-      <div className="hidden border-t border-[#edf2f7] bg-[linear-gradient(90deg,#f8fbff_0%,#eef7ff_48%,#f7fbf4_100%)]">
-        <div className="mx-auto grid max-w-7xl gap-3 px-4 py-3 sm:px-6 lg:grid-cols-[minmax(260px,0.8fr)_minmax(420px,1.2fr)] lg:items-center lg:px-8">
-          <div className="flex min-w-0 items-center gap-3">
-            <span className="flex h-10 w-10 shrink-0 animate-pulse items-center justify-center rounded-md bg-white text-[#0d4f8b] shadow-sm shadow-[#0d4f8b]/10">
-              <Sparkles className="h-5 w-5" />
-            </span>
-            <div className="min-w-0">
-              <p className="text-sm font-semibold text-[#172033]">
-                Tìm nhanh thông tin khám bệnh
-              </p>
-              <div className="mt-1 flex flex-wrap gap-1.5">
-                {quickSearchKeywords.map((keyword) => (
-                  <Link
-                    key={keyword}
-                    href={`/search?q=${encodeURIComponent(keyword)}`}
-                    className="rounded-full border border-[#d8e9ff] bg-white/80 px-2.5 py-1 text-xs font-semibold text-[#0d4f8b] transition hover:-translate-y-0.5 hover:bg-white hover:shadow-sm"
-                  >
-                    {keyword}
-                  </Link>
-                ))}
-              </div>
-            </div>
-          </div>
-          <PublicGlobalSearch compact />
-        </div>
-      </div>
 
       {mobileOpen ? (
-        <nav className="border-t border-[#e5ebf3] bg-white px-4 py-3 lg:hidden">
+        <nav id="public-mobile-navigation" className="fixed inset-x-0 top-16 max-h-[calc(100dvh-4rem)] overflow-y-auto border-t border-[var(--border)] bg-white px-4 py-4 shadow-xl lg:hidden">
           {[...navItems, ["#booking", "Đặt lịch"]].map(([href, label]) =>
             href.startsWith("/") ? (
               <Link
                 key={href}
                 href={href}
                 onClick={() => setMobileOpen(false)}
-                className="block rounded-md px-3 py-2 text-sm font-medium text-[#42526b] hover:bg-[#f1f5f9]"
+                className="block min-h-11 rounded-lg px-3 py-3 text-sm font-medium text-[var(--text-soft)] hover:bg-[var(--surface-soft)]"
               >
                 {label}
               </Link>
@@ -306,8 +348,8 @@ function PublicHeader({
               <a
                 key={href}
                 href={href}
-                onClick={() => setMobileOpen(false)}
-                className="block rounded-md px-3 py-2 text-sm font-medium text-[#42526b] hover:bg-[#f1f5f9]"
+                onClick={(event) => handleNavigation(event, href)}
+                className="block min-h-11 rounded-lg px-3 py-3 text-sm font-medium text-[var(--text-soft)] hover:bg-[var(--surface-soft)]"
               >
                 {label}
               </a>
@@ -327,38 +369,51 @@ function PublicSearchRail() {
     "Thanh toán",
     "Quên mã lịch",
   ];
-  const suggestionsQuery = usePublicSearchSuggestions(5);
+  const [suggestionsEnabled, setSuggestionsEnabled] = useState(false);
+
+  useEffect(() => {
+    const idleWindow = window as Window & {
+      requestIdleCallback?: (callback: () => void, options?: { timeout: number }) => number;
+      cancelIdleCallback?: (id: number) => void;
+    };
+    if (idleWindow.requestIdleCallback) {
+      const idleId = idleWindow.requestIdleCallback(
+        () => setSuggestionsEnabled(true),
+        { timeout: 3000 },
+      );
+      return () => idleWindow.cancelIdleCallback?.(idleId);
+    }
+    const timeoutId = window.setTimeout(() => setSuggestionsEnabled(true), 1800);
+    return () => window.clearTimeout(timeoutId);
+  }, []);
+
+  const suggestionsQuery = usePublicSearchSuggestions(5, suggestionsEnabled);
   const quickSearchKeywords = suggestionsQuery.data?.items.length
     ? suggestionsQuery.data.items
     : defaultKeywords;
 
   return (
-    <section className="relative z-30 border-b border-[#dce3ee] bg-[#eef6ff]">
-      <div className="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8">
-        <div className="grid gap-4 rounded-lg border border-white/80 bg-white/85 p-4 shadow-[0_16px_40px_rgba(13,79,139,0.10)] backdrop-blur lg:grid-cols-[minmax(280px,0.85fr)_minmax(420px,1.15fr)] lg:items-center">
-          <div className="flex min-w-0 items-start gap-3">
-            <span className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-md bg-[#e7f0fb] text-[#0d4f8b]">
-              <span className="absolute -right-1 -top-1 h-3 w-3 rounded-full bg-[#30c47c]" />
-              <Sparkles className="h-5 w-5" />
+    <section className="relative z-30 border-b border-[#dce8f6] bg-[linear-gradient(180deg,#f4f9ff_0%,#eef6ff_100%)]">
+      <div className="ui-container py-2.5 sm:py-3">
+        <div className="grid gap-3 rounded-lg border border-white/90 bg-white/92 p-2.5 shadow-sm backdrop-blur md:grid-cols-[minmax(0,1fr)_minmax(360px,0.9fr)] md:items-center md:p-3">
+          <div className="flex min-w-0 items-center gap-3">
+            <span className="relative hidden h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[var(--primary-soft)] text-[var(--primary)] sm:flex">
+              <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-[#30c47c]" />
+              <Sparkles className="h-4 w-4" />
             </span>
             <div className="min-w-0">
-              <p className="text-sm font-semibold text-[#172033]">
-                Tìm kiếm thông tin
-              </p>
-              <p className="mt-1 text-xs leading-5 text-[#667892]">
-                Chuyên khoa, bác sĩ, gói khám hoặc hướng dẫn tra cứu lịch hẹn.
-              </p>
-              <p className="mt-1 text-[11px] font-medium text-[#8a9bb0]">
-                {suggestionsQuery.data?.source === "analytics"
-                  ? "Gợi ý dựa trên lượt tìm kiếm gần đây"
-                  : "Gợi ý phổ biến"}
-              </p>
-              <div className="mt-2 flex flex-wrap gap-1.5">
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                <p className="text-sm font-semibold text-[#172033]">Tìm nhanh</p>
+                <span className="hidden text-xs text-[#667892] sm:inline">
+                  chuyên khoa, bác sĩ, gói khám và hướng dẫn tra cứu
+                </span>
+              </div>
+              <div className="mt-1.5 flex max-w-full gap-1.5 overflow-x-auto pb-1 sm:flex-wrap sm:overflow-visible sm:pb-0">
                 {quickSearchKeywords.map((keyword) => (
                   <Link
                     key={keyword}
                     href={`/search?q=${encodeURIComponent(keyword)}`}
-                    className="rounded-full border border-[#d8e9ff] bg-[#f8fbff] px-2.5 py-1 text-xs font-semibold text-[#0d4f8b] transition hover:-translate-y-0.5 hover:bg-white hover:shadow-sm"
+                    className="shrink-0 rounded-full border border-[#d8e9ff] bg-[#f8fbff] px-2.5 py-1 text-xs font-semibold text-[#0d4f8b] transition hover:-translate-y-0.5 hover:bg-white hover:shadow-sm"
                   >
                     {keyword}
                   </Link>
@@ -366,9 +421,7 @@ function PublicSearchRail() {
               </div>
             </div>
           </div>
-          <div className="lg:pl-2">
-            <PublicGlobalSearch compact />
-          </div>
+          <PublicGlobalSearch compact />
         </div>
       </div>
     </section>
@@ -436,11 +489,11 @@ function HeroSection({
 
   return (
     <section className="overflow-hidden bg-[linear-gradient(180deg,#f4f9ff_0%,#ffffff_72%,#f6f8fb_100%)]">
-      <div className="mx-auto grid min-h-[calc(100vh-76px)] max-w-7xl items-center gap-10 px-4 py-10 sm:px-6 lg:grid-cols-[minmax(0,0.92fr)_minmax(440px,1fr)] lg:px-8">
+      <div className="ui-container grid items-center gap-8 py-10 sm:py-12 lg:min-h-[590px] lg:grid-cols-[minmax(0,0.92fr)_minmax(420px,1fr)] lg:gap-10 lg:py-12">
         <ScrollReveal className="max-w-2xl">
-          <div className="ui-soft-glow inline-flex items-center gap-2 rounded-md border border-[#cfe4fa] bg-white px-3 py-2 text-sm font-semibold text-[#0d4f8b] shadow-sm">
+          <div className="inline-flex items-center gap-2 rounded-full border border-[#cfe4fa] bg-white px-3 py-1.5 text-xs font-semibold text-[#0d4f8b] shadow-sm sm:text-sm">
             <Sparkles className="h-4 w-4" />
-            Tư vấn, chọn bác sĩ và giữ lịch khám trong một luồng
+            Đặt lịch khám nhanh, rõ chi phí và dễ tra cứu
           </div>
           {loading ? (
             <div className="mt-5 space-y-3">
@@ -451,18 +504,18 @@ function HeroSection({
               <Skeleton className="h-4 w-2/3 max-w-md" />
             </div>
           ) : (
-            <h1 className="mt-5 text-4xl font-semibold leading-tight text-[#172033] sm:text-5xl">
+            <h1 className="mt-4 text-3xl font-semibold leading-[1.12] text-[#172033] sm:text-5xl lg:text-[3.25rem]">
               <span className="ui-accent-text">{heroTitle}</span>
             </h1>
           )}
           <p
-            className={`mt-5 max-w-xl text-base leading-7 text-[#42526b] ${loading ? "hidden" : ""}`}
+            className={`mt-4 max-w-xl text-base leading-7 text-[#42526b] ${loading ? "hidden" : ""}`}
           >
             {heroSubtitle ||
               `Đặt lịch khám tại ${hospitalName} với quy trình rõ ràng: chọn chuyên khoa, bác sĩ, khung giờ còn trống và xác thực OTP để giữ lịch. Thông tin chi phí, trạng thái lịch hẹn và kết quả sau khám được theo dõi tập trung.`}
           </p>
           <div
-            className={`mt-5 flex flex-wrap gap-2 text-xs font-semibold text-[#42526b] ${loading ? "hidden" : ""}`}
+            className={`mt-4 hidden flex-wrap gap-2 text-xs font-semibold text-[#42526b] sm:flex ${loading ? "sm:hidden" : ""}`}
           >
             {[
               "Xác thực OTP",
@@ -482,23 +535,23 @@ function HeroSection({
               </span>
             ))}
           </div>
-          <div className="mt-7 flex flex-col gap-3 sm:flex-row">
+          <div className="mt-6 flex flex-col gap-3 sm:flex-row">
             <a
               href="#booking"
-              className="ui-soft-glow inline-flex items-center justify-center gap-2 rounded-md bg-[#0d4f8b] px-5 py-3 text-sm font-semibold text-white shadow-[0_14px_28px_rgba(13,79,139,0.22)] transition hover:-translate-y-0.5 hover:bg-[#083d6d]"
+              className="inline-flex min-h-12 items-center justify-center gap-2 rounded-lg bg-[var(--primary)] px-5 py-3 text-sm font-semibold text-white shadow-[0_14px_28px_rgba(13,79,139,0.22)] transition hover:-translate-y-0.5 hover:bg-[var(--primary-hover)]"
             >
               Đặt lịch ngay
               <ArrowRight className="h-4 w-4" />
             </a>
             <a
               href={`tel:${hotline}`}
-              className="inline-flex items-center justify-center gap-2 rounded-md border border-[#cfd8e6] px-5 py-3 text-sm font-semibold text-[#42526b] transition hover:-translate-y-0.5 hover:bg-[#f8fafc]"
+              className="inline-flex min-h-12 items-center justify-center gap-2 rounded-lg border border-[var(--border)] bg-white px-5 py-3 text-sm font-semibold text-[#42526b] transition hover:-translate-y-0.5 hover:bg-[#f8fafc]"
             >
               <Phone className="h-4 w-4" />
               Gọi {hotline}
             </a>
           </div>
-          <div className="mt-8 grid gap-3 sm:grid-cols-3">
+          <div className="mt-7 grid grid-cols-3 gap-2 sm:gap-3">
             {[
               ["Chuyên khoa", counts.departments],
               ["Bác sĩ", counts.doctors],
@@ -506,23 +559,23 @@ function HeroSection({
             ].map(([label, value]) => (
               <div
                 key={label}
-                className="ui-lift-card rounded-md border border-[#d8e9ff] bg-white p-4 shadow-sm"
+                className="rounded-lg border border-[#d8e9ff] bg-white p-3 shadow-sm sm:p-4"
               >
                 {loading ? (
                   <Skeleton className="h-8 w-14" />
                 ) : (
-                  <p className="text-2xl font-semibold text-[#0d4f8b]">
+                  <p className="text-xl font-semibold text-[#0d4f8b] sm:text-2xl">
                     {value}
                   </p>
                 )}
-                <p className="mt-1 text-sm text-[#667892]">{label}</p>
+                <p className="mt-1 truncate text-xs text-[#667892] sm:text-sm">{label}</p>
               </div>
             ))}
           </div>
         </ScrollReveal>
 
         <ScrollReveal delay={120}>
-          <div className="ui-soft-glow relative min-h-[500px] overflow-hidden rounded-md border border-[#cfe0f3] bg-[#e7f0fb] shadow-[0_24px_60px_rgba(13,79,139,0.16)]">
+          <div className="ui-soft-glow relative aspect-[4/3] min-h-0 overflow-hidden rounded-xl border border-[#cfe0f3] bg-[#e7f0fb] shadow-[0_24px_60px_rgba(13,79,139,0.16)] sm:aspect-[16/10] lg:min-h-[460px] lg:aspect-auto">
             {loading ? (
               <Skeleton className="absolute inset-0 h-full w-full rounded-none" />
             ) : heroSlides.length ? (
@@ -588,7 +641,7 @@ function HeroSection({
                 ? `${selectedIndex + 1}/${heroSlides.length}`
                 : "Dịch vụ đặt lịch"}
             </div>
-            <div className="absolute bottom-0 left-0 right-0 p-5 text-white sm:p-6">
+            <div className="absolute bottom-0 left-0 right-0 hidden p-5 text-white sm:block sm:p-6">
               <div className="grid gap-3 sm:grid-cols-2">
                 <HeroInfo
                   icon={<CalendarDays className="h-4 w-4" />}
@@ -644,7 +697,7 @@ function DepartmentSection({
   return (
     <section
       id="departments"
-      className="mx-auto max-w-7xl scroll-mt-24 px-4 py-10 sm:px-6 lg:px-8"
+      className="ui-deferred-section mx-auto max-w-7xl scroll-mt-24 px-4 py-10 sm:px-6 lg:px-8"
     >
       <SectionHeading
         eyebrow="Chuyên khoa"
@@ -731,7 +784,7 @@ function DoctorSection({
   loading: boolean;
 }) {
   return (
-    <section id="doctors" className="bg-white">
+    <section id="doctors" className="ui-deferred-section bg-white">
       <div className="mx-auto max-w-7xl scroll-mt-24 px-4 py-10 sm:px-6 lg:px-8">
         <SectionHeading
           eyebrow="Bác sĩ"
@@ -828,7 +881,7 @@ function PackageSection({
   return (
     <section
       id="packages"
-      className="mx-auto max-w-7xl scroll-mt-24 px-4 py-10 sm:px-6 lg:px-8"
+      className="ui-deferred-section mx-auto max-w-7xl scroll-mt-24 px-4 py-10 sm:px-6 lg:px-8"
     >
       <SectionHeading
         eyebrow="Gói khám"
@@ -941,7 +994,7 @@ function FaqTopicSection({
     .slice(0, Math.max(0, 5 - groupedFaqs.length));
 
   return (
-    <section id="faq" className="bg-white">
+    <section id="faq" className="ui-deferred-section bg-white">
       <div className="mx-auto grid max-w-7xl scroll-mt-24 gap-8 px-4 py-10 sm:px-6 lg:grid-cols-[360px_minmax(0,1fr)] lg:px-8">
         <ScrollReveal>
           <div className="inline-flex items-center gap-2 rounded-md bg-[#e7f0fb] px-3 py-2 text-sm font-semibold text-[#0d4f8b]">
@@ -1268,7 +1321,7 @@ function PublicSocialDock({
   if (!socialItems.length && !hotline) return null;
 
   return (
-    <aside className="fixed right-4 top-1/2 z-40 hidden -translate-y-1/2 flex-col gap-2 lg:flex">
+    <aside className="fixed right-4 top-1/2 z-30 hidden -translate-y-1/2 flex-col gap-2 xl:flex">
       <a
         href={`tel:${hotline}`}
         className="group inline-flex h-11 w-11 items-center justify-center rounded-full border border-[#cfd8e6] bg-white text-[#0d4f8b] shadow-lg shadow-black/10 transition hover:-translate-y-0.5 hover:bg-[#f3f8ff]"
@@ -1407,7 +1460,7 @@ function PublicFooter({
         </div>
       </div>
       <div className="border-t border-white/10 px-4 py-4 text-center text-xs leading-5 text-white/60 sm:px-6">
-        Xây dựng website quàn lí đặt lịch khám bệnh có tích hợp chatbot hỗ trợ -
+        Xây dựng website quản lý đặt lịch khám bệnh có tích hợp chatbot hỗ trợ -
         Môn Tiểu Luận Chuyên Ngành - Ngô Quang Lợi - Trường Đại Học Công Nghệ Kỹ
         Thuật TP HCM - HCMUTE
       </div>

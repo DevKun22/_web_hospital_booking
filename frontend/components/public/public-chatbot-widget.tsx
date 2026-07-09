@@ -6,6 +6,10 @@ import { apiRequest } from "@/lib/api";
 import { ChatbotResultCards } from "@/components/ui/chatbot-result-cards";
 import { usePublicChatbotSettings } from "@/lib/public-chatbot-query";
 import {
+  PUBLIC_CHATBOT_CLOSE_EVENT,
+  PUBLIC_CONSULTATION_CLOSE_EVENT,
+} from "@/lib/public-ui-events";
+import {
   buildBookingHref,
   getActionInputPlaceholder,
   getActionLoadingText,
@@ -93,6 +97,12 @@ export function PublicChatbotWidget() {
     : chatbotOnline
       ? "Đang sẵn sàng hỗ trợ"
       : "Chatbot đang tạm tắt";
+
+  useEffect(() => {
+    const closeChatbot = () => setOpen(false);
+    window.addEventListener(PUBLIC_CHATBOT_CLOSE_EVENT, closeChatbot);
+    return () => window.removeEventListener(PUBLIC_CHATBOT_CLOSE_EVENT, closeChatbot);
+  }, []);
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
@@ -286,7 +296,7 @@ export function PublicChatbotWidget() {
   );
 
   return (
-    <div className="fixed bottom-24 right-4 z-50 sm:bottom-24 sm:right-6">
+    <div className="fixed bottom-[5.75rem] right-3 z-[70] sm:bottom-24 sm:right-6">
       {open ? (
         <section className="flex h-[min(620px,calc(100vh-6rem))] w-[min(400px,calc(100vw-2rem))] flex-col overflow-hidden rounded-md border border-[#cfe0f3] bg-white shadow-2xl ring-1 ring-[#d8e9ff]">
           <header className="flex items-center justify-between border-b border-[#e5ebf3] px-4 py-3">
@@ -432,8 +442,13 @@ export function PublicChatbotWidget() {
         <div className="flex max-w-[calc(100vw-2rem)] flex-col items-end gap-2">
           <button
             type="button"
-            onClick={() => setOpen(true)}
-            className="ui-floating-callout ui-soft-glow hidden w-[min(15rem,calc(100vw-2rem))] rounded-md border border-[#cfe0f3] bg-white px-3 py-2 text-left text-xs font-medium leading-5 text-[#42526b] shadow-lg shadow-black/10 transition hover:-translate-y-0.5 hover:bg-[#f8fafc] sm:block"
+            onClick={() => {
+              window.dispatchEvent(new Event(PUBLIC_CONSULTATION_CLOSE_EVENT));
+              setOpen(true);
+            }}
+            className="hidden"
+            tabIndex={-1}
+            aria-hidden="true"
           >
             <span className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-[#0d4f8b]">
               Trợ lý
@@ -442,17 +457,14 @@ export function PublicChatbotWidget() {
           </button>
           <button
             type="button"
-            onClick={() => setOpen(true)}
+            onClick={() => {
+              window.dispatchEvent(new Event(PUBLIC_CONSULTATION_CLOSE_EVENT));
+              setOpen(true);
+            }}
             className={`group relative flex h-14 w-14 shrink-0 items-center justify-center rounded-full text-white shadow-lg shadow-black/20 transition hover:-translate-y-0.5 focus:outline-none focus:ring-4 focus:ring-[#cfe4fa] ${chatbotOnline ? "bg-[#0d4f8b] hover:bg-[#083d6d]" : "bg-[#64748b] hover:bg-[#475569]"}`}
             aria-label="Mở trợ lý"
             title={chatbotStatusText}
           >
-            {chatbotOnline ? (
-              <span
-                className="absolute inset-0 rounded-full bg-[#0d4f8b] opacity-25 motion-safe:animate-ping"
-                aria-hidden="true"
-              />
-            ) : null}
             <span className="absolute -right-1 -top-1 flex h-6 w-6 items-center justify-center rounded-full bg-white text-[#0d4f8b] shadow-md">
               <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
             </span>

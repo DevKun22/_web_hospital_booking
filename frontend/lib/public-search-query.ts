@@ -82,15 +82,18 @@ export function usePublicSearch(filters: PublicSearchFilters) {
     queryKey: queryKeys.publicSearch(normalizedFilters),
     queryFn: () => fetchPublicSearch(normalizedFilters),
     enabled: normalizedFilters.q.length >= 2,
-    staleTime: 30 * 1000,
+    staleTime: 60 * 1000,
+    gcTime: 5 * 60 * 1000,
+    placeholderData: (previousData) => previousData,
     refetchOnWindowFocus: false,
   });
 }
 
-export function usePublicSearchSuggestions(limit = 5) {
+export function usePublicSearchSuggestions(limit = 5, enabled = true) {
   return useQuery({
     queryKey: queryKeys.publicSearchSuggestions({ limit }),
     queryFn: () => fetchPublicSearchSuggestions(limit),
+    enabled,
     staleTime: 5 * 60 * 1000,
     refetchOnWindowFocus: false,
   });

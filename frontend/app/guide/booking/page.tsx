@@ -1,7 +1,8 @@
 "use client";
 
-import { ArrowLeft, ArrowRight, CalendarCheck, CheckCircle2, ClipboardList, Search, ShieldCheck, Stethoscope } from "lucide-react";
+import { ArrowRight, CalendarCheck, CheckCircle2, ClipboardList, Search, ShieldCheck, Stethoscope } from "lucide-react";
 import Link from "next/link";
+import { PublicPageHeader, PublicPageHero } from "@/components/public/public-page-layout";
 
 const steps = [
   {
@@ -51,35 +52,17 @@ const steps = [
 export default function BookingGuidePage() {
   return (
     <main className="min-h-screen bg-[#f6f8fb] text-[#172033]">
-      <header className="border-b border-[#dce3ee] bg-white">
-        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">
-          <Link href="/" className="inline-flex items-center gap-2 text-sm font-semibold text-[#42526b] hover:text-[#0d4f8b]">
-            <ArrowLeft className="h-4 w-4" />
-            Về trang chủ
-          </Link>
-          <Link href="/#booking" className="inline-flex items-center gap-2 rounded-md bg-[#0d4f8b] px-4 py-2 text-sm font-semibold text-white hover:bg-[#083d6d]">
-            Đặt lịch
-            <ArrowRight className="h-4 w-4" />
-          </Link>
-        </div>
-      </header>
+      <PublicPageHeader />
+      <PublicPageHero
+        eyebrow="Hướng dẫn đặt lịch"
+        title="Từ chọn chuyên khoa đến tra cứu trạng thái"
+        description="Quy trình đặt lịch được thiết kế để người bệnh có thể chọn đúng dịch vụ, xác thực OTP và theo dõi lịch hẹn sau khi gửi yêu cầu."
+      />
 
-      <section className="bg-white">
-        <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
-          <div className="max-w-3xl">
-            <p className="text-sm font-semibold uppercase tracking-wide text-[#667892]">Hướng dẫn đặt lịch</p>
-            <h1 className="mt-2 text-4xl font-semibold">Từ chọn chuyên khoa đến tra cứu trạng thái</h1>
-            <p className="mt-4 text-sm leading-6 text-[#667892]">
-              Quy trình đặt lịch được thiết kế để người bệnh có thể chọn đúng dịch vụ, xác thực OTP và theo dõi lịch hẹn sau khi gửi yêu cầu.
-            </p>
-          </div>
-        </div>
-      </section>
-
-      <section className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+      <section className="ui-container py-10 sm:py-12">
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {steps.map((step, index) => (
-            <article key={step.title} className="rounded-md border border-[#dce3ee] bg-white p-5 transition hover:-translate-y-1 hover:shadow-lg">
+            <article key={step.title} className="ui-lift-card flex h-full flex-col rounded-xl border border-[#dce3ee] bg-white p-5">
               <div className="flex items-start gap-3">
                 <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-[#e7f0fb] text-[#0d4f8b]">
                   {step.icon}
@@ -90,7 +73,7 @@ export default function BookingGuidePage() {
                 </div>
               </div>
               <p className="mt-4 text-sm leading-7 text-[#667892]">{step.text}</p>
-              <Link href={step.href} className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-[#0d4f8b]">
+              <Link href={step.href} className="mt-auto inline-flex items-center gap-2 pt-5 text-sm font-semibold text-[#0d4f8b]">
                 {step.action}
                 <ArrowRight className="h-4 w-4" />
               </Link>

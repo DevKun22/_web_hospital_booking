@@ -20,7 +20,7 @@ export function BackToTopButton() {
   if (!visible) return null;
 
   return (
-    <div className="fixed bottom-5 right-4 z-[60] flex items-center gap-2 sm:bottom-6 sm:right-6">
+    <div className="fixed bottom-4 right-3 z-[80] flex items-center gap-2 sm:bottom-6 sm:right-6">
       <button
         type="button"
         onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}

@@ -2,9 +2,10 @@
 
 /* eslint-disable @next/next/no-img-element */
 
-import { ArrowLeft, ArrowRight, Clock, Search, Stethoscope } from "lucide-react";
+import { Clock, Search, Stethoscope } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { PublicEmptyState, PublicPageHeader, PublicPageHero } from "@/components/public/public-page-layout";
 import { usePublicDepartments, usePublicDoctors } from "@/lib/public-lists-query";
 import type { DoctorProfile } from "@/lib/types";
 
@@ -57,52 +58,34 @@ export default function PublicDoctorsPage() {
 
   return (
     <main className="min-h-screen bg-[#f6f8fb] text-[#172033]">
-      <header className="border-b border-[#dce3ee] bg-white">
-        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">
-          <Link href="/" className="inline-flex items-center gap-2 text-sm font-semibold text-[#42526b] hover:text-[#0d4f8b]">
-            <ArrowLeft className="h-4 w-4" />
-            Về trang chủ
-          </Link>
-          <Link href="/#booking" className="inline-flex items-center gap-2 rounded-md bg-[#0d4f8b] px-4 py-2 text-sm font-semibold text-white hover:bg-[#083d6d]">
-            Đặt lịch
-            <ArrowRight className="h-4 w-4" />
-          </Link>
-        </div>
-      </header>
-
-      <section className="bg-white">
-        <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
-          <div className="max-w-3xl">
-            <p className="text-sm font-semibold uppercase tracking-wide text-[#667892]">Đội ngũ bác sĩ</p>
-            <h1 className="mt-2 text-4xl font-semibold">Chọn bác sĩ phù hợp với nhu cầu khám</h1>
-            <p className="mt-4 text-sm leading-6 text-[#667892]">
-              Tìm theo tên, chuyên môn hoặc lọc theo chuyên khoa. Khi chọn bác sĩ, bạn có thể xem lịch trống và chuyển thẳng về form đặt lịch.
-            </p>
-          </div>
-
-          <div className="mt-6 grid gap-3 rounded-md border border-[#dce3ee] bg-[#f8fafc] p-4 md:grid-cols-[minmax(0,1fr)_260px]">
+      <PublicPageHeader />
+      <PublicPageHero
+        eyebrow="Đội ngũ bác sĩ"
+        title="Chọn bác sĩ phù hợp với nhu cầu khám"
+        description="Tìm theo tên, chuyên môn hoặc lọc theo chuyên khoa. Khi chọn bác sĩ, bạn có thể xem lịch trống và chuyển thẳng về form đặt lịch."
+      >
+          <div className="public-filter-panel grid max-w-4xl gap-3 p-3 md:grid-cols-[minmax(0,1fr)_260px] md:p-4">
             <label className="relative block">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#667892]" />
               <input
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
                 placeholder="Tìm bác sĩ, chuyên môn hoặc chuyên khoa"
-                className="w-full rounded-md border border-[#cfd8e6] bg-white py-3 pl-10 pr-3 text-sm outline-none focus:border-[#0d4f8b]"
+                className="ui-field w-full py-3 pl-10 pr-3 text-sm"
               />
             </label>
             <select
               value={departmentId}
               onChange={(event) => setDepartmentId(event.target.value)}
-              className="rounded-md border border-[#cfd8e6] bg-white px-3 py-3 text-sm outline-none focus:border-[#0d4f8b]"
+              className="ui-field px-3 py-3 text-sm"
             >
               <option value="">Tất cả chuyên khoa</option>
               {departments.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
             </select>
           </div>
-        </div>
-      </section>
+      </PublicPageHero>
 
-      <section className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+      <section className="ui-container py-10 sm:py-12">
         {error ? <div className="mb-4 rounded-md border border-[#f2b8b5] bg-[#fff3f2] px-4 py-3 text-sm text-[#b3261e]">{error}</div> : null}
 
         <div className="mb-4 flex items-center justify-between gap-3">
@@ -118,10 +101,10 @@ export default function PublicDoctorsPage() {
 
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {loading ? Array.from({ length: 6 }).map((_, index) => <DoctorSkeleton key={index} />) : doctors.length ? doctors.map((doctor) => (
-            <article key={doctor.id} className="rounded-md border border-[#dce3ee] bg-white p-4 transition hover:-translate-y-1 hover:shadow-lg">
+            <article key={doctor.id} className="public-card p-5">
               <div className="flex items-start gap-4">
                 {doctor.user.avatar ? (
-                  <img src={doctor.user.avatar} alt={doctor.user.fullName} className="h-20 w-20 shrink-0 rounded-md object-cover" />
+                  <img src={doctor.user.avatar} alt={doctor.user.fullName} loading="lazy" decoding="async" className="h-20 w-20 shrink-0 rounded-md object-cover" />
                 ) : (
                   <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-md bg-[#e7f0fb] text-2xl font-semibold text-[#0d4f8b]">
                     {firstLetter(doctor.user.fullName)}
@@ -137,8 +120,8 @@ export default function PublicDoctorsPage() {
                 <p className="flex items-center gap-2"><Stethoscope className="h-4 w-4 text-[#0d4f8b]" />{doctor.specialization || "Khám chuyên khoa"}</p>
                 <p className="flex items-center gap-2"><Clock className="h-4 w-4 text-[#0d4f8b]" />{doctor.experience || 0} năm kinh nghiệm</p>
               </div>
-              <p className="mt-4 line-clamp-3 text-sm leading-6 text-[#667892]">{doctor.bio || "Bác sĩ đang tiếp nhận lịch khám và tư vấn theo chuyên khoa."}</p>
-              <div className="mt-5 flex flex-col gap-2 sm:flex-row">
+              <p className="public-card-description mt-4 line-clamp-3 text-sm leading-6 text-[#667892]">{doctor.bio || "Bác sĩ đang tiếp nhận lịch khám và tư vấn theo chuyên khoa."}</p>
+              <div className="public-card-actions sm:grid-cols-2">
                 <Link href={`/doctors/${doctor.id}`} className="inline-flex flex-1 items-center justify-center gap-2 rounded-md border border-[#cfd8e6] px-4 py-2.5 text-sm font-semibold text-[#42526b] hover:bg-[#f8fafc]">
                   Xem chi tiết
                 </Link>
@@ -148,9 +131,7 @@ export default function PublicDoctorsPage() {
               </div>
             </article>
           )) : (
-            <div className="rounded-md border border-dashed border-[#dce3ee] bg-white p-8 text-center text-sm text-[#667892] sm:col-span-2 xl:col-span-3">
-              Chưa tìm thấy bác sĩ phù hợp.
-            </div>
+            <div className="sm:col-span-2 xl:col-span-3"><PublicEmptyState>Chưa tìm thấy bác sĩ phù hợp.</PublicEmptyState></div>
           )}
         </div>
       </section>
@@ -160,7 +141,7 @@ export default function PublicDoctorsPage() {
 
 function DoctorSkeleton() {
   return (
-    <article className="rounded-md border border-[#dce3ee] bg-white p-4">
+    <article className="public-card p-4">
       <div className="flex items-start gap-4">
         <span className="skeleton-shimmer h-20 w-20 shrink-0 rounded-md" />
         <div className="flex-1 space-y-3">

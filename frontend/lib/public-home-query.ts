@@ -81,8 +81,8 @@ export function usePublicHomeData(initialData: PublicHomeData = emptyHomeData) {
     queryKey: queryKeys.publicHome,
     queryFn: fetchPublicHomeData,
     initialData: hasPublicHomeData(initialData) ? initialData : undefined,
-    staleTime: 60 * 1000,
-    refetchOnWindowFocus: true,
+    staleTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: false,
     refetchOnReconnect: true,
   });
 }
@@ -92,7 +92,7 @@ export function usePublicSiteSettings() {
     queryKey: queryKeys.publicSiteSettings,
     queryFn: fetchPublicSiteSettings,
     staleTime: 5 * 60 * 1000,
-    refetchOnWindowFocus: true,
+    refetchOnWindowFocus: false,
     refetchOnReconnect: true,
   });
 }

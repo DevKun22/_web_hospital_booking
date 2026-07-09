@@ -1,11 +1,12 @@
 "use client";
 
-import { ArrowLeft, ArrowRight, HelpCircle, Search, Stethoscope, UserRound } from "lucide-react";
+import { ArrowRight, HelpCircle, Search, Stethoscope, UserRound } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { HighlightText } from "@/components/public/search-highlight";
+import { PublicPageHeader } from "@/components/public/public-page-layout";
 import { usePublicSearch, type PublicSearchItem, type PublicSearchType } from "@/lib/public-search-query";
 import { useSearchAnalytics } from "@/lib/use-search-analytics";
 import { useDebouncedValue } from "@/lib/use-debounced-value";
@@ -82,21 +83,10 @@ export default function SearchClient() {
 
   return (
     <main className="min-h-screen bg-[#f6f8fb] text-[#172033]">
-      <header className="border-b border-[#dce3ee] bg-white">
-        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">
-          <Link href="/" className="inline-flex items-center gap-2 text-sm font-semibold text-[#42526b] hover:text-[#0d4f8b]">
-            <ArrowLeft className="h-4 w-4" />
-            Về trang chủ
-          </Link>
-          <Link href="/#booking" className="inline-flex items-center gap-2 rounded-md bg-[#0d4f8b] px-4 py-2 text-sm font-semibold text-white hover:bg-[#083d6d]">
-            Đặt lịch
-            <ArrowRight className="h-4 w-4" />
-          </Link>
-        </div>
-      </header>
+      <PublicPageHeader />
 
       <section className="border-b border-[#dce3ee] bg-[linear-gradient(120deg,#ffffff_0%,#eef7ff_58%,#f4fbf6_100%)]">
-        <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
+        <div className="ui-container py-10 sm:py-14">
           <p className="text-sm font-semibold uppercase tracking-wide text-[#667892]">Tìm kiếm</p>
           <h1 className="mt-2 text-3xl font-semibold sm:text-4xl">Tìm nhanh thông tin trước khi đặt lịch</h1>
           <p className="mt-3 max-w-2xl text-sm leading-6 text-[#667892]">
@@ -109,7 +99,7 @@ export default function SearchClient() {
               value={keyword}
               onChange={(event) => setKeyword(event.target.value)}
               placeholder="Ví dụ: tim mạch, bác sĩ, gói tổng quát, thanh toán..."
-              className="h-14 w-full rounded-md border border-[#cfd8e6] bg-white pl-12 pr-4 text-base text-[#172033] shadow-sm outline-none transition placeholder:text-[#93a2b7] focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]"
+              className="ui-field h-14 w-full pl-12 pr-4 text-base shadow-sm placeholder:text-[#93a2b7]"
               autoFocus
             />
           </label>
@@ -133,7 +123,7 @@ export default function SearchClient() {
         </div>
       </section>
 
-      <section className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+      <section className="ui-container py-10 sm:py-12">
         <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm font-medium text-[#667892]">{resultLabel}</p>
           {searchQuery.data?.source && searchQuery.data.source !== "empty" ? (
