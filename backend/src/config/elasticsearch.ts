@@ -10,9 +10,19 @@ export const isElasticsearchEnabled =
 export const elasticsearchIndex =
   process.env.ELASTICSEARCH_INDEX?.trim() || "hospital_public_search";
 
+const rawRequestTimeout = Number(
+  process.env.ELASTICSEARCH_REQUEST_TIMEOUT_MS || 700,
+);
+
+export const elasticsearchRequestTimeoutMs = Number.isFinite(rawRequestTimeout)
+  ? Math.min(Math.max(rawRequestTimeout, 300), 5000)
+  : 700;
+
 export const elasticClient = isElasticsearchEnabled
   ? new Client({
       node: elasticsearchNode,
+      requestTimeout: elasticsearchRequestTimeoutMs,
+      maxRetries: 0,
       auth: {
         apiKey: elasticsearchApiKey!,
       },

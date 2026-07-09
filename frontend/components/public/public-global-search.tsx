@@ -31,10 +31,10 @@ const formatCurrency = (value?: number | null) =>
 export function PublicGlobalSearch({ compact = false }: { compact?: boolean }) {
   const [keyword, setKeyword] = useState("");
   const [open, setOpen] = useState(false);
-  const debouncedKeyword = useDebouncedValue(keyword, 350);
+  const debouncedKeyword = useDebouncedValue(keyword, 220);
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   const searchQuery = usePublicSearch({
-    q: debouncedKeyword,
+    q: debouncedKeyword.trim(),
     type: "all",
     limit: 8,
   });
@@ -102,7 +102,7 @@ export function PublicGlobalSearch({ compact = false }: { compact?: boolean }) {
       </div>
 
       {shouldShowDropdown ? (
-        <div className="absolute left-0 right-0 top-12 z-50 overflow-hidden rounded-md border border-[#dce3ee] bg-white shadow-[0_18px_45px_rgba(15,23,42,0.14)]">
+        <div className="absolute left-0 right-0 top-12 z-[75] overflow-hidden rounded-md border border-[#dce3ee] bg-white shadow-[0_18px_45px_rgba(15,23,42,0.14)]">
           <div className="border-b border-[#eef2f7] px-3 py-2 text-xs font-medium text-[#667892]">
             {waitingDebounce || searchQuery.isFetching ? (
               <span className="inline-flex items-center gap-2">
@@ -124,7 +124,7 @@ export function PublicGlobalSearch({ compact = false }: { compact?: boolean }) {
             </div>
           ) : null}
 
-          <div className="max-h-[360px] overflow-y-auto py-1">
+          <div className="max-h-[min(360px,58vh)] overflow-y-auto py-1">
             {items.map((item) => (
               <Link
                 key={`${item.type}-${item.id}`}

@@ -355,7 +355,7 @@ export default function DoctorsPage() {
                       <div className="flex items-center gap-3">
                         {doctor.user.avatar ? (
                           // eslint-disable-next-line @next/next/no-img-element
-                          <img src={doctor.user.avatar} alt={doctor.user.fullName} className="h-10 w-10 rounded-md object-cover" />
+                          <img src={doctor.user.avatar} alt={doctor.user.fullName} loading="lazy" decoding="async" className="h-10 w-10 rounded-md object-cover" />
                         ) : <div className="flex h-10 w-10 items-center justify-center rounded-md bg-[#e7f0fb] text-sm font-semibold text-[#0d4f8b]">{doctor.user.fullName.slice(0, 1).toUpperCase()}</div>}
                         <div>
                           <p className="font-semibold text-[#172033]">{[doctor.title, doctor.user.fullName].filter(Boolean).join(" ")}</p>

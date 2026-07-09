@@ -9,6 +9,7 @@ export const getPublicChatbotSettingsHandler = async (
 ) => {
   try {
     const settings = await ChatbotSettingsService.getRuntimeSettings();
+    res.set("Cache-Control", "public, max-age=60, stale-while-revalidate=300");
 
     return res.json({
       success: true,

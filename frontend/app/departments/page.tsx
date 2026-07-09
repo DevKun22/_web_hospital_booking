@@ -2,9 +2,10 @@
 
 /* eslint-disable @next/next/no-img-element */
 
-import { ArrowLeft, ArrowRight, HeartPulse, Search, Stethoscope } from "lucide-react";
+import { HeartPulse, Search, Stethoscope } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { PublicEmptyState, PublicPageHeader, PublicPageHero } from "@/components/public/public-page-layout";
 import { usePublicDepartments } from "@/lib/public-lists-query";
 
 export default function PublicDepartmentsPage() {
@@ -28,49 +29,33 @@ export default function PublicDepartmentsPage() {
 
   return (
     <main className="min-h-screen bg-[#f6f8fb] text-[#172033]">
-      <header className="border-b border-[#dce3ee] bg-white">
-        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">
-          <Link href="/" className="inline-flex items-center gap-2 text-sm font-semibold text-[#42526b] hover:text-[#0d4f8b]">
-            <ArrowLeft className="h-4 w-4" />
-            Về trang chủ
-          </Link>
-          <Link href="/#booking" className="inline-flex items-center gap-2 rounded-md bg-[#0d4f8b] px-4 py-2 text-sm font-semibold text-white hover:bg-[#083d6d]">
-            Đặt lịch
-            <ArrowRight className="h-4 w-4" />
-          </Link>
-        </div>
-      </header>
-
-      <section className="bg-white">
-        <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
-          <div className="max-w-3xl">
-            <p className="text-sm font-semibold uppercase tracking-wide text-[#667892]">Chuyên khoa</p>
-            <h1 className="mt-2 text-4xl font-semibold">Tìm đúng chuyên khoa để bắt đầu đặt lịch</h1>
-            <p className="mt-4 text-sm leading-6 text-[#667892]">
-              Mỗi chuyên khoa có đội ngũ bác sĩ và gói khám liên quan. Bạn có thể xem chi tiết hoặc chuyển thẳng đến form đặt lịch.
-            </p>
+      <PublicPageHeader />
+      <PublicPageHero
+        eyebrow="Chuyên khoa"
+        title="Tìm đúng chuyên khoa để bắt đầu đặt lịch"
+        description="Mỗi chuyên khoa có đội ngũ bác sĩ và gói khám liên quan. Bạn có thể xem chi tiết hoặc chuyển thẳng đến form đặt lịch."
+      >
+          <div className="public-filter-panel mt-6 max-w-2xl p-3 sm:p-4">
+            <label className="relative block">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#667892]" />
+              <input
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="Tìm chuyên khoa theo tên hoặc slug"
+                className="ui-field w-full py-3 pl-10 pr-3 text-sm shadow-sm"
+              />
+            </label>
           </div>
+      </PublicPageHero>
 
-          <label className="relative mt-6 block max-w-2xl">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#667892]" />
-            <input
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder="Tìm chuyên khoa theo tên hoặc slug"
-              className="w-full rounded-md border border-[#cfd8e6] bg-white py-3 pl-10 pr-3 text-sm outline-none focus:border-[#0d4f8b]"
-            />
-          </label>
-        </div>
-      </section>
-
-      <section className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+      <section className="ui-container py-10 sm:py-12">
         {error ? <div className="mb-4 rounded-md border border-[#f2b8b5] bg-[#fff3f2] px-4 py-3 text-sm text-[#b3261e]">{error}</div> : null}
         <p className="mb-4 text-sm text-[#667892]">{totalLabel}</p>
 
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {loading ? Array.from({ length: 6 }).map((_, index) => <DepartmentSkeleton key={index} />) : departments.length ? departments.map((department) => (
-            <article key={department.id} className="overflow-hidden rounded-md border border-[#dce3ee] bg-white transition hover:-translate-y-1 hover:shadow-lg">
-              <div className="h-44 bg-[#e7f0fb]">
+            <article key={department.id} className="public-card overflow-hidden">
+              <div className="public-card-media">
                 {department.image ? (
                   <img src={department.image} alt={department.name} className="h-full w-full object-cover" />
                 ) : (
@@ -79,20 +64,20 @@ export default function PublicDepartmentsPage() {
                   </div>
                 )}
               </div>
-              <div className="p-4">
+              <div className="public-card-body">
                 <div className="flex items-start gap-3">
                   <span className="mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-[#e7f0fb] text-[#0d4f8b]">
                     <Stethoscope className="h-4 w-4" />
                   </span>
                   <div className="min-w-0">
                     <h2 className="text-lg font-semibold">{department.name}</h2>
-                    <p className="mt-2 line-clamp-3 text-sm leading-6 text-[#667892]">
+                    <p className="public-card-description mt-2 line-clamp-3 text-sm leading-6 text-[#667892]">
                       {department.description || "Đội ngũ chuyên môn sẵn sàng tư vấn, tiếp nhận lịch khám và điều phối bác sĩ phù hợp."}
                     </p>
                   </div>
                 </div>
 
-                <div className="mt-5 grid grid-cols-2 gap-2">
+                <div className="public-card-actions">
                   {department.slug ? (
                     <Link href={`/departments/${department.slug}`} className="rounded-md border border-[#cfd8e6] px-3 py-2.5 text-center text-sm font-semibold text-[#42526b] hover:bg-[#f8fafc]">
                       Chi tiết
@@ -109,9 +94,7 @@ export default function PublicDepartmentsPage() {
               </div>
             </article>
           )) : (
-            <div className="rounded-md border border-dashed border-[#dce3ee] bg-white p-8 text-center text-sm text-[#667892] sm:col-span-2 lg:col-span-3">
-              Chưa tìm thấy chuyên khoa phù hợp.
-            </div>
+            <div className="sm:col-span-2 lg:col-span-3"><PublicEmptyState>Chưa tìm thấy chuyên khoa phù hợp.</PublicEmptyState></div>
           )}
         </div>
       </section>
@@ -121,7 +104,7 @@ export default function PublicDepartmentsPage() {
 
 function DepartmentSkeleton() {
   return (
-    <article className="overflow-hidden rounded-md border border-[#dce3ee] bg-white">
+    <article className="public-card overflow-hidden">
       <span className="skeleton-shimmer block h-44 rounded-none" />
       <div className="space-y-3 p-4">
         <span className="skeleton-shimmer block h-5 w-2/3 rounded-md" />

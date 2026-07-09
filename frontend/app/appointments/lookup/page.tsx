@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  ArrowLeft,
   CalendarDays,
   CheckCircle2,
   ClipboardList,
@@ -29,6 +28,7 @@ import {
   useState,
 } from "react";
 import { DebugOtpBox } from "@/components/ui/debug-otp-box";
+import { PublicPageHeader, PublicPageHero } from "@/components/public/public-page-layout";
 import { apiRequest } from "@/lib/api";
 import { formatVietnamDate, formatVietnamDateTime } from "@/lib/date";
 import { getPublicLookupDraft } from "@/lib/public-booking-store";
@@ -484,60 +484,41 @@ export default function AppointmentLookupPage() {
   };
 
   return (
-    <main className="min-h-screen bg-[#f6f8fb] text-[#172033]">
-      <header className="border-b border-[#dce3ee] bg-white">
-        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">
-          <Link
-            href="/"
-            className="inline-flex items-center gap-2 text-sm font-semibold text-[#42526b] hover:text-[#0d4f8b]"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Về trang chủ
-          </Link>
-          <Link
-            href="/#booking"
-            className="rounded-md bg-[#0d4f8b] px-4 py-2 text-sm font-semibold text-white hover:bg-[#083d6d]"
-          >
-            Đặt lịch mới
-          </Link>
-        </div>
-      </header>
+    <main className="min-h-screen bg-[linear-gradient(180deg,#f4f9ff_0%,#f6f8fb_42%,#ffffff_100%)] text-[#172033]">
+      <PublicPageHeader />
+      <PublicPageHero
+        eyebrow="Tra cứu lịch hẹn"
+        title="Kiểm tra trạng thái lịch khám của bạn"
+        description="Để bảo vệ thông tin khám, mọi hình thức tra cứu đều cần xác thực OTP. Nếu quên mã, hãy xác thực bằng số điện thoại để xem các lịch gần đây."
+      />
 
-      <section className="bg-white">
-        <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
-          <div className="max-w-3xl">
-            <p className="text-sm font-semibold uppercase tracking-wide text-[#667892]">
-              Tra cứu lịch hẹn
-            </p>
-            <h1 className="mt-2 text-4xl font-semibold">
-              Kiểm tra trạng thái lịch khám của bạn
-            </h1>
-            <p className="mt-4 text-sm leading-6 text-[#667892]">
-              Để bảo vệ thông tin khám, mọi hình thức tra cứu đều cần xác thực
-              OTP. Nếu quên mã, hãy xác thực bằng số điện thoại để xem các lịch
-              gần đây.
-            </p>
-          </div>
-        </div>
-      </section>
-
-      <section className="mx-auto grid max-w-7xl gap-6 px-4 py-8 sm:px-6 lg:grid-cols-[minmax(0,0.85fr)_minmax(360px,1fr)] lg:px-8">
-        <div className="h-fit rounded-md border border-[#dce3ee] bg-white p-5">
-          <div className="grid grid-cols-2 rounded-md bg-[#f1f5f9] p-1">
+      <section className="ui-container grid gap-6 py-8 sm:py-10 lg:grid-cols-[minmax(0,0.82fr)_minmax(380px,1fr)]">
+        <div className="h-fit rounded-xl border border-[#cfe0f3] bg-white/95 p-4 shadow-[0_18px_48px_rgba(13,79,139,0.10)] ring-1 ring-[#e7f0fb] sm:p-5">
+          <div className="grid grid-cols-2 rounded-lg border border-[#d8e9ff] bg-[#eef6ff] p-1">
             <button
               type="button"
               onClick={() => switchTab("CODE")}
-              className={`rounded-md px-3 py-2 text-sm font-semibold transition ${activeTab === "CODE" ? "bg-white text-[#0d4f8b] shadow-sm" : "text-[#667892]"}`}
+              className={`rounded-md px-3 py-2.5 text-sm font-semibold transition ${activeTab === "CODE" ? "bg-white text-[#0d4f8b] shadow-sm ring-1 ring-[#d8e9ff]" : "text-[#667892] hover:text-[#0d4f8b]"}`}
             >
               Có mã lịch
             </button>
             <button
               type="button"
               onClick={() => switchTab("FORGOT")}
-              className={`rounded-md px-3 py-2 text-sm font-semibold transition ${activeTab === "FORGOT" ? "bg-white text-[#0d4f8b] shadow-sm" : "text-[#667892]"}`}
+              className={`rounded-md px-3 py-2.5 text-sm font-semibold transition ${activeTab === "FORGOT" ? "bg-white text-[#0d4f8b] shadow-sm ring-1 ring-[#d8e9ff]" : "text-[#667892] hover:text-[#0d4f8b]"}`}
             >
               Quên mã lịch
             </button>
+          </div>
+
+          <div className="mt-4 flex items-start gap-3 rounded-lg border border-[#b8d7f4] bg-[#eef7ff] px-3 py-3 text-sm leading-6 text-[#0d4f8b]">
+            <span className="mt-0.5 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-white text-[#0d4f8b] shadow-sm">
+              <ShieldCheck className="h-4 w-4" aria-hidden="true" />
+            </span>
+            <p>
+              Mã lịch và số điện thoại chỉ dùng để gửi OTP. Sau khi xác thực,
+              hệ thống mới hiển thị chi tiết lịch, kết quả khám hoặc thanh toán.
+            </p>
           </div>
 
           {activeTab === "CODE" ? (
@@ -557,7 +538,7 @@ export default function AppointmentLookupPage() {
                       setBookingCode(event.target.value.toUpperCase())
                     }
                     placeholder="VD: HB202606030001"
-                    className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-3 text-sm uppercase outline-none focus:border-[#0d4f8b]"
+                    className="ui-field mt-1 w-full px-3 py-3 text-sm uppercase"
                   />
                 </label>
                 <label className="block">
@@ -568,13 +549,13 @@ export default function AppointmentLookupPage() {
                     value={phone}
                     onChange={(event) => setPhone(event.target.value)}
                     placeholder="0901234567"
-                    className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-3 text-sm outline-none focus:border-[#0d4f8b]"
+                    className="ui-field mt-1 w-full px-3 py-3 text-sm"
                   />
                 </label>
                 {codeOtpSent ? (
                   <div
                     ref={codeLookupOtpRef}
-                    className="space-y-3 rounded-md border border-[#cfe4fa] bg-[#f8fbff] p-3"
+                    className="scroll-mt-24 space-y-3 rounded-lg border border-[#cfe4fa] bg-[#f8fbff] p-3 shadow-sm"
                   >
                     <DebugOtpBox otp={debugCodeLookupOtp} onFill={setCodeOtp} />
                     <label className="block">
@@ -590,7 +571,7 @@ export default function AppointmentLookupPage() {
                         }
                         inputMode="numeric"
                         placeholder="000000"
-                        className="mt-1 w-full rounded-md border border-[#cfd8e6] bg-white px-3 py-3 text-center text-xl font-semibold tracking-[0.25em] outline-none focus:border-[#0d4f8b]"
+                        className="ui-field mt-1 w-full bg-white px-3 py-3 text-center text-xl font-semibold tracking-[0.25em]"
                       />
                     </label>
                   </div>
@@ -601,7 +582,7 @@ export default function AppointmentLookupPage() {
                   type="button"
                   onClick={() => void requestCodeLookupOtp()}
                   disabled={loading}
-                  className="inline-flex items-center justify-center gap-2 rounded-md border border-[#cfd8e6] px-4 py-3 text-sm font-semibold text-[#42526b] hover:bg-[#f8fafc] disabled:opacity-60"
+                  className="inline-flex items-center justify-center gap-2 rounded-md border border-[#cfd8e6] bg-white px-4 py-3 text-sm font-semibold text-[#42526b] transition hover:-translate-y-0.5 hover:bg-[#f8fafc] disabled:translate-y-0 disabled:opacity-60"
                 >
                   {loading && !codeOtpSent ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
@@ -614,7 +595,7 @@ export default function AppointmentLookupPage() {
                   type="button"
                   onClick={() => void verifyCodeLookupOtp()}
                   disabled={loading || !codeOtpSent}
-                  className="inline-flex items-center justify-center gap-2 rounded-md bg-[#0d4f8b] px-4 py-3 text-sm font-semibold text-white hover:bg-[#083d6d] disabled:opacity-60"
+                  className="inline-flex items-center justify-center gap-2 rounded-md bg-[#0d4f8b] px-4 py-3 text-sm font-semibold text-white shadow-[0_10px_22px_rgba(13,79,139,0.18)] transition hover:-translate-y-0.5 hover:bg-[#083d6d] disabled:translate-y-0 disabled:opacity-60"
                 >
                   {loading && codeOtpSent ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
@@ -640,11 +621,11 @@ export default function AppointmentLookupPage() {
                     value={forgotPhone}
                     onChange={(event) => setForgotPhone(event.target.value)}
                     placeholder="0901234567"
-                    className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-3 text-sm outline-none focus:border-[#0d4f8b]"
+                    className="ui-field mt-1 w-full px-3 py-3 text-sm"
                   />
                 </label>
                 {otpSent ? (
-                  <div ref={lookupOtpRef} className="space-y-3">
+                  <div ref={lookupOtpRef} className="scroll-mt-24 space-y-3 rounded-lg border border-[#cfe4fa] bg-[#f8fbff] p-3 shadow-sm">
                     <DebugOtpBox otp={debugLookupOtp} onFill={setOtp} />
                     <label className="block">
                       <span className="text-sm font-medium text-[#334155]">
@@ -659,7 +640,7 @@ export default function AppointmentLookupPage() {
                         }
                         inputMode="numeric"
                         placeholder="000000"
-                        className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-3 text-center text-xl font-semibold tracking-[0.25em] outline-none focus:border-[#0d4f8b]"
+                        className="ui-field mt-1 w-full px-3 py-3 text-center text-xl font-semibold tracking-[0.25em]"
                       />
                     </label>
                   </div>
@@ -670,7 +651,7 @@ export default function AppointmentLookupPage() {
                   type="button"
                   onClick={() => void requestLookupOtp()}
                   disabled={loading}
-                  className="inline-flex items-center justify-center gap-2 rounded-md border border-[#cfd8e6] px-4 py-3 text-sm font-semibold text-[#42526b] hover:bg-[#f8fafc] disabled:opacity-60"
+                  className="inline-flex items-center justify-center gap-2 rounded-md border border-[#cfd8e6] bg-white px-4 py-3 text-sm font-semibold text-[#42526b] transition hover:-translate-y-0.5 hover:bg-[#f8fafc] disabled:translate-y-0 disabled:opacity-60"
                 >
                   {loading && !otpSent ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
@@ -683,7 +664,7 @@ export default function AppointmentLookupPage() {
                   type="button"
                   onClick={() => void verifyLookupOtp()}
                   disabled={loading || !otpSent}
-                  className="inline-flex items-center justify-center gap-2 rounded-md bg-[#0d4f8b] px-4 py-3 text-sm font-semibold text-white hover:bg-[#083d6d] disabled:opacity-60"
+                  className="inline-flex items-center justify-center gap-2 rounded-md bg-[#0d4f8b] px-4 py-3 text-sm font-semibold text-white shadow-[0_10px_22px_rgba(13,79,139,0.18)] transition hover:-translate-y-0.5 hover:bg-[#083d6d] disabled:translate-y-0 disabled:opacity-60"
                 >
                   {loading && otpSent ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
@@ -699,7 +680,7 @@ export default function AppointmentLookupPage() {
           {message ? (
             <div
               ref={lookupNoticeRef}
-              className="mt-4 scroll-mt-24 rounded-md border border-[#bde5c8] bg-[#f0fff4] px-3 py-2 text-sm font-medium text-[#1f7a3a]"
+              className="mt-4 scroll-mt-24 rounded-lg border border-[#bde5c8] bg-[#f0fff4] px-3 py-2.5 text-sm font-medium text-[#1f7a3a] shadow-sm"
             >
               {message}
             </div>
@@ -707,7 +688,7 @@ export default function AppointmentLookupPage() {
           {error ? (
             <div
               ref={lookupNoticeRef}
-              className="mt-4 scroll-mt-24 rounded-md border border-[#f2b8b5] bg-[#fff3f2] px-3 py-2 text-sm font-medium text-[#b3261e]"
+              className="mt-4 scroll-mt-24 rounded-lg border border-[#f2b8b5] bg-[#fff3f2] px-3 py-2.5 text-sm font-medium text-[#b3261e] shadow-sm"
             >
               {error}
             </div>
@@ -716,7 +697,7 @@ export default function AppointmentLookupPage() {
           {forgotItems.length ? (
             <div
               ref={recentListRef}
-              className="mt-5 scroll-mt-24 border-t border-[#e5ebf3] pt-5"
+              className="mt-5 scroll-mt-24 rounded-lg border border-[#e5ebf3] bg-[#f8fbff] p-4"
             >
               <p className="text-sm font-semibold text-[#172033]">
                 Lịch gần đây
@@ -750,7 +731,7 @@ export default function AppointmentLookupPage() {
             </div>
           ) : null}
 
-          <div className="mt-5 border-t border-[#e5ebf3] pt-4 text-sm text-[#667892]">
+          <div className="mt-5 rounded-lg border border-[#e5ebf3] bg-[#fbfdff] px-3 py-3 text-sm text-[#667892]">
             Chưa rõ quy trình?{" "}
             <Link
               href="/guide/booking"
@@ -784,8 +765,8 @@ function AppointmentResult({
 }) {
   if (!appointment || !status) {
     return (
-      <div className="rounded-md border border-[#dce3ee] bg-white p-5">
-        <div className="flex min-h-80 flex-col items-center justify-center rounded-md border border-dashed border-[#dce3ee] bg-[#f8fafc] p-8 text-center">
+      <div className="rounded-xl border border-[#cfe0f3] bg-white/95 p-5 shadow-[0_18px_48px_rgba(13,79,139,0.08)] ring-1 ring-[#e7f0fb]">
+        <div className="flex min-h-80 flex-col items-center justify-center rounded-lg border border-dashed border-[#cfe0f3] bg-[#f8fbff] p-8 text-center">
           <CheckCircle2 className="h-10 w-10 text-[#0d4f8b]" />
           <h2 className="mt-4 text-lg font-semibold">
             Nhập thông tin để tra cứu
@@ -800,7 +781,7 @@ function AppointmentResult({
   }
 
   return (
-    <div className="rounded-md border border-[#dce3ee] bg-white p-5">
+    <div className="rounded-xl border border-[#cfe0f3] bg-white/95 p-5 shadow-[0_18px_48px_rgba(13,79,139,0.08)] ring-1 ring-[#e7f0fb]">
       <div className="flex flex-col gap-3 border-b border-[#e5ebf3] pb-5 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <p className="text-sm text-[#667892]">Mã lịch hẹn</p>
@@ -829,9 +810,10 @@ function AppointmentResult({
         </span>
       </div>
 
-      <p className="mt-4 rounded-md bg-[#f8fafc] px-4 py-3 text-sm leading-6 text-[#42526b]">
-        {status.next}
-      </p>
+      <div className="mt-4 flex items-start gap-2 rounded-lg border border-[#d8e9ff] bg-[#f8fbff] px-4 py-3 text-sm leading-6 text-[#42526b]">
+        <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-[#0d4f8b]" aria-hidden="true" />
+        <p>{status.next}</p>
+      </div>
 
       <div className="mt-5 grid gap-4 sm:grid-cols-2">
         <InfoItem

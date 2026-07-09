@@ -370,7 +370,7 @@ export default function UsersPage() {
                       <div className="flex items-center gap-3">
                         {item.avatar ? (
                           // eslint-disable-next-line @next/next/no-img-element
-                          <img src={item.avatar} alt={item.fullName} className="h-10 w-10 rounded-md object-cover" />
+                          <img src={item.avatar} alt={item.fullName} loading="lazy" decoding="async" className="h-10 w-10 rounded-md object-cover" />
                         ) : <div className="flex h-10 w-10 items-center justify-center rounded-md bg-[#e7f0fb] text-sm font-semibold text-[#0d4f8b]">{item.fullName.slice(0, 1).toUpperCase()}</div>}
                         <div><p className="font-semibold">{item.fullName}</p><p className="mt-1 text-xs text-[#667892]">{item.id}</p></div>
                       </div>

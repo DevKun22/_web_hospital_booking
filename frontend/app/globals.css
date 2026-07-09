@@ -15,6 +15,14 @@
   --success-soft: #e7f6ed;
   --warning-soft: #fff4d6;
   --danger-soft: #fff3f2;
+  --primary-hover: #083d6d;
+  --focus-ring: #b9dcff;
+  --radius-sm: 0.5rem;
+  --radius-md: 0.75rem;
+  --radius-lg: 1rem;
+  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.06);
+  --shadow-md: 0 12px 30px rgba(13, 79, 139, 0.1);
+  --content-width: 80rem;
 }
 
 :root[data-theme="dark"],
@@ -44,12 +52,189 @@
 
 html {
   scroll-behavior: smooth;
+  scroll-padding-top: 6rem;
+}
+
+section[id] {
+  scroll-margin-top: 6rem;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+  line-height: 1.5;
+  text-rendering: optimizeLegibility;
+}
+
+:focus-visible {
+  outline: 3px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+::selection {
+  background: var(--primary-soft);
+  color: var(--foreground);
+}
+
+.ui-container {
+  width: min(100% - 2rem, var(--content-width));
+  margin-inline: auto;
+}
+
+.ui-section {
+  padding-block: clamp(3.5rem, 7vw, 6rem);
+}
+
+.ui-deferred-section {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 720px;
+}
+
+.ui-surface {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.ui-field {
+  min-height: 2.75rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--foreground);
+  transition: border-color 150ms ease, box-shadow 150ms ease, background-color 150ms ease;
+}
+
+.ui-field:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--focus-ring);
+  outline: none;
+}
+
+
+.login-input-shell {
+  border-radius: 0.75rem;
+}
+
+.login-input-shell:focus-within {
+  border-color: #0d4f8b;
+  background: #ffffff;
+  box-shadow: 0 0 0 4px rgba(207, 228, 250, 0.72);
+  outline: none !important;
+}
+
+.login-input-shell input,
+.login-input-shell input:focus,
+.login-input-shell input:focus-visible,
+.login-input-shell input:active {
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  outline: 0 !important;
+  outline-offset: 0 !important;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+.login-otp-input:focus,
+.login-otp-input:focus-visible {
+  outline: 0 !important;
+  outline-offset: 0 !important;
+}
+
+.public-filter-panel {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--surface) 92%, white);
+  box-shadow: var(--shadow-sm);
+}
+
+.public-card {
+  display: flex;
+  height: 100%;
+  min-height: 100%;
+  flex-direction: column;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+  transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
+}
+
+.public-card:hover {
+  border-color: color-mix(in srgb, var(--primary) 28%, var(--border));
+  box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
+}
+
+.public-card-media {
+  aspect-ratio: 16 / 10;
+  min-height: 11rem;
+  overflow: hidden;
+  background: var(--primary-soft);
+}
+
+.public-card-body {
+  display: flex;
+  min-height: 17rem;
+  flex: 1;
+  flex-direction: column;
+  padding: 1.25rem;
+}
+
+.public-card-description {
+  min-height: 4.5rem;
+}
+
+.public-card-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+  margin-top: auto;
+  padding-top: 1.25rem;
+}
+
+.dashboard-shell main :is(input, select, textarea) {
+  background-color: var(--surface);
+  border-color: var(--border);
+  color: var(--foreground);
+}
+
+.dashboard-shell main :is(input, select, textarea):focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--focus-ring);
+  outline: none;
+}
+
+.dashboard-shell main :is(button, a) {
+  transition: color 150ms ease, background-color 150ms ease, border-color 150ms ease, transform 150ms ease;
+}
+
+.dashboard-shell main table {
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.dashboard-shell main thead th {
+  background: var(--surface-muted);
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.dashboard-shell main tbody tr:hover td {
+  background: color-mix(in srgb, var(--primary-soft) 28%, var(--surface));
+}
+
+@media (max-width: 639px) {
+  .dashboard-shell main :is(button, a) {
+    min-height: 2.75rem;
+  }
+
+  .dashboard-shell main :is(input, select) {
+    min-height: 2.75rem;
+  }
 }
 
 .skeleton-shimmer {

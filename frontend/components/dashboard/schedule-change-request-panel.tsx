@@ -115,19 +115,24 @@ export function ScheduleChangeRequestPanel({
   const requests = requestsQuery.data?.items || [];
 
   useEffect(() => {
-    if (type !== "CREATE_WEEKLY_SCHEDULE" && !scheduleId && schedules[0])
-      setScheduleId(schedules[0].id);
+    if (type === "CREATE_WEEKLY_SCHEDULE" || scheduleId || !schedules[0]) return;
+    const timeoutId = window.setTimeout(() => setScheduleId(schedules[0].id), 0);
+    return () => window.clearTimeout(timeoutId);
   }, [scheduleId, schedules, type]);
   useEffect(() => {
-    if (selectedSchedule)
-      setProposal({
+    if (!selectedSchedule) return;
+    const timeoutId = window.setTimeout(
+      () => setProposal({
         dayOfWeek: selectedSchedule.dayOfWeek,
         startTime: selectedSchedule.startTime,
         endTime: selectedSchedule.endTime,
         slotDuration: selectedSchedule.slotDuration,
         maxPatients: selectedSchedule.maxPatients,
-      });
-  }, [selectedSchedule?.id]);
+      }),
+      0,
+    );
+    return () => window.clearTimeout(timeoutId);
+  }, [selectedSchedule]);
 
   const invalidate = () =>
     Promise.all([

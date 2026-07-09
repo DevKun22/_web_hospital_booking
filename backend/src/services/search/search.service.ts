@@ -44,8 +44,104 @@ const toResult = (
 const includesText = (value: string | null | undefined, query: string) =>
   value?.toLowerCase().includes(query.toLowerCase()) || false;
 
+type SearchResponse = {
+  items: PublicSearchResult[];
+  source: "empty" | "elasticsearch" | "postgres";
+};
+
+const rawSearchCacheTtl = Number(process.env.PUBLIC_SEARCH_CACHE_TTL_MS || 30000);
+const searchCacheTtlMs = Number.isFinite(rawSearchCacheTtl)
+  ? Math.min(Math.max(rawSearchCacheTtl, 0), 5 * 60 * 1000)
+  : 30000;
+const searchCache = new Map<string, { expiresAt: number; data: SearchResponse }>();
+
+const makeSearchCacheKey = (input: {
+  q: string;
+  type: SearchDocumentType | "all";
+  limit: number;
+}) => `${input.type}:${input.limit}:${input.q.toLowerCase()}`;
+
+const cloneSearchResponse = (data: SearchResponse): SearchResponse => ({
+  source: data.source,
+  items: data.items.map((item) => ({ ...item })),
+});
+
+const readSearchCache = (key: string) => {
+  if (!searchCacheTtlMs) return null;
+
+  const cached = searchCache.get(key);
+  if (!cached) return null;
+
+  if (cached.expiresAt <= Date.now()) {
+    searchCache.delete(key);
+    return null;
+  }
+
+  return cloneSearchResponse(cached.data);
+};
+
+const writeSearchCache = (key: string, data: SearchResponse) => {
+  if (!searchCacheTtlMs) return;
+
+  if (searchCache.size > 200) {
+    const firstKey = searchCache.keys().next().value;
+    if (firstKey) searchCache.delete(firstKey);
+  }
+
+  searchCache.set(key, {
+    expiresAt: Date.now() + searchCacheTtlMs,
+    data: cloneSearchResponse(data),
+  });
+};
+
+const rawElasticsearchQueryTimeout = Number(
+  process.env.PUBLIC_SEARCH_ES_QUERY_TIMEOUT_MS || 450,
+);
+const elasticsearchQueryTimeoutMs = Number.isFinite(rawElasticsearchQueryTimeout)
+  ? Math.min(Math.max(rawElasticsearchQueryTimeout, 200), 3000)
+  : 450;
+
+const searchSourceFields: Array<keyof SearchDocument> = [
+  "id",
+  "type",
+  "title",
+  "description",
+  "url",
+  "image",
+  "departmentName",
+  "price",
+];
+
+const rawElasticsearchCooldown = Number(
+  process.env.PUBLIC_SEARCH_ES_COOLDOWN_MS || 30000,
+);
+const elasticsearchCooldownMs = Number.isFinite(rawElasticsearchCooldown)
+  ? Math.min(Math.max(rawElasticsearchCooldown, 0), 5 * 60 * 1000)
+  : 30000;
+
+let elasticsearchUnavailableUntil = 0;
+
+const canUseElasticsearch = () => Date.now() >= elasticsearchUnavailableUntil;
+
+const markElasticsearchUnavailable = () => {
+  if (!elasticsearchCooldownMs) return;
+  elasticsearchUnavailableUntil = Date.now() + elasticsearchCooldownMs;
+};
+
+const withElasticsearchDeadline = <T>(task: Promise<T>) =>
+  new Promise<T>((resolve, reject) => {
+    const timeoutId = setTimeout(() => {
+      reject(new Error(`Elasticsearch search exceeded ${elasticsearchQueryTimeoutMs}ms`));
+    }, elasticsearchQueryTimeoutMs);
+
+    task
+      .then(resolve)
+      .catch(reject)
+      .finally(() => clearTimeout(timeoutId));
+  });
+
 class PublicSearchService {
-  async search(query: PublicSearchQuery) {
+  async search(query: PublicSearchQuery): Promise<SearchResponse> {
     const q = normalizeQuery(query.q);
     const type = normalizeType(query.type);
     const limit = normalizeLimit(query.limit);
@@ -57,25 +153,33 @@ class PublicSearchService {
       };
     }
 
-    if (isElasticsearchEnabled && elasticClient) {
+    const cacheKey = makeSearchCacheKey({ q, type, limit });
+    const cached = readSearchCache(cacheKey);
+    if (cached) return cached;
+
+    if (isElasticsearchEnabled && elasticClient && canUseElasticsearch()) {
       try {
-        const items = await this.searchElasticsearch({ q, type, limit });
-        return {
-          items,
+        const result: SearchResponse = {
+          items: await withElasticsearchDeadline(this.searchElasticsearch({ q, type, limit })),
           source: "elasticsearch" as const,
         };
+        writeSearchCache(cacheKey, result);
+        return result;
       } catch (error) {
+        markElasticsearchUnavailable();
         console.warn(
-          "[ELASTICSEARCH] Search failed, falling back to PostgreSQL",
+          "[ELASTICSEARCH] Search failed, using PostgreSQL cooldown fallback",
           error,
         );
       }
     }
 
-    return {
+    const result: SearchResponse = {
       items: await this.searchPostgres({ q, type, limit }),
       source: "postgres" as const,
     };
+    writeSearchCache(cacheKey, result);
+    return result;
   }
 
   private async searchElasticsearch(input: {
@@ -92,29 +196,50 @@ class PublicSearchService {
     const response = await elasticClient!.search<SearchDocument>({
       index: elasticsearchIndex,
       size: input.limit,
+      _source: searchSourceFields,
+      track_total_hits: false,
+      timeout: `${elasticsearchQueryTimeoutMs}ms`,
       query: {
         bool: {
           filter: filters,
           should: [
             {
+              match_phrase: {
+                title: {
+                  query: input.q,
+                  boost: 7,
+                },
+              },
+            },
+            {
+              match_phrase: {
+                departmentName: {
+                  query: input.q,
+                  boost: 4,
+                },
+              },
+            },
+            {
+              multi_match: {
+                query: input.q,
+                type: "phrase_prefix",
+                fields: ["title^5", "departmentName^3", "keywords^2"],
+                max_expansions: 20,
+                boost: 2,
+              },
+            },
+            {
               multi_match: {
                 query: input.q,
                 fields: [
                   "title^4",
-                  "departmentName^2",
+                  "departmentName^2.5",
                   "keywords^2",
                   "description",
                 ],
                 fuzziness: "AUTO",
-              },
-            },
-            {
-              wildcard: {
-                "title.keyword": {
-                  value: `*${input.q.toLowerCase()}*`,
-                  boost: 1.5,
-                  case_insensitive: true,
-                },
+                prefix_length: 2,
+                max_expansions: 20,
               },
             },
           ],

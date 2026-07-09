@@ -82,32 +82,90 @@ type UpdateRuntimeSettingsInput = Partial<ChatbotRuntimeSettings> & {
   isActive?: boolean;
 };
 
+type RuntimeSettingsRecord = {
+  id: string;
+  key: string;
+  value: ChatbotRuntimeSettings;
+  description: string | null;
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+const rawSettingsCacheTtl = Number(
+  process.env.CHATBOT_SETTINGS_CACHE_TTL_MS || 60000,
+);
+const settingsCacheTtlMs = Number.isFinite(rawSettingsCacheTtl)
+  ? Math.min(Math.max(rawSettingsCacheTtl, 0), 10 * 60 * 1000)
+  : 60000;
+
+let runtimeSettingsCache: { expiresAt: number; data: RuntimeSettingsRecord } | null = null;
+
+const cloneRuntimeSettings = (setting: RuntimeSettingsRecord): RuntimeSettingsRecord => ({
+  ...setting,
+  value: { ...setting.value },
+});
+
+const readRuntimeSettingsCache = () => {
+  if (!settingsCacheTtlMs || !runtimeSettingsCache) return null;
+  if (runtimeSettingsCache.expiresAt <= Date.now()) {
+    runtimeSettingsCache = null;
+    return null;
+  }
+
+  return cloneRuntimeSettings(runtimeSettingsCache.data);
+};
+
+const writeRuntimeSettingsCache = (setting: RuntimeSettingsRecord) => {
+  if (!settingsCacheTtlMs) return;
+  runtimeSettingsCache = {
+    expiresAt: Date.now() + settingsCacheTtlMs,
+    data: cloneRuntimeSettings(setting),
+  };
+};
+
+const clearRuntimeSettingsCache = () => {
+  runtimeSettingsCache = null;
+};
+
 class ChatbotSettingsService {
   async getRuntimeSettings() {
-    const setting = await prisma.chatbotSetting.upsert({
+    const cached = readRuntimeSettingsCache();
+    if (cached) return cached;
+
+    const select = {
+      id: true,
+      key: true,
+      value: true,
+      description: true,
+      isActive: true,
+      createdAt: true,
+      updatedAt: true,
+    } satisfies Prisma.ChatbotSettingSelect;
+
+    const existing = await prisma.chatbotSetting.findUnique({
       where: { key: CHATBOT_RUNTIME_SETTING_KEY },
-      update: {},
-      create: {
-        key: CHATBOT_RUNTIME_SETTING_KEY,
-        value: toPrismaJson(DEFAULT_CHATBOT_RUNTIME_SETTINGS),
-        description: "Runtime settings for chatbot AI, FAQ, fallback and session behavior",
-        isActive: true,
-      },
-      select: {
-        id: true,
-        key: true,
-        value: true,
-        description: true,
-        isActive: true,
-        createdAt: true,
-        updatedAt: true,
-      },
+      select,
     });
 
-    return {
+    const setting =
+      existing ||
+      (await prisma.chatbotSetting.create({
+        data: {
+          key: CHATBOT_RUNTIME_SETTING_KEY,
+          value: toPrismaJson(DEFAULT_CHATBOT_RUNTIME_SETTINGS),
+          description: "Runtime settings for chatbot AI, FAQ, fallback and session behavior",
+          isActive: true,
+        },
+        select,
+      }));
+
+    const normalized = {
       ...setting,
       value: normalizeRuntimeSettings(setting.value),
     };
+    writeRuntimeSettingsCache(normalized);
+    return normalized;
   }
 
   async updateRuntimeSettings(input: UpdateRuntimeSettingsInput) {
@@ -135,10 +193,13 @@ class ChatbotSettingsService {
       },
     });
 
-    return {
+    const normalized = {
       ...setting,
       value: normalizeRuntimeSettings(setting.value),
     };
+    clearRuntimeSettingsCache();
+    writeRuntimeSettingsCache(normalized);
+    return normalized;
   }
 }
 

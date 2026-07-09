@@ -10,6 +10,11 @@ import {
   Sparkles,
   X,
 } from "lucide-react";
+import {
+  PUBLIC_CHATBOT_CLOSE_EVENT,
+  PUBLIC_CONSULTATION_CLOSE_EVENT,
+  PUBLIC_CONSULTATION_OPEN_EVENT,
+} from "@/lib/public-ui-events";
 import { apiRequest } from "@/lib/api";
 import type { ConsultationRequest } from "@/lib/types";
 
@@ -28,6 +33,20 @@ const suggestionMessages = [
 
 export function PublicConsultationRequest() {
   const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    const openForm = () => {
+      window.dispatchEvent(new Event(PUBLIC_CHATBOT_CLOSE_EVENT));
+      setOpen(true);
+    };
+    const closeForm = () => setOpen(false);
+    window.addEventListener(PUBLIC_CONSULTATION_OPEN_EVENT, openForm);
+    window.addEventListener(PUBLIC_CONSULTATION_CLOSE_EVENT, closeForm);
+    return () => {
+      window.removeEventListener(PUBLIC_CONSULTATION_OPEN_EVENT, openForm);
+      window.removeEventListener(PUBLIC_CONSULTATION_CLOSE_EVENT, closeForm);
+    };
+  }, []);
   const [suggestionIndex, setSuggestionIndex] = useState(0);
   const [form, setForm] = useState(initialForm);
   const [submitting, setSubmitting] = useState(false);
@@ -50,7 +69,10 @@ export function PublicConsultationRequest() {
         setOpen(true);
       }
     };
-    const openFromEvent = () => setOpen(true);
+    const openFromEvent = () => {
+      window.dispatchEvent(new Event(PUBLIC_CHATBOT_CLOSE_EVENT));
+      setOpen(true);
+    };
 
     openFromHash();
     window.addEventListener("hashchange", openFromHash);
@@ -91,7 +113,7 @@ export function PublicConsultationRequest() {
   };
 
   return (
-    <div id="consultation" className="fixed bottom-24 left-4 z-50 sm:left-6">
+    <div id="consultation" className="fixed bottom-[5.75rem] left-3 z-[65] sm:bottom-24 sm:left-6">
       {open ? (
         <section className="w-[min(390px,calc(100vw-2rem))] overflow-hidden rounded-md border border-[#cfe0f3] bg-white shadow-2xl ring-1 ring-[#d8e9ff]">
           <header className="flex items-center justify-between border-b border-[#e5ebf3] px-4 py-3">
@@ -224,21 +246,19 @@ export function PublicConsultationRequest() {
           <button
             type="button"
             onClick={() => setOpen(true)}
-            className="ui-floating-callout ui-soft-glow hidden max-w-64 rounded-md border border-[#cfe0f3] bg-white px-3 py-2 text-left text-xs font-medium leading-5 text-[#42526b] shadow-lg shadow-black/10 transition hover:-translate-y-0.5 hover:bg-[#f8fafc] sm:block"
+            className="hidden"
+            tabIndex={-1}
+            aria-hidden="true"
           >
             {suggestionMessages[suggestionIndex]}
           </button>
           <button
             type="button"
             onClick={() => setOpen(true)}
-            className="group relative inline-flex items-center gap-2 rounded-full bg-white px-4 py-3 text-sm font-semibold text-[#0d4f8b] shadow-lg shadow-black/20 ring-1 ring-[#cfe0f3] transition hover:-translate-y-0.5 hover:bg-[#f3f8ff] focus:outline-none focus:ring-4 focus:ring-[#cfe4fa]"
+            className="group relative inline-flex min-h-12 items-center gap-2 rounded-full bg-white px-4 py-3 text-sm font-semibold text-[#0d4f8b] shadow-lg shadow-black/15 ring-1 ring-[#cfe0f3] transition hover:-translate-y-0.5 hover:bg-[#f3f8ff] focus:outline-none focus:ring-4 focus:ring-[#cfe4fa]"
             aria-label="Mở form tư vấn"
             title="Mở form tư vấn"
           >
-            <span
-              className="absolute inset-0 rounded-full bg-[#0d4f8b] opacity-15 motion-safe:animate-ping"
-              aria-hidden="true"
-            />
             <PhoneCall
               className="relative h-5 w-5 transition group-hover:scale-110"
               aria-hidden="true"

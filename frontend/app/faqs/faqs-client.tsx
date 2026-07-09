@@ -1,8 +1,9 @@
 "use client";
 
-import { ArrowLeft, ArrowRight, HelpCircle, Search } from "lucide-react";
+import { HelpCircle, Search } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import { PublicPageHeader } from "@/components/public/public-page-layout";
 import { usePublicFAQs } from "@/lib/public-faq-query";
 import type { PublicFAQ } from "@/lib/types";
 
@@ -34,21 +35,10 @@ export function FAQsClient({ initialFAQs, initialCategory = "" }: { initialFAQs:
 
   return (
     <main className="min-h-screen bg-[#f6f8fb] text-[#172033]">
-      <header className="border-b border-[#dce3ee] bg-white">
-        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">
-          <Link href="/" className="inline-flex items-center gap-2 text-sm font-semibold text-[#42526b] hover:text-[#0d4f8b]">
-            <ArrowLeft className="h-4 w-4" />
-            Về trang chủ
-          </Link>
-          <Link href="/guide/booking" className="inline-flex items-center gap-2 rounded-md bg-[#0d4f8b] px-4 py-2 text-sm font-semibold text-white hover:bg-[#083d6d]">
-            Hướng dẫn đặt lịch
-            <ArrowRight className="h-4 w-4" />
-          </Link>
-        </div>
-      </header>
+      <PublicPageHeader />
 
       <section className="bg-white">
-        <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
+        <div className="ui-container py-10 sm:py-14">
           <div className="max-w-3xl">
             <p className="text-sm font-semibold uppercase tracking-wide text-[#667892]">Hỏi đáp</p>
             <h1 className="mt-2 text-4xl font-semibold">Câu hỏi thường gặp</h1>
@@ -64,7 +54,7 @@ export function FAQsClient({ initialFAQs, initialCategory = "" }: { initialFAQs:
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
                 placeholder="Tìm theo câu hỏi hoặc nội dung trả lời"
-                className="w-full rounded-md border border-[#cfd8e6] bg-white py-3 pl-10 pr-3 text-sm outline-none focus:border-[#0d4f8b]"
+                className="ui-field w-full py-3 pl-10 pr-3 text-sm"
               />
             </label>
             <div className="flex flex-wrap gap-2">
@@ -87,7 +77,7 @@ export function FAQsClient({ initialFAQs, initialCategory = "" }: { initialFAQs:
         </div>
       </section>
 
-      <section className="mx-auto grid max-w-7xl gap-6 px-4 py-8 sm:px-6 lg:grid-cols-[minmax(0,1fr)_320px] lg:px-8">
+      <section className="ui-container grid gap-6 py-10 sm:py-12 lg:grid-cols-[minmax(0,1fr)_320px]">
         <div>
           {error ? <div className="mb-4 rounded-md border border-[#f2b8b5] bg-[#fff3f2] px-4 py-3 text-sm text-[#b3261e]">{error}</div> : null}
           <p className="mb-4 text-sm text-[#667892]">{loading ? "Đang tải câu hỏi..." : `${visibleFAQs.length} câu hỏi đang hiển thị`}</p>
@@ -100,7 +90,7 @@ export function FAQsClient({ initialFAQs, initialCategory = "" }: { initialFAQs:
                 <span className="skeleton-shimmer mt-2 block h-4 w-5/6 rounded-md" />
               </div>
             )) : visibleFAQs.length ? visibleFAQs.map((item) => (
-              <details key={item.id} className="rounded-md border border-[#dce3ee] bg-white p-4 transition hover:border-[#0d4f8b]">
+              <details key={item.id} className="rounded-xl border border-[#dce3ee] bg-white p-5 shadow-sm transition hover:border-[#0d4f8b]">
                 <summary className="cursor-pointer font-semibold">{item.question}</summary>
                 <p className="mt-3 text-sm leading-7 text-[#667892]">{item.answer}</p>
                 {item.category ? <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-[#94a3b8]">{item.category}</p> : null}

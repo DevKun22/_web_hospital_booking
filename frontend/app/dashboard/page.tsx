@@ -773,7 +773,7 @@ function DashboardPage() {
                   <div className="flex min-w-0 items-center gap-3">
                     {item.doctor.user.avatar ? (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img src={item.doctor.user.avatar} alt={item.doctor.user.fullName} className="h-10 w-10 rounded-md object-cover" />
+                      <img src={item.doctor.user.avatar} alt={item.doctor.user.fullName} loading="lazy" decoding="async" className="h-10 w-10 rounded-md object-cover" />
                     ) : <div className="flex h-10 w-10 items-center justify-center rounded-md bg-[#e7f0fb] text-sm font-semibold text-[#0d4f8b]">{item.doctor.user.fullName.slice(0, 1).toUpperCase()}</div>}
                     <div className="min-w-0">
                       <p className="truncate font-semibold">{item.doctor.title ? `${item.doctor.title} ` : ""}{item.doctor.user.fullName}</p>
