@@ -225,25 +225,37 @@ function PublicHeader({
     "Quên mã lịch",
   ];
 
+  const scrollToSection = useCallback((href: string) => {
+    const target = document.querySelector<HTMLElement>(href);
+    if (!target) return;
+
+    const headerOffset = 88;
+    const targetTop = target.getBoundingClientRect().top + window.scrollY - headerOffset;
+    window.scrollTo({ top: Math.max(targetTop, 0), behavior: "smooth" });
+    window.history.replaceState(null, "", href);
+  }, []);
+
   const handleNavigation = (
     event: React.MouseEvent<HTMLAnchorElement>,
     href: string,
   ) => {
     if (href === "#consultation") {
       event.preventDefault();
-      openPublicConsultation();
       setMobileOpen(false);
+      window.setTimeout(() => openPublicConsultation(), mobileOpen ? 140 : 0);
       return;
     }
 
     if (!href.startsWith("#")) return;
-    const target = document.querySelector(href);
-    if (!target) return;
     event.preventDefault();
     closePublicConsultation();
-    target.scrollIntoView({ behavior: "smooth", block: "start" });
-    window.history.replaceState(null, "", href);
     setMobileOpen(false);
+
+    // On mobile, wait until the fixed menu is removed and body scrolling is restored.
+    window.setTimeout(
+      () => window.requestAnimationFrame(() => scrollToSection(href)),
+      mobileOpen ? 140 : 0,
+    );
   };
 
   return (

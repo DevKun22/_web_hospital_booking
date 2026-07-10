@@ -207,6 +207,9 @@ export default function LoginPage() {
                   ref={phoneInputRef}
                   value={phone}
                   onChange={(event) => setPhone(event.target.value)}
+                  type="tel"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
                   placeholder="0901234567"
                   autoComplete="username tel"
                   className="min-w-0 flex-1 bg-transparent px-3 py-3 text-sm"

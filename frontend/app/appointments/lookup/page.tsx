@@ -548,6 +548,9 @@ export default function AppointmentLookupPage() {
                   <input
                     value={phone}
                     onChange={(event) => setPhone(event.target.value)}
+                    type="tel"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
                     placeholder="0901234567"
                     className="ui-field mt-1 w-full px-3 py-3 text-sm"
                   />
@@ -620,6 +623,9 @@ export default function AppointmentLookupPage() {
                   <input
                     value={forgotPhone}
                     onChange={(event) => setForgotPhone(event.target.value)}
+                    type="tel"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
                     placeholder="0901234567"
                     className="ui-field mt-1 w-full px-3 py-3 text-sm"
                   />
