@@ -24,6 +24,7 @@ export function VietnamDateInput({
   return (
     <input
       type="date"
+      lang="vi-VN"
       value={value}
       min={min}
       max={max}

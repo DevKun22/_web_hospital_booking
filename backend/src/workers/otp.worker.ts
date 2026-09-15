@@ -56,8 +56,20 @@ worker.on("ready", () => {
   console.log(`OTP worker is listening on queue "${OTP_DELIVERY_QUEUE_NAME}"`);
 });
 
+worker.on("active", (job) => {
+  console.log(`[OTP] Job ${job.id} is being processed`);
+});
+
+worker.on("completed", (job) => {
+  console.log(`[OTP] Job ${job.id} completed successfully`);
+});
+
 worker.on("failed", (job, error) => {
-  console.error(`OTP job ${job?.id || "unknown"} failed:`, error);
+  console.error(`[OTP] Job ${job?.id || "unknown"} failed:`, error);
+});
+
+worker.on("error", (error) => {
+  console.error("[OTP Worker] error:", error);
 });
 
 const shutdown = async (signal: string) => {

@@ -2,7 +2,7 @@ import { prisma } from "../config/prisma.js";
 import { hashPassword } from "../utils/password.js";
 import { buildTimeSlots } from "../utils/time.js";
 
-const PASSWORD = "123456";
+const PASSWORD = "@DevKun2212";
 const SLOT_DAYS = 14;
 
 const resetRequested = process.env.RESET_DATABASE === "true";
@@ -610,11 +610,11 @@ async function seedDemoData() {
   await resetDatabase();
 
   const [admin, staff, ...doctorUsers] = await Promise.all([
-    upsertUser({ fullName: "Admin Demo", phone: "0352147200", email: "admin.demo@hospital.test", role: "ADMIN", password: PASSWORD }),
+    upsertUser({ fullName: "Admin DevKun", phone: "0352412318", email: "devkun22@gmail.com", role: "ADMIN", password: PASSWORD }),
     upsertUser({ fullName: "Staff Demo", phone: "0352147201", email: "staff.demo@hospital.test", role: "STAFF", password: PASSWORD }),
     upsertUser({ fullName: "ThS.BS Nguyễn Văn Bắc Sĩ", phone: "0352147202", email: "doctor.cardio@hospital.test", role: "DOCTOR", password: PASSWORD }),
     upsertUser({ fullName: "BS.CK1 Trần Thị Bác Sĩ", phone: "0352147203", email: "doctor.general@hospital.test", role: "DOCTOR", password: PASSWORD }),
-    upsertUser({ fullName: "BS.CK1 Lê Minh Khoa", phone: "0352147204", email: "doctor.pediatric@hospital.test", role: "DOCTOR", password: PASSWORD }),
+    upsertUser({ fullName: "BS.CK1 Lê Minh Khoa", phone: "0352412319", email: "doctor.khoa@hospital.test", role: "DOCTOR", password: PASSWORD }),
     upsertUser({ fullName: "ThS.BS Phạm An Nhiên", phone: "0352147205", email: "doctor.obgyn@hospital.test", role: "DOCTOR", password: PASSWORD }),
     upsertUser({ fullName: "BS.CK2 Đỗ Quang Huy", phone: "0352147206", email: "doctor.derma@hospital.test", role: "DOCTOR", password: PASSWORD }),
     upsertUser({ fullName: "ThS.BS Võ Thanh Tâm", phone: "0352147207", email: "doctor.ent@hospital.test", role: "DOCTOR", password: PASSWORD }),

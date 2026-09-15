@@ -13,6 +13,9 @@ export const metadata: Metadata = {
   alternates: {
     canonical: "/",
   },
+  verification: {
+    google: "j_aO8IuKTc90WaB5XcpNQsVXAPIsEHC34mUgaeRoMAA"
+  }
 };
 
 async function getHomeData(): Promise<{ data: PublicHomeData; error: string }> {
@@ -65,10 +68,10 @@ function buildMedicalOrganizationJsonLd(data: PublicHomeData) {
     email: settings?.email || undefined,
     address: settings?.address
       ? {
-          "@type": "PostalAddress",
-          streetAddress: settings.address,
-          addressCountry: "VN",
-        }
+        "@type": "PostalAddress",
+        streetAddress: settings.address,
+        addressCountry: "VN",
+      }
       : undefined,
     sameAs: socialLinks.length ? socialLinks : undefined,
     medicalSpecialty: data.departments.slice(0, 12).map((item) => item.name),

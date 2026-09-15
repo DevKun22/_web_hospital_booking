@@ -10,17 +10,24 @@
     "dev": "tsx watch src/index.ts",
     "start": "node dist/src/index.js",
     "build": "prisma generate && tsc",
+
     "worker:otp": "node dist/src/workers/otp.worker.js",
     "worker:otp:dev": "tsx src/workers/otp.worker.ts",
+
     "test-db": "tsx src/test.ts",
+    
     "seed:demo": "tsx src/scripts/seedDemoFlow.ts",
     "seed:demo-full": "tsx src/scripts/seedDemoData.ts",
     "seed:chatbot-faq": "tsx src/scripts/seedChatbotFAQ.ts",
+
     "search:reindex": "tsx src/scripts/reindexSearch.ts",
     "search:check-url-rules": "tsx src/scripts/checkSearchUrlRules.ts",
+
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev --name init",
     "prisma:migrate:deploy": "prisma migrate deploy",
+    "prisma:reset": "prisma migrate reset",
+    
     "render:build": "npm run prisma:migrate:deploy && npm run build"
   },
   "keywords": [],
