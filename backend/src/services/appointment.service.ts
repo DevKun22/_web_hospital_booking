@@ -1,5 +1,6 @@
 import { Prisma } from "../../generated/prisma/client.js";
 import type {
+  AppointmentLogAction,
   AppointmentStatus,
   Gender,
   OtpChannel,
@@ -7,7 +8,13 @@ import type {
   Role,
 } from "../../generated/prisma/enums.js";
 import { prisma } from "../config/prisma.js";
+import {
+  getAppointmentReconciliationBatchSize,
+  getBookingHoldMinutes,
+} from "../config/environment.js";
+import { enqueuePendingOtpExpiry } from "../queues/appointmentLifecycle.queue.js";
 import AuthOtpService from "./authOtp.service.js";
+import { signLookupGrant } from "../utils/lookupGrant.js";
 import { AppError } from "../utils/appError.js";
 import { generateBookingCode } from "../utils/bookingCode.js";
 import {
@@ -67,8 +74,6 @@ type PublicCancelAppointmentInput = {
   ipAddress: string;
 };
 
-const DEFAULT_PENDING_OTP_EXPIRE_MINUTES = 15;
-
 const getOtpLogNote = (label: string, status: OtpDeliveryStatus) => {
   if (status === "FAILED")
     return `${label} đã được tạo nhưng chưa đưa được vào hàng đợi gửi mã`;
@@ -103,6 +108,7 @@ const resolveLookupOtpTarget = async (phone: string, bookingCode?: string) => {
       ...(bookingCode ? { bookingCode } : {}),
     },
     select: {
+      patientId: true,
       patientPhone: true,
       patientEmail: true,
       otpChannel: true,
@@ -121,11 +127,23 @@ const resolveLookupOtpTarget = async (phone: string, bookingCode?: string) => {
     throw new AppError("Không tìm thấy lịch hẹn với số điện thoại này", 404);
   }
 
-  return resolveAppointmentOtpTarget(appointment);
+  return {
+    ...resolveAppointmentOtpTarget(appointment),
+    patientId: appointment.patientId,
+  };
 };
 const PUBLIC_CANCEL_ALLOWED_STATUSES: AppointmentStatus[] = [
   "PENDING_CONFIRM",
   "CONFIRMED",
+];
+const DASHBOARD_CANCEL_ALLOWED_STATUSES: AppointmentStatus[] = [
+  "PENDING_OTP",
+  "PENDING_CONFIRM",
+  "CONFIRMED",
+  "CHECKED_IN",
+  "IN_PROGRESS",
+  "RESCHEDULED",
+  "NO_SHOW",
 ];
 
 const appointmentSelect = {
@@ -135,6 +153,7 @@ const appointmentSelect = {
   startTime: true,
   endTime: true,
   status: true,
+  holdExpiresAt: true,
   reason: true,
   patientName: true,
   patientPhone: true,
@@ -543,6 +562,9 @@ class AppointmentService {
     const patientDateOfBirth = parseOptionalDate(input.dateOfBirth);
     const normalizedPatientEmail = normalizeOptionalString(input.patientEmail);
     const otpChannel = input.otpChannel || "SMS";
+    const holdExpiresAt = new Date(
+      Date.now() + getBookingHoldMinutes() * 60 * 1000,
+    );
 
     if (isSlotStartInPastVietnamTime(timeSlot.date, timeSlot.startTime)) {
       throw new AppError("Khung giờ khám đã qua", 400);
@@ -563,22 +585,11 @@ class AppointmentService {
     }
     const existingUser = await prisma.user.findUnique({
       where: { phone: input.patientPhone },
-      select: { role: true },
+      select: { id: true, role: true },
     });
 
     if (existingUser && existingUser.role !== "PATIENT") {
       throw new AppError("Số điện thoại đã thuộc tài khoản nội bộ", 409);
-    }
-
-    const emailOwner = normalizedPatientEmail
-      ? await prisma.user.findUnique({
-          where: { email: normalizedPatientEmail },
-          select: { phone: true },
-        })
-      : null;
-
-    if (emailOwner && emailOwner.phone !== input.patientPhone) {
-      throw new AppError("Email đã được sử dụng cho tài khoản khác", 409);
     }
 
     let appointmentId = "";
@@ -603,14 +614,10 @@ class AppointmentService {
 
         const patient = await tx.user.upsert({
           where: { phone: input.patientPhone },
-          update: {
-            fullName: input.patientName,
-            email: normalizedPatientEmail,
-          },
+          update: {},
           create: {
             fullName: input.patientName,
             phone: input.patientPhone,
-            email: normalizedPatientEmail,
             role: "PATIENT",
             isPhoneVerified: false,
           },
@@ -631,6 +638,7 @@ class AppointmentService {
             startTime: timeSlot.startTime,
             endTime: timeSlot.endTime,
             status: "PENDING_OTP",
+            holdExpiresAt,
             reason: normalizeOptionalString(input.reason),
             patientName: input.patientName,
             patientPhone: input.patientPhone,
@@ -678,6 +686,21 @@ class AppointmentService {
       appointmentId = appointment.id;
       bookingCode = appointment.bookingCode;
 
+      try {
+        const scheduled = await enqueuePendingOtpExpiry(
+          appointmentId,
+          holdExpiresAt,
+        );
+        console.log(
+          `[APPOINTMENT_EXPIRY] appointment=${appointmentId} scheduled=${scheduled}`,
+        );
+      } catch (error) {
+        console.error(
+          `[APPOINTMENT_EXPIRY] appointment=${appointmentId} scheduling failed:`,
+          error,
+        );
+      }
+
       const otp = await AuthOtpService.sendOtp(
         otpChannel === "EMAIL"
           ? normalizedPatientEmail || ""
@@ -699,6 +722,7 @@ class AppointmentService {
         appointmentId,
         bookingCode,
         patientPhone: input.patientPhone,
+        holdExpiresAt,
         otpDeliveryStatus: otp.deliveryStatus,
         debugOtp: otp.debugOtp,
         expiresIn: otp.expiresIn,
@@ -721,6 +745,8 @@ class AppointmentService {
         patientEmail: true,
         otpChannel: true,
         status: true,
+        holdExpiresAt: true,
+        createdAt: true,
       },
     });
 
@@ -730,6 +756,15 @@ class AppointmentService {
 
     if (appointment.status !== "PENDING_OTP") {
       throw new AppError("Lịch hẹn không ở trạng thái chờ OTP", 400);
+    }
+
+    if (this.isPendingOtpHoldExpired(appointment)) {
+      await this.expirePendingOtpAppointment(appointment.id);
+      throw new AppError(
+        "Thời gian giữ lịch đã hết, vui lòng chọn lại khung giờ",
+        410,
+        "BOOKING_HOLD_EXPIRED",
+      );
     }
 
     const otpTarget = resolveAppointmentOtpTarget(appointment);
@@ -757,6 +792,7 @@ class AppointmentService {
       otpDeliveryStatus: otp.deliveryStatus,
       debugOtp: otp.debugOtp,
       expiresIn: otp.expiresIn,
+      holdExpiresAt: appointment.holdExpiresAt,
     };
   }
 
@@ -781,6 +817,8 @@ class AppointmentService {
         medicalHistory: true,
         familyHistory: true,
         status: true,
+        holdExpiresAt: true,
+        createdAt: true,
       },
     });
 
@@ -790,6 +828,15 @@ class AppointmentService {
 
     if (appointment.status !== "PENDING_OTP") {
       throw new AppError("Lịch hẹn không ở trạng thái chờ OTP", 400);
+    }
+
+    if (this.isPendingOtpHoldExpired(appointment)) {
+      await this.expirePendingOtpAppointment(appointment.id);
+      throw new AppError(
+        "Thời gian giữ lịch đã hết, vui lòng chọn lại khung giờ",
+        410,
+        "BOOKING_HOLD_EXPIRED",
+      );
     }
 
     await AuthOtpService.verifyOtp(
@@ -802,6 +849,13 @@ class AppointmentService {
     );
 
     const updatedAppointment = await prisma.$transaction(async (tx) => {
+      await this.claimAppointmentTransition(tx, {
+        id: appointment.id,
+        expectedStatuses: ["PENDING_OTP"],
+        nextStatus: "PENDING_CONFIRM",
+        data: { holdExpiresAt: null },
+      });
+
       const emailOwner = appointment.patientEmail
         ? await tx.user.findUnique({
             where: { email: appointment.patientEmail },
@@ -865,17 +919,16 @@ class AppointmentService {
         },
       });
 
-      return tx.appointment.update({
-        where: { id: appointment.id },
+      await tx.appointmentLog.create({
         data: {
-          status: "PENDING_CONFIRM",
-          logs: {
-            create: {
-              action: "OTP_VERIFIED",
-              note: "Bệnh nhân đã xác thực OTP đặt lịch",
-            },
-          },
+          appointmentId: appointment.id,
+          action: "OTP_VERIFIED",
+          note: "Bệnh nhân đã xác thực OTP đặt lịch",
         },
+      });
+
+      return tx.appointment.findUniqueOrThrow({
+        where: { id: appointment.id },
         select: appointmentSelect,
       });
     });
@@ -930,22 +983,17 @@ class AppointmentService {
     return appointment;
   }
 
-  async getPublicResult(input: { bookingCode?: string; phone?: string }) {
+  async getPublicResult(input: { bookingCode?: string; patientId: string }) {
     const bookingCode = input.bookingCode?.trim().toUpperCase();
-    const phone = input.phone?.trim();
 
     if (!bookingCode) {
       throw new AppError("Thiếu mã lịch hẹn", 400);
     }
 
-    if (!phone) {
-      throw new AppError("Thiếu số điện thoại", 400);
-    }
-
     const appointment = await prisma.appointment.findFirst({
       where: {
         bookingCode,
-        patientPhone: phone,
+        patientId: input.patientId,
       },
       select: publicAppointmentResultSelect,
     });
@@ -1032,7 +1080,7 @@ class AppointmentService {
 
     const appointments = await prisma.appointment.findMany({
       where: {
-        patientPhone: phone,
+        patientId: otpTarget.patientId,
         ...(bookingCode ? { bookingCode } : {}),
       },
       select: publicAppointmentSummarySelect,
@@ -1043,6 +1091,7 @@ class AppointmentService {
     return {
       phone,
       items: appointments,
+      grant: signLookupGrant({ patientId: otpTarget.patientId }),
     };
   }
 
@@ -1096,33 +1145,35 @@ class AppointmentService {
     );
 
     return prisma.$transaction(async (tx) => {
-      if (appointment.timeSlotId) {
-        await tx.doctorTimeSlot.update({
-          where: { id: appointment.timeSlotId },
-          data: {
-            status: "AVAILABLE",
-            isActive: true,
-            lockReason: null,
-          },
-        });
-      }
-
-      return tx.appointment.update({
-        where: { id: appointment.id },
+      await this.claimAppointmentTransition(tx, {
+        id: appointment.id,
+        expectedStatuses: PUBLIC_CANCEL_ALLOWED_STATUSES,
+        nextStatus: "CANCELLED_BY_PATIENT",
         data: {
-          status: "CANCELLED_BY_PATIENT",
           cancelledAt: new Date(),
           cancelledByRole: "PATIENT",
           cancelledById: appointment.patientId,
           cancelledReason: input.reason?.trim(),
-          logs: {
-            create: {
-              action: "CANCELLED_BY_PATIENT",
-              createdById: appointment.patientId,
-              note: input.reason?.trim(),
-            },
-          },
         },
+      });
+
+      await this.releaseAppointmentSlot(
+        tx,
+        appointment.id,
+        appointment.timeSlotId,
+      );
+
+      await tx.appointmentLog.create({
+        data: {
+          appointmentId: appointment.id,
+          action: "CANCELLED_BY_PATIENT",
+          createdById: appointment.patientId,
+          note: input.reason?.trim(),
+        },
+      });
+
+      return tx.appointment.findUniqueOrThrow({
+        where: { id: appointment.id },
         select: appointmentSelect,
       });
     });
@@ -1358,26 +1409,21 @@ class AppointmentService {
   }
 
   async confirm(id: string, actor: Actor) {
-    const appointment = await this.getAppointmentStatus(id, actor);
-
-    if (appointment.status !== "PENDING_CONFIRM") {
-      throw new AppError("Chỉ có thể xác nhận lịch đang chờ xác nhận", 400);
-    }
-
-    return prisma.appointment.update({
-      where: { id },
-      data: {
-        status: "CONFIRMED",
-        confirmedAt: new Date(),
-        logs: {
-          create: {
-            action: "CONFIRMED",
-            createdById: actor.userId,
-            note: "Lịch hẹn đã được xác nhận",
-          },
-        },
-      },
-      select: appointmentSelect,
+    return prisma.$transaction(async (tx) => {
+      await this.claimAppointmentTransition(tx, {
+        id,
+        actor,
+        expectedStatuses: ["PENDING_CONFIRM"],
+        nextStatus: "CONFIRMED",
+        data: { confirmedAt: new Date() },
+      });
+      await this.createTransitionLog(tx, {
+        appointmentId: id,
+        action: "CONFIRMED",
+        actor,
+        note: "Lịch hẹn đã được xác nhận",
+      });
+      return this.getTransitionResult(tx, id);
     });
   }
 
@@ -1406,254 +1452,292 @@ class AppointmentService {
   }
 
   async cancel(id: string, reason: string, actor: Actor) {
-    const appointment = await this.getAppointmentStatus(id, actor);
-
-    if (
-      [
-        "COMPLETED",
-        "CANCELLED_BY_ADMIN",
-        "CANCELLED_BY_DOCTOR",
-        "CANCELLED_BY_PATIENT",
-      ].includes(appointment.status)
-    ) {
-      throw new AppError("Không thể hủy lịch hẹn này", 400);
-    }
-
     const cancelStatus =
       actor.role === "DOCTOR" ? "CANCELLED_BY_DOCTOR" : "CANCELLED_BY_ADMIN";
     const cancelAction =
       actor.role === "DOCTOR" ? "CANCELLED_BY_DOCTOR" : "CANCELLED_BY_ADMIN";
 
     return prisma.$transaction(async (tx) => {
-      if (appointment.timeSlotId) {
-        await tx.doctorTimeSlot.update({
-          where: { id: appointment.timeSlotId },
-          data: {
-            status: "AVAILABLE",
-            isActive: true,
-            lockReason: null,
-          },
-        });
-      }
-
-      return tx.appointment.update({
-        where: { id },
+      await this.claimAppointmentTransition(tx, {
+        id,
+        actor,
+        expectedStatuses: DASHBOARD_CANCEL_ALLOWED_STATUSES,
+        nextStatus: cancelStatus,
         data: {
-          status: cancelStatus,
           cancelledAt: new Date(),
           cancelledByRole: actor.role,
           cancelledById: actor.userId,
           cancelledReason: reason,
-          logs: {
-            create: {
-              action: cancelAction,
-              createdById: actor.userId,
-              note: reason,
-            },
-          },
         },
-        select: appointmentSelect,
       });
+
+      await this.releaseAppointmentSlot(tx, id);
+
+      await this.createTransitionLog(tx, {
+        appointmentId: id,
+        action: cancelAction,
+        actor,
+        note: reason,
+      });
+
+      return this.getTransitionResult(tx, id);
     });
   }
 
   async checkIn(id: string, actor: Actor) {
-    const appointment = await this.getAppointmentStatus(id, actor);
-
-    if (appointment.status !== "CONFIRMED") {
-      throw new AppError("Chỉ có thể check-in lịch đã xác nhận", 400);
-    }
-
-    return prisma.appointment.update({
-      where: { id },
-      data: {
-        status: "CHECKED_IN",
-        logs: {
-          create: {
-            action: "CHECKED_IN",
-            createdById: actor.userId,
-            note: "Benh nhan da check-in",
-          },
-        },
-      },
-      select: appointmentSelect,
+    return prisma.$transaction(async (tx) => {
+      await this.claimAppointmentTransition(tx, {
+        id,
+        actor,
+        expectedStatuses: ["CONFIRMED"],
+        nextStatus: "CHECKED_IN",
+      });
+      await this.createTransitionLog(tx, {
+        appointmentId: id,
+        action: "CHECKED_IN",
+        actor,
+        note: "Benh nhan da check-in",
+      });
+      return this.getTransitionResult(tx, id);
     });
   }
 
   async start(id: string, actor: Actor) {
-    const appointment = await this.getAppointmentStatus(id, actor);
-
-    if (appointment.status !== "CHECKED_IN") {
-      throw new AppError(
-        "Chỉ có thể bắt đầu khám sau khi bệnh nhân check-in",
-        400,
-      );
-    }
-
     return prisma.$transaction(async (tx) => {
-      await MedicalRecordService.ensureForAppointment(id, tx);
-
-      return tx.appointment.update({
-        where: { id },
-        data: {
-          status: "IN_PROGRESS",
-          logs: {
-            create: {
-              action: "IN_PROGRESS",
-              createdById: actor.userId,
-              note: "Bắt đầu khám và tạo hồ sơ khám",
-            },
-          },
-        },
-        select: appointmentSelect,
+      await this.claimAppointmentTransition(tx, {
+        id,
+        actor,
+        expectedStatuses: ["CHECKED_IN"],
+        nextStatus: "IN_PROGRESS",
       });
+      await MedicalRecordService.ensureForAppointment(id, tx);
+      await this.createTransitionLog(tx, {
+        appointmentId: id,
+        action: "IN_PROGRESS",
+        actor,
+        note: "Bắt đầu khám và tạo hồ sơ khám",
+      });
+      return this.getTransitionResult(tx, id);
     });
   }
 
   async complete(id: string, actor: Actor) {
-    const appointment = await this.getAppointmentStatus(id, actor);
-
-    if (appointment.status !== "IN_PROGRESS") {
-      throw new AppError("Chỉ có thể hoàn thành lịch đang khám", 400);
-    }
-
-    return prisma.appointment.update({
-      where: { id },
-      data: {
-        status: "COMPLETED",
-        completedAt: new Date(),
-        logs: {
-          create: {
-            action: "COMPLETED",
-            createdById: actor.userId,
-            note: "Hoàn thành khám",
-          },
-        },
-      },
-      select: appointmentSelect,
+    return prisma.$transaction(async (tx) => {
+      await this.claimAppointmentTransition(tx, {
+        id,
+        actor,
+        expectedStatuses: ["IN_PROGRESS"],
+        nextStatus: "COMPLETED",
+        data: { completedAt: new Date() },
+      });
+      await this.createTransitionLog(tx, {
+        appointmentId: id,
+        action: "COMPLETED",
+        actor,
+        note: "Hoàn thành khám",
+      });
+      return this.getTransitionResult(tx, id);
     });
   }
 
   async markNoShow(id: string, actor: Actor) {
-    const appointment = await this.getAppointmentStatus(id, actor);
-
-    if (!["CONFIRMED", "CHECKED_IN"].includes(appointment.status)) {
-      throw new AppError(
-        "Chỉ có thể đánh dấu no-show cho lịch đã xác nhận hoặc đã check-in",
-        400,
-      );
-    }
-
     return prisma.$transaction(async (tx) => {
-      if (appointment.timeSlotId) {
-        await tx.doctorTimeSlot.update({
-          where: { id: appointment.timeSlotId },
-          data: {
-            status: "AVAILABLE",
-            isActive: true,
-            lockReason: null,
-          },
-        });
-      }
-
-      return tx.appointment.update({
-        where: { id },
-        data: {
-          status: "NO_SHOW",
-          logs: {
-            create: {
-              action: "NO_SHOW",
-              createdById: actor.userId,
-              note: "Bệnh nhân không đến",
-            },
-          },
-        },
-        select: appointmentSelect,
+      await this.claimAppointmentTransition(tx, {
+        id,
+        actor,
+        expectedStatuses: ["CONFIRMED", "CHECKED_IN"],
+        nextStatus: "NO_SHOW",
       });
+
+      await this.releaseAppointmentSlot(tx, id);
+
+      await this.createTransitionLog(tx, {
+        appointmentId: id,
+        action: "NO_SHOW",
+        actor,
+        note: "Bệnh nhân không đến",
+      });
+      return this.getTransitionResult(tx, id);
     });
   }
 
   async cleanupExpiredPendingOtp(
     actor: Actor,
-    expireMinutes = DEFAULT_PENDING_OTP_EXPIRE_MINUTES,
+    expireMinutes = getBookingHoldMinutes(),
   ) {
-    const safeExpireMinutes = Math.max(expireMinutes, 1);
-    const expiredBefore = new Date(Date.now() - safeExpireMinutes * 60 * 1000);
+    const result = await this.reconcileExpiredPendingOtp({
+      actor,
+      fallbackExpireMinutes: expireMinutes,
+    });
 
-    const expiredAppointments = await prisma.appointment.findMany({
+    return { expiredBefore: result.expiredBefore, count: result.expired };
+  }
+
+  async expirePendingOtpAppointment(
+    appointmentId: string,
+    options: {
+      actor?: Actor;
+      now?: Date;
+      fallbackExpireMinutes?: number;
+    } = {},
+  ) {
+    const now = options.now || new Date();
+    const fallbackExpireMinutes = Math.max(
+      options.fallbackExpireMinutes || getBookingHoldMinutes(),
+      1,
+    );
+    const expiredBefore = new Date(
+      now.getTime() - fallbackExpireMinutes * 60 * 1000,
+    );
+
+    return prisma.$transaction(async (tx) => {
+      const appointment = await tx.appointment.findUnique({
+        where: { id: appointmentId },
+        select: { timeSlotId: true },
+      });
+
+      if (!appointment) return { outcome: "NOT_FOUND" as const };
+
+      const claimed = await tx.appointment.updateMany({
+        where: {
+          id: appointmentId,
+          status: "PENDING_OTP",
+          OR: [
+            { holdExpiresAt: { lte: now } },
+            { holdExpiresAt: null, createdAt: { lte: expiredBefore } },
+          ],
+        },
+        data: {
+          status: "CANCELLED_BY_ADMIN",
+          cancelledAt: now,
+          cancelledByRole: options.actor?.role,
+          cancelledById: options.actor?.userId,
+          cancelledReason: "Quá hạn xác thực OTP",
+        },
+      });
+
+      if (claimed.count !== 1) return { outcome: "NOOP" as const };
+
+      await this.releaseAppointmentSlot(
+        tx,
+        appointmentId,
+        appointment.timeSlotId,
+      );
+
+      await this.createTransitionLog(tx, {
+        appointmentId,
+        action: "CANCELLED_BY_ADMIN",
+        actor: options.actor,
+        note: `Tự động hủy do quá hạn xác thực OTP (${fallbackExpireMinutes} phút)`,
+      });
+
+      return { outcome: "EXPIRED" as const };
+    });
+  }
+
+  async reconcileExpiredPendingOtp(
+    options: {
+      actor?: Actor;
+      now?: Date;
+      fallbackExpireMinutes?: number;
+      batchSize?: number;
+    } = {},
+  ) {
+    const now = options.now || new Date();
+    const fallbackExpireMinutes = Math.max(
+      options.fallbackExpireMinutes || getBookingHoldMinutes(),
+      1,
+    );
+    const expiredBefore = new Date(
+      now.getTime() - fallbackExpireMinutes * 60 * 1000,
+    );
+    const candidates = await prisma.appointment.findMany({
       where: {
         status: "PENDING_OTP",
-        createdAt: {
-          lt: expiredBefore,
-        },
+        OR: [
+          { holdExpiresAt: { lte: now } },
+          { holdExpiresAt: null, createdAt: { lte: expiredBefore } },
+        ],
       },
-      select: {
-        id: true,
-        timeSlotId: true,
-      },
+      select: { id: true },
+      orderBy: { createdAt: "asc" },
+      take: Math.max(
+        options.batchSize || getAppointmentReconciliationBatchSize(),
+        1,
+      ),
     });
 
-    if (!expiredAppointments.length) {
-      return {
-        expiredBefore,
-        count: 0,
-      };
+    let expired = 0;
+    let noop = 0;
+    for (const candidate of candidates) {
+      const result = await this.expirePendingOtpAppointment(candidate.id, {
+        actor: options.actor,
+        now,
+        fallbackExpireMinutes,
+      });
+      if (result.outcome === "EXPIRED") expired += 1;
+      else noop += 1;
     }
-
-    await prisma.$transaction(async (tx) => {
-      for (const appointment of expiredAppointments) {
-        if (appointment.timeSlotId) {
-          await tx.doctorTimeSlot.update({
-            where: { id: appointment.timeSlotId },
-            data: {
-              status: "AVAILABLE",
-              isActive: true,
-              lockReason: null,
-            },
-          });
-        }
-
-        await tx.appointment.update({
-          where: { id: appointment.id },
-          data: {
-            status: "CANCELLED_BY_ADMIN",
-            cancelledAt: new Date(),
-            cancelledByRole: actor.role,
-            cancelledById: actor.userId,
-            cancelledReason: "Qua han xac thuc OTP",
-            logs: {
-              create: {
-                action: "CANCELLED_BY_ADMIN",
-                createdById: actor.userId,
-                note: `Tự động hủy do quá ${safeExpireMinutes} phút chưa xác thực OTP`,
-              },
-            },
-          },
-        });
-      }
-    });
 
     return {
       expiredBefore,
-      count: expiredAppointments.length,
+      scanned: candidates.length,
+      expired,
+      noop,
     };
   }
 
   private async releasePendingAppointment(appointmentId: string) {
-    const appointment = await prisma.appointment.findUnique({
-      where: { id: appointmentId },
-      select: { timeSlotId: true },
-    });
-
-    if (appointment?.timeSlotId) {
-      await prisma.doctorTimeSlot.update({
-        where: { id: appointment.timeSlotId },
-        data: { status: "AVAILABLE" },
+    await prisma.$transaction(async (tx) => {
+      const appointment = await tx.appointment.findUnique({
+        where: { id: appointmentId },
+        select: { timeSlotId: true },
       });
+
+      if (!appointment) return;
+
+      await tx.appointment.delete({ where: { id: appointmentId } });
+      if (appointment.timeSlotId) {
+        await tx.doctorTimeSlot.update({
+          where: { id: appointment.timeSlotId },
+          data: { status: "AVAILABLE", isActive: true, lockReason: null },
+        });
+      }
+    });
+  }
+
+  private async releaseAppointmentSlot(
+    tx: Prisma.TransactionClient,
+    appointmentId: string,
+    knownTimeSlotId?: string | null,
+  ) {
+    const timeSlotId =
+      knownTimeSlotId === undefined
+        ? (
+            await tx.appointment.findUniqueOrThrow({
+              where: { id: appointmentId },
+              select: { timeSlotId: true },
+            })
+          ).timeSlotId
+        : knownTimeSlotId;
+
+    if (!timeSlotId) return;
+
+    const detached = await tx.appointment.updateMany({
+      where: { id: appointmentId, timeSlotId },
+      data: { timeSlotId: null },
+    });
+    if (detached.count !== 1) {
+      throw new AppError(
+        "Liên kết khung giờ đã thay đổi",
+        409,
+        "APPOINTMENT_SLOT_CONFLICT",
+      );
     }
 
-    await prisma.appointment.delete({
-      where: { id: appointmentId },
+    await tx.doctorTimeSlot.update({
+      where: { id: timeSlotId },
+      data: { status: "AVAILABLE", isActive: true, lockReason: null },
     });
   }
 
@@ -1707,21 +1791,61 @@ class AppointmentService {
     return appointment;
   }
 
-  private async getAppointmentStatus(id: string, actor: Actor) {
+  private getActorScopedAppointmentWhere(id: string, actor?: Actor) {
     const where: Prisma.AppointmentWhereInput = { id };
 
-    if (actor.role === "DOCTOR") {
+    if (actor?.role === "DOCTOR") {
       where.doctor = {
         userId: actor.userId,
       };
     }
 
-    const appointment = await prisma.appointment.findFirst({
+    return where;
+  }
+
+  private isPendingOtpHoldExpired(appointment: {
+    holdExpiresAt: Date | null;
+    createdAt: Date;
+  }) {
+    const deadline =
+      appointment.holdExpiresAt ||
+      new Date(
+        appointment.createdAt.getTime() + getBookingHoldMinutes() * 60 * 1000,
+      );
+    return deadline.getTime() <= Date.now();
+  }
+
+  private async claimAppointmentTransition(
+    tx: Prisma.TransactionClient,
+    input: {
+      id: string;
+      actor?: Actor;
+      expectedStatuses: AppointmentStatus[];
+      nextStatus: AppointmentStatus;
+      data?: Prisma.AppointmentUpdateManyMutationInput;
+    },
+  ) {
+    const where = this.getActorScopedAppointmentWhere(input.id, input.actor);
+    const claimed = await tx.appointment.updateMany({
+      where: {
+        ...where,
+        status: { in: input.expectedStatuses },
+      },
+      data: {
+        ...(input.data || {}),
+        status: input.nextStatus,
+      },
+    });
+
+    if (claimed.count === 1) {
+      return;
+    }
+
+    const appointment = await tx.appointment.findFirst({
       where,
       select: {
         id: true,
         status: true,
-        timeSlotId: true,
       },
     });
 
@@ -1729,7 +1853,37 @@ class AppointmentService {
       throw new AppError("Không tìm thấy lịch hẹn", 404);
     }
 
-    return appointment;
+    throw new AppError(
+      "Trạng thái lịch hẹn đã thay đổi, vui lòng tải lại dữ liệu",
+      409,
+      "APPOINTMENT_STATE_CONFLICT",
+    );
+  }
+
+  private async createTransitionLog(
+    tx: Prisma.TransactionClient,
+    input: {
+      appointmentId: string;
+      action: AppointmentLogAction;
+      actor?: Actor;
+      note?: string;
+    },
+  ) {
+    await tx.appointmentLog.create({
+      data: {
+        appointmentId: input.appointmentId,
+        action: input.action,
+        createdById: input.actor?.userId,
+        note: input.note,
+      },
+    });
+  }
+
+  private getTransitionResult(tx: Prisma.TransactionClient, id: string) {
+    return tx.appointment.findUniqueOrThrow({
+      where: { id },
+      select: appointmentSelect,
+    });
   }
 
   private async generateUniqueBookingCode(tx: Prisma.TransactionClient) {

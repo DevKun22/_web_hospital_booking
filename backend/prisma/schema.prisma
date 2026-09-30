@@ -619,6 +619,7 @@ model Appointment {
   startTime       String
   endTime         String
   status          AppointmentStatus @default(PENDING_OTP)
+  holdExpiresAt   DateTime?
 
   reason String?
 
@@ -689,6 +690,7 @@ model Appointment {
   @@index([appointmentDate])
   @@index([patientPhone])
   @@index([status])
+  @@index([status, holdExpiresAt])
   @@index([rescheduledFromId])
 }
 
@@ -912,6 +914,8 @@ model PaymentTransaction {
   amount Int
 
   transactionCode String  @unique
+  activeKey       String? @unique
+  idempotencyKey  String? @unique
   providerOrderId String?
   paymentUrl      String?
 

@@ -6,7 +6,12 @@ import type {
 import { prisma } from "../config/prisma.js";
 import { AppError } from "../utils/appError.js";
 import { generatePaymentTransactionCode } from "../utils/paymentCode.js";
-import { getPaymentProviderAdapter } from "./paymentProviders/index.js";
+import {
+  assertMockPaymentEnabled,
+  assertPaymentProviderAvailable,
+  getPaymentProviderAdapter,
+  getPaymentProviderCapabilities,
+} from "./paymentProviders/index.js";
 
 const PAYMENT_EXPIRES_MINUTES = 15;
 
@@ -20,6 +25,8 @@ export const paymentTransactionSelect = {
   status: true,
   amount: true,
   transactionCode: true,
+  activeKey: true,
+  idempotencyKey: true,
   providerOrderId: true,
   paymentUrl: true,
   rawResponse: true,
@@ -67,99 +74,202 @@ class PaymentService {
   async createForInvoice(
     invoiceId: string,
     input: CreatePaymentTransactionInput,
+    patientId: string,
+    idempotencyKey?: string,
   ) {
-    const invoice = await prisma.invoice.findUnique({
-      where: { id: invoiceId },
-      select: {
-        id: true,
-        invoiceCode: true,
-        finalAmount: true,
-        status: true,
-        paymentTransactions: {
-          where: {
-            provider: input.provider,
-            status: "PENDING",
-            expiredAt: {
-              gt: new Date(),
-            },
-          },
-          orderBy: {
-            createdAt: "desc",
-          },
-          take: 1,
+    assertPaymentProviderAvailable(input.provider);
+    const activeKey = `${invoiceId}:${input.provider}`;
+    const now = new Date();
+    let reservation;
+    try {
+      reservation = await prisma.$transaction(async (tx) => {
+        const invoice = await tx.invoice.findFirst({
+          where: { id: invoiceId, patientId },
           select: {
             id: true,
+            invoiceCode: true,
+            finalAmount: true,
+            status: true,
           },
+        });
+
+        if (!invoice) {
+          throw new AppError("Không tìm thấy hóa đơn", 404);
+        }
+
+        if (invoice.status !== "UNPAID") {
+          throw new AppError(
+            "Chỉ có thể tạo thanh toán online cho hóa đơn chưa thanh toán",
+            400,
+          );
+        }
+
+        if (invoice.finalAmount <= 0) {
+          throw new AppError("Số tiền thanh toán không hợp lệ", 400);
+        }
+
+        await tx.paymentTransaction.updateMany({
+          where: {
+            activeKey,
+            status: "PENDING",
+            expiredAt: { lte: now },
+          },
+          data: { status: "EXPIRED", activeKey: null },
+        });
+
+        if (idempotencyKey) {
+          const existingAttempt = await tx.paymentTransaction.findUnique({
+            where: { idempotencyKey },
+            select: {
+              id: true,
+              invoiceId: true,
+              provider: true,
+              transactionCode: true,
+              expiredAt: true,
+              invoice: { select: { patientId: true } },
+            },
+          });
+
+          if (existingAttempt) {
+            if (
+              existingAttempt.invoiceId !== invoiceId ||
+              existingAttempt.provider !== input.provider ||
+              existingAttempt.invoice.patientId !== patientId
+            ) {
+              throw new AppError(
+                "Idempotency-Key đã được dùng cho yêu cầu khác",
+                409,
+                "PAYMENT_IDEMPOTENCY_CONFLICT",
+              );
+            }
+
+            return {
+              id: existingAttempt.id,
+              isCreator: false,
+              invoice,
+              transactionCode: existingAttempt.transactionCode,
+              expiredAt: existingAttempt.expiredAt,
+            };
+          }
+        }
+
+        const transactionCode = await this.generateUniqueTransactionCode(tx);
+        const expiredAt = new Date(
+          Date.now() + PAYMENT_EXPIRES_MINUTES * 60 * 1000,
+        );
+        const transaction = await tx.paymentTransaction.upsert({
+          where: { activeKey },
+          update: {},
+          create: {
+            invoiceId: invoice.id,
+            provider: input.provider,
+            amount: invoice.finalAmount,
+            transactionCode,
+            activeKey,
+            idempotencyKey,
+            expiredAt,
+          },
+          select: {
+            id: true,
+            transactionCode: true,
+          },
+        });
+
+        return {
+          id: transaction.id,
+          isCreator: transaction.transactionCode === transactionCode,
+          invoice,
+          transactionCode: transaction.transactionCode,
+          expiredAt,
+        };
+      });
+    } catch (error) {
+      if ((error as { code?: string }).code !== "P2002") throw error;
+
+      const racedReservation = await prisma.paymentTransaction.findFirst({
+        where: {
+          activeKey,
+          invoice: { patientId },
         },
-      },
-    });
+        select: { id: true },
+      });
+      if (racedReservation) {
+        return this.getById(racedReservation.id, patientId);
+      }
 
-    if (!invoice) {
-      throw new AppError("Không tìm thấy hóa đơn", 404);
+      if (idempotencyKey) {
+        const idempotencyOwner = await prisma.paymentTransaction.findUnique({
+          where: { idempotencyKey },
+          select: { invoiceId: true, provider: true },
+        });
+        if (idempotencyOwner) {
+          throw new AppError(
+            "Idempotency-Key đã được dùng cho yêu cầu khác",
+            409,
+            "PAYMENT_IDEMPOTENCY_CONFLICT",
+          );
+        }
+      }
+
+      throw error;
     }
 
-    if (invoice.status !== "UNPAID") {
-      throw new AppError(
-        "Chỉ có thể tạo thanh toán online cho hóa đơn chưa thanh toán",
-        400,
-      );
+    if (!reservation.isCreator) {
+      return this.getById(reservation.id, patientId);
     }
 
-    if (invoice.finalAmount <= 0) {
-      throw new AppError("Số tiền thanh toán không hợp lệ", 400);
-    }
-
-    const pendingTransaction = invoice.paymentTransactions[0];
-
-    if (pendingTransaction) {
-      return this.getById(pendingTransaction.id);
-    }
-
-    return prisma.$transaction(async (tx) => {
-      const transactionCode = await this.generateUniqueTransactionCode(tx);
-      const expiredAt = new Date(
-        Date.now() + PAYMENT_EXPIRES_MINUTES * 60 * 1000,
-      );
+    try {
       const adapter = getPaymentProviderAdapter(input.provider);
       const providerResult = await adapter.createPayment({
         provider: input.provider,
-        transactionCode,
-        invoiceId: invoice.id,
-        invoiceCode: invoice.invoiceCode,
-        amount: invoice.finalAmount,
-        orderInfo: `Thanh toán hóa đơn ${invoice.invoiceCode}`,
-        expiredAt,
+        transactionCode: reservation.transactionCode,
+        invoiceId: reservation.invoice.id,
+        invoiceCode: reservation.invoice.invoiceCode,
+        amount: reservation.invoice.finalAmount,
+        orderInfo: `Thanh toán hóa đơn ${reservation.invoice.invoiceCode}`,
+        expiredAt: reservation.expiredAt,
       });
 
-      const transaction = await tx.paymentTransaction.create({
+      await prisma.paymentTransaction.updateMany({
+        where: {
+          id: reservation.id,
+          status: "PENDING",
+          activeKey,
+        },
         data: {
-          invoiceId: invoice.id,
-          provider: input.provider,
-          amount: invoice.finalAmount,
-          transactionCode,
           providerOrderId: providerResult.providerOrderId,
           paymentUrl: providerResult.paymentUrl,
-          expiredAt,
           rawRequest: providerResult.rawRequest,
           rawResponse: providerResult.rawResponse,
         },
-        select: {
-          id: true,
+      });
+    } catch (error) {
+      await prisma.paymentTransaction.updateMany({
+        where: { id: reservation.id, status: "PENDING", activeKey },
+        data: {
+          status: "FAILED",
+          activeKey: null,
+          rawResponse: {
+            error:
+              error instanceof Error
+                ? error.message.slice(0, 500)
+                : "Provider request failed",
+          },
         },
       });
+      throw error;
+    }
 
-      return tx.paymentTransaction.findUniqueOrThrow({
-        where: {
-          id: transaction.id,
-        },
-        select: paymentTransactionSelect,
-      });
-    });
+    return this.getById(reservation.id, patientId);
   }
 
-  async getById(id: string) {
-    const transaction = await prisma.paymentTransaction.findUnique({
-      where: { id },
+  getCapabilities() {
+    return getPaymentProviderCapabilities();
+  }
+
+  async getById(id: string, patientId: string) {
+    const transaction = await prisma.paymentTransaction.findFirst({
+      where: { id, invoice: { patientId } },
       select: paymentTransactionSelect,
     });
 
@@ -170,9 +280,11 @@ class PaymentService {
     return transaction;
   }
 
-  async getByTransactionCode(transactionCode: string) {
-    const transaction = await prisma.paymentTransaction.findUnique({
-      where: { transactionCode },
+  async getByTransactionCode(transactionCode: string, patientId: string) {
+    assertMockPaymentEnabled();
+
+    const transaction = await prisma.paymentTransaction.findFirst({
+      where: { transactionCode, invoice: { patientId } },
       select: paymentTransactionSelect,
     });
 
@@ -183,9 +295,11 @@ class PaymentService {
     return transaction;
   }
 
-  async markMockSuccess(transactionCode: string) {
-    const transaction = await prisma.paymentTransaction.findUnique({
-      where: { transactionCode },
+  async markMockSuccess(transactionCode: string, patientId: string) {
+    assertMockPaymentEnabled();
+
+    const transaction = await prisma.paymentTransaction.findFirst({
+      where: { transactionCode, invoice: { patientId } },
       select: {
         id: true,
         invoiceId: true,
@@ -206,6 +320,10 @@ class PaymentService {
       throw new AppError("Không tìm thấy giao dịch thanh toán", 404);
     }
 
+    if (transaction.status === "SUCCESS") {
+      return this.getById(transaction.id, patientId);
+    }
+
     this.ensurePendingTransaction(transaction.status, transaction.expiredAt);
 
     if (transaction.invoice.status !== "UNPAID") {
@@ -219,12 +337,15 @@ class PaymentService {
     const paidAt = new Date();
 
     return prisma.$transaction(async (tx) => {
-      await tx.paymentTransaction.update({
+      const claimed = await tx.paymentTransaction.updateMany({
         where: {
           id: transaction.id,
+          status: "PENDING",
+          expiredAt: { gt: paidAt },
         },
         data: {
           status: "SUCCESS",
+          activeKey: null,
           paidAt,
           rawResponse: {
             mode: "MOCK",
@@ -234,9 +355,30 @@ class PaymentService {
         },
       });
 
-      await tx.invoice.update({
+      if (claimed.count !== 1) {
+        const current = await tx.paymentTransaction.findUniqueOrThrow({
+          where: { id: transaction.id },
+          select: { status: true },
+        });
+        if (current.status !== "SUCCESS") {
+          throw new AppError(
+            "Trạng thái giao dịch đã thay đổi",
+            409,
+            "PAYMENT_STATE_CONFLICT",
+          );
+        }
+
+        return tx.paymentTransaction.findUniqueOrThrow({
+          where: { id: transaction.id },
+          select: paymentTransactionSelect,
+        });
+      }
+
+      const invoiceUpdate = await tx.invoice.updateMany({
         where: {
           id: transaction.invoiceId,
+          status: "UNPAID",
+          finalAmount: transaction.amount,
         },
         data: {
           status: "PAID",
@@ -244,6 +386,14 @@ class PaymentService {
           paidAt,
         },
       });
+
+      if (invoiceUpdate.count !== 1 && transaction.invoice.status === "UNPAID") {
+        throw new AppError(
+          "Trạng thái hóa đơn đã thay đổi",
+          409,
+          "INVOICE_STATE_CONFLICT",
+        );
+      }
 
       return tx.paymentTransaction.findUniqueOrThrow({
         where: {
@@ -254,9 +404,11 @@ class PaymentService {
     });
   }
 
-  async markMockFailed(transactionCode: string) {
-    const transaction = await prisma.paymentTransaction.findUnique({
-      where: { transactionCode },
+  async markMockFailed(transactionCode: string, patientId: string) {
+    assertMockPaymentEnabled();
+
+    const transaction = await prisma.paymentTransaction.findFirst({
+      where: { transactionCode, invoice: { patientId } },
       select: {
         id: true,
         status: true,
@@ -268,27 +420,40 @@ class PaymentService {
       throw new AppError("Không tìm thấy giao dịch thanh toán", 404);
     }
 
+    if (transaction.status === "FAILED") {
+      return this.getById(transaction.id, patientId);
+    }
+
     this.ensurePendingTransaction(transaction.status, transaction.expiredAt);
 
-    return prisma.paymentTransaction.update({
+    const failed = await prisma.paymentTransaction.updateMany({
       where: {
         id: transaction.id,
+        status: "PENDING",
       },
       data: {
         status: "FAILED",
+        activeKey: null,
         rawResponse: {
           mode: "MOCK",
           result: "FAILED",
           failedAt: new Date().toISOString(),
         },
       },
-      select: paymentTransactionSelect,
     });
+    if (failed.count !== 1) {
+      throw new AppError(
+        "Trạng thái giao dịch đã thay đổi",
+        409,
+        "PAYMENT_STATE_CONFLICT",
+      );
+    }
+    return this.getById(transaction.id, patientId);
   }
 
-  async cancel(id: string) {
-    const transaction = await prisma.paymentTransaction.findUnique({
-      where: { id },
+  async cancel(id: string, patientId: string) {
+    const transaction = await prisma.paymentTransaction.findFirst({
+      where: { id, invoice: { patientId } },
       select: {
         id: true,
         status: true,
@@ -303,13 +468,21 @@ class PaymentService {
       throw new AppError("Chỉ có thể hủy giao dịch đang chờ thanh toán", 400);
     }
 
-    return prisma.paymentTransaction.update({
-      where: { id },
+    const cancelled = await prisma.paymentTransaction.updateMany({
+      where: { id, status: "PENDING" },
       data: {
         status: "CANCELLED",
+        activeKey: null,
       },
-      select: paymentTransactionSelect,
     });
+    if (cancelled.count !== 1) {
+      throw new AppError(
+        "Trạng thái giao dịch đã thay đổi",
+        409,
+        "PAYMENT_STATE_CONFLICT",
+      );
+    }
+    return this.getById(id, patientId);
   }
 
   private ensurePendingTransaction(status: string, expiredAt: Date) {

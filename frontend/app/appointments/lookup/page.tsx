@@ -85,6 +85,13 @@ type DisplayAppointment = {
 type LookupOtpResponse = {
   phone: string;
   items: DisplayAppointment[];
+  grant: {
+    token: string;
+    tokenType: "Bearer";
+    expiresAt: string;
+    expiresIn: number;
+    scopes: string[];
+  };
 };
 
 type PublicAppointmentResult = {
@@ -129,6 +136,12 @@ type PublicAppointmentResult = {
     | "updatedAt"
     | "items"
   > | null;
+};
+
+type PaymentProviderCapability = {
+  provider: PaymentProvider;
+  label: string;
+  isMock: boolean;
 };
 
 const statusLabels: Record<
@@ -290,6 +303,7 @@ export default function AppointmentLookupPage() {
   const [appointment, setAppointment] = useState<DisplayAppointment | null>(
     null,
   );
+  const [lookupGrantToken, setLookupGrantToken] = useState("");
   const [forgotItems, setForgotItems] = useState<DisplayAppointment[]>([]);
   const [loading, setLoading] = useState(false);
   const [otpSent, setOtpSent] = useState(false);
@@ -317,6 +331,7 @@ export default function AppointmentLookupPage() {
   const requestCodeLookupOtp = async () => {
     resetFeedback();
     setAppointment(null);
+    setLookupGrantToken("");
 
     if (!bookingCode.trim()) {
       setError("Vui lòng nhập mã lịch hẹn.");
@@ -363,6 +378,7 @@ export default function AppointmentLookupPage() {
     resetFeedback();
     setForgotItems([]);
     setAppointment(null);
+    setLookupGrantToken("");
 
     if (!forgotPhone.trim()) {
       setError("Vui lòng nhập số điện thoại đã đặt lịch.");
@@ -418,6 +434,7 @@ export default function AppointmentLookupPage() {
         },
       );
       const matchedAppointment = result.items[0] || null;
+      setLookupGrantToken(result.grant.token);
       setAppointment(matchedAppointment);
       setMessage(
         matchedAppointment
@@ -461,6 +478,7 @@ export default function AppointmentLookupPage() {
       );
 
       setForgotItems(result.items);
+      setLookupGrantToken(result.grant.token);
       setAppointment(result.items[0] || null);
       setMessage(
         result.items.length
@@ -752,6 +770,7 @@ export default function AppointmentLookupPage() {
           <AppointmentResult
             appointment={appointment}
             status={status}
+            lookupGrantToken={lookupGrantToken}
             onAppointmentChange={setAppointment}
           />
         </div>
@@ -763,10 +782,12 @@ export default function AppointmentLookupPage() {
 function AppointmentResult({
   appointment,
   status,
+  lookupGrantToken,
   onAppointmentChange,
 }: {
   appointment: DisplayAppointment | null;
   status: (typeof statusLabels)[AppointmentStatus] | null;
+  lookupGrantToken: string;
   onAppointmentChange: (appointment: DisplayAppointment) => void;
 }) {
   if (!appointment || !status) {
@@ -888,8 +909,14 @@ function AppointmentResult({
         <ReviewPanel key={appointment.id} appointment={appointment} />
       ) : null}
       <CancelAppointmentPanel appointment={appointment} />
-      <PaymentPanel appointment={appointment} />
-      <MedicalResultPanel appointment={appointment} />
+      <PaymentPanel
+        appointment={appointment}
+        lookupGrantToken={lookupGrantToken}
+      />
+      <MedicalResultPanel
+        appointment={appointment}
+        lookupGrantToken={lookupGrantToken}
+      />
     </div>
   );
 }
@@ -1565,8 +1592,10 @@ function ReviewPanel({ appointment }: { appointment: DisplayAppointment }) {
 
 function MedicalResultPanel({
   appointment,
+  lookupGrantToken,
 }: {
   appointment: DisplayAppointment;
+  lookupGrantToken: string;
 }) {
   const [result, setResult] = useState<PublicAppointmentResult | null>(null);
   const [loading, setLoading] = useState(false);
@@ -1576,6 +1605,12 @@ function MedicalResultPanel({
     let active = true;
 
     const loadResult = async () => {
+      if (!lookupGrantToken) {
+        setResult(null);
+        setResultError("Vui lòng xác thực OTP để xem kết quả khám.");
+        return;
+      }
+
       setLoading(true);
       setResultError("");
 
@@ -1585,8 +1620,12 @@ function MedicalResultPanel({
           {
             query: {
               bookingCode: appointment.bookingCode,
-              phone: appointment.patientPhone,
             },
+            headers: {
+              Authorization: `Bearer ${lookupGrantToken}`,
+            },
+            skipAuthRefresh: true,
+            suppressAuthExpired: true,
           },
         );
 
@@ -1608,7 +1647,7 @@ function MedicalResultPanel({
     return () => {
       active = false;
     };
-  }, [appointment.bookingCode, appointment.patientPhone]);
+  }, [appointment.bookingCode, lookupGrantToken]);
 
   const medicalRecord = result?.medicalRecord || null;
   const prescription = result?.prescription || null;
@@ -1833,24 +1872,81 @@ function PrescriptionSection({
   );
 }
 
-function PaymentPanel({ appointment }: { appointment: DisplayAppointment }) {
+function PaymentPanel({
+  appointment,
+  lookupGrantToken,
+}: {
+  appointment: DisplayAppointment;
+  lookupGrantToken: string;
+}) {
   const latestPendingTransaction =
     appointment.invoice?.paymentTransactions.find(
       (item) => item.status === "PENDING",
     ) || null;
-  const [provider, setProvider] =
-    useState<Extract<PaymentProvider, "MOCK" | "MOMO">>("MOCK");
+  const [provider, setProvider] = useState<PaymentProvider | "">("");
+  const [providerCapabilities, setProviderCapabilities] = useState<
+    PaymentProviderCapability[] | null
+  >(null);
   const [transaction, setTransaction] = useState<PaymentTransaction | null>(
     null,
   );
   const [loading, setLoading] = useState(false);
   const [paymentMessage, setPaymentMessage] = useState("");
   const [paymentError, setPaymentError] = useState("");
+  const paymentAttemptRef = useRef<{
+    invoiceId: string;
+    provider: PaymentProvider;
+    key: string;
+  } | null>(null);
 
   const activeTransaction = transaction || latestPendingTransaction;
   const invoice = transaction?.invoice || appointment.invoice;
   const invoiceStatus = invoice ? invoiceStatusLabels[invoice.status] : null;
   const canCreatePayment = invoice?.status === "UNPAID";
+  const capabilitiesLoading = providerCapabilities === null;
+  const mockAvailable = (providerCapabilities || []).some(
+    (item) => item.provider === "MOCK",
+  );
+
+  useEffect(() => {
+    let active = true;
+
+    if (!appointment.invoice || !lookupGrantToken) {
+      return undefined;
+    }
+
+    void apiRequest<{ providers: PaymentProviderCapability[] }>(
+      "/payments/capabilities",
+      {
+        headers: { Authorization: `Bearer ${lookupGrantToken}` },
+        skipAuthRefresh: true,
+        suppressAuthExpired: true,
+      },
+    )
+      .then((result) => {
+        if (!active) return;
+        setProviderCapabilities(result.providers);
+        setProvider((current) =>
+          result.providers.some((item) => item.provider === current)
+            ? current
+            : result.providers[0]?.provider || "",
+        );
+      })
+      .catch((err) => {
+        if (!active) return;
+        setProviderCapabilities([]);
+        setProvider("");
+        setPaymentError(
+          err instanceof Error
+            ? err.message
+            : "Không tải được phương thức thanh toán",
+        );
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [appointment.invoice, lookupGrantToken]);
 
   const refreshPayment = useCallback(
     async (silent = false) => {
@@ -1865,6 +1961,11 @@ function PaymentPanel({ appointment }: { appointment: DisplayAppointment }) {
       try {
         const result = await apiRequest<PaymentTransaction>(
           `/payments/${activeTransaction.id}`,
+          {
+            headers: { Authorization: `Bearer ${lookupGrantToken}` },
+            skipAuthRefresh: true,
+            suppressAuthExpired: true,
+          },
         );
 
         setTransaction(result);
@@ -1888,7 +1989,7 @@ function PaymentPanel({ appointment }: { appointment: DisplayAppointment }) {
         if (!silent) setLoading(false);
       }
     },
-    [activeTransaction],
+    [activeTransaction, lookupGrantToken],
   );
 
   useEffect(() => {
@@ -1907,7 +2008,18 @@ function PaymentPanel({ appointment }: { appointment: DisplayAppointment }) {
   }, [activeTransaction, invoice?.status, refreshPayment]);
 
   const createPayment = async () => {
-    if (!appointment.invoice) return;
+    if (!appointment.invoice || !provider) return;
+
+    if (
+      paymentAttemptRef.current?.invoiceId !== appointment.invoice.id ||
+      paymentAttemptRef.current?.provider !== provider
+    ) {
+      paymentAttemptRef.current = {
+        invoiceId: appointment.invoice.id,
+        provider,
+        key: window.crypto.randomUUID(),
+      };
+    }
 
     setLoading(true);
     setPaymentMessage("");
@@ -1919,10 +2031,17 @@ function PaymentPanel({ appointment }: { appointment: DisplayAppointment }) {
         {
           method: "POST",
           body: { provider },
+          headers: {
+            Authorization: `Bearer ${lookupGrantToken}`,
+            "Idempotency-Key": paymentAttemptRef.current.key,
+          },
+          skipAuthRefresh: true,
+          suppressAuthExpired: true,
         },
       );
 
       setTransaction(result);
+      paymentAttemptRef.current = null;
       setPaymentMessage(
         "Đã tạo giao dịch thanh toán. Bạn có thể mở cổng thanh toán để tiếp tục.",
       );
@@ -1953,6 +2072,9 @@ function PaymentPanel({ appointment }: { appointment: DisplayAppointment }) {
         `/payments/mock/${activeTransaction.transactionCode}/success`,
         {
           method: "POST",
+          headers: { Authorization: `Bearer ${lookupGrantToken}` },
+          skipAuthRefresh: true,
+          suppressAuthExpired: true,
         },
       );
 
@@ -1979,6 +2101,9 @@ function PaymentPanel({ appointment }: { appointment: DisplayAppointment }) {
         `/payments/${activeTransaction.id}/cancel`,
         {
           method: "PATCH",
+          headers: { Authorization: `Bearer ${lookupGrantToken}` },
+          skipAuthRefresh: true,
+          suppressAuthExpired: true,
         },
       );
 
@@ -2052,31 +2177,44 @@ function PaymentPanel({ appointment }: { appointment: DisplayAppointment }) {
           <p className="text-sm font-semibold text-[#172033]">
             Thanh toán online
           </p>
-          <div className="mt-3 grid gap-2 sm:grid-cols-[180px_minmax(0,1fr)]">
-            <select
-              value={provider}
-              onChange={(event) =>
-                setProvider(event.target.value as typeof provider)
-              }
-              className="rounded-md border border-[#cfd8e6] px-3 py-2.5 text-sm outline-none focus:border-[#0d4f8b]"
-            >
-              <option value="MOCK">MOCK</option>
-              <option value="MOMO">MOMO</option>
-            </select>
-            <button
-              type="button"
-              onClick={() => void createPayment()}
-              disabled={loading}
-              className="inline-flex items-center justify-center gap-2 rounded-md bg-[#0d4f8b] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#083d6d] disabled:opacity-60"
-            >
-              {loading ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <CreditCard className="h-4 w-4" />
-              )}
-              Tạo giao dịch thanh toán
-            </button>
-          </div>
+          {capabilitiesLoading ? (
+            <p className="mt-3 text-sm text-[#667892]">
+              Đang kiểm tra phương thức thanh toán khả dụng...
+            </p>
+          ) : providerCapabilities?.length ? (
+            <div className="mt-3 grid gap-2 sm:grid-cols-[180px_minmax(0,1fr)]">
+              <select
+                value={provider}
+                onChange={(event) =>
+                  setProvider(event.target.value as PaymentProvider)
+                }
+                className="rounded-md border border-[#cfd8e6] px-3 py-2.5 text-sm outline-none focus:border-[#0d4f8b]"
+              >
+                {providerCapabilities.map((item) => (
+                  <option key={item.provider} value={item.provider}>
+                    {item.label}
+                  </option>
+                ))}
+              </select>
+              <button
+                type="button"
+                onClick={() => void createPayment()}
+                disabled={loading || !provider}
+                className="inline-flex items-center justify-center gap-2 rounded-md bg-[#0d4f8b] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#083d6d] disabled:opacity-60"
+              >
+                {loading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <CreditCard className="h-4 w-4" />
+                )}
+                Tạo giao dịch thanh toán
+              </button>
+            </div>
+          ) : (
+            <p className="mt-3 rounded-md border border-[#f4d48b] bg-[#fff8eb] px-3 py-2 text-sm text-[#8a5a00]">
+              Hiện chưa có cổng thanh toán online an toàn được bật.
+            </p>
+          )}
 
           {activeTransaction ? (
             <div className="mt-3 rounded-md bg-[#f8fafc] p-3 text-sm text-[#667892]">
@@ -2126,7 +2264,8 @@ function PaymentPanel({ appointment }: { appointment: DisplayAppointment }) {
                   )}
                   Kiểm tra thanh toán
                 </button>
-                {activeTransaction.paymentUrl ? (
+                {activeTransaction.paymentUrl &&
+                activeTransaction.provider !== "MOCK" ? (
                   <a
                     href={activeTransaction.paymentUrl}
                     target="_blank"
@@ -2147,7 +2286,8 @@ function PaymentPanel({ appointment }: { appointment: DisplayAppointment }) {
                     Hủy giao dịch
                   </button>
                 ) : null}
-                {activeTransaction.provider === "MOCK" &&
+                {mockAvailable &&
+                activeTransaction.provider === "MOCK" &&
                 activeTransaction.status === "PENDING" ? (
                   <button
                     type="button"

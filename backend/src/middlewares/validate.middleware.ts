@@ -13,7 +13,9 @@ export const validate =
 
       return res.status(400).json({
         success: false,
+        code: "VALIDATION_ERROR",
         message: "Dữ liệu không hợp lệ",
+        requestId: req.requestId,
         errors,
       });
     }

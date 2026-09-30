@@ -3,6 +3,10 @@ import { prisma } from "../config/prisma.js";
 import { AppError } from "../utils/appError.js";
 import type { OtpChannel, OtpPurpose } from "../../generated/prisma/enums.js";
 import { enqueueOtpDeliveryJob } from "../queues/otp.queue.js";
+import {
+  isProductionLike,
+  resolveOtpSecret,
+} from "../config/environment.js";
 
 type SendOtpOptions = {
   channel?: OtpChannel;
@@ -16,8 +20,7 @@ type VerifyOtpOptions = {
   ipAddress?: string;
 };
 
-const OTP_SECRET =
-  process.env.OTP_SECRET || process.env.JWT_SECRET || "dev_otp_secret";
+const OTP_SECRET = resolveOtpSecret();
 const RESEND_COOLDOWN_SECONDS = 60;
 const OTP_WINDOW_MINUTES = 15;
 const MAX_OTP_SENDS_PER_WINDOW = 5;
@@ -47,6 +50,7 @@ const timeout = (milliseconds: number) =>
   });
 
 const isOtpDebugEnabled = () =>
+  !isProductionLike() &&
   ["true", "1", "yes", "on"].includes(
     (process.env.OTP_DEBUG_ENABLED || "").toLowerCase(),
   );
@@ -449,7 +453,7 @@ class AuthOtpService {
       deliveryStatus = "FAILED";
     }
 
-    if (process.env.NODE_ENV !== "production") {
+    if (!isProductionLike()) {
       console.log("=================================");
       console.log(`OTP DEV: ${otp}`);
       console.log(`Target: ${target}`);
@@ -538,15 +542,38 @@ class AuthOtpService {
       );
     }
 
-    await prisma.otpCode.update({
+    const consumedAt = new Date();
+    const consumed = await prisma.otpCode.updateMany({
       where: {
         id: otpRecord.id,
+        target,
+        channel,
+        purpose,
+        challengeId,
+        isUsed: false,
+        expiresAt: {
+          gt: consumedAt,
+        },
       },
       data: {
         isUsed: true,
-        usedAt: new Date(),
+        usedAt: consumedAt,
       },
     });
+
+    if (consumed.count !== 1) {
+      await this.recordVerifyAttempt({
+        target,
+        channel,
+        purpose,
+        ipAddress,
+        success: false,
+      });
+      throw new AppError(
+        "OTP không chính xác, đã hết hạn hoặc đã được sử dụng",
+        401,
+      );
+    }
 
     await this.recordVerifyAttempt({
       target,

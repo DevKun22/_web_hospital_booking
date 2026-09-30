@@ -1,5 +1,6 @@
 import "dotenv/config";
 import { Worker } from "bullmq";
+import { validateRuntimeEnvironment } from "../config/environment.js";
 import { prisma } from "../config/prisma.js";
 import OtpSenderService from "../services/otpSender.service.js";
 import {
@@ -7,6 +8,8 @@ import {
   type OtpDeliveryJobData,
 } from "../queues/otp.queue.js";
 import { getRedisConnectionOptions } from "../queues/redis.js";
+
+validateRuntimeEnvironment();
 
 const worker = new Worker<OtpDeliveryJobData, void, "send-otp">(
   OTP_DELIVERY_QUEUE_NAME,

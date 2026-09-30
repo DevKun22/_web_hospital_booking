@@ -10,6 +10,7 @@ import {
   verifyAppointmentOtpHandler,
 } from "../controllers/appointment.controller.js";
 import { validate } from "../middlewares/validate.middleware.js";
+import { requireLookupGrant } from "../middlewares/lookupGrant.middleware.js";
 import reviewRouter from "./review.route.js";
 import {
   createAppointmentSchema,
@@ -25,7 +26,11 @@ const router = Router();
 router.use("/", reviewRouter);
 
 router.post("/", validate(createAppointmentSchema), createAppointmentHandler);
-router.get("/lookup/result", getPublicAppointmentResultHandler);
+router.get(
+  "/lookup/result",
+  requireLookupGrant("results:read"),
+  getPublicAppointmentResultHandler,
+);
 router.post(
   "/lookup/request-otp",
   validate(requestAppointmentLookupOtpSchema),
