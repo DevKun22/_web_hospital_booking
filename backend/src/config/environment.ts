@@ -81,3 +81,11 @@ export const getAppointmentReconciliationIntervalMs = (
 export const getAppointmentReconciliationBatchSize = (
   env: NodeJS.ProcessEnv = process.env,
 ) => positiveInteger(env.APPOINTMENT_RECONCILIATION_BATCH_SIZE, 100);
+
+export const getSlotReconciliationIntervalMs = (
+  env: NodeJS.ProcessEnv = process.env,
+) => positiveInteger(env.SLOT_RECONCILIATION_INTERVAL_MS, 5 * 60_000);
+
+export const getSlotReconciliationBatchSize = (
+  env: NodeJS.ProcessEnv = process.env,
+) => positiveInteger(env.SLOT_RECONCILIATION_BATCH_SIZE, 200);

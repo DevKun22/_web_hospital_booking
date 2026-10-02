@@ -5,6 +5,7 @@ import {
   getDoctorTimeSlotHandler,
   listDoctorTimeSlotsHandler,
   lockDoctorTimeSlotHandler,
+  reconcileDoctorTimeSlotsHandler,
   unlockDoctorTimeSlotHandler,
   updateDoctorTimeSlotStatusHandler,
 } from "../controllers/doctorTimeSlot.controller.js";
@@ -30,6 +31,11 @@ router.post(
   requireRole("ADMIN", "STAFF"),
   validate(generateDoctorTimeSlotsSchema),
   generateDoctorTimeSlotsHandler,
+);
+router.post(
+  "/reconcile",
+  requireRole("ADMIN"),
+  reconcileDoctorTimeSlotsHandler,
 );
 router.get(
   "/:id",

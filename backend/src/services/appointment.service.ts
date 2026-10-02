@@ -1179,6 +1179,50 @@ class AppointmentService {
     });
   }
 
+  async cancelByPatient(id: string, patientId: string, reason: string) {
+    const appointment = await prisma.appointment.findFirst({
+      where: { id, patientId },
+      select: { id: true, status: true, timeSlotId: true },
+    });
+
+    if (!appointment) {
+      throw new AppError("Không tìm thấy lịch hẹn", 404);
+    }
+
+    return prisma.$transaction(async (tx) => {
+      await this.claimAppointmentTransition(tx, {
+        id: appointment.id,
+        expectedStatuses: PUBLIC_CANCEL_ALLOWED_STATUSES,
+        nextStatus: "CANCELLED_BY_PATIENT",
+        data: {
+          cancelledAt: new Date(),
+          cancelledByRole: "PATIENT",
+          cancelledById: patientId,
+          cancelledReason: reason.trim(),
+        },
+      });
+
+      await this.releaseAppointmentSlot(
+        tx,
+        appointment.id,
+        appointment.timeSlotId,
+      );
+      await tx.appointmentLog.create({
+        data: {
+          appointmentId: appointment.id,
+          action: "CANCELLED_BY_PATIENT",
+          createdById: patientId,
+          note: reason.trim(),
+        },
+      });
+
+      return tx.appointment.findUniqueOrThrow({
+        where: { id: appointment.id },
+        select: appointmentSelect,
+      });
+    });
+  }
+
   async dashboardList(
     query: {
       status?: AppointmentStatus;

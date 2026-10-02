@@ -10,7 +10,7 @@ export const createDoctorScheduleSchema = z.object({
   startTime: timeSchema,
   endTime: timeSchema,
   slotDuration: z.number().int().min(5).max(240).optional(),
-  maxPatients: z.number().int().min(1).max(20).optional(),
+  maxPatients: z.number().int().min(1).max(1).optional(),
   isActive: z.boolean().optional(),
 });
 
@@ -19,6 +19,6 @@ export const updateDoctorScheduleSchema = z.object({
   startTime: timeSchema.optional(),
   endTime: timeSchema.optional(),
   slotDuration: z.number().int().min(5).max(240).optional(),
-  maxPatients: z.number().int().min(1).max(20).optional(),
+  maxPatients: z.number().int().min(1).max(1).optional(),
   isActive: z.boolean().optional(),
 });

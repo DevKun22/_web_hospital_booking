@@ -1,11 +1,13 @@
 import bcrypt from "bcrypt";
-import crypto from "crypto";
 import type { SignOptions } from "jsonwebtoken";
 import { prisma } from "../config/prisma.js";
 import AuthOtpService from "./authOtp.service.js";
 import { generateToken } from "../utils/jwt.js";
 import { AppError } from "../utils/appError.js";
 import type { OtpPurpose, Role } from "../../generated/prisma/enums.js";
+import AuthSessionService, {
+  type SessionMeta,
+} from "./authSession.service.js";
 
 const DASHBOARD_ROLES: Role[] = ["ADMIN", "DOCTOR", "STAFF"];
 const MAX_CHALLENGE_ATTEMPTS = 5;
@@ -60,19 +62,19 @@ const toSafeDashboardUser = (user: {
   avatar: user.avatar,
 });
 
-const createRefreshToken = () => crypto.randomBytes(48).toString("base64url");
-
-const hashRefreshToken = (token: string) =>
-  crypto.createHash("sha256").update(token).digest("hex");
-
 const getRefreshExpiresAt = () =>
   new Date(Date.now() + REFRESH_TOKEN_DAYS * 24 * 60 * 60 * 1000);
 
-const createAccessToken = (user: { id: string; role: Role }) =>
+const createAccessToken = (
+  user: { id: string; role: Role },
+  sessionId: string,
+) =>
   generateToken(
     {
       userId: user.id,
       role: user.role,
+      sessionId,
+      tokenType: "DASHBOARD_ACCESS",
     },
     ACCESS_TOKEN_EXPIRES_IN,
   );
@@ -151,7 +153,7 @@ class DashboardAuthService {
   async verifyOtp(
     challengeId: string,
     otp: string,
-    meta: { ipAddress?: string; userAgent?: string } = {},
+    meta: SessionMeta = {},
   ) {
     const challenge = await prisma.dashboardLoginChallenge.findUnique({
       where: {
@@ -232,23 +234,17 @@ class DashboardAuthService {
       },
     });
 
-    const refreshToken = createRefreshToken();
     const refreshExpiresAt = getRefreshExpiresAt();
-
-    await prisma.dashboardSession.create({
-      data: {
-        userId: user.id,
-        refreshTokenHash: hashRefreshToken(refreshToken),
-        ipAddress: meta.ipAddress,
-        userAgent: meta.userAgent,
-        expiresAt: refreshExpiresAt,
-        lastUsedAt: new Date(),
-      },
+    const authSession = await AuthSessionService.create({
+      userId: user.id,
+      kind: "DASHBOARD",
+      expiresAt: refreshExpiresAt,
+      meta,
     });
 
     return {
-      accessToken: createAccessToken(user),
-      refreshToken,
+      accessToken: createAccessToken(user, authSession.session.id),
+      refreshToken: authSession.refreshToken,
       refreshExpiresAt,
       user: toSafeDashboardUser(user),
       redirectPath: redirectPathByRole[user.role],
@@ -257,22 +253,16 @@ class DashboardAuthService {
 
   async refreshSession(
     refreshToken: string,
-    meta: { ipAddress?: string; userAgent?: string } = {},
+    meta: SessionMeta = {},
   ) {
-    const session = await prisma.dashboardSession.findUnique({
-      where: {
-        refreshTokenHash: hashRefreshToken(refreshToken),
-      },
-      include: {
-        user: true,
-      },
+    const refreshExpiresAt = getRefreshExpiresAt();
+    const rotated = await AuthSessionService.rotate({
+      refreshToken,
+      kind: "DASHBOARD",
+      expiresAt: refreshExpiresAt,
+      meta,
     });
-
-    if (!session || session.revokedAt || session.expiresAt <= new Date()) {
-      throw new AppError("Phiên đăng nhập đã hết hạn", 401);
-    }
-
-    const { user } = session;
+    const { user } = rotated;
 
     if (!user.isActive) {
       throw new AppError("Tài khoản đã bị khóa", 403);
@@ -282,25 +272,9 @@ class DashboardAuthService {
       throw new AppError("Không có quyền truy cập dashboard", 403);
     }
 
-    const nextRefreshToken = createRefreshToken();
-    const refreshExpiresAt = getRefreshExpiresAt();
-
-    await prisma.dashboardSession.update({
-      where: {
-        id: session.id,
-      },
-      data: {
-        refreshTokenHash: hashRefreshToken(nextRefreshToken),
-        ipAddress: meta.ipAddress,
-        userAgent: meta.userAgent,
-        expiresAt: refreshExpiresAt,
-        lastUsedAt: new Date(),
-      },
-    });
-
     return {
-      accessToken: createAccessToken(user),
-      refreshToken: nextRefreshToken,
+      accessToken: createAccessToken(user, rotated.session.id),
+      refreshToken: rotated.refreshToken,
       refreshExpiresAt,
       user: toSafeDashboardUser(user),
       redirectPath: redirectPathByRole[user.role],
@@ -310,15 +284,7 @@ class DashboardAuthService {
   async revokeSession(refreshToken?: string) {
     if (!refreshToken) return;
 
-    await prisma.dashboardSession.updateMany({
-      where: {
-        refreshTokenHash: hashRefreshToken(refreshToken),
-        revokedAt: null,
-      },
-      data: {
-        revokedAt: new Date(),
-      },
-    });
+    await AuthSessionService.revokeByRefreshToken(refreshToken, "DASHBOARD");
   }
 
   async getCurrentUser(userId: string) {

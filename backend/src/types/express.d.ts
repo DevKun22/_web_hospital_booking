@@ -5,6 +5,7 @@ declare global {
   namespace Express {
     interface Request {
       user?: TokenPayload;
+      patient?: TokenPayload & { sessionId: string; role: "PATIENT" };
       lookupGrant?: LookupGrantPayload;
       requestId: string;
     }

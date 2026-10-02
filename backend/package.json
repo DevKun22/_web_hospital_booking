@@ -20,6 +20,7 @@
     "test:integration": "tsx test/runIntegrationTests.ts",
     "test:types": "tsc --noEmit -p tsconfig.test.json",
     "test:phase0": "prisma generate && tsc --noEmit -p tsconfig.test.json && tsx --test test/smoke/app.test.ts && tsx test/runIntegrationTests.ts",
+    "test:phase1": "prisma generate && tsc --noEmit -p tsconfig.test.json && tsx --test test/smoke/app.test.ts && tsx test/runIntegrationTests.ts",
     "test-db": "tsx src/test.ts",
     
     "seed:demo": "tsx src/scripts/seedDemoFlow.ts",

@@ -135,6 +135,9 @@ class DoctorScheduleService {
 
   async create(input: CreateDoctorScheduleInput) {
     validateTimeRange(input.startTime, input.endTime);
+    if ((input.maxPatients ?? 1) !== 1) {
+      throw new AppError("Mỗi slot hiện chỉ hỗ trợ một bệnh nhân", 400);
+    }
 
     const doctor = await prisma.doctorProfile.findUnique({
       where: { id: input.doctorId },
@@ -145,12 +148,14 @@ class DoctorScheduleService {
       throw new AppError("Không tìm thấy bác sĩ", 404);
     }
 
-    await this.ensureNoOverlap({
-      doctorId: input.doctorId,
-      dayOfWeek: input.dayOfWeek,
-      startTime: input.startTime,
-      endTime: input.endTime,
-    });
+    if (input.isActive !== false) {
+      await this.ensureNoOverlap({
+        doctorId: input.doctorId,
+        dayOfWeek: input.dayOfWeek,
+        startTime: input.startTime,
+        endTime: input.endTime,
+      });
+    }
 
     return prisma.doctorSchedule.create({
       data: {
@@ -180,10 +185,17 @@ class DoctorScheduleService {
       dayOfWeek: input.dayOfWeek ?? current.dayOfWeek,
       startTime: input.startTime ?? current.startTime,
       endTime: input.endTime ?? current.endTime,
+      isActive: input.isActive ?? current.isActive,
+      maxPatients: input.maxPatients ?? current.maxPatients,
     };
 
     validateTimeRange(next.startTime, next.endTime);
-    await this.ensureNoOverlap({ ...next, excludeId: id });
+    if (next.maxPatients !== 1) {
+      throw new AppError("Mỗi slot hiện chỉ hỗ trợ một bệnh nhân", 400);
+    }
+    if (next.isActive) {
+      await this.ensureNoOverlap({ ...next, excludeId: id });
+    }
 
     return prisma.doctorSchedule.update({
       where: { id },
@@ -213,6 +225,7 @@ class DoctorScheduleService {
       where: {
         doctorId: input.doctorId,
         dayOfWeek: input.dayOfWeek,
+        isActive: true,
         ...(input.excludeId ? { id: { not: input.excludeId } } : {}),
       },
       select: {

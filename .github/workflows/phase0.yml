@@ -1,4 +1,4 @@
-name: Phase 0 quality gates
+name: Backend mobile-readiness quality gates
 
 on:
   pull_request:
@@ -43,9 +43,9 @@ jobs:
       - name: Validate Prisma schema
         working-directory: backend
         run: npx prisma validate
-      - name: Backend Phase 0 tests
+      - name: Backend Phase 0 + Phase 1 tests
         working-directory: backend
-        run: npm run test:phase0
+        run: npm run test:phase1
 
       - name: Install frontend dependencies
         working-directory: frontend

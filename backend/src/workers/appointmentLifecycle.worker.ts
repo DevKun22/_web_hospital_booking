@@ -9,6 +9,7 @@ import {
 } from "../queues/appointmentLifecycle.queue.js";
 import { getRedisConnectionOptions } from "../queues/redis.js";
 import AppointmentService from "../services/appointment.service.js";
+import ScheduleReconciliationService from "../services/scheduleReconciliation.service.js";
 
 validateRuntimeEnvironment();
 await ensurePendingOtpReconciliation();
@@ -22,6 +23,14 @@ const worker = new Worker<AppointmentLifecycleJobData>(
       );
       console.log(
         `[APPOINTMENT_EXPIRY] appointment=${job.data.appointmentId} outcome=${result.outcome}`,
+      );
+      return result;
+    }
+
+    if (job.data.type === "RECONCILE_SLOT_CONSISTENCY") {
+      const result = await ScheduleReconciliationService.reconcile();
+      console.log(
+        `[SLOT_RECONCILIATION] scanned=${result.scanned} findings=${result.findingCount} repaired=${result.repairedCount}`,
       );
       return result;
     }

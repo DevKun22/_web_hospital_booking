@@ -32,10 +32,10 @@ const run = (command: string, args: string[]) => {
   }
 };
 
-console.log("[phase0-test] Applying migrations to the dedicated test database...");
+console.log("[integration-test] Applying migrations to the dedicated test database...");
 run(process.execPath, [cliEntry("prisma"), "migrate", "deploy"]);
 
-console.log("[phase0-test] Running baseline integration contracts...");
+console.log("[integration-test] Running Phase 0 + Phase 1 integration contracts...");
 run(process.execPath, [
   cliEntry("tsx"),
   "--test",

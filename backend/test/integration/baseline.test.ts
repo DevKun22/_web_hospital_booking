@@ -32,6 +32,8 @@ const [
   { default: AuthOtpService },
   { default: AppointmentService },
   { signLookupGrant },
+  { default: ScheduleReconciliationService },
+  { default: AuthSessionService },
 ] = await Promise.all([
   import("../../src/app.js"),
   import("../../src/config/prisma.js"),
@@ -39,6 +41,8 @@ const [
   import("../../src/services/authOtp.service.js"),
   import("../../src/services/appointment.service.js"),
   import("../../src/utils/lookupGrant.js"),
+  import("../../src/services/scheduleReconciliation.service.js"),
+  import("../../src/services/authSession.service.js"),
 ]);
 
 type Fixture = Awaited<ReturnType<typeof seedFixture>>;
@@ -206,6 +210,34 @@ const createStoredAppointment = async (input: {
 const authCookie = (userId: string, role: "ADMIN" | "DOCTOR") => {
   const token = generateToken({ userId, role });
   return `dashboard_token=${token}`;
+};
+
+const loginPatient = async (phone: string) => {
+  const requested = await http.request("/api/v1/auth/patient/request-otp", {
+    method: "POST",
+    body: { phone },
+  });
+  assert.equal(requested.status, 200);
+  assert.equal(typeof requested.body.data.debugOtp, "string");
+
+  const verified = await http.request("/api/v1/auth/patient/verify-otp", {
+    method: "POST",
+    body: {
+      challengeId: requested.body.data.challengeId,
+      otp: requested.body.data.debugOtp,
+      deviceId: `device-${phone}`,
+      deviceName: "Integration test device",
+      platform: "android",
+      appVersion: "1.0.0",
+    },
+  });
+  assert.equal(verified.status, 200);
+  assert.equal(verified.body.data.tokenType, "Bearer");
+  return verified.body.data as {
+    accessToken: string;
+    refreshToken: string;
+    user: { id: string };
+  };
 };
 
 before(async () => {
@@ -1068,4 +1100,280 @@ test("the same OTP can be consumed by exactly one concurrent request", async () 
     },
   });
   assert.equal(successfulAuditRecords, 1);
+});
+
+test("patient v1 auth scopes profile and resources to the authenticated owner", async () => {
+  const patient = await prisma.user.create({
+    data: {
+      fullName: "Phase One Patient",
+      phone: "0981111111",
+      role: "PATIENT",
+      isPhoneVerified: true,
+      patientProfile: { create: { address: "Old address" } },
+    },
+  });
+  const otherPatient = await prisma.user.create({
+    data: {
+      fullName: "Other Patient",
+      phone: "0982222222",
+      role: "PATIENT",
+      isPhoneVerified: true,
+    },
+  });
+  const ownAppointment = await prisma.appointment.create({
+    data: {
+      bookingCode: "PHASE1-OWN",
+      appointmentDate: dateOnly(fixture.appointmentDate),
+      startTime: "13:00",
+      endTime: "13:30",
+      status: "COMPLETED",
+      patientName: patient.fullName,
+      patientPhone: patient.phone!,
+      patientId: patient.id,
+      doctorId: fixture.doctorOne.id,
+      departmentId: fixture.department.id,
+      completedAt: new Date(),
+    },
+  });
+  const otherAppointment = await prisma.appointment.create({
+    data: {
+      bookingCode: "PHASE1-OTHER",
+      appointmentDate: dateOnly(fixture.appointmentDate),
+      startTime: "14:00",
+      endTime: "14:30",
+      status: "COMPLETED",
+      patientName: otherPatient.fullName,
+      patientPhone: otherPatient.phone!,
+      patientId: otherPatient.id,
+      doctorId: fixture.doctorOne.id,
+      departmentId: fixture.department.id,
+      completedAt: new Date(),
+    },
+  });
+  const record = await prisma.medicalRecord.create({
+    data: {
+      recordCode: "PHASE1-RECORD",
+      appointmentId: ownAppointment.id,
+      patientId: patient.id,
+      doctorId: fixture.doctorOne.id,
+      status: "PUBLISHED",
+      diagnosis: "Patient-owned diagnosis",
+      resultPdfUrl: "https://res.cloudinary.com/demo/image/upload/result.png",
+      publishedAt: new Date(),
+      labResults: {
+        create: {
+          testName: "Blood test",
+          resultValue: "Normal",
+          fileUrl: "https://res.cloudinary.com/demo/image/upload/lab.png",
+        },
+      },
+    },
+  });
+  const otherRecord = await prisma.medicalRecord.create({
+    data: {
+      recordCode: "PHASE1-OTHER-RECORD",
+      appointmentId: otherAppointment.id,
+      patientId: otherPatient.id,
+      doctorId: fixture.doctorOne.id,
+      status: "PUBLISHED",
+      publishedAt: new Date(),
+    },
+  });
+  const prescription = await prisma.prescription.create({
+    data: {
+      prescriptionCode: "PHASE1-PRESCRIPTION",
+      medicalRecordId: record.id,
+      appointmentId: ownAppointment.id,
+      patientId: patient.id,
+      doctorId: fixture.doctorOne.id,
+      status: "ISSUED",
+      issuedAt: new Date(),
+      items: { create: { medicineName: "Paracetamol", sortOrder: 0 } },
+    },
+  });
+  const invoice = await prisma.invoice.create({
+    data: {
+      invoiceCode: "PHASE1-INVOICE",
+      barcode: "PHASE1-PRIVATE-BARCODE",
+      appointmentId: ownAppointment.id,
+      patientId: patient.id,
+      totalAmount: 300000,
+      finalAmount: 300000,
+    },
+  });
+
+  const auth = await loginPatient(patient.phone!);
+  const authorization = `Bearer ${auth.accessToken}`;
+
+  const me = await http.request("/api/v1/me", { headers: { authorization } });
+  assert.equal(me.status, 200);
+  assert.equal(me.body.data.id, patient.id);
+
+  const updated = await http.request("/api/v1/me", {
+    method: "PATCH",
+    headers: { authorization },
+    body: { fullName: "Updated Patient", address: "New address" },
+  });
+  assert.equal(updated.status, 200);
+  assert.equal(updated.body.data.fullName, "Updated Patient");
+  assert.equal(updated.body.data.patientProfile.address, "New address");
+
+  const appointments = await http.request("/api/v1/me/appointments?limit=999", {
+    headers: { authorization },
+  });
+  assert.equal(appointments.status, 200);
+  assert.equal(appointments.body.data.length, 1);
+  assert.equal(appointments.body.data[0].id, ownAppointment.id);
+  assert.equal(appointments.body.meta.limit, 50);
+  assert.equal(appointments.body.meta.hasPreviousPage, false);
+
+  const medical = await http.request("/api/v1/me/medical-records", {
+    headers: { authorization },
+  });
+  assert.equal(medical.status, 200);
+  assert.equal(medical.body.data[0].id, record.id);
+  assert.equal(medical.body.data[0].resultPdfUrl, undefined);
+  assert.match(medical.body.data[0].resultFile.downloadUrl, /^\/api\/v1\/me\//);
+  assert.equal(medical.body.data[0].labResults[0].fileUrl, undefined);
+
+  const prescriptions = await http.request("/api/v1/me/prescriptions", {
+    headers: { authorization },
+  });
+  assert.equal(prescriptions.status, 200);
+  assert.equal(prescriptions.body.data[0].id, prescription.id);
+  assert.equal(prescriptions.body.data[0].items[0].medicineName, "Paracetamol");
+
+  const invoices = await http.request("/api/v1/me/invoices", {
+    headers: { authorization },
+  });
+  assert.equal(invoices.status, 200);
+  assert.equal(invoices.body.data[0].id, invoice.id);
+  assert.equal(invoices.body.data[0].barcode, undefined);
+
+  const crossPatient = await http.request(
+    `/api/v1/me/medical-records/${otherRecord.id}`,
+    { headers: { authorization } },
+  );
+  assert.equal(crossPatient.status, 404);
+
+  const unauthenticated = await http.request("/api/v1/me/appointments");
+  assert.equal(unauthenticated.status, 401);
+});
+
+test("patient refresh rotation detects reuse and revokes the token family", async () => {
+  const auth = await loginPatient("0983333333");
+
+  const refreshed = await http.request("/api/v1/auth/refresh", {
+    method: "POST",
+    body: { refreshToken: auth.refreshToken, platform: "android" },
+  });
+  assert.equal(refreshed.status, 200);
+  assert.notEqual(refreshed.body.data.refreshToken, auth.refreshToken);
+
+  const reused = await http.request("/api/v1/auth/refresh", {
+    method: "POST",
+    body: { refreshToken: auth.refreshToken },
+  });
+  assert.equal(reused.status, 401);
+  assert.equal(reused.body.code, "REFRESH_TOKEN_REUSE");
+
+  const revokedAccess = await http.request("/api/v1/me", {
+    headers: {
+      authorization: `Bearer ${refreshed.body.data.accessToken}`,
+    },
+  });
+  assert.equal(revokedAccess.status, 401);
+});
+
+test("patient can list devices and revoke another session", async () => {
+  const first = await loginPatient("0984444444");
+  const second = await AuthSessionService.create({
+    userId: first.user.id,
+    kind: "PATIENT",
+    expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+    meta: {
+      deviceId: "second-device",
+      deviceName: "Second device",
+      platform: "ios",
+    },
+  });
+  const authorization = `Bearer ${first.accessToken}`;
+
+  const sessions = await http.request("/api/v1/auth/sessions", {
+    headers: { authorization },
+  });
+  assert.equal(sessions.status, 200);
+  assert.equal(sessions.body.data.length, 2);
+  const other = sessions.body.data.find(
+    (item: { isCurrent: boolean }) => !item.isCurrent,
+  );
+  assert.ok(other);
+
+  const revoked = await http.request(`/api/v1/auth/sessions/${other.id}`, {
+    method: "DELETE",
+    headers: { authorization },
+  });
+  assert.equal(revoked.status, 200);
+
+  const rejectedRefresh = await http.request("/api/v1/auth/refresh", {
+    method: "POST",
+    body: { refreshToken: second.refreshToken },
+  });
+  assert.equal(rejectedRefresh.status, 401);
+});
+
+test("slot reconciliation repairs only deterministic inconsistencies", async () => {
+  await prisma.doctorTimeSlot.update({
+    where: { id: fixture.slotOne.id },
+    data: { status: "BOOKED" },
+  });
+  const patient = await prisma.user.create({
+    data: {
+      fullName: "Reconciliation Patient",
+      phone: "0985555555",
+      role: "PATIENT",
+      isPhoneVerified: true,
+    },
+  });
+  const appointment = await prisma.appointment.create({
+    data: {
+      bookingCode: "PHASE1-RECONCILE",
+      appointmentDate: dateOnly(fixture.appointmentDate),
+      startTime: fixture.slotTwo.startTime,
+      endTime: fixture.slotTwo.endTime,
+      status: "CONFIRMED",
+      patientName: patient.fullName,
+      patientPhone: patient.phone!,
+      patientId: patient.id,
+      doctorId: fixture.doctorOne.id,
+      departmentId: fixture.department.id,
+      timeSlotId: fixture.slotTwo.id,
+    },
+  });
+
+  const result = await ScheduleReconciliationService.reconcile();
+  assert.equal(result.findingCount, 2);
+  assert.equal(result.repairedCount, 2);
+
+  const [orphan, linked] = await Promise.all([
+    prisma.doctorTimeSlot.findUniqueOrThrow({ where: { id: fixture.slotOne.id } }),
+    prisma.doctorTimeSlot.findUniqueOrThrow({ where: { id: fixture.slotTwo.id } }),
+  ]);
+  assert.equal(orphan.status, "AVAILABLE");
+  assert.equal(linked.status, "BOOKED");
+  assert.equal(
+    (await prisma.appointment.findUniqueOrThrow({ where: { id: appointment.id } })).timeSlotId,
+    fixture.slotTwo.id,
+  );
+});
+
+test("v1 capabilities formally exclude online payment from the patient MVP", async () => {
+  const response = await http.request("/api/v1/capabilities");
+  assert.equal(response.status, 200);
+  assert.equal(response.body.data.payment.enabled, false);
+  assert.equal(
+    response.body.data.payment.reason,
+    "PAYMENT_EXCLUDED_FROM_PATIENT_MVP",
+  );
+  assert.deepEqual(response.body.data.payment.supportedProviders, []);
 });

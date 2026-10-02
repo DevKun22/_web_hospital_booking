@@ -38,6 +38,9 @@ Run all Phase 0 checks with:
 
 ```bash
 npm run test:phase0
+
+# Phase 0 + Phase 1 quality gate (recommended for the current branch)
+npm run test:phase1
 ```
 
 ## Runtime checks
