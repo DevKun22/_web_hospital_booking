@@ -1,4 +1,4 @@
-name: Backend mobile-readiness quality gates
+name: Hospital Booking quality gates
 
 on:
   pull_request:
@@ -56,3 +56,18 @@ jobs:
       - name: Frontend lint
         working-directory: frontend
         run: npm run lint
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.38.7
+          channel: stable
+          cache: true
+      - name: Install mobile dependencies
+        working-directory: mobile
+        run: flutter pub get
+      - name: Mobile static analysis
+        working-directory: mobile
+        run: flutter analyze
+      - name: Mobile tests
+        working-directory: mobile
+        run: flutter test
