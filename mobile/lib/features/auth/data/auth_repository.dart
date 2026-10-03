@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:hospital_booking_mobile/core/errors/api_exception.dart';
@@ -12,15 +14,18 @@ class AuthRepository {
     required Dio authenticatedDio,
     required TokenStorage tokenStorage,
     required SessionRefreshCoordinator refreshCoordinator,
+    Duration logoutRequestTimeout = const Duration(seconds: 3),
   }) : _authDio = authDio,
        _authenticatedDio = authenticatedDio,
        _tokenStorage = tokenStorage,
-       _refreshCoordinator = refreshCoordinator;
+       _refreshCoordinator = refreshCoordinator,
+       _logoutRequestTimeout = logoutRequestTimeout;
 
   final Dio _authDio;
   final Dio _authenticatedDio;
   final TokenStorage _tokenStorage;
   final SessionRefreshCoordinator _refreshCoordinator;
+  final Duration _logoutRequestTimeout;
 
   Future<OtpChallenge> requestOtp(String phone) async {
     try {
@@ -68,12 +73,13 @@ class AuthRepository {
     final refreshToken = await _tokenStorage.readRefreshToken();
     try {
       if (refreshToken != null && refreshToken.isNotEmpty) {
-        await _authDio.post<dynamic>(
-          '/auth/logout',
-          data: {'refreshToken': refreshToken},
-        );
+        await _authDio
+            .post<dynamic>('/auth/logout', data: {'refreshToken': refreshToken})
+            .timeout(_logoutRequestTimeout);
       }
-    } on DioException {
+    } on DioException catch (_) {
+      // Local logout must still complete when the server is unavailable.
+    } on TimeoutException catch (_) {
       // Local logout must still complete when the server is unavailable.
     } finally {
       await _refreshCoordinator.clear();

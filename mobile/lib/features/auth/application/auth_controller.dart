@@ -11,6 +11,7 @@ final authControllerProvider = NotifierProvider<AuthController, AuthState>(
 
 class AuthController extends Notifier<AuthState> {
   StreamSubscription<void>? _sessionSubscription;
+  bool _logoutInFlight = false;
 
   @override
   AuthState build() {
@@ -100,9 +101,21 @@ class AuthController extends Notifier<AuthState> {
     }
   }
 
-  Future<void> logout() async {
-    await ref.read(authRepositoryProvider).logout();
-    state = const AuthState.unauthenticated();
+  Future<bool> logout() async {
+    if (_logoutInFlight) return false;
+    _logoutInFlight = true;
+    final user = state.user;
+    state = AuthState(status: AuthStatus.loggingOut, user: user);
+    try {
+      await ref.read(authRepositoryProvider).logout();
+      state = const AuthState.loggedOut();
+      return true;
+    } finally {
+      _logoutInFlight = false;
+      if (state.status == AuthStatus.loggingOut) {
+        state = const AuthState.loggedOut();
+      }
+    }
   }
 
   void restartLogin() => state = const AuthState.unauthenticated();

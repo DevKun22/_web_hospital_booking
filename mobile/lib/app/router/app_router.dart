@@ -4,6 +4,12 @@ import 'package:go_router/go_router.dart';
 import 'package:hospital_booking_mobile/app/router/route_guard.dart';
 import 'package:hospital_booking_mobile/core/widgets/protected_feature_placeholder_screen.dart';
 import 'package:hospital_booking_mobile/features/booking/presentation/booking_start_screen.dart';
+import 'package:hospital_booking_mobile/features/booking/presentation/booking_patient_screen.dart';
+import 'package:hospital_booking_mobile/features/booking/presentation/booking_success_screen.dart';
+import 'package:hospital_booking_mobile/features/booking/presentation/booking_verify_otp_screen.dart';
+import 'package:hospital_booking_mobile/features/booking/presentation/department_detail_screen.dart';
+import 'package:hospital_booking_mobile/features/booking/presentation/department_list_screen.dart';
+import 'package:hospital_booking_mobile/features/booking/presentation/doctor_detail_screen.dart';
 import 'package:hospital_booking_mobile/features/auth/application/auth_controller.dart';
 import 'package:hospital_booking_mobile/features/auth/presentation/login_screen.dart';
 import 'package:hospital_booking_mobile/features/auth/presentation/splash_screen.dart';
@@ -59,7 +65,40 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         ),
       ),
       GoRoute(path: '/home', builder: (_, _) => const HomeScreen()),
-      GoRoute(path: '/booking', builder: (_, _) => const BookingStartScreen()),
+      GoRoute(
+        path: '/departments',
+        builder: (_, _) => const DepartmentListScreen(),
+      ),
+      GoRoute(
+        path: '/departments/:departmentId',
+        builder: (_, state) => DepartmentDetailScreen(
+          departmentId: state.pathParameters['departmentId']!,
+        ),
+      ),
+      GoRoute(
+        path: '/doctors/:doctorId',
+        builder: (_, state) =>
+            DoctorDetailScreen(doctorId: state.pathParameters['doctorId']!),
+      ),
+      GoRoute(
+        path: '/booking',
+        builder: (_, state) => BookingStartScreen(
+          departmentId: state.uri.queryParameters['departmentId'],
+          doctorId: state.uri.queryParameters['doctorId'],
+        ),
+      ),
+      GoRoute(
+        path: '/booking/patient',
+        builder: (_, _) => const BookingPatientScreen(),
+      ),
+      GoRoute(
+        path: '/booking/verify',
+        builder: (_, _) => const BookingVerifyOtpScreen(),
+      ),
+      GoRoute(
+        path: '/booking/success',
+        builder: (_, _) => const BookingSuccessScreen(),
+      ),
       GoRoute(
         path: '/appointments',
         builder: (_, _) => const ProtectedFeaturePlaceholderScreen(

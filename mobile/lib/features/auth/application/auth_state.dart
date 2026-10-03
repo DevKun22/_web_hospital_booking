@@ -9,6 +9,8 @@ enum AuthStatus {
   awaitingOtp,
   verifyingOtp,
   authenticated,
+  loggingOut,
+  loggedOut,
   offline,
 }
 
@@ -29,6 +31,7 @@ class AuthState {
        );
 
   const AuthState.bootstrapping() : this(status: AuthStatus.bootstrapping);
+  const AuthState.loggedOut() : this(status: AuthStatus.loggedOut);
   const AuthState.unauthenticated({
     ApiException? error,
     AuthErrorOrigin? errorOrigin,
@@ -49,6 +52,7 @@ class AuthState {
       status == AuthStatus.authenticated && user != null;
   bool get isBusy =>
       status == AuthStatus.requestingOtp || status == AuthStatus.verifyingOtp;
+  bool get isLoggingOut => status == AuthStatus.loggingOut;
 
   ApiException? errorFor(AuthErrorOrigin origin) =>
       errorOrigin == origin ? error : null;

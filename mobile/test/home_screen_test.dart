@@ -4,6 +4,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hospital_booking_mobile/core/errors/api_exception.dart';
 import 'package:hospital_booking_mobile/features/auth/application/auth_controller.dart';
 import 'package:hospital_booking_mobile/features/auth/application/auth_state.dart';
+import 'package:hospital_booking_mobile/features/home/application/home_content_controller.dart';
+import 'package:hospital_booking_mobile/features/home/domain/home_content.dart';
 import 'package:hospital_booking_mobile/features/home/presentation/home_screen.dart';
 
 class _OtpErrorAuthController extends AuthController {
@@ -17,12 +19,59 @@ class _OtpErrorAuthController extends AuthController {
   );
 }
 
+class _IdleHomeContentController extends HomeContentController {
+  @override
+  HomeContentState build() => const HomeContentState();
+}
+
+class _LoadedHomeContentController extends HomeContentController {
+  @override
+  HomeContentState build() => HomeContentState(
+    content: HomeContent(
+      banners: const [
+        HomeBanner(id: 'banner-1', title: 'Chăm sóc từ trái tim'),
+      ],
+      departments: const [HomeDepartment(id: 'department-1', name: 'Tim mạch')],
+      doctors: const [
+        HomeDoctor(
+          id: 'doctor-1',
+          fullName: 'Nguyễn Văn An',
+          departmentName: 'Tim mạch',
+          consultationFee: 250000,
+          title: 'BS. CKI',
+        ),
+      ],
+      packages: const [
+        HomeMedicalPackage(
+          id: 'package-1',
+          name: 'Khám tổng quát',
+          finalPrice: 1850000,
+          isPopular: true,
+          isBhytSupport: false,
+        ),
+      ],
+      faqs: const [
+        HomeFaq(
+          id: 'faq-1',
+          question: 'Cần chuẩn bị gì khi đi khám?',
+          answer: 'Mang theo giấy tờ tùy thân.',
+        ),
+      ],
+      siteSettings: const HomeSiteSettings(hospitalName: 'Bệnh viện kiểm thử'),
+      fetchedAt: DateTime(2030),
+    ),
+  );
+}
+
 void main() {
   testWidgets('home never renders an OTP request error', (tester) async {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
           authControllerProvider.overrideWith(_OtpErrorAuthController.new),
+          homeContentControllerProvider.overrideWith(
+            _IdleHomeContentController.new,
+          ),
         ],
         child: const MaterialApp(home: HomeScreen()),
       ),
@@ -30,5 +79,30 @@ void main() {
 
     expect(find.text('Chăm sóc sức khỏe dễ dàng hơn'), findsOneWidget);
     expect(find.text('Vui lòng đợi trước khi gửi lại OTP.'), findsNothing);
+  });
+
+  testWidgets('home renders synchronized public content', (tester) async {
+    tester.view.physicalSize = const Size(800, 2400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          authControllerProvider.overrideWith(_OtpErrorAuthController.new),
+          homeContentControllerProvider.overrideWith(
+            _LoadedHomeContentController.new,
+          ),
+        ],
+        child: const MaterialApp(home: HomeScreen()),
+      ),
+    );
+
+    expect(find.text('Bệnh viện kiểm thử'), findsOneWidget);
+    expect(find.text('Chăm sóc từ trái tim'), findsOneWidget);
+    expect(find.text('Tim mạch'), findsWidgets);
+    expect(find.text('BS. CKI Nguyễn Văn An'), findsOneWidget);
+    expect(find.text('Khám tổng quát'), findsOneWidget);
   });
 }

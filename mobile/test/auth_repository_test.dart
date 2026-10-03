@@ -49,4 +49,42 @@ void main() {
       authenticatedDio.close(force: true);
     },
   );
+
+  test('logout clears local tokens when the revoke request stalls', () async {
+    final authDio = Dio(BaseOptions(baseUrl: 'https://example.test/api/v1'));
+    final authenticatedDio = Dio(
+      BaseOptions(baseUrl: 'https://example.test/api/v1'),
+    );
+    authDio.interceptors.add(
+      InterceptorsWrapper(
+        onRequest: (_, _) {
+          // Deliberately leave the request unresolved to exercise the timeout.
+        },
+      ),
+    );
+    final tokenStorage = MemoryTokenStorage()..refreshToken = 'refresh-token';
+    final accessStore = AccessTokenStore()..set('access-token');
+    final events = SessionEvents();
+    final repository = AuthRepository(
+      authDio: authDio,
+      authenticatedDio: authenticatedDio,
+      tokenStorage: tokenStorage,
+      refreshCoordinator: SessionRefreshCoordinator(
+        authDio: authDio,
+        tokenStorage: tokenStorage,
+        accessTokenStore: accessStore,
+        sessionEvents: events,
+      ),
+      logoutRequestTimeout: const Duration(milliseconds: 20),
+    );
+
+    await repository.logout();
+
+    expect(tokenStorage.refreshToken, isNull);
+    expect(accessStore.accessToken, isNull);
+
+    await events.dispose();
+    authDio.close(force: true);
+    authenticatedDio.close(force: true);
+  });
 }

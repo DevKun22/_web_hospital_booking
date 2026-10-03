@@ -240,6 +240,27 @@ const loginPatient = async (phone: string) => {
   };
 };
 
+test("v1 public content aliases preserve the legacy response contracts", async () => {
+  const endpoints = [
+    "banners",
+    "departments",
+    "doctors",
+    "packages",
+    "faqs",
+    "site-settings",
+    "chatbot/settings",
+  ];
+
+  for (const endpoint of endpoints) {
+    const legacyResponse = await http.request(`/api/${endpoint}`);
+    const v1Response = await http.request(`/api/v1/${endpoint}`);
+
+    assert.equal(legacyResponse.status, 200, `legacy ${endpoint}`);
+    assert.equal(v1Response.status, 200, `v1 ${endpoint}`);
+    assert.deepEqual(v1Response.body, legacyResponse.body, endpoint);
+  }
+});
+
 before(async () => {
   http = await startHttpServer(
     createApp({ requestLogging: false, slowRequestLogging: false }),
@@ -278,13 +299,13 @@ test("one slot can be booked only once", async () => {
 });
 
 test("booking OTP verification moves PENDING_OTP to PENDING_CONFIRM", async () => {
-  const booking = await http.request("/api/appointments", {
+  const booking = await http.request("/api/v1/appointments", {
     method: "POST",
     body: bookingBody({ phone: "0912345678" }),
   });
 
   const verification = await http.request(
-    `/api/appointments/${booking.body.data.appointmentId}/verify-otp`,
+    `/api/v1/appointments/${booking.body.data.appointmentId}/verify-otp`,
     {
       method: "POST",
       body: { otp: booking.body.data.debugOtp },

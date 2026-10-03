@@ -73,6 +73,7 @@ class ApiException implements Exception {
             403 => ApiErrorKind.forbidden,
             404 => ApiErrorKind.notFound,
             409 => ApiErrorKind.conflict,
+            410 => ApiErrorKind.conflict,
             422 => ApiErrorKind.validation,
             429 => ApiErrorKind.rateLimited,
             int value when value >= 500 => ApiErrorKind.server,

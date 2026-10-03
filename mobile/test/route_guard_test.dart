@@ -48,6 +48,38 @@ void main() {
     );
   });
 
+  test('explicit logout leaves protected screens for guest home', () {
+    expect(
+      resolveAppRedirect(
+        authStatus: AuthStatus.loggingOut,
+        hasChallenge: false,
+        welcomeSeen: true,
+        location: '/profile',
+      ),
+      isNull,
+      reason: 'The profile must remain visible while logout is in progress.',
+    );
+    expect(
+      resolveAppRedirect(
+        authStatus: AuthStatus.loggedOut,
+        hasChallenge: false,
+        welcomeSeen: true,
+        location: '/profile',
+      ),
+      '/home',
+    );
+    expect(
+      resolveAppRedirect(
+        authStatus: AuthStatus.loggedOut,
+        hasChallenge: false,
+        welcomeSeen: true,
+        location: '/login',
+      ),
+      isNull,
+      reason: 'A logged-out guest can still choose to sign in again.',
+    );
+  });
+
   test('OTP flow preserves the protected destination', () {
     expect(
       resolveAppRedirect(

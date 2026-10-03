@@ -10,6 +10,9 @@ import 'package:hospital_booking_mobile/core/providers/app_providers.dart';
 import 'package:hospital_booking_mobile/features/auth/application/auth_controller.dart';
 import 'package:hospital_booking_mobile/features/auth/application/auth_state.dart';
 import 'package:hospital_booking_mobile/features/auth/domain/auth_session.dart';
+import 'package:hospital_booking_mobile/features/booking/application/booking_flow_controller.dart';
+import 'package:hospital_booking_mobile/features/booking/domain/booking_catalog.dart';
+import 'package:hospital_booking_mobile/features/home/application/home_content_controller.dart';
 import 'package:hospital_booking_mobile/features/onboarding/application/onboarding_controller.dart';
 
 class _OtpFlowAuthController extends AuthController {
@@ -41,6 +44,32 @@ class _SeenOnboardingController extends OnboardingController {
   Future<bool> build() async => true;
 }
 
+class _IdleHomeContentController extends HomeContentController {
+  @override
+  HomeContentState build() => const HomeContentState();
+}
+
+class _GuestAuthController extends AuthController {
+  @override
+  AuthState build() => const AuthState.unauthenticated();
+}
+
+class _CatalogBookingFlowController extends BookingFlowController {
+  @override
+  BookingFlowState build() => const BookingFlowState(
+    departments: [BookingDepartment(id: 'department-1', name: 'Tim mạch')],
+    doctors: [
+      BookingDoctor(
+        id: 'doctor-1',
+        fullName: 'Nguyễn Văn An',
+        departmentId: 'department-1',
+        departmentName: 'Tim mạch',
+        consultationFee: 250000,
+      ),
+    ],
+  );
+}
+
 void main() {
   testWidgets(
     'requesting OTP stays on login then opens verification directly',
@@ -59,6 +88,9 @@ void main() {
           authControllerProvider.overrideWith(_OtpFlowAuthController.new),
           onboardingControllerProvider.overrideWith(
             _SeenOnboardingController.new,
+          ),
+          homeContentControllerProvider.overrideWith(
+            _IdleHomeContentController.new,
           ),
         ],
       );
@@ -91,4 +123,50 @@ void main() {
       expect(find.text('Chăm sóc sức khỏe dễ dàng hơn'), findsNothing);
     },
   );
+
+  testWidgets('public department routes remain available to guests', (
+    tester,
+  ) async {
+    final container = ProviderContainer(
+      overrides: [
+        appConfigProvider.overrideWithValue(
+          AppConfig(
+            environment: AppEnvironment.development,
+            apiBaseUrl: 'https://example.test/api/v1',
+            connectTimeout: const Duration(seconds: 10),
+            receiveTimeout: const Duration(seconds: 15),
+            enableNetworkLogs: false,
+          ),
+        ),
+        authControllerProvider.overrideWith(_GuestAuthController.new),
+        onboardingControllerProvider.overrideWith(
+          _SeenOnboardingController.new,
+        ),
+        homeContentControllerProvider.overrideWith(
+          _IdleHomeContentController.new,
+        ),
+        bookingFlowControllerProvider.overrideWith(
+          _CatalogBookingFlowController.new,
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const HospitalBookingApp(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    container.read(appRouterProvider).go('/departments');
+    await tester.pumpAndSettle();
+    expect(find.text('Tìm đúng nơi chăm sóc'), findsOneWidget);
+
+    container.read(appRouterProvider).go('/departments/department-1');
+    await tester.pumpAndSettle();
+    expect(find.text('Đặt lịch chuyên khoa này'), findsOneWidget);
+    expect(find.text('Nguyễn Văn An'), findsOneWidget);
+  });
 }

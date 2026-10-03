@@ -51,6 +51,21 @@ String? resolveAppRedirect({
     return null;
   }
 
+  if (authStatus == AuthStatus.loggingOut) return null;
+
+  if (authStatus == AuthStatus.loggedOut) {
+    final isProtected = _protectedPrefixes.any(
+      (prefix) => location == prefix || location.startsWith('$prefix/'),
+    );
+    if (isProtected ||
+        location == '/splash' ||
+        location == '/welcome' ||
+        location == '/verify-otp') {
+      return '/home';
+    }
+    return null;
+  }
+
   if ((authStatus == AuthStatus.awaitingOtp ||
           authStatus == AuthStatus.verifyingOtp) &&
       hasChallenge) {

@@ -7,6 +7,8 @@ import 'package:hospital_booking_mobile/core/widgets/app_error_banner.dart';
 import 'package:hospital_booking_mobile/core/widgets/app_ui.dart';
 import 'package:hospital_booking_mobile/features/auth/application/auth_controller.dart';
 import 'package:hospital_booking_mobile/features/auth/application/auth_state.dart';
+import 'package:hospital_booking_mobile/features/home/application/home_content_controller.dart';
+import 'package:hospital_booking_mobile/features/home/domain/home_content.dart';
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
@@ -14,18 +16,29 @@ class HomeScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final auth = ref.watch(authControllerProvider);
+    final homeState = ref.watch(homeContentControllerProvider);
+    final content = homeState.content;
     final user = auth.user;
     final isAuthenticated = auth.isAuthenticated;
     final sessionError = auth.errorFor(AuthErrorOrigin.session);
+    final hospitalName = content?.siteSettings.hospitalName;
 
     return Scaffold(
       appBar: AppBar(
         titleSpacing: 20,
-        title: const Row(
+        title: Row(
           children: [
-            AppBrandMark(size: 36),
-            SizedBox(width: 10),
-            Text('Hospital Booking'),
+            const AppBrandMark(size: 36),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                hospitalName?.isNotEmpty == true
+                    ? hospitalName!
+                    : 'Hospital Booking',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
           ],
         ),
         actions: [
@@ -44,64 +57,280 @@ class HomeScreen extends ConsumerWidget {
         ],
       ),
       body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
-          children: [
-            if (sessionError != null) ...[
-              AppErrorBanner(
-                error: sessionError,
-                onDismiss: ref
-                    .read(authControllerProvider.notifier)
-                    .dismissError,
-              ),
-              const SizedBox(height: 16),
-            ],
-            Text(
-              isAuthenticated
-                  ? 'Xin chào, ${user?.fullName ?? 'bệnh nhân'}'
-                  : 'Chăm sóc sức khỏe dễ dàng hơn',
-              style: Theme.of(
-                context,
-              ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              isAuthenticated
-                  ? 'Phiên đăng nhập đã được kết nối an toàn với hệ thống.'
-                  : 'Bạn có thể khám phá dịch vụ và đặt lịch mà chưa cần tài khoản.',
-              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
-            ),
-            const SizedBox(height: 20),
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [AppTheme.primary, Color(0xFF0A9290)],
+        child: RefreshIndicator(
+          onRefresh: ref.read(homeContentControllerProvider.notifier).refresh,
+          child: ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
+            children: [
+              if (sessionError != null) ...[
+                AppErrorBanner(
+                  error: sessionError,
+                  onDismiss: ref
+                      .read(authControllerProvider.notifier)
+                      .dismissError,
                 ),
-                borderRadius: BorderRadius.circular(24),
+                const SizedBox(height: 16),
+              ],
+              if (homeState.error != null && content != null) ...[
+                AppErrorBanner(
+                  error: homeState.error!,
+                  onDismiss: ref
+                      .read(homeContentControllerProvider.notifier)
+                      .dismissError,
+                ),
+                const SizedBox(height: 8),
+                TextButton.icon(
+                  onPressed: ref
+                      .read(homeContentControllerProvider.notifier)
+                      .refresh,
+                  icon: const Icon(Icons.refresh_rounded),
+                  label: const Text('Thử tải dữ liệu mới'),
+                ),
+                const SizedBox(height: 8),
+              ],
+              Text(
+                isAuthenticated
+                    ? 'Xin chào, ${user?.fullName ?? 'bệnh nhân'}'
+                    : 'Chăm sóc sức khỏe dễ dàng hơn',
+                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.w800,
+                ),
               ),
+              const SizedBox(height: 6),
+              Text(
+                isAuthenticated
+                    ? 'Dịch vụ và thông tin khám của bạn luôn được đồng bộ.'
+                    : 'Khám phá dịch vụ và đặt lịch mà chưa cần tài khoản.',
+                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 20),
+              if (homeState.isInitialLoading) ...[
+                const AppLoadingSkeleton(height: 230),
+                const SizedBox(height: 20),
+                const AppLoadingSkeleton(height: 120),
+                const SizedBox(height: 12),
+                const AppLoadingSkeleton(height: 180),
+              ] else if (content == null) ...[
+                AppEmptyState(
+                  icon: Icons.cloud_off_rounded,
+                  title: 'Chưa tải được nội dung',
+                  message:
+                      homeState.error?.message ??
+                      'Kéo xuống hoặc thử lại để kết nối máy chủ.',
+                  action: FilledButton.icon(
+                    onPressed: ref
+                        .read(homeContentControllerProvider.notifier)
+                        .refresh,
+                    icon: const Icon(Icons.refresh_rounded),
+                    label: const Text('Thử lại'),
+                  ),
+                ),
+              ] else ...[
+                if (homeState.isRefreshing)
+                  const LinearProgressIndicator(minHeight: 2),
+                if (homeState.usingCachedData) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    'Đang hiển thị dữ liệu đã lưu và kiểm tra cập nhật…',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 10),
+                _HeroBanner(banner: content.banners.firstOrNull),
+                const SizedBox(height: 22),
+                const AppSectionHeader(title: 'Dịch vụ của bạn'),
+                const SizedBox(height: 10),
+                _ServiceGrid(isAuthenticated: isAuthenticated),
+                if (content.departments.isNotEmpty) ...[
+                  const SizedBox(height: 24),
+                  AppSectionHeader(
+                    title: 'Chuyên khoa phổ biến',
+                    actionLabel: 'Xem tất cả',
+                    onAction: () => context.push('/departments'),
+                  ),
+                  const SizedBox(height: 10),
+                  _DepartmentList(items: content.departments.take(8).toList()),
+                ],
+                if (content.doctors.isNotEmpty) ...[
+                  const SizedBox(height: 24),
+                  const AppSectionHeader(title: 'Bác sĩ nổi bật'),
+                  const SizedBox(height: 10),
+                  ...content.doctors
+                      .take(3)
+                      .map(
+                        (doctor) => Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: _DoctorCard(doctor: doctor),
+                        ),
+                      ),
+                ],
+                if (content.packages.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  const AppSectionHeader(title: 'Gói khám được quan tâm'),
+                  const SizedBox(height: 10),
+                  ...content.packages
+                      .take(2)
+                      .map(
+                        (item) => Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: _PackageCard(item: item),
+                        ),
+                      ),
+                ],
+                if (content.faqs.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  const AppSectionHeader(title: 'Hỏi đáp & hướng dẫn khám'),
+                  const SizedBox(height: 8),
+                  Card(
+                    child: Column(
+                      children: content.faqs
+                          .take(4)
+                          .map(
+                            (faq) => ExpansionTile(
+                              title: Text(faq.question),
+                              childrenPadding: const EdgeInsets.fromLTRB(
+                                16,
+                                0,
+                                16,
+                                16,
+                              ),
+                              children: [
+                                Align(
+                                  alignment: Alignment.centerLeft,
+                                  child: Text(faq.answer),
+                                ),
+                              ],
+                            ),
+                          )
+                          .toList(growable: false),
+                    ),
+                  ),
+                ],
+                if (content.siteSettings.emergencyHotline != null) ...[
+                  const SizedBox(height: 20),
+                  _EmergencyCard(
+                    hotline: content.siteSettings.emergencyHotline!,
+                  ),
+                ],
+              ],
+              if (!isAuthenticated) ...[
+                const SizedBox(height: 22),
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(18),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Đã có tài khoản bệnh nhân?',
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          'Đăng nhập để xem lịch, hồ sơ sức khỏe và kết quả khám trên mọi thiết bị.',
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onSurfaceVariant,
+                              ),
+                        ),
+                        const SizedBox(height: 14),
+                        OutlinedButton.icon(
+                          onPressed: () => context.push('/login'),
+                          icon: const Icon(Icons.login_rounded),
+                          label: const Text('Đăng nhập'),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _HeroBanner extends StatelessWidget {
+  const _HeroBanner({this.banner});
+
+  final HomeBanner? banner;
+
+  @override
+  Widget build(BuildContext context) {
+    final image = banner?.preferredImage;
+    return Container(
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [AppTheme.primary, Color(0xFF0A9290)],
+        ),
+        borderRadius: BorderRadius.circular(24),
+      ),
+      child: Stack(
+        children: [
+          if (image != null)
+            Positioned.fill(
+              child: Image.network(
+                image,
+                fit: BoxFit.cover,
+                errorBuilder: (_, _, _) => const SizedBox.shrink(),
+              ),
+            ),
+          Positioned.fill(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    AppTheme.primary.withValues(alpha: 0.96),
+                    AppTheme.primary.withValues(
+                      alpha: image == null ? 0.7 : 0.18,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(20),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(minHeight: 190),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   const AppStatusBadge(
-                    label: 'TRẢI NGHIỆM MOBILE MỚI',
+                    label: 'CHĂM SÓC TOÀN DIỆN',
                     tone: AppStatusTone.success,
-                    icon: Icons.auto_awesome_rounded,
+                    icon: Icons.health_and_safety_outlined,
                   ),
                   const SizedBox(height: 14),
                   Text(
-                    'Đặt lịch đúng chuyên khoa,\nan tâm từng bước',
+                    banner?.title.isNotEmpty == true
+                        ? banner!.title
+                        : 'Đặt lịch đúng chuyên khoa,\nan tâm từng bước',
+                    maxLines: 3,
+                    overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
                       color: Colors.white,
                       fontWeight: FontWeight.w800,
                     ),
                   ),
                   const SizedBox(height: 8),
-                  const Text(
-                    'Luồng chọn bác sĩ và giờ khám sẽ được kết nối ở mốc kế tiếp.',
-                    style: TextStyle(color: Color(0xDFFFFFFF)),
+                  Text(
+                    banner?.subtitle ??
+                        'Chủ động chọn dịch vụ, bác sĩ và thời gian phù hợp.',
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(color: Color(0xDFFFFFFF)),
                   ),
                   const SizedBox(height: 16),
                   FilledButton.icon(
@@ -117,90 +346,291 @@ class HomeScreen extends ConsumerWidget {
                 ],
               ),
             ),
-            const SizedBox(height: 22),
-            const AppSectionHeader(title: 'Dịch vụ của bạn'),
-            const SizedBox(height: 10),
-            GridView.count(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              crossAxisCount: 2,
-              mainAxisSpacing: 12,
-              crossAxisSpacing: 12,
-              childAspectRatio: 1.15,
-              children: [
-                _FeatureCard(
-                  icon: Icons.calendar_month_outlined,
-                  label: 'Đặt lịch khám',
-                  detail: 'Không cần tài khoản',
-                  onTap: () => context.go('/booking'),
-                ),
-                _FeatureCard(
-                  icon: Icons.event_note_outlined,
-                  label: 'Lịch khám của tôi',
-                  detail: isAuthenticated ? 'Đã đăng nhập' : 'Cần đăng nhập',
-                  onTap: () => context.push(
-                    isAuthenticated
-                        ? '/appointments'
-                        : loginLocation('/appointments'),
-                  ),
-                ),
-                _FeatureCard(
-                  icon: Icons.description_outlined,
-                  label: 'Kết quả khám',
-                  detail: 'Bảo vệ bằng tài khoản',
-                  onTap: () => context.push(
-                    isAuthenticated
-                        ? '/medical-records'
-                        : loginLocation('/medical-records'),
-                  ),
-                ),
-                _FeatureCard(
-                  icon: Icons.medication_outlined,
-                  label: 'Đơn thuốc',
-                  detail: 'Bảo vệ bằng tài khoản',
-                  onTap: () => context.push(
-                    isAuthenticated
-                        ? '/prescriptions'
-                        : loginLocation('/prescriptions'),
-                  ),
-                ),
-              ],
-            ),
-            if (!isAuthenticated) ...[
-              const SizedBox(height: 22),
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(18),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Đã có tài khoản bệnh nhân?',
-                        style: Theme.of(context).textTheme.titleMedium,
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        'Đăng nhập để xem lịch, hồ sơ sức khỏe và kết quả khám trên mọi thiết bị.',
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                      const SizedBox(height: 14),
-                      OutlinedButton.icon(
-                        onPressed: () => context.push('/login'),
-                        icon: const Icon(Icons.login_rounded),
-                        label: const Text('Đăng nhập'),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
+}
+
+class _ServiceGrid extends StatelessWidget {
+  const _ServiceGrid({required this.isAuthenticated});
+
+  final bool isAuthenticated;
+
+  @override
+  Widget build(BuildContext context) => GridView.count(
+    shrinkWrap: true,
+    physics: const NeverScrollableScrollPhysics(),
+    crossAxisCount: 2,
+    mainAxisSpacing: 12,
+    crossAxisSpacing: 12,
+    childAspectRatio: 1.15,
+    children: [
+      _FeatureCard(
+        icon: Icons.calendar_month_outlined,
+        label: 'Đặt lịch khám',
+        detail: 'Không cần tài khoản',
+        onTap: () => context.go('/booking'),
+      ),
+      _FeatureCard(
+        icon: Icons.event_note_outlined,
+        label: 'Lịch khám của tôi',
+        detail: isAuthenticated ? 'Đã đăng nhập' : 'Cần đăng nhập',
+        onTap: () => context.push(
+          isAuthenticated ? '/appointments' : loginLocation('/appointments'),
+        ),
+      ),
+      _FeatureCard(
+        icon: Icons.description_outlined,
+        label: 'Kết quả khám',
+        detail: 'Bảo vệ bằng tài khoản',
+        onTap: () => context.push(
+          isAuthenticated
+              ? '/medical-records'
+              : loginLocation('/medical-records'),
+        ),
+      ),
+      _FeatureCard(
+        icon: Icons.medication_outlined,
+        label: 'Đơn thuốc',
+        detail: 'Bảo vệ bằng tài khoản',
+        onTap: () => context.push(
+          isAuthenticated ? '/prescriptions' : loginLocation('/prescriptions'),
+        ),
+      ),
+    ],
+  );
+}
+
+class _DepartmentList extends StatelessWidget {
+  const _DepartmentList({required this.items});
+
+  final List<HomeDepartment> items;
+
+  @override
+  Widget build(BuildContext context) => SizedBox(
+    height: 98,
+    child: ListView.separated(
+      scrollDirection: Axis.horizontal,
+      itemCount: items.length,
+      separatorBuilder: (_, _) => const SizedBox(width: 10),
+      itemBuilder: (context, index) {
+        final item = items[index];
+        return InkWell(
+          onTap: () =>
+              context.push('/departments/${Uri.encodeComponent(item.id)}'),
+          borderRadius: BorderRadius.circular(18),
+          child: Container(
+            width: 116,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: AppTheme.softBorder),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon(
+                  Icons.medical_services_outlined,
+                  color: AppTheme.primary,
+                ),
+                const Spacer(),
+                Text(
+                  item.name,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.labelLarge,
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    ),
+  );
+}
+
+class _DoctorCard extends StatelessWidget {
+  const _DoctorCard({required this.doctor});
+
+  final HomeDoctor doctor;
+
+  @override
+  Widget build(BuildContext context) => Card(
+    child: Padding(
+      padding: const EdgeInsets.all(14),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          CircleAvatar(
+            radius: 28,
+            backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+            backgroundImage: doctor.avatar == null
+                ? null
+                : NetworkImage(doctor.avatar!),
+            child: doctor.avatar == null
+                ? const Icon(Icons.person_outline_rounded)
+                : null,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  doctor.displayName,
+                  style: Theme.of(context).textTheme.titleSmall,
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  doctor.specialization ?? doctor.departmentName,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        _formatVnd(doctor.consultationFee),
+                        style: const TextStyle(
+                          color: AppTheme.primaryDark,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                    IconButton.outlined(
+                      onPressed: () => context.push(
+                        '/doctors/${Uri.encodeComponent(doctor.id)}',
+                      ),
+                      tooltip: 'Xem hồ sơ',
+                      icon: const Icon(Icons.person_search_outlined),
+                    ),
+                    const SizedBox(width: 8),
+                    FilledButton(
+                      style: FilledButton.styleFrom(
+                        minimumSize: const Size(0, 38),
+                        padding: const EdgeInsets.symmetric(horizontal: 14),
+                      ),
+                      onPressed: () => context.push(
+                        Uri(
+                          path: '/booking',
+                          queryParameters: {'doctorId': doctor.id},
+                        ).toString(),
+                      ),
+                      child: const Text('Đặt khám'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+class _PackageCard extends StatelessWidget {
+  const _PackageCard({required this.item});
+
+  final HomeMedicalPackage item;
+
+  @override
+  Widget build(BuildContext context) => Card(
+    child: Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              if (item.isPopular)
+                const AppStatusBadge(
+                  label: 'PHỔ BIẾN',
+                  tone: AppStatusTone.warning,
+                ),
+              if (item.isBhytSupport)
+                const AppStatusBadge(
+                  label: 'HỖ TRỢ BHYT',
+                  tone: AppStatusTone.info,
+                ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(item.name, style: Theme.of(context).textTheme.titleMedium),
+          if (item.summary != null) ...[
+            const SizedBox(height: 5),
+            Text(
+              item.summary!,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+          const SizedBox(height: 12),
+          Text(
+            _formatVnd(item.finalPrice),
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              color: AppTheme.primaryDark,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+class _EmergencyCard extends StatelessWidget {
+  const _EmergencyCard({required this.hotline});
+
+  final String hotline;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.all(16),
+    decoration: BoxDecoration(
+      color: const Color(0xFFFCEBED),
+      borderRadius: BorderRadius.circular(18),
+    ),
+    child: Row(
+      children: [
+        const CircleAvatar(
+          backgroundColor: Color(0xFFB64048),
+          foregroundColor: Colors.white,
+          child: Icon(Icons.emergency_rounded),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Cấp cứu khẩn cấp 24/7',
+                style: Theme.of(context).textTheme.labelLarge,
+              ),
+              Text(
+                hotline,
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  color: const Color(0xFFB64048),
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const Icon(Icons.phone_in_talk_rounded, color: Color(0xFFB64048)),
+      ],
+    ),
+  );
 }
 
 class _FeatureCard extends StatelessWidget {
@@ -249,4 +679,14 @@ class _FeatureCard extends StatelessWidget {
       ),
     ),
   );
+}
+
+String _formatVnd(double value) {
+  final digits = value.round().toString();
+  final buffer = StringBuffer();
+  for (var index = 0; index < digits.length; index += 1) {
+    if (index > 0 && (digits.length - index) % 3 == 0) buffer.write('.');
+    buffer.write(digits[index]);
+  }
+  return '${buffer.toString()} đ';
 }

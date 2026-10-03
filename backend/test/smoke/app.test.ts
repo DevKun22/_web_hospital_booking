@@ -53,18 +53,20 @@ test("unknown routes preserve the legacy error envelope", async () => {
 });
 
 test("request validation preserves success, message and errors", async () => {
-  const response = await http.request("/api/appointments", {
-    method: "POST",
-    body: {},
-  });
+  for (const path of ["/api/appointments", "/api/v1/appointments"]) {
+    const response = await http.request(path, {
+      method: "POST",
+      body: {},
+    });
 
-  assert.equal(response.status, 400);
-  assert.equal(response.body.success, false);
-  assert.equal(response.body.code, "VALIDATION_ERROR");
-  assert.equal(typeof response.body.requestId, "string");
-  assert.equal(response.body.message, "Dữ liệu không hợp lệ");
-  assert.ok(Array.isArray(response.body.errors));
-  assert.ok(response.body.errors.length > 0);
+    assert.equal(response.status, 400);
+    assert.equal(response.body.success, false);
+    assert.equal(response.body.code, "VALIDATION_ERROR");
+    assert.equal(typeof response.body.requestId, "string");
+    assert.equal(response.body.message, "Dữ liệu không hợp lệ");
+    assert.ok(Array.isArray(response.body.errors));
+    assert.ok(response.body.errors.length > 0);
+  }
 });
 
 test("production startup rejects missing, weak or debug OTP secrets", () => {
