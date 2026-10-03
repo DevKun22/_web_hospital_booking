@@ -9,9 +9,20 @@
 - Access token chỉ giữ trong RAM; refresh token và mã thiết bị lưu bằng secure storage.
 - Tự refresh khi API trả `401`, chỉ cho phép một refresh chạy tại cùng thời điểm và thử lại request đúng một lần.
 - Phân biệt lỗi xác thực, validation, rate limit, mạng và timeout; giữ `requestId` để hỗ trợ tra log.
+- Design system Calm Care với màu teal, trạng thái dùng chung và các component nền.
+- Màn Welcome chỉ xuất hiện ở lần mở đầu tiên; người dùng có thể đặt lịch hoặc khám phá dịch vụ mà chưa cần tài khoản.
+- Router tách route công khai và route bệnh nhân; sau OTP quay lại đúng tính năng đã yêu cầu.
 - Có profile chạy development/production và quality gate trong CI.
 
-Các màn nghiệp vụ đặt lịch, hồ sơ khám, hóa đơn và thông báo thuộc các phase sau; màn Home hiện chỉ thể hiện khung điều hướng.
+Home đã hỗ trợ trạng thái khách/đăng nhập và hero tĩnh làm khung UI. Dữ liệu hero động, luồng đặt lịch đầy đủ, hồ sơ khám, hóa đơn và chatbot mobile thuộc các mốc tiếp theo.
+
+## Quy tắc hiển thị thông báo xác thực
+
+- Không có refresh token là trạng thái khách bình thường, không hiển thị lỗi.
+- Lỗi gửi OTP chỉ hiển thị ở màn đăng nhập; lỗi xác minh OTP chỉ hiển thị ở màn nhập OTP.
+- Lỗi mạng khi khôi phục phiên là lỗi chặn luồng và hiển thị tại Splash kèm hành động thử lại.
+- Lỗi gửi/xác minh OTP không xuất hiện trên Trang chủ. Phiên hết hạn hoặc bị thu hồi vẫn được thông báo tại Trang chủ hoặc màn đăng nhập và cho phép người dùng đóng.
+- Khi rời luồng đăng nhập, lỗi thao tác cũ phải được xóa để không xuất hiện lại ở lần truy cập sau.
 
 ## Cấu hình
 

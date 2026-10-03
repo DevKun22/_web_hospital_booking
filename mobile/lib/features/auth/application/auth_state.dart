@@ -12,6 +12,8 @@ enum AuthStatus {
   offline,
 }
 
+enum AuthErrorOrigin { sessionRestore, session, requestOtp, verifyOtp }
+
 class AuthState {
   const AuthState({
     required this.status,
@@ -19,22 +21,37 @@ class AuthState {
     this.phone,
     this.challenge,
     this.error,
-  });
+    this.errorOrigin,
+  }) : assert(
+         (error == null && errorOrigin == null) ||
+             (error != null && errorOrigin != null),
+         'An authentication error must always declare its UI origin.',
+       );
 
   const AuthState.bootstrapping() : this(status: AuthStatus.bootstrapping);
-  const AuthState.unauthenticated({ApiException? error})
-    : this(status: AuthStatus.unauthenticated, error: error);
+  const AuthState.unauthenticated({
+    ApiException? error,
+    AuthErrorOrigin? errorOrigin,
+  }) : this(
+         status: AuthStatus.unauthenticated,
+         error: error,
+         errorOrigin: errorOrigin,
+       );
 
   final AuthStatus status;
   final PatientUser? user;
   final String? phone;
   final OtpChallenge? challenge;
   final ApiException? error;
+  final AuthErrorOrigin? errorOrigin;
 
   bool get isAuthenticated =>
       status == AuthStatus.authenticated && user != null;
   bool get isBusy =>
       status == AuthStatus.requestingOtp || status == AuthStatus.verifyingOtp;
+
+  ApiException? errorFor(AuthErrorOrigin origin) =>
+      errorOrigin == origin ? error : null;
 
   AuthState copyWith({
     AuthStatus? status,
@@ -42,6 +59,7 @@ class AuthState {
     String? phone,
     OtpChallenge? challenge,
     ApiException? error,
+    AuthErrorOrigin? errorOrigin,
     bool clearError = false,
   }) => AuthState(
     status: status ?? this.status,
@@ -49,5 +67,6 @@ class AuthState {
     phone: phone ?? this.phone,
     challenge: challenge ?? this.challenge,
     error: clearError ? null : error ?? this.error,
+    errorOrigin: clearError ? null : errorOrigin ?? this.errorOrigin,
   );
 }

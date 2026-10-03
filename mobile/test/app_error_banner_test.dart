@@ -22,4 +22,27 @@ void main() {
     expect(find.text('Hệ thống đang bận'), findsOneWidget);
     expect(find.text('Mã hỗ trợ: request-123'), findsOneWidget);
   });
+
+  testWidgets('dismissible error banner exposes a clear action', (
+    tester,
+  ) async {
+    var dismissed = false;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: AppErrorBanner(
+            error: const ApiException(
+              kind: ApiErrorKind.network,
+              message: 'Không thể kết nối máy chủ',
+            ),
+            onDismiss: () => dismissed = true,
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.byTooltip('Đóng thông báo'));
+
+    expect(dismissed, isTrue);
+  });
 }

@@ -5,6 +5,7 @@ import 'package:hospital_booking_mobile/core/network/access_token_store.dart';
 import 'package:hospital_booking_mobile/core/network/dio_factory.dart';
 import 'package:hospital_booking_mobile/core/network/session_events.dart';
 import 'package:hospital_booking_mobile/core/network/session_refresh_coordinator.dart';
+import 'package:hospital_booking_mobile/core/storage/app_preferences.dart';
 import 'package:hospital_booking_mobile/core/storage/token_storage.dart';
 import 'package:hospital_booking_mobile/features/auth/data/auth_repository.dart';
 
@@ -14,6 +15,10 @@ final appConfigProvider = Provider<AppConfig>(
 
 final tokenStorageProvider = Provider<TokenStorage>(
   (ref) => SecureTokenStorage(),
+);
+
+final appPreferencesProvider = Provider<AppPreferences>(
+  (ref) => SharedAppPreferences(),
 );
 
 final accessTokenStoreProvider = Provider<AccessTokenStore>(

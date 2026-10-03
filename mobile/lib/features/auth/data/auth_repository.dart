@@ -58,7 +58,11 @@ class AuthRepository {
     }
   }
 
-  Future<AuthSession> restoreSession() => _refreshCoordinator.refresh();
+  Future<AuthSession?> restoreSession() async {
+    final refreshToken = await _tokenStorage.readRefreshToken();
+    if (refreshToken == null || refreshToken.isEmpty) return null;
+    return _refreshCoordinator.refresh();
+  }
 
   Future<void> logout() async {
     final refreshToken = await _tokenStorage.readRefreshToken();

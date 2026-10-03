@@ -23,6 +23,7 @@ class AuthController extends Notifier<AuthState> {
           code: 'SESSION_INVALIDATED',
           message: 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.',
         ),
+        errorOrigin: AuthErrorOrigin.session,
       );
     });
     ref.onDispose(() => _sessionSubscription?.cancel());
@@ -34,13 +35,22 @@ class AuthController extends Notifier<AuthState> {
     state = const AuthState.bootstrapping();
     try {
       final session = await ref.read(authRepositoryProvider).restoreSession();
-      state = AuthState(status: AuthStatus.authenticated, user: session.user);
+      state = session == null
+          ? const AuthState.unauthenticated()
+          : AuthState(status: AuthStatus.authenticated, user: session.user);
     } on ApiException catch (error) {
       if (error.kind == ApiErrorKind.network ||
           error.kind == ApiErrorKind.timeout) {
-        state = AuthState(status: AuthStatus.offline, error: error);
+        state = AuthState(
+          status: AuthStatus.offline,
+          error: error,
+          errorOrigin: AuthErrorOrigin.sessionRestore,
+        );
       } else {
-        state = AuthState.unauthenticated(error: error);
+        state = AuthState.unauthenticated(
+          error: error,
+          errorOrigin: AuthErrorOrigin.session,
+        );
       }
     }
   }
@@ -58,7 +68,10 @@ class AuthController extends Notifier<AuthState> {
       );
       return true;
     } on ApiException catch (error) {
-      state = AuthState.unauthenticated(error: error).copyWith(phone: phone);
+      state = AuthState.unauthenticated(
+        error: error,
+        errorOrigin: AuthErrorOrigin.requestOtp,
+      ).copyWith(phone: phone);
       return false;
     }
   }
@@ -78,7 +91,11 @@ class AuthController extends Notifier<AuthState> {
       state = AuthState(status: AuthStatus.authenticated, user: session.user);
       return true;
     } on ApiException catch (error) {
-      state = state.copyWith(status: AuthStatus.awaitingOtp, error: error);
+      state = state.copyWith(
+        status: AuthStatus.awaitingOtp,
+        error: error,
+        errorOrigin: AuthErrorOrigin.verifyOtp,
+      );
       return false;
     }
   }
@@ -89,4 +106,6 @@ class AuthController extends Notifier<AuthState> {
   }
 
   void restartLogin() => state = const AuthState.unauthenticated();
+
+  void dismissError() => state = state.copyWith(clearError: true);
 }
