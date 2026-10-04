@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hospital_booking_mobile/app/router/route_guard.dart';
 import 'package:hospital_booking_mobile/core/widgets/protected_feature_placeholder_screen.dart';
+import 'package:hospital_booking_mobile/features/appointments/presentation/appointment_detail_screen.dart';
+import 'package:hospital_booking_mobile/features/appointments/presentation/appointments_screen.dart';
 import 'package:hospital_booking_mobile/features/booking/presentation/booking_start_screen.dart';
 import 'package:hospital_booking_mobile/features/booking/presentation/booking_patient_screen.dart';
 import 'package:hospital_booking_mobile/features/booking/presentation/booking_success_screen.dart';
@@ -101,12 +103,15 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/appointments',
-        builder: (_, _) => const ProtectedFeaturePlaceholderScreen(
-          title: 'Lịch khám của tôi',
-          message:
-              'Danh sách lịch khám sẽ được kết nối với patient portal ở mốc tiếp theo.',
-          icon: Icons.event_note_outlined,
-        ),
+        builder: (_, _) => const AppointmentsScreen(),
+        routes: [
+          GoRoute(
+            path: ':appointmentId',
+            builder: (_, state) => AppointmentDetailScreen(
+              appointmentId: state.pathParameters['appointmentId']!,
+            ),
+          ),
+        ],
       ),
       GoRoute(
         path: '/medical-records',
