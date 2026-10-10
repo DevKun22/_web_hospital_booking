@@ -38,6 +38,7 @@ dependencies:
   flutter_riverpod: ^3.3.2
   flutter_secure_storage: ^11.2.0
   go_router: ^17.5.0
+  pdfx: ^2.11.0
   shared_preferences: ^2.5.3
   uuid: ^4.6.0
 

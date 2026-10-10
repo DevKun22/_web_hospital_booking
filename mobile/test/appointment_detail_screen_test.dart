@@ -17,10 +17,10 @@ const _patient = PatientUser(
   isPhoneVerified: true,
 );
 
-const _appointment = PatientAppointment(
+final _appointment = PatientAppointment(
   id: 'appointment-1',
   bookingCode: 'HB-1001',
-  appointmentDate: '2030-01-02',
+  appointmentDate: '${DateTime.now().year + 1}-01-02',
   startTime: '09:00',
   endTime: '09:30',
   status: PatientAppointmentStatus.confirmed,
@@ -43,7 +43,7 @@ class _DetailRepository extends AppointmentsRepository {
 
   @override
   Future<AppointmentPage> list({int page = 1, int limit = 20}) async =>
-      const AppointmentPage(
+      AppointmentPage(
         items: [_appointment],
         page: 1,
         total: 1,
@@ -92,4 +92,41 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+
+  testWidgets('does not offer cancellation after the appointment start time', (
+    tester,
+  ) async {
+    final repository = _PastDetailRepository();
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          authControllerProvider.overrideWith(_AuthenticatedController.new),
+          appointmentsRepositoryProvider.overrideWithValue(repository),
+        ],
+        child: const MaterialApp(
+          home: AppointmentDetailScreen(appointmentId: 'past-appointment'),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Yêu cầu hủy lịch'), findsNothing);
+  });
+}
+
+class _PastDetailRepository extends _DetailRepository {
+  final _past = PatientAppointment(
+    id: 'past-appointment',
+    bookingCode: 'HB-PAST',
+    appointmentDate: '${DateTime.now().year - 1}-01-02',
+    startTime: '09:00',
+    endTime: '09:30',
+    status: PatientAppointmentStatus.confirmed,
+    doctorName: 'BS. CKI Trần Minh',
+    departmentName: 'Tim mạch',
+    finalAmount: 250000,
+  );
+
+  @override
+  Future<PatientAppointment> getById(String id) async => _past;
 }

@@ -20,7 +20,9 @@ class HomeScreen extends ConsumerWidget {
     final content = homeState.content;
     final user = auth.user;
     final isAuthenticated = auth.isAuthenticated;
+    final isOfflineBrowsing = auth.status == AuthStatus.offlineBrowsing;
     final sessionError = auth.errorFor(AuthErrorOrigin.session);
+    final restoreError = auth.errorFor(AuthErrorOrigin.sessionRestore);
     final hospitalName = content?.siteSettings.hospitalName;
 
     return Scaffold(
@@ -43,15 +45,23 @@ class HomeScreen extends ConsumerWidget {
         ),
         actions: [
           IconButton(
-            onPressed: () => context.push(
-              isAuthenticated ? '/profile' : loginLocation('/profile'),
-            ),
+            onPressed: isOfflineBrowsing
+                ? ref.read(authControllerProvider.notifier).bootstrapSession
+                : () => context.push(
+                    isAuthenticated ? '/profile' : loginLocation('/profile'),
+                  ),
             icon: Icon(
-              isAuthenticated
+              isOfflineBrowsing
+                  ? Icons.cloud_sync_outlined
+                  : isAuthenticated
                   ? Icons.account_circle_outlined
                   : Icons.login_rounded,
             ),
-            tooltip: isAuthenticated ? 'Hồ sơ' : 'Đăng nhập',
+            tooltip: isOfflineBrowsing
+                ? 'Khôi phục phiên'
+                : isAuthenticated
+                ? 'Hồ sơ'
+                : 'Đăng nhập',
           ),
           const SizedBox(width: 8),
         ],
@@ -72,7 +82,30 @@ class HomeScreen extends ConsumerWidget {
                 ),
                 const SizedBox(height: 16),
               ],
-              if (homeState.error != null && content != null) ...[
+              if (restoreError != null) ...[
+                AppErrorBanner(error: restoreError),
+                const SizedBox(height: 8),
+                Text(
+                  'Bạn đang xem nội dung công khai đã lưu. Kết nối lại để mở lịch khám và hồ sơ cá nhân.',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: TextButton.icon(
+                    onPressed: ref
+                        .read(authControllerProvider.notifier)
+                        .bootstrapSession,
+                    icon: const Icon(Icons.cloud_sync_outlined),
+                    label: const Text('Khôi phục phiên'),
+                  ),
+                ),
+                const SizedBox(height: 8),
+              ],
+              if (homeState.error != null &&
+                  content != null &&
+                  restoreError == null) ...[
                 AppErrorBanner(
                   error: homeState.error!,
                   onDismiss: ref
@@ -142,10 +175,15 @@ class HomeScreen extends ConsumerWidget {
                 ],
                 const SizedBox(height: 10),
                 _HeroBanner(banner: content.banners.firstOrNull),
+                const SizedBox(height: 14),
+                const _ChatbotPromptCard(),
                 const SizedBox(height: 22),
                 const AppSectionHeader(title: 'Dịch vụ của bạn'),
                 const SizedBox(height: 10),
-                _ServiceGrid(isAuthenticated: isAuthenticated),
+                _ServiceGrid(
+                  isAuthenticated: isAuthenticated,
+                  isOfflineBrowsing: isOfflineBrowsing,
+                ),
                 if (content.departments.isNotEmpty) ...[
                   const SizedBox(height: 24),
                   AppSectionHeader(
@@ -218,7 +256,7 @@ class HomeScreen extends ConsumerWidget {
                   ),
                 ],
               ],
-              if (!isAuthenticated) ...[
+              if (!isAuthenticated && !isOfflineBrowsing) ...[
                 const SizedBox(height: 22),
                 Card(
                   child: Padding(
@@ -257,6 +295,62 @@ class HomeScreen extends ConsumerWidget {
       ),
     );
   }
+}
+
+class _ChatbotPromptCard extends StatelessWidget {
+  const _ChatbotPromptCard();
+
+  @override
+  Widget build(BuildContext context) => InkWell(
+    onTap: () => context.push('/chatbot'),
+    borderRadius: BorderRadius.circular(18),
+    child: Ink(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFFDDF7F2), Color(0xFFEAF4FC)],
+        ),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: AppTheme.softBorder),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 46,
+            height: 46,
+            decoration: BoxDecoration(
+              color: AppTheme.primary,
+              borderRadius: BorderRadius.circular(15),
+            ),
+            child: const Icon(Icons.smart_toy_outlined, color: Colors.white),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Trợ lý đặt lịch 24/7',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  'Tìm chuyên khoa, bác sĩ và lịch trống phù hợp.',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          const Icon(Icons.arrow_forward_rounded, color: AppTheme.primary),
+        ],
+      ),
+    ),
+  );
 }
 
 class _HeroBanner extends StatelessWidget {
@@ -354,9 +448,13 @@ class _HeroBanner extends StatelessWidget {
 }
 
 class _ServiceGrid extends StatelessWidget {
-  const _ServiceGrid({required this.isAuthenticated});
+  const _ServiceGrid({
+    required this.isAuthenticated,
+    required this.isOfflineBrowsing,
+  });
 
   final bool isAuthenticated;
+  final bool isOfflineBrowsing;
 
   @override
   Widget build(BuildContext context) => GridView.count(
@@ -376,31 +474,47 @@ class _ServiceGrid extends StatelessWidget {
       _FeatureCard(
         icon: Icons.event_note_outlined,
         label: 'Lịch khám của tôi',
-        detail: isAuthenticated ? 'Đã đăng nhập' : 'Cần đăng nhập',
-        onTap: () => context.push(
-          isAuthenticated ? '/appointments' : loginLocation('/appointments'),
-        ),
+        detail: isOfflineBrowsing
+            ? 'Cần kết nối mạng'
+            : isAuthenticated
+            ? 'Đã đăng nhập'
+            : 'Cần đăng nhập',
+        onTap: () => _openProtected(context, '/appointments'),
       ),
       _FeatureCard(
         icon: Icons.description_outlined,
         label: 'Kết quả khám',
-        detail: 'Bảo vệ bằng tài khoản',
-        onTap: () => context.push(
-          isAuthenticated
-              ? '/medical-records'
-              : loginLocation('/medical-records'),
-        ),
+        detail: isOfflineBrowsing
+            ? 'Cần kết nối mạng'
+            : 'Bảo vệ bằng tài khoản',
+        onTap: () => _openProtected(context, '/medical-records'),
       ),
       _FeatureCard(
         icon: Icons.medication_outlined,
         label: 'Đơn thuốc',
-        detail: 'Bảo vệ bằng tài khoản',
-        onTap: () => context.push(
-          isAuthenticated ? '/prescriptions' : loginLocation('/prescriptions'),
-        ),
+        detail: isOfflineBrowsing
+            ? 'Cần kết nối mạng'
+            : 'Bảo vệ bằng tài khoản',
+        onTap: () => _openProtected(context, '/prescriptions'),
       ),
     ],
   );
+
+  void _openProtected(BuildContext context, String location) {
+    if (isOfflineBrowsing) {
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Cần kết nối mạng và khôi phục phiên để mở thông tin cá nhân.',
+            ),
+          ),
+        );
+      return;
+    }
+    context.push(isAuthenticated ? location : loginLocation(location));
+  }
 }
 
 class _DepartmentList extends StatelessWidget {

@@ -176,4 +176,44 @@ void main() {
     expect(selection.date, isNull);
     expect(selection.slotId, isNull);
   });
+
+  test('chatbot preset restores date and a still-available slot', () async {
+    final date = _tomorrowInVietnam();
+    final store = MemoryBookingSelectionStore();
+    final repository = _FakeBookingCatalogRepository(
+      slots: [
+        BookingSlot(
+          id: 'slot-from-chatbot',
+          date: date,
+          startTime: '10:00',
+          endTime: '10:30',
+        ),
+      ],
+    );
+    final container = ProviderContainer(
+      overrides: [
+        bookingSelectionStoreProvider.overrideWithValue(store),
+        bookingCatalogRepositoryProvider.overrideWithValue(repository),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    final controller = container.read(bookingFlowControllerProvider.notifier);
+    await controller.applyPreset(
+      departmentId: 'department-1',
+      doctorId: 'doctor-1',
+      date: date,
+      timeSlotId: 'slot-from-chatbot',
+    );
+    await _waitUntil(() {
+      final state = container.read(bookingFlowControllerProvider);
+      return !state.isCatalogLoading && !state.isSlotsLoading;
+    });
+
+    final selection = container.read(bookingFlowControllerProvider).selection;
+    expect(selection.departmentId, 'department-1');
+    expect(selection.doctorId, 'doctor-1');
+    expect(selection.date, date);
+    expect(selection.slotId, 'slot-from-chatbot');
+  });
 }

@@ -198,7 +198,14 @@ class PatientAppointment {
   final DateTime? completedAt;
   final DateTime? createdAt;
 
-  bool get canCancel => status.canCancel;
+  bool get canCancel => canCancelAt(DateTime.now());
+
+  bool canCancelAt(DateTime now) {
+    if (!status.canCancel) return false;
+    final scheduledStart = _scheduledStart;
+    return scheduledStart != null && scheduledStart.isAfter(now);
+  }
+
   bool get isHistory {
     if (status.isHistory) return true;
     if (status == PatientAppointmentStatus.checkedIn ||
@@ -209,9 +216,13 @@ class PatientAppointment {
     return scheduledEnd != null && scheduledEnd.isBefore(DateTime.now());
   }
 
-  DateTime? get _scheduledEnd {
+  DateTime? get _scheduledStart => _scheduledDateTime(startTime);
+
+  DateTime? get _scheduledEnd => _scheduledDateTime(endTime);
+
+  DateTime? _scheduledDateTime(String time) {
     final date = DateTime.tryParse(appointmentDate);
-    final timeParts = endTime.split(':');
+    final timeParts = time.split(':');
     if (date == null || timeParts.length < 2) return null;
     final hour = int.tryParse(timeParts[0]);
     final minute = int.tryParse(timeParts[1]);

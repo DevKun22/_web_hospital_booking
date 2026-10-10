@@ -95,6 +95,25 @@ void main() {
     );
   });
 
+  test('only allows cancellation before a cancellable appointment starts', () {
+    final now = DateTime(2030, 1, 2, 8, 59);
+    final appointment = _appointment('future');
+
+    expect(appointment.canCancelAt(now), isTrue);
+    expect(
+      appointment.canCancelAt(DateTime(2030, 1, 2, 9)),
+      isFalse,
+      reason: 'Cancellation closes as soon as the visit starts.',
+    );
+    expect(
+      _appointment(
+        'completed',
+        status: PatientAppointmentStatus.completed,
+      ).canCancelAt(now),
+      isFalse,
+    );
+  });
+
   test(
     'loads pages without duplicates and prevents duplicate cancellation',
     () async {

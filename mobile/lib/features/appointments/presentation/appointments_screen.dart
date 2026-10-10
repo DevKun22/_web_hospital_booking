@@ -105,9 +105,11 @@ class _AppointmentsScreenState extends ConsumerState<AppointmentsScreen> {
                       ),
                     ),
                     if (visibleItems.isEmpty)
-                      SliverFillRemaining(
-                        hasScrollBody: false,
-                        child: _EmptyAppointments(filter: _filter),
+                      SliverPadding(
+                        padding: const EdgeInsets.fromLTRB(16, 4, 16, 32),
+                        sliver: SliverToBoxAdapter(
+                          child: _EmptyAppointments(filter: _filter),
+                        ),
                       )
                     else
                       SliverPadding(
@@ -151,11 +153,6 @@ class _AppointmentsScreenState extends ConsumerState<AppointmentsScreen> {
                   ],
                 ),
               ),
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => context.push('/booking'),
-        icon: const Icon(Icons.add_rounded),
-        label: const Text('Đặt lịch mới'),
       ),
     );
   }

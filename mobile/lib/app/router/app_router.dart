@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:hospital_booking_mobile/app/navigation/main_navigation_shell.dart';
 import 'package:hospital_booking_mobile/app/router/route_guard.dart';
-import 'package:hospital_booking_mobile/core/widgets/protected_feature_placeholder_screen.dart';
 import 'package:hospital_booking_mobile/features/appointments/presentation/appointment_detail_screen.dart';
 import 'package:hospital_booking_mobile/features/appointments/presentation/appointments_screen.dart';
 import 'package:hospital_booking_mobile/features/booking/presentation/booking_start_screen.dart';
@@ -12,14 +12,23 @@ import 'package:hospital_booking_mobile/features/booking/presentation/booking_ve
 import 'package:hospital_booking_mobile/features/booking/presentation/department_detail_screen.dart';
 import 'package:hospital_booking_mobile/features/booking/presentation/department_list_screen.dart';
 import 'package:hospital_booking_mobile/features/booking/presentation/doctor_detail_screen.dart';
+import 'package:hospital_booking_mobile/features/chatbot/presentation/chatbot_screen.dart';
 import 'package:hospital_booking_mobile/features/auth/application/auth_controller.dart';
 import 'package:hospital_booking_mobile/features/auth/presentation/login_screen.dart';
 import 'package:hospital_booking_mobile/features/auth/presentation/splash_screen.dart';
 import 'package:hospital_booking_mobile/features/auth/presentation/verify_otp_screen.dart';
 import 'package:hospital_booking_mobile/features/home/presentation/home_screen.dart';
+import 'package:hospital_booking_mobile/features/invoices/presentation/invoice_detail_screen.dart';
+import 'package:hospital_booking_mobile/features/invoices/presentation/invoices_screen.dart';
+import 'package:hospital_booking_mobile/features/medical_records/presentation/medical_document_screen.dart';
+import 'package:hospital_booking_mobile/features/medical_records/presentation/medical_record_detail_screen.dart';
+import 'package:hospital_booking_mobile/features/medical_records/presentation/medical_records_screen.dart';
 import 'package:hospital_booking_mobile/features/onboarding/application/onboarding_controller.dart';
 import 'package:hospital_booking_mobile/features/onboarding/presentation/welcome_screen.dart';
 import 'package:hospital_booking_mobile/features/profile/presentation/profile_screen.dart';
+import 'package:hospital_booking_mobile/features/profile/presentation/profile_edit_screen.dart';
+import 'package:hospital_booking_mobile/features/prescriptions/presentation/prescription_detail_screen.dart';
+import 'package:hospital_booking_mobile/features/prescriptions/presentation/prescriptions_screen.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   final refresh = ValueNotifier<int>(0);
@@ -43,12 +52,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         loading: () => null,
       );
       final location = routeState.matchedLocation;
+      final returnTo = routeState.uri.queryParameters['from'] ?? auth.returnTo;
       return resolveAppRedirect(
         authStatus: auth.status,
         hasChallenge: auth.challenge != null,
         welcomeSeen: welcomeSeen,
         location: location,
-        returnTo: routeState.uri.queryParameters['from'],
+        returnTo: returnTo,
       );
     },
     routes: [
@@ -66,7 +76,54 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           returnTo: safeReturnLocation(state.uri.queryParameters['from']),
         ),
       ),
-      GoRoute(path: '/home', builder: (_, _) => const HomeScreen()),
+      StatefulShellRoute.indexedStack(
+        builder: (_, _, navigationShell) =>
+            MainNavigationShell(navigationShell: navigationShell),
+        branches: [
+          StatefulShellBranch(
+            routes: [
+              GoRoute(path: '/home', builder: (_, _) => const HomeScreen()),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/appointments',
+                builder: (_, _) => const AppointmentsScreen(),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/booking',
+                builder: (_, state) => BookingStartScreen(
+                  departmentId: state.uri.queryParameters['departmentId'],
+                  doctorId: state.uri.queryParameters['doctorId'],
+                  date: state.uri.queryParameters['date'],
+                  timeSlotId: state.uri.queryParameters['timeSlotId'],
+                ),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/chatbot',
+                builder: (_, _) => const ChatbotScreen(),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/profile',
+                builder: (_, _) => const ProfileScreen(),
+              ),
+            ],
+          ),
+        ],
+      ),
       GoRoute(
         path: '/departments',
         builder: (_, _) => const DepartmentListScreen(),
@@ -83,13 +140,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             DoctorDetailScreen(doctorId: state.pathParameters['doctorId']!),
       ),
       GoRoute(
-        path: '/booking',
-        builder: (_, state) => BookingStartScreen(
-          departmentId: state.uri.queryParameters['departmentId'],
-          doctorId: state.uri.queryParameters['doctorId'],
-        ),
-      ),
-      GoRoute(
         path: '/booking/patient',
         builder: (_, _) => const BookingPatientScreen(),
       ),
@@ -102,44 +152,66 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (_, _) => const BookingSuccessScreen(),
       ),
       GoRoute(
-        path: '/appointments',
-        builder: (_, _) => const AppointmentsScreen(),
+        path: '/appointments/:appointmentId',
+        builder: (_, state) => AppointmentDetailScreen(
+          appointmentId: state.pathParameters['appointmentId']!,
+        ),
+      ),
+      GoRoute(
+        path: '/medical-records',
+        builder: (_, _) => const MedicalRecordsScreen(),
         routes: [
           GoRoute(
-            path: ':appointmentId',
-            builder: (_, state) => AppointmentDetailScreen(
-              appointmentId: state.pathParameters['appointmentId']!,
+            path: ':recordId',
+            builder: (_, state) => MedicalRecordDetailScreen(
+              recordId: state.pathParameters['recordId']!,
+            ),
+            routes: [
+              GoRoute(
+                path: 'file',
+                builder: (_, state) => MedicalDocumentScreen(
+                  recordId: state.pathParameters['recordId']!,
+                ),
+              ),
+              GoRoute(
+                path: 'lab-results/:labResultId/file',
+                builder: (_, state) => MedicalDocumentScreen(
+                  recordId: state.pathParameters['recordId']!,
+                  labResultId: state.pathParameters['labResultId']!,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+      GoRoute(
+        path: '/prescriptions',
+        builder: (_, _) => const PrescriptionsScreen(),
+        routes: [
+          GoRoute(
+            path: ':prescriptionId',
+            builder: (_, state) => PrescriptionDetailScreen(
+              prescriptionId: state.pathParameters['prescriptionId']!,
             ),
           ),
         ],
       ),
       GoRoute(
-        path: '/medical-records',
-        builder: (_, _) => const ProtectedFeaturePlaceholderScreen(
-          title: 'Hồ sơ sức khỏe',
-          message:
-              'Kết quả khám và tệp y tế chỉ hiển thị sau khi xác thực tài khoản.',
-          icon: Icons.folder_shared_outlined,
-        ),
-      ),
-      GoRoute(
-        path: '/prescriptions',
-        builder: (_, _) => const ProtectedFeaturePlaceholderScreen(
-          title: 'Đơn thuốc',
-          message: 'Đơn thuốc điện tử sẽ được đồng bộ từ hồ sơ bệnh nhân.',
-          icon: Icons.medication_outlined,
-        ),
-      ),
-      GoRoute(
         path: '/invoices',
-        builder: (_, _) => const ProtectedFeaturePlaceholderScreen(
-          title: 'Hóa đơn',
-          message:
-              'Hóa đơn và trạng thái thanh toán sẽ được kết nối ở mốc nghiệp vụ.',
-          icon: Icons.receipt_long_outlined,
-        ),
+        builder: (_, _) => const InvoicesScreen(),
+        routes: [
+          GoRoute(
+            path: ':invoiceId',
+            builder: (_, state) => InvoiceDetailScreen(
+              invoiceId: state.pathParameters['invoiceId']!,
+            ),
+          ),
+        ],
       ),
-      GoRoute(path: '/profile', builder: (_, _) => const ProfileScreen()),
+      GoRoute(
+        path: '/profile/edit',
+        builder: (_, _) => const ProfileEditScreen(),
+      ),
     ],
   );
   ref.onDispose(() {

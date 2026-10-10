@@ -70,6 +70,8 @@ class BookingFlowController extends Notifier<BookingFlowState> {
   int _slotRequestVersion = 0;
   String? _presetDepartmentId;
   String? _presetDoctorId;
+  String? _presetDate;
+  String? _presetTimeSlotId;
 
   @override
   BookingFlowState build() {
@@ -109,7 +111,10 @@ class BookingFlowController extends Notifier<BookingFlowState> {
       );
       await _persist(selection);
 
-      if (_presetDepartmentId != null || _presetDoctorId != null) {
+      if (_presetDepartmentId != null ||
+          _presetDoctorId != null ||
+          _presetDate != null ||
+          _presetTimeSlotId != null) {
         await _applyPresetToLoadedCatalog();
       }
 
@@ -130,9 +135,16 @@ class BookingFlowController extends Notifier<BookingFlowState> {
     }
   }
 
-  Future<void> applyPreset({String? departmentId, String? doctorId}) async {
+  Future<void> applyPreset({
+    String? departmentId,
+    String? doctorId,
+    String? date,
+    String? timeSlotId,
+  }) async {
     _presetDepartmentId = departmentId;
     _presetDoctorId = doctorId;
+    _presetDate = date;
+    _presetTimeSlotId = timeSlotId;
     if (!state.isCatalogLoading && state.departments.isNotEmpty) {
       await _applyPresetToLoadedCatalog();
     }
@@ -141,8 +153,12 @@ class BookingFlowController extends Notifier<BookingFlowState> {
   Future<void> _applyPresetToLoadedCatalog() async {
     final departmentId = _presetDepartmentId;
     final doctorId = _presetDoctorId;
+    final date = _presetDate;
+    final timeSlotId = _presetTimeSlotId;
     _presetDepartmentId = null;
     _presetDoctorId = null;
+    _presetDate = null;
+    _presetTimeSlotId = null;
 
     if (departmentId != null &&
         state.departments.any((item) => item.id == departmentId)) {
@@ -154,6 +170,13 @@ class BookingFlowController extends Notifier<BookingFlowState> {
         await selectDepartment(doctor.departmentId);
       }
       await selectDoctor(doctorId);
+    }
+    if (date != null && state.selection.doctorId != null) {
+      await selectDate(date);
+    }
+    if (timeSlotId != null &&
+        state.slots.any((slot) => slot.id == timeSlotId)) {
+      await selectSlot(timeSlotId);
     }
   }
 

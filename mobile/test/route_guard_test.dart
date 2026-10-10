@@ -27,6 +27,36 @@ void main() {
     );
   });
 
+  test('offline browsing opens public home but not protected data', () {
+    expect(
+      resolveAppRedirect(
+        authStatus: AuthStatus.offlineBrowsing,
+        hasChallenge: false,
+        welcomeSeen: null,
+        location: '/splash',
+      ),
+      '/home',
+    );
+    expect(
+      resolveAppRedirect(
+        authStatus: AuthStatus.offlineBrowsing,
+        hasChallenge: false,
+        welcomeSeen: true,
+        location: '/departments',
+      ),
+      isNull,
+    );
+    expect(
+      resolveAppRedirect(
+        authStatus: AuthStatus.offlineBrowsing,
+        hasChallenge: false,
+        welcomeSeen: true,
+        location: '/appointments',
+      ),
+      '/home',
+    );
+  });
+
   test('guest is sent to login only for protected routes', () {
     expect(
       resolveAppRedirect(

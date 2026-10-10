@@ -9,10 +9,18 @@ import 'package:hospital_booking_mobile/features/booking/application/booking_sub
 import 'package:hospital_booking_mobile/features/booking/domain/booking_catalog.dart';
 
 class BookingStartScreen extends ConsumerStatefulWidget {
-  const BookingStartScreen({super.key, this.departmentId, this.doctorId});
+  const BookingStartScreen({
+    super.key,
+    this.departmentId,
+    this.doctorId,
+    this.date,
+    this.timeSlotId,
+  });
 
   final String? departmentId;
   final String? doctorId;
+  final String? date;
+  final String? timeSlotId;
 
   @override
   ConsumerState<BookingStartScreen> createState() => _BookingStartScreenState();
@@ -28,6 +36,8 @@ class _BookingStartScreenState extends ConsumerState<BookingStartScreen> {
           .applyPreset(
             departmentId: widget.departmentId,
             doctorId: widget.doctorId,
+            date: widget.date,
+            timeSlotId: widget.timeSlotId,
           ),
     );
   }

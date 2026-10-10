@@ -9,6 +9,8 @@ import 'package:hospital_booking_mobile/features/booking/application/booking_flo
 import 'package:hospital_booking_mobile/features/booking/application/booking_submission_controller.dart';
 import 'package:hospital_booking_mobile/features/booking/domain/booking_catalog.dart';
 import 'package:hospital_booking_mobile/features/booking/domain/booking_submission.dart';
+import 'package:hospital_booking_mobile/features/profile/application/patient_profile_controller.dart';
+import 'package:hospital_booking_mobile/features/profile/domain/patient_profile.dart';
 import 'package:hospital_booking_mobile/features/profile/presentation/profile_screen.dart';
 
 const _user = PatientUser(
@@ -17,6 +19,15 @@ const _user = PatientUser(
   phone: '0912345678',
   email: 'an@example.test',
   isPhoneVerified: true,
+);
+
+const _profile = PatientProfile(
+  id: 'patient-1',
+  fullName: 'Nguyễn Văn An',
+  phone: '0912345678',
+  email: 'an@example.test',
+  isPhoneVerified: true,
+  hasBhyt: false,
 );
 
 class _AuthenticatedController extends AuthController {
@@ -35,6 +46,11 @@ class _AuthenticatedController extends AuthController {
     state = const AuthState.loggedOut();
     return true;
   }
+}
+
+class _LoadedProfileController extends PatientProfileController {
+  @override
+  PatientProfileState build() => const PatientProfileState(profile: _profile);
 }
 
 class _IdleSubmissionController extends BookingSubmissionController {
@@ -99,6 +115,12 @@ GoRouter _router() => GoRouter(
   ],
 );
 
+Future<void> _scrollToLogout(WidgetTester tester) async {
+  await tester.drag(find.byType(ListView), const Offset(0, -2000));
+  await tester.pumpAndSettle();
+  expect(find.text('Đăng xuất thiết bị này'), findsOneWidget);
+}
+
 void main() {
   testWidgets('logout requires confirmation and returns to guest home', (
     tester,
@@ -117,12 +139,16 @@ void main() {
           bookingFlowControllerProvider.overrideWith(
             _DraftBookingController.new,
           ),
+          patientProfileControllerProvider.overrideWith(
+            _LoadedProfileController.new,
+          ),
         ],
         child: MaterialApp.router(routerConfig: router),
       ),
     );
     await tester.pumpAndSettle();
 
+    await _scrollToLogout(tester);
     await tester.tap(find.text('Đăng xuất thiết bị này'));
     await tester.pumpAndSettle();
     expect(find.text('Đăng xuất khỏi thiết bị?'), findsOneWidget);
@@ -132,6 +158,7 @@ void main() {
     expect(auth.logoutCalls, 0);
     expect(find.text('Hồ sơ bệnh nhân'), findsOneWidget);
 
+    await _scrollToLogout(tester);
     await tester.tap(find.text('Đăng xuất thiết bị này'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Đăng xuất'));
@@ -157,12 +184,16 @@ void main() {
           authControllerProvider.overrideWith(() => auth),
           bookingSubmissionControllerProvider.overrideWith(() => submission),
           bookingFlowControllerProvider.overrideWith(() => booking),
+          patientProfileControllerProvider.overrideWith(
+            _LoadedProfileController.new,
+          ),
         ],
         child: MaterialApp.router(routerConfig: router),
       ),
     );
     await tester.pumpAndSettle();
 
+    await _scrollToLogout(tester);
     await tester.tap(find.text('Đăng xuất thiết bị này'));
     await tester.pumpAndSettle();
 

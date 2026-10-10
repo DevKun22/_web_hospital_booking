@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hospital_booking_mobile/core/errors/api_exception.dart';
 import 'package:hospital_booking_mobile/core/providers/app_providers.dart';
 import 'package:hospital_booking_mobile/features/auth/application/auth_state.dart';
+import 'package:hospital_booking_mobile/features/auth/domain/patient_user.dart';
 
 final authControllerProvider = NotifierProvider<AuthController, AuthState>(
   AuthController.new,
@@ -56,8 +57,21 @@ class AuthController extends Notifier<AuthState> {
     }
   }
 
-  Future<bool> requestOtp(String phone) async {
-    state = AuthState(status: AuthStatus.requestingOtp, phone: phone);
+  void continueOffline() {
+    if (state.status != AuthStatus.offline) return;
+    state = AuthState(
+      status: AuthStatus.offlineBrowsing,
+      error: state.error,
+      errorOrigin: state.errorOrigin,
+    );
+  }
+
+  Future<bool> requestOtp(String phone, {String? returnTo}) async {
+    state = AuthState(
+      status: AuthStatus.requestingOtp,
+      phone: phone,
+      returnTo: returnTo,
+    );
     try {
       final challenge = await ref
           .read(authRepositoryProvider)
@@ -66,13 +80,14 @@ class AuthController extends Notifier<AuthState> {
         status: AuthStatus.awaitingOtp,
         phone: phone,
         challenge: challenge,
+        returnTo: returnTo,
       );
       return true;
     } on ApiException catch (error) {
       state = AuthState.unauthenticated(
         error: error,
         errorOrigin: AuthErrorOrigin.requestOtp,
-      ).copyWith(phone: phone);
+      ).copyWith(phone: phone, returnTo: returnTo);
       return false;
     }
   }
@@ -89,7 +104,11 @@ class AuthController extends Notifier<AuthState> {
       final session = await ref
           .read(authRepositoryProvider)
           .verifyOtp(challengeId: challenge.challengeId, otp: otp);
-      state = AuthState(status: AuthStatus.authenticated, user: session.user);
+      state = AuthState(
+        status: AuthStatus.authenticated,
+        user: session.user,
+        returnTo: state.returnTo,
+      );
       return true;
     } on ApiException catch (error) {
       state = state.copyWith(
@@ -116,6 +135,11 @@ class AuthController extends Notifier<AuthState> {
         state = const AuthState.loggedOut();
       }
     }
+  }
+
+  void syncUser(PatientUser user) {
+    if (!state.isAuthenticated || state.user?.id != user.id) return;
+    state = AuthState(status: AuthStatus.authenticated, user: user);
   }
 
   void restartLogin() => state = const AuthState.unauthenticated();

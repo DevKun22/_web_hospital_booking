@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hospital_booking_mobile/features/home/data/home_content_cache.dart';
 import 'package:hospital_booking_mobile/features/home/data/home_repository.dart';
+import 'package:hospital_booking_mobile/features/home/domain/home_content.dart';
 
 void main() {
   test(
@@ -93,7 +94,8 @@ void main() {
       final cache = MemoryHomeContentCache();
       final repository = HomeRepository(dio: dio, cache: cache);
 
-      final content = await repository.fetchAndCache();
+      final result = await repository.fetchAndCache();
+      final content = result.content;
 
       expect(requestedPaths.toSet(), {
         '/banners',
@@ -114,4 +116,81 @@ void main() {
       dio.close(force: true);
     },
   );
+
+  test('keeps healthy sections when one home endpoint fails', () async {
+    final dio = Dio(BaseOptions(baseUrl: 'https://example.test/api/v1'));
+    dio.interceptors.add(
+      InterceptorsWrapper(
+        onRequest: (options, handler) {
+          if (options.path == '/doctors') {
+            handler.reject(
+              DioException(
+                requestOptions: options,
+                type: DioExceptionType.connectionError,
+              ),
+            );
+            return;
+          }
+          final data = switch (options.path) {
+            '/banners' => {
+              'success': true,
+              'data': {
+                'items': [
+                  {'id': 'new-banner', 'title': 'Banner mới'},
+                ],
+              },
+            },
+            '/departments' ||
+            '/packages' => {'success': true, 'data': <dynamic>[]},
+            '/faqs' => {
+              'success': true,
+              'data': {'items': <dynamic>[]},
+            },
+            '/site-settings' => {
+              'success': true,
+              'data': {'hospitalName': 'Bệnh viện mới'},
+            },
+            _ => throw StateError('Unexpected path ${options.path}'),
+          };
+          handler.resolve(
+            Response<dynamic>(
+              requestOptions: options,
+              statusCode: 200,
+              data: data,
+            ),
+          );
+        },
+      ),
+    );
+    final fallback = HomeContent(
+      banners: const [],
+      departments: const [],
+      doctors: const [
+        HomeDoctor(
+          id: 'cached-doctor',
+          fullName: 'Bác sĩ đã lưu',
+          departmentName: 'Nội khoa',
+          consultationFee: 100000,
+        ),
+      ],
+      packages: const [],
+      faqs: const [],
+      siteSettings: const HomeSiteSettings(hospitalName: 'Bệnh viện cũ'),
+      fetchedAt: DateTime(2029),
+    );
+    final repository = HomeRepository(
+      dio: dio,
+      cache: MemoryHomeContentCache(fallback),
+    );
+
+    final result = await repository.fetchAndCache(fallback: fallback);
+
+    expect(result.content.banners.single.title, 'Banner mới');
+    expect(result.content.doctors.single.id, 'cached-doctor');
+    expect(result.content.siteSettings.hospitalName, 'Bệnh viện mới');
+    expect(result.warning?.code, 'HOME_PARTIAL_CONTENT');
+    expect(result.warning?.message, contains('bác sĩ'));
+    expect(result.usedFallback, isTrue);
+    dio.close(force: true);
+  });
 }

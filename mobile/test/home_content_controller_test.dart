@@ -14,13 +14,13 @@ class _FakeHomeRepository extends HomeRepository {
     : super(dio: Dio(), cache: MemoryHomeContentCache());
 
   final HomeContent? cached;
-  final Future<HomeContent> Function() fetch;
+  final Future<HomeFetchResult> Function() fetch;
 
   @override
   Future<HomeContent?> readCached() async => cached;
 
   @override
-  Future<HomeContent> fetchAndCache() => fetch();
+  Future<HomeFetchResult> fetchAndCache({HomeContent? fallback}) => fetch();
 }
 
 HomeContent _content(String title) => HomeContent(
@@ -35,7 +35,7 @@ HomeContent _content(String title) => HomeContent(
 
 void main() {
   test('keeps cached home content visible when refresh is offline', () async {
-    final networkGate = Completer<HomeContent>();
+    final networkGate = Completer<HomeFetchResult>();
     final cached = _content('Dữ liệu đã lưu');
     final repository = _FakeHomeRepository(
       cached: cached,

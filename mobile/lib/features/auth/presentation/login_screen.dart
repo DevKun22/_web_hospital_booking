@@ -142,7 +142,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     FocusScope.of(context).unfocus();
     await ref
         .read(authControllerProvider.notifier)
-        .requestOtp(_phoneController.text.trim());
+        .requestOtp(_phoneController.text.trim(), returnTo: widget.returnTo);
   }
 
   void _leaveLogin() {

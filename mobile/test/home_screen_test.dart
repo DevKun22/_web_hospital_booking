@@ -19,6 +19,18 @@ class _OtpErrorAuthController extends AuthController {
   );
 }
 
+class _OfflineBrowsingAuthController extends AuthController {
+  @override
+  AuthState build() => const AuthState(
+    status: AuthStatus.offlineBrowsing,
+    error: ApiException(
+      kind: ApiErrorKind.network,
+      message: 'Không thể kết nối máy chủ. Vui lòng kiểm tra mạng.',
+    ),
+    errorOrigin: AuthErrorOrigin.sessionRestore,
+  );
+}
+
 class _IdleHomeContentController extends HomeContentController {
   @override
   HomeContentState build() => const HomeContentState();
@@ -104,5 +116,41 @@ void main() {
     expect(find.text('Tim mạch'), findsWidgets);
     expect(find.text('BS. CKI Nguyễn Văn An'), findsOneWidget);
     expect(find.text('Khám tổng quát'), findsOneWidget);
+    expect(find.text('Trợ lý đặt lịch 24/7'), findsOneWidget);
+  });
+
+  testWidgets('offline home explains restricted access and offers retry', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(800, 2400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          authControllerProvider.overrideWith(
+            _OfflineBrowsingAuthController.new,
+          ),
+          homeContentControllerProvider.overrideWith(
+            _LoadedHomeContentController.new,
+          ),
+        ],
+        child: const MaterialApp(home: HomeScreen()),
+      ),
+    );
+
+    expect(find.text('Khôi phục phiên'), findsWidgets);
+    expect(find.textContaining('nội dung công khai đã lưu'), findsOneWidget);
+    expect(find.text('Cần kết nối mạng'), findsNWidgets(3));
+    expect(find.text('Đã có tài khoản bệnh nhân?'), findsNothing);
+
+    await tester.tap(find.text('Lịch khám của tôi'));
+    await tester.pump();
+    expect(
+      find.text('Cần kết nối mạng và khôi phục phiên để mở thông tin cá nhân.'),
+      findsOneWidget,
+    );
   });
 }

@@ -38,10 +38,23 @@ String? resolveAppRedirect({
 }) {
   final isAuthRoute = location == '/login' || location == '/verify-otp';
   final normalizedReturnTo = safeReturnLocation(returnTo);
+  final isProtected = _protectedPrefixes.any(
+    (prefix) => location == prefix || location.startsWith('$prefix/'),
+  );
 
   if (authStatus == AuthStatus.bootstrapping ||
       authStatus == AuthStatus.offline) {
     return location == '/splash' ? null : '/splash';
+  }
+
+  if (authStatus == AuthStatus.offlineBrowsing) {
+    if (location == '/splash' ||
+        location == '/welcome' ||
+        location == '/verify-otp' ||
+        isProtected) {
+      return '/home';
+    }
+    return null;
   }
 
   if (authStatus == AuthStatus.authenticated) {
@@ -54,9 +67,6 @@ String? resolveAppRedirect({
   if (authStatus == AuthStatus.loggingOut) return null;
 
   if (authStatus == AuthStatus.loggedOut) {
-    final isProtected = _protectedPrefixes.any(
-      (prefix) => location == prefix || location.startsWith('$prefix/'),
-    );
     if (isProtected ||
         location == '/splash' ||
         location == '/welcome' ||
@@ -89,9 +99,6 @@ String? resolveAppRedirect({
         : loginLocation(normalizedReturnTo);
   }
 
-  final isProtected = _protectedPrefixes.any(
-    (prefix) => location == prefix || location.startsWith('$prefix/'),
-  );
   if (isProtected) return loginLocation(location);
 
   return null;

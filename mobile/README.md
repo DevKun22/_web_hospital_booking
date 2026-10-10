@@ -14,7 +14,15 @@
 - Router tách route công khai và route bệnh nhân; sau OTP quay lại đúng tính năng đã yêu cầu.
 - Có profile chạy development/production và quality gate trong CI.
 
-Home đã hỗ trợ trạng thái khách/đăng nhập và hero tĩnh làm khung UI. Dữ liệu hero động, luồng đặt lịch đầy đủ, hồ sơ khám, hóa đơn và chatbot mobile thuộc các mốc tiếp theo.
+Home đã đồng bộ banner, danh mục công khai và cho phép từng phần tiếp tục hoạt động khi một API tạm lỗi. Luồng đặt lịch, lịch hẹn, hồ sơ bệnh nhân, kết quả khám, đơn thuốc, hóa đơn và chatbot đã dùng chung API v1 với web.
+
+## Chatbot mobile
+
+- Chatbot là route công khai `/chatbot`, dùng chung `/chatbot/settings` và `/chatbot/message` với web.
+- Kết quả chuyên khoa, bác sĩ, gói khám và khung giờ được hiển thị thành thẻ thao tác; lựa chọn được gửi lại backend để backend tiếp tục quản lý hội thoại và booking draft.
+- Hành động đặt lịch chuyển các giá trị chuyên khoa, bác sĩ, ngày và slot còn hợp lệ sang luồng booking; dữ liệu luôn được backend kiểm tra lại.
+- Tin nhắn và booking draft chỉ giữ trong bộ nhớ ứng dụng ở mốc này, không ghi transcript chứa thông tin sức khỏe vào bộ nhớ thiết bị.
+- Chatbot chỉ hỗ trợ thông tin và điều hướng, không thay thế chẩn đoán. Giao diện nhắc người dùng không nhập OTP, mật khẩu hoặc dữ liệu quá nhạy cảm.
 
 ## Quy tắc hiển thị thông báo xác thực
 

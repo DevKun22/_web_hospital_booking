@@ -12,6 +12,7 @@ enum AuthStatus {
   loggingOut,
   loggedOut,
   offline,
+  offlineBrowsing,
 }
 
 enum AuthErrorOrigin { sessionRestore, session, requestOtp, verifyOtp }
@@ -22,6 +23,7 @@ class AuthState {
     this.user,
     this.phone,
     this.challenge,
+    this.returnTo,
     this.error,
     this.errorOrigin,
   }) : assert(
@@ -45,6 +47,7 @@ class AuthState {
   final PatientUser? user;
   final String? phone;
   final OtpChallenge? challenge;
+  final String? returnTo;
   final ApiException? error;
   final AuthErrorOrigin? errorOrigin;
 
@@ -62,6 +65,7 @@ class AuthState {
     PatientUser? user,
     String? phone,
     OtpChallenge? challenge,
+    String? returnTo,
     ApiException? error,
     AuthErrorOrigin? errorOrigin,
     bool clearError = false,
@@ -70,6 +74,7 @@ class AuthState {
     user: user ?? this.user,
     phone: phone ?? this.phone,
     challenge: challenge ?? this.challenge,
+    returnTo: returnTo ?? this.returnTo,
     error: clearError ? null : error ?? this.error,
     errorOrigin: clearError ? null : errorOrigin ?? this.errorOrigin,
   );

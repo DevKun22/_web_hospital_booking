@@ -88,9 +88,13 @@ class HomeContentController extends Notifier<HomeContentState> {
     int requestVersion,
   ) async {
     try {
-      final content = await repository.fetchAndCache();
+      final result = await repository.fetchAndCache(fallback: fallback);
       if (requestVersion != _requestVersion) return;
-      state = HomeContentState(content: content);
+      state = HomeContentState(
+        content: result.content,
+        error: result.warning,
+        usingCachedData: result.usedFallback,
+      );
     } on ApiException catch (error) {
       if (requestVersion != _requestVersion) return;
       state = HomeContentState(

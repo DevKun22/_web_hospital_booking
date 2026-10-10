@@ -47,15 +47,31 @@ class SplashScreen extends ConsumerWidget {
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 24),
-                if (isOffline)
+                if (isOffline) ...[
                   FilledButton.icon(
                     onPressed: () => ref
                         .read(authControllerProvider.notifier)
                         .bootstrapSession(),
                     icon: const Icon(Icons.refresh),
                     label: const Text('Thử lại'),
-                  )
-                else
+                  ),
+                  const SizedBox(height: 10),
+                  TextButton.icon(
+                    onPressed: () => ref
+                        .read(authControllerProvider.notifier)
+                        .continueOffline(),
+                    icon: const Icon(Icons.cloud_off_outlined),
+                    label: const Text('Xem nội dung đã lưu'),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Thông tin cá nhân sẽ được khóa cho đến khi khôi phục kết nối.',
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ] else
                   const CircularProgressIndicator(),
               ],
             ),
