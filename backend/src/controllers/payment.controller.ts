@@ -12,6 +12,36 @@ const getParam = (value: string | string[] | undefined, name = "id") => {
   return param;
 };
 
+const getLookupPatientId = (req: Request) => {
+  if (!req.lookupGrant?.sub) {
+    throw new AppError("Cần xác thực OTP để thanh toán", 401);
+  }
+
+  return req.lookupGrant.sub;
+};
+
+const getIdempotencyKey = (req: Request) => {
+  const value = req.get("Idempotency-Key")?.trim();
+  if (!value) return undefined;
+  if (value.length > 128 || !/^[A-Za-z0-9._:-]+$/.test(value)) {
+    throw new AppError("Idempotency-Key không hợp lệ", 400, "INVALID_IDEMPOTENCY_KEY");
+  }
+  return value;
+};
+
+export const getPaymentCapabilitiesHandler = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    getLookupPatientId(req);
+    return res.json({ success: true, data: PaymentService.getCapabilities() });
+  } catch (error) {
+    next(error);
+  }
+};
+
 export const createPaymentTransactionHandler = async (
   req: Request,
   res: Response,
@@ -21,6 +51,8 @@ export const createPaymentTransactionHandler = async (
     const transaction = await PaymentService.createForInvoice(
       getParam(req.params.invoiceId, "invoiceId"),
       req.body,
+      getLookupPatientId(req),
+      getIdempotencyKey(req),
     );
 
     return res.status(201).json({
@@ -39,7 +71,10 @@ export const getPaymentTransactionHandler = async (
   next: NextFunction,
 ) => {
   try {
-    const transaction = await PaymentService.getById(getParam(req.params.id));
+    const transaction = await PaymentService.getById(
+      getParam(req.params.id),
+      getLookupPatientId(req),
+    );
 
     return res.json({ success: true, data: transaction });
   } catch (error) {
@@ -53,7 +88,10 @@ export const cancelPaymentTransactionHandler = async (
   next: NextFunction,
 ) => {
   try {
-    const transaction = await PaymentService.cancel(getParam(req.params.id));
+    const transaction = await PaymentService.cancel(
+      getParam(req.params.id),
+      getLookupPatientId(req),
+    );
 
     return res.json({
       success: true,
@@ -73,6 +111,7 @@ export const getMockCheckoutHandler = async (
   try {
     const transaction = await PaymentService.getByTransactionCode(
       getParam(req.params.transactionCode, "transactionCode"),
+      getLookupPatientId(req),
     );
 
     return res.json({
@@ -98,6 +137,7 @@ export const mockPaymentSuccessHandler = async (
   try {
     const transaction = await PaymentService.markMockSuccess(
       getParam(req.params.transactionCode, "transactionCode"),
+      getLookupPatientId(req),
     );
 
     return res.json({
@@ -118,6 +158,7 @@ export const mockPaymentFailHandler = async (
   try {
     const transaction = await PaymentService.markMockFailed(
       getParam(req.params.transactionCode, "transactionCode"),
+      getLookupPatientId(req),
     );
 
     return res.json({

@@ -1,6 +1,7 @@
 import type { Request, Response, NextFunction } from "express";
 import type { Role, TimeSlotStatus } from "../../generated/prisma/enums.js";
 import DoctorTimeSlotService from "../services/doctorTimeSlot.service.js";
+import ScheduleReconciliationService from "../services/scheduleReconciliation.service.js";
 import { AppError } from "../utils/appError.js";
 
 const parseBooleanQuery = (value: unknown) => {
@@ -179,6 +180,27 @@ export const deleteDoctorTimeSlotHandler = async (
       success: true,
       message: "Xóa slot thành công",
       data: slot,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const reconcileDoctorTimeSlotsHandler = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const result = await ScheduleReconciliationService.reconcile({
+      repair: req.body?.repair !== false,
+      batchSize:
+        typeof req.body?.batchSize === "number" ? req.body.batchSize : undefined,
+    });
+    return res.json({
+      success: true,
+      message: "Đã đối soát tính nhất quán của slot khám",
+      data: result,
     });
   } catch (error) {
     next(error);

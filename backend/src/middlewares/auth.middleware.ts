@@ -6,6 +6,7 @@ import {
   cacheDashboardAuthSnapshot,
   getCachedDashboardAuthSnapshot,
 } from "../services/dashboardAuthCache.service.js";
+import AuthSessionService from "../services/authSession.service.js";
 
 const DASHBOARD_ROLES: Role[] = ["ADMIN", "DOCTOR", "STAFF"];
 
@@ -25,6 +26,21 @@ export const authDashboard = async (
     }
 
     const payload = verifyToken(token);
+
+    if (payload.tokenType && payload.tokenType !== "DASHBOARD_ACCESS") {
+      return res.status(401).json({
+        success: false,
+        message: "Token không hợp lệ",
+      });
+    }
+
+    if (payload.sessionId) {
+      await AuthSessionService.assertActiveSession({
+        sessionId: payload.sessionId,
+        userId: payload.userId,
+        kind: "DASHBOARD",
+      });
+    }
 
     let user = getCachedDashboardAuthSnapshot(payload.userId);
 

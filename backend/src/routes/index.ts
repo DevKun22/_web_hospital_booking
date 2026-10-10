@@ -34,8 +34,11 @@ import {
   publicSiteSettingsRouter,
 } from "./siteSettings.route.js";
 import uploadRouter from "./upload.route.js";
+import v1Router from "./v1.route.js";
 
 const router = Router();
+
+router.use("/v1", v1Router);
 
 router.use("/otp", authOtpRouter);
 router.use("/chatbot", chatbotRouter);

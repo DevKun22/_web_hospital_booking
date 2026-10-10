@@ -77,6 +77,7 @@ class ScheduleChangeRequestService {
   async create(input: CreateInput, actor: Actor) {
     if (actor.role !== "DOCTOR") throw new AppError("Chỉ bác sĩ mới có thể gửi yêu cầu đổi lịch", 403);
     validateTimeRange(input.startTime, input.endTime);
+    if (input.maxPatients !== 1) throw new AppError("Mỗi slot hiện chỉ hỗ trợ một bệnh nhân", 400);
 
     const effectiveFrom = parseDateOnly(input.effectiveFrom);
     const today = parseDateOnly(new Intl.DateTimeFormat("sv-SE", { timeZone: "Asia/Ho_Chi_Minh" }).format(new Date()));
@@ -93,13 +94,18 @@ class ScheduleChangeRequestService {
       scheduleId = schedule.id;
     }
 
-    await this.ensureNoOverlap({
-      doctorId: doctor.id,
-      dayOfWeek: input.dayOfWeek,
-      startTime: input.startTime,
-      endTime: input.endTime,
-      excludeId: scheduleId || undefined,
-    });
+    if (
+      input.type !== "DEACTIVATE_WEEKLY_SCHEDULE" &&
+      input.isActive !== false
+    ) {
+      await this.ensureNoOverlap({
+        doctorId: doctor.id,
+        dayOfWeek: input.dayOfWeek,
+        startTime: input.startTime,
+        endTime: input.endTime,
+        excludeId: scheduleId || undefined,
+      });
+    }
 
     return prisma.scheduleChangeRequest.create({
       data: {
@@ -134,10 +140,21 @@ class ScheduleChangeRequestService {
       });
     }
 
+    const today = parseDateOnly(new Intl.DateTimeFormat("sv-SE", { timeZone: "Asia/Ho_Chi_Minh" }).format(new Date()));
+    if (request.effectiveFrom > today) {
+      throw new AppError(
+        "Chỉ duyệt yêu cầu vào hoặc sau ngày bắt đầu áp dụng để tránh thay đổi lịch mẫu quá sớm",
+        409,
+        "SCHEDULE_EFFECTIVE_DATE_NOT_REACHED",
+      );
+    }
+
     return prisma.$transaction(async (tx) => {
       let scheduleId = request.scheduleId;
       if (request.type === "CREATE_WEEKLY_SCHEDULE") {
-        await this.ensureNoOverlap({ doctorId: request.doctorId, dayOfWeek: request.dayOfWeek, startTime: request.startTime, endTime: request.endTime }, tx);
+        if (request.isActive) {
+          await this.ensureNoOverlap({ doctorId: request.doctorId, dayOfWeek: request.dayOfWeek, startTime: request.startTime, endTime: request.endTime }, tx);
+        }
         const schedule = await tx.doctorSchedule.create({
           data: { doctorId: request.doctorId, dayOfWeek: request.dayOfWeek, startTime: request.startTime, endTime: request.endTime, slotDuration: request.slotDuration, maxPatients: request.maxPatients, isActive: request.isActive },
           select: { id: true },
@@ -146,7 +163,7 @@ class ScheduleChangeRequestService {
       } else {
         const current = await tx.doctorSchedule.findFirst({ where: { id: request.scheduleId || "", doctorId: request.doctorId }, select: { id: true } });
         if (!current) throw new AppError("Lịch mẫu cần thay đổi không còn tồn tại", 404);
-        if (request.type === "UPDATE_WEEKLY_SCHEDULE") {
+        if (request.type === "UPDATE_WEEKLY_SCHEDULE" && request.isActive) {
           await this.ensureNoOverlap({ doctorId: request.doctorId, dayOfWeek: request.dayOfWeek, startTime: request.startTime, endTime: request.endTime, excludeId: current.id }, tx);
         }
         await tx.doctorSchedule.update({
@@ -188,7 +205,7 @@ class ScheduleChangeRequestService {
 
   private async ensureNoOverlap(input: { doctorId: string; dayOfWeek: number; startTime: string; endTime: string; excludeId?: string }, client: Prisma.TransactionClient | typeof prisma = prisma) {
     const schedules = await client.doctorSchedule.findMany({
-      where: { doctorId: input.doctorId, dayOfWeek: input.dayOfWeek, ...(input.excludeId ? { id: { not: input.excludeId } } : {}) },
+      where: { doctorId: input.doctorId, dayOfWeek: input.dayOfWeek, isActive: true, ...(input.excludeId ? { id: { not: input.excludeId } } : {}) },
       select: { startTime: true, endTime: true },
     });
     if (schedules.some((schedule) => hasTimeOverlap(input.startTime, input.endTime, schedule.startTime, schedule.endTime))) {

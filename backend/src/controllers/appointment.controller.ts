@@ -151,7 +151,7 @@ export const getPublicAppointmentResultHandler = async (
         typeof req.query.bookingCode === "string"
           ? req.query.bookingCode
           : undefined,
-      phone: typeof req.query.phone === "string" ? req.query.phone : undefined,
+      patientId: req.lookupGrant?.sub || "",
     });
 
     return res.json({

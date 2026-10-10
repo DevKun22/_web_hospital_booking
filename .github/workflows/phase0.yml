@@ -1,0 +1,74 @@
+name: Hospital Booking quality gates
+
+on:
+  pull_request:
+  push:
+    branches: [main, master]
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: phase0
+          POSTGRES_PASSWORD: phase0
+          POSTGRES_DB: hospital_booking_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U phase0 -d hospital_booking_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      TEST_DATABASE_URL: postgresql://phase0:phase0@127.0.0.1:5432/hospital_booking_test
+      DATABASE_URL: postgresql://phase0:phase0@127.0.0.1:5432/hospital_booking_ci_placeholder
+      CLOUDINARY_URL: cloudinary://ci_test_key:ci_test_secret@ci_test_cloud
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            backend/package-lock.json
+            frontend/package-lock.json
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: npm ci
+      - name: Validate Prisma schema
+        working-directory: backend
+        run: npx prisma validate
+      - name: Backend Phase 0 + Phase 1 tests
+        working-directory: backend
+        run: npm run test:phase1
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+      - name: Frontend typecheck
+        working-directory: frontend
+        run: npx tsc --noEmit
+      - name: Frontend lint
+        working-directory: frontend
+        run: npm run lint
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.38.7
+          channel: stable
+          cache: true
+      - name: Install mobile dependencies
+        working-directory: mobile
+        run: flutter pub get
+      - name: Mobile static analysis
+        working-directory: mobile
+        run: flutter analyze
+      - name: Mobile tests
+        working-directory: mobile
+        run: flutter test

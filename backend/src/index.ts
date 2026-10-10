@@ -1,92 +1,15 @@
-import express from "express";
-import cors, { CorsOptions } from "cors";
-import morgan from "morgan";
-import helmet from "helmet";
-import cookieParser from "cookie-parser";
+import "dotenv/config";
 
-import { prisma } from "./config/prisma.js";
-import routes from "./routes/index.js";
-import { notFound } from "./middlewares/notFound.middleware.js";
-import { errorMiddleware } from "./middlewares/error.middleware.js";
+import { validateRuntimeEnvironment } from "./config/environment.js";
 
-const app = express();
-const isProduction = process.env.NODE_ENV === "production";
+validateRuntimeEnvironment();
 
-app.disable("x-powered-by");
-app.set("trust proxy", 1);
+const [{ createApp }, { prisma }] = await Promise.all([
+  import("./app.js"),
+  import("./config/prisma.js"),
+]);
 
-const defaultFrontendOrigins = isProduction
-  ? ""
-  : "http://localhost:3000,http://localhost:3001,http://localhost:5173";
-const allowedOrigins = (
-  process.env.FRONTEND_URLS ||
-  process.env.FRONTEND_URL ||
-  defaultFrontendOrigins
-)
-  .split(",")
-  .map((origin) => origin.trim())
-  .filter(Boolean);
-
-const corsOptions: CorsOptions = {
-  credentials: true,
-  origin(origin, callback) {
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-      return;
-    }
-
-    const error = new Error(
-      "Nguồn truy cập không được CORS cho phép",
-    ) as Error & {
-      statusCode?: number;
-    };
-    error.statusCode = 403;
-    callback(error);
-  },
-};
-
-app.use(helmet());
-app.use(cors(corsOptions));
-app.use(express.json({ limit: "1mb" }));
-app.use(express.urlencoded({ extended: true, limit: "1mb" }));
-app.use(morgan(isProduction ? "combined" : "dev"));
-app.use(cookieParser());
-
-app.use((req, res, next) => {
-  const startedAt = process.hrtime.bigint();
-
-  res.on("finish", () => {
-    const durationMs = Number(process.hrtime.bigint() - startedAt) / 1_000_000;
-
-    if (durationMs >= 500) {
-      console.warn(
-        `[SLOW_REQUEST] ${req.method} ${req.originalUrl} ${res.statusCode} ${durationMs.toFixed(1)}ms`,
-      );
-    }
-  });
-
-  next();
-});
-
-app.get("/", (req, res) => {
-  res.json({
-    status: "Medical Booking API Running...",
-    time: new Date().toISOString(),
-  });
-});
-
-app.get("/health", (req, res) => {
-  res.json({
-    status: "ok",
-    uptime: process.uptime(),
-    time: new Date().toISOString(),
-  });
-});
-
-app.use("/api", routes);
-
-app.use(notFound);
-app.use(errorMiddleware);
+const app = createApp();
 
 const PORT = process.env.PORT || 4000;
 

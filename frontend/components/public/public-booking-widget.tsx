@@ -48,6 +48,7 @@ type PendingAppointment = {
   otpDeliveryStatus?: "PENDING" | "SENT" | "FAILED";
   debugOtp?: string;
   expiresIn: number;
+  holdExpiresAt?: string | null;
 };
 
 type PublicBookingWidgetProps = {
@@ -404,6 +405,7 @@ export function PublicBookingWidget({
         expiresIn: number;
         otpDeliveryStatus?: PendingAppointment["otpDeliveryStatus"];
         debugOtp?: string;
+        holdExpiresAt?: string | null;
       }>(`/appointments/${pending.appointmentId}/resend-otp`, {
         method: "POST",
       });
@@ -415,6 +417,7 @@ export function PublicBookingWidget({
               expiresIn: result.expiresIn,
               otpDeliveryStatus: result.otpDeliveryStatus,
               debugOtp: result.debugOtp,
+              holdExpiresAt: result.holdExpiresAt,
             }
           : current,
       );

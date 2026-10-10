@@ -172,6 +172,11 @@ enum TimeSlotStatus {
   CANCELLED
 }
 
+enum SessionKind {
+  DASHBOARD
+  PATIENT
+}
+
 enum MediaOwnerType {
   DEPARTMENT
   USER_AVATAR
@@ -215,6 +220,7 @@ model User {
   otpCodes    OtpCode[]
   dashboardLoginChallenges DashboardLoginChallenge[]
   dashboardSessions DashboardSession[]
+  authRefreshTokens AuthRefreshToken[]
   mediaAssets MediaAsset[]
 
   // Logs created by Admin/Staff/Doctor
@@ -359,9 +365,15 @@ model DashboardSession {
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  refreshTokenHash String @unique
+  refreshTokenHash String      @unique
+  kind             SessionKind @default(DASHBOARD)
+  tokenFamilyId    String      @unique @default(uuid())
   ipAddress        String?
   userAgent        String?
+  deviceId         String?
+  deviceName       String?
+  platform         String?
+  appVersion       String?
 
   expiresAt  DateTime
   lastUsedAt DateTime?
@@ -370,7 +382,32 @@ model DashboardSession {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  refreshTokens AuthRefreshToken[]
+
   @@index([userId])
+  @@index([userId, kind, revokedAt])
+  @@index([expiresAt])
+  @@index([revokedAt])
+}
+
+model AuthRefreshToken {
+  id String @id @default(uuid())
+
+  sessionId String
+  session   DashboardSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  userId String
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  tokenHash           String @unique
+  replacedByTokenHash String?
+  expiresAt           DateTime
+  usedAt              DateTime?
+  revokedAt           DateTime?
+  createdAt           DateTime @default(now())
+
+  @@index([sessionId, createdAt])
+  @@index([userId, expiresAt])
   @@index([expiresAt])
   @@index([revokedAt])
 }
@@ -619,6 +656,7 @@ model Appointment {
   startTime       String
   endTime         String
   status          AppointmentStatus @default(PENDING_OTP)
+  holdExpiresAt   DateTime?
 
   reason String?
 
@@ -689,6 +727,7 @@ model Appointment {
   @@index([appointmentDate])
   @@index([patientPhone])
   @@index([status])
+  @@index([status, holdExpiresAt])
   @@index([rescheduledFromId])
 }
 
@@ -912,6 +951,8 @@ model PaymentTransaction {
   amount Int
 
   transactionCode String  @unique
+  activeKey       String? @unique
+  idempotencyKey  String? @unique
   providerOrderId String?
   paymentUrl      String?
 

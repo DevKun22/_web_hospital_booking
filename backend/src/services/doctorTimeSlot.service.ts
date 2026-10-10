@@ -159,6 +159,14 @@ class DoctorTimeSlotService {
       throw new AppError("Không tìm thấy bác sĩ", 404);
     }
 
+    if (
+      !doctor.isAvailable ||
+      !doctor.user.isActive ||
+      !doctor.department.isActive
+    ) {
+      throw new AppError("Bác sĩ không sẵn sàng nhận lịch", 409);
+    }
+
     const schedules = await prisma.doctorSchedule.findMany({
       where: {
         doctorId: input.doctorId,
@@ -187,7 +195,7 @@ class DoctorTimeSlotService {
       })),
     );
 
-    await prisma.doctorTimeSlot.createMany({
+    const created = await prisma.doctorTimeSlot.createMany({
       data: slotData,
       skipDuplicates: true,
     });
@@ -205,7 +213,7 @@ class DoctorTimeSlotService {
 
     return {
       items,
-      generatedCount: slotData.length,
+      generatedCount: created.count,
       total: items.length,
     };
   }

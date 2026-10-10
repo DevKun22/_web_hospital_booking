@@ -1,0 +1,6 @@
+{
+  "APP_ENV": "production",
+  "API_BASE_URL": "https://api.example.com/api/v1",
+  "API_CONNECT_TIMEOUT_MS": "10000",
+  "API_RECEIVE_TIMEOUT_MS": "15000"
+}

@@ -55,6 +55,13 @@ export type DisplayAppointment = {
 export type LookupOtpResponse = {
   phone: string;
   items: DisplayAppointment[];
+  grant: {
+    token: string;
+    tokenType: "Bearer";
+    expiresAt: string;
+    expiresIn: number;
+    scopes: string[];
+  };
 };
 
 export type PublicAppointmentResult = {
@@ -115,34 +122,54 @@ export const fetchPublicAppointmentLookup = (
 
 export const fetchPublicAppointmentResult = (
   filters: Required<AppointmentLookupFilters>,
+  lookupGrantToken: string,
 ) =>
   apiRequest<PublicAppointmentResult>("/appointments/lookup/result", {
-    query: filters,
+    query: { bookingCode: filters.bookingCode },
+    headers: {
+      Authorization: `Bearer ${lookupGrantToken}`,
+    },
+    skipAuthRefresh: true,
+    suppressAuthExpired: true,
   });
 
-export const fetchPublicPaymentTransaction = (id: string) =>
-  apiRequest<PaymentTransaction>(`/payments/${id}`);
+export const fetchPublicPaymentTransaction = (
+  id: string,
+  lookupGrantToken: string,
+) =>
+  apiRequest<PaymentTransaction>(`/payments/${id}`, {
+    headers: { Authorization: `Bearer ${lookupGrantToken}` },
+    skipAuthRefresh: true,
+    suppressAuthExpired: true,
+  });
 
-export function usePublicAppointmentResult(filters: AppointmentLookupFilters) {
+export function usePublicAppointmentResult(
+  filters: AppointmentLookupFilters,
+  lookupGrantToken: string,
+) {
   return useQuery({
     queryKey: queryKeys.publicAppointmentResult(filters),
     queryFn: () =>
       fetchPublicAppointmentResult({
         bookingCode: filters.bookingCode || "",
         phone: filters.phone || "",
-      }),
-    enabled: Boolean(filters.bookingCode && filters.phone),
+      }, lookupGrantToken),
+    enabled: Boolean(filters.bookingCode && lookupGrantToken),
     staleTime: 30 * 1000,
     refetchOnWindowFocus: true,
     refetchOnReconnect: true,
   });
 }
 
-export function usePublicPaymentTransaction(id?: string, enabled = true) {
+export function usePublicPaymentTransaction(
+  id: string | undefined,
+  lookupGrantToken: string,
+  enabled = true,
+) {
   return useQuery({
     queryKey: queryKeys.publicPaymentTransaction(id),
-    queryFn: () => fetchPublicPaymentTransaction(id || ""),
-    enabled: Boolean(enabled && id),
+    queryFn: () => fetchPublicPaymentTransaction(id || "", lookupGrantToken),
+    enabled: Boolean(enabled && id && lookupGrantToken),
     staleTime: 5 * 1000,
     refetchOnWindowFocus: true,
     refetchOnReconnect: true,

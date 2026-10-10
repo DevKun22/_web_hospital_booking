@@ -64,5 +64,7 @@ uploads/
 *.crt
 
 # other
-docs
+docs/*
+!docs/phase-2-flutter-foundation.md
 tools
+docs

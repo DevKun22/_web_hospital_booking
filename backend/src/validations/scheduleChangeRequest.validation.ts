@@ -30,7 +30,7 @@ export const createScheduleChangeRequestSchema = z
     startTime: timeSchema,
     endTime: timeSchema,
     slotDuration: z.number().int().min(5).max(240),
-    maxPatients: z.number().int().min(1).max(20),
+    maxPatients: z.number().int().min(1).max(1),
     isActive: z.boolean().optional(),
     effectiveFrom: dateSchema,
     reason: z

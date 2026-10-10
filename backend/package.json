@@ -13,7 +13,14 @@
 
     "worker:otp": "node dist/src/workers/otp.worker.js",
     "worker:otp:dev": "tsx src/workers/otp.worker.ts",
+    "worker:appointments": "node dist/src/workers/appointmentLifecycle.worker.js",
+    "worker:appointments:dev": "tsx src/workers/appointmentLifecycle.worker.ts",
 
+    "test": "tsx --test test/smoke/app.test.ts",
+    "test:integration": "tsx test/runIntegrationTests.ts",
+    "test:types": "tsc --noEmit -p tsconfig.test.json",
+    "test:phase0": "prisma generate && tsc --noEmit -p tsconfig.test.json && tsx --test test/smoke/app.test.ts && tsx test/runIntegrationTests.ts",
+    "test:phase1": "prisma generate && tsc --noEmit -p tsconfig.test.json && tsx --test test/smoke/app.test.ts && tsx test/runIntegrationTests.ts",
     "test-db": "tsx src/test.ts",
     
     "seed:demo": "tsx src/scripts/seedDemoFlow.ts",
@@ -22,6 +29,7 @@
 
     "search:reindex": "tsx src/scripts/reindexSearch.ts",
     "search:check-url-rules": "tsx src/scripts/checkSearchUrlRules.ts",
+    "audit:phase0": "tsx src/scripts/phase0PreflightAudit.ts",
 
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev --name init",
