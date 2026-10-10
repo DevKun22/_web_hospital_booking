@@ -26,6 +26,7 @@ jobs:
     env:
       TEST_DATABASE_URL: postgresql://phase0:phase0@127.0.0.1:5432/hospital_booking_test
       DATABASE_URL: postgresql://phase0:phase0@127.0.0.1:5432/hospital_booking_ci_placeholder
+      CLOUDINARY_URL: cloudinary://ci_test_key:ci_test_secret@ci_test_cloud
 
     steps:
       - uses: actions/checkout@v4
