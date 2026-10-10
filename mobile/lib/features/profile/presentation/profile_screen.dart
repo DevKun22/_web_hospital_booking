@@ -175,6 +175,11 @@ class ProfileScreen extends ConsumerWidget {
     if (!context.mounted || !loggedOut) return;
 
     context.go('/home');
+    // `loggedOut` is a transition state used by the route guard to leave the
+    // protected profile without immediately opening login again. Once the
+    // guest home is selected, restore the normal guest state so a later tap on
+    // a protected feature opens login and preserves that destination.
+    ref.read(authControllerProvider.notifier).restartLogin();
     messenger
       ..hideCurrentSnackBar()
       ..showSnackBar(

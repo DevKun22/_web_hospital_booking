@@ -42,6 +42,7 @@ class _LoadedHomeContentController extends HomeContentController {
     content: HomeContent(
       banners: const [
         HomeBanner(id: 'banner-1', title: 'Chăm sóc từ trái tim'),
+        HomeBanner(id: 'banner-2', title: 'Khám đúng lúc, an tâm hơn'),
       ],
       departments: const [HomeDepartment(id: 'department-1', name: 'Tim mạch')],
       doctors: const [
@@ -117,6 +118,41 @@ void main() {
     expect(find.text('BS. CKI Nguyễn Văn An'), findsOneWidget);
     expect(find.text('Khám tổng quát'), findsOneWidget);
     expect(find.text('Trợ lý đặt lịch 24/7'), findsOneWidget);
+  });
+
+  testWidgets('hero banners auto play and update their indicator', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(800, 2400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          authControllerProvider.overrideWith(_OtpErrorAuthController.new),
+          homeContentControllerProvider.overrideWith(
+            _LoadedHomeContentController.new,
+          ),
+        ],
+        child: const MaterialApp(home: HomeScreen()),
+      ),
+    );
+
+    double indicatorWidth(int index) => tester
+        .getSize(find.byKey(ValueKey('home-hero-indicator-$index')))
+        .width;
+
+    expect(indicatorWidth(0), 24);
+    expect(indicatorWidth(1), 8);
+
+    await tester.pump(const Duration(seconds: 6));
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(indicatorWidth(0), 8);
+    expect(indicatorWidth(1), 24);
+
+    await tester.pumpWidget(const SizedBox.shrink());
   });
 
   testWidgets('offline home explains restricted access and offers retry', (

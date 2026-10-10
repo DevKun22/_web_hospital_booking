@@ -37,7 +37,9 @@ class BookingPatientDraft {
   final String? registeredHospital;
 
   Map<String, dynamic> toRequestJson(BookingSelection selection) => {
-    'packageId': null,
+    'packageId': selection.serviceMode == BookingServiceMode.package
+        ? selection.packageId
+        : null,
     'departmentId': selection.departmentId,
     'doctorId': selection.doctorId,
     'timeSlotId': selection.slotId,
@@ -140,12 +142,14 @@ class BookedAppointment {
     required this.doctorName,
     required this.departmentName,
     required this.finalAmount,
+    this.packageName,
   });
 
   factory BookedAppointment.fromJson(Map<String, dynamic> json) {
     final doctor = _map(json['doctor']);
     final doctorUser = _map(doctor['user']);
     final department = _map(json['department']);
+    final packageItem = _map(json['package']);
     return BookedAppointment(
       id: json['id']?.toString() ?? '',
       bookingCode: json['bookingCode']?.toString() ?? '',
@@ -160,6 +164,7 @@ class BookedAppointment {
         fullName: _nullable(doctorUser['fullName']) ?? '',
       ),
       departmentName: department['name']?.toString() ?? '',
+      packageName: _nullable(packageItem['name']),
       finalAmount: _number(json['finalAmount']),
     );
   }
@@ -174,6 +179,7 @@ class BookedAppointment {
   final String endTime;
   final String doctorName;
   final String departmentName;
+  final String? packageName;
   final double finalAmount;
 }
 

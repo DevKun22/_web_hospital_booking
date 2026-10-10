@@ -29,6 +29,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   Widget build(BuildContext context) {
     final auth = ref.watch(authControllerProvider);
     final isLoading = auth.status == AuthStatus.requestingOtp;
+    final protectedFeatureMessage = _protectedFeatureMessage(widget.returnTo);
     final visibleError =
         auth.errorFor(AuthErrorOrigin.requestOtp) ??
         auth.errorFor(AuthErrorOrigin.session);
@@ -70,6 +71,46 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         'Nhập số điện thoại để nhận mã OTP bảo mật.',
                         textAlign: TextAlign.center,
                       ),
+                      if (protectedFeatureMessage != null) ...[
+                        const SizedBox(height: 14),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 12,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.primaryContainer,
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Icon(
+                                Icons.lock_outline_rounded,
+                                size: 20,
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onPrimaryContainer,
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Text(
+                                  protectedFeatureMessage,
+                                  style: Theme.of(context).textTheme.bodyMedium
+                                      ?.copyWith(
+                                        color: Theme.of(
+                                          context,
+                                        ).colorScheme.onPrimaryContainer,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                       const SizedBox(height: 28),
                       if (visibleError != null) ...[
                         AppErrorBanner(
@@ -154,5 +195,25 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _leaveLogin();
     });
+  }
+
+  String? _protectedFeatureMessage(String? returnTo) {
+    if (returnTo == null) return null;
+    if (returnTo.startsWith('/appointments')) {
+      return 'Vui lòng đăng nhập để xem và quản lý lịch khám của bạn.';
+    }
+    if (returnTo.startsWith('/profile')) {
+      return 'Vui lòng đăng nhập để xem và cập nhật hồ sơ bệnh nhân.';
+    }
+    if (returnTo.startsWith('/medical-records')) {
+      return 'Vui lòng đăng nhập để xem hồ sơ khám bệnh.';
+    }
+    if (returnTo.startsWith('/prescriptions')) {
+      return 'Vui lòng đăng nhập để xem đơn thuốc.';
+    }
+    if (returnTo.startsWith('/invoices')) {
+      return 'Vui lòng đăng nhập để xem hóa đơn.';
+    }
+    return 'Vui lòng đăng nhập để tiếp tục tính năng đã chọn.';
   }
 }

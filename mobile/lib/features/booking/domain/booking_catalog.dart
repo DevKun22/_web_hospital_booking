@@ -1,5 +1,12 @@
 import 'package:hospital_booking_mobile/core/formatters/professional_name_formatter.dart';
 
+enum BookingServiceMode { doctor, package }
+
+extension BookingServiceModeValue on BookingServiceMode {
+  String get apiValue =>
+      this == BookingServiceMode.package ? 'PACKAGE' : 'DOCTOR_ONLY';
+}
+
 class BookingDepartment {
   const BookingDepartment({
     required this.id,
@@ -94,6 +101,8 @@ class BookingSlot {
 
 class BookingSelection {
   const BookingSelection({
+    this.serviceMode = BookingServiceMode.doctor,
+    this.packageId,
     this.departmentId,
     this.doctorId,
     this.date,
@@ -102,24 +111,35 @@ class BookingSelection {
 
   factory BookingSelection.fromJson(Map<String, dynamic> json) =>
       BookingSelection(
+        serviceMode:
+            json['serviceMode']?.toString().toUpperCase() == 'PACKAGE' ||
+                _nullableString(json['packageId']) != null
+            ? BookingServiceMode.package
+            : BookingServiceMode.doctor,
+        packageId: _nullableString(json['packageId']),
         departmentId: _nullableString(json['departmentId']),
         doctorId: _nullableString(json['doctorId']),
         date: _nullableString(json['date']),
         slotId: _nullableString(json['slotId']),
       );
 
+  final BookingServiceMode serviceMode;
+  final String? packageId;
   final String? departmentId;
   final String? doctorId;
   final String? date;
   final String? slotId;
 
   bool get isComplete =>
+      (serviceMode != BookingServiceMode.package || packageId != null) &&
       departmentId != null &&
       doctorId != null &&
       date != null &&
       slotId != null;
 
   Map<String, dynamic> toJson() => {
+    'serviceMode': serviceMode.apiValue,
+    'packageId': packageId,
     'departmentId': departmentId,
     'doctorId': doctorId,
     'date': date,

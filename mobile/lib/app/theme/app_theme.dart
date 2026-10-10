@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 abstract final class AppTheme {
   static const primary = Color(0xFF087A73);
@@ -45,6 +46,14 @@ abstract final class AppTheme {
         surfaceTintColor: Colors.transparent,
         foregroundColor: clinicalInk,
         elevation: 0,
+        systemOverlayStyle: SystemUiOverlayStyle(
+          statusBarColor: Colors.transparent,
+          statusBarIconBrightness: Brightness.dark,
+          statusBarBrightness: Brightness.light,
+          systemNavigationBarColor: quietCanvas,
+          systemNavigationBarIconBrightness: Brightness.dark,
+          systemNavigationBarDividerColor: Colors.transparent,
+        ),
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,

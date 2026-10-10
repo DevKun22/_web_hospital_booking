@@ -165,6 +165,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(auth.logoutCalls, 1);
+    expect(auth.state.status, AuthStatus.unauthenticated);
     expect(find.text('Trang chủ khách'), findsOneWidget);
     expect(find.text('Đã đăng xuất khỏi thiết bị này.'), findsOneWidget);
   });
@@ -207,6 +208,7 @@ void main() {
     expect(submission.resetCalled, isTrue);
     expect(booking.clearCalled, isTrue);
     expect(auth.logoutCalls, 1);
+    expect(auth.state.status, AuthStatus.unauthenticated);
     expect(find.text('Trang chủ khách'), findsOneWidget);
   });
 }

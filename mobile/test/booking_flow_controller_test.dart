@@ -5,6 +5,7 @@ import 'package:hospital_booking_mobile/features/booking/application/booking_flo
 import 'package:hospital_booking_mobile/features/booking/data/booking_catalog_repository.dart';
 import 'package:hospital_booking_mobile/features/booking/data/booking_selection_store.dart';
 import 'package:hospital_booking_mobile/features/booking/domain/booking_catalog.dart';
+import 'package:hospital_booking_mobile/features/packages/domain/medical_package.dart';
 
 const _departments = [
   BookingDepartment(id: 'department-1', name: 'Tim mạch'),
@@ -28,14 +29,33 @@ const _doctors = [
   ),
 ];
 
+const _packages = [
+  MedicalPackage(
+    id: 'package-1',
+    name: 'Gói tim mạch',
+    slug: 'goi-tim-mach',
+    departmentId: 'department-1',
+    departmentName: 'Tim mạch',
+    basePrice: 800000,
+    serviceFee: 50000,
+    includedItemsTotal: 800000,
+    finalPrice: 850000,
+    isPopular: true,
+    isBhytSupport: true,
+  ),
+];
+
 class _FakeBookingCatalogRepository extends BookingCatalogRepository {
   _FakeBookingCatalogRepository({this.slots = const []}) : super(Dio());
 
   final List<BookingSlot> slots;
 
   @override
-  Future<BookingCatalog> fetchCatalog() async =>
-      const BookingCatalog(departments: _departments, doctors: _doctors);
+  Future<BookingCatalog> fetchCatalog() async => const BookingCatalog(
+    departments: _departments,
+    doctors: _doctors,
+    packages: _packages,
+  );
 
   @override
   Future<List<BookingSlot>> fetchAvailableSlots({
@@ -215,5 +235,96 @@ void main() {
     expect(selection.doctorId, 'doctor-1');
     expect(selection.date, date);
     expect(selection.slotId, 'slot-from-chatbot');
+  });
+
+  test(
+    'package selection locks its department and survives downstream choices',
+    () async {
+      final date = _tomorrowInVietnam();
+      final store = MemoryBookingSelectionStore();
+      final repository = _FakeBookingCatalogRepository(
+        slots: [
+          BookingSlot(
+            id: 'slot-1',
+            date: date,
+            startTime: '09:00',
+            endTime: '09:30',
+          ),
+        ],
+      );
+      final container = ProviderContainer(
+        overrides: [
+          bookingSelectionStoreProvider.overrideWithValue(store),
+          bookingCatalogRepositoryProvider.overrideWithValue(repository),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      final controller = container.read(bookingFlowControllerProvider.notifier);
+      await _waitUntil(
+        () => !container.read(bookingFlowControllerProvider).isCatalogLoading,
+      );
+
+      await controller.selectPackage('package-1');
+      await controller.selectDepartment('department-2');
+      await controller.selectDoctor('doctor-1');
+      await controller.selectDate(date);
+      await controller.selectSlot('slot-1');
+
+      final selection = container.read(bookingFlowControllerProvider).selection;
+      expect(selection.serviceMode, BookingServiceMode.package);
+      expect(selection.packageId, 'package-1');
+      expect(selection.departmentId, 'department-1');
+      expect(selection.isComplete, isTrue);
+      expect(store.selection?.packageId, 'package-1');
+
+      await controller.clearPackage();
+      final cleared = container.read(bookingFlowControllerProvider).selection;
+      expect(cleared.serviceMode, BookingServiceMode.package);
+      expect(cleared.packageId, isNull);
+      expect(cleared.departmentId, isNull);
+    },
+  );
+
+  test('package preset selects package before doctor and slot', () async {
+    final date = _tomorrowInVietnam();
+    final repository = _FakeBookingCatalogRepository(
+      slots: [
+        BookingSlot(
+          id: 'slot-1',
+          date: date,
+          startTime: '09:00',
+          endTime: '09:30',
+        ),
+      ],
+    );
+    final container = ProviderContainer(
+      overrides: [
+        bookingSelectionStoreProvider.overrideWithValue(
+          MemoryBookingSelectionStore(),
+        ),
+        bookingCatalogRepositoryProvider.overrideWithValue(repository),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    final controller = container.read(bookingFlowControllerProvider.notifier);
+    await controller.applyPreset(
+      packageId: 'package-1',
+      doctorId: 'doctor-1',
+      date: date,
+      timeSlotId: 'slot-1',
+    );
+    await _waitUntil(() {
+      final state = container.read(bookingFlowControllerProvider);
+      return !state.isCatalogLoading && !state.isSlotsLoading;
+    });
+
+    final selection = container.read(bookingFlowControllerProvider).selection;
+    expect(selection.packageId, 'package-1');
+    expect(selection.departmentId, 'department-1');
+    expect(selection.doctorId, 'doctor-1');
+    expect(selection.slotId, 'slot-1');
+    expect(selection.isComplete, isTrue);
   });
 }

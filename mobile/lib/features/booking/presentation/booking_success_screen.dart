@@ -116,6 +116,14 @@ class BookingSuccessScreen extends ConsumerWidget {
                         label: appointment.departmentName,
                         value: appointment.doctorName,
                       ),
+                      if (appointment.packageName != null) ...[
+                        const Divider(height: 26),
+                        _DetailRow(
+                          icon: Icons.health_and_safety_outlined,
+                          label: 'Gói khám',
+                          value: appointment.packageName!,
+                        ),
+                      ],
                       const Divider(height: 26),
                       _DetailRow(
                         icon: Icons.calendar_month_outlined,

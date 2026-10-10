@@ -6,6 +6,21 @@ import type { AIAdapter, GenerateReplyInput } from "./ai.adapter.js";
 const getModel = (model?: string) =>
   model || process.env.GEMINI_MODEL || "gemini-2.5-flash";
 
+const DEFAULT_AI_TIMEOUT_MS = 8_000;
+const MIN_AI_TIMEOUT_MS = 1_000;
+// Keep the server-side AI budget below the mobile client's default 15-second
+// receive timeout so the deterministic chatbot fallback can still respond.
+const MAX_AI_TIMEOUT_MS = 12_000;
+
+const getAIRequestTimeoutMs = () => {
+  const configured = Number(process.env.CHATBOT_AI_TIMEOUT_MS);
+  if (!Number.isFinite(configured)) return DEFAULT_AI_TIMEOUT_MS;
+  return Math.min(
+    MAX_AI_TIMEOUT_MS,
+    Math.max(MIN_AI_TIMEOUT_MS, Math.trunc(configured)),
+  );
+};
+
 const getFirebaseConfig = () => ({
   apiKey: process.env.FIREBASE_API_KEY || process.env.API_KEY,
   authDomain: process.env.FIREBASE_AUTH_DOMAIN || process.env.AUTH_DOMAIN,
@@ -56,7 +71,9 @@ export class GeminiAdapter implements AIAdapter {
     });
 
     try {
-      const result = await model.generateContent(input.userPrompt);
+      const result = await model.generateContent(input.userPrompt, {
+        timeout: getAIRequestTimeoutMs(),
+      });
       const text = result.response.text().trim();
 
       if (!text) {

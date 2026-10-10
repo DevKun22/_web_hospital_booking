@@ -4,4 +4,7 @@
          to allow setting breakpoints, to provide hot reload, etc.
     -->
     <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- Profile builds are used against the local HTTP API through adb reverse.
+         Release builds keep the main manifest's stricter network policy. -->
+    <application android:usesCleartextTraffic="true"/>
 </manifest>

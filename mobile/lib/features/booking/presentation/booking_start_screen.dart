@@ -4,19 +4,23 @@ import 'package:go_router/go_router.dart';
 import 'package:hospital_booking_mobile/app/theme/app_theme.dart';
 import 'package:hospital_booking_mobile/core/widgets/app_error_banner.dart';
 import 'package:hospital_booking_mobile/core/widgets/app_ui.dart';
+import 'package:hospital_booking_mobile/core/widgets/resized_network_image.dart';
 import 'package:hospital_booking_mobile/features/booking/application/booking_flow_controller.dart';
 import 'package:hospital_booking_mobile/features/booking/application/booking_submission_controller.dart';
 import 'package:hospital_booking_mobile/features/booking/domain/booking_catalog.dart';
+import 'package:hospital_booking_mobile/features/packages/domain/medical_package.dart';
 
 class BookingStartScreen extends ConsumerStatefulWidget {
   const BookingStartScreen({
     super.key,
+    this.packageId,
     this.departmentId,
     this.doctorId,
     this.date,
     this.timeSlotId,
   });
 
+  final String? packageId;
   final String? departmentId;
   final String? doctorId;
   final String? date;
@@ -34,6 +38,7 @@ class _BookingStartScreenState extends ConsumerState<BookingStartScreen> {
       () => ref
           .read(bookingFlowControllerProvider.notifier)
           .applyPreset(
+            packageId: widget.packageId,
             departmentId: widget.departmentId,
             doctorId: widget.doctorId,
             date: widget.date,
@@ -124,21 +129,78 @@ class _BookingStartScreenState extends ConsumerState<BookingStartScreen> {
                   ),
                 ),
               ] else ...[
-                const _StepHeader(
-                  number: 1,
-                  title: 'Chọn chuyên khoa',
-                  subtitle: 'Bác sĩ sẽ được lọc theo chuyên khoa bạn chọn.',
+                _ServiceModePicker(
+                  selected: state.selection.serviceMode,
+                  onSelected: controller.selectServiceMode,
                 ),
-                const SizedBox(height: 12),
-                _DepartmentPicker(
-                  items: state.departments,
-                  selectedId: state.selection.departmentId,
-                  onSelected: controller.selectDepartment,
-                ),
+                const SizedBox(height: 24),
+                if (state.selection.serviceMode ==
+                    BookingServiceMode.package) ...[
+                  const _StepHeader(
+                    number: 1,
+                    title: 'Chọn gói khám',
+                    subtitle:
+                        'Giá và danh mục dịch vụ được đồng bộ từ bệnh viện.',
+                  ),
+                  const SizedBox(height: 12),
+                  if (state.selectedPackage != null)
+                    _SelectedPackageCard(
+                      packageItem: state.selectedPackage!,
+                      onChange: controller.clearPackage,
+                    )
+                  else if (state.packages.isEmpty)
+                    const _InlineEmpty(
+                      message: 'Hiện chưa có gói khám khả dụng.',
+                    )
+                  else
+                    ...state.packages.map(
+                      (packageItem) => Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: _PackageChoiceCard(
+                          packageItem: packageItem,
+                          selected: packageItem.id == state.selection.packageId,
+                          onSelected: () =>
+                              controller.selectPackage(packageItem.id),
+                        ),
+                      ),
+                    ),
+                ],
+                if (state.selection.serviceMode == BookingServiceMode.doctor ||
+                    state.selectedPackage != null) ...[
+                  _StepHeader(
+                    number:
+                        state.selection.serviceMode ==
+                            BookingServiceMode.package
+                        ? 2
+                        : 1,
+                    title: 'Chọn chuyên khoa',
+                    subtitle: state.selectedPackage?.departmentId != null
+                        ? 'Chuyên khoa được xác định theo gói khám đã chọn.'
+                        : 'Bác sĩ sẽ được lọc theo chuyên khoa bạn chọn.',
+                  ),
+                  const SizedBox(height: 12),
+                  if (state.selectedPackage?.departmentId != null)
+                    _LockedDepartmentCard(
+                      name:
+                          state.selectedPackage!.departmentName ??
+                          state.selectedDepartment?.name ??
+                          'Chuyên khoa của gói',
+                    )
+                  else
+                    _DepartmentPicker(
+                      items: state.departments,
+                      selectedId: state.selection.departmentId,
+                      onSelected: controller.selectDepartment,
+                    ),
+                ],
                 if (state.selection.departmentId != null) ...[
                   const SizedBox(height: 28),
-                  const _StepHeader(
-                    number: 2,
+                  _StepHeader(
+                    number:
+                        state.selection.serviceMode ==
+                            BookingServiceMode.package
+                        ? 3
+                        : 2,
                     title: 'Chọn bác sĩ',
                     subtitle: 'Thông tin được đồng bộ từ hồ sơ công khai.',
                   ),
@@ -161,8 +223,12 @@ class _BookingStartScreenState extends ConsumerState<BookingStartScreen> {
                 ],
                 if (state.selection.doctorId != null) ...[
                   const SizedBox(height: 16),
-                  const _StepHeader(
-                    number: 3,
+                  _StepHeader(
+                    number:
+                        state.selection.serviceMode ==
+                            BookingServiceMode.package
+                        ? 4
+                        : 3,
                     title: 'Chọn ngày khám',
                     subtitle: 'Hiển thị 14 ngày gần nhất theo giờ Việt Nam.',
                   ),
@@ -174,8 +240,12 @@ class _BookingStartScreenState extends ConsumerState<BookingStartScreen> {
                 ],
                 if (state.selection.date != null) ...[
                   const SizedBox(height: 28),
-                  const _StepHeader(
-                    number: 4,
+                  _StepHeader(
+                    number:
+                        state.selection.serviceMode ==
+                            BookingServiceMode.package
+                        ? 5
+                        : 4,
                     title: 'Chọn khung giờ',
                     subtitle: 'Slot có thể thay đổi nếu người khác đặt trước.',
                   ),
@@ -214,7 +284,9 @@ class _ProgressStrip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final completed = [
+    final completed = <bool>[
+      if (state.selection.serviceMode == BookingServiceMode.package)
+        state.selection.packageId != null,
       state.selection.departmentId != null,
       state.selection.doctorId != null,
       state.selection.date != null,
@@ -243,6 +315,260 @@ class _ProgressStrip extends StatelessWidget {
       }),
     );
   }
+}
+
+class _ServiceModePicker extends StatelessWidget {
+  const _ServiceModePicker({required this.selected, required this.onSelected});
+
+  final BookingServiceMode selected;
+  final ValueChanged<BookingServiceMode> onSelected;
+
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Text('Hình thức khám', style: Theme.of(context).textTheme.titleMedium),
+      const SizedBox(height: 10),
+      SizedBox(
+        width: double.infinity,
+        child: SegmentedButton<BookingServiceMode>(
+          showSelectedIcon: false,
+          segments: const [
+            ButtonSegment(
+              value: BookingServiceMode.doctor,
+              icon: Icon(Icons.person_search_outlined),
+              label: Text('Theo bác sĩ'),
+            ),
+            ButtonSegment(
+              value: BookingServiceMode.package,
+              icon: Icon(Icons.health_and_safety_outlined),
+              label: Text('Theo gói khám'),
+            ),
+          ],
+          selected: {selected},
+          onSelectionChanged: (values) => onSelected(values.first),
+        ),
+      ),
+    ],
+  );
+}
+
+class _PackageChoiceCard extends StatelessWidget {
+  const _PackageChoiceCard({
+    required this.packageItem,
+    required this.selected,
+    required this.onSelected,
+  });
+
+  final MedicalPackage packageItem;
+  final bool selected;
+  final VoidCallback onSelected;
+
+  @override
+  Widget build(BuildContext context) => Card(
+    color: selected
+        ? Theme.of(context).colorScheme.primaryContainer
+        : Colors.white,
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(18),
+      side: BorderSide(
+        color: selected ? AppTheme.primary : AppTheme.softBorder,
+        width: selected ? 1.5 : 1,
+      ),
+    ),
+    child: Padding(
+      padding: const EdgeInsets.all(15),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              CircleAvatar(
+                backgroundColor: selected
+                    ? Colors.white
+                    : Theme.of(context).colorScheme.primaryContainer,
+                child: const Icon(Icons.health_and_safety_outlined),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      packageItem.name,
+                      style: Theme.of(context).textTheme.titleSmall,
+                    ),
+                    if (packageItem.summary != null) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        packageItem.summary!,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              Icon(
+                selected
+                    ? Icons.check_circle_rounded
+                    : Icons.radio_button_unchecked_rounded,
+                color: selected
+                    ? AppTheme.primary
+                    : Theme.of(context).colorScheme.outline,
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              Text(
+                _formatVnd(packageItem.finalPrice),
+                style: const TextStyle(
+                  color: AppTheme.primaryDark,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              if (packageItem.isBhytSupport)
+                const AppStatusBadge(
+                  label: 'HỖ TRỢ BHYT',
+                  tone: AppStatusTone.info,
+                ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              if (packageItem.slug != null)
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () => context.push(
+                      '/packages/${Uri.encodeComponent(packageItem.slug!)}',
+                    ),
+                    child: const Text('Xem chi tiết'),
+                  ),
+                ),
+              if (packageItem.slug != null) const SizedBox(width: 10),
+              Expanded(
+                child: FilledButton(
+                  onPressed: onSelected,
+                  child: Text(selected ? 'Đã chọn' : 'Chọn gói'),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+class _SelectedPackageCard extends StatelessWidget {
+  const _SelectedPackageCard({
+    required this.packageItem,
+    required this.onChange,
+  });
+
+  final MedicalPackage packageItem;
+  final VoidCallback onChange;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.all(16),
+    decoration: BoxDecoration(
+      color: Theme.of(context).colorScheme.primaryContainer,
+      borderRadius: BorderRadius.circular(18),
+      border: Border.all(color: AppTheme.primary, width: 1.5),
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Icon(Icons.check_circle_rounded, color: AppTheme.primary),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    packageItem.name,
+                    style: Theme.of(context).textTheme.titleSmall,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    _formatVnd(packageItem.finalPrice),
+                    style: const TextStyle(
+                      color: AppTheme.primaryDark,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const AppStatusBadge(label: 'ĐÃ CHỌN', tone: AppStatusTone.success),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            if (packageItem.slug != null)
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: () => context.push(
+                    '/packages/${Uri.encodeComponent(packageItem.slug!)}',
+                  ),
+                  child: const Text('Xem chi tiết'),
+                ),
+              ),
+            if (packageItem.slug != null) const SizedBox(width: 10),
+            Expanded(
+              child: TextButton.icon(
+                onPressed: onChange,
+                icon: const Icon(Icons.swap_horiz_rounded),
+                label: const Text('Đổi gói'),
+              ),
+            ),
+          ],
+        ),
+      ],
+    ),
+  );
+}
+
+class _LockedDepartmentCard extends StatelessWidget {
+  const _LockedDepartmentCard({required this.name});
+
+  final String name;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    width: double.infinity,
+    padding: const EdgeInsets.all(14),
+    decoration: BoxDecoration(
+      color: Theme.of(context).colorScheme.surfaceContainerHighest,
+      borderRadius: BorderRadius.circular(16),
+      border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
+    ),
+    child: Row(
+      children: [
+        const Icon(Icons.lock_outline_rounded, color: AppTheme.primary),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(name, style: Theme.of(context).textTheme.titleSmall),
+        ),
+        const Icon(Icons.check_circle_rounded, color: AppTheme.primary),
+      ],
+    ),
+  );
 }
 
 class _StepHeader extends StatelessWidget {
@@ -351,10 +677,13 @@ class _DoctorChoiceCard extends StatelessWidget {
             CircleAvatar(
               radius: 28,
               backgroundColor: Colors.white,
-              backgroundImage: doctor.avatar == null
-                  ? null
-                  : NetworkImage(doctor.avatar!),
-              child: doctor.avatar == null
+              backgroundImage: resizedNetworkImage(
+                context,
+                doctor.avatar,
+                logicalWidth: 56,
+                logicalHeight: 56,
+              ),
+              child: doctor.avatar?.trim().isNotEmpty != true
                   ? const Icon(Icons.person_outline_rounded)
                   : null,
             ),
@@ -517,6 +846,7 @@ class _SelectionSummary extends StatelessWidget {
     final department = state.selectedDepartment!;
     final doctor = state.selectedDoctor!;
     final slot = state.selectedSlot!;
+    final packageItem = state.selectedPackage;
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
@@ -533,6 +863,17 @@ class _SelectionSummary extends StatelessWidget {
             icon: Icons.check_circle_outline_rounded,
           ),
           const SizedBox(height: 14),
+          if (packageItem != null) ...[
+            Text(
+              packageItem.name,
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(color: AppTheme.primaryDark),
+            ),
+            const SizedBox(height: 4),
+            Text('Giá gói: ${_formatVnd(packageItem.finalPrice)}'),
+            const Divider(height: 20),
+          ],
           Text(department.name, style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 4),
           Text(doctor.displayName),

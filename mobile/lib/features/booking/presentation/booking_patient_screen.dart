@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hospital_booking_mobile/core/errors/api_exception.dart';
+import 'package:hospital_booking_mobile/core/formatters/display_formatters.dart';
 import 'package:hospital_booking_mobile/core/widgets/app_error_banner.dart';
 import 'package:hospital_booking_mobile/core/widgets/app_ui.dart';
 import 'package:hospital_booking_mobile/features/auth/application/auth_controller.dart';
@@ -66,6 +67,7 @@ class _BookingPatientScreenState extends ConsumerState<BookingPatientScreen> {
     final submission = ref.watch(bookingSubmissionControllerProvider);
     final selectedDoctor = booking.selectedDoctor;
     final selectedSlot = booking.selectedSlot;
+    final selectedPackage = booking.selectedPackage;
 
     ref.listen(
       bookingSubmissionControllerProvider.select((state) => state.status),
@@ -132,6 +134,8 @@ class _BookingPatientScreenState extends ConsumerState<BookingPatientScreen> {
               _CompactSelectionCard(
                 doctorName: selectedDoctor.displayName,
                 departmentName: selectedDoctor.departmentName,
+                packageName: selectedPackage?.name,
+                packagePrice: selectedPackage?.finalPrice,
                 date: selectedSlot.date,
                 time:
                     '${_shortTime(selectedSlot.startTime)} – ${_shortTime(selectedSlot.endTime)}',
@@ -405,10 +409,14 @@ class _CompactSelectionCard extends StatelessWidget {
     required this.departmentName,
     required this.date,
     required this.time,
+    this.packageName,
+    this.packagePrice,
   });
 
   final String doctorName;
   final String departmentName;
+  final String? packageName;
+  final double? packagePrice;
   final String date;
   final String time;
 
@@ -424,6 +432,20 @@ class _CompactSelectionCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                if (packageName != null) ...[
+                  Text(
+                    packageName!,
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                  ),
+                  if (packagePrice != null)
+                    Text(
+                      formatVnd(packagePrice!),
+                      style: Theme.of(context).textTheme.labelMedium,
+                    ),
+                  const SizedBox(height: 5),
+                ],
                 Text(doctorName, style: Theme.of(context).textTheme.titleSmall),
                 const SizedBox(height: 3),
                 Text('$departmentName · ${_displayDate(date)} · $time'),

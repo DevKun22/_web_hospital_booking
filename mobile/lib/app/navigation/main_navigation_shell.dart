@@ -2,28 +2,157 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hospital_booking_mobile/app/theme/app_theme.dart';
 
-class MainNavigationShell extends StatelessWidget {
-  const MainNavigationShell({required this.navigationShell, super.key});
+class MainNavigationHistoryController extends ChangeNotifier {
+  static const _homeIndex = 0;
+  static const _maximumHistoryLength = 20;
 
-  final StatefulNavigationShell navigationShell;
+  final List<int> _branchHistory = <int>[];
+  StatefulNavigationShell? _navigationShell;
+  int? _currentIndex;
+  int? _pendingIndex;
+  int? _pendingPreviousIndex;
+  bool _notificationScheduled = false;
+  bool _disposed = false;
+
+  bool get canExitApp =>
+      (_currentIndex ?? _homeIndex) == _homeIndex && _branchHistory.isEmpty;
+
+  void attach(StatefulNavigationShell navigationShell) {
+    _navigationShell = navigationShell;
+    final actualIndex = navigationShell.currentIndex;
+    if (_currentIndex == null) {
+      _currentIndex = actualIndex;
+      return;
+    }
+    if (actualIndex == _currentIndex) {
+      if (_pendingIndex == actualIndex) _clearPendingNavigation();
+      return;
+    }
+
+    if (_pendingIndex != null) {
+      if (actualIndex != _pendingIndex &&
+          _branchHistory.lastOrNull == _pendingPreviousIndex) {
+        _branchHistory.removeLast();
+      }
+      _clearPendingNavigation();
+    } else {
+      _remember(_currentIndex!);
+    }
+    _currentIndex = actualIndex;
+    _scheduleNotification();
+  }
+
+  void selectBranch(int index) {
+    final navigationShell = _navigationShell;
+    if (navigationShell == null) return;
+    final currentIndex = _currentIndex ?? navigationShell.currentIndex;
+    if (index == currentIndex) {
+      navigationShell.goBranch(index, initialLocation: true);
+      return;
+    }
+
+    _remember(currentIndex);
+    _pendingIndex = index;
+    _pendingPreviousIndex = currentIndex;
+    _currentIndex = index;
+    notifyListeners();
+    navigationShell.goBranch(index);
+  }
+
+  void restorePreviousBranch() {
+    final navigationShell = _navigationShell;
+    if (navigationShell == null || canExitApp) return;
+    final currentIndex = _currentIndex ?? navigationShell.currentIndex;
+    final previousIndex = _branchHistory.isNotEmpty
+        ? _branchHistory.removeLast()
+        : _homeIndex;
+    if (previousIndex == currentIndex) return;
+
+    _pendingIndex = previousIndex;
+    _pendingPreviousIndex = currentIndex;
+    _currentIndex = previousIndex;
+    notifyListeners();
+    navigationShell.goBranch(previousIndex);
+  }
+
+  void _remember(int index) {
+    if (_branchHistory.lastOrNull == index) return;
+    _branchHistory.add(index);
+    if (_branchHistory.length > _maximumHistoryLength) {
+      _branchHistory.removeAt(0);
+    }
+  }
+
+  void _clearPendingNavigation() {
+    _pendingIndex = null;
+    _pendingPreviousIndex = null;
+  }
+
+  void _scheduleNotification() {
+    if (_notificationScheduled) return;
+    _notificationScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _notificationScheduled = false;
+      if (!_disposed) notifyListeners();
+    });
+  }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-    body: navigationShell,
-    bottomNavigationBar: SafeArea(
-      top: false,
-      minimum: const EdgeInsets.fromLTRB(12, 0, 12, 8),
-      child: _FloatingNavigationBar(
-        currentIndex: navigationShell.currentIndex,
-        onDestinationSelected: (index) {
-          navigationShell.goBranch(
-            index,
-            initialLocation: index == navigationShell.currentIndex,
-          );
-        },
-      ),
+  void dispose() {
+    _disposed = true;
+    super.dispose();
+  }
+}
+
+class MainBranchBackScope extends StatelessWidget {
+  const MainBranchBackScope({
+    required this.controller,
+    required this.child,
+    super.key,
+  });
+
+  final MainNavigationHistoryController controller;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => ListenableBuilder(
+    listenable: controller,
+    child: child,
+    builder: (context, child) => PopScope<void>(
+      canPop: controller.canExitApp,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) controller.restorePreviousBranch();
+      },
+      child: child!,
     ),
   );
+}
+
+class MainNavigationShell extends StatelessWidget {
+  const MainNavigationShell({
+    required this.navigationShell,
+    required this.historyController,
+    super.key,
+  });
+
+  final StatefulNavigationShell navigationShell;
+  final MainNavigationHistoryController historyController;
+
+  @override
+  Widget build(BuildContext context) {
+    historyController.attach(navigationShell);
+    return Scaffold(
+      body: navigationShell,
+      bottomNavigationBar: SafeArea(
+        top: false,
+        minimum: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+        child: _FloatingNavigationBar(
+          currentIndex: navigationShell.currentIndex,
+          onDestinationSelected: historyController.selectBranch,
+        ),
+      ),
+    );
+  }
 }
 
 class _FloatingNavigationBar extends StatelessWidget {

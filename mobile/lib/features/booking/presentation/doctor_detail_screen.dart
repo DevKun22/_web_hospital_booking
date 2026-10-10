@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hospital_booking_mobile/core/errors/api_exception.dart';
+import 'package:hospital_booking_mobile/core/widgets/app_route_back_scope.dart';
 import 'package:hospital_booking_mobile/core/widgets/app_ui.dart';
+import 'package:hospital_booking_mobile/core/widgets/resized_network_image.dart';
 import 'package:hospital_booking_mobile/features/booking/application/booking_flow_controller.dart';
 import 'package:hospital_booking_mobile/features/booking/domain/booking_catalog.dart';
 
@@ -14,36 +16,43 @@ class DoctorDetailScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final doctor = ref.watch(doctorDetailProvider(doctorId));
-    return Scaffold(
-      appBar: AppBar(title: const Text('Hồ sơ bác sĩ')),
-      body: SafeArea(
-        child: doctor.when(
-          loading: () => const Padding(
-            padding: EdgeInsets.all(20),
-            child: Column(
-              children: [
-                AppLoadingSkeleton(height: 220),
-                SizedBox(height: 12),
-                AppLoadingSkeleton(height: 150),
-              ],
-            ),
-          ),
-          error: (error, _) {
-            final message = error is ApiException
-                ? error.message
-                : 'Không tải được hồ sơ bác sĩ.';
-            return AppEmptyState(
-              icon: Icons.cloud_off_rounded,
-              title: 'Chưa tải được hồ sơ',
-              message: message,
-              action: FilledButton.icon(
-                onPressed: () => ref.invalidate(doctorDetailProvider(doctorId)),
-                icon: const Icon(Icons.refresh_rounded),
-                label: const Text('Thử lại'),
+    return AppRouteBackScope(
+      fallbackLocation: '/home',
+      child: Scaffold(
+        appBar: AppBar(
+          leading: const AppRouteBackButton(fallbackLocation: '/home'),
+          title: const Text('Hồ sơ bác sĩ'),
+        ),
+        body: SafeArea(
+          child: doctor.when(
+            loading: () => const Padding(
+              padding: EdgeInsets.all(20),
+              child: Column(
+                children: [
+                  AppLoadingSkeleton(height: 220),
+                  SizedBox(height: 12),
+                  AppLoadingSkeleton(height: 150),
+                ],
               ),
-            );
-          },
-          data: (doctor) => _DoctorDetailContent(doctor: doctor),
+            ),
+            error: (error, _) {
+              final message = error is ApiException
+                  ? error.message
+                  : 'Không tải được hồ sơ bác sĩ.';
+              return AppEmptyState(
+                icon: Icons.cloud_off_rounded,
+                title: 'Chưa tải được hồ sơ',
+                message: message,
+                action: FilledButton.icon(
+                  onPressed: () =>
+                      ref.invalidate(doctorDetailProvider(doctorId)),
+                  icon: const Icon(Icons.refresh_rounded),
+                  label: const Text('Thử lại'),
+                ),
+              );
+            },
+            data: (doctor) => _DoctorDetailContent(doctor: doctor),
+          ),
         ),
       ),
     );
@@ -67,10 +76,13 @@ class _DoctorDetailContent extends StatelessWidget {
               CircleAvatar(
                 radius: 48,
                 backgroundColor: Theme.of(context).colorScheme.primaryContainer,
-                backgroundImage: doctor.avatar == null
-                    ? null
-                    : NetworkImage(doctor.avatar!),
-                child: doctor.avatar == null
+                backgroundImage: resizedNetworkImage(
+                  context,
+                  doctor.avatar,
+                  logicalWidth: 96,
+                  logicalHeight: 96,
+                ),
+                child: doctor.avatar?.trim().isNotEmpty != true
                     ? const Icon(Icons.person_outline_rounded, size: 44)
                     : null,
               ),
@@ -137,7 +149,7 @@ class _DoctorDetailContent extends StatelessWidget {
       ),
       const SizedBox(height: 10),
       OutlinedButton(
-        onPressed: () => context.go(
+        onPressed: () => context.push(
           '/departments/${Uri.encodeComponent(doctor.departmentId)}',
         ),
         child: Text('Xem chuyên khoa ${doctor.departmentName}'),

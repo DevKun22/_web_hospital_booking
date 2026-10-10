@@ -25,6 +25,7 @@ import 'package:hospital_booking_mobile/features/medical_records/presentation/me
 import 'package:hospital_booking_mobile/features/medical_records/presentation/medical_records_screen.dart';
 import 'package:hospital_booking_mobile/features/onboarding/application/onboarding_controller.dart';
 import 'package:hospital_booking_mobile/features/onboarding/presentation/welcome_screen.dart';
+import 'package:hospital_booking_mobile/features/packages/presentation/package_detail_screen.dart';
 import 'package:hospital_booking_mobile/features/profile/presentation/profile_screen.dart';
 import 'package:hospital_booking_mobile/features/profile/presentation/profile_edit_screen.dart';
 import 'package:hospital_booking_mobile/features/prescriptions/presentation/prescription_detail_screen.dart';
@@ -32,6 +33,7 @@ import 'package:hospital_booking_mobile/features/prescriptions/presentation/pres
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   final refresh = ValueNotifier<int>(0);
+  final mainNavigationHistory = MainNavigationHistoryController();
   ref.listen(
     authControllerProvider.select(
       (state) => (state.status, state.challenge != null),
@@ -77,19 +79,30 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         ),
       ),
       StatefulShellRoute.indexedStack(
-        builder: (_, _, navigationShell) =>
-            MainNavigationShell(navigationShell: navigationShell),
+        builder: (_, _, navigationShell) => MainNavigationShell(
+          navigationShell: navigationShell,
+          historyController: mainNavigationHistory,
+        ),
         branches: [
           StatefulShellBranch(
             routes: [
-              GoRoute(path: '/home', builder: (_, _) => const HomeScreen()),
+              GoRoute(
+                path: '/home',
+                builder: (_, _) => MainBranchBackScope(
+                  controller: mainNavigationHistory,
+                  child: const HomeScreen(),
+                ),
+              ),
             ],
           ),
           StatefulShellBranch(
             routes: [
               GoRoute(
                 path: '/appointments',
-                builder: (_, _) => const AppointmentsScreen(),
+                builder: (_, _) => MainBranchBackScope(
+                  controller: mainNavigationHistory,
+                  child: const AppointmentsScreen(),
+                ),
               ),
             ],
           ),
@@ -97,11 +110,15 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             routes: [
               GoRoute(
                 path: '/booking',
-                builder: (_, state) => BookingStartScreen(
-                  departmentId: state.uri.queryParameters['departmentId'],
-                  doctorId: state.uri.queryParameters['doctorId'],
-                  date: state.uri.queryParameters['date'],
-                  timeSlotId: state.uri.queryParameters['timeSlotId'],
+                builder: (_, state) => MainBranchBackScope(
+                  controller: mainNavigationHistory,
+                  child: BookingStartScreen(
+                    packageId: state.uri.queryParameters['packageId'],
+                    departmentId: state.uri.queryParameters['departmentId'],
+                    doctorId: state.uri.queryParameters['doctorId'],
+                    date: state.uri.queryParameters['date'],
+                    timeSlotId: state.uri.queryParameters['timeSlotId'],
+                  ),
                 ),
               ),
             ],
@@ -110,7 +127,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             routes: [
               GoRoute(
                 path: '/chatbot',
-                builder: (_, _) => const ChatbotScreen(),
+                builder: (_, _) => MainBranchBackScope(
+                  controller: mainNavigationHistory,
+                  child: const ChatbotScreen(),
+                ),
               ),
             ],
           ),
@@ -118,7 +138,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             routes: [
               GoRoute(
                 path: '/profile',
-                builder: (_, _) => const ProfileScreen(),
+                builder: (_, _) => MainBranchBackScope(
+                  controller: mainNavigationHistory,
+                  child: const ProfileScreen(),
+                ),
               ),
             ],
           ),
@@ -138,6 +161,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: '/doctors/:doctorId',
         builder: (_, state) =>
             DoctorDetailScreen(doctorId: state.pathParameters['doctorId']!),
+      ),
+      GoRoute(
+        path: '/packages/:slug',
+        builder: (_, state) =>
+            PackageDetailScreen(slug: state.pathParameters['slug']!),
       ),
       GoRoute(
         path: '/booking/patient',
@@ -216,6 +244,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
   );
   ref.onDispose(() {
     router.dispose();
+    mainNavigationHistory.dispose();
     refresh.dispose();
   });
   return router;

@@ -53,6 +53,7 @@ void main() {
                     'user': {'fullName': 'BS. CKI Trần Minh'},
                   },
                   'department': {'name': 'Tim mạch'},
+                  'package': {'name': 'Gói tim mạch'},
                 },
               },
               _ => throw StateError('Unexpected path ${options.path}'),
@@ -69,6 +70,8 @@ void main() {
       );
       final repository = BookingSubmissionRepository(dio);
       const selection = BookingSelection(
+        serviceMode: BookingServiceMode.package,
+        packageId: 'package-1',
         departmentId: 'department-1',
         doctorId: 'doctor-1',
         date: '2030-01-02',
@@ -93,12 +96,14 @@ void main() {
 
       final createBody = Map<String, dynamic>.from(requests.first.data as Map);
       expect(createBody['departmentId'], 'department-1');
+      expect(createBody['packageId'], 'package-1');
       expect(createBody['timeSlotId'], 'slot-1');
       expect(createBody['otpChannel'], 'EMAIL');
       expect(pending.otpTarget, 'an@example.test');
       expect(resent.debugOtp, '654321');
       expect(appointment.status, 'PENDING_CONFIRM');
       expect(appointment.doctorName, 'BS. CKI Trần Minh');
+      expect(appointment.packageName, 'Gói tim mạch');
       expect(requests.map((request) => request.path), [
         '/appointments',
         '/appointments/appointment-1/resend-otp',

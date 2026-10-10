@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -13,6 +14,7 @@ import 'package:hospital_booking_mobile/features/auth/application/auth_state.dar
 import 'package:hospital_booking_mobile/features/auth/domain/auth_session.dart';
 import 'package:hospital_booking_mobile/features/auth/domain/patient_user.dart';
 import 'package:hospital_booking_mobile/features/booking/application/booking_flow_controller.dart';
+import 'package:hospital_booking_mobile/features/booking/data/booking_catalog_repository.dart';
 import 'package:hospital_booking_mobile/features/booking/domain/booking_catalog.dart';
 import 'package:hospital_booking_mobile/features/home/application/home_content_controller.dart';
 import 'package:hospital_booking_mobile/features/onboarding/application/onboarding_controller.dart';
@@ -81,19 +83,26 @@ class _IdleAppointmentsController extends AppointmentsController {
   AppointmentsState build() => const AppointmentsState();
 }
 
+const _testDoctor = BookingDoctor(
+  id: 'doctor-1',
+  fullName: 'Nguyễn Văn An',
+  departmentId: 'department-1',
+  departmentName: 'Tim mạch',
+  consultationFee: 250000,
+);
+
+class _DoctorDetailBookingCatalogRepository extends BookingCatalogRepository {
+  _DoctorDetailBookingCatalogRepository() : super(Dio());
+
+  @override
+  Future<BookingDoctor> fetchDoctor(String doctorId) async => _testDoctor;
+}
+
 class _CatalogBookingFlowController extends BookingFlowController {
   @override
   BookingFlowState build() => const BookingFlowState(
     departments: [BookingDepartment(id: 'department-1', name: 'Tim mạch')],
-    doctors: [
-      BookingDoctor(
-        id: 'doctor-1',
-        fullName: 'Nguyễn Văn An',
-        departmentId: 'department-1',
-        departmentName: 'Tim mạch',
-        consultationFee: 250000,
-      ),
-    ],
+    doctors: [_testDoctor],
   );
 }
 
@@ -151,7 +160,7 @@ void main() {
     },
   );
 
-  testWidgets('floating navigation switches between public main branches', (
+  testWidgets('floating navigation preserves branch history for system back', (
     tester,
   ) async {
     await tester.binding.setSurfaceSize(const Size(430, 900));
@@ -208,6 +217,34 @@ void main() {
       container.read(appRouterProvider).routeInformationProvider.value.uri.path,
       '/home',
     );
+
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+
+    expect(
+      container.read(appRouterProvider).routeInformationProvider.value.uri.path,
+      '/booking',
+    );
+
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+
+    expect(
+      container.read(appRouterProvider).routeInformationProvider.value.uri.path,
+      '/home',
+    );
+
+    container.read(appRouterProvider).go('/chatbot');
+    await tester.pumpAndSettle();
+    expect(find.text('Trợ lý đặt lịch'), findsOneWidget);
+
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+
+    expect(
+      container.read(appRouterProvider).routeInformationProvider.value.uri.path,
+      '/home',
+    );
   });
 
   testWidgets('OTP login returns to the protected destination', (tester) async {
@@ -247,6 +284,10 @@ void main() {
     container.read(appRouterProvider).go('/appointments');
     await tester.pumpAndSettle();
     expect(find.text('Đăng nhập bệnh nhân'), findsOneWidget);
+    expect(
+      find.text('Vui lòng đăng nhập để xem và quản lý lịch khám của bạn.'),
+      findsOneWidget,
+    );
 
     await tester.enterText(find.byType(EditableText), '0912345678');
     await tester.tap(find.text('Gửi mã OTP'));
@@ -314,5 +355,116 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Đặt lịch chuyên khoa này'), findsOneWidget);
     expect(find.text('Nguyễn Văn An'), findsOneWidget);
+  });
+
+  testWidgets('doctor to department navigation preserves the back stack', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(430, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final container = ProviderContainer(
+      overrides: [
+        appConfigProvider.overrideWithValue(
+          AppConfig(
+            environment: AppEnvironment.development,
+            apiBaseUrl: 'https://example.test/api/v1',
+            connectTimeout: const Duration(seconds: 10),
+            receiveTimeout: const Duration(seconds: 15),
+            enableNetworkLogs: false,
+          ),
+        ),
+        authControllerProvider.overrideWith(_GuestAuthController.new),
+        onboardingControllerProvider.overrideWith(
+          _SeenOnboardingController.new,
+        ),
+        homeContentControllerProvider.overrideWith(
+          _IdleHomeContentController.new,
+        ),
+        bookingFlowControllerProvider.overrideWith(
+          _CatalogBookingFlowController.new,
+        ),
+        bookingCatalogRepositoryProvider.overrideWithValue(
+          _DoctorDetailBookingCatalogRepository(),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const HospitalBookingApp(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final router = container.read(appRouterProvider);
+    router.push('/doctors/doctor-1');
+    await tester.pumpAndSettle();
+    expect(find.text('Hồ sơ bác sĩ'), findsOneWidget);
+
+    final departmentLink = find.text('Xem chuyên khoa Tim mạch');
+    await tester.ensureVisible(departmentLink);
+    await tester.tap(departmentLink);
+    await tester.pumpAndSettle();
+    expect(find.text('Đặt lịch chuyên khoa này'), findsOneWidget);
+
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(find.text('Hồ sơ bác sĩ'), findsOneWidget);
+    expect(find.text('Xem chuyên khoa Tim mạch'), findsOneWidget);
+
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(find.text('Chăm sóc sức khỏe dễ dàng hơn'), findsOneWidget);
+  });
+
+  testWidgets('direct department routes fall back inside the app', (
+    tester,
+  ) async {
+    final container = ProviderContainer(
+      overrides: [
+        appConfigProvider.overrideWithValue(
+          AppConfig(
+            environment: AppEnvironment.development,
+            apiBaseUrl: 'https://example.test/api/v1',
+            connectTimeout: const Duration(seconds: 10),
+            receiveTimeout: const Duration(seconds: 15),
+            enableNetworkLogs: false,
+          ),
+        ),
+        authControllerProvider.overrideWith(_GuestAuthController.new),
+        onboardingControllerProvider.overrideWith(
+          _SeenOnboardingController.new,
+        ),
+        homeContentControllerProvider.overrideWith(
+          _IdleHomeContentController.new,
+        ),
+        bookingFlowControllerProvider.overrideWith(
+          _CatalogBookingFlowController.new,
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const HospitalBookingApp(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final router = container.read(appRouterProvider);
+    router.go('/departments/department-1');
+    await tester.pumpAndSettle();
+
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(router.routeInformationProvider.value.uri.path, '/departments');
+
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(router.routeInformationProvider.value.uri.path, '/home');
   });
 }

@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hospital_booking_mobile/app/theme/app_theme.dart';
+import 'package:hospital_booking_mobile/core/widgets/app_route_back_scope.dart';
 import 'package:hospital_booking_mobile/core/widgets/app_ui.dart';
+import 'package:hospital_booking_mobile/core/widgets/resized_network_image.dart';
 import 'package:hospital_booking_mobile/features/booking/application/booking_flow_controller.dart';
 import 'package:hospital_booking_mobile/features/booking/domain/booking_catalog.dart';
 
@@ -15,26 +17,39 @@ class DepartmentDetailScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(bookingFlowControllerProvider);
     if (state.isCatalogLoading) {
-      return const Scaffold(
-        body: SafeArea(
-          child: Padding(
-            padding: EdgeInsets.all(20),
-            child: AppLoadingSkeleton(height: 220),
+      return AppRouteBackScope(
+        fallbackLocation: '/departments',
+        child: Scaffold(
+          appBar: AppBar(
+            leading: const AppRouteBackButton(fallbackLocation: '/departments'),
+            title: const Text('Chuyên khoa'),
+          ),
+          body: const SafeArea(
+            child: Padding(
+              padding: EdgeInsets.all(20),
+              child: AppLoadingSkeleton(height: 220),
+            ),
           ),
         ),
       );
     }
     if (state.error != null && state.departments.isEmpty) {
-      return Scaffold(
-        appBar: AppBar(title: const Text('Chuyên khoa')),
-        body: AppEmptyState(
-          icon: Icons.cloud_off_rounded,
-          title: 'Chưa tải được chuyên khoa',
-          message: state.error!.message,
-          action: FilledButton.icon(
-            onPressed: ref.read(bookingFlowControllerProvider.notifier).load,
-            icon: const Icon(Icons.refresh_rounded),
-            label: const Text('Thử lại'),
+      return AppRouteBackScope(
+        fallbackLocation: '/departments',
+        child: Scaffold(
+          appBar: AppBar(
+            leading: const AppRouteBackButton(fallbackLocation: '/departments'),
+            title: const Text('Chuyên khoa'),
+          ),
+          body: AppEmptyState(
+            icon: Icons.cloud_off_rounded,
+            title: 'Chưa tải được chuyên khoa',
+            message: state.error!.message,
+            action: FilledButton.icon(
+              onPressed: ref.read(bookingFlowControllerProvider.notifier).load,
+              icon: const Icon(Icons.refresh_rounded),
+              label: const Text('Thử lại'),
+            ),
           ),
         ),
       );
@@ -44,15 +59,21 @@ class DepartmentDetailScreen extends ConsumerWidget {
         .where((item) => item.id == departmentId)
         .firstOrNull;
     if (department == null) {
-      return Scaffold(
-        appBar: AppBar(title: const Text('Chuyên khoa')),
-        body: AppEmptyState(
-          icon: Icons.search_off_rounded,
-          title: 'Không tìm thấy chuyên khoa',
-          message: 'Nội dung có thể đã được cập nhật trên hệ thống.',
-          action: FilledButton(
-            onPressed: () => context.go('/departments'),
-            child: const Text('Xem danh sách chuyên khoa'),
+      return AppRouteBackScope(
+        fallbackLocation: '/departments',
+        child: Scaffold(
+          appBar: AppBar(
+            leading: const AppRouteBackButton(fallbackLocation: '/departments'),
+            title: const Text('Chuyên khoa'),
+          ),
+          body: AppEmptyState(
+            icon: Icons.search_off_rounded,
+            title: 'Không tìm thấy chuyên khoa',
+            message: 'Nội dung có thể đã được cập nhật trên hệ thống.',
+            action: FilledButton(
+              onPressed: () => context.pushReplacement('/departments'),
+              child: const Text('Xem danh sách chuyên khoa'),
+            ),
           ),
         ),
       );
@@ -61,79 +82,86 @@ class DepartmentDetailScreen extends ConsumerWidget {
         .where((item) => item.departmentId == departmentId)
         .toList(growable: false);
 
-    return Scaffold(
-      appBar: AppBar(title: Text(department.name)),
-      body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
-          children: [
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [AppTheme.primary, Color(0xFF0A9290)],
+    return AppRouteBackScope(
+      fallbackLocation: '/departments',
+      child: Scaffold(
+        appBar: AppBar(
+          leading: const AppRouteBackButton(fallbackLocation: '/departments'),
+          title: Text(department.name),
+        ),
+        body: SafeArea(
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
+            children: [
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [AppTheme.primary, Color(0xFF0A9290)],
+                  ),
+                  borderRadius: BorderRadius.circular(22),
                 ),
-                borderRadius: BorderRadius.circular(22),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Icon(
-                    Icons.medical_services_outlined,
-                    color: Colors.white,
-                    size: 34,
-                  ),
-                  const SizedBox(height: 14),
-                  Text(
-                    department.name,
-                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(
+                      Icons.medical_services_outlined,
                       color: Colors.white,
-                      fontWeight: FontWeight.w800,
+                      size: 34,
                     ),
-                  ),
-                  if (department.description != null) ...[
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 14),
                     Text(
-                      department.description!,
-                      style: const TextStyle(color: Color(0xE6FFFFFF)),
+                      department.name,
+                      style: Theme.of(context).textTheme.headlineSmall
+                          ?.copyWith(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w800,
+                          ),
+                    ),
+                    if (department.description != null) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        department.description!,
+                        style: const TextStyle(color: Color(0xE6FFFFFF)),
+                      ),
+                    ],
+                    const SizedBox(height: 16),
+                    FilledButton.icon(
+                      style: FilledButton.styleFrom(
+                        minimumSize: const Size(0, 44),
+                        backgroundColor: Colors.white,
+                        foregroundColor: AppTheme.primary,
+                      ),
+                      onPressed: () => context.push(
+                        Uri(
+                          path: '/booking',
+                          queryParameters: {'departmentId': department.id},
+                        ).toString(),
+                      ),
+                      icon: const Icon(Icons.calendar_month_outlined),
+                      label: const Text('Đặt lịch chuyên khoa này'),
                     ),
                   ],
-                  const SizedBox(height: 16),
-                  FilledButton.icon(
-                    style: FilledButton.styleFrom(
-                      minimumSize: const Size(0, 44),
-                      backgroundColor: Colors.white,
-                      foregroundColor: AppTheme.primary,
-                    ),
-                    onPressed: () => context.push(
-                      Uri(
-                        path: '/booking',
-                        queryParameters: {'departmentId': department.id},
-                      ).toString(),
-                    ),
-                    icon: const Icon(Icons.calendar_month_outlined),
-                    label: const Text('Đặt lịch chuyên khoa này'),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 24),
-            AppSectionHeader(title: 'Bác sĩ (${doctors.length})'),
-            const SizedBox(height: 10),
-            if (doctors.isEmpty)
-              const AppEmptyState(
-                icon: Icons.person_search_outlined,
-                title: 'Chưa có bác sĩ nhận lịch',
-                message: 'Vui lòng quay lại sau hoặc chọn chuyên khoa khác.',
-              )
-            else
-              ...doctors.map(
-                (doctor) => Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: _DepartmentDoctorCard(doctor: doctor),
                 ),
               ),
-          ],
+              const SizedBox(height: 24),
+              AppSectionHeader(title: 'Bác sĩ (${doctors.length})'),
+              const SizedBox(height: 10),
+              if (doctors.isEmpty)
+                const AppEmptyState(
+                  icon: Icons.person_search_outlined,
+                  title: 'Chưa có bác sĩ nhận lịch',
+                  message: 'Vui lòng quay lại sau hoặc chọn chuyên khoa khác.',
+                )
+              else
+                ...doctors.map(
+                  (doctor) => Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: _DepartmentDoctorCard(doctor: doctor),
+                  ),
+                ),
+            ],
+          ),
         ),
       ),
     );
@@ -157,10 +185,13 @@ class _DepartmentDoctorCard extends StatelessWidget {
             CircleAvatar(
               radius: 27,
               backgroundColor: Theme.of(context).colorScheme.primaryContainer,
-              backgroundImage: doctor.avatar == null
-                  ? null
-                  : NetworkImage(doctor.avatar!),
-              child: doctor.avatar == null
+              backgroundImage: resizedNetworkImage(
+                context,
+                doctor.avatar,
+                logicalWidth: 54,
+                logicalHeight: 54,
+              ),
+              child: doctor.avatar?.trim().isNotEmpty != true
                   ? const Icon(Icons.person_outline_rounded)
                   : null,
             ),

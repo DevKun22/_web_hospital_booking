@@ -44,7 +44,8 @@ Copy-Item config/prod.json.example config/prod.json
 ```
 
 - Android Emulator truy cập backend trên máy Windows qua `10.0.2.2`.
-- Thiết bị Android/iPhone thật phải dùng IP LAN của máy chạy backend, ví dụ `http://192.168.1.20:4000/api/v1`.
+- Thiết bị Android kết nối USB nên dùng `127.0.0.1` cùng `adb reverse`; cách này không bị hỏng khi IP Wi-Fi thay đổi.
+- Thiết bị thật chạy không dây phải dùng IP LAN của máy chạy backend, ví dụ `http://192.168.1.20:4000/api/v1`.
 - Production bắt buộc dùng URL HTTPS và kết thúc bằng `/api/v1`.
 - Khung deep link dùng dạng `hospitalbooking://app/profile`; universal/app link theo domain thật sẽ cấu hình ở phase phát hành.
 
@@ -55,8 +56,18 @@ Khởi động backend ở cổng `4000`, sau đó:
 ```powershell
 cd mobile
 flutter pub get
-flutter run -t lib/main_dev.dart --dart-define-from-file=config/dev.json
+.\tool\run_android_device.ps1
 ```
+
+Script kiểm tra backend, tự chọn thiết bị USB duy nhất, tạo lại `adb reverse tcp:4000 tcp:4000`, xác nhận tunnel rồi mới khởi động app. Phải dùng lại script sau khi rút/cắm USB, khởi động lại điện thoại hoặc mở một phiên `flutter run` mới; không dùng lệnh `flutter run` trực tiếp với URL `127.0.0.1` vì lệnh đó không chuẩn bị tunnel.
+
+Để đo hiệu năng gần production:
+
+```powershell
+.\tool\run_android_device.ps1 -Mode profile
+```
+
+Nếu có nhiều thiết bị, truyền thêm `-DeviceId <serial>`. Khi cần chạy không dây, đổi `API_BASE_URL` trong `config/dev.json` sang IP LAN rồi dùng trực tiếp `flutter run` thay vì script USB.
 
 Để kiểm thử OTP local, backend cần `OTP_DEBUG_ENABLED=true`. Mã OTP debug backend trả về chỉ được hiển thị khi app đang chạy debug.
 

@@ -133,6 +133,16 @@ class _ChatbotScreenState extends ConsumerState<ChatbotScreen> {
       context.push(
         _bookingLocation(action, ref.read(chatbotControllerProvider).draft),
       );
+    } else if (action.type == 'VIEW_PACKAGE') {
+      final slug = action.payload['packageSlug']?.toString().trim();
+      final packageId = action.payload['packageId']?.toString().trim();
+      if (slug?.isNotEmpty == true) {
+        context.push('/packages/${Uri.encodeComponent(slug!)}');
+      } else if (packageId?.isNotEmpty == true) {
+        context.push(
+          '/booking?packageId=${Uri.encodeQueryComponent(packageId!)}',
+        );
+      }
     } else if (action.type == 'LOOKUP_APPOINTMENT') {
       context.push('/appointments');
     }
@@ -681,6 +691,7 @@ String _bookingLocation(ChatbotAction action, ChatBookingDraft? draft) {
     path: '/booking',
     queryParameters: {
       'departmentId': ?value('departmentId', draft?.departmentId),
+      'packageId': ?value('packageId', draft?.packageId),
       'doctorId': ?value('doctorId', draft?.doctorId),
       'date': ?value('date', draft?.date),
       'timeSlotId': ?value('timeSlotId', draft?.timeSlotId),

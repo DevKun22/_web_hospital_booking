@@ -29,6 +29,24 @@ void main() {
                 },
               ],
             },
+            '/packages' => {
+              'success': true,
+              'data': [
+                {
+                  'id': 'package-1',
+                  'name': 'Gói tim mạch',
+                  'slug': 'goi-tim-mach',
+                  'department': {'id': 'department-1', 'name': 'Tim mạch'},
+                  'basePrice': 800000,
+                  'serviceFee': 50000,
+                  'includedItemsTotal': 800000,
+                  'finalPrice': 850000,
+                  'isPopular': true,
+                  'isBHYTSupport': true,
+                  'items': [],
+                },
+              ],
+            },
             '/doctors/doctor-1' => {
               'success': true,
               'data': {
@@ -75,6 +93,8 @@ void main() {
 
     expect(catalog.departments.single.name, 'Tim mạch');
     expect(catalog.doctors.single.displayName, 'BS. CKI Nguyễn Văn An');
+    expect(catalog.packages.single.name, 'Gói tim mạch');
+    expect(catalog.packages.single.departmentId, 'department-1');
     expect(doctor.bio, 'Chuyên gia tim mạch.');
     expect(doctor.experience, 12);
     expect(slots.single.date, '2030-01-02');
