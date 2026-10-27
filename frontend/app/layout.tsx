@@ -1,15 +1,25 @@
 import type { Metadata, Viewport } from "next";
+import { Be_Vietnam_Pro } from "next/font/google";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { Analytics } from "@vercel/analytics/next";
 import { Providers } from "@/components/providers";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { serverApiRequest } from "@/lib/server-api";
+import { SITE_URL } from "@/lib/seo";
 import type { SiteSettingsValue } from "@/lib/types";
 import "./globals.css";
 
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
 const defaultTitle = "Hospital Booking";
 const defaultDescription =
   "Đặt lịch khám bệnh trực tuyến, tra cứu lịch hẹn, theo dõi hóa đơn và kết quả khám.";
+
+const beVietnamPro = Be_Vietnam_Pro({
+  subsets: ["latin", "vietnamese"],
+  weight: ["400", "500", "600", "700"],
+  display: "swap",
+  variable: "--font-be-vietnam-pro",
+  fallback: ["Segoe UI", "Arial", "sans-serif"],
+});
 
 async function getSiteSettings() {
   try {
@@ -28,7 +38,7 @@ export async function generateMetadata(): Promise<Metadata> {
   const logo = settings?.logo?.trim();
 
   return {
-    metadataBase: new URL(siteUrl),
+    metadataBase: new URL(SITE_URL),
     title: {
       default: hospitalName,
       template: `%s | ${hospitalName}`,
@@ -46,16 +56,12 @@ export async function generateMetadata(): Promise<Metadata> {
     authors: [{ name: hospitalName }],
     creator: hospitalName,
     publisher: hospitalName,
-    alternates: {
-      canonical: "/",
-    },
     openGraph: {
       type: "website",
       locale: "vi_VN",
       siteName: hospitalName,
       title: hospitalName,
       description: defaultDescription,
-      url: "/",
       images: logo ? [{ url: logo, alt: hospitalName }] : undefined,
     },
     twitter: {
@@ -73,6 +79,8 @@ export async function generateMetadata(): Promise<Metadata> {
       index: true,
       follow: true,
     },
+    category: "health",
+    referrer: "origin-when-cross-origin",
   };
 }
 
@@ -87,13 +95,15 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="vi">
+    <html lang="vi" data-scroll-behavior="smooth" className={beVietnamPro.variable}>
       <head>
         <link rel="preconnect" href="https://res.cloudinary.com" />
         <link rel="dns-prefetch" href="https://res.cloudinary.com" />
       </head>
       <body>
-        <Providers>{children}</Providers>
+        <Providers>
+          <TooltipProvider>{children}</TooltipProvider>
+        </Providers>
         <SpeedInsights />
         <Analytics />
       </body>

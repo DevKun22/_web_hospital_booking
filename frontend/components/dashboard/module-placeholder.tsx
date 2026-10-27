@@ -12,21 +12,21 @@ export function ModulePlaceholder({
   endpoints,
 }: ModulePlaceholderProps) {
   return (
-    <section className="rounded-md border border-[#dce3ee] bg-white p-6">
-      <p className="text-sm font-medium text-[#55708f]">{group}</p>
+    <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6 shadow-[var(--shadow-sm)]">
+      <p className="text-sm font-medium text-[var(--text-muted)]">{group}</p>
       <h2 className="mt-1 text-2xl font-semibold">{title}</h2>
-      <p className="mt-2 max-w-3xl text-sm leading-6 text-[#667892]">
+      <p className="mt-2 max-w-3xl text-sm leading-6 text-[var(--text-muted)]">
         {description}
       </p>
-      <div className="mt-5 rounded-md border border-[#e5ebf3] bg-[#f8fafc] p-4">
-        <p className="text-sm font-semibold text-[#334155]">
+      <div className="mt-5 rounded-xl border border-[var(--border-soft)] bg-[var(--surface-muted)] p-4">
+        <p className="text-sm font-semibold text-[var(--foreground)]">
           API sẽ nối tiếp theo
         </p>
         <div className="mt-3 flex flex-wrap gap-2">
           {endpoints.map((endpoint) => (
             <code
               key={endpoint}
-              className="rounded-md border border-[#dce3ee] bg-white px-2 py-1 text-xs text-[#42526b]"
+              className="rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2 py-1 text-xs text-[var(--text-soft)]"
             >
               {endpoint}
             </code>

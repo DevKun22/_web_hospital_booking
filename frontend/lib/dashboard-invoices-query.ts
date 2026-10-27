@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/api";
 import { queryKeys } from "@/lib/query-keys";
 import type { Invoice, ListResult } from "@/lib/types";
@@ -27,6 +27,10 @@ export function useDashboardInvoices(filters: DashboardInvoiceFilters) {
   return useQuery({
     queryKey: queryKeys.dashboardInvoicesList(filters),
     queryFn: () => fetchDashboardInvoices(filters),
+    placeholderData: keepPreviousData,
+    staleTime: 15_000,
+    refetchOnReconnect: true,
+    refetchOnWindowFocus: true,
   });
 }
 
@@ -35,5 +39,6 @@ export function useDashboardInvoice(id?: string) {
     queryKey: queryKeys.dashboardInvoice(id),
     queryFn: () => fetchDashboardInvoice(id || ""),
     enabled: Boolean(id),
+    staleTime: 10_000,
   });
 }

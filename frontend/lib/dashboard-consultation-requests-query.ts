@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/api";
 import { queryKeys } from "@/lib/query-keys";
 import type { ConsultationRequest, ListResult } from "@/lib/types";
@@ -33,6 +33,10 @@ export function useDashboardConsultationRequests(
     queryKey: queryKeys.dashboardConsultationRequestsList(filters),
     queryFn: () => fetchDashboardConsultationRequests(filters),
     enabled,
+    placeholderData: keepPreviousData,
+    staleTime: 15_000,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
   });
 }
 
@@ -41,5 +45,8 @@ export function useDashboardConsultationRequest(id?: string) {
     queryKey: queryKeys.dashboardConsultationRequest(id),
     queryFn: () => fetchDashboardConsultationRequest(id || ""),
     enabled: Boolean(id),
+    staleTime: 10_000,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
   });
 }

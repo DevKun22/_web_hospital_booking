@@ -1,7 +1,14 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { BarChart3, MessageSquareText, RefreshCw, Star } from "lucide-react";
+import { DashboardFeedback } from "@/components/dashboard/dashboard-feedback";
+import {
+  DashboardEmptyState,
+  DashboardPageHeader,
+  DashboardStatusBadge,
+  DashboardSurface,
+} from "@/components/dashboard/dashboard-ui";
 import { apiRequest } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { formatVietnamDateTime } from "@/lib/date";
@@ -44,6 +51,7 @@ const formatScore = (value: number) => (value ? value.toFixed(1) : "-");
 
 export default function DashboardReviewsPage() {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const reviewsQuery = useQuery({
     queryKey: ["dashboard", "reviews"],
     queryFn: () =>
@@ -51,40 +59,44 @@ export default function DashboardReviewsPage() {
         query: { limit: 50 },
       }),
     staleTime: 30_000,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
   });
   const data = reviewsQuery.data;
   const canModerate = user?.role === "ADMIN" || user?.role === "STAFF";
-  const updateVisibility = async (review: ReviewItem) => {
-    await apiRequest(`/dashboard/reviews/${review.id}/visibility`, {
-      method: "PATCH",
-      body: { isVisible: !review.isVisible },
-    });
-    await reviewsQuery.refetch();
-  };
+  const visibilityMutation = useMutation({
+    mutationFn: (review: ReviewItem) =>
+      apiRequest(`/dashboard/reviews/${review.id}/visibility`, {
+        method: "PATCH",
+        body: { isVisible: !review.isVisible },
+      }),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["dashboard", "reviews"] });
+    },
+  });
 
   return (
     <div className="space-y-6">
-      <section className="flex flex-wrap items-start justify-between gap-4 border-b border-[var(--border)] pb-5">
-        <div>
-          <p className="text-sm font-medium text-[var(--text-muted)]">
-            Chất lượng phục vụ
-          </p>
-          <h1 className="mt-1 text-2xl font-semibold">Đánh giá sau khám</h1>
-          <p className="mt-2 text-sm text-[var(--text-muted)]">
-            Tổng hợp phản hồi đã được người bệnh xác thực bằng OTP.
-          </p>
-        </div>
-        <button
+      <DashboardFeedback
+        error={visibilityMutation.error instanceof Error ? visibilityMutation.error.message : undefined}
+        notice={visibilityMutation.isSuccess ? "Đã cập nhật trạng thái hiển thị đánh giá" : undefined}
+        onDismiss={() => visibilityMutation.reset()}
+      />
+      <DashboardPageHeader
+        eyebrow="Chất lượng phục vụ"
+        title="Đánh giá sau khám"
+        description="Tổng hợp phản hồi đã được người bệnh xác thực bằng mã dùng một lần."
+        actions={<button
           type="button"
           onClick={() => void reviewsQuery.refetch()}
-          className="inline-flex items-center gap-2 rounded-md border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm font-medium hover:bg-[var(--surface-soft)]"
+          className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-4 text-sm font-semibold hover:bg-[var(--surface-soft)]"
         >
           <RefreshCw
             className={`h-4 w-4 ${reviewsQuery.isFetching ? "animate-spin" : ""}`}
           />{" "}
           Làm mới
-        </button>
-      </section>
+        </button>}
+      />
 
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {[
@@ -103,9 +115,9 @@ export default function DashboardReviewsPage() {
         ].map(([label, value, Icon]) => {
           const IconComponent = Icon as typeof Star;
           return (
-            <div
+            <DashboardSurface
               key={label as string}
-              className="border border-[var(--border)] bg-[var(--surface)] p-4"
+              className="p-4"
             >
               <div className="flex items-center justify-between">
                 <p className="text-sm text-[var(--text-muted)]">
@@ -119,12 +131,12 @@ export default function DashboardReviewsPage() {
                   / 5
                 </span>
               </p>
-            </div>
+            </DashboardSurface>
           );
         })}
       </section>
 
-      <section className="overflow-hidden border border-[var(--border)] bg-[var(--surface)]">
+      <DashboardSurface className="overflow-hidden">
         <div className="border-b border-[var(--border-soft)] px-5 py-4">
           <h2 className="font-semibold">Phản hồi gần đây</h2>
         </div>
@@ -143,9 +155,7 @@ export default function DashboardReviewsPage() {
         {!reviewsQuery.isLoading &&
         !reviewsQuery.error &&
         !data?.items.length ? (
-          <p className="p-5 text-sm text-[var(--text-muted)]">
-            Chưa có phản hồi nào.
-          </p>
+          <div className="p-5"><DashboardEmptyState title="Chưa có phản hồi" description="Đánh giá đã xác thực sẽ xuất hiện tại đây." /></div>
         ) : null}
         <div className="divide-y divide-[var(--border-soft)]">
           {data?.items.map((review) => (
@@ -178,17 +188,16 @@ export default function DashboardReviewsPage() {
                   {canModerate ? (
                     <button
                       type="button"
-                      onClick={() => void updateVisibility(review)}
+                      onClick={() => visibilityMutation.mutate(review)}
+                      disabled={visibilityMutation.isPending && visibilityMutation.variables?.id === review.id}
                       className={`rounded-md border px-2.5 py-1 text-xs font-semibold ${review.isVisible ? "border-[#f2b8b5] text-[#b3261e] hover:bg-[#fff3f2]" : "border-[#bde5c8] text-[#1f7a3a] hover:bg-[#f0fff4]"}`}
                     >
-                      {review.isVisible ? "Ẩn khỏi web" : "Công khai"}
+                      {review.isVisible ? "Ẩn khỏi trang người dùng" : "Công khai"}
                     </button>
                   ) : (
-                    <span
-                      className={`rounded-md px-2 py-1 text-xs font-semibold ${review.isVisible ? "bg-[#f0fff4] text-[#1f7a3a]" : "bg-[#fff8eb] text-[#8a5a00]"}`}
-                    >
+                    <DashboardStatusBadge tone={review.isVisible ? "positive" : "warning"}>
                       {review.isVisible ? "Đã công khai" : "Chờ duyệt"}
-                    </span>
+                    </DashboardStatusBadge>
                   )}
                 </div>
               </div>
@@ -206,7 +215,7 @@ export default function DashboardReviewsPage() {
             </article>
           ))}
         </div>
-      </section>
+      </DashboardSurface>
     </div>
   );
 }

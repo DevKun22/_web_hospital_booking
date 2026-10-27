@@ -2,6 +2,12 @@
 
 import { useQueryClient } from "@tanstack/react-query";
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { PanelRightOpen, Plus, Search } from "lucide-react";
+import { DashboardFeedback } from "@/components/dashboard/dashboard-feedback";
+import { DashboardPageHeader, DashboardStatusBadge, DashboardSurface } from "@/components/dashboard/dashboard-ui";
+import { DashboardWorkspace } from "@/components/dashboard/dashboard-workspace";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { apiRequest, uploadImages } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { useDashboardDepartments } from "@/lib/dashboard-departments-query";
@@ -83,15 +89,15 @@ const buildPayload = (form: DepartmentForm) => ({
 export default function DepartmentsPage() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const [departments, setDepartments] = useState<Department[]>([]);
-  const [pagination, setPagination] = useState({ page: 1, limit: 10, total: 0, totalPages: 1 });
   const [search, setSearch] = useState("");
+  const [appliedSearch, setAppliedSearch] = useState("");
   const [status, setStatus] = useState("");
   const [page, setPage] = useState(1);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [workspaceOpen, setWorkspaceOpen] = useState(false);
   const [editing, setEditing] = useState<Department | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Department | null>(null);
   const [form, setForm] = useState<DepartmentForm>(emptyForm);
@@ -104,15 +110,23 @@ export default function DepartmentsPage() {
 
   const query = useMemo(
     () => ({
-      search: search.trim() || undefined,
+      search: appliedSearch || undefined,
       isActive: status || undefined,
       page,
       limit: 10,
     }),
-    [page, search, status],
+    [appliedSearch, page, status],
   );
   const departmentsQuery = useDashboardDepartments(query);
   const loading = departmentsQuery.isLoading;
+  const departments = departmentsQuery.data?.items ?? [];
+  const pagination = departmentsQuery.data?.pagination ?? { page, limit: 10, total: 0, totalPages: 1 };
+  const queryErrorMessage = departmentsQuery.error
+    ? departmentsQuery.error instanceof Error
+      ? departmentsQuery.error.message
+      : "Không tải được danh sách chuyên khoa"
+    : "";
+  const visibleError = error || queryErrorMessage;
 
   const scrollTo = (ref: React.RefObject<HTMLElement | null>) => {
     window.setTimeout(() => {
@@ -129,23 +143,6 @@ export default function DepartmentsPage() {
   };
 
   useEffect(() => {
-    const timeoutId = window.setTimeout(() => {
-      if (!departmentsQuery.data) return;
-      setDepartments(departmentsQuery.data.items);
-      setPagination(departmentsQuery.data.pagination);
-    }, 0);
-    return () => window.clearTimeout(timeoutId);
-  }, [departmentsQuery.data]);
-
-  useEffect(() => {
-    if (!departmentsQuery.error) return;
-    const timeoutId = window.setTimeout(() => {
-      setError(departmentsQuery.error instanceof Error ? departmentsQuery.error.message : "Không tải được danh sách chuyên khoa");
-    }, 0);
-    return () => window.clearTimeout(timeoutId);
-  }, [departmentsQuery.error]);
-
-  useEffect(() => {
     if (!notice && !error) return;
 
     const timeoutId = window.setTimeout(() => {
@@ -156,7 +153,14 @@ export default function DepartmentsPage() {
     return () => window.clearTimeout(timeoutId);
   }, [error, notice]);
 
+  const applySearch = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setAppliedSearch(search.trim());
+    setPage(1);
+  };
+
   const startCreate = () => {
+    setWorkspaceOpen(true);
     setEditing(null);
     setDeleteTarget(null);
     setForm(emptyForm);
@@ -167,6 +171,7 @@ export default function DepartmentsPage() {
   };
 
   const startEdit = (department: Department) => {
+    setWorkspaceOpen(true);
     setEditing(department);
     setDeleteTarget(null);
     setForm(toForm(department));
@@ -177,6 +182,7 @@ export default function DepartmentsPage() {
   };
 
   const startDelete = (department: Department) => {
+    setWorkspaceOpen(true);
     setDeleteTarget(department);
     setEditing(null);
     setNotice("");
@@ -240,16 +246,16 @@ export default function DepartmentsPage() {
 
     try {
       const [asset] = await uploadImages([file], "departments");
-      if (!asset) throw new Error("Upload thành công nhưng không nhận được thông tin ảnh");
+      if (!asset) throw new Error("Đã tải lên nhưng không nhận được thông tin ảnh");
 
       setForm((current) => ({
         ...current,
         image: asset.url,
         imageAssetId: asset.id,
       }));
-      setNotice("Đã upload ảnh chuyên khoa");
+      setNotice("Đã tải ảnh chuyên khoa lên");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Không upload được ảnh");
+      setError(err instanceof Error ? err.message : "Không tải được ảnh lên");
     } finally {
       setUploading(false);
     }
@@ -278,47 +284,29 @@ export default function DepartmentsPage() {
   };
 
   return (
-    <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
-      {notice || error ? (
-        <div className="fixed right-4 top-4 z-50 w-[calc(100%-2rem)] max-w-md sm:right-6 sm:top-6">
-          <div className={`rounded-md border px-4 py-3 shadow-lg ${error ? "border-[#f2b8b5] bg-[#fff3f2] text-[#b3261e]" : "border-[#a8dab5] bg-[#f0fff4] text-[#1f7a3a]"}`}>
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className="text-sm font-semibold">{error ? "Có lỗi xảy ra" : "Thành công"}</p>
-                <p className="mt-1 text-sm">{error || notice}</p>
-              </div>
-              <button type="button" onClick={() => { setError(""); setNotice(""); }} className="rounded-md px-2 text-lg leading-none opacity-70 hover:bg-black/5 hover:opacity-100" aria-label="Đóng thông báo">x</button>
-            </div>
-          </div>
-        </div>
-      ) : null}
+    <div className={`grid gap-6 transition-[grid-template-columns] duration-300 ${workspaceOpen && canWrite ? "xl:grid-cols-[minmax(0,1fr)_400px]" : "xl:grid-cols-1"}`}>
+      <DashboardFeedback error={visibleError} notice={notice} onDismiss={queryErrorMessage ? undefined : () => { setError(""); setNotice(""); }} />
 
       <section ref={listPanelRef} className="min-w-0 scroll-mt-24 space-y-4">
-        <div className="flex flex-col gap-3 rounded-md border border-[#dce3ee] bg-white p-5 md:flex-row md:items-end md:justify-between">
-          <div>
-            <p className="text-sm font-medium text-[#55708f]">Dữ liệu nền</p>
-            <h2 className="mt-1 text-2xl font-semibold">Chuyên khoa</h2>
-            <p className="mt-2 text-sm text-[#667892]">Quản lý danh mục khoa phòng dùng cho bác sĩ, gói khám và lịch hẹn.</p>
-          </div>
-          {canWrite ? (
-            <button onClick={startCreate} className="rounded-md bg-[#0d4f8b] px-4 py-2 text-sm font-semibold text-white hover:bg-[#083d6d]">Tạo mới</button>
-          ) : null}
-        </div>
+        <DashboardPageHeader eyebrow="Dữ liệu nền" title="Chuyên khoa" description="Quản lý khoa phòng dùng xuyên suốt hồ sơ bác sĩ, gói khám, chatbot và lịch hẹn."
+          actions={canWrite ? <><Button onClick={startCreate} size="lg"><Plus />Tạo chuyên khoa</Button>{!workspaceOpen && (editing || deleteTarget) ? <Button variant="outline" size="lg" onClick={() => setWorkspaceOpen(true)}><PanelRightOpen />Mở lại biểu mẫu</Button> : null}</> : undefined}
+        />
 
-        <div className="rounded-md border border-[#dce3ee] bg-white">
-          <div className="grid gap-3 border-b border-[#e5ebf3] p-4 md:grid-cols-[1fr_180px]">
-            <input value={search} onChange={(event) => { setSearch(event.target.value); setPage(1); }} placeholder="Tìm theo tên hoặc slug" className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" />
+        <DashboardSurface>
+          <form onSubmit={applySearch} className="grid gap-3 border-b border-border p-4 md:grid-cols-[1fr_180px_auto]">
+            <Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Tìm theo tên hoặc đường dẫn" />
             <select value={status} onChange={(event) => { setStatus(event.target.value); setPage(1); }} className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]">
               {statusOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
             </select>
-          </div>
+            <Button type="submit"><Search />Tìm kiếm</Button>
+          </form>
 
           <div className="overflow-x-auto">
             <table className="w-full min-w-[760px] border-separate border-spacing-0 text-left text-sm">
               <thead>
                 <tr className="text-[#667892]">
                   <th className="border-b border-[#e5ebf3] px-4 py-3 font-semibold">Tên khoa</th>
-                  <th className="border-b border-[#e5ebf3] px-4 py-3 font-semibold">Slug</th>
+                  <th className="border-b border-[#e5ebf3] px-4 py-3 font-semibold">Đường dẫn</th>
                   <th className="border-b border-[#e5ebf3] px-4 py-3 font-semibold">Bác sĩ</th>
                   <th className="border-b border-[#e5ebf3] px-4 py-3 font-semibold">Lịch hẹn</th>
                   <th className="border-b border-[#e5ebf3] px-4 py-3 font-semibold">Trạng thái</th>
@@ -331,7 +319,7 @@ export default function DepartmentsPage() {
                 ) : departments.length === 0 ? (
                   <tr><td colSpan={6} className="px-4 py-10 text-center text-[#667892]">Chưa có chuyên khoa phù hợp</td></tr>
                 ) : departments.map((department) => (
-                  <tr key={department.id} className="align-top">
+                  <tr key={department.id} className={`align-top transition-colors ${editing?.id === department.id || deleteTarget?.id === department.id ? "bg-primary/5" : "hover:bg-muted/30"}`}>
                     <td className="border-b border-[#eef2f7] px-4 py-3">
                       <p className="font-semibold text-[#172033]">{department.name}</p>
                       <p className="mt-1 max-w-sm truncate text-xs text-[#667892]">{department.description || "Chưa có mô tả"}</p>
@@ -340,7 +328,7 @@ export default function DepartmentsPage() {
                     <td className="border-b border-[#eef2f7] px-4 py-3">{department._count.doctors}</td>
                     <td className="border-b border-[#eef2f7] px-4 py-3">{department._count.appointments}</td>
                     <td className="border-b border-[#eef2f7] px-4 py-3">
-                      <span className={`inline-flex rounded-md px-2 py-1 text-xs font-semibold ${department.isActive ? "bg-[#e7f6ed] text-[#1f7a3a]" : "bg-[#eef2f7] text-[#667892]"}`}>{department.isActive ? "Hoạt động" : "Tạm ẩn"}</span>
+                      <DashboardStatusBadge tone={department.isActive ? "positive" : "neutral"}>{department.isActive ? "Hoạt động" : "Tạm ẩn"}</DashboardStatusBadge>
                     </td>
                     <td className="border-b border-[#eef2f7] px-4 py-3">
                       <div className="flex justify-end gap-2">
@@ -361,10 +349,17 @@ export default function DepartmentsPage() {
               <button disabled={page >= pagination.totalPages} onClick={() => setPage((current) => current + 1)} className="rounded-md border border-[#cfd8e6] px-3 py-1.5 font-medium disabled:opacity-50">Sau</button>
             </div>
           </div>
-        </div>
+        </DashboardSurface>
       </section>
 
-      <aside ref={formPanelRef} className="scroll-mt-24 rounded-md border border-[#dce3ee] bg-white p-5 xl:sticky xl:top-24 xl:self-start">
+      {workspaceOpen && canWrite ? (
+      <aside ref={formPanelRef} className="min-w-0 scroll-mt-24">
+        <DashboardWorkspace
+          open={workspaceOpen}
+          onOpenChange={setWorkspaceOpen}
+          title={editing ? `Chuyên khoa ${editing.name}` : "Công cụ chuyên khoa"}
+          description="Tạo và cập nhật thông tin hiển thị, điều hướng triệu chứng và trạng thái hoạt động."
+        >
         {deleteTarget ? (
           <div className="mb-5 rounded-md border border-[#f2b8b5] bg-[#fff3f2] p-4">
             <h3 className="font-semibold text-[#b3261e]">Xác nhận xóa chuyên khoa</h3>
@@ -377,11 +372,11 @@ export default function DepartmentsPage() {
         ) : null}
 
         <h3 className="text-lg font-semibold">{editing ? "Cập nhật chuyên khoa" : "Tạo chuyên khoa"}</h3>
-        <p className="mt-2 text-sm leading-6 text-[#667892]">{canWrite ? "Slug tự sinh từ tên chuyên khoa, nhưng vẫn có thể chỉnh thủ công." : "Tài khoản của bạn chỉ có quyền xem danh mục này."}</p>
+        <p className="mt-2 text-sm leading-6 text-[#667892]">Đường dẫn tự sinh từ tên chuyên khoa nhưng vẫn có thể chỉnh thủ công.</p>
 
         <form className="mt-5 space-y-4" onSubmit={handleSubmit}>
           <label className="block"><span className="text-sm font-medium text-[#334155]">Tên chuyên khoa</span><input value={form.name} onChange={(event) => handleNameChange(event.target.value)} disabled={!canWrite} className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa] disabled:bg-[#f6f8fb]" required /></label>
-          <label className="block"><span className="text-sm font-medium text-[#334155]">Slug</span><input value={form.slug} onChange={(event) => { setSlugTouched(true); setForm((current) => ({ ...current, slug: createSlug(event.target.value) })); }} disabled={!canWrite} className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa] disabled:bg-[#f6f8fb]" /></label>
+          <label className="block"><span className="text-sm font-medium text-[#334155]">Đường dẫn</span><input value={form.slug} onChange={(event) => { setSlugTouched(true); setForm((current) => ({ ...current, slug: createSlug(event.target.value) })); }} disabled={!canWrite} className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa] disabled:bg-[#f6f8fb]" /></label>
           <label className="block"><span className="text-sm font-medium text-[#334155]">Mô tả</span><textarea value={form.description} onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))} disabled={!canWrite} rows={4} className="mt-1 w-full resize-none rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa] disabled:bg-[#f6f8fb]" /></label>
           <label className="block">
             <span className="text-sm font-medium text-[#334155]">Từ khóa triệu chứng</span>
@@ -413,29 +408,31 @@ export default function DepartmentsPage() {
             </span>
             <input type="checkbox" checked={form.isTriageFallback} onChange={(event) => setForm((current) => ({ ...current, isTriageFallback: event.target.checked }))} disabled={!canWrite} className="h-4 w-4 accent-[#0d4f8b]" />
           </label>
-          <label className="block"><span className="text-sm font-medium text-[#334155]">URL hình ảnh</span><input value={form.image} onChange={(event) => setForm((current) => ({ ...current, image: event.target.value, imageAssetId: "" }))} disabled={!canWrite} placeholder="https://..." className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa] disabled:bg-[#f6f8fb]" /></label>
+          <label className="block"><span className="text-sm font-medium text-[#334155]">Đường dẫn hình ảnh</span><input value={form.image} onChange={(event) => setForm((current) => ({ ...current, image: event.target.value, imageAssetId: "" }))} disabled={!canWrite} placeholder="https://..." className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa] disabled:bg-[#f6f8fb]" /></label>
           <label className="block">
-            <span className="text-sm font-medium text-[#334155]">Upload ảnh</span>
+            <span className="text-sm font-medium text-[#334155]">Tải ảnh lên</span>
             <input type="file" accept="image/jpeg,image/png,image/webp" disabled={!canWrite || uploading} onChange={(event) => void handleImageUpload(event.target.files?.[0])} className="mt-1 w-full rounded-md border border-dashed border-[#cfd8e6] bg-[#f8fafc] px-3 py-2 text-sm file:mr-3 file:rounded-md file:border-0 file:bg-[#0d4f8b] file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-white disabled:opacity-60" />
-            <p className="mt-1 text-xs text-[#667892]">Hỗ trợ JPG, PNG, WEBP. Ảnh được upload vào folder departments.</p>
+            <p className="mt-1 text-xs text-[#667892]">Hỗ trợ JPG, PNG và WEBP. Ảnh được lưu trong thư mục chuyên khoa.</p>
           </label>
           {form.image ? (
             <div className="rounded-md border border-[#e5ebf3] p-2">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={form.image} alt={form.name || "Ảnh chuyên khoa"} className="h-36 w-full rounded-md object-cover" />
-              <p className="mt-2 truncate text-xs text-[#667892]">{form.imageAssetId ? `Asset: ${form.imageAssetId}` : form.image}</p>
+              <p className="mt-2 truncate text-xs text-[#667892]">{form.imageAssetId ? `Mã tài nguyên: ${form.imageAssetId}` : form.image}</p>
             </div>
           ) : null}
           <label className="flex items-center justify-between rounded-md border border-[#e5ebf3] px-3 py-2"><span className="text-sm font-medium text-[#334155]">Đang hoạt động</span><input type="checkbox" checked={form.isActive} onChange={(event) => setForm((current) => ({ ...current, isActive: event.target.checked }))} disabled={!canWrite} className="h-4 w-4 accent-[#0d4f8b]" /></label>
 
           {canWrite ? (
             <div className="flex gap-2">
-              <button disabled={saving || uploading} className="flex-1 rounded-md bg-[#0d4f8b] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#083d6d] disabled:opacity-60">{uploading ? "Đang upload..." : saving ? "Đang lưu..." : editing ? "Lưu thay đổi" : "Tạo mới"}</button>
+              <button disabled={saving || uploading} className="flex-1 rounded-md bg-[#0d4f8b] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#083d6d] disabled:opacity-60">{uploading ? "Đang tải lên..." : saving ? "Đang lưu..." : editing ? "Lưu thay đổi" : "Tạo mới"}</button>
               {editing ? <button type="button" onClick={startCreate} className="rounded-md border border-[#cfd8e6] px-4 py-2.5 text-sm font-medium text-[#42526b] hover:bg-[#f6f8fb]">Hủy</button> : null}
             </div>
           ) : null}
         </form>
+        </DashboardWorkspace>
       </aside>
+      ) : null}
     </div>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/api";
 import { queryKeys } from "@/lib/query-keys";
 import type {
@@ -90,6 +90,9 @@ export function useDashboardChatbotOverview(
     queryKey: queryKeys.dashboardChatbotOverview(filters),
     queryFn: () => fetchDashboardChatbotOverview(filters),
     enabled,
+    staleTime: 30_000,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
   });
 }
 
@@ -98,6 +101,9 @@ export function useDashboardChatbotSettings(enabled = true) {
     queryKey: queryKeys.dashboardChatbotSettings,
     queryFn: fetchDashboardChatbotSettings,
     enabled,
+    staleTime: 60_000,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
   });
 }
 
@@ -109,6 +115,10 @@ export function useDashboardChatbotFAQs(
     queryKey: queryKeys.dashboardChatbotFAQs(filters),
     queryFn: () => fetchDashboardChatbotFAQs(filters),
     enabled,
+    placeholderData: keepPreviousData,
+    staleTime: 30_000,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
   });
 }
 
@@ -120,6 +130,10 @@ export function useDashboardChatbotSessions(
     queryKey: queryKeys.dashboardChatbotSessions(filters),
     queryFn: () => fetchDashboardChatbotSessions(filters),
     enabled,
+    placeholderData: keepPreviousData,
+    staleTime: 15_000,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
   });
 }
 
@@ -128,6 +142,9 @@ export function useDashboardChatbotSession(id?: string) {
     queryKey: queryKeys.dashboardChatbotSession(id),
     queryFn: () => fetchDashboardChatbotSession(id || ""),
     enabled: Boolean(id),
+    staleTime: 10_000,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
   });
 }
 
@@ -139,5 +156,9 @@ export function useDashboardChatbotLogs(
     queryKey: queryKeys.dashboardChatbotLogs(filters),
     queryFn: () => fetchDashboardChatbotLogs(filters),
     enabled,
+    placeholderData: keepPreviousData,
+    staleTime: 15_000,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
   });
 }

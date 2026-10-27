@@ -28,7 +28,7 @@ import {
   useState,
 } from "react";
 import { DebugOtpBox } from "@/components/ui/debug-otp-box";
-import { PublicPageHeader, PublicPageHero } from "@/components/public/public-page-layout";
+import { PublicPageHero } from "@/components/public/public-page-layout";
 import { apiRequest } from "@/lib/api";
 import { formatVietnamDate, formatVietnamDateTime } from "@/lib/date";
 import { getPublicLookupDraft } from "@/lib/public-booking-store";
@@ -502,8 +502,7 @@ export default function AppointmentLookupPage() {
   };
 
   return (
-    <main className="min-h-screen bg-[linear-gradient(180deg,#f4f9ff_0%,#f6f8fb_42%,#ffffff_100%)] text-[#172033]">
-      <PublicPageHeader />
+    <main className="min-h-screen bg-[linear-gradient(180deg,#f1faf7_0%,var(--public-canvas)_42%,#ffffff_100%)] text-[var(--public-ink)]">
       <PublicPageHero
         eyebrow="Tra cứu lịch hẹn"
         title="Kiểm tra trạng thái lịch khám của bạn"
@@ -511,26 +510,26 @@ export default function AppointmentLookupPage() {
       />
 
       <section className="ui-container grid gap-6 py-8 sm:py-10 lg:grid-cols-[minmax(0,0.82fr)_minmax(380px,1fr)]">
-        <div className="h-fit rounded-xl border border-[#cfe0f3] bg-white/95 p-4 shadow-[0_18px_48px_rgba(13,79,139,0.10)] ring-1 ring-[#e7f0fb] sm:p-5">
-          <div className="grid grid-cols-2 rounded-lg border border-[#d8e9ff] bg-[#eef6ff] p-1">
+        <div className="h-fit rounded-3xl border border-[var(--public-border)] bg-white p-4 shadow-[var(--public-shadow-soft)] sm:p-5">
+          <div className="grid grid-cols-2 rounded-2xl border border-[var(--public-border)] bg-[var(--public-surface-muted)] p-1">
             <button
               type="button"
               onClick={() => switchTab("CODE")}
-              className={`rounded-md px-3 py-2.5 text-sm font-semibold transition ${activeTab === "CODE" ? "bg-white text-[#0d4f8b] shadow-sm ring-1 ring-[#d8e9ff]" : "text-[#667892] hover:text-[#0d4f8b]"}`}
+              className={`rounded-xl px-3 py-2.5 text-sm font-semibold transition ${activeTab === "CODE" ? "bg-white text-[var(--public-primary-dark)] shadow-sm ring-1 ring-[var(--public-border)]" : "text-[var(--public-muted)] hover:text-[var(--public-primary)]"}`}
             >
               Có mã lịch
             </button>
             <button
               type="button"
               onClick={() => switchTab("FORGOT")}
-              className={`rounded-md px-3 py-2.5 text-sm font-semibold transition ${activeTab === "FORGOT" ? "bg-white text-[#0d4f8b] shadow-sm ring-1 ring-[#d8e9ff]" : "text-[#667892] hover:text-[#0d4f8b]"}`}
+              className={`rounded-xl px-3 py-2.5 text-sm font-semibold transition ${activeTab === "FORGOT" ? "bg-white text-[var(--public-primary-dark)] shadow-sm ring-1 ring-[var(--public-border)]" : "text-[var(--public-muted)] hover:text-[var(--public-primary)]"}`}
             >
               Quên mã lịch
             </button>
           </div>
 
-          <div className="mt-4 flex items-start gap-3 rounded-lg border border-[#b8d7f4] bg-[#eef7ff] px-3 py-3 text-sm leading-6 text-[#0d4f8b]">
-            <span className="mt-0.5 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-white text-[#0d4f8b] shadow-sm">
+          <div className="mt-4 flex items-start gap-3 rounded-2xl border border-[var(--public-border)] bg-[var(--public-primary-soft)] px-3 py-3 text-sm leading-6 text-[var(--public-primary-dark)]">
+            <span className="mt-0.5 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-white text-[var(--public-primary)] shadow-sm">
               <ShieldCheck className="h-4 w-4" aria-hidden="true" />
             </span>
             <p>
@@ -542,7 +541,7 @@ export default function AppointmentLookupPage() {
           {activeTab === "CODE" ? (
             <div className="mt-5">
               <div className="flex items-center gap-2 text-sm font-semibold text-[#172033]">
-                <Search className="h-4 w-4 text-[#0d4f8b]" />
+                <Search className="h-4 w-4 text-[var(--public-primary)]" />
                 Thông tin tra cứu
               </div>
               <div className="mt-4 space-y-3">
@@ -603,7 +602,7 @@ export default function AppointmentLookupPage() {
                   type="button"
                   onClick={() => void requestCodeLookupOtp()}
                   disabled={loading}
-                  className="inline-flex items-center justify-center gap-2 rounded-md border border-[#cfd8e6] bg-white px-4 py-3 text-sm font-semibold text-[#42526b] transition hover:-translate-y-0.5 hover:bg-[#f8fafc] disabled:translate-y-0 disabled:opacity-60"
+                  className="public-button-secondary inline-flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold disabled:translate-y-0 disabled:opacity-60"
                 >
                   {loading && !codeOtpSent ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
@@ -616,7 +615,7 @@ export default function AppointmentLookupPage() {
                   type="button"
                   onClick={() => void verifyCodeLookupOtp()}
                   disabled={loading || !codeOtpSent}
-                  className="inline-flex items-center justify-center gap-2 rounded-md bg-[#0d4f8b] px-4 py-3 text-sm font-semibold text-white shadow-[0_10px_22px_rgba(13,79,139,0.18)] transition hover:-translate-y-0.5 hover:bg-[#083d6d] disabled:translate-y-0 disabled:opacity-60"
+                  className="public-button-primary inline-flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold disabled:translate-y-0 disabled:opacity-60"
                 >
                   {loading && codeOtpSent ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
@@ -630,7 +629,7 @@ export default function AppointmentLookupPage() {
           ) : (
             <div className="mt-5">
               <div className="flex items-center gap-2 text-sm font-semibold text-[#172033]">
-                <ShieldCheck className="h-4 w-4 text-[#0d4f8b]" />
+                <ShieldCheck className="h-4 w-4 text-[var(--public-primary)]" />
                 Xác thực số điện thoại
               </div>
               <div className="mt-4 space-y-3">
@@ -675,7 +674,7 @@ export default function AppointmentLookupPage() {
                   type="button"
                   onClick={() => void requestLookupOtp()}
                   disabled={loading}
-                  className="inline-flex items-center justify-center gap-2 rounded-md border border-[#cfd8e6] bg-white px-4 py-3 text-sm font-semibold text-[#42526b] transition hover:-translate-y-0.5 hover:bg-[#f8fafc] disabled:translate-y-0 disabled:opacity-60"
+                  className="public-button-secondary inline-flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold disabled:translate-y-0 disabled:opacity-60"
                 >
                   {loading && !otpSent ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
@@ -688,7 +687,7 @@ export default function AppointmentLookupPage() {
                   type="button"
                   onClick={() => void verifyLookupOtp()}
                   disabled={loading || !otpSent}
-                  className="inline-flex items-center justify-center gap-2 rounded-md bg-[#0d4f8b] px-4 py-3 text-sm font-semibold text-white shadow-[0_10px_22px_rgba(13,79,139,0.18)] transition hover:-translate-y-0.5 hover:bg-[#083d6d] disabled:translate-y-0 disabled:opacity-60"
+                  className="public-button-primary inline-flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold disabled:translate-y-0 disabled:opacity-60"
                 >
                   {loading && otpSent ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
@@ -792,13 +791,13 @@ function AppointmentResult({
 }) {
   if (!appointment || !status) {
     return (
-      <div className="rounded-xl border border-[#cfe0f3] bg-white/95 p-5 shadow-[0_18px_48px_rgba(13,79,139,0.08)] ring-1 ring-[#e7f0fb]">
-        <div className="flex min-h-80 flex-col items-center justify-center rounded-lg border border-dashed border-[#cfe0f3] bg-[#f8fbff] p-8 text-center">
-          <CheckCircle2 className="h-10 w-10 text-[#0d4f8b]" />
+      <div className="rounded-3xl border border-[var(--public-border)] bg-white p-5 shadow-[var(--public-shadow-soft)]">
+        <div className="flex min-h-80 flex-col items-center justify-center rounded-2xl border border-dashed border-[var(--public-border)] bg-[var(--public-surface-muted)] p-8 text-center">
+          <CheckCircle2 className="h-10 w-10 text-[var(--public-primary)]" />
           <h2 className="mt-4 text-lg font-semibold">
             Nhập thông tin để tra cứu
           </h2>
-          <p className="mt-2 max-w-md text-sm leading-6 text-[#667892]">
+          <p className="mt-2 max-w-md text-sm leading-6 text-[var(--public-muted)]">
             Kết quả lịch hẹn sẽ hiển thị tại đây sau khi thông tin khớp với hệ
             thống.
           </p>
@@ -1898,6 +1897,7 @@ function PaymentPanel({
     provider: PaymentProvider;
     key: string;
   } | null>(null);
+  const paymentPollCountRef = useRef(0);
 
   const activeTransaction = transaction || latestPendingTransaction;
   const invoice = transaction?.invoice || appointment.invoice;
@@ -2001,11 +2001,21 @@ function PaymentPanel({
       return undefined;
 
     const timer = window.setInterval(() => {
+      if (document.visibilityState !== "visible") return;
+      if (paymentPollCountRef.current >= 15) {
+        window.clearInterval(timer);
+        return;
+      }
+      paymentPollCountRef.current += 1;
       void refreshPayment(true);
     }, 8000);
 
     return () => window.clearInterval(timer);
   }, [activeTransaction, invoice?.status, refreshPayment]);
+
+  useEffect(() => {
+    paymentPollCountRef.current = 0;
+  }, [activeTransaction?.id]);
 
   const createPayment = async () => {
     if (!appointment.invoice || !provider) return;
@@ -2246,8 +2256,9 @@ function PaymentPanel({
               </div>
               {activeTransaction.status === "PENDING" ? (
                 <p className="mt-3 rounded-md bg-white px-3 py-2 text-xs leading-5 text-[#667892]">
-                  Hệ thống sẽ tự kiểm tra trạng thái mỗi 8 giây khi giao dịch
-                  còn đang chờ.
+                  Hệ thống sẽ kiểm tra trạng thái mỗi 8 giây trong tối đa 2
+                  phút khi trang đang được mở. Bạn luôn có thể kiểm tra lại
+                  thủ công.
                 </p>
               ) : null}
               <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
@@ -2276,7 +2287,8 @@ function PaymentPanel({
                     <ExternalLink className="h-4 w-4" />
                   </a>
                 ) : null}
-                {activeTransaction.status === "PENDING" ? (
+                {activeTransaction.provider === "MOCK" &&
+                activeTransaction.status === "PENDING" ? (
                   <button
                     type="button"
                     onClick={() => void cancelPayment()}

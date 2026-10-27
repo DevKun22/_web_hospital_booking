@@ -14,6 +14,7 @@ import {
   LogOut,
   Menu,
   MessageSquareText,
+  BellRing,
   Package,
   PanelLeftClose,
   PanelLeftOpen,
@@ -84,6 +85,12 @@ const navItems: NavItem[] = [
     roles: ["ADMIN", "STAFF"],
   },
   {
+    href: "/dashboard/notifications",
+    label: "Thông báo ứng dụng",
+    icon: BellRing,
+    roles: ["ADMIN", "STAFF"],
+  },
+  {
     href: "/dashboard/reviews",
     label: "Đánh giá",
     icon: Star,
@@ -122,7 +129,7 @@ const navItems: NavItem[] = [
   { href: "/dashboard/users", label: "Nhân sự", icon: Users, roles: ["ADMIN"] },
   {
     href: "/dashboard/site-settings",
-    label: "Cấu hình website",
+    label: "Cấu hình trang người dùng",
     icon: Settings,
     roles: ["ADMIN", "STAFF"],
   },

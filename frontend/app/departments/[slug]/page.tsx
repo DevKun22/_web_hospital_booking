@@ -5,10 +5,11 @@ import { notFound } from "next/navigation";
 import { cache } from "react";
 import { ArrowRight, Clock, HeartPulse, PackageCheck, Star } from "lucide-react";
 import Link from "next/link";
-import { PublicBreadcrumb, PublicPageHeader } from "@/components/public/public-page-layout";
+import { PublicBreadcrumb } from "@/components/public/public-page-layout";
 import type { PublicDepartment } from "@/components/public/public-home-types";
+import { getPublicDoctorPath } from "@/lib/public-routes";
 import { serverApiRequest } from "@/lib/server-api";
-import { buildOpenGraph, cleanText, jsonLdString, truncateText, absoluteUrl } from "@/lib/seo";
+import { buildBreadcrumbJsonLd, buildNoIndexMetadata, buildOpenGraph, cleanText, jsonLdString, truncateText, absoluteUrl } from "@/lib/seo";
 import type { DoctorProfile, MedicalPackage } from "@/lib/types";
 
 type PageProps = {
@@ -48,10 +49,10 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       image: department.image,
     });
   } catch {
-    return {
+    return buildNoIndexMetadata({
       title: "Chi tiết chuyên khoa",
       description: "Thông tin chuyên khoa, bác sĩ và gói khám tại bệnh viện.",
-    };
+    });
   }
 }
 
@@ -75,7 +76,7 @@ export default async function PublicDepartmentDetailPage({ params }: PageProps) 
   }
 
   const bookingUrl = `/?departmentId=${department.id}#booking`;
-  const doctorsUrl = `/doctors?departmentId=${department.id}`;
+  const doctorsUrl = `/bac-si?departmentId=${department.id}`;
   const description = cleanText(
     department.description,
     "Chuyên khoa đang tiếp nhận lịch khám, tư vấn điều trị và điều phối bác sĩ phù hợp với nhu cầu của người bệnh.",
@@ -91,20 +92,25 @@ export default async function PublicDepartmentDetailPage({ params }: PageProps) 
       name: department.name,
     },
   };
+  const breadcrumbJsonLd = buildBreadcrumbJsonLd([
+    { name: "Trang chủ", path: "/" },
+    { name: "Chuyên khoa", path: "/departments" },
+    { name: department.name, path: `/departments/${slug}` },
+  ]);
 
   return (
-    <main className="min-h-screen bg-[linear-gradient(180deg,#f4f9ff_0%,#f6f8fb_46%,#ffffff_100%)] text-[#172033]">
+    <main className="min-h-screen bg-[linear-gradient(180deg,#f1faf7_0%,var(--public-canvas)_46%,#ffffff_100%)] text-[var(--public-ink)]">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdString(jsonLd) }} />
-      <PublicPageHeader />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdString(breadcrumbJsonLd) }} />
 
       <section className="ui-container py-8 sm:py-10">
         <PublicBreadcrumb current={department.name} />
         <div className="space-y-8">
-          <article className="grid overflow-hidden rounded-xl border border-[#cfe0f3] bg-white/95 shadow-[0_18px_48px_rgba(13,79,139,0.10)] ring-1 ring-[#e7f0fb] lg:grid-cols-[minmax(0,0.95fr)_minmax(360px,1fr)]">
+          <article className="grid overflow-hidden rounded-3xl border border-[var(--public-border)] bg-white shadow-[var(--public-shadow-soft)] lg:grid-cols-[minmax(0,0.95fr)_minmax(360px,1fr)]">
             <div className="p-5 sm:p-6">
-              <p className="text-sm font-semibold uppercase tracking-wide text-[#667892]">Chuyên khoa</p>
+              <p className="text-sm font-semibold uppercase tracking-wide text-[var(--public-primary)]">Chuyên khoa</p>
               <h1 className="mt-2 text-3xl font-semibold leading-tight sm:text-4xl">{department.name}</h1>
-              <p className="mt-4 text-sm leading-7 text-[#667892]">{description}</p>
+              <p className="mt-4 text-sm leading-7 text-[var(--public-muted)]">{description}</p>
 
               <div className="mt-6 grid gap-3 sm:grid-cols-3">
                 <MetricCard label="Bác sĩ" value={doctors.length} />
@@ -113,21 +119,21 @@ export default async function PublicDepartmentDetailPage({ params }: PageProps) 
               </div>
 
               <div className="mt-6 flex flex-col gap-3 sm:flex-row">
-                <Link href={bookingUrl} className="inline-flex items-center justify-center gap-2 rounded-md bg-[#0d4f8b] px-5 py-3 text-sm font-semibold text-white shadow-[0_12px_26px_rgba(13,79,139,0.22)] transition hover:-translate-y-0.5 hover:bg-[#083d6d]">
+                <Link href={bookingUrl} className="public-button-primary inline-flex items-center justify-center gap-2 rounded-xl px-5 py-3 text-sm font-semibold">
                   Đặt lịch chuyên khoa này
                   <ArrowRight className="h-4 w-4" />
                 </Link>
-                <Link href={doctorsUrl} className="inline-flex items-center justify-center gap-2 rounded-md border border-[#cfd8e6] bg-white px-5 py-3 text-sm font-semibold text-[#42526b] transition hover:-translate-y-0.5 hover:bg-[#f8fafc]">
+                <Link href={doctorsUrl} className="public-button-secondary inline-flex items-center justify-center gap-2 rounded-xl px-5 py-3 text-sm font-semibold">
                   Xem bác sĩ
                 </Link>
               </div>
             </div>
 
-            <div className="min-h-80 bg-[#e7f0fb]">
+            <div className="min-h-80 bg-[var(--public-primary-soft)]">
               {department.image ? (
                 <img src={department.image} alt={department.name} decoding="async" fetchPriority="high" className="h-full w-full object-cover" />
               ) : (
-                <div className="flex h-full min-h-80 items-center justify-center text-[#0d4f8b]">
+                <div className="flex h-full min-h-80 items-center justify-center text-[var(--public-primary)]">
                   <HeartPulse className="h-16 w-16" />
                 </div>
               )}
@@ -137,10 +143,10 @@ export default async function PublicDepartmentDetailPage({ params }: PageProps) 
           <section>
             <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
               <div>
-                <p className="text-sm font-semibold uppercase tracking-wide text-[#667892]">Bác sĩ</p>
+                <p className="text-sm font-semibold uppercase tracking-wide text-[var(--public-muted)]">Bác sĩ</p>
                 <h2 className="mt-2 text-3xl font-semibold">Bác sĩ thuộc chuyên khoa</h2>
               </div>
-              <Link href={doctorsUrl} className="inline-flex items-center gap-2 text-sm font-semibold text-[#0d4f8b]">
+              <Link href={doctorsUrl} className="inline-flex items-center gap-2 text-sm font-semibold text-[var(--public-primary)]">
                 Xem tất cả
                 <ArrowRight className="h-4 w-4" />
               </Link>
@@ -153,16 +159,16 @@ export default async function PublicDepartmentDetailPage({ params }: PageProps) 
                     {doctor.user.avatar ? (
                       <img src={doctor.user.avatar} alt={doctor.user.fullName} loading="lazy" decoding="async" className="h-14 w-14 rounded-md object-cover" />
                     ) : (
-                      <div className="flex h-14 w-14 items-center justify-center rounded-md bg-[#e7f0fb] text-lg font-semibold text-[#0d4f8b]">{firstLetter(doctor.user.fullName)}</div>
+                      <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-[var(--public-primary-soft)] text-lg font-semibold text-[var(--public-primary)]">{firstLetter(doctor.user.fullName)}</div>
                     )}
                     <div className="min-w-0">
                       <h3 className="truncate font-semibold">{doctorName(doctor)}</h3>
-                      <p className="truncate text-sm text-[#667892]">{doctor.specialization || "Khám chuyên khoa"}</p>
+                      <p className="truncate text-sm text-[var(--public-muted)]">{doctor.specialization || "Khám chuyên khoa"}</p>
                     </div>
                   </div>
-                  <p className="mt-4 flex items-center gap-2 text-sm text-[#667892]"><Clock className="h-4 w-4 text-[#0d4f8b]" />{doctor.experience || 0} năm kinh nghiệm</p>
-                  <p className="mt-3 font-semibold text-[#0d4f8b]">{formatCurrency(doctor.consultationFee)}</p>
-                  <Link href={`/doctors/${doctor.id}`} className="mt-4 inline-flex w-full items-center justify-center rounded-md border border-[#cfd8e6] px-3 py-2 text-sm font-semibold text-[#42526b] hover:bg-[#f8fafc]">
+                  <p className="mt-4 flex items-center gap-2 text-sm text-[var(--public-muted)]"><Clock className="h-4 w-4 text-[var(--public-primary)]" />{doctor.experience || 0} năm kinh nghiệm</p>
+                  <p className="mt-3 font-semibold text-[var(--public-primary-dark)]">{formatCurrency(doctor.consultationFee)}</p>
+                  <Link href={getPublicDoctorPath(doctor)} className="public-button-secondary mt-4 inline-flex w-full items-center justify-center rounded-xl px-3 py-2 text-sm font-semibold">
                     Xem chi tiết
                   </Link>
                 </article>
@@ -174,7 +180,7 @@ export default async function PublicDepartmentDetailPage({ params }: PageProps) 
 
           <section>
             <div>
-              <p className="text-sm font-semibold uppercase tracking-wide text-[#667892]">Gói khám</p>
+              <p className="text-sm font-semibold uppercase tracking-wide text-[var(--public-muted)]">Gói khám</p>
               <h2 className="mt-2 text-3xl font-semibold">Gói khám liên quan</h2>
             </div>
 
@@ -184,24 +190,24 @@ export default async function PublicDepartmentDetailPage({ params }: PageProps) 
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <h3 className="text-lg font-semibold">{item.name}</h3>
-                      <p className="mt-1 text-sm text-[#667892]">{item.summary || item.description || "Gói khám được thiết kế theo nhu cầu chuyên khoa."}</p>
+                      <p className="mt-1 text-sm text-[var(--public-muted)]">{item.summary || item.description || "Gói khám được thiết kế theo nhu cầu chuyên khoa."}</p>
                     </div>
                     {item.isPopular ? <span className="inline-flex items-center gap-1 rounded-md bg-[#fff4d6] px-2 py-1 text-xs font-semibold text-[#8a5a00]"><Star className="h-3.5 w-3.5" />Phổ biến</span> : null}
                   </div>
-                  <p className="mt-5 text-2xl font-semibold text-[#0d4f8b]">{formatCurrency(item.finalPrice)}</p>
+                  <p className="mt-5 text-2xl font-bold text-[var(--public-primary-dark)]">{formatCurrency(item.finalPrice)}</p>
                   <div className="mt-4 flex flex-wrap gap-2 text-xs font-semibold">
                     {item.isBHYTSupport ? <span className="rounded-md bg-[#e7f6ed] px-2 py-1 text-[#1f7a3a]">Hỗ trợ BHYT</span> : null}
                     <span className="inline-flex items-center gap-1 rounded-md bg-[#f1f5f9] px-2 py-1 text-[#42526b]"><PackageCheck className="h-3.5 w-3.5" />{item.items.length} hạng mục</span>
                   </div>
                   <div className="mt-auto grid grid-cols-2 gap-2 pt-5">
                     {item.slug ? (
-                      <Link href={`/packages/${item.slug}`} className="rounded-md border border-[#cfd8e6] px-3 py-2.5 text-center text-sm font-semibold text-[#42526b] hover:bg-[#f8fafc]">
+                      <Link href={`/packages/${item.slug}`} className="public-button-secondary rounded-xl px-3 py-2.5 text-center text-sm font-semibold">
                         Chi tiết
                       </Link>
                     ) : (
                       <span className="rounded-md border border-[#e5ebf3] px-3 py-2.5 text-center text-sm font-semibold text-[#94a3b8]">Chi tiết</span>
                     )}
-                    <Link href={`/?departmentId=${department.id}&packageId=${item.id}#booking`} className="rounded-md bg-[#0d4f8b] px-3 py-2.5 text-center text-sm font-semibold text-white hover:bg-[#083d6d]">
+                    <Link href={`/?departmentId=${department.id}&packageId=${item.id}#booking`} className="public-button-primary rounded-xl px-3 py-2.5 text-center text-sm font-semibold">
                       Chọn gói
                     </Link>
                   </div>
@@ -219,13 +225,13 @@ export default async function PublicDepartmentDetailPage({ params }: PageProps) 
 
 function MetricCard({ label, value }: { label: string; value: string | number }) {
   return (
-    <div className="rounded-lg border border-[#d8e9ff] bg-[#f8fbff] p-4">
-      <p className="text-2xl font-semibold text-[#0d4f8b]">{value}</p>
-      <p className="mt-1 text-sm text-[#667892]">{label}</p>
+    <div className="rounded-2xl border border-[var(--public-border)] bg-[var(--public-surface-muted)] p-4">
+      <p className="text-2xl font-bold text-[var(--public-primary-dark)]">{value}</p>
+      <p className="mt-1 text-sm text-[var(--public-muted)]">{label}</p>
     </div>
   );
 }
 
 function EmptyState({ label }: { label: string }) {
-  return <div className="rounded-lg border border-dashed border-[#cfe0f3] bg-white/90 p-6 text-center text-sm text-[#667892] sm:col-span-2 lg:col-span-3 xl:col-span-4">{label}</div>;
+  return <div className="rounded-2xl border border-dashed border-[var(--public-border)] bg-white p-6 text-center text-sm text-[var(--public-muted)] sm:col-span-2 lg:col-span-3 xl:col-span-4">{label}</div>;
 }

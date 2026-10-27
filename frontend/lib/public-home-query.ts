@@ -43,23 +43,22 @@ export const buildPublicHomeData = (
 };
 
 export const fetchPublicHomeData = async () => {
-  const [settings, banners, departments, doctors, packages, faqs] =
-    await Promise.all([
-      apiRequest<SiteSettingsValue>("/site-settings"),
-      apiRequest<{ items: Banner[] }>("/banners"),
-      apiRequest<PublicHomeData["departments"]>("/departments"),
-      apiRequest<DoctorProfile[]>("/doctors"),
-      apiRequest<MedicalPackage[]>("/packages"),
-      apiRequest<{ items: PublicFAQ[] }>("/faqs"),
-    ]);
+  const bootstrap = await apiRequest<{
+    siteSettings: SiteSettingsValue;
+    banners: Banner[];
+    departments: PublicHomeData["departments"];
+    doctors: DoctorProfile[];
+    packages: MedicalPackage[];
+    faqs: PublicFAQ[];
+  }>("/public/bootstrap", { query: { view: "full" } });
 
   return buildPublicHomeData(
-    settings,
-    banners.items || [],
-    departments,
-    doctors,
-    packages,
-    faqs.items || [],
+    bootstrap.siteSettings,
+    bootstrap.banners || [],
+    bootstrap.departments,
+    bootstrap.doctors,
+    bootstrap.packages,
+    bootstrap.faqs,
   );
 };
 

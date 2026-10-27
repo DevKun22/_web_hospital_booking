@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/api";
 import { queryKeys } from "@/lib/query-keys";
 import type { Banner, PublicFAQ, SiteSettingsRecord } from "@/lib/types";
@@ -45,6 +45,9 @@ export function useDashboardSiteSettings(enabled: boolean) {
     queryKey: queryKeys.dashboardSiteSettings,
     queryFn: fetchDashboardSiteSettings,
     enabled,
+    staleTime: 60_000,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
   });
 }
 
@@ -56,6 +59,10 @@ export function useDashboardBanners(
     queryKey: queryKeys.dashboardBanners(filters),
     queryFn: () => fetchDashboardBanners(filters),
     enabled,
+    placeholderData: keepPreviousData,
+    staleTime: 30_000,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
   });
 }
 
@@ -67,5 +74,9 @@ export function useDashboardFAQs(
     queryKey: queryKeys.dashboardFAQs(filters),
     queryFn: () => fetchDashboardFAQs(filters),
     enabled,
+    placeholderData: keepPreviousData,
+    staleTime: 30_000,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
   });
 }

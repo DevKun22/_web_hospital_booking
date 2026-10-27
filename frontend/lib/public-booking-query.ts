@@ -32,8 +32,13 @@ export function usePublicAvailableSlots(filters: PublicAvailableSlotFilters) {
         date: filters.date || "",
       }),
     enabled: Boolean(filters.doctorId && filters.date),
-    staleTime: 10 * 1000,
-    refetchInterval: 15 * 1000,
+    // The backend validates slot availability again when an appointment is
+    // created, so a short aggressive poll only adds load without improving
+    // correctness. Refresh on focus/reconnect and once per minute while the
+    // booking screen remains visible.
+    staleTime: 30 * 1000,
+    refetchInterval: 60 * 1000,
+    refetchIntervalInBackground: false,
     refetchOnWindowFocus: true,
     refetchOnReconnect: true,
   });

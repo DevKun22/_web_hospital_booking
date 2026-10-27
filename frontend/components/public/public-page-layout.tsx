@@ -1,29 +1,6 @@
-import { ArrowLeft, ArrowRight, Home } from "lucide-react";
+import { Home } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
-
-export function PublicPageHeader() {
-  return (
-    <header className="sticky top-0 z-40 border-b border-[var(--border)] bg-white/95 backdrop-blur-xl">
-      <div className="ui-container flex min-h-16 items-center justify-between gap-4 py-2">
-        <Link
-          href="/"
-          className="inline-flex min-h-11 items-center gap-2 rounded-lg px-2 text-sm font-semibold text-[var(--text-soft)] transition-colors hover:bg-[var(--surface-soft)] hover:text-[var(--primary)]"
-        >
-          <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-          <span>Về trang chủ</span>
-        </Link>
-        <Link
-          href="/#booking"
-          className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-[var(--primary)] px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-[var(--primary-hover)]"
-        >
-          Đặt lịch
-          <ArrowRight className="h-4 w-4" aria-hidden="true" />
-        </Link>
-      </div>
-    </header>
-  );
-}
 
 export function PublicBreadcrumb({ current }: { current: string }) {
   return (
@@ -52,12 +29,12 @@ export function PublicPageHero({
   children?: ReactNode;
 }) {
   return (
-    <section className="border-b border-[var(--border-soft)] bg-[linear-gradient(180deg,#f4f9ff_0%,#ffffff_100%)]">
-      <div className="ui-container py-10 sm:py-14">
+    <section className="border-b border-[var(--border-soft)] bg-[radial-gradient(circle_at_top_right,rgba(46,159,130,0.12),transparent_32%),linear-gradient(180deg,#f4fbf9_0%,#ffffff_100%)]">
+      <div className="ui-container py-8 sm:py-14">
         <PublicBreadcrumb current={eyebrow} />
         <div className="max-w-3xl">
           <p className="text-sm font-semibold uppercase tracking-[0.12em] text-[var(--primary)]">{eyebrow}</p>
-          <h1 className="mt-2 text-3xl font-semibold leading-tight tracking-[-0.025em] text-[var(--foreground)] sm:text-4xl lg:text-5xl">
+          <h1 className="mt-2 text-[1.75rem] font-bold leading-[1.2] tracking-[-0.025em] text-[var(--foreground)] sm:text-4xl lg:text-5xl">
             {title}
           </h1>
           <p className="mt-4 max-w-2xl text-base leading-7 text-[var(--text-muted)]">{description}</p>

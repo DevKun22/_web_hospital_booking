@@ -6,17 +6,21 @@ type ScrollRevealProps = {
   children: ReactNode;
   className?: string;
   delay?: number;
+  initialVisible?: boolean;
 };
 
 export function ScrollReveal({
   children,
   className = "",
   delay = 0,
+  initialVisible = false,
 }: ScrollRevealProps) {
   const ref = useRef<HTMLDivElement | null>(null);
-  const [visible, setVisible] = useState(false);
+  const [visible, setVisible] = useState(initialVisible);
 
   useEffect(() => {
+    if (initialVisible) return;
+
     const element = ref.current;
     if (!element) return;
 
@@ -33,7 +37,7 @@ export function ScrollReveal({
     observer.observe(element);
 
     return () => observer.disconnect();
-  }, []);
+  }, [initialVisible]);
 
   return (
     <div

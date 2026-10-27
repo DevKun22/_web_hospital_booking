@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/api";
 import { queryKeys } from "@/lib/query-keys";
 import type { ListResult, MediaAsset } from "@/lib/types";
@@ -34,5 +34,9 @@ export function useDashboardUploads(
     queryKey: queryKeys.dashboardUploadsList(filters),
     queryFn: () => fetchDashboardUploads(filters),
     enabled,
+    placeholderData: keepPreviousData,
+    staleTime: 30_000,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
   });
 }

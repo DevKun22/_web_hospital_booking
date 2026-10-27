@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/api";
 import { queryKeys } from "@/lib/query-keys";
 import type { DoctorProfile, ListResult, MedicalRecord } from "@/lib/types";
@@ -42,6 +42,10 @@ export function useDashboardMedicalRecords(
   return useQuery({
     queryKey: queryKeys.dashboardMedicalRecords(filters),
     queryFn: () => fetchDashboardMedicalRecords(filters),
+    placeholderData: keepPreviousData,
+    staleTime: 15_000,
+    refetchOnReconnect: true,
+    refetchOnWindowFocus: true,
   });
 }
 
@@ -50,6 +54,7 @@ export function useDashboardMedicalRecord(id?: string) {
     queryKey: queryKeys.dashboardMedicalRecord(id),
     queryFn: () => fetchDashboardMedicalRecord(id || ""),
     enabled: Boolean(id),
+    staleTime: 10_000,
   });
 }
 
@@ -61,5 +66,7 @@ export function useDashboardMedicalRecordDoctors(
     queryKey: queryKeys.dashboardDoctors(filters),
     queryFn: () => fetchDashboardMedicalRecordDoctors(filters),
     enabled,
+    placeholderData: keepPreviousData,
+    staleTime: 5 * 60_000,
   });
 }

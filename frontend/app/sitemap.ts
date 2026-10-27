@@ -1,4 +1,5 @@
 import type { MetadataRoute } from "next";
+import { SITE_URL } from "@/lib/seo";
 
 type ApiEnvelope<T> = {
   success: boolean;
@@ -7,29 +8,39 @@ type ApiEnvelope<T> = {
 
 type PublicDepartment = {
   slug: string | null;
+  updatedAt?: string;
 };
 
 type PublicDoctor = {
   id: string;
+  slug?: string;
+  updatedAt?: string;
 };
 
 type PublicPackage = {
   slug: string | null;
   id: string;
+  updatedAt?: string;
 };
 
-const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000").replace(/\/$/, "");
 const apiBaseUrl = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api").replace(/\/$/, "");
+
+const parseLastModified = (value?: string) => {
+  if (!value) return undefined;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? undefined : date;
+};
 
 const route = (
   path: string,
   changeFrequency: MetadataRoute.Sitemap[number]["changeFrequency"],
   priority: number,
+  lastModified?: string,
 ): MetadataRoute.Sitemap[number] => ({
-  url: `${siteUrl}${path}`,
-  lastModified: new Date(),
+  url: `${SITE_URL}${path}`,
   changeFrequency,
   priority,
+  lastModified: parseLastModified(lastModified),
 });
 
 async function fetchPublicData<T>(path: string): Promise<T | null> {
@@ -50,16 +61,15 @@ async function fetchPublicData<T>(path: string): Promise<T | null> {
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const [departments, doctors, packages] = await Promise.all([
     fetchPublicData<PublicDepartment[]>("/departments"),
-    fetchPublicData<PublicDoctor[]>("/doctors"),
+    fetchPublicData<PublicDoctor[]>("/doctors?seo=slug-v1"),
     fetchPublicData<PublicPackage[]>("/packages"),
   ]);
 
   const staticRoutes: MetadataRoute.Sitemap = [
     route("/", "daily", 1),
     route("/departments", "weekly", 0.85),
-    route("/doctors", "weekly", 0.85),
+    route("/bac-si", "weekly", 0.85),
     route("/packages", "weekly", 0.85),
-    route("/search", "weekly", 0.65),
     route("/faqs", "weekly", 0.7),
     route("/guide/booking", "monthly", 0.7),
   ];
@@ -67,12 +77,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const departmentRoutes =
     departments
       ?.filter((item) => item.slug)
-      .map((item) => route(`/departments/${item.slug}`, "weekly", 0.75)) || [];
+      .map((item) => route(`/departments/${encodeURIComponent(item.slug!)}`, "weekly", 0.75, item.updatedAt)) || [];
 
-  const doctorRoutes = doctors?.map((item) => route(`/doctors/${item.id}`, "weekly", 0.65)) || [];
+  const doctorRoutes = doctors?.map((item) => route(`/bac-si/${encodeURIComponent(item.slug || item.id)}`, "weekly", 0.65, item.updatedAt)) || [];
 
   const packageRoutes =
-    packages?.map((item) => route(`/packages/${item.slug || item.id}`, "weekly", 0.75)) || [];
+    packages?.map((item) => route(`/packages/${encodeURIComponent(item.slug || item.id)}`, "weekly", 0.75, item.updatedAt)) || [];
 
   return [
     ...staticRoutes,

@@ -8,6 +8,7 @@ import { usePublicChatbotSettings } from "@/lib/public-chatbot-query";
 import {
   PUBLIC_CHATBOT_CLOSE_EVENT,
   PUBLIC_CONSULTATION_CLOSE_EVENT,
+  setPublicFloatingPanelVisibility,
 } from "@/lib/public-ui-events";
 import {
   buildBookingHref,
@@ -105,6 +106,11 @@ export function PublicChatbotWidget() {
   }, []);
 
   useEffect(() => {
+    setPublicFloatingPanelVisibility(open);
+    return () => setPublicFloatingPanelVisibility(false);
+  }, [open]);
+
+  useEffect(() => {
     const timeoutId = window.setTimeout(() => {
       const storedChat = readStoredChat();
       if (storedChat.sessionId) setSessionId(storedChat.sessionId);
@@ -131,6 +137,15 @@ export function PublicChatbotWidget() {
       scrollRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
     }, 0);
   }, [messages, open, sending, flowStatus]);
+
+  useEffect(() => {
+    if (!open) return;
+    const timeoutId = window.setTimeout(
+      () => inputRef.current?.focus({ preventScroll: true }),
+      0,
+    );
+    return () => window.clearTimeout(timeoutId);
+  }, [open]);
 
   useEffect(() => {
     const intervalId = window.setInterval(() => {
@@ -296,24 +311,24 @@ export function PublicChatbotWidget() {
   );
 
   return (
-    <div className="fixed bottom-[5.75rem] right-3 z-[70] sm:bottom-24 sm:right-6">
+    <div className="public-floating-utility fixed bottom-[max(1rem,env(safe-area-inset-bottom))] right-3 z-[70] sm:bottom-24 sm:right-6">
       {open ? (
-        <section className="flex h-[min(620px,calc(100vh-6rem))] w-[min(400px,calc(100vw-2rem))] flex-col overflow-hidden rounded-md border border-[#cfe0f3] bg-white shadow-2xl ring-1 ring-[#d8e9ff]">
-          <header className="flex items-center justify-between border-b border-[#e5ebf3] px-4 py-3">
+        <section role="dialog" aria-modal="true" aria-labelledby="chatbot-title" className="flex h-[min(620px,calc(100dvh_-_2rem_-_env(safe-area-inset-bottom)))] w-[min(400px,calc(100vw_-_1.5rem))] flex-col overflow-hidden rounded-2xl border border-[var(--public-border)] bg-white shadow-2xl ring-1 ring-[var(--public-primary-soft)]">
+          <header className="flex items-center justify-between border-b border-[var(--public-divider)] px-4 py-3">
             <div className="flex min-w-0 items-center gap-3">
-              <div className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-[#e7f0fb] text-[#0d4f8b]">
+              <div className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[var(--public-primary-soft)] text-[var(--public-primary)]">
                 <Bot className="h-5 w-5" aria-hidden="true" />
                 <span
-                  className={`absolute -right-1 -top-1 h-3 w-3 rounded-full ring-2 ring-white ${chatbotOnline ? "bg-[#22c55e]" : "bg-[#94a3b8]"}`}
+                  className={`absolute -right-1 -top-1 h-3 w-3 rounded-full ring-2 ring-white ${chatbotOnline ? "bg-[var(--public-success)]" : "bg-[var(--public-muted)]"}`}
                   aria-hidden="true"
                   title={chatbotStatusText}
                 />
               </div>
               <div className="min-w-0">
-                <h2 className="truncate text-sm font-semibold text-[#172033]">
+                <h2 id="chatbot-title" className="truncate text-sm font-semibold text-[var(--public-ink)]">
                   Trợ lý đặt lịch
                 </h2>
-                <p className="truncate text-xs text-[#667892]">
+                <p className="truncate text-xs text-[var(--public-muted)]">
                   {chatbotStatusText}
                 </p>
               </div>
@@ -322,7 +337,7 @@ export function PublicChatbotWidget() {
               <button
                 type="button"
                 onClick={resetChat}
-                className="rounded-md p-2 text-[#667892] hover:bg-[#f1f5f9]"
+                className="inline-flex h-11 w-11 items-center justify-center rounded-xl text-[var(--public-muted)] hover:bg-[var(--public-surface-muted)]"
                 aria-label="Tạo cuộc trò chuyện mới"
                 title="Tạo cuộc trò chuyện mới"
               >
@@ -331,7 +346,7 @@ export function PublicChatbotWidget() {
               <button
                 type="button"
                 onClick={() => setOpen(false)}
-                className="rounded-md p-2 text-[#667892] hover:bg-[#f1f5f9]"
+                className="inline-flex h-11 w-11 items-center justify-center rounded-xl text-[var(--public-muted)] hover:bg-[var(--public-surface-muted)]"
                 aria-label="Đóng chatbot"
                 title="Đóng chatbot"
               >
@@ -341,12 +356,12 @@ export function PublicChatbotWidget() {
           </header>
 
           {flowStatus ? (
-            <div className="border-b border-[#e5ebf3] bg-[#f8fbff] px-4 py-2 text-xs font-semibold text-[#0d4f8b]">
+            <div className="border-b border-[var(--public-divider)] bg-[var(--public-info-soft)] px-4 py-2 text-xs font-semibold text-[var(--public-info)]" role="status">
               {flowStatus}
             </div>
           ) : null}
 
-          <div className="flex-1 space-y-3 overflow-x-hidden overflow-y-auto bg-[#f6f8fb] px-4 py-4">
+          <div className="flex-1 space-y-3 overflow-x-hidden overflow-y-auto bg-[var(--public-canvas)] px-4 py-4" aria-live="polite">
             {messages.map((item) => (
               <div
                 key={item.id}
@@ -361,12 +376,12 @@ export function PublicChatbotWidget() {
                 <div
                   className={`max-w-[94%] rounded-md px-3 py-2 text-sm leading-6 ${
                     item.role === "user"
-                      ? "bg-[#0d4f8b] text-white"
+                      ? "bg-[var(--public-primary)] text-white"
                       : item.role === "system"
-                        ? "rounded-full border border-[#cfe0f3] bg-[#e7f0fb] px-3 py-1 text-xs font-medium text-[#0d4f8b]"
+                        ? "rounded-full border border-[var(--public-border)] bg-[var(--public-primary-soft)] px-3 py-1 text-xs font-medium text-[var(--public-primary-dark)]"
                         : item.role === "alert"
-                          ? "border border-[#f5c26b] bg-[#fff8e8] text-[#8a4b00]"
-                          : "border border-[#dce3ee] bg-white text-[#172033]"
+                          ? "ui-status-warning border"
+                          : "border border-[var(--public-border)] bg-white text-[var(--public-ink)]"
                   }`}
                 >
                   {item.role === "assistant" || item.role === "alert" ? (
@@ -388,7 +403,7 @@ export function PublicChatbotWidget() {
               </div>
             ))}
             {sending ? (
-              <div className="flex items-center gap-2 text-xs text-[#667892]">
+              <div className="flex items-center gap-2 text-xs text-[var(--public-muted)]" role="status">
                 <Loader2
                   className="h-3.5 w-3.5 animate-spin"
                   aria-hidden="true"
@@ -399,7 +414,7 @@ export function PublicChatbotWidget() {
             <div ref={scrollRef} />
           </div>
 
-          <div className="border-t border-[#e5ebf3] bg-white p-3">
+          <div className="border-t border-[var(--public-divider)] bg-white p-3">
             {visibleActions.length ? (
               <div className="mb-3 flex flex-wrap gap-2">
                 {visibleActions.map((action, index) => (
@@ -408,7 +423,7 @@ export function PublicChatbotWidget() {
                     type="button"
                     disabled={!chatbotOnline || sending}
                     onClick={() => void sendMessage(action.label, action)}
-                    className="max-w-full rounded-md border border-[#cfd8e6] px-3 py-1.5 text-xs font-medium text-[#42526b] hover:bg-[#f8fafc] disabled:opacity-60"
+                    className="min-h-10 max-w-full rounded-xl border border-[var(--public-border)] px-3 py-2 text-xs font-medium text-[var(--public-text-soft)] hover:bg-[var(--public-surface-muted)] disabled:opacity-60"
                   >
                     {action.label}
                   </button>
@@ -416,7 +431,7 @@ export function PublicChatbotWidget() {
               </div>
             ) : null}
             {error ? (
-              <p className="mb-2 text-xs text-[#b3261e]">{error}</p>
+              <p className="mb-2 text-xs text-[var(--public-danger)]" role="alert">{error}</p>
             ) : null}
             <form className="flex gap-2" onSubmit={submitMessage}>
               <input
@@ -425,12 +440,13 @@ export function PublicChatbotWidget() {
                 onChange={(event) => setMessage(event.target.value)}
                 placeholder={inputPlaceholder}
                 disabled={!chatbotOnline}
-                className="min-w-0 flex-1 rounded-md border border-[#cfd8e6] bg-white px-3 py-2 text-sm text-[#172033] outline-none focus:border-[#0d4f8b] disabled:bg-[#f8fafc] disabled:text-[#94a3b8]"
+                className="ui-field min-w-0 flex-1 px-3 py-2 text-base disabled:bg-[var(--public-surface-muted)] disabled:text-[var(--public-muted)] sm:text-sm"
+                aria-label="Nội dung gửi trợ lý"
               />
               <button
                 type="submit"
                 disabled={!chatbotOnline || sending || !message.trim()}
-                className="inline-flex items-center gap-2 rounded-md bg-[#0d4f8b] px-3 py-2 text-sm font-semibold text-white disabled:opacity-60"
+                className="public-button-primary inline-flex min-h-11 items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold text-white disabled:opacity-60"
               >
                 <Send className="h-4 w-4" aria-hidden="true" />
                 Gửi
@@ -450,7 +466,7 @@ export function PublicChatbotWidget() {
             tabIndex={-1}
             aria-hidden="true"
           >
-            <span className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-[#0d4f8b]">
+            <span className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-[var(--public-primary)]">
               Trợ lý
             </span>
             {chatbotSuggestionMessages[suggestionIndex]}
@@ -461,17 +477,18 @@ export function PublicChatbotWidget() {
               window.dispatchEvent(new Event(PUBLIC_CONSULTATION_CLOSE_EVENT));
               setOpen(true);
             }}
-            className={`group relative flex h-14 w-14 shrink-0 items-center justify-center rounded-full text-white shadow-lg shadow-black/20 transition hover:-translate-y-0.5 focus:outline-none focus:ring-4 focus:ring-[#cfe4fa] ${chatbotOnline ? "bg-[#0d4f8b] hover:bg-[#083d6d]" : "bg-[#64748b] hover:bg-[#475569]"}`}
+            className={`group relative flex h-12 shrink-0 items-center justify-center gap-2 rounded-full px-3.5 text-white shadow-lg shadow-black/20 transition hover:-translate-y-0.5 focus:outline-none focus:ring-4 focus:ring-[var(--public-primary-soft)] sm:h-14 sm:w-14 sm:px-0 ${chatbotOnline ? "bg-[var(--public-primary)] hover:bg-[var(--public-primary-hover)]" : "bg-[#64748b] hover:bg-[#475569]"}`}
             aria-label="Mở trợ lý"
             title={chatbotStatusText}
           >
-            <span className="absolute -right-1 -top-1 flex h-6 w-6 items-center justify-center rounded-full bg-white text-[#0d4f8b] shadow-md">
+            <span className="absolute -right-1 -top-1 flex h-6 w-6 items-center justify-center rounded-full bg-white text-[var(--public-primary)] shadow-md">
               <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
             </span>
             <Bot
               className="relative h-6 w-6 transition group-hover:scale-110"
               aria-hidden="true"
             />
+            <span className="text-xs font-bold sm:sr-only">Trợ lý AI</span>
           </button>
         </div>
       )}

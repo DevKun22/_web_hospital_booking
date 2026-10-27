@@ -2,7 +2,15 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { CheckCircle2, MessageSquareText, PhoneCall, RefreshCw, Search, Trash2 } from "lucide-react";
+import { CheckCircle2, PhoneCall, RefreshCw, Search, Trash2 } from "lucide-react";
+import { DashboardFeedback } from "@/components/dashboard/dashboard-feedback";
+import {
+  DashboardEmptyState,
+  DashboardPageHeader,
+  DashboardStatusBadge,
+  DashboardSurface,
+  DashboardTableRegion,
+} from "@/components/dashboard/dashboard-ui";
 import { apiRequest } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { formatVietnamDateTime } from "@/lib/date";
@@ -21,11 +29,11 @@ const statusOptions: { label: string; value: "" | ConsultationStatus }[] = [
   { label: "Đã hủy", value: "CANCELLED" },
 ];
 
-const statusMeta: Record<ConsultationStatus, { label: string; className: string }> = {
-  NEW: { label: "Mới", className: "bg-[#fff8eb] text-[#946200]" },
-  CONTACTED: { label: "Đã liên hệ", className: "bg-[#f3f8ff] text-[#0d4f8b]" },
-  COMPLETED: { label: "Hoàn tất", className: "bg-[#f0fff4] text-[#1f7a3a]" },
-  CANCELLED: { label: "Đã hủy", className: "bg-[#fff3f2] text-[#b3261e]" },
+const statusMeta: Record<ConsultationStatus, { label: string; tone: "warning" | "info" | "positive" | "danger" }> = {
+  NEW: { label: "Mới", tone: "warning" },
+  CONTACTED: { label: "Đã liên hệ", tone: "info" },
+  COMPLETED: { label: "Hoàn tất", tone: "positive" },
+  CANCELLED: { label: "Đã hủy", tone: "danger" },
 };
 
 const formatDateTime = (value: string) => formatVietnamDateTime(value);
@@ -35,14 +43,12 @@ export default function DashboardConsultationRequestsPage() {
   const queryClient = useQueryClient();
   const canManage = user?.role === "ADMIN" || user?.role === "STAFF";
   const canDelete = user?.role === "ADMIN";
-  const detailRef = useRef<HTMLElement | null>(null);
-  const [items, setItems] = useState<ConsultationRequest[]>([]);
-  const [pagination, setPagination] = useState({ page: 1, limit: 20, total: 0, totalPages: 1 });
+  const detailRef = useRef<HTMLDivElement | null>(null);
   const [status, setStatus] = useState<"" | ConsultationStatus>("");
   const [keyword, setKeyword] = useState("");
   const [appliedKeyword, setAppliedKeyword] = useState("");
   const [page, setPage] = useState(1);
-  const [selected, setSelected] = useState<ConsultationRequest | null>(null);
+  const [selectedSnapshot, setSelectedSnapshot] = useState<ConsultationRequest | null>(null);
   const [editStatus, setEditStatus] = useState<ConsultationStatus>("NEW");
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
@@ -60,8 +66,16 @@ export default function DashboardConsultationRequestsPage() {
   );
 
   const requestsQuery = useDashboardConsultationRequests(query, canManage);
-  const selectedRequestQuery = useDashboardConsultationRequest(selected?.id);
+  const selectedRequestQuery = useDashboardConsultationRequest(selectedSnapshot?.id);
+  const items = requestsQuery.data?.items ?? [];
+  const pagination = requestsQuery.data?.pagination ?? { page: 1, limit: 20, total: 0, totalPages: 1 };
+  const selected = selectedRequestQuery.data ?? selectedSnapshot;
   const loading = requestsQuery.isLoading || (requestsQuery.isFetching && !items.length);
+  const queryError = requestsQuery.error instanceof Error
+    ? requestsQuery.error.message
+    : requestsQuery.error
+      ? "Không tải được danh sách yêu cầu tư vấn"
+      : "";
 
   const invalidateConsultationRequests = async () => {
     await Promise.all([
@@ -71,36 +85,6 @@ export default function DashboardConsultationRequestsPage() {
     ]);
   };
 
-  useEffect(() => {
-    if (!requestsQuery.data) return;
-    const timeoutId = window.setTimeout(() => {
-      setItems(requestsQuery.data.items);
-      setPagination(requestsQuery.data.pagination);
-      setSelected((current) => {
-        if (!current) return null;
-        return requestsQuery.data.items.find((item) => item.id === current.id) || null;
-      });
-    }, 0);
-    return () => window.clearTimeout(timeoutId);
-  }, [requestsQuery.data]);
-
-  useEffect(() => {
-    if (!selectedRequestQuery.data) return;
-    const timeoutId = window.setTimeout(() => {
-      setSelected(selectedRequestQuery.data);
-      setEditStatus(selectedRequestQuery.data.status);
-      setNote(selectedRequestQuery.data.note || "");
-    }, 0);
-    return () => window.clearTimeout(timeoutId);
-  }, [selectedRequestQuery.data]);
-
-  useEffect(() => {
-    if (!requestsQuery.error) return;
-    const timeoutId = window.setTimeout(() => {
-      setError(requestsQuery.error instanceof Error ? requestsQuery.error.message : "Không tải được danh sách yêu cầu tư vấn");
-    }, 0);
-    return () => window.clearTimeout(timeoutId);
-  }, [requestsQuery.error]);
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
       const statusParam = new URLSearchParams(window.location.search).get("status");
@@ -128,7 +112,7 @@ export default function DashboardConsultationRequestsPage() {
   }, [error, notice]);
 
   const selectRequest = (request: ConsultationRequest) => {
-    setSelected(request);
+    setSelectedSnapshot(request);
     setEditStatus(request.status);
     setNote(request.note || "");
     window.setTimeout(() => {
@@ -155,11 +139,10 @@ export default function DashboardConsultationRequestsPage() {
           note: note || null,
         },
       });
-      setSelected(updated);
+      setSelectedSnapshot(updated);
       setEditStatus(updated.status);
       setNote(updated.note || "");
       queryClient.setQueryData(queryKeys.dashboardConsultationRequest(updated.id), updated);
-      setItems((current) => current.map((item) => (item.id === updated.id ? updated : item)));
       await invalidateConsultationRequests();
       setNotice("Đã cập nhật yêu cầu tư vấn");
     } catch (err) {
@@ -181,7 +164,7 @@ export default function DashboardConsultationRequestsPage() {
     try {
       await apiRequest<ConsultationRequest>(`/dashboard/consultation-requests/${selected.id}`, { method: "DELETE" });
       setNotice("Đã xóa yêu cầu tư vấn");
-      setSelected(null);
+      setSelectedSnapshot(null);
       await invalidateConsultationRequests();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Không xóa được yêu cầu tư vấn");
@@ -192,39 +175,19 @@ export default function DashboardConsultationRequestsPage() {
 
   if (!canManage) {
     return (
-      <section className="rounded-md border border-[var(--border)] bg-[var(--surface)] p-6">
-        <p className="text-sm font-medium text-[var(--text-muted)]">Tư vấn</p>
-        <h2 className="mt-1 text-2xl font-semibold">Yêu cầu tư vấn</h2>
-        <p className="mt-2 text-sm text-[var(--text-soft)]">Module này chỉ dành cho ADMIN hoặc STAFF.</p>
-      </section>
+      <DashboardPageHeader eyebrow="Chăm sóc khách hàng" title="Yêu cầu tư vấn" description="Module này chỉ dành cho ADMIN hoặc STAFF." />
     );
   }
 
   return (
     <div className="space-y-6">
-      {notice || error ? (
-        <div className="fixed right-4 top-4 z-50 w-[calc(100%-2rem)] max-w-md sm:right-6 sm:top-6">
-          <div className={`rounded-md border px-4 py-3 shadow-lg ${error ? "border-[#f2b8b5] bg-[#fff3f2] text-[#b3261e]" : "border-[#a8dab5] bg-[#f0fff4] text-[#1f7a3a]"}`}>
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className="text-sm font-semibold">{error ? "Có lỗi xảy ra" : "Thành công"}</p>
-                <p className="mt-1 text-sm">{error || notice}</p>
-              </div>
-              <button type="button" onClick={() => { setError(""); setNotice(""); }} className="rounded-md px-2 text-lg leading-none opacity-70 hover:bg-black/5 hover:opacity-100" aria-label="Đóng thông báo">x</button>
-            </div>
-          </div>
-        </div>
-      ) : null}
+      <DashboardFeedback error={error || queryError} notice={notice} onDismiss={() => { setError(""); setNotice(""); }} />
 
-      <section className="rounded-md border border-[var(--border)] bg-[var(--surface)] p-5">
-        <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
-          <div>
-            <p className="text-sm font-medium text-[var(--text-muted)]">Chăm sóc khách hàng</p>
-            <h2 className="mt-1 text-2xl font-semibold">Yêu cầu tư vấn</h2>
-            <p className="mt-2 text-sm text-[var(--text-soft)]">
-              Theo dõi khách để lại số điện thoại trên website, ghi chú nội bộ và chuyển trạng thái sau khi đã liên hệ.
-            </p>
-          </div>
+      <DashboardPageHeader
+        eyebrow="Chăm sóc khách hàng"
+        title="Yêu cầu tư vấn"
+        description="Theo dõi khách để lại số điện thoại trên website, ghi chú nội bộ và chuyển trạng thái sau khi đã liên hệ."
+        actions={
           <div className="grid gap-2 md:grid-cols-[180px_minmax(220px,1fr)_auto_auto]">
             <select value={status} onChange={(event) => { setStatus(event.target.value as "" | ConsultationStatus); setPage(1); }} className="rounded-md border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm outline-none focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary-soft)]">
               {statusOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
@@ -247,12 +210,12 @@ export default function DashboardConsultationRequestsPage() {
               Tải lại
             </button>
           </div>
-        </div>
-      </section>
+        }
+      />
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_420px]">
-        <section className="overflow-hidden rounded-md border border-[var(--border)] bg-[var(--surface)]">
-          <div className="overflow-x-auto">
+        <DashboardSurface className="overflow-hidden">
+          <DashboardTableRegion label="Danh sách yêu cầu tư vấn">
             <table className="min-w-[860px] w-full text-left text-sm">
               <thead className="bg-[var(--surface-muted)] text-[var(--text-muted)]">
                 <tr>
@@ -282,7 +245,7 @@ export default function DashboardConsultationRequestsPage() {
                       {item.note ? <p className="mt-1 line-clamp-1 text-xs text-[var(--text-muted)]">Ghi chú: {item.note}</p> : null}
                     </td>
                     <td className="px-4 py-3 align-top">
-                      <span className={`rounded-md px-2 py-1 text-xs font-semibold ${statusMeta[item.status].className}`}>{statusMeta[item.status].label}</span>
+                      <DashboardStatusBadge tone={statusMeta[item.status].tone}>{statusMeta[item.status].label}</DashboardStatusBadge>
                     </td>
                     <td className="px-4 py-3 align-top text-[var(--text-soft)]">{formatDateTime(item.createdAt)}</td>
                     <td className="px-4 py-3 text-right align-top">
@@ -298,7 +261,7 @@ export default function DashboardConsultationRequestsPage() {
                 )}
               </tbody>
             </table>
-          </div>
+          </DashboardTableRegion>
           <div className="flex items-center justify-between gap-3 border-t border-[var(--border-soft)] px-4 py-3 text-sm text-[var(--text-muted)]">
             <span>{pagination.total} kết quả, trang {pagination.page}/{pagination.totalPages}</span>
             <div className="flex gap-2">
@@ -306,9 +269,10 @@ export default function DashboardConsultationRequestsPage() {
               <button type="button" onClick={() => setPage((current) => Math.min(pagination.totalPages, current + 1))} disabled={page >= pagination.totalPages} className="rounded-md border border-[var(--border)] px-3 py-1.5 disabled:opacity-50">Sau</button>
             </div>
           </div>
-        </section>
+        </DashboardSurface>
 
-        <section ref={detailRef} className="scroll-mt-24 rounded-md border border-[var(--border)] bg-[var(--surface)] p-5">
+        <DashboardSurface className="scroll-mt-24 p-5">
+          <div ref={detailRef}>
           {selected ? (
             <div className="space-y-5">
               <div className="flex items-start justify-between gap-3">
@@ -320,7 +284,7 @@ export default function DashboardConsultationRequestsPage() {
                     {selected.phone}
                   </a>
                 </div>
-                <span className={`rounded-md px-2 py-1 text-xs font-semibold ${statusMeta[selected.status].className}`}>{statusMeta[selected.status].label}</span>
+                <DashboardStatusBadge tone={statusMeta[selected.status].tone}>{statusMeta[selected.status].label}</DashboardStatusBadge>
               </div>
 
               <div className="rounded-md border border-[var(--border-soft)] bg-[var(--surface-muted)] p-4">
@@ -356,13 +320,10 @@ export default function DashboardConsultationRequestsPage() {
               <p className="text-xs text-[var(--text-muted)]">Tạo lúc {formatDateTime(selected.createdAt)}. Cập nhật gần nhất {formatDateTime(selected.updatedAt)}.</p>
             </div>
           ) : (
-            <div className="flex min-h-72 flex-col items-center justify-center rounded-md border border-dashed border-[var(--border)] bg-[var(--surface-muted)] p-6 text-center">
-              <MessageSquareText className="h-8 w-8 text-[var(--text-muted)]" aria-hidden="true" />
-              <h3 className="mt-3 font-semibold">Chọn một yêu cầu tư vấn</h3>
-              <p className="mt-2 text-sm text-[var(--text-soft)]">Bấm Chi tiết trong danh sách để xem nội dung và cập nhật trạng thái xử lý.</p>
-            </div>
+            <DashboardEmptyState title="Chọn một yêu cầu tư vấn" description="Bấm Chi tiết trong danh sách để xem nội dung và cập nhật trạng thái xử lý." />
           )}
-        </section>
+          </div>
+        </DashboardSurface>
       </div>
     </div>
   );

@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/api";
 import { queryKeys } from "@/lib/query-keys";
 import type { ListResult, MedicalPackage } from "@/lib/types";
@@ -22,5 +22,9 @@ export function useDashboardPackages(filters: DashboardPackageFilters) {
   return useQuery({
     queryKey: queryKeys.dashboardPackages(filters),
     queryFn: () => fetchDashboardPackages(filters),
+    placeholderData: keepPreviousData,
+    staleTime: 60_000,
+    refetchOnReconnect: true,
+    refetchOnWindowFocus: true,
   });
 }
