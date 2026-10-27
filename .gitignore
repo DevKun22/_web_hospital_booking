@@ -43,6 +43,12 @@ mobile/graphify-out/
 graphify-out/.graphify*
 graphify-out/manifest.json
 
+# Archify exports the reusable source and HTML explainer. Delivery/finalization
+# metadata is local execution state and can be regenerated.
+.archify/**/*.delivery.json
+.archify/**/*.finalize.json
+.archify/**/*.finalize-summary.json
+
 # logs
 logs/
 *.log
