@@ -74,6 +74,39 @@ let nluCatalogCache:
   | { value: NLUCatalog; expiresAt: number }
   | undefined;
 
+const rawContextCacheTtl = Number(
+  process.env.CHATBOT_CONTEXT_CACHE_TTL_MS || 30_000,
+);
+const contextCacheTtlMs = Number.isFinite(rawContextCacheTtl)
+  ? Math.min(Math.max(rawContextCacheTtl, 0), 5 * 60_000)
+  : 30_000;
+
+type ContextCacheEntry<T> = { value: T; expiresAt: number };
+const contextCache = new Map<string, ContextCacheEntry<unknown>>();
+const contextLoads = new Map<string, Promise<unknown>>();
+
+const loadCached = async <T>(key: string, loader: () => Promise<T>) => {
+  if (!contextCacheTtlMs) return loader();
+
+  const cached = contextCache.get(key) as ContextCacheEntry<T> | undefined;
+  if (cached && cached.expiresAt > Date.now()) return cached.value;
+
+  const pending = contextLoads.get(key) as Promise<T> | undefined;
+  if (pending) return pending;
+
+  const load = loader()
+    .then((value) => {
+      contextCache.set(key, {
+        value,
+        expiresAt: Date.now() + contextCacheTtlMs,
+      });
+      return value;
+    })
+    .finally(() => contextLoads.delete(key));
+  contextLoads.set(key, load);
+  return load;
+};
+
 class ChatbotContextService {
   async loadNLUCatalog(): Promise<NLUCatalog> {
     if (nluCatalogCache && nluCatalogCache.expiresAt > Date.now()) {
@@ -164,55 +197,60 @@ class ChatbotContextService {
   }
 
   private async getDepartments() {
-    return prisma.department.findMany({
-      where: {
-        isActive: true,
-      },
-      select: {
-        id: true,
-        name: true,
-        slug: true,
-        description: true,
-        symptomKeywords: true,
-        triageDescription: true,
-        isTriageFallback: true,
-      },
-      orderBy: {
-        name: "asc",
-      },
-      take: 100,
-    });
+    return loadCached("departments", () =>
+      prisma.department.findMany({
+        where: {
+          isActive: true,
+        },
+        select: {
+          id: true,
+          name: true,
+          slug: true,
+          description: true,
+          symptomKeywords: true,
+          triageDescription: true,
+          isTriageFallback: true,
+        },
+        orderBy: {
+          name: "asc",
+        },
+        take: 100,
+      }),
+    );
   }
 
   private async getPackages(draft: ChatBookingDraft) {
-    const packages = await prisma.package.findMany({
-      where: {
-        isActive: true,
-        departmentId: draft.departmentId,
-      },
-      select: {
-        id: true,
-        name: true,
-        slug: true,
-        departmentId: true,
-        basePrice: true,
-        serviceFee: true,
-        summary: true,
-        items: {
-          select: {
-            price: true,
-            included: true,
+    const cacheKey = `packages:${draft.departmentId || "all"}`;
+    const packages = await loadCached(cacheKey, () =>
+      prisma.package.findMany({
+        where: {
+          isActive: true,
+          departmentId: draft.departmentId,
+        },
+        select: {
+          id: true,
+          name: true,
+          slug: true,
+          departmentId: true,
+          basePrice: true,
+          serviceFee: true,
+          summary: true,
+          items: {
+            select: {
+              price: true,
+              included: true,
+            },
+          },
+          department: {
+            select: {
+              name: true,
+            },
           },
         },
-        department: {
-          select: {
-            name: true,
-          },
-        },
-      },
-      orderBy: [{ isPopular: "desc" }, { basePrice: "asc" }],
-      take: 10,
-    });
+        orderBy: [{ isPopular: "desc" }, { basePrice: "asc" }],
+        take: 10,
+      }),
+    );
 
     return packages.map((item) => ({
       id: item.id,
@@ -230,39 +268,42 @@ class ChatbotContextService {
   }
 
   private async getDoctors(draft: ChatBookingDraft) {
-    const doctors = await prisma.doctorProfile.findMany({
-      where: {
-        isAvailable: true,
-        departmentId: draft.departmentId,
-        user: {
-          isActive: true,
-        },
-        department: {
-          isActive: true,
-        },
-      },
-      select: {
-        id: true,
-        title: true,
-        specialization: true,
-        departmentId: true,
-        consultationFee: true,
-        user: {
-          select: {
-            fullName: true,
+    const cacheKey = `doctors:${draft.departmentId || "all"}`;
+    const doctors = await loadCached(cacheKey, () =>
+      prisma.doctorProfile.findMany({
+        where: {
+          isAvailable: true,
+          departmentId: draft.departmentId,
+          user: {
+            isActive: true,
+          },
+          department: {
+            isActive: true,
           },
         },
-        department: {
-          select: {
-            name: true,
+        select: {
+          id: true,
+          title: true,
+          specialization: true,
+          departmentId: true,
+          consultationFee: true,
+          user: {
+            select: {
+              fullName: true,
+            },
+          },
+          department: {
+            select: {
+              name: true,
+            },
           },
         },
-      },
-      orderBy: {
-        createdAt: "asc",
-      },
-      take: 10,
-    });
+        orderBy: {
+          createdAt: "asc",
+        },
+        take: 10,
+      }),
+    );
 
     return doctors.map((doctor) => ({
       id: doctor.id,
@@ -283,6 +324,7 @@ class ChatbotContextService {
       ...(draft.doctorId ? { doctorId: draft.doctorId } : {}),
       status: "AVAILABLE",
       isActive: true,
+      appointment: { is: null },
       doctor: {
         ...(draft.departmentId ? { departmentId: draft.departmentId } : {}),
         isAvailable: true,

@@ -1,0 +1,7 @@
+ALTER TYPE "AppointmentLogAction" ADD VALUE 'PAYMENT_RECORDED';
+ALTER TYPE "AppointmentLogAction" ADD VALUE 'INVOICE_CANCELLED';
+ALTER TYPE "AppointmentLogAction" ADD VALUE 'PAYMENT_REFUNDED';
+
+ALTER TABLE "Invoice"
+ADD COLUMN "paymentReference" TEXT,
+ADD COLUMN "refundReference" TEXT;

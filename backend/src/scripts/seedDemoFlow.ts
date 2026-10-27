@@ -77,6 +77,7 @@ const upsertDepartment = (data: {
 
 const upsertDoctorProfile = async (data: {
   userId: string;
+  slug: string;
   departmentId: string;
   title: string;
   specialization: string;
@@ -89,6 +90,7 @@ const upsertDoctorProfile = async (data: {
       userId: data.userId,
     },
     update: {
+      slug: data.slug,
       departmentId: data.departmentId,
       title: data.title,
       specialization: data.specialization,
@@ -98,6 +100,7 @@ const upsertDoctorProfile = async (data: {
       isAvailable: true,
     },
     create: {
+      slug: data.slug,
       userId: data.userId,
       departmentId: data.departmentId,
       title: data.title,
@@ -304,6 +307,7 @@ async function seedDemoFlow() {
   const [cardioDoctor, generalDoctor] = await Promise.all([
     upsertDoctorProfile({
       userId: cardioDoctorUser.id,
+      slug: "nguyen-van-bac-si",
       departmentId: cardiology.id,
       title: "ThS.BS",
       specialization: "Tim mach",
@@ -313,6 +317,7 @@ async function seedDemoFlow() {
     }),
     upsertDoctorProfile({
       userId: generalDoctorUser.id,
+      slug: "tran-thi-bac-si",
       departmentId: general.id,
       title: "BS.CK1",
       specialization: "Kham tong quat",

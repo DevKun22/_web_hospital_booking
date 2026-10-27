@@ -8,10 +8,18 @@ import routes from "./routes/index.js";
 import { notFound } from "./middlewares/notFound.middleware.js";
 import { errorMiddleware } from "./middlewares/error.middleware.js";
 import { requestContext } from "./middlewares/requestContext.middleware.js";
+import { protectDashboardCookieRequest } from "./middlewares/dashboardCsrf.middleware.js";
+import {
+  getSafeRequestPath,
+  requestPerformance,
+} from "./observability/requestPerformance.js";
 
 type CreateAppOptions = {
   requestLogging?: boolean;
   slowRequestLogging?: boolean;
+  performanceHeaders?: boolean;
+  queryMetricsEnabled?: boolean;
+  slowRequestThresholdMs?: number;
 };
 
 const getAllowedOrigins = (isProduction: boolean) => {
@@ -64,29 +72,31 @@ export const createApp = (options: CreateAppOptions = {}) => {
   app.use(express.urlencoded({ extended: true, limit: "1mb" }));
 
   if (requestLogging) {
-    app.use(morgan(isProduction ? "combined" : "dev"));
+    morgan.token("safe-url", (req) =>
+      getSafeRequestPath((req as express.Request).originalUrl),
+    );
+    morgan.token(
+      "request-id",
+      (req) => (req as express.Request).requestId || "unknown",
+    );
+    const format = isProduction
+      ? ':remote-addr [:date[iso]] requestId=:request-id ":method :safe-url HTTP/:http-version" :status :response-time ms :res[content-length]'
+      : ':method :safe-url :status :response-time ms requestId=:request-id';
+    app.use(morgan(format));
   }
 
   if (slowRequestLogging) {
-    app.use((req, res, next) => {
-      const startedAt = process.hrtime.bigint();
-
-      res.on("finish", () => {
-        const durationMs =
-          Number(process.hrtime.bigint() - startedAt) / 1_000_000;
-
-        if (durationMs >= 500) {
-          console.warn(
-            `[SLOW_REQUEST] ${req.method} ${req.originalUrl} ${res.statusCode} ${durationMs.toFixed(1)}ms`,
-          );
-        }
-      });
-
-      next();
-    });
+    app.use(
+      requestPerformance({
+        exposeHeaders: options.performanceHeaders,
+        queryMetricsEnabled: options.queryMetricsEnabled,
+        slowRequestThresholdMs: options.slowRequestThresholdMs,
+      }),
+    );
   }
 
   app.use(cookieParser());
+  app.use(protectDashboardCookieRequest);
 
   app.get("/", (req, res) => {
     res.json({

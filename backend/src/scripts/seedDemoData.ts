@@ -1,9 +1,15 @@
 import { prisma } from "../config/prisma.js";
 import { hashPassword } from "../utils/password.js";
-import { buildTimeSlots } from "../utils/time.js";
+import {
+  buildTimeSlots,
+  isSlotStartInPastVietnamTime,
+} from "../utils/time.js";
+import ScheduleReconciliationService from "../services/scheduleReconciliation.service.js";
 
 const PASSWORD = "@DevKun2212";
 const SLOT_DAYS = 14;
+const DEMO_INSURANCE_COVERAGE_RATE = 80;
+const DEMO_INSURANCE_ELIGIBLE_LIMIT = 62_500;
 
 const resetRequested = process.env.RESET_DATABASE === "true";
 const resetAllowed = process.env.ALLOW_DATABASE_RESET === "true";
@@ -28,6 +34,31 @@ const addDays = (date: Date, days: number) => {
 };
 
 const getToday = () => parseDateOnly(toDateOnly(new Date()));
+
+const buildDemoInsurance = (input: {
+  hasBHYT: boolean;
+  isBHYTSupport: boolean;
+  estimatedPrice: number;
+}) => {
+  const applies = input.hasBHYT && input.isBHYTSupport;
+  const eligibleAmount = applies
+    ? Math.min(input.estimatedPrice, DEMO_INSURANCE_ELIGIBLE_LIMIT)
+    : 0;
+  const coverageRate = applies ? DEMO_INSURANCE_COVERAGE_RATE : 0;
+  const discountAmount = Math.floor(
+    (eligibleAmount * coverageRate) / 100,
+  );
+
+  return {
+    eligibleAmount,
+    coverageRate,
+    discountAmount,
+    routeType: applies ? ("RIGHT_ROUTE" as const) : null,
+    note: applies
+      ? "Demo đúng tuyến, áp dụng mức hưởng tham khảo."
+      : null,
+  };
+};
 
 async function resetDatabase() {
   if (!resetRequested) return;
@@ -141,6 +172,7 @@ async function upsertDepartment(data: {
 
 async function upsertDoctor(data: {
   userId: string;
+  fullName: string;
   departmentId: string;
   title: string;
   specialization: string;
@@ -148,10 +180,13 @@ async function upsertDoctor(data: {
   experience: number;
   consultationFee: number;
 }) {
+  const { fullName, ...profileData } = data;
+  const slug = toSlug(fullName);
+
   return prisma.doctorProfile.upsert({
     where: { userId: data.userId },
-    update: { ...data, isAvailable: true },
-    create: { ...data, isAvailable: true },
+    update: { ...profileData, slug, isAvailable: true },
+    create: { ...profileData, slug, isAvailable: true },
   });
 }
 
@@ -417,6 +452,30 @@ async function seedAppointments(doctors: Awaited<ReturnType<typeof upsertDoctor>
     upsertUser({ fullName: "Phạm Quốc Huy", phone: "0369988776", email: "quochuy@example.com", role: "PATIENT" }),
   ]);
 
+  await Promise.all(
+    patients.map((patient, index) => {
+      const hasBHYT = index % 2 === 0;
+      return prisma.patientProfile.upsert({
+        where: { userId: patient.id },
+        update: {
+          hasBHYT,
+          healthInsuranceCode: hasBHYT ? `DN40101234${index}` : null,
+          registeredHospital: hasBHYT
+            ? "Bệnh viện Quận Bình Thạnh"
+            : null,
+        },
+        create: {
+          userId: patient.id,
+          hasBHYT,
+          healthInsuranceCode: hasBHYT ? `DN40101234${index}` : null,
+          registeredHospital: hasBHYT
+            ? "Bệnh viện Quận Bình Thạnh"
+            : null,
+        },
+      });
+    }),
+  );
+
   const statuses = ["PENDING_CONFIRM", "CONFIRMED", "CHECKED_IN", "IN_PROGRESS", "COMPLETED", "COMPLETED", "CANCELLED_BY_PATIENT", "NO_SHOW"] as const;
   const created = [];
 
@@ -424,24 +483,83 @@ async function seedAppointments(doctors: Awaited<ReturnType<typeof upsertDoctor>
     const doctor = doctors[index % doctors.length];
     const packageItem = packages[index % packages.length];
     const patient = patients[index % patients.length];
-    const slot = await prisma.doctorTimeSlot.findFirst({
-      where: {
-        doctorId: doctor.id,
-        status: "AVAILABLE",
-        date: { gte: getToday() },
+    const status = statuses[index];
+    const bookingCode = `BKDEMO${String(index + 1).padStart(4, "0")}`;
+    const existingAppointment = await prisma.appointment.findUnique({
+      where: { bookingCode },
+      select: {
+        timeSlot: true,
       },
-      orderBy: [{ date: "asc" }, { startTime: "asc" }],
     });
+    const requiresUpcomingSlot = [
+      "PENDING_CONFIRM",
+      "CONFIRMED",
+      "CHECKED_IN",
+      "IN_PROGRESS",
+    ].includes(status);
+    const reusableSlot =
+      existingAppointment?.timeSlot?.doctorId === doctor.id &&
+      (!requiresUpcomingSlot ||
+        !isSlotStartInPastVietnamTime(
+          existingAppointment.timeSlot.date,
+          existingAppointment.timeSlot.startTime,
+        ))
+        ? existingAppointment.timeSlot
+        : null;
+    const slotCandidates = reusableSlot
+      ? []
+      : await prisma.doctorTimeSlot.findMany({
+        where: {
+          doctorId: doctor.id,
+          status: "AVAILABLE",
+          date: { gte: getToday() },
+          appointment: { is: null },
+        },
+        orderBy: [{ date: "asc" }, { startTime: "asc" }],
+        take: 50,
+      });
+    const slot =
+      reusableSlot ||
+      slotCandidates.find(
+        (candidate) =>
+          !requiresUpcomingSlot ||
+          !isSlotStartInPastVietnamTime(
+            candidate.date,
+            candidate.startTime,
+          ),
+      );
 
     if (!slot) continue;
 
-    const status = statuses[index];
-    const bookingCode = `BKDEMO${String(index + 1).padStart(4, "0")}`;
+    const releasesSlot =
+      status === "CANCELLED_BY_PATIENT" || status === "NO_SHOW";
     const hasBHYT = index % 2 === 0;
     const serviceFee = packageItem.serviceFee;
     const estimatedPrice = packageItem.basePrice;
-    const bhytDiscount = hasBHYT && packageItem.isBHYTSupport ? 50000 : 0;
+    const insurance = buildDemoInsurance({
+      hasBHYT,
+      isBHYTSupport: packageItem.isBHYTSupport,
+      estimatedPrice,
+    });
+    const bhytDiscount = insurance.discountAmount;
     const finalAmount = Math.max(0, estimatedPrice + serviceFee - bhytDiscount);
+    const reason = index % 2 === 0
+      ? "Khám định kỳ và tư vấn sức khỏe."
+      : "Đau đầu, mệt mỏi cần kiểm tra.";
+    const patientGender = index % 2 === 0 ? "FEMALE" : "MALE";
+    const patientDateOfBirth = parseDateOnly(
+      `199${index}-0${(index % 8) + 1}-15`,
+    );
+    const healthInsuranceCode = hasBHYT
+      ? `DN40101234${index}`
+      : null;
+    const registeredHospital = hasBHYT
+      ? "Bệnh viện Quận Bình Thạnh"
+      : null;
+    const allergies = index % 3 === 0 ? "Dị ứng hải sản" : null;
+    const medicalHistory = index % 2 === 0
+      ? "Không ghi nhận bệnh nền."
+      : "Tiền sử viêm dạ dày.";
 
     const appointment = await prisma.appointment.upsert({
       where: { bookingCode },
@@ -450,28 +568,17 @@ async function seedAppointments(doctors: Awaited<ReturnType<typeof upsertDoctor>
         appointmentDate: slot.date,
         startTime: slot.startTime,
         endTime: slot.endTime,
-        estimatedPrice,
-        serviceFee,
-        bhytDiscount,
-        finalAmount,
-      },
-      create: {
-        bookingCode,
-        appointmentDate: slot.date,
-        startTime: slot.startTime,
-        endTime: slot.endTime,
-        status,
-        reason: index % 2 === 0 ? "Khám định kỳ và tư vấn sức khỏe." : "Đau đầu, mệt mỏi cần kiểm tra.",
+        reason,
         patientName: patient.fullName,
         patientPhone: patient.phone || "",
         patientEmail: patient.email,
-        patientGender: index % 2 === 0 ? "FEMALE" : "MALE",
-        patientDateOfBirth: parseDateOnly(`199${index}-0${(index % 8) + 1}-15`),
+        patientGender,
+        patientDateOfBirth,
         hasBHYT,
-        healthInsuranceCode: hasBHYT ? `DN40101234${index}` : null,
-        registeredHospital: hasBHYT ? "Bệnh viện Quận Bình Thạnh" : null,
-        allergies: index % 3 === 0 ? "Dị ứng hải sản" : null,
-        medicalHistory: index % 2 === 0 ? "Không ghi nhận bệnh nền." : "Tiền sử viêm dạ dày.",
+        healthInsuranceCode,
+        registeredHospital,
+        allergies,
+        medicalHistory,
         familyHistory: "Chưa ghi nhận.",
         estimatedPrice,
         serviceFee,
@@ -481,15 +588,47 @@ async function seedAppointments(doctors: Awaited<ReturnType<typeof upsertDoctor>
         doctorId: doctor.id,
         departmentId: doctor.departmentId,
         packageId: packageItem.id,
-        timeSlotId: slot.id,
+        timeSlotId: releasesSlot ? null : slot.id,
         confirmedAt: ["CONFIRMED", "CHECKED_IN", "IN_PROGRESS", "COMPLETED"].includes(status) ? new Date() : null,
         completedAt: status === "COMPLETED" ? new Date() : null,
+        cancelledAt: releasesSlot ? new Date() : null,
+      },
+      create: {
+        bookingCode,
+        appointmentDate: slot.date,
+        startTime: slot.startTime,
+        endTime: slot.endTime,
+        status,
+        reason,
+        patientName: patient.fullName,
+        patientPhone: patient.phone || "",
+        patientEmail: patient.email,
+        patientGender,
+        patientDateOfBirth,
+        hasBHYT,
+        healthInsuranceCode,
+        registeredHospital,
+        allergies,
+        medicalHistory,
+        familyHistory: "Chưa ghi nhận.",
+        estimatedPrice,
+        serviceFee,
+        bhytDiscount,
+        finalAmount,
+        patientId: patient.id,
+        doctorId: doctor.id,
+        departmentId: doctor.departmentId,
+        packageId: packageItem.id,
+        timeSlotId: releasesSlot ? null : slot.id,
+        confirmedAt: ["CONFIRMED", "CHECKED_IN", "IN_PROGRESS", "COMPLETED"].includes(status) ? new Date() : null,
+        completedAt: status === "COMPLETED" ? new Date() : null,
+        cancelledAt: releasesSlot ? new Date() : null,
       },
     });
 
     await prisma.doctorTimeSlot.update({
       where: { id: slot.id },
-      data: { status: status === "CANCELLED_BY_PATIENT" || status === "NO_SHOW" ? "AVAILABLE" : "BOOKED" },
+      data: { status: releasesSlot ? "AVAILABLE" : "BOOKED" },
     });
 
     created.push(appointment);
@@ -498,11 +637,29 @@ async function seedAppointments(doctors: Awaited<ReturnType<typeof upsertDoctor>
   return created;
 }
 
+async function seedConsultationRequests() {
+  const items = [
+    { fullName: "Nguyễn Lan", phone: "0371111222", message: "Tôi cần tư vấn chọn chuyên khoa cho đau dạ dày.", status: "NEW" as const },
+    { fullName: "Hoàng Minh", phone: "0373333444", message: "Tôi muốn đặt lịch khám tim mạch cuối tuần.", status: "CONTACTED" as const, note: "Đã gọi tư vấn." },
+    { fullName: "Trúc Anh", phone: "0375555666", message: "Hỏi về gói khám tổng quát cho gia đình.", status: "NEW" as const },
+  ];
+
+  await prisma.$transaction(async (tx) => {
+    await tx.consultationRequest.deleteMany({
+      where: { phone: { in: items.map((item) => item.phone) } },
+    });
+    await tx.consultationRequest.createMany({ data: items });
+  });
+}
+
 async function seedClinicalFlow() {
   const completedAppointments = await prisma.appointment.findMany({
-    where: { status: "COMPLETED" },
+    where: {
+      status: "COMPLETED",
+      bookingCode: { startsWith: "BKDEMO" },
+    },
     take: 4,
-    include: { doctor: true, patient: true },
+    include: { doctor: true, patient: true, package: true },
     orderBy: { createdAt: "asc" },
   });
 
@@ -511,6 +668,11 @@ async function seedClinicalFlow() {
     const recordCode = `MRDEMO${String(index + 1).padStart(4, "0")}`;
     const prescriptionCode = `RXDEMO${String(index + 1).padStart(4, "0")}`;
     const invoiceCode = `IVDEMO${String(index + 1).padStart(4, "0")}`;
+    const insurance = buildDemoInsurance({
+      hasBHYT: appointment.hasBHYT,
+      isBHYTSupport: appointment.package?.isBHYTSupport ?? false,
+      estimatedPrice: appointment.estimatedPrice,
+    });
 
     const record = await prisma.medicalRecord.upsert({
       where: { appointmentId: appointment.id },
@@ -567,16 +729,20 @@ async function seedClinicalFlow() {
       ],
     });
 
-    await prisma.invoice.upsert({
+    const invoice = await prisma.invoice.upsert({
       where: { appointmentId: appointment.id },
       update: {
         totalAmount: appointment.estimatedPrice + appointment.serviceFee,
-        bhytDiscount: appointment.bhytDiscount,
-        finalAmount: appointment.finalAmount,
-        insuranceEligibleAmount: appointment.hasBHYT ? appointment.estimatedPrice : 0,
-        insuranceCoverageRate: appointment.hasBHYT ? 80 : 0,
-        insuranceDiscountAmount: appointment.bhytDiscount,
-        insuranceRouteType: appointment.hasBHYT ? "RIGHT_ROUTE" : null,
+        bhytDiscount: insurance.discountAmount,
+        finalAmount:
+          appointment.estimatedPrice +
+          appointment.serviceFee -
+          insurance.discountAmount,
+        insuranceEligibleAmount: insurance.eligibleAmount,
+        insuranceCoverageRate: insurance.coverageRate,
+        insuranceDiscountAmount: insurance.discountAmount,
+        insuranceRouteType: insurance.routeType,
+        insuranceNote: insurance.note,
         status: index === 0 ? "PAID" : index === 1 ? "UNPAID" : "REFUNDED",
         paymentMethod: index === 1 ? null : "CASH",
         paidAt: index === 1 ? null : new Date(),
@@ -589,19 +755,50 @@ async function seedClinicalFlow() {
         appointmentId: appointment.id,
         patientId: appointment.patientId,
         totalAmount: appointment.estimatedPrice + appointment.serviceFee,
-        bhytDiscount: appointment.bhytDiscount,
-        finalAmount: appointment.finalAmount,
-        insuranceEligibleAmount: appointment.hasBHYT ? appointment.estimatedPrice : 0,
-        insuranceCoverageRate: appointment.hasBHYT ? 80 : 0,
-        insuranceDiscountAmount: appointment.bhytDiscount,
-        insuranceRouteType: appointment.hasBHYT ? "RIGHT_ROUTE" : null,
-        insuranceNote: appointment.hasBHYT ? "Demo đúng tuyến, áp dụng mức hưởng tham khảo." : null,
+        bhytDiscount: insurance.discountAmount,
+        finalAmount:
+          appointment.estimatedPrice +
+          appointment.serviceFee -
+          insurance.discountAmount,
+        insuranceEligibleAmount: insurance.eligibleAmount,
+        insuranceCoverageRate: insurance.coverageRate,
+        insuranceDiscountAmount: insurance.discountAmount,
+        insuranceRouteType: insurance.routeType,
+        insuranceNote: insurance.note,
         status: index === 0 ? "PAID" : index === 1 ? "UNPAID" : "REFUNDED",
         paymentMethod: index === 1 ? null : "CASH",
         paidAt: index === 1 ? null : new Date(),
         refundReason: index > 1 ? "Hoàn tiền demo theo yêu cầu kiểm thử." : null,
         refundedAt: index > 1 ? new Date() : null,
       },
+    });
+
+    await prisma.invoiceItem.deleteMany({ where: { invoiceId: invoice.id } });
+    await prisma.invoiceItem.createMany({
+      data: [
+        {
+          invoiceId: invoice.id,
+          type: appointment.package ? "PACKAGE" : "CONSULTATION",
+          description: appointment.package
+            ? `Gói khám: ${appointment.package.name}`
+            : "Phí khám bác sĩ",
+          quantity: 1,
+          unitPrice: appointment.estimatedPrice,
+          amount: appointment.estimatedPrice,
+          sortOrder: 0,
+        },
+        ...(appointment.serviceFee > 0
+          ? [{
+              invoiceId: invoice.id,
+              type: "SERVICE_FEE" as const,
+              description: "Phí dịch vụ đặt lịch",
+              quantity: 1,
+              unitPrice: appointment.serviceFee,
+              amount: appointment.serviceFee,
+              sortOrder: 1,
+            }]
+          : []),
+      ],
     });
   }
 }
@@ -612,12 +809,12 @@ async function seedDemoData() {
   const [admin, staff, ...doctorUsers] = await Promise.all([
     upsertUser({ fullName: "Admin DevKun", phone: "0352412318", email: "devkun22@gmail.com", role: "ADMIN", password: PASSWORD }),
     upsertUser({ fullName: "Staff Demo", phone: "0352147201", email: "staff.demo@hospital.test", role: "STAFF", password: PASSWORD }),
-    upsertUser({ fullName: "ThS.BS Nguyễn Văn Bắc Sĩ", phone: "0352147202", email: "doctor.cardio@hospital.test", role: "DOCTOR", password: PASSWORD }),
-    upsertUser({ fullName: "BS.CK1 Trần Thị Bác Sĩ", phone: "0352147203", email: "doctor.general@hospital.test", role: "DOCTOR", password: PASSWORD }),
-    upsertUser({ fullName: "BS.CK1 Lê Minh Khoa", phone: "0352412319", email: "doctor.khoa@hospital.test", role: "DOCTOR", password: PASSWORD }),
-    upsertUser({ fullName: "ThS.BS Phạm An Nhiên", phone: "0352147205", email: "doctor.obgyn@hospital.test", role: "DOCTOR", password: PASSWORD }),
-    upsertUser({ fullName: "BS.CK2 Đỗ Quang Huy", phone: "0352147206", email: "doctor.derma@hospital.test", role: "DOCTOR", password: PASSWORD }),
-    upsertUser({ fullName: "ThS.BS Võ Thanh Tâm", phone: "0352147207", email: "doctor.ent@hospital.test", role: "DOCTOR", password: PASSWORD }),
+    upsertUser({ fullName: "Nguyễn Văn Bắc Sĩ", phone: "0352147202", email: "doctor.cardio@hospital.test", role: "DOCTOR", password: PASSWORD }),
+    upsertUser({ fullName: "Trần Thị Bác Sĩ", phone: "0352147203", email: "doctor.general@hospital.test", role: "DOCTOR", password: PASSWORD }),
+    upsertUser({ fullName: "Lê Minh Khoa", phone: "0352412319", email: "doctor.khoa@hospital.test", role: "DOCTOR", password: PASSWORD }),
+    upsertUser({ fullName: "Phạm An Nhiên", phone: "0352147205", email: "doctor.obgyn@hospital.test", role: "DOCTOR", password: PASSWORD }),
+    upsertUser({ fullName: "Đỗ Quang Huy", phone: "0352147206", email: "doctor.derma@hospital.test", role: "DOCTOR", password: PASSWORD }),
+    upsertUser({ fullName: "Võ Thanh Tâm", phone: "0352147207", email: "doctor.ent@hospital.test", role: "DOCTOR", password: PASSWORD }),
   ]);
 
   const departments = await Promise.all([
@@ -670,8 +867,9 @@ async function seedDemoData() {
     doctorUsers.map((user, index) =>
       upsertDoctor({
         userId: user.id,
+        fullName: user.fullName,
         departmentId: departments[index].id,
-        title: index % 2 === 0 ? "ThS.BS" : "BS.CK1",
+        title: ["ThS.BS", "BS.CK1", "BS.CK1", "ThS.BS", "BS.CK2", "ThS.BS"][index],
         specialization: departments[index].name.replace("Khoa ", ""),
         bio: `Bác sĩ ${user.fullName} có kinh nghiệm khám và tư vấn ${departments[index].name.toLowerCase()}.`,
         experience: 5 + index,
@@ -768,15 +966,11 @@ async function seedDemoData() {
   await upsertSiteContent();
   await upsertChatbotContent();
   await seedAppointments(doctors, packages);
-  await seedClinicalFlow();
-
-  await prisma.consultationRequest.createMany({
-    data: [
-      { fullName: "Nguyễn Lan", phone: "0371111222", message: "Tôi cần tư vấn chọn chuyên khoa cho đau dạ dày.", status: "NEW" },
-      { fullName: "Hoàng Minh", phone: "0373333444", message: "Tôi muốn đặt lịch khám tim mạch cuối tuần.", status: "CONTACTED", note: "Đã gọi tư vấn." },
-      { fullName: "Trúc Anh", phone: "0375555666", message: "Hỏi về gói khám tổng quát cho gia đình.", status: "NEW" },
-    ],
+  const reconciliation = await ScheduleReconciliationService.reconcile({
+    repair: true,
   });
+  await seedClinicalFlow();
+  await seedConsultationRequests();
 
   console.log("Seed demo data completed");
   console.table([
@@ -787,6 +981,7 @@ async function seedDemoData() {
     { key: "doctors", value: doctors.length },
     { key: "packages", value: packages.length },
     { key: "generatedSlots", value: slotCounts.reduce((total, count) => total + count, 0) },
+    { key: "reconciledSlots", value: reconciliation.repairedCount },
     { key: "resetDatabase", value: resetRequested ? "yes" : "no" },
   ]);
 }

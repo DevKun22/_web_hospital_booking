@@ -36,8 +36,15 @@ console.log("[integration-test] Applying migrations to the dedicated test databa
 run(process.execPath, [cliEntry("prisma"), "migrate", "deploy"]);
 
 console.log("[integration-test] Running Phase 0 + Phase 1 integration contracts...");
+const testNamePattern = process.argv.slice(2).join(" ").trim();
 run(process.execPath, [
   cliEntry("tsx"),
   "--test",
+  // Every integration case resets the same dedicated schema. Serial execution
+  // prevents one case from truncating another case's fixture mid-transaction.
+  "--test-concurrency=1",
+  ...(testNamePattern
+    ? [`--test-name-pattern=${testNamePattern}`]
+    : []),
   "test/integration/baseline.test.ts",
 ]);

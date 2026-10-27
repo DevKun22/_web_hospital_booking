@@ -174,21 +174,48 @@ export const mockPaymentFailHandler = async (
 export const paymentProviderWebhookHandler = async (
   req: Request,
   res: Response,
+  next: NextFunction,
 ) => {
-  return res.status(501).json({
-    success: false,
-    message:
-      "Webhook provider chưa được tích hợp. Cần thêm adapter và xác thực chữ ký trước khi cập nhật thanh toán.",
-  });
+  try {
+    const provider = getParam(req.params.provider, "provider").toUpperCase();
+    if (provider !== "MOMO") {
+      throw new AppError(
+        "Nhà cung cấp chưa hỗ trợ webhook",
+        404,
+        "PAYMENT_PROVIDER_UNAVAILABLE",
+      );
+    }
+    const payload =
+      req.body && typeof req.body === "object" && !Array.isArray(req.body)
+        ? (req.body as Record<string, unknown>)
+        : {};
+    await PaymentService.handleMomoWebhook(payload);
+
+    // MoMo expects an HTTP 200 acknowledgement. Do not expose the internal
+    // transaction or patient data on this public provider callback.
+    return res.status(200).json({
+      partnerCode: process.env.MOMO_PARTNER_CODE,
+      requestId: payload.requestId ?? "",
+      orderId: payload.orderId ?? "",
+      resultCode: 0,
+      message: "Callback received successfully",
+    });
+  } catch (error) {
+    next(error);
+  }
 };
 
 export const paymentProviderReturnHandler = async (
   req: Request,
   res: Response,
 ) => {
-  return res.status(501).json({
-    success: false,
+  return res.status(200).json({
+    success: true,
     message:
-      "Return URL provider chưa được tích hợp. Cần thêm adapter và xác thực chữ ký trước khi cập nhật thanh toán.",
+      "Đã quay lại từ cổng thanh toán. Vui lòng kiểm tra trạng thái giao dịch trong ứng dụng; kết quả cuối cùng được xác nhận qua IPN.",
+    data: {
+      provider: getParam(req.params.provider, "provider").toUpperCase(),
+      orderId: typeof req.query.orderId === "string" ? req.query.orderId : null,
+    },
   });
 };

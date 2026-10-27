@@ -1,5 +1,6 @@
 import type { Request, Response, NextFunction } from "express";
 import DoctorService from "../services/doctor.service.js";
+import PublicBootstrapService from "../services/publicBootstrap.service.js";
 import {
   getRequiredPathParam as getParam,
   parseBooleanQuery,
@@ -57,6 +58,7 @@ export const createDoctorHandler = async (
 ) => {
   try {
     const doctor = await DoctorService.create(req.body);
+    PublicBootstrapService.invalidate();
 
     return res.status(201).json({
       success: true,
@@ -78,6 +80,7 @@ export const updateDoctorHandler = async (
       getParam(req.params.id),
       req.body,
     );
+    PublicBootstrapService.invalidate();
 
     return res.json({
       success: true,
@@ -99,6 +102,7 @@ export const updateDoctorAvailabilityHandler = async (
       getParam(req.params.id),
       req.body.isAvailable,
     );
+    PublicBootstrapService.invalidate();
 
     return res.json({
       success: true,
@@ -117,6 +121,7 @@ export const deleteDoctorHandler = async (
 ) => {
   try {
     const doctor = await DoctorService.delete(getParam(req.params.id));
+    PublicBootstrapService.invalidate();
 
     return res.json({
       success: true,

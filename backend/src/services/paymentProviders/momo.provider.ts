@@ -14,6 +14,41 @@ type MomoCreateResponse = {
   [key: string]: unknown;
 };
 
+export type VerifiedMomoCallback = {
+  partnerCode: string;
+  orderId: string;
+  requestId: string;
+  amount: number;
+  resultCode: number;
+  message: string;
+  transId: string | null;
+  responseTime: string | null;
+};
+
+const momoRequiredConfigurationKeys = [
+  "MOMO_PARTNER_CODE",
+  "MOMO_ACCESS_KEY",
+  "MOMO_SECRET_KEY",
+  "MOMO_REDIRECT_URL",
+  "MOMO_IPN_URL",
+] as const;
+
+const isEnabled = (value?: string) =>
+  ["true", "1", "yes", "on"].includes((value || "").toLowerCase());
+
+export const getMomoConfigurationStatus = (
+  env: NodeJS.ProcessEnv = process.env,
+) => {
+  const missing = momoRequiredConfigurationKeys.filter(
+    (key) => !env[key]?.trim(),
+  );
+  return {
+    enabled: isEnabled(env.PAYMENT_MOMO_ENABLED),
+    configured: missing.length === 0,
+    missing,
+  };
+};
+
 const requiredEnv = (key: string) => {
   const value = process.env[key];
 
@@ -96,11 +131,27 @@ export const momoPaymentProvider: PaymentProviderAdapter = {
       );
     }
 
+    let paymentUrl: URL;
+    try {
+      paymentUrl = new URL(responseBody.payUrl);
+    } catch {
+      throw new AppError("MoMo trả về đường dẫn thanh toán không hợp lệ", 502);
+    }
+    if (paymentUrl.protocol !== "https:") {
+      throw new AppError("MoMo trả về đường dẫn thanh toán không an toàn", 502);
+    }
+
+    const { signature: _signature, ...safeRequest } = requestBody;
     return {
       providerOrderId: responseBody.orderId || orderId,
-      paymentUrl: responseBody.payUrl,
-      rawRequest: requestBody,
-      rawResponse: responseBody as Prisma.InputJsonObject,
+      paymentUrl: paymentUrl.toString(),
+      rawRequest: safeRequest,
+      rawResponse: {
+        orderId: responseBody.orderId || orderId,
+        requestId: responseBody.requestId || requestId,
+        resultCode: responseBody.resultCode ?? null,
+        message: responseBody.message || "",
+      } as Prisma.InputJsonObject,
     };
   },
 };
@@ -108,22 +159,83 @@ export const momoPaymentProvider: PaymentProviderAdapter = {
 export const verifyMomoSignature = (payload: Record<string, unknown>) => {
   const secretKey = requiredEnv("MOMO_SECRET_KEY");
   const signature = String(payload.signature || "");
+  const value = (key: string) =>
+    payload[key] === undefined || payload[key] === null
+      ? ""
+      : String(payload[key]);
 
   const rawSignature = [
     `accessKey=${requiredEnv("MOMO_ACCESS_KEY")}`,
-    `amount=${payload.amount || ""}`,
-    `extraData=${payload.extraData || ""}`,
-    `message=${payload.message || ""}`,
-    `orderId=${payload.orderId || ""}`,
-    `orderInfo=${payload.orderInfo || ""}`,
-    `orderType=${payload.orderType || ""}`,
-    `partnerCode=${payload.partnerCode || ""}`,
-    `payType=${payload.payType || ""}`,
-    `requestId=${payload.requestId || ""}`,
-    `responseTime=${payload.responseTime || ""}`,
-    `resultCode=${payload.resultCode || ""}`,
-    `transId=${payload.transId || ""}`,
+    `amount=${value("amount")}`,
+    `extraData=${value("extraData")}`,
+    `message=${value("message")}`,
+    `orderId=${value("orderId")}`,
+    `orderInfo=${value("orderInfo")}`,
+    `orderType=${value("orderType")}`,
+    `partnerCode=${value("partnerCode")}`,
+    `payType=${value("payType")}`,
+    `requestId=${value("requestId")}`,
+    `responseTime=${value("responseTime")}`,
+    `resultCode=${value("resultCode")}`,
+    `transId=${value("transId")}`,
   ].join("&");
 
-  return signMomo(rawSignature, secretKey) === signature;
+  const expected = Buffer.from(signMomo(rawSignature, secretKey), "utf8");
+  const received = Buffer.from(signature.toLowerCase(), "utf8");
+  return (
+    expected.length === received.length &&
+    crypto.timingSafeEqual(expected, received)
+  );
+};
+
+const requiredCallbackString = (
+  payload: Record<string, unknown>,
+  key: string,
+) => {
+  const value = payload[key];
+  if (typeof value !== "string" || !value.trim()) {
+    throw new AppError(`MoMo callback thiếu ${key}`, 400, "INVALID_MOMO_CALLBACK");
+  }
+  return value.trim();
+};
+
+const requiredCallbackInteger = (
+  payload: Record<string, unknown>,
+  key: string,
+) => {
+  const value = Number(payload[key]);
+  if (!Number.isSafeInteger(value)) {
+    throw new AppError(`MoMo callback có ${key} không hợp lệ`, 400, "INVALID_MOMO_CALLBACK");
+  }
+  return value;
+};
+
+export const parseVerifiedMomoCallback = (
+  payload: Record<string, unknown>,
+): VerifiedMomoCallback => {
+  if (!verifyMomoSignature(payload)) {
+    throw new AppError(
+      "Chữ ký callback MoMo không hợp lệ",
+      401,
+      "INVALID_MOMO_SIGNATURE",
+    );
+  }
+
+  return {
+    partnerCode: requiredCallbackString(payload, "partnerCode"),
+    orderId: requiredCallbackString(payload, "orderId"),
+    requestId: requiredCallbackString(payload, "requestId"),
+    amount: requiredCallbackInteger(payload, "amount"),
+    resultCode: requiredCallbackInteger(payload, "resultCode"),
+    message:
+      typeof payload.message === "string" ? payload.message.slice(0, 500) : "",
+    transId:
+      payload.transId === undefined || payload.transId === null
+        ? null
+        : String(payload.transId),
+    responseTime:
+      payload.responseTime === undefined || payload.responseTime === null
+        ? null
+        : String(payload.responseTime),
+  };
 };

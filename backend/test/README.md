@@ -13,15 +13,10 @@ npm run test:types
 
 Set `TEST_DATABASE_URL` to a dedicated PostgreSQL database or schema. Its
 database name (or `schema` query parameter) must contain `test`, and it must
-not equal `DATABASE_URL`.
-
-Some managed providers, including Prisma Postgres, always expose `/postgres`
-in the URL even for a separately named test project. After verifying the URL
-belongs to a dedicated test project, add this explicit acknowledgement:
-
-```env
-TEST_DATABASE_DESTRUCTIVE_OK=I_UNDERSTAND_TEST_DATA_WILL_BE_DELETED
-```
+not equal `DATABASE_URL`. The test runner has no override for an unmarked
+database. For Prisma Postgres URLs ending in `/postgres`, add an isolated
+schema such as `?schema=hospital_booking_test` (or `&schema=...` when the URL
+already has query parameters).
 
 ```bash
 npm run test:integration
@@ -41,6 +36,9 @@ npm run test:phase0
 
 # Phase 0 + Phase 1 quality gate (recommended for the current branch)
 npm run test:phase1
+
+# One complete patient-care journey on TEST_DATABASE_URL
+npm run test:e2e
 ```
 
 ## Runtime checks
@@ -52,6 +50,9 @@ before rollout:
 npm run audit:phase0
 ```
 
-Production must run both `worker:otp` and `worker:appointments` with a valid
-`REDIS_URL`. The appointment worker owns delayed expiry jobs and periodic
-reconciliation; the dashboard cleanup endpoint remains an operational fallback.
+Production must run `worker:otp`, `worker:appointments` and
+`worker:notifications`. The OTP and appointment workers require a valid
+`QUEUE_REDIS_URL` (or legacy `REDIS_URL`). The notification worker reads pending
+deliveries from PostgreSQL and requires one Firebase Admin credential method.
+The appointment worker owns delayed expiry jobs and periodic reconciliation;
+the dashboard cleanup endpoint remains an operational fallback.

@@ -80,8 +80,8 @@ export const getUtcDayOfWeek = (date: Date) => date.getUTCDay();
 
 export const toDateOnly = (date: Date) => date.toISOString().slice(0, 10);
 
-export const getVietnamNowParts = () => {
-  const vietnamNow = new Date(Date.now() + 7 * 60 * 60 * 1000);
+export const getVietnamNowParts = (now = new Date()) => {
+  const vietnamNow = new Date(now.getTime() + 7 * 60 * 60 * 1000);
 
   return {
     date: toDateOnly(vietnamNow),

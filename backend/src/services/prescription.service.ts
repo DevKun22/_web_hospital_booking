@@ -3,6 +3,7 @@ import type { PrescriptionStatus, Role } from "../../generated/prisma/enums.js";
 import { prisma } from "../config/prisma.js";
 import { AppError } from "../utils/appError.js";
 import { generatePrescriptionCode } from "../utils/prescriptionCode.js";
+import PatientEventNotificationService from "./patientEventNotification.service.js";
 
 type Actor = {
   userId: string;
@@ -238,15 +239,34 @@ class PrescriptionService {
       );
     }
 
-    return prisma.prescription.update({
-      where: { id },
-      data: {
-        status: "ISSUED",
-        issuedAt: new Date(),
-        cancelledAt: null,
-      },
-      select: prescriptionSelect,
+    const transition = await prisma.$transaction(async (tx) => {
+      const updatedPrescription = await tx.prescription.update({
+        where: { id },
+        data: {
+          status: "ISSUED",
+          issuedAt: new Date(),
+          cancelledAt: null,
+        },
+        select: prescriptionSelect,
+      });
+      const notification =
+        await PatientEventNotificationService.createPrescriptionIssued(
+          {
+            userId: prescription.patient.id,
+            prescriptionId: prescription.id,
+            prescriptionCode: prescription.prescriptionCode,
+            bookingCode: prescription.appointment.bookingCode,
+          },
+          tx,
+        );
+
+      return { updatedPrescription, notificationId: notification.id };
     });
+
+    await PatientEventNotificationService.dispatchBestEffort(
+      transition.notificationId,
+    );
+    return transition.updatedPrescription;
   }
 
   async cancel(id: string, actor: Actor) {

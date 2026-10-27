@@ -12,6 +12,12 @@ const getParam = (value: string | string[] | undefined, name: string) => {
   return param;
 };
 
+const parseNumberQuery = (value: unknown) => {
+  if (typeof value !== "string") return undefined;
+  const number = Number(value);
+  return Number.isFinite(number) ? number : undefined;
+};
+
 export const listPublicDoctorsHandler = async (
   req: Request,
   res: Response,
@@ -29,6 +35,8 @@ export const listPublicDoctorsHandler = async (
         typeof req.query.departmentId === "string"
           ? req.query.departmentId
           : undefined,
+      includeHighlights: req.query.includeHighlights === "true",
+      limit: parseNumberQuery(req.query.limit),
     });
 
     return res.json({
@@ -40,14 +48,37 @@ export const listPublicDoctorsHandler = async (
   }
 };
 
+export const listPublicDoctorCatalogHandler = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const result = await PublicDoctorService.listCatalog({
+      search:
+        typeof req.query.search === "string" ? req.query.search : undefined,
+      departmentId:
+        typeof req.query.departmentId === "string"
+          ? req.query.departmentId
+          : undefined,
+      page: parseNumberQuery(req.query.page),
+      limit: parseNumberQuery(req.query.limit),
+    });
+
+    return res.json({ success: true, data: result });
+  } catch (error) {
+    next(error);
+  }
+};
+
 export const getPublicDoctorHandler = async (
   req: Request,
   res: Response,
   next: NextFunction,
 ) => {
   try {
-    const doctor = await PublicDoctorService.getById(
-      getParam(req.params.id, "id"),
+    const doctor = await PublicDoctorService.getByIdentifier(
+      getParam(req.params.id, "mã bác sĩ"),
     );
 
     return res.json({

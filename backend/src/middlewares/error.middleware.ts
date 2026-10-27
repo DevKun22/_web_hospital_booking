@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from "express";
+import { getSafeRequestPath } from "../observability/requestPerformance.js";
 
 export const errorMiddleware = (
   err: Error & { statusCode?: number; code?: string },
@@ -15,7 +16,7 @@ export const errorMiddleware = (
       ? "Internal server error"
       : err.message || "Internal server error";
 
-  const logMessage = `[HTTP_ERROR] requestId=${req.requestId} method=${req.method} path=${req.originalUrl} status=${statusCode} code=${code} message=${err.message}`;
+  const logMessage = `[HTTP_ERROR] requestId=${req.requestId} method=${req.method} path=${getSafeRequestPath(req.originalUrl)} status=${statusCode} code=${code} message=${err.message}`;
   if (statusCode >= 500) console.error(logMessage, err.stack || "");
   else console.warn(logMessage);
 

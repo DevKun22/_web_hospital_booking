@@ -3,13 +3,23 @@ import type {
   AppointmentStatus,
   InvoiceStatus,
   PaymentMethod,
+  Role,
   TimeSlotStatus,
 } from "../../generated/prisma/enums.js";
 import { prisma } from "../config/prisma.js";
+import AppointmentService from "./appointment.service.js";
+import DoctorTimeSlotService from "./doctorTimeSlot.service.js";
+import MedicalRecordService from "./medicalRecord.service.js";
+import PrescriptionService from "./prescription.service.js";
 
 type DateRangeInput = {
   from?: Date;
   to?: Date;
+};
+
+type DashboardActor = {
+  userId: string;
+  role: Role;
 };
 
 const toDateOnly = (date: Date) => date.toISOString().slice(0, 10);
@@ -79,6 +89,52 @@ const countBy = <T extends string | null>(
 const normalizeNullableKey = (value: string | null) => value || "unknown";
 
 class DashboardStatisticsService {
+  async getDoctorWorkspace(date: string, actor: DashboardActor) {
+    const [
+      todayAppointments,
+      checkedInAppointments,
+      inProgressAppointments,
+      draftRecords,
+      draftPrescriptions,
+      todaySlots,
+    ] = await Promise.all([
+      AppointmentService.dashboardList({ date, limit: 100 }, actor),
+      AppointmentService.dashboardList(
+        { status: "CHECKED_IN", limit: 20 },
+        actor,
+      ),
+      AppointmentService.dashboardList(
+        { status: "IN_PROGRESS", limit: 20 },
+        actor,
+      ),
+      MedicalRecordService.list({ status: "DRAFT", limit: 20 }, actor),
+      PrescriptionService.list({ status: "DRAFT", limit: 20 }, actor),
+      DoctorTimeSlotService.list({ date, limit: 200 }, actor),
+    ]);
+
+    return {
+      todayAppointments: todayAppointments.items,
+      checkedInAppointments: checkedInAppointments.items,
+      inProgressAppointments: inProgressAppointments.items,
+      draftRecords: draftRecords.items,
+      draftPrescriptions: draftPrescriptions.items,
+      todaySlots: todaySlots.items,
+    };
+  }
+
+  async getWorkspace(input: DateRangeInput) {
+    const [overview, appointments, revenue, doctors, departments] =
+      await Promise.all([
+        this.getOverview(input),
+        this.getAppointments(input),
+        this.getRevenue(input),
+        this.getDoctors(input),
+        this.getDepartments(input),
+      ]);
+
+    return { overview, appointments, revenue, doctors, departments };
+  }
+
   async getOverview(input: DateRangeInput) {
     const range = normalizeRange(input);
     const appointmentDate = buildDateTimeRange(range);

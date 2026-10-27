@@ -4,36 +4,8 @@ import { prisma } from "../config/prisma.js";
 import { AppError } from "../utils/appError.js";
 import { paginationMeta } from "../utils/pagination.js";
 import { parseDateOnly } from "../utils/time.js";
+import PatientAppointmentReadRepository from "../repositories/patientAppointmentRead.repository.js";
 import AppointmentService from "./appointment.service.js";
-
-const appointmentSelect = {
-  id: true,
-  bookingCode: true,
-  appointmentDate: true,
-  startTime: true,
-  endTime: true,
-  status: true,
-  reason: true,
-  estimatedPrice: true,
-  serviceFee: true,
-  bhytDiscount: true,
-  finalAmount: true,
-  confirmedAt: true,
-  cancelledAt: true,
-  cancelledReason: true,
-  completedAt: true,
-  createdAt: true,
-  doctor: {
-    select: {
-      id: true,
-      title: true,
-      specialization: true,
-      user: { select: { fullName: true, avatar: true } },
-    },
-  },
-  department: { select: { id: true, name: true, slug: true } },
-  package: { select: { id: true, name: true, slug: true } },
-} satisfies Prisma.AppointmentSelect;
 
 const medicalRecordSelect = {
   id: true,
@@ -50,6 +22,8 @@ const medicalRecordSelect = {
     select: {
       id: true,
       bookingCode: true,
+      patientName: true,
+      dependentProfileId: true,
       appointmentDate: true,
       startTime: true,
       endTime: true,
@@ -90,6 +64,8 @@ const prescriptionSelect = {
     select: {
       id: true,
       bookingCode: true,
+      patientName: true,
+      dependentProfileId: true,
       appointmentDate: true,
       startTime: true,
       endTime: true,
@@ -131,13 +107,30 @@ const invoiceSelect = {
   insuranceRouteType: true,
   status: true,
   paymentMethod: true,
+  paymentReference: true,
   paidAt: true,
+  refundReason: true,
+  refundReference: true,
   refundedAt: true,
   createdAt: true,
+  items: {
+    orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+    select: {
+      id: true,
+      type: true,
+      description: true,
+      quantity: true,
+      unitPrice: true,
+      amount: true,
+      sortOrder: true,
+    },
+  },
   appointment: {
     select: {
       id: true,
       bookingCode: true,
+      patientName: true,
+      dependentProfileId: true,
       appointmentDate: true,
       startTime: true,
       endTime: true,
@@ -276,25 +269,15 @@ class PatientPortalService {
   }
 
   async listAppointments(patientId: string, input: { page: number; limit: number; status?: AppointmentStatus }) {
-    const where: Prisma.AppointmentWhereInput = { patientId, status: input.status };
-    const [items, total] = await prisma.$transaction([
-      prisma.appointment.findMany({
-        where,
-        select: appointmentSelect,
-        orderBy: [{ appointmentDate: "desc" }, { startTime: "desc" }],
-        skip: (input.page - 1) * input.limit,
-        take: input.limit,
-      }),
-      prisma.appointment.count({ where }),
-    ]);
+    const { items, total } = await PatientAppointmentReadRepository.list({
+      patientId,
+      ...input,
+    });
     return { items, meta: paginationMeta(input.page, input.limit, total) };
   }
 
   async getAppointment(patientId: string, id: string) {
-    const item = await prisma.appointment.findFirst({
-      where: { id, patientId },
-      select: appointmentSelect,
-    });
+    const item = await PatientAppointmentReadRepository.findById(patientId, id);
     if (!item) throw new AppError("Không tìm thấy lịch hẹn", 404);
     return item;
   }
@@ -306,7 +289,7 @@ class PatientPortalService {
 
   async listMedicalRecords(patientId: string, input: { page: number; limit: number }) {
     const where: Prisma.MedicalRecordWhereInput = { patientId, status: "PUBLISHED" };
-    const [records, total] = await prisma.$transaction([
+    const [records, total] = await Promise.all([
       prisma.medicalRecord.findMany({
         where,
         select: medicalRecordSelect,
@@ -333,7 +316,7 @@ class PatientPortalService {
 
   async listPrescriptions(patientId: string, input: { page: number; limit: number }) {
     const where: Prisma.PrescriptionWhereInput = { patientId, status: "ISSUED" };
-    const [items, total] = await prisma.$transaction([
+    const [items, total] = await Promise.all([
       prisma.prescription.findMany({
         where,
         select: prescriptionSelect,
@@ -357,7 +340,7 @@ class PatientPortalService {
 
   async listInvoices(patientId: string, input: { page: number; limit: number; status?: InvoiceStatus }) {
     const where: Prisma.InvoiceWhereInput = { patientId, status: input.status };
-    const [items, total] = await prisma.$transaction([
+    const [items, total] = await Promise.all([
       prisma.invoice.findMany({
         where,
         select: invoiceSelect,

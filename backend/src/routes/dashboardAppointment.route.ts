@@ -8,6 +8,7 @@ import {
   getDashboardAppointmentHandler,
   listDashboardAppointmentsHandler,
   noShowDashboardAppointmentHandler,
+  rescheduleDashboardAppointmentHandler,
   startDashboardAppointmentHandler,
   updateDashboardAppointmentPatientInfoHandler,
   updateDashboardAppointmentStatusHandler,
@@ -16,6 +17,7 @@ import { authDashboard, requireRole } from "../middlewares/auth.middleware.js";
 import { validate } from "../middlewares/validate.middleware.js";
 import {
   cancelAppointmentSchema,
+  rescheduleAppointmentSchema,
   updateAppointmentPatientInfoSchema,
   updateAppointmentStatusSchema,
 } from "../validations/appointment.validation.js";
@@ -63,6 +65,12 @@ router.patch(
   "/:id/no-show",
   requireRole("ADMIN", "STAFF"),
   noShowDashboardAppointmentHandler,
+);
+router.patch(
+  "/:id/reschedule",
+  requireRole("ADMIN", "STAFF"),
+  validate(rescheduleAppointmentSchema),
+  rescheduleDashboardAppointmentHandler,
 );
 router.patch(
   "/:id/patient-info",

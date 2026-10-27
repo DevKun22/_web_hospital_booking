@@ -23,6 +23,11 @@ const getParam = (value: string | string[] | undefined, name = "id") => {
   return param;
 };
 
+const getActorId = (req: Request) => {
+  if (!req.user?.userId) throw new AppError("Chưa đăng nhập", 401);
+  return req.user.userId;
+};
+
 export const listInvoicesHandler = async (
   req: Request,
   res: Response,
@@ -125,7 +130,11 @@ export const payInvoiceHandler = async (
   next: NextFunction,
 ) => {
   try {
-    const invoice = await InvoiceService.pay(getParam(req.params.id), req.body);
+    const invoice = await InvoiceService.pay(
+      getParam(req.params.id),
+      req.body,
+      getActorId(req),
+    );
 
     return res.json({
       success: true,
@@ -143,7 +152,10 @@ export const cancelInvoiceHandler = async (
   next: NextFunction,
 ) => {
   try {
-    const invoice = await InvoiceService.cancel(getParam(req.params.id));
+    const invoice = await InvoiceService.cancel(
+      getParam(req.params.id),
+      getActorId(req),
+    );
 
     return res.json({
       success: true,
@@ -164,6 +176,7 @@ export const refundInvoiceHandler = async (
     const invoice = await InvoiceService.refund(
       getParam(req.params.id),
       req.body,
+      getActorId(req),
     );
 
     return res.json({

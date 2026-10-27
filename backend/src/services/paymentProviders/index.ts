@@ -5,6 +5,7 @@ import { createUnsupportedProvider } from "./unsupported.provider.js";
 import type { PaymentProviderAdapter } from "./types.js";
 import { isProductionLike } from "../../config/environment.js";
 import { AppError } from "../../utils/appError.js";
+import { getMomoConfigurationStatus } from "./momo.provider.js";
 
 const adapters = {
   MOCK: mockPaymentProvider,
@@ -22,22 +23,36 @@ const isEnabled = (value?: string) =>
 export const isMockPaymentEnabled = () =>
   !isProductionLike() && isEnabled(process.env.PAYMENT_MOCK_ENABLED);
 
-export const getPaymentProviderCapabilities = () => ({
-  providers: [
-    ...(isMockPaymentEnabled()
-      ? [
-          {
-            provider: "MOCK" as const,
-            label: "Thanh toán mô phỏng",
-            isMock: true,
-          },
-        ]
-      : []),
-  ],
-});
+export const getPaymentProviderCapabilities = () => {
+  const momo = getMomoConfigurationStatus();
+  return {
+    providers: [
+      ...(isMockPaymentEnabled()
+        ? [
+            {
+              provider: "MOCK" as const,
+              label: "Thanh toán mô phỏng",
+              isMock: true,
+            },
+          ]
+        : []),
+      ...(momo.enabled && momo.configured
+        ? [
+            {
+              provider: "MOMO" as const,
+              label: "Ví MoMo",
+              isMock: false,
+            },
+          ]
+        : []),
+    ],
+  };
+};
 
 export const assertPaymentProviderAvailable = (provider: PaymentProvider) => {
   if (provider === "MOCK" && isMockPaymentEnabled()) return;
+  const momo = getMomoConfigurationStatus();
+  if (provider === "MOMO" && momo.enabled && momo.configured) return;
 
   throw new AppError(
     provider === "MOCK"
@@ -64,4 +79,9 @@ export type {
   CreateProviderPaymentResult,
   PaymentProviderAdapter,
 } from "./types.js";
-export { verifyMomoSignature } from "./momo.provider.js";
+export {
+  getMomoConfigurationStatus,
+  parseVerifiedMomoCallback,
+  verifyMomoSignature,
+} from "./momo.provider.js";
+export type { VerifiedMomoCallback } from "./momo.provider.js";

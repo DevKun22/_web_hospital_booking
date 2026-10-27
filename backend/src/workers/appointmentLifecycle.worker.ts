@@ -1,6 +1,9 @@
 import "dotenv/config";
 import { Worker } from "bullmq";
-import { validateRuntimeEnvironment } from "../config/environment.js";
+import {
+  shouldLogWorkerNoop,
+  validateRuntimeEnvironment,
+} from "../config/environment.js";
 import { prisma } from "../config/prisma.js";
 import {
   APPOINTMENT_LIFECYCLE_QUEUE_NAME,
@@ -13,6 +16,7 @@ import ScheduleReconciliationService from "../services/scheduleReconciliation.se
 
 validateRuntimeEnvironment();
 await ensurePendingOtpReconciliation();
+const logNoop = shouldLogWorkerNoop();
 
 const worker = new Worker<AppointmentLifecycleJobData>(
   APPOINTMENT_LIFECYCLE_QUEUE_NAME,
@@ -21,25 +25,40 @@ const worker = new Worker<AppointmentLifecycleJobData>(
       const result = await AppointmentService.expirePendingOtpAppointment(
         job.data.appointmentId,
       );
-      console.log(
-        `[APPOINTMENT_EXPIRY] appointment=${job.data.appointmentId} outcome=${result.outcome}`,
-      );
+      if (logNoop || result.outcome !== "NOOP") {
+        console.log(
+          `[APPOINTMENT_EXPIRY] appointment=${job.data.appointmentId} outcome=${result.outcome}`,
+        );
+      }
       return result;
     }
 
     if (job.data.type === "RECONCILE_SLOT_CONSISTENCY") {
       const result = await ScheduleReconciliationService.reconcile();
-      console.log(
-        `[SLOT_RECONCILIATION] scanned=${result.scanned} findings=${result.findingCount} repaired=${result.repairedCount}`,
-      );
+      if (logNoop || result.findingCount > 0 || result.repairedCount > 0) {
+        console.log(
+          `[SLOT_RECONCILIATION] scanned=${result.scanned} findings=${result.findingCount} repaired=${result.repairedCount}`,
+        );
+      }
       return result;
     }
 
-    const result = await AppointmentService.reconcileExpiredPendingOtp();
-    console.log(
-      `[APPOINTMENT_RECONCILIATION] scanned=${result.scanned} expired=${result.expired} noop=${result.noop}`,
-    );
-    return result;
+    const [pendingOtp, pendingConfirm] = await Promise.all([
+      AppointmentService.reconcileExpiredPendingOtp(),
+      AppointmentService.reconcilePastPendingConfirmations(),
+    ]);
+    if (
+      logNoop ||
+      pendingOtp.scanned > 0 ||
+      pendingOtp.expired > 0 ||
+      pendingConfirm.scanned > 0 ||
+      pendingConfirm.expired > 0
+    ) {
+      console.log(
+        `[APPOINTMENT_RECONCILIATION] pendingOtp(scanned=${pendingOtp.scanned}, expired=${pendingOtp.expired}, noop=${pendingOtp.noop}) pendingConfirm(scanned=${pendingConfirm.scanned}, expired=${pendingConfirm.expired}, noop=${pendingConfirm.noop})`,
+      );
+    }
+    return { pendingOtp, pendingConfirm };
   },
   {
     connection: getRedisConnectionOptions(),

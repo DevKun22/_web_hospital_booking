@@ -2,6 +2,7 @@ import jwt, { JwtPayload, SignOptions } from "jsonwebtoken";
 
 const JWT_SECRET = process.env.JWT_SECRET!;
 const PATIENT_TOKEN_AUDIENCE = "hospital-patient-api";
+const DASHBOARD_TOKEN_AUDIENCE = "hospital-dashboard-api";
 const TOKEN_ISSUER = "hospital-booking-api";
 
 export interface TokenPayload extends JwtPayload {
@@ -11,20 +12,39 @@ export interface TokenPayload extends JwtPayload {
   tokenType?: "DASHBOARD_ACCESS" | "PATIENT_ACCESS";
 }
 
-const JWT_EXPIRES_IN: SignOptions["expiresIn"] = (process.env.JWT_EXPIRES_IN ||
-  "7d") as SignOptions["expiresIn"];
+export const generateDashboardAccessToken = (
+  payload: Omit<TokenPayload, "tokenType"> & { sessionId: string },
+  expiresIn: SignOptions["expiresIn"],
+) =>
+  jwt.sign(
+    {
+      ...payload,
+      tokenType: "DASHBOARD_ACCESS",
+    },
+    JWT_SECRET,
+    {
+      expiresIn,
+      audience: DASHBOARD_TOKEN_AUDIENCE,
+      issuer: TOKEN_ISSUER,
+      subject: payload.userId,
+    },
+  );
 
-export const generateToken = (
-  payload: TokenPayload,
-  expiresIn: SignOptions["expiresIn"] = JWT_EXPIRES_IN,
-) => {
-  return jwt.sign(payload, JWT_SECRET, {
-    expiresIn,
-  });
-};
+export const verifyDashboardAccessToken = (token: string): TokenPayload => {
+  const payload = jwt.verify(token, JWT_SECRET, {
+    audience: DASHBOARD_TOKEN_AUDIENCE,
+    issuer: TOKEN_ISSUER,
+  }) as TokenPayload;
 
-export const verifyToken = (token: string): TokenPayload => {
-  return jwt.verify(token, JWT_SECRET) as TokenPayload;
+  if (
+    payload.tokenType !== "DASHBOARD_ACCESS" ||
+    !payload.sessionId ||
+    payload.sub !== payload.userId
+  ) {
+    throw new Error("Invalid dashboard access token");
+  }
+
+  return payload;
 };
 
 export const generatePatientAccessToken = (

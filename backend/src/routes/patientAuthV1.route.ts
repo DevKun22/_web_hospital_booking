@@ -1,7 +1,9 @@
 import { Router } from "express";
 import {
+  disablePatientPushTokenHandler,
   listPatientSessionsHandler,
   logoutPatientHandler,
+  registerPatientPushTokenHandler,
   refreshPatientSessionHandler,
   requestPatientOtpHandler,
   revokePatientSessionHandler,
@@ -11,6 +13,7 @@ import { authPatient } from "../middlewares/patientAuth.middleware.js";
 import { validate } from "../middlewares/validate.middleware.js";
 import {
   patientLogoutSchema,
+  patientPushTokenSchema,
   patientRefreshSchema,
   patientRequestOtpSchema,
   patientVerifyOtpSchema,
@@ -22,6 +25,13 @@ router.post("/patient/request-otp", validate(patientRequestOtpSchema), requestPa
 router.post("/patient/verify-otp", validate(patientVerifyOtpSchema), verifyPatientOtpHandler);
 router.post("/refresh", validate(patientRefreshSchema), refreshPatientSessionHandler);
 router.post("/logout", validate(patientLogoutSchema), logoutPatientHandler);
+router.put(
+  "/push-token",
+  authPatient,
+  validate(patientPushTokenSchema),
+  registerPatientPushTokenHandler,
+);
+router.delete("/push-token", authPatient, disablePatientPushTokenHandler);
 router.get("/sessions", authPatient, listPatientSessionsHandler);
 router.delete("/sessions/:id", authPatient, revokePatientSessionHandler);
 

@@ -4,9 +4,6 @@ const normalizeDatabaseUrl = (value: string) => {
   return url.toString();
 };
 
-export const UNMARKED_TEST_DATABASE_CONFIRMATION =
-  "I_UNDERSTAND_TEST_DATA_WILL_BE_DELETED";
-
 export const assertSafeTestDatabase = () => {
   const testDatabaseUrl = process.env.TEST_DATABASE_URL?.trim();
 
@@ -29,13 +26,10 @@ export const assertSafeTestDatabase = () => {
     .toLowerCase();
 
   const hasTestMarker = databaseMarker.includes("test");
-  const hasDestructiveConfirmation =
-    process.env.TEST_DATABASE_DESTRUCTIVE_OK ===
-    UNMARKED_TEST_DATABASE_CONFIRMATION;
 
-  if (!hasTestMarker && !hasDestructiveConfirmation) {
+  if (!hasTestMarker) {
     throw new Error(
-      "Refusing to run destructive integration tests: the database name/schema must contain 'test'. For managed providers whose URL always ends in '/postgres', set TEST_DATABASE_DESTRUCTIVE_OK=I_UNDERSTAND_TEST_DATA_WILL_BE_DELETED after confirming this is a dedicated test project.",
+      "Refusing to run destructive integration tests: the database name or schema must contain 'test'. There is no override for an unmarked database.",
     );
   }
 

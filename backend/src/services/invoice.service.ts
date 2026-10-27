@@ -10,6 +10,7 @@ import {
   generateInvoiceBarcode,
   generateInvoiceCode,
 } from "../utils/invoiceCode.js";
+import PatientEventNotificationService from "./patientEventNotification.service.js";
 
 type CreateInvoiceInput = {
   bhytDiscount?: number;
@@ -29,10 +30,12 @@ type UpdateInvoiceInput = {
 
 type PayInvoiceInput = {
   paymentMethod: PaymentMethod;
+  paymentReference?: string | null;
 };
 
 type RefundInvoiceInput = {
   refundReason: string;
+  refundReference?: string | null;
 };
 
 type InsuranceCalculationInput = {
@@ -50,8 +53,52 @@ type InsuranceAppointmentPolicy = {
   } | null;
 };
 
+type InvoiceItemSource = {
+  estimatedPrice: number;
+  serviceFee: number;
+  package: { name: string } | null;
+  department: { name: string };
+};
+
+type InvoiceItemDraft = {
+  type: "CONSULTATION" | "PACKAGE" | "SERVICE_FEE" | "OTHER";
+  description: string;
+  quantity: number;
+  unitPrice: number;
+  amount: number;
+  sortOrder: number;
+};
+
 const normalizeOptionalString = (value?: string | null) =>
   value === undefined ? undefined : value?.trim() || null;
+
+const buildInvoiceItems = (appointment: InvoiceItemSource) => {
+  const items: InvoiceItemDraft[] = [
+    {
+      type: appointment.package ? "PACKAGE" as const : "CONSULTATION" as const,
+      description: appointment.package
+        ? `Gói khám: ${appointment.package.name}`
+        : `Phí khám: ${appointment.department.name}`,
+      quantity: 1,
+      unitPrice: appointment.estimatedPrice,
+      amount: appointment.estimatedPrice,
+      sortOrder: 0,
+    },
+  ];
+
+  if (appointment.serviceFee > 0) {
+    items.push({
+      type: "SERVICE_FEE" as const,
+      description: "Phí dịch vụ đặt lịch",
+      quantity: 1,
+      unitPrice: appointment.serviceFee,
+      amount: appointment.serviceFee,
+      sortOrder: 1,
+    });
+  }
+
+  return items;
+};
 
 const calculateInsurance = (
   input: InsuranceCalculationInput,
@@ -132,11 +179,41 @@ export const invoiceSelect = {
   insuranceNote: true,
   status: true,
   paymentMethod: true,
+  paymentReference: true,
   paidAt: true,
   refundReason: true,
+  refundReference: true,
   refundedAt: true,
   createdAt: true,
   updatedAt: true,
+  items: {
+    orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+    select: {
+      id: true,
+      type: true,
+      description: true,
+      quantity: true,
+      unitPrice: true,
+      amount: true,
+      sortOrder: true,
+    },
+  },
+  paymentTransactions: {
+    orderBy: { createdAt: "desc" },
+    take: 10,
+    select: {
+      id: true,
+      provider: true,
+      status: true,
+      amount: true,
+      transactionCode: true,
+      providerOrderId: true,
+      paidAt: true,
+      expiredAt: true,
+      createdAt: true,
+      updatedAt: true,
+    },
+  },
   patient: {
     select: {
       id: true,
@@ -275,6 +352,7 @@ class InvoiceService {
       },
       select: {
         id: true,
+        bookingCode: true,
         status: true,
         patientId: true,
         hasBHYT: true,
@@ -283,7 +361,13 @@ class InvoiceService {
         bhytDiscount: true,
         package: {
           select: {
+            name: true,
             isBHYTSupport: true,
+          },
+        },
+        department: {
+          select: {
+            name: true,
           },
         },
         invoice: {
@@ -306,10 +390,18 @@ class InvoiceService {
     }
 
     if (appointment.invoice) {
-      throw new AppError("Lịch hẹn này đã có hóa đơn", 409);
+      throw new AppError(
+        "Lịch hẹn này đã có hóa đơn",
+        409,
+        "INVOICE_ALREADY_EXISTS",
+      );
     }
 
-    const totalAmount = appointment.estimatedPrice + appointment.serviceFee;
+    const invoiceItems = buildInvoiceItems(appointment);
+    const totalAmount = invoiceItems.reduce(
+      (sum, item) => sum + item.amount,
+      0,
+    );
     const insurance = calculateInsurance(
       input,
       totalAmount,
@@ -317,51 +409,95 @@ class InvoiceService {
       appointment.bhytDiscount,
     );
 
-    return prisma.$transaction(async (tx) => {
-      const invoice = await tx.invoice.create({
-        data: {
-          invoiceCode: await this.generateUniqueInvoiceCode(tx),
-          barcode: await this.generateUniqueBarcode(tx),
-          appointmentId: appointment.id,
-          patientId: appointment.patientId,
-          totalAmount,
-          bhytDiscount: insurance.bhytDiscount,
-          finalAmount: insurance.finalAmount,
-          insuranceEligibleAmount: insurance.insuranceEligibleAmount,
-          insuranceCoverageRate: insurance.insuranceCoverageRate,
-          insuranceDiscountAmount: insurance.insuranceDiscountAmount,
-          insuranceRouteType: insurance.insuranceRouteType,
-          insuranceNote: insurance.insuranceNote,
-          status: "UNPAID",
-        },
-        select: {
-          id: true,
-        },
-      });
+    let transition: {
+      createdInvoice: Prisma.InvoiceGetPayload<{ select: typeof invoiceSelect }>;
+      notificationId: string;
+    };
 
-      await tx.appointment.update({
-        where: {
-          id: appointment.id,
-        },
-        data: {
-          bhytDiscount: insurance.bhytDiscount,
-          finalAmount: insurance.finalAmount,
-          logs: {
-            create: {
-              action: "INVOICE_CREATED",
-              note: "Hóa đơn đã được tạo",
+    try {
+      transition = await prisma.$transaction(async (tx) => {
+        const invoice = await tx.invoice.create({
+          data: {
+            invoiceCode: await this.generateUniqueInvoiceCode(tx),
+            barcode: await this.generateUniqueBarcode(tx),
+            appointmentId: appointment.id,
+            patientId: appointment.patientId,
+            totalAmount,
+            bhytDiscount: insurance.bhytDiscount,
+            finalAmount: insurance.finalAmount,
+            insuranceEligibleAmount: insurance.insuranceEligibleAmount,
+            insuranceCoverageRate: insurance.insuranceCoverageRate,
+            insuranceDiscountAmount: insurance.insuranceDiscountAmount,
+            insuranceRouteType: insurance.insuranceRouteType,
+            insuranceNote: insurance.insuranceNote,
+            status: "UNPAID",
+            items: {
+              create: invoiceItems,
             },
           },
-        },
-      });
+          select: {
+            id: true,
+          },
+        });
 
-      return tx.invoice.findUniqueOrThrow({
-        where: {
-          id: invoice.id,
-        },
-        select: invoiceSelect,
+        await tx.appointment.update({
+          where: {
+            id: appointment.id,
+          },
+          data: {
+            bhytDiscount: insurance.bhytDiscount,
+            finalAmount: insurance.finalAmount,
+            logs: {
+              create: {
+                action: "INVOICE_CREATED",
+                note: "Hóa đơn đã được tạo",
+              },
+            },
+          },
+        });
+
+        const createdInvoice = await tx.invoice.findUniqueOrThrow({
+          where: {
+            id: invoice.id,
+          },
+          select: invoiceSelect,
+        });
+        const notification =
+          await PatientEventNotificationService.createInvoiceCreated(
+            {
+              userId: appointment.patientId,
+              invoiceId: createdInvoice.id,
+              invoiceCode: createdInvoice.invoiceCode,
+              bookingCode: appointment.bookingCode,
+              finalAmount: createdInvoice.finalAmount,
+            },
+            tx,
+          );
+
+        return { createdInvoice, notificationId: notification.id };
       });
-    });
+    } catch (error) {
+      if ((error as { code?: string }).code === "P2002") {
+        const existingInvoice = await prisma.invoice.findUnique({
+          where: { appointmentId: appointment.id },
+          select: { id: true },
+        });
+
+        if (existingInvoice) {
+          throw new AppError(
+            "Lịch hẹn này vừa được phát hành hóa đơn bởi một thao tác khác",
+            409,
+            "INVOICE_ALREADY_EXISTS",
+          );
+        }
+      }
+      throw error;
+    }
+
+    await PatientEventNotificationService.dispatchBestEffort(
+      transition.notificationId,
+    );
+    return transition.createdInvoice;
   }
 
   async updateFinancials(id: string, input: UpdateInvoiceInput) {
@@ -405,6 +541,36 @@ class InvoiceService {
     );
 
     return prisma.$transaction(async (tx) => {
+      await tx.$queryRaw(Prisma.sql`SELECT "id" FROM "Invoice" WHERE "id" = ${id} FOR UPDATE`);
+      const currentInvoice = await tx.invoice.findUniqueOrThrow({
+        where: { id },
+        select: { status: true },
+      });
+      if (!["UNPAID", "CANCELLED"].includes(currentInvoice.status)) {
+        throw new AppError(
+          "Hóa đơn đã được xử lý ở thao tác khác. Vui lòng tải lại dữ liệu.",
+          409,
+          "INVOICE_STATE_CONFLICT",
+        );
+      }
+      if (currentInvoice.status === "UNPAID") {
+        const pendingPayment = await tx.paymentTransaction.count({
+          where: {
+            invoiceId: id,
+            OR: [
+              { status: "PENDING" },
+              { status: "EXPIRED", provider: { in: ["MOMO", "VNPAY", "ZALOPAY"] } },
+            ],
+          },
+        });
+        if (pendingPayment > 0) {
+          throw new AppError(
+            "Không thể điều chỉnh hóa đơn khi còn giao dịch trực tuyến đang chờ",
+            409,
+            "ONLINE_PAYMENT_PENDING",
+          );
+        }
+      }
       await tx.appointment.update({
         where: {
           id: invoice.appointment.id,
@@ -416,7 +582,7 @@ class InvoiceService {
             create: {
               action: "INVOICE_CREATED",
               note:
-                invoice.status === "CANCELLED"
+                currentInvoice.status === "CANCELLED"
                   ? "Hóa đơn đã được điều chỉnh và mở lại"
                   : "Hóa đơn đã được điều chỉnh",
             },
@@ -424,8 +590,8 @@ class InvoiceService {
         },
       });
 
-      return tx.invoice.update({
-        where: { id },
+      const updated = await tx.invoice.updateMany({
+        where: { id, status: currentInvoice.status },
         data: {
           status: "UNPAID",
           bhytDiscount: insurance.bhytDiscount,
@@ -436,18 +602,15 @@ class InvoiceService {
           insuranceRouteType: insurance.insuranceRouteType,
           insuranceNote: insurance.insuranceNote,
         },
-        select: invoiceSelect,
       });
+      if (updated.count !== 1) {
+        throw new AppError("Trạng thái hóa đơn đã thay đổi", 409, "INVOICE_STATE_CONFLICT");
+      }
+      return tx.invoice.findUniqueOrThrow({ where: { id }, select: invoiceSelect });
     });
   }
 
-  async pay(id: string, input: PayInvoiceInput) {
-    const invoice = await this.getById(id);
-
-    if (invoice.status !== "UNPAID") {
-      throw new AppError("Chỉ có thể thanh toán hóa đơn chưa thanh toán", 400);
-    }
-
+  async pay(id: string, input: PayInvoiceInput, actorId?: string) {
     if (["MOMO", "VNPAY"].includes(input.paymentMethod)) {
       throw new AppError(
         "MOMO/VNPAY phải thanh toán qua API online payment",
@@ -455,53 +618,228 @@ class InvoiceService {
       );
     }
 
-    return prisma.invoice.update({
-      where: { id },
-      data: {
-        status: "PAID",
-        paymentMethod: input.paymentMethod,
-        paidAt: new Date(),
-      },
-      select: invoiceSelect,
+    const transition = await prisma.$transaction(async (tx) => {
+      await tx.$queryRaw(Prisma.sql`SELECT "id" FROM "Invoice" WHERE "id" = ${id} FOR UPDATE`);
+      const invoice = await tx.invoice.findUnique({
+        where: { id },
+        select: {
+          id: true,
+          status: true,
+          invoiceCode: true,
+          finalAmount: true,
+          patientId: true,
+          appointmentId: true,
+          appointment: { select: { bookingCode: true } },
+        },
+      });
+      if (!invoice) throw new AppError("Không tìm thấy hóa đơn", 404);
+      if (invoice.status !== "UNPAID") {
+        throw new AppError(
+          "Hóa đơn đã được xử lý ở thao tác khác. Vui lòng tải lại dữ liệu.",
+          409,
+          "INVOICE_STATE_CONFLICT",
+        );
+      }
+
+      const now = new Date();
+      await tx.paymentTransaction.updateMany({
+        where: { invoiceId: id, status: "PENDING", expiredAt: { lte: now } },
+        data: { status: "EXPIRED", activeKey: null },
+      });
+      const pendingOnlinePayment = await tx.paymentTransaction.findFirst({
+        where: {
+          invoiceId: id,
+          OR: [
+            { status: "PENDING" },
+            { status: "EXPIRED", provider: { in: ["MOMO", "VNPAY", "ZALOPAY"] } },
+          ],
+        },
+        select: { provider: true, transactionCode: true, expiredAt: true },
+      });
+      if (pendingOnlinePayment) {
+        throw new AppError(
+          `Hóa đơn đang chờ đối soát giao dịch ${pendingOnlinePayment.provider} ${pendingOnlinePayment.transactionCode}. Chỉ thu tại quầy sau khi giao dịch đã có kết quả cuối cùng.`,
+          409,
+          "ONLINE_PAYMENT_PENDING",
+        );
+      }
+
+      const paymentReference = normalizeOptionalString(input.paymentReference);
+      if (
+        ["CARD", "BANK_TRANSFER"].includes(input.paymentMethod) &&
+        !paymentReference
+      ) {
+        throw new AppError(
+          "Vui lòng nhập mã tham chiếu cho thanh toán thẻ hoặc chuyển khoản",
+          400,
+          "PAYMENT_REFERENCE_REQUIRED",
+        );
+      }
+
+      const claimed = await tx.invoice.updateMany({
+        where: { id, status: "UNPAID" },
+        data: {
+          status: "PAID",
+          paymentMethod: input.paymentMethod,
+          paymentReference,
+          paidAt: now,
+        },
+      });
+      if (claimed.count !== 1) {
+        throw new AppError(
+          "Hóa đơn đã được xử lý ở thao tác khác. Vui lòng tải lại dữ liệu.",
+          409,
+          "INVOICE_STATE_CONFLICT",
+        );
+      }
+      await tx.appointmentLog.create({
+        data: {
+          appointmentId: invoice.appointmentId,
+          action: "PAYMENT_RECORDED",
+          note: `Đã ghi nhận thanh toán ${input.paymentMethod}${paymentReference ? ` · ${paymentReference}` : ""}`,
+          createdById: actorId,
+        },
+      });
+      const paidInvoice = await tx.invoice.findUniqueOrThrow({
+        where: { id },
+        select: invoiceSelect,
+      });
+      const notification =
+        await PatientEventNotificationService.createPaymentSucceeded(
+          {
+            userId: invoice.patientId,
+            invoiceId: invoice.id,
+            invoiceCode: invoice.invoiceCode,
+            bookingCode: invoice.appointment.bookingCode,
+            finalAmount: invoice.finalAmount,
+          },
+          tx,
+        );
+
+      return { paidInvoice, notificationId: notification.id };
+    });
+
+    await PatientEventNotificationService.dispatchBestEffort(
+      transition.notificationId,
+    );
+    return transition.paidInvoice;
+  }
+
+  async cancel(id: string, actorId?: string) {
+    return prisma.$transaction(async (tx) => {
+      await tx.$queryRaw(Prisma.sql`SELECT "id" FROM "Invoice" WHERE "id" = ${id} FOR UPDATE`);
+      const invoice = await tx.invoice.findUnique({
+        where: { id },
+        select: { status: true, appointmentId: true },
+      });
+      if (!invoice) throw new AppError("Không tìm thấy hóa đơn", 404);
+      if (invoice.status !== "UNPAID") {
+        throw new AppError("Chỉ có thể hủy hóa đơn chưa thanh toán", 409, "INVOICE_STATE_CONFLICT");
+      }
+      const pending = await tx.paymentTransaction.count({
+        where: {
+          invoiceId: id,
+          OR: [
+            { status: "PENDING" },
+            { status: "EXPIRED", provider: { in: ["MOMO", "VNPAY", "ZALOPAY"] } },
+          ],
+        },
+      });
+      if (pending > 0) {
+        throw new AppError(
+          "Không thể hủy hóa đơn khi còn giao dịch trực tuyến đang chờ",
+          409,
+          "ONLINE_PAYMENT_PENDING",
+        );
+      }
+      const claimed = await tx.invoice.updateMany({
+        where: { id, status: "UNPAID" },
+        data: { status: "CANCELLED" },
+      });
+      if (claimed.count !== 1) throw new AppError("Trạng thái hóa đơn đã thay đổi", 409, "INVOICE_STATE_CONFLICT");
+      await tx.appointmentLog.create({
+        data: {
+          appointmentId: invoice.appointmentId,
+          action: "INVOICE_CANCELLED",
+          note: "Hóa đơn chưa thanh toán đã được hủy",
+          createdById: actorId,
+        },
+      });
+      return tx.invoice.findUniqueOrThrow({ where: { id }, select: invoiceSelect });
     });
   }
 
-  async cancel(id: string) {
-    const invoice = await this.getById(id);
+  async refund(id: string, input: RefundInvoiceInput, actorId?: string) {
+    const transition = await prisma.$transaction(async (tx) => {
+      await tx.$queryRaw(Prisma.sql`SELECT "id" FROM "Invoice" WHERE "id" = ${id} FOR UPDATE`);
+      const invoice = await tx.invoice.findUnique({
+        where: { id },
+        select: {
+          id: true,
+          status: true,
+          finalAmount: true,
+          paymentMethod: true,
+          invoiceCode: true,
+          patientId: true,
+          appointmentId: true,
+          appointment: { select: { bookingCode: true } },
+        },
+      });
+      if (!invoice) throw new AppError("Không tìm thấy hóa đơn", 404);
+      if (invoice.status !== "PAID") {
+        throw new AppError("Chỉ có thể hoàn tiền hóa đơn đã thanh toán", 409, "INVOICE_STATE_CONFLICT");
+      }
+      if (invoice.finalAmount <= 0) throw new AppError("Hóa đơn không có số tiền để hoàn", 400);
+      const refundReference = normalizeOptionalString(input.refundReference);
+      if (["MOMO", "VNPAY"].includes(invoice.paymentMethod || "") && !refundReference) {
+        throw new AppError(
+          "Cần mã tham chiếu từ cổng thanh toán trước khi ghi nhận hoàn tiền",
+          400,
+          "REFUND_REFERENCE_REQUIRED",
+        );
+      }
+      const refundedAt = new Date();
+      const claimed = await tx.invoice.updateMany({
+        where: { id, status: "PAID" },
+        data: {
+          status: "REFUNDED",
+          refundReason: input.refundReason.trim(),
+          refundReference,
+          refundedAt,
+        },
+      });
+      if (claimed.count !== 1) throw new AppError("Trạng thái hóa đơn đã thay đổi", 409, "INVOICE_STATE_CONFLICT");
+      await tx.appointmentLog.create({
+        data: {
+          appointmentId: invoice.appointmentId,
+          action: "PAYMENT_REFUNDED",
+          note: `Hoàn tiền: ${input.refundReason.trim()}${refundReference ? ` · ${refundReference}` : ""}`,
+          createdById: actorId,
+        },
+      });
+      const refundedInvoice = await tx.invoice.findUniqueOrThrow({
+        where: { id },
+        select: invoiceSelect,
+      });
+      const notification =
+        await PatientEventNotificationService.createPaymentRefunded(
+          {
+            userId: invoice.patientId,
+            invoiceId: invoice.id,
+            invoiceCode: invoice.invoiceCode,
+            bookingCode: invoice.appointment.bookingCode,
+            finalAmount: invoice.finalAmount,
+          },
+          tx,
+        );
 
-    if (invoice.status !== "UNPAID") {
-      throw new AppError("Chỉ có thể hủy hóa đơn chưa thanh toán", 400);
-    }
-
-    return prisma.invoice.update({
-      where: { id },
-      data: {
-        status: "CANCELLED",
-      },
-      select: invoiceSelect,
+      return { refundedInvoice, notificationId: notification.id };
     });
-  }
 
-  async refund(id: string, input: RefundInvoiceInput) {
-    const invoice = await this.getById(id);
-
-    if (invoice.status !== "PAID") {
-      throw new AppError("Chỉ có thể hoàn tiền hóa đơn đã thanh toán", 400);
-    }
-
-    if (invoice.finalAmount <= 0) {
-      throw new AppError("Hóa đơn không có số tiền để hoàn", 400);
-    }
-
-    return prisma.invoice.update({
-      where: { id },
-      data: {
-        status: "REFUNDED",
-        refundReason: input.refundReason.trim(),
-        refundedAt: new Date(),
-      },
-      select: invoiceSelect,
-    });
+    await PatientEventNotificationService.dispatchBestEffort(
+      transition.notificationId,
+    );
+    return transition.refundedInvoice;
   }
 
   private async generateUniqueInvoiceCode(tx: Prisma.TransactionClient) {

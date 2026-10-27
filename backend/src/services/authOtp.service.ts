@@ -165,37 +165,29 @@ class AuthOtpService {
   ) {
     const windowStart = new Date(Date.now() - OTP_WINDOW_MINUTES * 60 * 1000);
 
-    const [pairCount, phoneCount, ipCount] = await prisma.$transaction([
-      prisma.otpCode.count({
-        where: {
-          target,
-          channel,
-          purpose,
-          ipAddress,
-          createdAt: {
-            gte: windowStart,
-          },
-        },
-      }),
-      prisma.otpCode.count({
-        where: {
-          target,
-          channel,
-          purpose,
-          createdAt: {
-            gte: windowStart,
-          },
-        },
-      }),
-      prisma.otpCode.count({
-        where: {
-          ipAddress,
-          createdAt: {
-            gte: windowStart,
-          },
-        },
-      }),
-    ]);
+    const recentCodes = await prisma.otpCode.findMany({
+      where: {
+        createdAt: { gte: windowStart },
+        OR: [{ target, channel, purpose }, { ipAddress }],
+      },
+      select: {
+        target: true,
+        channel: true,
+        purpose: true,
+        ipAddress: true,
+      },
+    });
+    const matchesTarget = (item: (typeof recentCodes)[number]) =>
+      item.target === target &&
+      item.channel === channel &&
+      item.purpose === purpose;
+    const phoneCount = recentCodes.filter(matchesTarget).length;
+    const pairCount = recentCodes.filter(
+      (item) => matchesTarget(item) && item.ipAddress === ipAddress,
+    ).length;
+    const ipCount = recentCodes.filter(
+      (item) => item.ipAddress === ipAddress,
+    ).length;
 
     if (ipCount >= MAX_OTP_SENDS_PER_IP_WINDOW) {
       await this.createBlock({
@@ -257,30 +249,31 @@ class AuthOtpService {
       Date.now() - VERIFY_WINDOW_MINUTES * 60 * 1000,
     );
 
-    const [phoneFails, ipFails] = await prisma.$transaction([
-      prisma.otpVerifyAttempt.count({
-        where: {
-          target,
-          channel,
-          purpose,
-          success: false,
-          createdAt: {
-            gte: windowStart,
-          },
-        },
-      }),
-      ipAddress
-        ? prisma.otpVerifyAttempt.count({
-            where: {
-              ipAddress,
-              success: false,
-              createdAt: {
-                gte: windowStart,
-              },
-            },
-          })
-        : prisma.otpVerifyAttempt.count({ where: { id: "__none__" } }),
-    ]);
+    const recentFailures = await prisma.otpVerifyAttempt.findMany({
+      where: {
+        success: false,
+        createdAt: { gte: windowStart },
+        OR: [
+          { target, channel, purpose },
+          ...(ipAddress ? [{ ipAddress }] : []),
+        ],
+      },
+      select: {
+        target: true,
+        channel: true,
+        purpose: true,
+        ipAddress: true,
+      },
+    });
+    const phoneFails = recentFailures.filter(
+      (item) =>
+        item.target === target &&
+        item.channel === channel &&
+        item.purpose === purpose,
+    ).length;
+    const ipFails = ipAddress
+      ? recentFailures.filter((item) => item.ipAddress === ipAddress).length
+      : 0;
 
     if (ipAddress && ipFails >= MAX_VERIFY_FAILS_PER_IP_WINDOW) {
       await this.createBlock({

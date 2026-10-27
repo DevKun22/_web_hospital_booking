@@ -147,6 +147,7 @@ class SearchIndexer {
       where: { id },
       select: {
         id: true,
+        slug: true,
         title: true,
         bio: true,
         specialization: true,
@@ -185,7 +186,7 @@ class SearchIndexer {
       type: "doctor",
       title,
       description: doctor.bio || doctor.specialization,
-      url: `/doctors/${doctor.id}`,
+      url: `/bac-si/${doctor.slug}`,
       image: doctor.user.avatar,
       keywords: [
         title,

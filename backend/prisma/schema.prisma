@@ -31,6 +31,14 @@ enum Gender {
   OTHER
 }
 
+enum DependentRelationship {
+  CHILD
+  SPOUSE
+  PARENT
+  SIBLING
+  OTHER
+}
+
 enum AppointmentStatus {
   PENDING_OTP // Đã tạo lịch nhưng chưa xác thực OTP
   PENDING_CONFIRM // Đã xác thực OTP, chờ nhân viên/bác sĩ xác nhận
@@ -73,6 +81,13 @@ enum InvoiceStatus {
   PAID
   CANCELLED
   REFUNDED
+}
+
+enum InvoiceItemType {
+  CONSULTATION
+  PACKAGE
+  SERVICE_FEE
+  OTHER
 }
 
 enum PaymentMethod {
@@ -141,6 +156,9 @@ enum AppointmentLogAction {
   NO_SHOW
   MEDICAL_RESULT_CREATED
   INVOICE_CREATED
+  PAYMENT_RECORDED
+  INVOICE_CANCELLED
+  PAYMENT_REFUNDED
 }
 
 enum ScheduleChangeType {
@@ -175,6 +193,32 @@ enum TimeSlotStatus {
 enum SessionKind {
   DASHBOARD
   PATIENT
+}
+
+enum NotificationType {
+  SYSTEM_ANNOUNCEMENT
+  APPOINTMENT_CONFIRMED
+  APPOINTMENT_RESCHEDULED
+  APPOINTMENT_CANCELLED
+  APPOINTMENT_REMINDER
+  APPOINTMENT_NO_SHOW
+  APPOINTMENT_CHECKED_IN
+  APPOINTMENT_IN_PROGRESS
+  APPOINTMENT_COMPLETED
+  MEDICAL_RESULT_PUBLISHED
+  PRESCRIPTION_ISSUED
+  INVOICE_CREATED
+  PAYMENT_SUCCEEDED
+  PAYMENT_REFUNDED
+}
+
+enum NotificationDeliveryStatus {
+  PENDING
+  SENT
+  FAILED
+  EXHAUSTED
+  CANCELLED
+  INVALID_TOKEN
 }
 
 enum MediaOwnerType {
@@ -221,7 +265,10 @@ model User {
   dashboardLoginChallenges DashboardLoginChallenge[]
   dashboardSessions DashboardSession[]
   authRefreshTokens AuthRefreshToken[]
+  notifications            Notification[]
+  notificationPreference   NotificationPreference?
   mediaAssets MediaAsset[]
+  dependents               DependentProfile[]        @relation("DependentOwner")
 
   // Logs created by Admin/Staff/Doctor
   appointmentLogs AppointmentLog[]
@@ -261,6 +308,45 @@ model PatientProfile {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+// Hồ sơ người thân do một tài khoản bệnh nhân quản lý. Người thân không phải
+// là tài khoản đăng nhập riêng; owner vẫn là chủ sở hữu lịch, hồ sơ và thông báo.
+model DependentProfile {
+  id      String @id @default(uuid())
+  ownerId String
+  owner   User   @relation("DependentOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+
+  fullName     String
+  relationship DependentRelationship
+  phone        String?
+  email        String?
+  dateOfBirth  DateTime?
+  gender       Gender?
+  cccd         String?
+  address      String?
+
+  hasBHYT             Boolean @default(false)
+  healthInsuranceCode String?
+  registeredHospital  String?
+  allergies           String?
+  medicalHistory      String?
+  familyHistory       String?
+
+  isActive Boolean @default(true)
+
+  // Owner xác nhận có quyền quản lý/đặt lịch cho người này. Phiên bản giúp
+  // truy vết khi nội dung cam kết thay đổi trong tương lai.
+  consentConfirmedAt DateTime @default(now())
+  consentVersion     String   @default("v1")
+
+  appointments Appointment[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([ownerId, cccd])
+  @@index([ownerId, isActive])
 }
 
 // ===================== OTP =====================
@@ -359,6 +445,19 @@ model DashboardLoginChallenge {
   @@index([isUsed])
 }
 
+// Lưu dấu vết đăng nhập thất bại dưới dạng HMAC để giới hạn brute-force trên
+// toàn bộ các instance backend mà không lưu thêm số điện thoại/IP dạng rõ.
+model DashboardLoginFailure {
+  id String @id @default(uuid())
+
+  targetHash String
+  ipHash     String
+  createdAt  DateTime @default(now())
+
+  @@index([targetHash, createdAt])
+  @@index([ipHash, createdAt])
+}
+
 model DashboardSession {
   id String @id @default(uuid())
 
@@ -374,6 +473,9 @@ model DashboardSession {
   deviceName       String?
   platform         String?
   appVersion       String?
+  pushToken          String?     @unique
+  pushTokenUpdatedAt DateTime?
+  pushDisabledAt     DateTime?
 
   expiresAt  DateTime
   lastUsedAt DateTime?
@@ -383,11 +485,95 @@ model DashboardSession {
   updatedAt DateTime @updatedAt
 
   refreshTokens AuthRefreshToken[]
+  notificationDeliveries NotificationDelivery[]
 
   @@index([userId])
   @@index([userId, kind, revokedAt])
   @@index([expiresAt])
   @@index([revokedAt])
+}
+
+// Hộp thư trong ứng dụng là nguồn dữ liệu chính; FCM chỉ là kênh chuyển phát.
+model Notification {
+  id String @id @default(uuid())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  type  NotificationType
+  title String
+  body  String
+
+  // Mobile chỉ điều hướng các entityType đã được allowlist, không mở URL tùy ý.
+  entityType String?
+  entityId   String?
+  payload    Json    @default("{}")
+
+  // Cùng một chiến dịch tạo một bản ghi hộp thư cho mỗi người nhận.
+  // Trường này giúp dashboard tổng hợp/audit mà không tạo hệ thống gửi riêng.
+  campaignId  String?
+  createdById String?
+
+  dedupeKey String? @unique
+
+  scheduledAt  DateTime  @default(now())
+  publishedAt  DateTime?
+  dispatchedAt DateTime?
+  cancelledAt  DateTime?
+  readAt       DateTime?
+  expiresAt    DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  deliveries NotificationDelivery[]
+
+  @@index([userId, publishedAt])
+  @@index([userId, readAt, publishedAt])
+  @@index([scheduledAt, publishedAt, cancelledAt])
+  @@index([entityType, entityId])
+  @@index([campaignId, createdAt])
+}
+
+model NotificationDelivery {
+  id String @id @default(uuid())
+
+  notificationId String
+  notification   Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+
+  sessionId String
+  session   DashboardSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  status            NotificationDeliveryStatus @default(PENDING)
+  attempts          Int                        @default(0)
+  providerMessageId String?
+  lastError         String?
+  nextAttemptAt     DateTime?
+  sentAt            DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([notificationId, sessionId])
+  @@index([status, nextAttemptAt])
+  @@index([sessionId, status])
+}
+
+// Tùy chọn đồng bộ theo tài khoản. Inbox luôn giữ đầy đủ lịch sử nghiệp vụ;
+// các cờ này chỉ kiểm soát việc chuyển phát push ra thiết bị.
+model NotificationPreference {
+  userId String @id
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  appointmentUpdatesPush   Boolean @default(true)
+  appointmentRemindersPush Boolean @default(true)
+  medicalResultsPush       Boolean @default(true)
+  prescriptionsPush        Boolean @default(true)
+  billingPush              Boolean @default(true)
+  generalAnnouncementsPush Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model AuthRefreshToken {
@@ -466,6 +652,7 @@ model Department {
 
 model DoctorProfile {
   id     String @id @default(uuid())
+  slug   String @unique
   userId String @unique
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -558,6 +745,7 @@ model ScheduleChangeRequest {
   @@index([requestedById, status])
   @@index([status, createdAt])
 }
+
 // Slot khám cụ thể theo ngày để đặt lịch, chống trùng lịch
 model DoctorTimeSlot {
   id       String        @id @default(uuid())
@@ -685,6 +873,11 @@ model Appointment {
   patientId String
   patient   User   @relation("PatientAppointments", fields: [patientId], references: [id])
 
+  // Null = đặt cho bản thân. Có giá trị = snapshot phía trên thuộc hồ sơ người
+  // thân này; patientId vẫn là tài khoản quản lý và nhận OTP/thông báo.
+  dependentProfileId String?
+  dependentProfile   DependentProfile? @relation(fields: [dependentProfileId], references: [id], onDelete: SetNull)
+
   doctorId String
   doctor   DoctorProfile @relation("DoctorAppointments", fields: [doctorId], references: [id])
 
@@ -728,6 +921,8 @@ model Appointment {
   @@index([patientPhone])
   @@index([status])
   @@index([status, holdExpiresAt])
+  @@index([patientId, status, appointmentDate])
+  @@index([dependentProfileId, appointmentDate])
   @@index([rescheduledFromId])
 }
 
@@ -822,6 +1017,7 @@ model MedicalRecord {
   @@index([patientId])
   @@index([doctorId])
   @@index([recordCode])
+  @@index([patientId, status, publishedAt])
 }
 
 model LabResult {
@@ -875,6 +1071,7 @@ model Prescription {
   @@index([doctorId])
   @@index([prescriptionCode])
   @@index([status])
+  @@index([patientId, status, issuedAt])
 }
 
 model PrescriptionItem {
@@ -925,11 +1122,14 @@ model Invoice {
 
   status        InvoiceStatus  @default(UNPAID)
   paymentMethod PaymentMethod?
+  paymentReference String?
   paidAt        DateTime?
   refundReason  String?
+  refundReference String?
   refundedAt    DateTime?
 
   paymentTransactions PaymentTransaction[]
+  items               InvoiceItem[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -937,6 +1137,26 @@ model Invoice {
   @@index([barcode])
   @@index([invoiceCode])
   @@index([patientId])
+  @@index([patientId, status, createdAt])
+}
+
+model InvoiceItem {
+  id String @id @default(uuid())
+
+  invoiceId String
+  invoice   Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  type        InvoiceItemType
+  description String
+  quantity    Int             @default(1)
+  unitPrice   Int
+  amount      Int
+  sortOrder   Int             @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([invoiceId, sortOrder])
 }
 
 model PaymentTransaction {
