@@ -1,29 +1,10 @@
 import type { Request, Response, NextFunction } from "express";
 import DoctorService from "../services/doctor.service.js";
-import { AppError } from "../utils/appError.js";
-
-const parseBooleanQuery = (value: unknown) => {
-  if (value === "true") return true;
-  if (value === "false") return false;
-  return undefined;
-};
-
-const parseNumberQuery = (value: unknown) => {
-  if (typeof value !== "string") return undefined;
-
-  const number = Number(value);
-  return Number.isFinite(number) ? number : undefined;
-};
-
-const getParam = (value: string | string[] | undefined) => {
-  const param = Array.isArray(value) ? value[0] : value;
-
-  if (!param) {
-    throw new AppError("Thiếu id", 400);
-  }
-
-  return param;
-};
+import {
+  getRequiredPathParam as getParam,
+  parseBooleanQuery,
+  parseNumberQuery,
+} from "../shared/http/requestParsers.js";
 
 export const listDoctorsHandler = async (
   req: Request,

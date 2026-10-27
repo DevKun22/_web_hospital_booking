@@ -1,24 +1,11 @@
 import type { Request, Response, NextFunction } from "express";
 import type { AppointmentStatus, Role } from "../../generated/prisma/enums.js";
 import AppointmentService from "../services/appointment.service.js";
+import {
+  getRequiredPathParam as getParam,
+  parseNumberQuery,
+} from "../shared/http/requestParsers.js";
 import { AppError } from "../utils/appError.js";
-
-const parseNumberQuery = (value: unknown) => {
-  if (typeof value !== "string") return undefined;
-
-  const number = Number(value);
-  return Number.isFinite(number) ? number : undefined;
-};
-
-const getParam = (value: string | string[] | undefined, name = "id") => {
-  const param = Array.isArray(value) ? value[0] : value;
-
-  if (!param) {
-    throw new AppError(`Thiếu ${name}`, 400);
-  }
-
-  return param;
-};
 
 const getIpAddress = (req: Request) =>
   req.headers["x-forwarded-for"]?.toString().split(",")[0]?.trim() ||
