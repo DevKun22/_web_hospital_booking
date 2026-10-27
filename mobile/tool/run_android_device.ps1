@@ -39,8 +39,22 @@ try {
 
 $adbCommand = Get-Command adb -ErrorAction SilentlyContinue
 if ($null -eq $adbCommand) {
-  $sdkAdb = Join-Path $env:LOCALAPPDATA 'Android\Sdk\platform-tools\adb.exe'
-  if (-not (Test-Path -LiteralPath $sdkAdb -PathType Leaf)) {
+  $adbCandidates = @(
+    if ($env:ANDROID_SDK_ROOT) {
+      Join-Path $env:ANDROID_SDK_ROOT 'platform-tools\adb.exe'
+    }
+    if ($env:ANDROID_HOME) {
+      Join-Path $env:ANDROID_HOME 'platform-tools\adb.exe'
+    }
+    if ($env:LOCALAPPDATA) {
+      Join-Path $env:LOCALAPPDATA 'Android\Sdk\platform-tools\adb.exe'
+    }
+    'C:\Android\Sdk\platform-tools\adb.exe'
+  ) | Select-Object -Unique
+  $sdkAdb = $adbCandidates |
+    Where-Object { Test-Path -LiteralPath $_ -PathType Leaf } |
+    Select-Object -First 1
+  if ([string]::IsNullOrWhiteSpace($sdkAdb)) {
     throw 'adb was not found. Install Android platform-tools or add adb to PATH.'
   }
   $adb = $sdkAdb

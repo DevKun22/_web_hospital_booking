@@ -1,3 +1,5 @@
+import 'dart:ui' show Tristate;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -107,6 +109,29 @@ class _PackageBookingFlowController extends BookingFlowController {
   }
 }
 
+class _RecordingBookingFlowController extends BookingFlowController {
+  final appliedDepartments = <String?>[];
+
+  @override
+  BookingFlowState build() => const BookingFlowState(
+    departments: [
+      BookingDepartment(id: 'department-1', name: 'Tim mạch'),
+      BookingDepartment(id: 'department-2', name: 'Khoa nhi'),
+    ],
+  );
+
+  @override
+  Future<void> applyPreset({
+    String? packageId,
+    String? departmentId,
+    String? doctorId,
+    String? date,
+    String? timeSlotId,
+  }) async {
+    appliedDepartments.add(departmentId);
+  }
+}
+
 void main() {
   testWidgets('renders a complete server-backed booking selection', (
     tester,
@@ -134,6 +159,21 @@ void main() {
     expect(find.text('BS. CKI Nguyễn Văn An'), findsWidgets);
     expect(find.text('09:00 – 09:30'), findsWidgets);
     expect(find.text('ĐÃ CHỌN ĐỦ THÔNG TIN'), findsOneWidget);
+
+    final dateSemantics = tester.getSemantics(
+      find.byKey(ValueKey('booking-date-${_tomorrowInVietnam()}')),
+    );
+    final slotSemantics = tester.getSemantics(
+      find.byKey(const ValueKey('booking-slot-slot-1')),
+    );
+    expect(
+      dateSemantics.getSemanticsData().flagsCollection.isSelected,
+      Tristate.isTrue,
+    );
+    expect(
+      slotSemantics.getSemanticsData().flagsCollection.isSelected,
+      Tristate.isTrue,
+    );
   });
 
   testWidgets('renders package mode with locked department and package price', (
@@ -161,5 +201,49 @@ void main() {
     expect(find.text('Đổi gói'), findsOneWidget);
     expect(find.byIcon(Icons.lock_outline_rounded), findsOneWidget);
     expect(find.text('ĐÃ CHỌN ĐỦ THÔNG TIN'), findsOneWidget);
+  });
+
+  testWidgets('reapplies route preset when booking query changes', (
+    tester,
+  ) async {
+    final container = ProviderContainer(
+      overrides: [
+        bookingFlowControllerProvider.overrideWith(
+          _RecordingBookingFlowController.new,
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(
+          home: BookingStartScreen(
+            key: ValueKey('booking'),
+            departmentId: 'department-1',
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(
+          home: BookingStartScreen(
+            key: ValueKey('booking'),
+            departmentId: 'department-2',
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    final controller =
+        container.read(bookingFlowControllerProvider.notifier)
+            as _RecordingBookingFlowController;
+    expect(controller.appliedDepartments, ['department-1', 'department-2']);
   });
 }

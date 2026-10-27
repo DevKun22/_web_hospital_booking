@@ -46,16 +46,19 @@ class _FakeAppointmentsRepository extends AppointmentsRepository {
     : super(Dio(BaseOptions(baseUrl: 'https://example.test/api/v1')));
 
   int cancelCalls = 0;
+  int listCalls = 0;
   Completer<PatientAppointment>? cancelGate;
 
   @override
-  Future<AppointmentPage> list({int page = 1, int limit = 20}) async =>
-      AppointmentPage(
-        items: page == 1 ? [_appointment('1')] : [_appointment('2')],
-        page: page,
-        total: 2,
-        hasNextPage: page == 1,
-      );
+  Future<AppointmentPage> list({int page = 1, int limit = 20}) async {
+    listCalls += 1;
+    return AppointmentPage(
+      items: page == 1 ? [_appointment('1')] : [_appointment('2')],
+      page: page,
+      total: 2,
+      hasNextPage: page == 1,
+    );
+  }
 
   @override
   Future<PatientAppointment> cancel({
@@ -165,6 +168,33 @@ void main() {
       );
     },
   );
+
+  test('refreshes only after the appointment snapshot becomes stale', () async {
+    final repository = _FakeAppointmentsRepository();
+    final container = ProviderContainer(
+      overrides: [
+        authControllerProvider.overrideWith(_AuthenticatedController.new),
+        appointmentsRepositoryProvider.overrideWithValue(repository),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    container.read(appointmentsControllerProvider);
+    await Future<void>.delayed(Duration.zero);
+    await Future<void>.delayed(Duration.zero);
+    expect(repository.listCalls, 1);
+
+    final controller = container.read(appointmentsControllerProvider.notifier);
+    await controller.refreshIfStale(maxAge: const Duration(hours: 1));
+    expect(repository.listCalls, 1);
+
+    await controller.refreshIfStale(maxAge: Duration.zero);
+    expect(repository.listCalls, 2);
+    expect(
+      container.read(appointmentsControllerProvider).lastSyncedAt,
+      isNotNull,
+    );
+  });
 
   test('discards protected results that arrive after logout', () async {
     final repository = _DelayedAppointmentsRepository();

@@ -1,22 +1,37 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:hospital_booking_mobile/app/navigation/booking_navigation.dart';
 import 'package:hospital_booking_mobile/app/theme/app_theme.dart';
 import 'package:hospital_booking_mobile/core/formatters/display_formatters.dart';
 import 'package:hospital_booking_mobile/core/widgets/app_error_banner.dart';
+import 'package:hospital_booking_mobile/core/widgets/app_route_back_scope.dart';
 import 'package:hospital_booking_mobile/features/chatbot/application/chatbot_controller.dart';
 import 'package:hospital_booking_mobile/features/chatbot/domain/chatbot_models.dart';
 
 class ChatbotScreen extends ConsumerStatefulWidget {
-  const ChatbotScreen({super.key});
+  const ChatbotScreen({super.key, this.initialPrompt});
+
+  final String? initialPrompt;
 
   @override
   ConsumerState<ChatbotScreen> createState() => _ChatbotScreenState();
 }
 
 class _ChatbotScreenState extends ConsumerState<ChatbotScreen> {
-  final _inputController = TextEditingController();
+  late final TextEditingController _inputController;
   final _scrollController = ScrollController();
+  late bool _showPrefillNotice;
+
+  @override
+  void initState() {
+    super.initState();
+    final prompt = widget.initialPrompt?.trim();
+    _inputController = TextEditingController(
+      text: prompt?.isNotEmpty == true ? prompt : null,
+    );
+    _showPrefillNotice = prompt?.isNotEmpty == true;
+  }
 
   @override
   void dispose() {
@@ -38,6 +53,7 @@ class _ChatbotScreenState extends ConsumerState<ChatbotScreen> {
 
     return Scaffold(
       appBar: AppBar(
+        leading: const AppRouteBackButton(fallbackLocation: '/home'),
         title: const Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -98,6 +114,35 @@ class _ChatbotScreenState extends ConsumerState<ChatbotScreen> {
                 },
               ),
             ),
+            if (_showPrefillNotice)
+              Container(
+                key: const Key('chatbot-context-prefill-notice'),
+                width: double.infinity,
+                margin: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 9,
+                ),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.primaryContainer,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.edit_note_rounded,
+                      size: 19,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                    const SizedBox(width: 8),
+                    const Expanded(
+                      child: Text(
+                        'Đã điền câu hỏi theo nội dung bạn vừa xem. Bạn có thể chỉnh sửa trước khi gửi.',
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             _Composer(
               state: state,
               inputController: _inputController,
@@ -120,6 +165,9 @@ class _ChatbotScreenState extends ConsumerState<ChatbotScreen> {
     if (value.isEmpty || value.length > 1000 || !state.canSend) return;
     FocusManager.instance.primaryFocus?.unfocus();
     _inputController.clear();
+    if (_showPrefillNotice) {
+      setState(() => _showPrefillNotice = false);
+    }
     await ref.read(chatbotControllerProvider.notifier).sendMessage(value);
   }
 
@@ -130,7 +178,8 @@ class _ChatbotScreenState extends ConsumerState<ChatbotScreen> {
     if (!succeeded || !mounted) return;
 
     if (action.type == 'START_BOOKING') {
-      context.push(
+      openBookingFromCurrentRoute(
+        context,
         _bookingLocation(action, ref.read(chatbotControllerProvider).draft),
       );
     } else if (action.type == 'VIEW_PACKAGE') {
@@ -139,8 +188,9 @@ class _ChatbotScreenState extends ConsumerState<ChatbotScreen> {
       if (slug?.isNotEmpty == true) {
         context.push('/packages/${Uri.encodeComponent(slug!)}');
       } else if (packageId?.isNotEmpty == true) {
-        context.push(
-          '/booking?packageId=${Uri.encodeQueryComponent(packageId!)}',
+        openBookingFromCurrentRoute(
+          context,
+          '/booking?packageId=${Uri.encodeQueryComponent(packageId!)}&origin=chatbot',
         );
       }
     } else if (action.type == 'LOOKUP_APPOINTMENT') {
@@ -695,6 +745,7 @@ String _bookingLocation(ChatbotAction action, ChatBookingDraft? draft) {
       'doctorId': ?value('doctorId', draft?.doctorId),
       'date': ?value('date', draft?.date),
       'timeSlotId': ?value('timeSlotId', draft?.timeSlotId),
+      'origin': 'chatbot',
     },
   ).toString();
 }

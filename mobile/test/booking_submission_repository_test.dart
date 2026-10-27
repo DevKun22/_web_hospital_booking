@@ -23,6 +23,8 @@ void main() {
                   'patientPhone': '0912345678',
                   'expiresIn': 300,
                   'holdExpiresAt': '2030-01-02T03:10:00.000Z',
+                  'holdReleaseToken':
+                      'release-token-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
                   'otpDeliveryStatus': 'SENT',
                   'debugOtp': '123456',
                 },
@@ -55,6 +57,10 @@ void main() {
                   'department': {'name': 'Tim mạch'},
                   'package': {'name': 'Gói tim mạch'},
                 },
+              },
+              '/appointments/appointment-1/pending' => {
+                'success': true,
+                'data': {'released': true, 'alreadyReleased': false},
               },
               _ => throw StateError('Unexpected path ${options.path}'),
             };
@@ -89,6 +95,7 @@ void main() {
         patient: patient,
       );
       final resent = await repository.resend(pending);
+      await repository.abandon(resent);
       final appointment = await repository.verify(
         pending: resent,
         otp: '654321',
@@ -101,16 +108,89 @@ void main() {
       expect(createBody['otpChannel'], 'EMAIL');
       expect(pending.otpTarget, 'an@example.test');
       expect(resent.debugOtp, '654321');
+      expect(resent.holdReleaseToken, pending.holdReleaseToken);
       expect(appointment.status, 'PENDING_CONFIRM');
       expect(appointment.doctorName, 'BS. CKI Trần Minh');
       expect(appointment.packageName, 'Gói tim mạch');
       expect(requests.map((request) => request.path), [
         '/appointments',
         '/appointments/appointment-1/resend-otp',
+        '/appointments/appointment-1/pending',
         '/appointments/appointment-1/verify-otp',
       ]);
+      expect(requests[2].method, 'DELETE');
 
       dio.close(force: true);
+    },
+  );
+
+  test(
+    'dependent booking uses the authenticated client and sends ownership id',
+    () async {
+      final publicRequests = <RequestOptions>[];
+      final authenticatedRequests = <RequestOptions>[];
+      Dio fakeClient(List<RequestOptions> requests) {
+        final dio = Dio(BaseOptions(baseUrl: 'https://example.test/api/v1'));
+        dio.interceptors.add(
+          InterceptorsWrapper(
+            onRequest: (options, handler) {
+              requests.add(options);
+              handler.resolve(
+                Response<dynamic>(
+                  requestOptions: options,
+                  statusCode: 201,
+                  data: {
+                    'success': true,
+                    'data': {
+                      'appointmentId': 'appointment-dependent',
+                      'bookingCode': 'HB-DEPENDENT',
+                      'patientPhone': '0912345678',
+                      'expiresIn': 300,
+                      'holdReleaseToken':
+                          'release-token-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
+                    },
+                  },
+                ),
+              );
+            },
+          ),
+        );
+        return dio;
+      }
+
+      final publicDio = fakeClient(publicRequests);
+      final authenticatedDio = fakeClient(authenticatedRequests);
+      final repository = BookingSubmissionRepository(
+        publicDio,
+        authenticatedDio,
+      );
+      const selection = BookingSelection(
+        serviceMode: BookingServiceMode.doctor,
+        departmentId: 'department-1',
+        doctorId: 'doctor-1',
+        date: '2030-01-02',
+        slotId: 'slot-1',
+      );
+
+      await repository.create(
+        selection: selection,
+        patient: const BookingPatientDraft(
+          patientName: 'Người thân',
+          patientPhone: '0912345678',
+          otpChannel: BookingOtpChannel.sms,
+          dependentProfileId: 'dependent-1',
+        ),
+      );
+
+      expect(publicRequests, isEmpty);
+      expect(authenticatedRequests, hasLength(1));
+      final body = Map<String, dynamic>.from(
+        authenticatedRequests.single.data as Map,
+      );
+      expect(body['dependentProfileId'], 'dependent-1');
+
+      publicDio.close(force: true);
+      authenticatedDio.close(force: true);
     },
   );
 }

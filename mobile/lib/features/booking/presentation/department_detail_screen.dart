@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:hospital_booking_mobile/app/navigation/booking_navigation.dart';
 import 'package:hospital_booking_mobile/app/theme/app_theme.dart';
 import 'package:hospital_booking_mobile/core/widgets/app_route_back_scope.dart';
 import 'package:hospital_booking_mobile/core/widgets/app_ui.dart';
 import 'package:hospital_booking_mobile/core/widgets/resized_network_image.dart';
 import 'package:hospital_booking_mobile/features/booking/application/booking_flow_controller.dart';
 import 'package:hospital_booking_mobile/features/booking/domain/booking_catalog.dart';
+import 'package:hospital_booking_mobile/features/chatbot/domain/chatbot_entry_context.dart';
 
 class DepartmentDetailScreen extends ConsumerWidget {
   const DepartmentDetailScreen({required this.departmentId, super.key});
@@ -132,7 +134,8 @@ class DepartmentDetailScreen extends ConsumerWidget {
                         backgroundColor: Colors.white,
                         foregroundColor: AppTheme.primary,
                       ),
-                      onPressed: () => context.push(
+                      onPressed: () => openBookingFromCurrentRoute(
+                        context,
                         Uri(
                           path: '/booking',
                           queryParameters: {'departmentId': department.id},
@@ -141,11 +144,36 @@ class DepartmentDetailScreen extends ConsumerWidget {
                       icon: const Icon(Icons.calendar_month_outlined),
                       label: const Text('Đặt lịch chuyên khoa này'),
                     ),
+                    const SizedBox(height: 8),
+                    OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        minimumSize: const Size(0, 44),
+                        foregroundColor: Colors.white,
+                        side: const BorderSide(color: Colors.white),
+                      ),
+                      onPressed: () => context.push(
+                        chatbotLocationForContext(
+                          kind: ChatbotEntryKind.department,
+                          displayName: department.name,
+                        ),
+                      ),
+                      icon: const Icon(Icons.smart_toy_outlined),
+                      label: const Text('Hỏi trợ lý về chuyên khoa'),
+                    ),
                   ],
                 ),
               ),
               const SizedBox(height: 24),
-              AppSectionHeader(title: 'Bác sĩ (${doctors.length})'),
+              AppSectionHeader(
+                title: 'Bác sĩ (${doctors.length})',
+                actionLabel: 'Xem tất cả',
+                onAction: () => context.push(
+                  Uri(
+                    path: '/doctors',
+                    queryParameters: {'departmentId': department.id},
+                  ).toString(),
+                ),
+              ),
               const SizedBox(height: 10),
               if (doctors.isEmpty)
                 const AppEmptyState(

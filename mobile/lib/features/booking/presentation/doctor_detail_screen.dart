@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:hospital_booking_mobile/app/navigation/booking_navigation.dart';
+import 'package:hospital_booking_mobile/app/theme/app_theme.dart';
 import 'package:hospital_booking_mobile/core/errors/api_exception.dart';
 import 'package:hospital_booking_mobile/core/widgets/app_route_back_scope.dart';
 import 'package:hospital_booking_mobile/core/widgets/app_ui.dart';
 import 'package:hospital_booking_mobile/core/widgets/resized_network_image.dart';
 import 'package:hospital_booking_mobile/features/booking/application/booking_flow_controller.dart';
 import 'package:hospital_booking_mobile/features/booking/domain/booking_catalog.dart';
+import 'package:hospital_booking_mobile/features/chatbot/domain/chatbot_entry_context.dart';
 
 class DoctorDetailScreen extends ConsumerWidget {
   const DoctorDetailScreen({required this.doctorId, super.key});
@@ -54,6 +57,26 @@ class DoctorDetailScreen extends ConsumerWidget {
             data: (doctor) => _DoctorDetailContent(doctor: doctor),
           ),
         ),
+        bottomNavigationBar: doctor.when(
+          loading: () => null,
+          error: (_, _) => null,
+          data: (doctor) => AppStickyActionBar(
+            eyebrow: 'Phí khám dự kiến',
+            value: _formatVnd(doctor.consultationFee),
+            secondaryLabel: 'Hỏi trợ lý',
+            secondaryIcon: Icons.smart_toy_outlined,
+            onSecondary: () => context.push(
+              chatbotLocationForContext(
+                kind: ChatbotEntryKind.doctor,
+                displayName: doctor.displayName,
+              ),
+            ),
+            primaryLabel: 'Đặt khám',
+            primaryIcon: Icons.calendar_month_outlined,
+            onPrimary: () =>
+                openBookingFromCurrentRoute(context, _bookingLocation(doctor)),
+          ),
+        ),
       ),
     );
   }
@@ -69,6 +92,11 @@ class _DoctorDetailContent extends StatelessWidget {
     padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
     children: [
       Card(
+        color: const Color(0xFFF8FFFD),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(22),
+          side: const BorderSide(color: AppTheme.softBorder),
+        ),
         child: Padding(
           padding: const EdgeInsets.all(18),
           child: Column(
@@ -134,19 +162,6 @@ class _DoctorDetailContent extends StatelessWidget {
         style: Theme.of(context).textTheme.bodyLarge?.copyWith(height: 1.5),
       ),
       const SizedBox(height: 24),
-      FilledButton.icon(
-        onPressed: () => context.push(
-          Uri(
-            path: '/booking',
-            queryParameters: {
-              'departmentId': doctor.departmentId,
-              'doctorId': doctor.id,
-            },
-          ).toString(),
-        ),
-        icon: const Icon(Icons.calendar_month_outlined),
-        label: const Text('Chọn ngày và giờ khám'),
-      ),
       const SizedBox(height: 10),
       OutlinedButton(
         onPressed: () => context.push(
@@ -167,3 +182,8 @@ String _formatVnd(double value) {
   }
   return '${buffer.toString()} đ';
 }
+
+String _bookingLocation(BookingDoctor doctor) => Uri(
+  path: '/booking',
+  queryParameters: {'departmentId': doctor.departmentId, 'doctorId': doctor.id},
+).toString();

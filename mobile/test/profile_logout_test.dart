@@ -9,6 +9,8 @@ import 'package:hospital_booking_mobile/features/booking/application/booking_flo
 import 'package:hospital_booking_mobile/features/booking/application/booking_submission_controller.dart';
 import 'package:hospital_booking_mobile/features/booking/domain/booking_catalog.dart';
 import 'package:hospital_booking_mobile/features/booking/domain/booking_submission.dart';
+import 'package:hospital_booking_mobile/features/notifications/application/push_notifications_controller.dart';
+import 'package:hospital_booking_mobile/features/notifications/data/push_messaging_gateway.dart';
 import 'package:hospital_booking_mobile/features/profile/application/patient_profile_controller.dart';
 import 'package:hospital_booking_mobile/features/profile/domain/patient_profile.dart';
 import 'package:hospital_booking_mobile/features/profile/presentation/profile_screen.dart';
@@ -53,13 +55,22 @@ class _LoadedProfileController extends PatientProfileController {
   PatientProfileState build() => const PatientProfileState(profile: _profile);
 }
 
+class _EnabledPushController extends PushNotificationsController {
+  @override
+  PushNotificationsState build() => const PushNotificationsState(
+    permission: PushPermissionStatus.authorized,
+    isCheckingPermission: false,
+    isTokenRegistered: true,
+  );
+}
+
 class _IdleSubmissionController extends BookingSubmissionController {
   @override
   BookingSubmissionState build() => const BookingSubmissionState.idle();
 }
 
 class _PendingSubmissionController extends BookingSubmissionController {
-  bool resetCalled = false;
+  bool discardCalled = false;
 
   @override
   BookingSubmissionState build() => BookingSubmissionState(
@@ -70,13 +81,15 @@ class _PendingSubmissionController extends BookingSubmissionController {
       patientPhone: '0912345678',
       expiresIn: 300,
       holdExpiresAt: DateTime.now().add(const Duration(minutes: 5)),
+      holdReleaseToken: 'release-token-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
     ),
   );
 
   @override
-  Future<void> reset() async {
-    resetCalled = true;
+  Future<bool> discardPending() async {
+    discardCalled = true;
     state = const BookingSubmissionState.idle();
+    return true;
   }
 }
 
@@ -142,11 +155,23 @@ void main() {
           patientProfileControllerProvider.overrideWith(
             _LoadedProfileController.new,
           ),
+          pushNotificationsControllerProvider.overrideWith(
+            _EnabledPushController.new,
+          ),
         ],
         child: MaterialApp.router(routerConfig: router),
       ),
     );
     await tester.pumpAndSettle();
+
+    expect(find.text('0912 ••• 678'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('Trung tâm hỗ trợ'),
+      300,
+      scrollable: find.byType(Scrollable),
+    );
+    expect(find.text('Đang bật'), findsOneWidget);
+    expect(find.text('Trung tâm hỗ trợ'), findsOneWidget);
 
     await _scrollToLogout(tester);
     await tester.tap(find.text('Đăng xuất thiết bị này'));
@@ -188,6 +213,9 @@ void main() {
           patientProfileControllerProvider.overrideWith(
             _LoadedProfileController.new,
           ),
+          pushNotificationsControllerProvider.overrideWith(
+            _EnabledPushController.new,
+          ),
         ],
         child: MaterialApp.router(routerConfig: router),
       ),
@@ -202,10 +230,10 @@ void main() {
     expect(find.textContaining('HB-1001'), findsOneWidget);
     expect(find.text('Tiếp tục xác thực'), findsOneWidget);
 
-    await tester.tap(find.text('Đăng xuất và bỏ phiên'));
+    await tester.tap(find.text('Bỏ lịch và đăng xuất'));
     await tester.pumpAndSettle();
 
-    expect(submission.resetCalled, isTrue);
+    expect(submission.discardCalled, isTrue);
     expect(booking.clearCalled, isTrue);
     expect(auth.logoutCalls, 1);
     expect(auth.state.status, AuthStatus.unauthenticated);

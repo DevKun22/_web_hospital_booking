@@ -8,6 +8,7 @@ import 'package:hospital_booking_mobile/features/booking/data/booking_submission
 import 'package:hospital_booking_mobile/features/booking/data/pending_booking_store.dart';
 import 'package:hospital_booking_mobile/features/booking/domain/booking_catalog.dart';
 import 'package:hospital_booking_mobile/features/booking/domain/booking_submission.dart';
+import 'package:hospital_booking_mobile/core/errors/api_exception.dart';
 
 const _selection = BookingSelection(
   departmentId: 'department-1',
@@ -28,6 +29,7 @@ PendingBooking _pending({DateTime? expiresAt}) => PendingBooking(
   patientPhone: '0912345678',
   expiresIn: 300,
   holdExpiresAt: expiresAt ?? DateTime.now().add(const Duration(minutes: 5)),
+  holdReleaseToken: 'release-token-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
 );
 
 const _appointment = BookedAppointment(
@@ -45,10 +47,13 @@ const _appointment = BookedAppointment(
 );
 
 class _FakeSubmissionRepository extends BookingSubmissionRepository {
-  _FakeSubmissionRepository({this.createGate}) : super(Dio());
+  _FakeSubmissionRepository({this.createGate, this.abandonError})
+    : super(Dio());
 
   final Completer<PendingBooking>? createGate;
+  final ApiException? abandonError;
   int createCalls = 0;
+  int abandonCalls = 0;
 
   @override
   Future<PendingBooking> create({
@@ -64,6 +69,12 @@ class _FakeSubmissionRepository extends BookingSubmissionRepository {
     required PendingBooking pending,
     required String otp,
   }) async => _appointment;
+
+  @override
+  Future<void> abandon(PendingBooking pending) async {
+    abandonCalls += 1;
+    if (abandonError != null) throw abandonError!;
+  }
 }
 
 Future<void> _waitUntil(bool Function() condition) async {
@@ -163,6 +174,65 @@ void main() {
     expect(
       container.read(bookingSubmissionControllerProvider).appointment?.status,
       'PENDING_CONFIRM',
+    );
+  });
+
+  test(
+    'discard releases the server hold before clearing secure state',
+    () async {
+      final store = MemoryPendingBookingStore(_pending());
+      final repository = _FakeSubmissionRepository();
+      final container = _container(store: store, repository: repository);
+      addTearDown(container.dispose);
+
+      container.read(bookingSubmissionControllerProvider);
+      await _waitUntil(
+        () =>
+            container.read(bookingSubmissionControllerProvider).status ==
+            BookingSubmissionStatus.awaitingOtp,
+      );
+
+      final discarded = await container
+          .read(bookingSubmissionControllerProvider.notifier)
+          .discardPending();
+
+      expect(discarded, isTrue);
+      expect(repository.abandonCalls, 1);
+      expect(store.pending, isNull);
+      expect(
+        container.read(bookingSubmissionControllerProvider).status,
+        BookingSubmissionStatus.idle,
+      );
+    },
+  );
+
+  test('failed server release keeps the resumable pending hold', () async {
+    final store = MemoryPendingBookingStore(_pending());
+    final repository = _FakeSubmissionRepository(
+      abandonError: const ApiException(
+        kind: ApiErrorKind.network,
+        message: 'Không thể kết nối máy chủ.',
+      ),
+    );
+    final container = _container(store: store, repository: repository);
+    addTearDown(container.dispose);
+
+    container.read(bookingSubmissionControllerProvider);
+    await _waitUntil(
+      () =>
+          container.read(bookingSubmissionControllerProvider).status ==
+          BookingSubmissionStatus.awaitingOtp,
+    );
+
+    final discarded = await container
+        .read(bookingSubmissionControllerProvider.notifier)
+        .discardPending();
+
+    expect(discarded, isFalse);
+    expect(store.pending, isNotNull);
+    expect(
+      container.read(bookingSubmissionControllerProvider).error?.kind,
+      ApiErrorKind.network,
     );
   });
 }

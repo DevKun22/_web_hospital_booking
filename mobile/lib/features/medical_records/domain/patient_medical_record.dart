@@ -75,6 +75,8 @@ class PatientMedicalRecord {
     this.departmentName,
     this.publishedAt,
     this.createdAt,
+    this.patientName,
+    this.dependentProfileId,
   });
 
   factory PatientMedicalRecord.fromJson(Map<String, dynamic> json) {
@@ -95,6 +97,8 @@ class PatientMedicalRecord {
       createdAt: _dateTime(json['createdAt']),
       appointmentId: _string(appointment['id']),
       bookingCode: _string(appointment['bookingCode']),
+      patientName: _nullableString(appointment['patientName']),
+      dependentProfileId: _nullableString(appointment['dependentProfileId']),
       appointmentDate: _dateOnly(appointment['appointmentDate']),
       startTime: _string(appointment['startTime']),
       endTime: _string(appointment['endTime']),
@@ -131,6 +135,8 @@ class PatientMedicalRecord {
   final DateTime? createdAt;
   final String appointmentId;
   final String bookingCode;
+  final String? patientName;
+  final String? dependentProfileId;
   final String appointmentDate;
   final String startTime;
   final String endTime;
@@ -143,6 +149,7 @@ class PatientMedicalRecord {
   final MedicalFileAvailability resultFile;
 
   String get careUnit => departmentName ?? specialization ?? '';
+  bool get isDependentRecord => dependentProfileId != null;
 }
 
 class MedicalRecordPage {

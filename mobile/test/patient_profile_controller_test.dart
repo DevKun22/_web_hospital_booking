@@ -39,9 +39,13 @@ class _FakeProfileRepository extends PatientProfileRepository {
     : super(Dio(BaseOptions(baseUrl: 'https://example.test/api/v1')));
 
   int updateCalls = 0;
+  int getCalls = 0;
 
   @override
-  Future<PatientProfile> getProfile() async => _profile();
+  Future<PatientProfile> getProfile() async {
+    getCalls += 1;
+    return _profile();
+  }
 
   @override
   Future<PatientProfile> updateProfile(PatientProfileDraft draft) async {
@@ -131,5 +135,30 @@ void main() {
     expect(state.profile, isNull);
     expect(state.isInitialLoading, isFalse);
     expect(container.read(authControllerProvider).isAuthenticated, isFalse);
+  });
+
+  test('refreshes profile only when cached data is stale', () async {
+    final repository = _FakeProfileRepository();
+    final container = ProviderContainer(
+      overrides: [
+        authControllerProvider.overrideWith(_AuthenticatedController.new),
+        patientProfileRepositoryProvider.overrideWithValue(repository),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    container.read(patientProfileControllerProvider);
+    await Future<void>.delayed(Duration.zero);
+    await Future<void>.delayed(Duration.zero);
+    expect(repository.getCalls, 1);
+
+    final controller = container.read(
+      patientProfileControllerProvider.notifier,
+    );
+    await controller.refreshIfStale(maxAge: const Duration(hours: 1));
+    expect(repository.getCalls, 1);
+
+    await controller.refreshIfStale(maxAge: Duration.zero);
+    expect(repository.getCalls, 2);
   });
 }

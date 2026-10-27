@@ -21,6 +21,7 @@ class BookingPatientDraft {
     this.hasBhyt = false,
     this.healthInsuranceCode,
     this.registeredHospital,
+    this.dependentProfileId,
   });
 
   final String patientName;
@@ -35,8 +36,10 @@ class BookingPatientDraft {
   final bool hasBhyt;
   final String? healthInsuranceCode;
   final String? registeredHospital;
+  final String? dependentProfileId;
 
   Map<String, dynamic> toRequestJson(BookingSelection selection) => {
+    'dependentProfileId': _nullable(dependentProfileId),
     'packageId': selection.serviceMode == BookingServiceMode.package
         ? selection.packageId
         : null,
@@ -65,6 +68,7 @@ class PendingBooking {
     required this.patientPhone,
     required this.expiresIn,
     this.holdExpiresAt,
+    this.holdReleaseToken,
     this.otpDeliveryStatus,
     this.debugOtp,
     this.otpChannel = BookingOtpChannel.sms,
@@ -77,6 +81,7 @@ class PendingBooking {
     patientPhone: json['patientPhone']?.toString() ?? '',
     expiresIn: _integer(json['expiresIn']),
     holdExpiresAt: DateTime.tryParse(json['holdExpiresAt']?.toString() ?? ''),
+    holdReleaseToken: _nullable(json['holdReleaseToken']),
     otpDeliveryStatus: json['otpDeliveryStatus']?.toString(),
     debugOtp: json['debugOtp']?.toString(),
     otpChannel: json['otpChannel']?.toString().toUpperCase() == 'EMAIL'
@@ -90,6 +95,7 @@ class PendingBooking {
   final String patientPhone;
   final int expiresIn;
   final DateTime? holdExpiresAt;
+  final String? holdReleaseToken;
   final String? otpDeliveryStatus;
   final String? debugOtp;
   final BookingOtpChannel otpChannel;
@@ -101,6 +107,7 @@ class PendingBooking {
   PendingBooking copyWith({
     int? expiresIn,
     DateTime? holdExpiresAt,
+    String? holdReleaseToken,
     String? otpDeliveryStatus,
     String? debugOtp,
     BookingOtpChannel? otpChannel,
@@ -111,6 +118,7 @@ class PendingBooking {
     patientPhone: patientPhone,
     expiresIn: expiresIn ?? this.expiresIn,
     holdExpiresAt: holdExpiresAt ?? this.holdExpiresAt,
+    holdReleaseToken: holdReleaseToken ?? this.holdReleaseToken,
     otpDeliveryStatus: otpDeliveryStatus ?? this.otpDeliveryStatus,
     debugOtp: debugOtp ?? this.debugOtp,
     otpChannel: otpChannel ?? this.otpChannel,
@@ -123,6 +131,7 @@ class PendingBooking {
     'patientPhone': patientPhone,
     'expiresIn': expiresIn,
     'holdExpiresAt': holdExpiresAt?.toIso8601String(),
+    'holdReleaseToken': holdReleaseToken,
     'otpDeliveryStatus': otpDeliveryStatus,
     'otpChannel': otpChannel.apiValue,
     'otpTarget': otpTarget,

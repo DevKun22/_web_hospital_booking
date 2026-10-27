@@ -17,6 +17,9 @@ import 'package:hospital_booking_mobile/features/booking/application/booking_flo
 import 'package:hospital_booking_mobile/features/booking/data/booking_catalog_repository.dart';
 import 'package:hospital_booking_mobile/features/booking/domain/booking_catalog.dart';
 import 'package:hospital_booking_mobile/features/home/application/home_content_controller.dart';
+import 'package:hospital_booking_mobile/features/notifications/application/notifications_controller.dart';
+import 'package:hospital_booking_mobile/features/notifications/application/push_notifications_controller.dart';
+import 'package:hospital_booking_mobile/features/notifications/data/push_messaging_gateway.dart';
 import 'package:hospital_booking_mobile/features/onboarding/application/onboarding_controller.dart';
 
 class _OtpFlowAuthController extends AuthController {
@@ -78,9 +81,35 @@ class _GuestAuthController extends AuthController {
   AuthState build() => const AuthState.unauthenticated();
 }
 
+class _AuthenticatedController extends AuthController {
+  @override
+  AuthState build() => const AuthState(
+    status: AuthStatus.authenticated,
+    user: PatientUser(
+      id: 'patient-1',
+      fullName: 'Nguyễn Văn An',
+      isPhoneVerified: true,
+    ),
+  );
+}
+
 class _IdleAppointmentsController extends AppointmentsController {
   @override
   AppointmentsState build() => const AppointmentsState();
+}
+
+class _EmptyNotificationsController extends NotificationsController {
+  @override
+  NotificationsState build() => const NotificationsState();
+}
+
+class _EnabledPushController extends PushNotificationsController {
+  @override
+  PushNotificationsState build() => const PushNotificationsState(
+    permission: PushPermissionStatus.authorized,
+    isCheckingPermission: false,
+    isTokenRegistered: true,
+  );
 }
 
 const _testDoctor = BookingDoctor(
@@ -198,10 +227,13 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.byTooltip('Trang chủ'), findsOneWidget);
-    expect(find.byTooltip('Đặt khám'), findsOneWidget);
-
-    await tester.tap(find.byTooltip('Đặt khám'));
+    for (var index = 0; index < 5; index += 1) {
+      expect(
+        find.byKey(ValueKey('main-navigation-item-$index')),
+        findsOneWidget,
+      );
+    }
+    await tester.tap(find.byKey(const ValueKey('main-navigation-item-2')));
     await tester.pumpAndSettle();
 
     expect(
@@ -210,7 +242,7 @@ void main() {
     );
     expect(find.text('Chọn lịch khám phù hợp'), findsOneWidget);
 
-    await tester.tap(find.byTooltip('Trang chủ'));
+    await tester.tap(find.byKey(const ValueKey('main-navigation-item-0')));
     await tester.pumpAndSettle();
 
     expect(
@@ -241,6 +273,123 @@ void main() {
     await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
 
+    expect(
+      container.read(appRouterProvider).routeInformationProvider.value.uri.path,
+      '/home',
+    );
+  });
+
+  testWidgets('booking opened from chatbot returns to the conversation', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(430, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final container = ProviderContainer(
+      overrides: [
+        appConfigProvider.overrideWithValue(
+          AppConfig(
+            environment: AppEnvironment.development,
+            apiBaseUrl: 'https://example.test/api/v1',
+            connectTimeout: const Duration(seconds: 10),
+            receiveTimeout: const Duration(seconds: 15),
+            enableNetworkLogs: false,
+          ),
+        ),
+        authControllerProvider.overrideWith(_GuestAuthController.new),
+        onboardingControllerProvider.overrideWith(
+          _SeenOnboardingController.new,
+        ),
+        homeContentControllerProvider.overrideWith(
+          _IdleHomeContentController.new,
+        ),
+        bookingFlowControllerProvider.overrideWith(
+          _CatalogBookingFlowController.new,
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const HospitalBookingApp(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final router = container.read(appRouterProvider);
+    router.go('/chatbot');
+    await tester.pumpAndSettle();
+    router.go('/booking?origin=chatbot');
+    await tester.pumpAndSettle();
+
+    expect(find.text('Chọn lịch khám phù hợp'), findsOneWidget);
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+
+    expect(router.routeInformationProvider.value.uri.path, '/chatbot');
+    expect(find.text('Trợ lý đặt lịch'), findsOneWidget);
+  });
+
+  testWidgets('health records and notifications are stable main branches', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(430, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final container = ProviderContainer(
+      overrides: [
+        appConfigProvider.overrideWithValue(
+          AppConfig(
+            environment: AppEnvironment.development,
+            apiBaseUrl: 'https://example.test/api/v1',
+            connectTimeout: const Duration(seconds: 10),
+            receiveTimeout: const Duration(seconds: 15),
+            enableNetworkLogs: false,
+          ),
+        ),
+        authControllerProvider.overrideWith(_AuthenticatedController.new),
+        onboardingControllerProvider.overrideWith(
+          _SeenOnboardingController.new,
+        ),
+        homeContentControllerProvider.overrideWith(
+          _IdleHomeContentController.new,
+        ),
+        notificationsControllerProvider.overrideWith(
+          _EmptyNotificationsController.new,
+        ),
+        pushNotificationsControllerProvider.overrideWith(
+          _EnabledPushController.new,
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const HospitalBookingApp(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('Hồ sơ'));
+    await tester.pumpAndSettle();
+    expect(
+      container.read(appRouterProvider).routeInformationProvider.value.uri.path,
+      '/records',
+    );
+    expect(find.text('Hồ sơ sức khỏe'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('Thông báo'));
+    await tester.pumpAndSettle();
+    expect(
+      container.read(appRouterProvider).routeInformationProvider.value.uri.path,
+      '/notifications',
+    );
+    expect(find.text('Chưa có thông báo'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('Trang chủ'));
+    await tester.pumpAndSettle();
     expect(
       container.read(appRouterProvider).routeInformationProvider.value.uri.path,
       '/home',
@@ -304,11 +453,7 @@ void main() {
 
     expect(find.text('Lịch khám của tôi'), findsWidgets);
     expect(find.text('Đăng nhập bệnh nhân'), findsNothing);
-    expect(find.byTooltip('Trang chủ'), findsOneWidget);
-    expect(find.byTooltip('Lịch khám'), findsOneWidget);
-    expect(find.byTooltip('Đặt khám'), findsOneWidget);
-    expect(find.byTooltip('Trợ lý'), findsOneWidget);
-    expect(find.byTooltip('Tài khoản'), findsOneWidget);
+    expect(find.byTooltip('Quay lại'), findsOneWidget);
   });
 
   testWidgets('public department routes remain available to guests', (
@@ -416,7 +561,132 @@ void main() {
 
     await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
-    expect(find.text('Chăm sóc sức khỏe dễ dàng hơn'), findsOneWidget);
+    expect(router.routeInformationProvider.value.uri.path, '/home');
+    expect(
+      find.byKey(const ValueKey('main-navigation-item-0')),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('empty notification inbox switches to appointments safely', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(430, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final container = ProviderContainer(
+      overrides: [
+        appConfigProvider.overrideWithValue(
+          AppConfig(
+            environment: AppEnvironment.development,
+            apiBaseUrl: 'https://example.test/api/v1',
+            connectTimeout: const Duration(seconds: 10),
+            receiveTimeout: const Duration(seconds: 15),
+            enableNetworkLogs: false,
+          ),
+        ),
+        authControllerProvider.overrideWith(_AuthenticatedController.new),
+        onboardingControllerProvider.overrideWith(
+          _SeenOnboardingController.new,
+        ),
+        homeContentControllerProvider.overrideWith(
+          _IdleHomeContentController.new,
+        ),
+        appointmentsControllerProvider.overrideWith(
+          _IdleAppointmentsController.new,
+        ),
+        notificationsControllerProvider.overrideWith(
+          _EmptyNotificationsController.new,
+        ),
+        pushNotificationsControllerProvider.overrideWith(
+          _EnabledPushController.new,
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const HospitalBookingApp(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final router = container.read(appRouterProvider);
+    router.push('/notifications');
+    await tester.pumpAndSettle();
+    expect(find.text('Chưa có thông báo'), findsOneWidget);
+
+    await tester.tap(find.text('Xem lịch khám'));
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+    expect(find.text('Lịch khám của tôi'), findsWidgets);
+
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(find.text('Chưa có thông báo'), findsOneWidget);
+  });
+
+  testWidgets('route changes dismiss the global notification snackbar', (
+    tester,
+  ) async {
+    final container = ProviderContainer(
+      overrides: [
+        appConfigProvider.overrideWithValue(
+          AppConfig(
+            environment: AppEnvironment.development,
+            apiBaseUrl: 'https://example.test/api/v1',
+            connectTimeout: const Duration(seconds: 10),
+            receiveTimeout: const Duration(seconds: 15),
+            enableNetworkLogs: false,
+          ),
+        ),
+        authControllerProvider.overrideWith(_AuthenticatedController.new),
+        onboardingControllerProvider.overrideWith(
+          _SeenOnboardingController.new,
+        ),
+        homeContentControllerProvider.overrideWith(
+          _IdleHomeContentController.new,
+        ),
+        notificationsControllerProvider.overrideWith(
+          _EmptyNotificationsController.new,
+        ),
+        pushNotificationsControllerProvider.overrideWith(
+          _EnabledPushController.new,
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const HospitalBookingApp(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    rootScaffoldMessengerKey.currentState!.showSnackBar(
+      const SnackBar(
+        content: Text('Thông báo đang hiển thị'),
+        action: SnackBarAction(label: 'Xem', onPressed: _noop),
+      ),
+    );
+    await tester.pump();
+    expect(find.text('Thông báo đang hiển thị'), findsOneWidget);
+
+    container.read(appRouterProvider).push('/notifications');
+    await tester.pumpAndSettle();
+
+    expect(find.text('Thông báo đang hiển thị'), findsNothing);
+    expect(
+      find.descendant(
+        of: find.byType(AppBar),
+        matching: find.text('Thông báo'),
+      ),
+      findsOneWidget,
+    );
   });
 
   testWidgets('direct department routes fall back inside the app', (
@@ -468,3 +738,5 @@ void main() {
     expect(router.routeInformationProvider.value.uri.path, '/home');
   });
 }
+
+void _noop() {}

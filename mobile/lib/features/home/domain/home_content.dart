@@ -118,11 +118,15 @@ class HomeDoctor {
     this.specialization,
     this.avatar,
     this.experience,
+    this.averageRating = 0,
+    this.reviewCount = 0,
+    this.todayAvailableSlots = const [],
   });
 
   factory HomeDoctor.fromJson(Map<String, dynamic> json) {
     final user = _map(json['user']);
     final department = _map(json['department']);
+    final reviewSummary = _map(json['reviewSummary']);
     return HomeDoctor(
       id: _string(json['id']),
       fullName: _string(user['fullName']),
@@ -132,6 +136,12 @@ class HomeDoctor {
       specialization: _nullableString(json['specialization']),
       avatar: _nullableString(user['avatar']),
       experience: _nullableInt(json['experience']),
+      averageRating: _number(reviewSummary['averageRating']),
+      reviewCount: _nullableInt(reviewSummary['count']) ?? 0,
+      todayAvailableSlots: _decodeList(
+        json['todayAvailableSlots'],
+        HomeDoctorSlot.fromJson,
+      ),
     );
   }
 
@@ -143,6 +153,9 @@ class HomeDoctor {
   final String? specialization;
   final String? avatar;
   final int? experience;
+  final double averageRating;
+  final int reviewCount;
+  final List<HomeDoctorSlot> todayAvailableSlots;
 
   String get displayName =>
       formatProfessionalName(title: title, fullName: fullName);
@@ -153,9 +166,27 @@ class HomeDoctor {
     'specialization': specialization,
     'experience': experience,
     'consultationFee': consultationFee,
+    'reviewSummary': {'averageRating': averageRating, 'count': reviewCount},
+    'todayAvailableSlots': todayAvailableSlots
+        .map((slot) => slot.toJson())
+        .toList(growable: false),
     'user': {'fullName': fullName, 'avatar': avatar},
     'department': {'name': departmentName},
   };
+}
+
+class HomeDoctorSlot {
+  const HomeDoctorSlot({required this.startTime, required this.endTime});
+
+  factory HomeDoctorSlot.fromJson(Map<String, dynamic> json) => HomeDoctorSlot(
+    startTime: _string(json['startTime']),
+    endTime: _string(json['endTime']),
+  );
+
+  final String startTime;
+  final String endTime;
+
+  Map<String, dynamic> toJson() => {'startTime': startTime, 'endTime': endTime};
 }
 
 class HomeMedicalPackage {
@@ -230,6 +261,9 @@ class HomeSiteSettings {
     this.hospitalName,
     this.hotline,
     this.emergencyHotline,
+    this.address,
+    this.workingHours,
+    this.mapUrl,
   });
 
   factory HomeSiteSettings.fromJson(Map<String, dynamic> json) =>
@@ -237,16 +271,25 @@ class HomeSiteSettings {
         hospitalName: _nullableString(json['hospitalName']),
         hotline: _nullableString(json['hotline']),
         emergencyHotline: _nullableString(json['emergencyHotline']),
+        address: _nullableString(json['address']),
+        workingHours: _nullableString(json['workingHours']),
+        mapUrl: _nullableString(json['mapUrl']),
       );
 
   final String? hospitalName;
   final String? hotline;
   final String? emergencyHotline;
+  final String? address;
+  final String? workingHours;
+  final String? mapUrl;
 
   Map<String, dynamic> toJson() => {
     'hospitalName': hospitalName,
     'hotline': hotline,
     'emergencyHotline': emergencyHotline,
+    'address': address,
+    'workingHours': workingHours,
+    'mapUrl': mapUrl,
   };
 }
 

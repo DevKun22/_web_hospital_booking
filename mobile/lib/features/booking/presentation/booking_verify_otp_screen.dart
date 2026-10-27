@@ -9,6 +9,7 @@ import 'package:hospital_booking_mobile/core/widgets/app_ui.dart';
 import 'package:hospital_booking_mobile/features/booking/application/booking_flow_controller.dart';
 import 'package:hospital_booking_mobile/features/booking/application/booking_submission_controller.dart';
 import 'package:hospital_booking_mobile/features/booking/domain/booking_submission.dart';
+import 'package:hospital_booking_mobile/features/booking/presentation/widgets/booking_journey_indicator.dart';
 
 class BookingVerifyOtpScreen extends ConsumerStatefulWidget {
   const BookingVerifyOtpScreen({super.key});
@@ -129,6 +130,8 @@ class _BookingVerifyOtpScreenState
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              const BookingJourneyIndicator(currentStep: 2),
+              const SizedBox(height: 22),
               const Icon(Icons.mark_email_unread_outlined, size: 58),
               const SizedBox(height: 18),
               Text(
@@ -245,6 +248,16 @@ class _BookingVerifyOtpScreenState
                       : 'Gửi lại mã OTP',
                 ),
               ),
+              const SizedBox(height: 4),
+              OutlinedButton.icon(
+                onPressed: state.isBusy ? null : _confirmDiscard,
+                icon: const Icon(Icons.event_busy_outlined),
+                label: Text(
+                  state.status == BookingSubmissionStatus.abandoning
+                      ? 'Đang giải phóng khung giờ…'
+                      : 'Bỏ lịch và chọn lại',
+                ),
+              ),
               const SizedBox(height: 8),
               Text(
                 'Bạn có thể về Trang chủ và tiếp tục xác thực sau, miễn là lịch vẫn còn thời gian giữ.',
@@ -287,6 +300,35 @@ class _BookingVerifyOtpScreenState
 
   Future<void> _chooseAgain() async {
     await ref.read(bookingSubmissionControllerProvider.notifier).reset();
+    await ref.read(bookingFlowControllerProvider.notifier).refreshSlots();
+    if (mounted) context.go('/booking');
+  }
+
+  Future<void> _confirmDiscard() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Bỏ lịch đang giữ?'),
+        content: const Text(
+          'Khung giờ sẽ được giải phóng ngay để bạn hoặc người khác có thể đặt lại.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Tiếp tục nhập OTP'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Bỏ lịch'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    final discarded = await ref
+        .read(bookingSubmissionControllerProvider.notifier)
+        .discardPending();
+    if (!mounted || !discarded) return;
     await ref.read(bookingFlowControllerProvider.notifier).refreshSlots();
     if (mounted) context.go('/booking');
   }

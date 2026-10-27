@@ -8,6 +8,8 @@ import 'package:hospital_booking_mobile/core/widgets/app_ui.dart';
 import 'package:hospital_booking_mobile/features/auth/application/auth_controller.dart';
 import 'package:hospital_booking_mobile/features/booking/application/booking_flow_controller.dart';
 import 'package:hospital_booking_mobile/features/booking/application/booking_submission_controller.dart';
+import 'package:hospital_booking_mobile/features/notifications/application/push_notifications_controller.dart';
+import 'package:hospital_booking_mobile/features/notifications/data/push_messaging_gateway.dart';
 import 'package:hospital_booking_mobile/features/profile/application/patient_profile_controller.dart';
 import 'package:hospital_booking_mobile/features/profile/domain/patient_profile.dart';
 
@@ -21,6 +23,7 @@ class ProfileScreen extends ConsumerWidget {
       authControllerProvider.select((state) => state.isLoggingOut),
     );
     final controller = ref.read(patientProfileControllerProvider.notifier);
+    final pushState = ref.watch(pushNotificationsControllerProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -43,7 +46,12 @@ class ProfileScreen extends ConsumerWidget {
                 onRefresh: controller.refresh,
                 child: ListView(
                   physics: const AlwaysScrollableScrollPhysics(),
-                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+                  padding: const EdgeInsets.fromLTRB(
+                    16,
+                    8,
+                    16,
+                    appFloatingActionContentBottomInset,
+                  ),
                   children: [
                     if (state.error != null) ...[
                       AppErrorBanner(
@@ -102,7 +110,13 @@ class ProfileScreen extends ConsumerWidget {
                       const SizedBox(height: 14),
                       _HealthSnapshot(profile: state.profile!),
                       const SizedBox(height: 14),
+                      const _ProfileGroupTitle(title: 'Dữ liệu y tế'),
+                      const SizedBox(height: 8),
                       _PatientShortcuts(),
+                      const SizedBox(height: 14),
+                      const _ProfileGroupTitle(title: 'Ứng dụng & hỗ trợ'),
+                      const SizedBox(height: 8),
+                      _AppSupportSection(pushState: pushState),
                       const SizedBox(height: 20),
                       FilledButton.icon(
                         onPressed: () => _openEditor(context, ref),
@@ -168,7 +182,20 @@ class ProfileScreen extends ConsumerWidget {
 
     final messenger = ScaffoldMessenger.of(context);
     if (pending != null) {
-      await submissionController.reset();
+      final discarded = await submissionController.discardPending();
+      if (!context.mounted) return;
+      if (!discarded) {
+        final error = ref.read(bookingSubmissionControllerProvider).error;
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text(
+              error?.message ??
+                  'Chưa thể giải phóng lịch đang giữ. Vui lòng thử lại.',
+            ),
+          ),
+        );
+        return;
+      }
       await ref.read(bookingFlowControllerProvider.notifier).clearSelection();
     }
     final loggedOut = await ref.read(authControllerProvider.notifier).logout();
@@ -219,7 +246,7 @@ class ProfileScreen extends ConsumerWidget {
       icon: const Icon(Icons.warning_amber_rounded),
       title: const Text('Bạn còn lịch chờ xác thực'),
       content: Text(
-        'Lịch $bookingCode vẫn đang được giữ và chờ OTP. Đăng xuất sẽ xóa thông tin tiếp tục xác thực khỏi thiết bị; lịch trên hệ thống sẽ tự hết hạn nếu không được xác thực.',
+        'Lịch $bookingCode vẫn đang được giữ và chờ OTP. Nếu tiếp tục đăng xuất, ứng dụng sẽ hủy giữ lịch trên máy chủ và giải phóng khung giờ ngay.',
       ),
       actions: [
         TextButton(
@@ -235,7 +262,7 @@ class ProfileScreen extends ConsumerWidget {
             foregroundColor: Theme.of(context).colorScheme.onError,
           ),
           onPressed: () => Navigator.pop(dialogContext, true),
-          child: const Text('Đăng xuất và bỏ phiên'),
+          child: const Text('Bỏ lịch và đăng xuất'),
         ),
       ],
     ),
@@ -285,7 +312,9 @@ class _ProfileHeader extends StatelessWidget {
               ),
               const SizedBox(height: 4),
               Text(
-                profile.phone ?? 'Chưa cập nhật số điện thoại',
+                profile.phone == null
+                    ? 'Chưa cập nhật số điện thoại'
+                    : _maskPhone(profile.phone!),
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   color: Colors.white.withValues(alpha: 0.86),
                 ),
@@ -427,6 +456,24 @@ class _PatientShortcuts extends StatelessWidget {
     child: Column(
       children: [
         ListTile(
+          key: const Key('profile-mobile-tools'),
+          leading: const Icon(Icons.phone_android_rounded),
+          title: const Text('Thẻ số & bảo mật thiết bị'),
+          subtitle: const Text('QR bệnh nhân và khóa ứng dụng'),
+          trailing: const Icon(Icons.chevron_right_rounded),
+          onTap: () => context.push('/mobile-tools'),
+        ),
+        const Divider(height: 1),
+        ListTile(
+          key: const Key('profile-dependents'),
+          leading: const Icon(Icons.family_restroom_outlined),
+          title: const Text('Hồ sơ người thân'),
+          subtitle: const Text('Quản lý người được bạn đặt lịch'),
+          trailing: const Icon(Icons.chevron_right_rounded),
+          onTap: () => context.push('/dependents'),
+        ),
+        const Divider(height: 1),
+        ListTile(
           leading: const Icon(Icons.event_note_outlined),
           title: const Text('Lịch khám của tôi'),
           trailing: const Icon(Icons.chevron_right_rounded),
@@ -452,6 +499,71 @@ class _PatientShortcuts extends StatelessWidget {
           title: const Text('Hóa đơn và BHYT'),
           trailing: const Icon(Icons.chevron_right_rounded),
           onTap: () => context.push('/invoices'),
+        ),
+      ],
+    ),
+  );
+}
+
+class _ProfileGroupTitle extends StatelessWidget {
+  const _ProfileGroupTitle({required this.title});
+
+  final String title;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(left: 4),
+    child: Text(
+      title,
+      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+        color: AppTheme.clinicalInk,
+        fontWeight: FontWeight.w900,
+      ),
+    ),
+  );
+}
+
+class _AppSupportSection extends StatelessWidget {
+  const _AppSupportSection({required this.pushState});
+
+  final PushNotificationsState pushState;
+
+  @override
+  Widget build(BuildContext context) => Card(
+    margin: EdgeInsets.zero,
+    child: Column(
+      children: [
+        ListTile(
+          key: const Key('profile-notification-settings'),
+          leading: const Icon(Icons.notifications_none_rounded),
+          title: const Text('Thông báo'),
+          subtitle: const Text('Lịch khám, kết quả và hóa đơn'),
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                _notificationStatus(pushState),
+                style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                  color: pushState.isAllowed
+                      ? AppTheme.primary
+                      : Theme.of(context).colorScheme.onSurfaceVariant,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(width: 4),
+              const Icon(Icons.chevron_right_rounded),
+            ],
+          ),
+          onTap: () => context.push('/notification-settings'),
+        ),
+        const Divider(height: 1),
+        ListTile(
+          key: const Key('profile-support-center'),
+          leading: const Icon(Icons.support_agent_rounded),
+          title: const Text('Trung tâm hỗ trợ'),
+          subtitle: const Text('Hotline, cấp cứu và câu hỏi thường gặp'),
+          trailing: const Icon(Icons.chevron_right_rounded),
+          onTap: () => context.push('/support'),
         ),
       ],
     ),
@@ -564,4 +676,22 @@ String _number(double? value) {
   return value == value.roundToDouble()
       ? value.toInt().toString()
       : value.toStringAsFixed(1);
+}
+
+String _notificationStatus(PushNotificationsState state) {
+  if (state.isCheckingPermission) return 'Đang kiểm tra';
+  return switch (state.permission) {
+    PushPermissionStatus.authorized =>
+      state.isTokenRegistered ? 'Đang bật' : 'Đang đồng bộ',
+    PushPermissionStatus.provisional => 'Tạm thời',
+    PushPermissionStatus.denied => 'Đang tắt',
+    PushPermissionStatus.notDetermined => 'Chưa thiết lập',
+    PushPermissionStatus.unknown => 'Chưa xác định',
+  };
+}
+
+String _maskPhone(String value) {
+  final digits = value.replaceAll(RegExp(r'\D'), '');
+  if (digits.length < 7) return value;
+  return '${digits.substring(0, 4)} ••• ${digits.substring(digits.length - 3)}';
 }

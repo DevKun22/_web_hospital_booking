@@ -5,7 +5,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>Hospital Booking</string>
+	<string>Medcare Booking</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -40,6 +40,12 @@
 		<key>NSAllowsLocalNetworking</key>
 		<true/>
 	</dict>
+	<key>NSCalendarsUsageDescription</key>
+	<string>Ứng dụng cần mở lịch để bạn tự xác nhận thêm lịch khám.</string>
+	<key>NSContactsUsageDescription</key>
+	<string>Ứng dụng chỉ dùng quyền này khi giao diện lịch của thiết bị yêu cầu.</string>
+	<key>NSFaceIDUsageDescription</key>
+	<string>Dùng Face ID để mở khóa dữ liệu y tế đã đăng nhập trên thiết bị này.</string>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
 	<key>UIMainStoryboardFile</key>

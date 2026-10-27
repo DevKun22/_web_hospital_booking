@@ -76,6 +76,42 @@ void main() {
       ),
       isNull,
     );
+    expect(
+      resolveAppRedirect(
+        authStatus: AuthStatus.unauthenticated,
+        hasChallenge: false,
+        welcomeSeen: true,
+        location: '/notifications',
+      ),
+      '/login?from=%2Fnotifications',
+    );
+    expect(
+      resolveAppRedirect(
+        authStatus: AuthStatus.unauthenticated,
+        hasChallenge: false,
+        welcomeSeen: true,
+        location: '/records',
+      ),
+      '/login?from=%2Frecords',
+    );
+    expect(
+      resolveAppRedirect(
+        authStatus: AuthStatus.unauthenticated,
+        hasChallenge: false,
+        welcomeSeen: true,
+        location: '/notification-appointments',
+      ),
+      '/login?from=%2Fnotification-appointments',
+    );
+    expect(
+      resolveAppRedirect(
+        authStatus: AuthStatus.unauthenticated,
+        hasChallenge: false,
+        welcomeSeen: true,
+        location: '/dependents',
+      ),
+      '/login?from=%2Fdependents',
+    );
   });
 
   test('explicit logout leaves protected screens for guest home', () {
@@ -148,5 +184,28 @@ void main() {
     expect(safeReturnLocation('//malicious.example/path'), isNull);
     expect(safeReturnLocation('/verify-otp'), isNull);
     expect(safeReturnLocation('/appointments/123'), '/appointments/123');
+  });
+
+  test('launch presentation keeps every route on splash until complete', () {
+    expect(
+      resolveAppRedirect(
+        authStatus: AuthStatus.authenticated,
+        hasChallenge: false,
+        welcomeSeen: true,
+        location: '/home',
+        launchPresentationCompleted: false,
+      ),
+      '/splash',
+    );
+    expect(
+      resolveAppRedirect(
+        authStatus: AuthStatus.authenticated,
+        hasChallenge: false,
+        welcomeSeen: true,
+        location: '/splash',
+        launchPresentationCompleted: false,
+      ),
+      isNull,
+    );
   });
 }

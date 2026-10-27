@@ -27,6 +27,8 @@ final bookingFlowControllerProvider =
       BookingFlowController.new,
     );
 
+enum SelectedSlotValidation { available, unavailable, failed }
+
 class BookingFlowState {
   const BookingFlowState({
     this.departments = const [],
@@ -176,6 +178,13 @@ class BookingFlowController extends Notifier<BookingFlowState> {
     _presetDate = null;
     _presetTimeSlotId = null;
 
+    // A doctor/department preset represents an explicit doctor-booking intent.
+    // Do not let a previously persisted package draft block that newer intent.
+    if (packageId == null &&
+        (departmentId != null || doctorId != null) &&
+        state.selection.serviceMode != BookingServiceMode.doctor) {
+      await selectServiceMode(BookingServiceMode.doctor);
+    }
     if (packageId != null &&
         state.packages.any((item) => item.id == packageId)) {
       await selectPackage(packageId);
@@ -348,8 +357,24 @@ class BookingFlowController extends Notifier<BookingFlowState> {
   Future<void> refreshSlots() async {
     final doctorId = state.selection.doctorId;
     final date = state.selection.date;
-    if (doctorId == null || date == null) return;
+    if (doctorId == null || date == null || state.isSlotsLoading) return;
     await _loadSlots(doctorId, date);
+  }
+
+  Future<SelectedSlotValidation> revalidateSelectedSlot() async {
+    final selectedSlotId = state.selection.slotId;
+    final doctorId = state.selection.doctorId;
+    final date = state.selection.date;
+    if (selectedSlotId == null || doctorId == null || date == null) {
+      return SelectedSlotValidation.unavailable;
+    }
+
+    await _loadSlots(doctorId, date);
+    if (state.error != null) return SelectedSlotValidation.failed;
+    return state.selection.slotId == selectedSlotId &&
+            state.slots.any((slot) => slot.id == selectedSlotId)
+        ? SelectedSlotValidation.available
+        : SelectedSlotValidation.unavailable;
   }
 
   Future<void> clearSelection() async {
@@ -415,6 +440,7 @@ class BookingFlowController extends Notifier<BookingFlowState> {
         departments: state.departments,
         doctors: state.doctors,
         packages: state.packages,
+        slots: state.slots,
         selection: state.selection,
         error: error,
       );

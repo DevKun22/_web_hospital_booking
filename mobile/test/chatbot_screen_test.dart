@@ -53,6 +53,36 @@ class _ScreenChatbotRepository extends ChatbotRepository {
 }
 
 void main() {
+  testWidgets('prefills context without sending it automatically', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          chatbotRepositoryProvider.overrideWithValue(
+            _ScreenChatbotRepository(),
+          ),
+        ],
+        child: const MaterialApp(
+          home: ChatbotScreen(
+            initialPrompt: 'Tôi muốn hỏi về bác sĩ Nguyễn Văn An.',
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const Key('chatbot-context-prefill-notice')),
+      findsOneWidget,
+    );
+    expect(
+      find.widgetWithText(TextField, 'Tôi muốn hỏi về bác sĩ Nguyễn Văn An.'),
+      findsOneWidget,
+    );
+    expect(find.text('Tôi đã tìm thấy chuyên khoa phù hợp.'), findsNothing);
+  });
+
   testWidgets('sends a message and renders grounded chatbot results', (
     tester,
   ) async {

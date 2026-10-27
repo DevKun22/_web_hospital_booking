@@ -1,3 +1,5 @@
+import 'package:hospital_booking_mobile/core/formatters/professional_name_formatter.dart';
+
 enum ChatbotSource { system, faq, ai, fallback, emergency, unknown }
 
 extension ChatbotSourceLabel on ChatbotSource {
@@ -207,8 +209,14 @@ class ChatbotResultItem {
   final String? endTime;
 
   String get displayName => switch (type) {
-    ChatbotResultType.doctor => '${title ?? ''} ${fullName ?? ''}'.trim(),
-    ChatbotResultType.slot => doctorName ?? 'Bác sĩ phù hợp',
+    ChatbotResultType.doctor => formatProfessionalName(
+      title: title,
+      fullName: fullName ?? '',
+    ),
+    ChatbotResultType.slot =>
+      doctorName == null
+          ? 'Bác sĩ phù hợp'
+          : normalizeProfessionalName(doctorName!),
     _ => name ?? '',
   };
 

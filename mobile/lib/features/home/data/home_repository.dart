@@ -15,145 +15,79 @@ class HomeRepository {
   Future<HomeContent?> readCached() => _cache.read();
 
   Future<HomeFetchResult> fetchAndCache({HomeContent? fallback}) async {
-    final bannersFuture = _loadSection(
-      'banner',
-      () => _dio.get<dynamic>(
-        '/banners',
-        queryParameters: {'position': 'HOME_HERO'},
-      ),
-      (body) => _items(body).map(HomeBanner.fromJson).toList(growable: false),
-    );
-    final departmentsFuture = _loadSection(
-      'chuyên khoa',
-      () => _dio.get<dynamic>('/departments'),
-      (body) => requireDataList(
-        body,
-      ).map(HomeDepartment.fromJson).toList(growable: false),
-    );
-    final doctorsFuture = _loadSection(
-      'bác sĩ',
-      () => _dio.get<dynamic>('/doctors'),
-      (body) => requireDataList(
-        body,
-      ).map(HomeDoctor.fromJson).toList(growable: false),
-    );
-    final packagesFuture = _loadSection(
-      'gói khám',
-      () => _dio.get<dynamic>('/packages'),
-      (body) => requireDataList(
-        body,
-      ).map(HomeMedicalPackage.fromJson).toList(growable: false),
-    );
-    final faqsFuture = _loadSection(
-      'hỏi đáp',
-      () => _dio.get<dynamic>('/faqs'),
-      (body) => _items(body).map(HomeFaq.fromJson).toList(growable: false),
-    );
-    final settingsFuture = _loadSection(
-      'thông tin bệnh viện',
-      () => _dio.get<dynamic>('/site-settings'),
-      (body) => HomeSiteSettings.fromJson(requireDataMap(body)),
-    );
+    try {
+      final response = await _dio.get<dynamic>(
+        '/public/bootstrap',
+        queryParameters: {'view': 'featured'},
+      );
+      final data = requireDataMap(response.data);
+      final content = HomeContent(
+        banners: _decodeItems(data['banners'], HomeBanner.fromJson),
+        departments: _decodeItems(data['departments'], HomeDepartment.fromJson),
+        doctors: _decodeItems(data['doctors'], HomeDoctor.fromJson),
+        packages: _decodeItems(data['packages'], HomeMedicalPackage.fromJson),
+        faqs: _decodeItems(data['faqs'], HomeFaq.fromJson),
+        siteSettings: HomeSiteSettings.fromJson(
+          Map<String, dynamic>.from(data['siteSettings'] as Map? ?? const {}),
+        ),
+        fetchedAt: DateTime.now(),
+      );
 
-    final banners = await bannersFuture;
-    final departments = await departmentsFuture;
-    final doctors = await doctorsFuture;
-    final packages = await packagesFuture;
-    final faqs = await faqsFuture;
-    final settings = await settingsFuture;
-    final sections = [banners, departments, doctors, packages, faqs, settings];
-    final failures = sections
-        .where((section) => section.error != null)
-        .toList();
-    final successCount = sections.length - failures.length;
-
-    if (successCount == 0 && fallback == null) {
-      throw failures.first.error!;
-    }
-
-    final warning = failures.isEmpty
-        ? null
-        : ApiException(
-            kind: failures.first.error!.kind,
-            code: 'HOME_PARTIAL_CONTENT',
-            requestId: failures.first.error!.requestId,
-            message: successCount == 0
-                ? 'Không thể cập nhật Trang chủ. Ứng dụng đang dùng nội dung đã lưu.'
-                : 'Một số nội dung Trang chủ chưa cập nhật được: ${failures.map((item) => item.label).join(', ')}.',
-          );
-    final content = successCount == 0
-        ? fallback!
-        : HomeContent(
-            banners: banners.value ?? fallback?.banners ?? const <HomeBanner>[],
-            departments:
-                departments.value ??
-                fallback?.departments ??
-                const <HomeDepartment>[],
-            doctors: doctors.value ?? fallback?.doctors ?? const <HomeDoctor>[],
-            packages:
-                packages.value ??
-                fallback?.packages ??
-                const <HomeMedicalPackage>[],
-            faqs: faqs.value ?? fallback?.faqs ?? const <HomeFaq>[],
-            siteSettings:
-                settings.value ??
-                fallback?.siteSettings ??
-                const HomeSiteSettings(),
-            fetchedAt: DateTime.now(),
-          );
-
-    if (successCount > 0) {
       try {
         await _cache.write(content);
       } catch (_) {
         // Fresh server data remains usable even when device storage is full or
         // temporarily unavailable.
       }
-    }
-    return HomeFetchResult(
-      content: content,
-      warning: warning,
-      usedFallback: fallback != null && failures.isNotEmpty,
-    );
-  }
-
-  Future<_HomeSection<T>> _loadSection<T>(
-    String label,
-    Future<Response<dynamic>> Function() request,
-    T Function(dynamic body) parse,
-  ) async {
-    try {
-      final response = await request();
-      return _HomeSection(label: label, value: parse(response.data));
+      return HomeFetchResult(content: content, usedFallback: false);
     } on DioException catch (error) {
-      return _HomeSection(label: label, error: ApiException.fromDio(error));
+      return _fallbackOrThrow(ApiException.fromDio(error), fallback);
     } on ApiException catch (error) {
-      return _HomeSection(label: label, error: error);
+      return _fallbackOrThrow(error, fallback);
     } catch (_) {
-      return _HomeSection(
-        label: label,
-        error: const ApiException(
+      return _fallbackOrThrow(
+        const ApiException(
           kind: ApiErrorKind.unknown,
           code: 'INVALID_API_CONTRACT',
           message: 'Phản hồi máy chủ không đúng định dạng.',
         ),
+        fallback,
       );
     }
   }
 
-  List<Map<String, dynamic>> _items(dynamic body) {
-    final data = requireDataMap(body);
-    final items = data['items'];
-    if (items is! List) {
+  HomeFetchResult _fallbackOrThrow(ApiException error, HomeContent? fallback) {
+    if (fallback == null) throw error;
+
+    return HomeFetchResult(
+      content: fallback,
+      warning: ApiException(
+        kind: error.kind,
+        code: 'HOME_FALLBACK_CONTENT',
+        requestId: error.requestId,
+        message:
+            'Không thể cập nhật Trang chủ. Ứng dụng đang dùng nội dung đã lưu.',
+      ),
+      usedFallback: true,
+    );
+  }
+
+  List<T> _decodeItems<T>(
+    dynamic value,
+    T Function(Map<String, dynamic>) parse,
+  ) {
+    if (value is! List) {
       throw const ApiException(
         kind: ApiErrorKind.unknown,
         code: 'INVALID_API_CONTRACT',
         message: 'Phản hồi máy chủ không đúng định dạng.',
       );
     }
-    return items
+
+    return value
         .whereType<Map>()
         .map((item) => Map<String, dynamic>.from(item))
+        .map(parse)
         .toList(growable: false);
   }
 }
@@ -168,12 +102,4 @@ class HomeFetchResult {
   final HomeContent content;
   final ApiException? warning;
   final bool usedFallback;
-}
-
-class _HomeSection<T> {
-  const _HomeSection({required this.label, this.value, this.error});
-
-  final String label;
-  final T? value;
-  final ApiException? error;
 }

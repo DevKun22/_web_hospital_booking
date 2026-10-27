@@ -159,6 +159,13 @@ class _RecordHeader extends StatelessWidget {
             value:
                 '${formatDateVi(record.appointmentDate)} · ${formatTimeRange(record.startTime, record.endTime)}',
           ),
+          if (record.isDependentRecord && record.patientName != null) ...[
+            const SizedBox(height: 10),
+            _IconLine(
+              icon: Icons.family_restroom_outlined,
+              value: 'Người đến khám: ${record.patientName}',
+            ),
+          ],
           const SizedBox(height: 10),
           _IconLine(
             icon: Icons.person_outline,

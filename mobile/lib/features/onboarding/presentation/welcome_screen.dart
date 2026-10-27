@@ -30,7 +30,7 @@ class WelcomeScreen extends ConsumerWidget {
                         AppBrandMark(size: 40),
                         SizedBox(width: 10),
                         Text(
-                          'HOSPITAL BOOKING',
+                          'MEDCARE BOOKING',
                           style: TextStyle(
                             fontWeight: FontWeight.w700,
                             letterSpacing: 1.1,

@@ -21,6 +21,7 @@ class PatientProfileState {
     this.isInitialLoading = false,
     this.isRefreshing = false,
     this.isSaving = false,
+    this.lastSyncedAt,
   });
 
   final PatientProfile? profile;
@@ -28,6 +29,7 @@ class PatientProfileState {
   final bool isInitialLoading;
   final bool isRefreshing;
   final bool isSaving;
+  final DateTime? lastSyncedAt;
 
   PatientProfileState copyWith({
     PatientProfile? profile,
@@ -36,12 +38,14 @@ class PatientProfileState {
     bool? isInitialLoading,
     bool? isRefreshing,
     bool? isSaving,
+    DateTime? lastSyncedAt,
   }) => PatientProfileState(
     profile: profile ?? this.profile,
     error: clearError ? null : (error ?? this.error),
     isInitialLoading: isInitialLoading ?? this.isInitialLoading,
     isRefreshing: isRefreshing ?? this.isRefreshing,
     isSaving: isSaving ?? this.isSaving,
+    lastSyncedAt: lastSyncedAt ?? this.lastSyncedAt,
   );
 }
 
@@ -67,7 +71,12 @@ class PatientProfileController extends Notifier<PatientProfileState> {
   }
 
   Future<void> refresh() async {
-    if (_patientId == null || state.isSaving) return;
+    if (_patientId == null ||
+        state.isInitialLoading ||
+        state.isRefreshing ||
+        state.isSaving) {
+      return;
+    }
     final requestVersion = ++_requestVersion;
     state = state.copyWith(
       isInitialLoading: state.profile == null,
@@ -77,13 +86,25 @@ class PatientProfileController extends Notifier<PatientProfileState> {
     await _fetch(requestVersion);
   }
 
+  Future<void> refreshIfStale({required Duration maxAge}) async {
+    final lastSyncedAt = state.lastSyncedAt;
+    final isFresh =
+        lastSyncedAt != null &&
+        DateTime.now().difference(lastSyncedAt) < maxAge;
+    if (isFresh) return;
+    await refresh();
+  }
+
   Future<void> _fetch(int requestVersion) async {
     try {
       final profile = await ref
           .read(patientProfileRepositoryProvider)
           .getProfile();
       if (requestVersion != _requestVersion || profile.id != _patientId) return;
-      state = PatientProfileState(profile: profile);
+      state = PatientProfileState(
+        profile: profile,
+        lastSyncedAt: DateTime.now(),
+      );
       ref
           .read(authControllerProvider.notifier)
           .syncUser(profile.toPatientUser());
@@ -111,7 +132,10 @@ class PatientProfileController extends Notifier<PatientProfileState> {
           profile.id != patientId) {
         return false;
       }
-      state = PatientProfileState(profile: profile);
+      state = PatientProfileState(
+        profile: profile,
+        lastSyncedAt: DateTime.now(),
+      );
       ref
           .read(authControllerProvider.notifier)
           .syncUser(profile.toPatientUser());

@@ -1,9 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:hospital_booking_mobile/app/theme/app_theme.dart';
+import 'package:hospital_booking_mobile/app/navigation/booking_navigation.dart';
 import 'package:hospital_booking_mobile/core/formatters/display_formatters.dart';
 import 'package:hospital_booking_mobile/core/widgets/app_error_banner.dart';
+import 'package:hospital_booking_mobile/core/widgets/app_route_back_scope.dart';
 import 'package:hospital_booking_mobile/core/widgets/app_ui.dart';
 import 'package:hospital_booking_mobile/features/appointments/application/appointments_controller.dart';
 import 'package:hospital_booking_mobile/features/appointments/domain/patient_appointment.dart';
@@ -18,7 +21,36 @@ class AppointmentsScreen extends ConsumerStatefulWidget {
 }
 
 class _AppointmentsScreenState extends ConsumerState<AppointmentsScreen> {
+  static const _pollInterval = Duration(seconds: 30);
+  static const _pollFreshness = Duration(seconds: 25);
+
   _AppointmentFilter _filter = _AppointmentFilter.upcoming;
+  Timer? _pollTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _pollTimer = Timer.periodic(_pollInterval, _pollIfVisible);
+  }
+
+  @override
+  void dispose() {
+    _pollTimer?.cancel();
+    super.dispose();
+  }
+
+  void _pollIfVisible(Timer _) {
+    if (!mounted ||
+        !TickerMode.of(context) ||
+        ModalRoute.of(context)?.isCurrent != true) {
+      return;
+    }
+    unawaited(
+      ref
+          .read(appointmentsControllerProvider.notifier)
+          .refreshIfStale(maxAge: _pollFreshness),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -36,6 +68,7 @@ class _AppointmentsScreenState extends ConsumerState<AppointmentsScreen> {
 
     return Scaffold(
       appBar: AppBar(
+        leading: const AppRouteBackButton(fallbackLocation: '/home'),
         title: const Text('Lịch khám của tôi'),
         actions: [
           IconButton(
@@ -57,14 +90,12 @@ class _AppointmentsScreenState extends ConsumerState<AppointmentsScreen> {
                       padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
                       sliver: SliverList.list(
                         children: [
-                          _OverviewCard(
-                            upcoming: state.items
-                                .where((item) => !item.isHistory)
-                                .length,
-                            history: state.items
-                                .where((item) => item.isHistory)
-                                .length,
-                            total: state.total,
+                          AppGradientOverviewCard(
+                            icon: Icons.event_available_rounded,
+                            title:
+                                '${state.items.where((item) => !item.isHistory).length} lịch cần theo dõi',
+                            subtitle:
+                                '${state.items.where((item) => item.isHistory).length} lịch đã qua · ${state.total} lịch trên hệ thống',
                           ),
                           const SizedBox(height: 16),
                           SegmentedButton<_AppointmentFilter>(
@@ -120,6 +151,7 @@ class _AppointmentsScreenState extends ConsumerState<AppointmentsScreen> {
                               const SizedBox(height: 12),
                           itemBuilder: (context, index) => _AppointmentCard(
                             appointment: visibleItems[index],
+                            compact: _filter == _AppointmentFilter.history,
                             onTap: () => context.push(
                               '/appointments/${visibleItems[index].id}',
                             ),
@@ -158,151 +190,110 @@ class _AppointmentsScreenState extends ConsumerState<AppointmentsScreen> {
   }
 }
 
-class _OverviewCard extends StatelessWidget {
-  const _OverviewCard({
-    required this.upcoming,
-    required this.history,
-    required this.total,
-  });
-
-  final int upcoming;
-  final int history;
-  final int total;
-
-  @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.all(18),
-    decoration: BoxDecoration(
-      gradient: const LinearGradient(
-        colors: [AppTheme.primaryDark, AppTheme.primary],
-      ),
-      borderRadius: BorderRadius.circular(20),
-    ),
-    child: Row(
-      children: [
-        Container(
-          width: 48,
-          height: 48,
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.14),
-            borderRadius: BorderRadius.circular(15),
-          ),
-          child: const Icon(Icons.event_available_rounded, color: Colors.white),
-        ),
-        const SizedBox(width: 14),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                '$upcoming lịch cần theo dõi',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                '$history lịch đã qua · $total lịch trên hệ thống',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Colors.white.withValues(alpha: 0.82),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    ),
-  );
-}
-
 class _AppointmentCard extends StatelessWidget {
-  const _AppointmentCard({required this.appointment, required this.onTap});
+  const _AppointmentCard({
+    required this.appointment,
+    required this.onTap,
+    required this.compact,
+  });
 
   final PatientAppointment appointment;
   final VoidCallback onTap;
+  final bool compact;
 
   @override
-  Widget build(BuildContext context) => Card(
-    margin: EdgeInsets.zero,
-    child: InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(18),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
+  Widget build(BuildContext context) => AppSurfaceCard(
+    onTap: onTap,
+    semanticLabel:
+        '${appointment.status.label}, ${appointment.doctorName}, ${formatDateVi(appointment.appointmentDate)}',
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: AppStatusBadge(
-                    label: appointment.status.label,
-                    tone: appointment.status.tone,
-                    icon: appointment.status.icon,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  appointment.bookingCode,
-                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ],
+            Expanded(
+              child: AppStatusBadge(
+                label: appointment.status.label,
+                tone: appointment.status.tone,
+                icon: appointment.status.icon,
+              ),
             ),
-            const SizedBox(height: 14),
+            const SizedBox(width: 8),
             Text(
-              appointment.doctorName.isEmpty
-                  ? 'Bác sĩ đang được cập nhật'
-                  : appointment.doctorName,
-              style: Theme.of(
-                context,
-              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              appointment.careUnit.isEmpty
-                  ? 'Đơn vị khám đang được cập nhật'
-                  : appointment.careUnit,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              appointment.bookingCode,
+              style: Theme.of(context).textTheme.labelMedium?.copyWith(
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
-            ),
-            const SizedBox(height: 14),
-            DecoratedBox(
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.primaryContainer,
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.calendar_today_outlined,
-                      size: 20,
-                      color: Theme.of(context).colorScheme.primary,
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        '${formatDateVi(appointment.appointmentDate)} · ${formatTimeRange(appointment.startTime, appointment.endTime)}',
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                    const Icon(Icons.chevron_right_rounded),
-                  ],
-                ),
+                fontWeight: FontWeight.w700,
               ),
             ),
           ],
         ),
-      ),
+        const SizedBox(height: 14),
+        Text(
+          appointment.doctorName.isEmpty
+              ? 'Bác sĩ đang được cập nhật'
+              : appointment.doctorName,
+          style: Theme.of(
+            context,
+          ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          appointment.careUnit.isEmpty
+              ? 'Đơn vị khám đang được cập nhật'
+              : appointment.careUnit,
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
+        ),
+        if (appointment.isDependentBooking) ...[
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Icon(
+                Icons.family_restroom_outlined,
+                size: 18,
+                color: Theme.of(context).colorScheme.primary,
+              ),
+              const SizedBox(width: 7),
+              Expanded(
+                child: Text(
+                  'Người đến khám: ${appointment.patientName}',
+                  style: Theme.of(context).textTheme.labelLarge,
+                ),
+              ),
+            ],
+          ),
+        ],
+        SizedBox(height: compact ? 10 : 14),
+        Container(
+          padding: EdgeInsets.all(compact ? 10 : 12),
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.primaryContainer,
+            borderRadius: BorderRadius.circular(AppRadius.md),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                Icons.calendar_today_outlined,
+                size: 20,
+                color: Theme.of(context).colorScheme.primary,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  '${formatDateVi(appointment.appointmentDate)} · ${formatTimeRange(appointment.startTime, appointment.endTime)}',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w700),
+                ),
+              ),
+              const Icon(Icons.chevron_right_rounded),
+            ],
+          ),
+        ),
+      ],
     ),
   );
 }
@@ -328,7 +319,7 @@ class _EmptyAppointments extends StatelessWidget {
     action: filter == _AppointmentFilter.history
         ? null
         : FilledButton.icon(
-            onPressed: () => context.push('/booking'),
+            onPressed: () => openBookingFromCurrentRoute(context, '/booking'),
             icon: const Icon(Icons.add_rounded),
             label: const Text('Đặt lịch khám'),
           ),
