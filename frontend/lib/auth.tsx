@@ -8,7 +8,7 @@ import {
   useMemo,
   useState,
 } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { apiRequest, AUTH_EXPIRED_EVENT } from "@/lib/api";
 import type { DashboardUser } from "@/lib/types";
 
@@ -44,6 +44,7 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
+  const pathname = usePathname();
   const [user, setUser] = useState<DashboardUser | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -66,12 +67,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
+    const needsDashboardSession =
+      pathname === "/login" || pathname.startsWith("/dashboard");
+
     const timeoutId = window.setTimeout(() => {
+      if (!needsDashboardSession) {
+        setLoading(false);
+        return;
+      }
+
+      setLoading(true);
       void refreshUser();
     }, 0);
 
     return () => window.clearTimeout(timeoutId);
-  }, [refreshUser]);
+  }, [pathname, refreshUser]);
 
   useEffect(() => {
     const handleAuthExpired = () => {

@@ -26,6 +26,7 @@ PatientInvoice _invoice(String id) => PatientInvoice(
   insuranceEligibleAmount: 0,
   insuranceCoverageRate: 0,
   insuranceDiscountAmount: 0,
+  items: const [],
   status: PatientInvoiceStatus.unpaid,
   appointmentId: 'appointment-$id',
   bookingCode: 'HB-$id',
@@ -68,6 +69,13 @@ class _DelayedRepository extends InvoicesRepository {
 }
 
 void main() {
+  test('invoice amount label follows its payment status', () {
+    expect(PatientInvoiceStatus.unpaid.amountLabel, 'Cần thanh toán');
+    expect(PatientInvoiceStatus.paid.amountLabel, 'Đã thanh toán');
+    expect(PatientInvoiceStatus.refunded.amountLabel, 'Đã hoàn tiền');
+    expect(PatientInvoiceStatus.cancelled.amountLabel, 'Giá trị hóa đơn');
+  });
+
   test('loads invoices with pagination', () async {
     final container = ProviderContainer(
       overrides: [

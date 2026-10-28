@@ -125,3 +125,42 @@ export const revokePatientSessionHandler = async (
     next(error);
   }
 };
+
+export const registerPatientPushTokenHandler = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const patient = requirePatient(req);
+    const data = await AuthSessionService.registerPushToken({
+      sessionId: patient.sessionId,
+      userId: patient.userId,
+      kind: "PATIENT",
+      pushToken: req.body.pushToken,
+      platform: req.body.platform,
+      appVersion: req.body.appVersion,
+    });
+    return res.json({ success: true, data });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const disablePatientPushTokenHandler = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const patient = requirePatient(req);
+    const data = await AuthSessionService.disablePushToken({
+      sessionId: patient.sessionId,
+      userId: patient.userId,
+      kind: "PATIENT",
+    });
+    return res.json({ success: true, data });
+  } catch (error) {
+    next(error);
+  }
+};

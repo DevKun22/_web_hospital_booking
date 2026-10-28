@@ -11,41 +11,37 @@ void main() {
         onRequest: (options, handler) {
           requested.add(options.uri);
           final data = switch (options.path) {
-            '/departments' => {
+            '/public/bootstrap' => {
               'success': true,
-              'data': [
-                {'id': 'department-1', 'name': 'Tim mạch'},
-              ],
-            },
-            '/doctors' => {
-              'success': true,
-              'data': [
-                {
-                  'id': 'doctor-1',
-                  'title': 'BS. CKI',
-                  'consultationFee': 250000,
-                  'user': {'fullName': 'BS. CKI Nguyễn Văn An'},
-                  'department': {'id': 'department-1', 'name': 'Tim mạch'},
-                },
-              ],
-            },
-            '/packages' => {
-              'success': true,
-              'data': [
-                {
-                  'id': 'package-1',
-                  'name': 'Gói tim mạch',
-                  'slug': 'goi-tim-mach',
-                  'department': {'id': 'department-1', 'name': 'Tim mạch'},
-                  'basePrice': 800000,
-                  'serviceFee': 50000,
-                  'includedItemsTotal': 800000,
-                  'finalPrice': 850000,
-                  'isPopular': true,
-                  'isBHYTSupport': true,
-                  'items': [],
-                },
-              ],
+              'data': {
+                'departments': [
+                  {'id': 'department-1', 'name': 'Tim mạch'},
+                ],
+                'doctors': [
+                  {
+                    'id': 'doctor-1',
+                    'title': 'BS. CKI',
+                    'consultationFee': 250000,
+                    'user': {'fullName': 'BS. CKI Nguyễn Văn An'},
+                    'department': {'id': 'department-1', 'name': 'Tim mạch'},
+                  },
+                ],
+                'packages': [
+                  {
+                    'id': 'package-1',
+                    'name': 'Gói tim mạch',
+                    'slug': 'goi-tim-mach',
+                    'department': {'id': 'department-1', 'name': 'Tim mạch'},
+                    'basePrice': 800000,
+                    'serviceFee': 50000,
+                    'includedItemsTotal': 800000,
+                    'finalPrice': 850000,
+                    'isPopular': true,
+                    'isBHYTSupport': true,
+                    'items': [],
+                  },
+                ],
+              },
             },
             '/doctors/doctor-1' => {
               'success': true,
@@ -98,6 +94,7 @@ void main() {
     expect(doctor.bio, 'Chuyên gia tim mạch.');
     expect(doctor.experience, 12);
     expect(slots.single.date, '2030-01-02');
+    expect(requested.first.queryParameters, {'view': 'catalog'});
     expect(requested.last.queryParameters, {'date': '2030-01-02'});
 
     dio.close(force: true);

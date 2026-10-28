@@ -11,7 +11,6 @@ import type {
   DashboardRevenueStatistics,
   DashboardStatisticsOverview,
   DoctorTimeSlot,
-  ListResult,
   MedicalRecord,
   Prescription,
 } from "@/lib/types";
@@ -40,72 +39,17 @@ export type DoctorDashboardData = {
 
 export const fetchDashboardStatistics = async (
   filters: DashboardStatisticsFilters,
-): Promise<DashboardStatisticsData> => {
-  const [overview, appointments, revenue, doctors, departments] =
-    await Promise.all([
-      apiRequest<DashboardStatisticsOverview>(
-        "/dashboard/statistics/overview",
-        { query: filters },
-      ),
-      apiRequest<DashboardAppointmentStatistics>(
-        "/dashboard/statistics/appointments",
-        { query: filters },
-      ),
-      apiRequest<DashboardRevenueStatistics>("/dashboard/statistics/revenue", {
-        query: filters,
-      }),
-      apiRequest<DashboardDoctorStatistics>("/dashboard/statistics/doctors", {
-        query: filters,
-      }),
-      apiRequest<DashboardDepartmentStatistics>(
-        "/dashboard/statistics/departments",
-        { query: filters },
-      ),
-    ]);
-
-  return { overview, appointments, revenue, doctors, departments };
-};
+): Promise<DashboardStatisticsData> =>
+  apiRequest<DashboardStatisticsData>("/dashboard/statistics/workspace", {
+    query: filters,
+  });
 
 export const fetchDoctorDashboardOverview = async (
   date: string,
-): Promise<DoctorDashboardData> => {
-  const [
-    todayAppointments,
-    checkedInAppointments,
-    inProgressAppointments,
-    draftRecords,
-    draftPrescriptions,
-    todaySlots,
-  ] = await Promise.all([
-    apiRequest<ListResult<Appointment>>("/dashboard/appointments", {
-      query: { date, limit: 100 },
-    }),
-    apiRequest<ListResult<Appointment>>("/dashboard/appointments", {
-      query: { status: "CHECKED_IN", limit: 20 },
-    }),
-    apiRequest<ListResult<Appointment>>("/dashboard/appointments", {
-      query: { status: "IN_PROGRESS", limit: 20 },
-    }),
-    apiRequest<ListResult<MedicalRecord>>("/dashboard/medical-records", {
-      query: { status: "DRAFT", limit: 20 },
-    }),
-    apiRequest<ListResult<Prescription>>("/dashboard/prescriptions", {
-      query: { status: "DRAFT", limit: 20 },
-    }),
-    apiRequest<ListResult<DoctorTimeSlot>>("/dashboard/doctor-time-slots", {
-      query: { date, limit: 200 },
-    }),
-  ]);
-
-  return {
-    todayAppointments: todayAppointments.items,
-    checkedInAppointments: checkedInAppointments.items,
-    inProgressAppointments: inProgressAppointments.items,
-    draftRecords: draftRecords.items,
-    draftPrescriptions: draftPrescriptions.items,
-    todaySlots: todaySlots.items,
-  };
-};
+): Promise<DoctorDashboardData> =>
+  apiRequest<DoctorDashboardData>("/dashboard/statistics/doctor-workspace", {
+    query: { date },
+  });
 
 export function useDashboardStatistics(
   filters: DashboardStatisticsFilters,
@@ -115,6 +59,9 @@ export function useDashboardStatistics(
     queryKey: queryKeys.dashboardStatistics(filters),
     queryFn: () => fetchDashboardStatistics(filters),
     enabled,
+    staleTime: 30_000,
+    refetchOnReconnect: true,
+    refetchOnWindowFocus: true,
   });
 }
 
@@ -123,5 +70,9 @@ export function useDoctorDashboardOverview(date: string, enabled: boolean) {
     queryKey: queryKeys.dashboardDoctorOverview({ date }),
     queryFn: () => fetchDoctorDashboardOverview(date),
     enabled,
+    staleTime: 15_000,
+    refetchInterval: 30_000,
+    refetchOnReconnect: true,
+    refetchOnWindowFocus: true,
   });
 }

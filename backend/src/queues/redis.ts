@@ -1,20 +1,26 @@
-export const hasRedisUrl = () => Boolean(process.env.REDIS_URL?.trim());
+export const resolveQueueRedisUrl = (env: NodeJS.ProcessEnv = process.env) =>
+  env.QUEUE_REDIS_URL?.trim() || env.REDIS_URL?.trim() || "";
+
+export const hasRedisUrl = (env: NodeJS.ProcessEnv = process.env) =>
+  Boolean(resolveQueueRedisUrl(env));
 
 const getRedisUrl = () => {
-  const redisUrl = process.env.REDIS_URL?.trim();
+  const redisUrl = resolveQueueRedisUrl();
 
   if (!redisUrl) {
-    throw new Error("REDIS_URL is missing");
+    throw new Error("QUEUE_REDIS_URL or REDIS_URL is missing");
   }
 
   if (redisUrl.startsWith("http://") || redisUrl.startsWith("https://")) {
     throw new Error(
-      "REDIS_URL must be a Redis TCP URL, not the Upstash REST URL",
+      "QUEUE_REDIS_URL/REDIS_URL must be a Redis TCP URL, not the Upstash REST URL",
     );
   }
 
   if (!redisUrl.startsWith("redis://") && !redisUrl.startsWith("rediss://")) {
-    throw new Error("REDIS_URL must start with redis:// or rediss://");
+    throw new Error(
+      "QUEUE_REDIS_URL/REDIS_URL must start with redis:// or rediss://",
+    );
   }
 
   return redisUrl;

@@ -4,17 +4,20 @@ import { publicBannerRouter } from "./banner.route.js";
 import chatbotRouter from "./chatbot.route.js";
 import appointmentRouter from "./appointment.route.js";
 import patientAuthRouter from "./patientAuthV1.route.js";
+import patientNotificationRouter from "./patientNotification.route.js";
 import patientPortalRouter from "./patientPortalV1.route.js";
 import publicDepartmentRouter from "./publicDepartment.route.js";
 import publicDoctorRouter from "./publicDoctor.route.js";
 import { publicFAQRouter } from "./publicFAQ.route.js";
 import publicPackageRouter from "./publicPackage.route.js";
+import publicBootstrapRouter from "./publicBootstrap.route.js";
 import { publicSiteSettingsRouter } from "./siteSettings.route.js";
 
 const router = Router();
 
 router.get("/capabilities", patientCapabilitiesHandler);
 router.use("/auth", patientAuthRouter);
+router.use("/me/notifications", patientNotificationRouter);
 router.use("/me", patientPortalRouter);
 
 // Additive aliases for shared public content. The legacy `/api/*` routes stay
@@ -27,5 +30,6 @@ router.use("/faqs", publicFAQRouter);
 router.use("/site-settings", publicSiteSettingsRouter);
 router.use("/chatbot", chatbotRouter);
 router.use("/appointments", appointmentRouter);
+router.use("/public", publicBootstrapRouter);
 
 export default router;

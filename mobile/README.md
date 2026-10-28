@@ -16,6 +16,33 @@
 
 Home đã đồng bộ banner, danh mục công khai và cho phép từng phần tiếp tục hoạt động khi một API tạm lỗi. Luồng đặt lịch, lịch hẹn, hồ sơ bệnh nhân, kết quả khám, đơn thuốc, hóa đơn và chatbot đã dùng chung API v1 với web.
 
+Thông báo trong ứng dụng theo dõi đầy đủ vòng đời lịch khám: xác nhận, đổi lịch,
+nhắc lịch, check-in, đang khám, hoàn thành, hủy và không đến; ngoài ra còn có
+kết quả khám, đơn thuốc, hóa đơn, thanh toán và hoàn tiền. Mỗi thông báo chỉ
+điều hướng tới route nằm trong danh sách cho phép và màn đích luôn tải trạng
+thái mới nhất từ backend.
+
+Android đã cấu hình Firebase Messaging và notification channel. iOS vẫn cần
+`GoogleService-Info.plist`, APNs key/certificate và signing trên macOS trước khi
+có thể xác nhận push ở môi trường phát hành.
+
+Người dùng có thể mở **Thông báo → Tùy chọn thông báo** để bật/tắt push theo
+nhóm. Các tùy chọn được lưu theo tài khoản trên backend; việc tắt một nhóm chỉ
+ngừng push ra thiết bị, không xóa hoặc ẩn sự kiện trong hộp thư ứng dụng.
+
+Chi tiết lịch sắp tới có checklist chuẩn bị giấy tờ, mã lịch, hồ sơ liên quan và
+thời gian đến. Mục thẻ BHYT chỉ xuất hiện khi lịch có dùng BHYT. Dấu tích được
+lưu cục bộ theo tài khoản và lịch hẹn, không tải giấy tờ hay dữ liệu sức khỏe lên
+thiết bị/backend.
+
+## Hạng mục đặt lịch cho người thân
+
+- Tài khoản đã đăng nhập có thể tạo, sửa và lưu trữ hồ sơ người thân tại **Tài khoản → Hồ sơ người thân**.
+- Tạo hồ sơ mới bắt buộc xác nhận quyền quản lý/đặt lịch. Hồ sơ đã lưu trữ không dùng cho lịch mới nhưng các lịch và kết quả cũ vẫn được giữ; tạo lại cùng CCCD sẽ khôi phục đúng hồ sơ cũ.
+- Khi đặt lịch, người dùng chọn **Bản thân** hoặc một hồ sơ người thân. Backend luôn lấy thông tin người được khám từ hồ sơ thuộc chính tài khoản, không tin dữ liệu định danh do client tự gửi.
+- `patientId` tiếp tục là chủ tài khoản để quản lý quyền xem, OTP, thông báo và liên hệ; `dependentProfileId` tách người thực sự đến khám. Danh sách lịch, hồ sơ khám, đơn thuốc và hóa đơn đều hiển thị rõ người được khám.
+- Khách chưa đăng nhập vẫn đặt được cho bản thân; đặt cho người thân yêu cầu đăng nhập để kiểm tra ownership.
+
 ## Chatbot mobile
 
 - Chatbot là route công khai `/chatbot`, dùng chung `/chatbot/settings` và `/chatbot/message` với web.

@@ -5,9 +5,17 @@
 import { Clock, Search, Stethoscope } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { PublicEmptyState, PublicPageHeader, PublicPageHero } from "@/components/public/public-page-layout";
+import { PublicEmptyState, PublicPageHero } from "@/components/public/public-page-layout";
 import { usePublicDepartments, usePublicDoctors } from "@/lib/public-lists-query";
+import { getPublicDoctorPath } from "@/lib/public-routes";
+import { buildCollectionPageJsonLd, jsonLdString } from "@/lib/seo";
 import type { DoctorProfile } from "@/lib/types";
+
+const pageJsonLd = buildCollectionPageJsonLd({
+  name: "Đội ngũ bác sĩ",
+  description: "Danh sách bác sĩ, chuyên khoa, phí khám và lịch khám trống để đặt lịch trực tuyến.",
+  path: "/bac-si",
+});
 
 const formatCurrency = (value: number) =>
   new Intl.NumberFormat("vi-VN", {
@@ -57,8 +65,8 @@ export default function PublicDoctorsPage() {
   );
 
   return (
-    <main className="min-h-screen bg-[#f6f8fb] text-[#172033]">
-      <PublicPageHeader />
+    <main className="min-h-screen bg-[var(--public-canvas)] text-[var(--public-ink)]">
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdString(pageJsonLd) }} />
       <PublicPageHero
         eyebrow="Đội ngũ bác sĩ"
         title="Chọn bác sĩ phù hợp với nhu cầu khám"
@@ -66,18 +74,20 @@ export default function PublicDoctorsPage() {
       >
           <div className="public-filter-panel grid max-w-4xl gap-3 p-3 md:grid-cols-[minmax(0,1fr)_260px] md:p-4">
             <label className="relative block">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#667892]" />
+              <span className="sr-only">Tìm bác sĩ</span>
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--public-muted)]" aria-hidden="true" />
               <input
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
                 placeholder="Tìm bác sĩ, chuyên môn hoặc chuyên khoa"
-                className="ui-field w-full py-3 pl-10 pr-3 text-sm"
+                className="ui-field w-full py-3 pl-10 pr-3 text-base sm:text-sm"
               />
             </label>
             <select
+              aria-label="Lọc bác sĩ theo chuyên khoa"
               value={departmentId}
               onChange={(event) => setDepartmentId(event.target.value)}
-              className="ui-field px-3 py-3 text-sm"
+              className="ui-field px-3 py-3 text-base sm:text-sm"
             >
               <option value="">Tất cả chuyên khoa</option>
               {departments.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
@@ -86,52 +96,52 @@ export default function PublicDoctorsPage() {
       </PublicPageHero>
 
       <section className="ui-container py-10 sm:py-12">
-        {error ? <div className="mb-4 rounded-md border border-[#f2b8b5] bg-[#fff3f2] px-4 py-3 text-sm text-[#b3261e]">{error}</div> : null}
+        {error ? <div className="ui-status-danger mb-4 rounded-xl border px-4 py-3 text-sm" role="alert">{error}</div> : null}
 
         <div className="mb-4 flex items-center justify-between gap-3">
-          <p className="text-sm text-[#667892]">
+          <p className="text-sm font-medium text-[var(--public-muted)]" aria-live="polite">
             {loading ? "Đang tải bác sĩ..." : `${doctors.length} bác sĩ${selectedDepartment ? ` thuộc ${selectedDepartment.name}` : ""}`}
           </p>
           {(search || departmentId) ? (
-            <button type="button" onClick={() => { setSearch(""); setDepartmentId(""); }} className="text-sm font-semibold text-[#0d4f8b]">
+            <button type="button" onClick={() => { setSearch(""); setDepartmentId(""); }} className="text-sm font-semibold text-[var(--public-primary)] hover:text-[var(--public-primary-dark)]">
               Xóa lọc
             </button>
           ) : null}
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="grid gap-5 lg:grid-cols-2">
           {loading ? Array.from({ length: 6 }).map((_, index) => <DoctorSkeleton key={index} />) : doctors.length ? doctors.map((doctor) => (
-            <article key={doctor.id} className="public-card p-5">
+            <article key={doctor.id} className="public-card p-5 sm:p-6">
               <div className="flex items-start gap-4">
                 {doctor.user.avatar ? (
-                  <img src={doctor.user.avatar} alt={doctor.user.fullName} loading="lazy" decoding="async" className="h-20 w-20 shrink-0 rounded-md object-cover" />
+                  <img src={doctor.user.avatar} alt={doctor.user.fullName} loading="lazy" decoding="async" className="h-24 w-24 shrink-0 rounded-2xl object-cover ring-4 ring-[var(--public-primary-soft)]" />
                 ) : (
-                  <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-md bg-[#e7f0fb] text-2xl font-semibold text-[#0d4f8b]">
+                  <div className="flex h-24 w-24 shrink-0 items-center justify-center rounded-2xl bg-[var(--public-primary-soft)] text-2xl font-semibold text-[var(--public-primary)]">
                     {firstLetter(doctor.user.fullName)}
                   </div>
                 )}
                 <div className="min-w-0">
                   <h2 className="text-lg font-semibold">{doctorName(doctor)}</h2>
-                  <p className="mt-1 text-sm text-[#667892]">{doctor.department.name}</p>
-                  <p className="mt-3 font-semibold text-[#0d4f8b]">{formatCurrency(doctor.consultationFee)}</p>
+                  <p className="mt-1 text-sm font-medium text-[var(--public-primary)]">{doctor.department.name}</p>
+                  <p className="mt-3 text-lg font-bold text-[var(--public-primary-dark)]">{formatCurrency(doctor.consultationFee)}</p>
                 </div>
               </div>
-              <div className="mt-4 space-y-2 text-sm text-[#667892]">
-                <p className="flex items-center gap-2"><Stethoscope className="h-4 w-4 text-[#0d4f8b]" />{doctor.specialization || "Khám chuyên khoa"}</p>
-                <p className="flex items-center gap-2"><Clock className="h-4 w-4 text-[#0d4f8b]" />{doctor.experience || 0} năm kinh nghiệm</p>
+              <div className="mt-5 grid gap-2 rounded-2xl bg-[var(--public-surface-muted)] p-4 text-sm text-[var(--public-muted)] sm:grid-cols-2">
+                <p className="flex items-center gap-2"><Stethoscope className="h-4 w-4 text-[var(--public-primary)]" aria-hidden="true" />{doctor.specialization || "Khám chuyên khoa"}</p>
+                <p className="flex items-center gap-2"><Clock className="h-4 w-4 text-[var(--public-primary)]" aria-hidden="true" />{doctor.experience || 0} năm kinh nghiệm</p>
               </div>
-              <p className="public-card-description mt-4 line-clamp-3 text-sm leading-6 text-[#667892]">{doctor.bio || "Bác sĩ đang tiếp nhận lịch khám và tư vấn theo chuyên khoa."}</p>
+              <p className="public-card-description mt-4 line-clamp-2 text-sm leading-6 text-[var(--public-muted)]">{doctor.bio || "Bác sĩ đang tiếp nhận lịch khám và tư vấn theo chuyên khoa."}</p>
               <div className="public-card-actions sm:grid-cols-2">
-                <Link href={`/doctors/${doctor.id}`} className="inline-flex flex-1 items-center justify-center gap-2 rounded-md border border-[#cfd8e6] px-4 py-2.5 text-sm font-semibold text-[#42526b] hover:bg-[#f8fafc]">
+                <Link href={getPublicDoctorPath(doctor)} className="public-button-secondary inline-flex flex-1 items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold">
                   Xem chi tiết
                 </Link>
-                <Link href={`/?departmentId=${doctor.department.id}&doctorId=${doctor.id}#booking`} className="inline-flex flex-1 items-center justify-center gap-2 rounded-md bg-[#0d4f8b] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#083d6d]">
+                <Link href={`/?departmentId=${doctor.department.id}&doctorId=${doctor.id}#booking`} className="public-button-primary inline-flex flex-1 items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold">
                   Đặt lịch
                 </Link>
               </div>
             </article>
           )) : (
-            <div className="sm:col-span-2 xl:col-span-3"><PublicEmptyState>Chưa tìm thấy bác sĩ phù hợp.</PublicEmptyState></div>
+            <div className="lg:col-span-2"><PublicEmptyState>Chưa tìm thấy bác sĩ phù hợp.</PublicEmptyState></div>
           )}
         </div>
       </section>

@@ -35,6 +35,7 @@ class MedicalRecordsState {
     this.isInitialLoading = false,
     this.isRefreshing = false,
     this.isLoadingMore = false,
+    this.lastSyncedAt,
     this.error,
   });
 
@@ -45,6 +46,7 @@ class MedicalRecordsState {
   final bool isInitialLoading;
   final bool isRefreshing;
   final bool isLoadingMore;
+  final DateTime? lastSyncedAt;
   final ApiException? error;
 
   bool get hasItems => items.isNotEmpty;
@@ -57,6 +59,7 @@ class MedicalRecordsState {
     bool? isInitialLoading,
     bool? isRefreshing,
     bool? isLoadingMore,
+    DateTime? lastSyncedAt,
     ApiException? error,
     bool clearError = false,
   }) => MedicalRecordsState(
@@ -67,6 +70,7 @@ class MedicalRecordsState {
     isInitialLoading: isInitialLoading ?? this.isInitialLoading,
     isRefreshing: isRefreshing ?? this.isRefreshing,
     isLoadingMore: isLoadingMore ?? this.isLoadingMore,
+    lastSyncedAt: lastSyncedAt ?? this.lastSyncedAt,
     error: clearError ? null : (error ?? this.error),
   );
 }
@@ -94,7 +98,9 @@ class MedicalRecordsController extends Notifier<MedicalRecordsState> {
   }
 
   Future<void> refresh() async {
-    if (_patientId == null) return;
+    if (_patientId == null || state.isInitialLoading || state.isRefreshing) {
+      return;
+    }
     final requestVersion = ++_requestVersion;
     state = state.copyWith(
       isInitialLoading: state.items.isEmpty,
@@ -103,6 +109,15 @@ class MedicalRecordsController extends Notifier<MedicalRecordsState> {
       clearError: true,
     );
     await _loadFirstPage(requestVersion);
+  }
+
+  Future<void> refreshIfStale({required Duration maxAge}) async {
+    final lastSyncedAt = state.lastSyncedAt;
+    if (lastSyncedAt != null &&
+        DateTime.now().difference(lastSyncedAt) < maxAge) {
+      return;
+    }
+    await refresh();
   }
 
   Future<void> _loadFirstPage(int requestVersion) async {
@@ -116,6 +131,7 @@ class MedicalRecordsController extends Notifier<MedicalRecordsState> {
         total: page.total,
         nextPage: page.page + 1,
         hasNextPage: page.hasNextPage,
+        lastSyncedAt: DateTime.now(),
       );
     } on ApiException catch (error) {
       if (requestVersion != _requestVersion) return;

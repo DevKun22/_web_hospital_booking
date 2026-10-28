@@ -1,6 +1,7 @@
 import type { Request, Response, NextFunction } from "express";
 import PackageService from "../services/package.service.js";
 import { AppError } from "../utils/appError.js";
+import PublicBootstrapService from "../services/publicBootstrap.service.js";
 
 const parseBooleanQuery = (value: unknown) => {
   if (value === "true") return true;
@@ -67,6 +68,7 @@ export const createPackageHandler = async (
 ) => {
   try {
     const packageItem = await PackageService.create(req.body);
+    PublicBootstrapService.invalidate();
 
     return res.status(201).json({
       success: true,
@@ -88,6 +90,7 @@ export const updatePackageHandler = async (
       getParam(req.params.id),
       req.body,
     );
+    PublicBootstrapService.invalidate();
 
     return res.json({
       success: true,
@@ -106,6 +109,7 @@ export const deletePackageHandler = async (
 ) => {
   try {
     const packageItem = await PackageService.delete(getParam(req.params.id));
+    PublicBootstrapService.invalidate();
 
     return res.json({
       success: true,
@@ -127,6 +131,7 @@ export const createPackageItemHandler = async (
       getParam(req.params.id, "packageId"),
       req.body,
     );
+    PublicBootstrapService.invalidate();
 
     return res.status(201).json({
       success: true,
@@ -149,6 +154,7 @@ export const updatePackageItemHandler = async (
       getParam(req.params.itemId, "itemId"),
       req.body,
     );
+    PublicBootstrapService.invalidate();
 
     return res.json({
       success: true,
@@ -170,6 +176,7 @@ export const deletePackageItemHandler = async (
       getParam(req.params.id, "packageId"),
       getParam(req.params.itemId, "itemId"),
     );
+    PublicBootstrapService.invalidate();
 
     return res.json({
       success: true,
@@ -191,9 +198,35 @@ export const listPublicPackagesHandler = async (
       search:
         typeof req.query.search === "string" ? req.query.search : undefined,
       isPopular: parseBooleanQuery(req.query.isPopular),
+      limit: parseNumberQuery(req.query.limit),
     });
 
     return res.json({ success: true, data: packages });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const listPublicPackageCatalogHandler = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const result = await PackageService.publicCatalog({
+      search:
+        typeof req.query.search === "string" ? req.query.search : undefined,
+      departmentId:
+        typeof req.query.departmentId === "string"
+          ? req.query.departmentId
+          : undefined,
+      isPopular: parseBooleanQuery(req.query.isPopular),
+      isBhytSupport: parseBooleanQuery(req.query.isBHYTSupport),
+      page: parseNumberQuery(req.query.page),
+      limit: parseNumberQuery(req.query.limit),
+    });
+
+    return res.json({ success: true, data: result });
   } catch (error) {
     next(error);
   }

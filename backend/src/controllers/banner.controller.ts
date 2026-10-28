@@ -1,6 +1,7 @@
 import type { Request, Response, NextFunction } from "express";
 import BannerService from "../services/banner.service.js";
 import { AppError } from "../utils/appError.js";
+import PublicBootstrapService from "../services/publicBootstrap.service.js";
 
 const parseBooleanQuery = (value: unknown) => {
   if (value === "true") return true;
@@ -74,6 +75,7 @@ export const createDashboardBannerHandler = async (
 ) => {
   try {
     const banner = await BannerService.create(req.body);
+    PublicBootstrapService.invalidate();
 
     return res.status(201).json({
       success: true,
@@ -95,6 +97,7 @@ export const updateDashboardBannerHandler = async (
       getParam(req.params.id),
       req.body,
     );
+    PublicBootstrapService.invalidate();
 
     return res.json({
       success: true,
@@ -113,6 +116,7 @@ export const deleteDashboardBannerHandler = async (
 ) => {
   try {
     const banner = await BannerService.delete(getParam(req.params.id));
+    PublicBootstrapService.invalidate();
 
     return res.json({
       success: true,

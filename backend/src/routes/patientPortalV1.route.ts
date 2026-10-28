@@ -15,13 +15,42 @@ import {
 } from "../controllers/patientPortalV1.controller.js";
 import { authPatient } from "../middlewares/patientAuth.middleware.js";
 import { validate } from "../middlewares/validate.middleware.js";
-import { patientCancelAppointmentSchema, patientProfileUpdateSchema } from "../validations/patientV1.validation.js";
+import {
+  archivePatientDependentHandler,
+  createPatientDependentHandler,
+  listPatientDependentsHandler,
+  updatePatientDependentHandler,
+} from "../controllers/patientDependent.controller.js";
+import {
+  patientCancelAppointmentSchema,
+  patientDependentCreateSchema,
+  patientDependentUpdateSchema,
+  patientProfileUpdateSchema,
+} from "../validations/patientV1.validation.js";
+import {
+  createPatientPaymentHandler,
+  getPatientPaymentCapabilitiesHandler,
+  getPatientPaymentHandler,
+} from "../controllers/patientPaymentV1.controller.js";
+import { createPaymentTransactionSchema } from "../validations/payment.validation.js";
 
 const router = Router();
 router.use(authPatient);
 
 router.get("/", getPatientProfileHandler);
 router.patch("/", validate(patientProfileUpdateSchema), updatePatientProfileHandler);
+router.get("/dependents", listPatientDependentsHandler);
+router.post(
+  "/dependents",
+  validate(patientDependentCreateSchema),
+  createPatientDependentHandler,
+);
+router.patch(
+  "/dependents/:id",
+  validate(patientDependentUpdateSchema),
+  updatePatientDependentHandler,
+);
+router.delete("/dependents/:id", archivePatientDependentHandler);
 router.get("/appointments", listPatientAppointmentsHandler);
 router.get("/appointments/:id", getPatientAppointmentHandler);
 router.post("/appointments/:id/cancel", validate(patientCancelAppointmentSchema), cancelPatientAppointmentHandler);
@@ -33,5 +62,12 @@ router.get("/prescriptions", listPatientPrescriptionsHandler);
 router.get("/prescriptions/:id", getPatientPrescriptionHandler);
 router.get("/invoices", listPatientInvoicesHandler);
 router.get("/invoices/:id", getPatientInvoiceHandler);
+router.get("/payment-capabilities", getPatientPaymentCapabilitiesHandler);
+router.post(
+  "/invoices/:invoiceId/payments",
+  validate(createPaymentTransactionSchema),
+  createPatientPaymentHandler,
+);
+router.get("/payments/:paymentId", getPatientPaymentHandler);
 
 export default router;

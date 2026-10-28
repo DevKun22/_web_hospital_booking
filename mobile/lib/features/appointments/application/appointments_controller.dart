@@ -30,6 +30,7 @@ class AppointmentsState {
     this.isRefreshing = false,
     this.isLoadingMore = false,
     this.cancellingId,
+    this.lastSyncedAt,
     this.error,
   });
 
@@ -41,6 +42,7 @@ class AppointmentsState {
   final bool isRefreshing;
   final bool isLoadingMore;
   final String? cancellingId;
+  final DateTime? lastSyncedAt;
   final ApiException? error;
 
   bool get hasItems => items.isNotEmpty;
@@ -54,6 +56,7 @@ class AppointmentsState {
     bool? isRefreshing,
     bool? isLoadingMore,
     String? cancellingId,
+    DateTime? lastSyncedAt,
     bool clearCancellingId = false,
     ApiException? error,
     bool clearError = false,
@@ -68,6 +71,7 @@ class AppointmentsState {
     cancellingId: clearCancellingId
         ? null
         : (cancellingId ?? this.cancellingId),
+    lastSyncedAt: lastSyncedAt ?? this.lastSyncedAt,
     error: clearError ? null : (error ?? this.error),
   );
 }
@@ -98,7 +102,9 @@ class AppointmentsController extends Notifier<AppointmentsState> {
   }
 
   Future<void> refresh() async {
-    if (_patientId == null) return;
+    if (_patientId == null || state.isInitialLoading || state.isRefreshing) {
+      return;
+    }
     final requestVersion = ++_requestVersion;
     state = state.copyWith(
       isInitialLoading: state.items.isEmpty,
@@ -107,6 +113,15 @@ class AppointmentsController extends Notifier<AppointmentsState> {
       clearError: true,
     );
     await _loadFirstPage(requestVersion);
+  }
+
+  Future<void> refreshIfStale({required Duration maxAge}) async {
+    final lastSyncedAt = state.lastSyncedAt;
+    final isFresh =
+        lastSyncedAt != null &&
+        DateTime.now().difference(lastSyncedAt) < maxAge;
+    if (isFresh) return;
+    await refresh();
   }
 
   Future<void> _loadFirstPage(int requestVersion) async {
@@ -120,6 +135,7 @@ class AppointmentsController extends Notifier<AppointmentsState> {
         total: page.total,
         nextPage: page.page + 1,
         hasNextPage: page.hasNextPage,
+        lastSyncedAt: DateTime.now(),
       );
     } on ApiException catch (error) {
       if (requestVersion != _requestVersion) return;

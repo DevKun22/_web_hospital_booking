@@ -145,6 +145,14 @@ class _PrescriptionHeader extends StatelessWidget {
             value:
                 '${formatDateVi(prescription.appointmentDate)} · ${formatTimeRange(prescription.startTime, prescription.endTime)}',
           ),
+          if (prescription.isDependentPrescription &&
+              prescription.patientName != null) ...[
+            const SizedBox(height: 10),
+            _IconLine(
+              icon: Icons.family_restroom_outlined,
+              value: 'Người đến khám: ${prescription.patientName}',
+            ),
+          ],
           const SizedBox(height: 10),
           _IconLine(
             icon: Icons.person_outline,

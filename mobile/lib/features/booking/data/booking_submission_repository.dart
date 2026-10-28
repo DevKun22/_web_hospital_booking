@@ -5,16 +5,21 @@ import 'package:hospital_booking_mobile/features/booking/domain/booking_catalog.
 import 'package:hospital_booking_mobile/features/booking/domain/booking_submission.dart';
 
 class BookingSubmissionRepository {
-  BookingSubmissionRepository(this._dio);
+  BookingSubmissionRepository(this._publicDio, [Dio? authenticatedDio])
+    : _authenticatedDio = authenticatedDio ?? _publicDio;
 
-  final Dio _dio;
+  final Dio _publicDio;
+  final Dio _authenticatedDio;
 
   Future<PendingBooking> create({
     required BookingSelection selection,
     required BookingPatientDraft patient,
   }) async {
     try {
-      final response = await _dio.post<dynamic>(
+      final dio = patient.dependentProfileId == null
+          ? _publicDio
+          : _authenticatedDio;
+      final response = await dio.post<dynamic>(
         '/appointments',
         data: patient.toRequestJson(selection),
       );
@@ -25,7 +30,9 @@ class BookingSubmissionRepository {
                 ? patient.patientEmail?.trim()
                 : patient.patientPhone.trim(),
           );
-      if (pending.appointmentId.isEmpty || pending.bookingCode.isEmpty) {
+      if (pending.appointmentId.isEmpty ||
+          pending.bookingCode.isEmpty ||
+          pending.holdReleaseToken == null) {
         throw const ApiException(
           kind: ApiErrorKind.unknown,
           code: 'INVALID_API_CONTRACT',
@@ -40,7 +47,7 @@ class BookingSubmissionRepository {
 
   Future<PendingBooking> resend(PendingBooking pending) async {
     try {
-      final response = await _dio.post<dynamic>(
+      final response = await _publicDio.post<dynamic>(
         '/appointments/${pending.appointmentId}/resend-otp',
       );
       final data = requireDataMap(response.data);
@@ -52,10 +59,31 @@ class BookingSubmissionRepository {
         holdExpiresAt:
             DateTime.tryParse(data['holdExpiresAt']?.toString() ?? '') ??
             pending.holdExpiresAt,
+        holdReleaseToken: pending.holdReleaseToken,
         otpDeliveryStatus: data['otpDeliveryStatus']?.toString(),
         debugOtp: data['debugOtp']?.toString(),
         otpChannel: pending.otpChannel,
         otpTarget: pending.otpTarget,
+      );
+    } on DioException catch (error) {
+      throw ApiException.fromDio(error);
+    }
+  }
+
+  Future<void> abandon(PendingBooking pending) async {
+    final releaseToken = pending.holdReleaseToken;
+    if (releaseToken == null || releaseToken.isEmpty) {
+      throw const ApiException(
+        kind: ApiErrorKind.unknown,
+        code: 'BOOKING_HOLD_GRANT_MISSING',
+        message:
+            'Lịch giữ chỗ này được tạo từ phiên bản cũ và không thể hủy ngay. Lịch sẽ tự giải phóng khi hết thời gian giữ.',
+      );
+    }
+    try {
+      await _publicDio.delete<dynamic>(
+        '/appointments/${pending.appointmentId}/pending',
+        data: {'holdReleaseToken': releaseToken},
       );
     } on DioException catch (error) {
       throw ApiException.fromDio(error);
@@ -67,7 +95,7 @@ class BookingSubmissionRepository {
     required String otp,
   }) async {
     try {
-      final response = await _dio.post<dynamic>(
+      final response = await _publicDio.post<dynamic>(
         '/appointments/${pending.appointmentId}/verify-otp',
         data: {'otp': otp.trim()},
       );

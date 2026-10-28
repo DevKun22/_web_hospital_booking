@@ -1,8 +1,12 @@
 "use client";
 
 import { useQueryClient } from "@tanstack/react-query";
-import { X } from "lucide-react";
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { PanelRightOpen, Plus, ShieldCheck, Wrench, X } from "lucide-react";
+import { DashboardFeedback } from "@/components/dashboard/dashboard-feedback";
+import { DashboardPageHeader, DashboardStatusBadge } from "@/components/dashboard/dashboard-ui";
+import { DashboardWorkspace } from "@/components/dashboard/dashboard-workspace";
+import { Button } from "@/components/ui/button";
 import { apiRequest } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import {
@@ -29,6 +33,39 @@ type ScheduleForm = {
   slotDuration: string;
   maxPatients: string;
   isActive: boolean;
+};
+
+type SlotReconciliationFinding = {
+  type:
+    | "ORPHAN_BOOKED_SLOT"
+    | "LINKED_SLOT_NOT_BOOKED"
+    | "TERMINAL_APPOINTMENT_STILL_LINKED"
+    | "APPOINTMENT_SLOT_MISMATCH";
+  slotId: string;
+  appointmentId: string | null;
+  repaired: boolean;
+};
+
+type SlotReconciliationResult = {
+  policy: {
+    weeklyScheduleChangesAffect: string;
+    bookedSlots: string;
+    unsafeMismatchRepair: string;
+  };
+  scanned: number;
+  findingCount: number;
+  repairedCount: number;
+  findings: SlotReconciliationFinding[];
+};
+
+const reconciliationFindingLabels: Record<
+  SlotReconciliationFinding["type"],
+  string
+> = {
+  ORPHAN_BOOKED_SLOT: "Khung giờ báo đã đặt nhưng không còn lịch hẹn",
+  LINKED_SLOT_NOT_BOOKED: "Khung giờ có lịch hẹn nhưng trạng thái chưa đồng bộ",
+  TERMINAL_APPOINTMENT_STILL_LINKED: "Lịch đã kết thúc nhưng vẫn giữ khung giờ",
+  APPOINTMENT_SLOT_MISMATCH: "Thông tin lịch hẹn và khung giờ không khớp",
 };
 
 const emptyScheduleForm: ScheduleForm = {
@@ -60,10 +97,10 @@ const slotStatuses: { value: "" | TimeSlotStatus; label: string }[] = [
 ];
 
 const statusClass: Record<TimeSlotStatus, string> = {
-  AVAILABLE: "bg-[#e7f6ed] text-[#1f7a3a]",
-  BOOKED: "bg-[#e7f0fb] text-[#0d4f8b]",
-  LOCKED: "bg-[#fff4d6] text-[#8a5a00]",
-  CANCELLED: "bg-[#eef2f7] text-[#667892]",
+  AVAILABLE: "bg-emerald-50 text-emerald-800",
+  BOOKED: "bg-sky-50 text-sky-800",
+  LOCKED: "bg-amber-50 text-amber-800",
+  CANCELLED: "bg-slate-100 text-slate-700",
 };
 
 const statusLabel: Record<TimeSlotStatus, string> = {
@@ -77,7 +114,7 @@ const effectiveSlotStatus = (slot: DoctorTimeSlot) => {
   if (slot.status === "AVAILABLE" && isVietnamSlotStartInPast(slot.date, slot.startTime)) {
     return {
       label: "Đã qua giờ",
-      className: "bg-[#eef2f7] text-[#667892]",
+      className: "bg-slate-100 text-slate-700",
       note: "Ẩn trên website người dùng",
     };
   }
@@ -128,11 +165,6 @@ const buildUpdateSchedulePayload = (form: ScheduleForm) => ({
 export default function SchedulesPage() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const [doctors, setDoctors] = useState<DoctorProfile[]>([]);
-  const [schedules, setSchedules] = useState<DoctorSchedule[]>([]);
-  const [slots, setSlots] = useState<DoctorTimeSlot[]>([]);
-  const [schedulePagination, setSchedulePagination] = useState({ page: 1, limit: 20, total: 0, totalPages: 1 });
-  const [slotPagination, setSlotPagination] = useState({ page: 1, limit: 30, total: 0, totalPages: 1 });
   const [doctorId, setDoctorId] = useState("");
   const [dayOfWeek, setDayOfWeek] = useState("");
   const [scheduleActive, setScheduleActive] = useState("");
@@ -144,6 +176,7 @@ export default function SchedulesPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [workspaceOpen, setWorkspaceOpen] = useState(false);
   const [editingSchedule, setEditingSchedule] = useState<DoctorSchedule | null>(null);
   const [deleteScheduleTarget, setDeleteScheduleTarget] = useState<DoctorSchedule | null>(null);
   const [deleteSlotTarget, setDeleteSlotTarget] = useState<DoctorTimeSlot | null>(null);
@@ -152,11 +185,14 @@ export default function SchedulesPage() {
   const [scheduleForm, setScheduleForm] = useState<ScheduleForm>(emptyScheduleForm);
   const [generateDoctorId, setGenerateDoctorId] = useState("");
   const [generateDate, setGenerateDate] = useState(today());
+  const [reconciliationResult, setReconciliationResult] = useState<SlotReconciliationResult | null>(null);
+  const [reconciling, setReconciling] = useState<"scan" | "repair" | null>(null);
   const formPanelRef = useRef<HTMLElement | null>(null);
   const scheduleListRef = useRef<HTMLElement | null>(null);
   const slotListRef = useRef<HTMLElement | null>(null);
 
   const canWrite = user?.role === "ADMIN" || user?.role === "STAFF";
+  const canReconcile = user?.role === "ADMIN";
   const isDoctor = user?.role === "DOCTOR";
   const canManageSlots = canWrite || isDoctor;
 
@@ -187,6 +223,24 @@ export default function SchedulesPage() {
   const slotsQuery = useDashboardDoctorTimeSlots(slotQuery);
   const loadingSchedules = schedulesQuery.isLoading;
   const loadingSlots = slotsQuery.isLoading;
+  const doctors = doctorsQuery.data?.items ?? [];
+  const schedules = schedulesQuery.data?.items ?? [];
+  const slots = slotsQuery.data?.items ?? [];
+  const schedulePagination = schedulesQuery.data?.pagination ?? { page: schedulePage, limit: 20, total: 0, totalPages: 1 };
+  const slotPagination = slotsQuery.data?.pagination ?? { page: slotPage, limit: 30, total: 0, totalPages: 1 };
+  const queryError = doctorsQuery.error || schedulesQuery.error || slotsQuery.error;
+  const queryErrorMessage = queryError
+    ? queryError instanceof Error
+      ? queryError.message
+      : "Không tải được dữ liệu lịch khám"
+    : "";
+  const visibleError = error || queryErrorMessage;
+  const hasRepairableReconciliationFindings = Boolean(
+    reconciliationResult?.findings.some(
+      (finding) =>
+        finding.type !== "APPOINTMENT_SLOT_MISMATCH" && !finding.repaired,
+    ),
+  );
 
   const invalidateSchedules = async () => {
     await Promise.all([
@@ -203,37 +257,6 @@ export default function SchedulesPage() {
     ]);
   };
 
-  useEffect(() => {
-    const timeoutId = window.setTimeout(() => setDoctors(doctorsQuery.data?.items || []), 0);
-    return () => window.clearTimeout(timeoutId);
-  }, [doctorsQuery.data]);
-
-  useEffect(() => {
-    const timeoutId = window.setTimeout(() => {
-      if (!schedulesQuery.data) return;
-      setSchedules(schedulesQuery.data.items);
-      setSchedulePagination(schedulesQuery.data.pagination);
-    }, 0);
-    return () => window.clearTimeout(timeoutId);
-  }, [schedulesQuery.data]);
-
-  useEffect(() => {
-    const timeoutId = window.setTimeout(() => {
-      if (!slotsQuery.data) return;
-      setSlots(slotsQuery.data.items);
-      setSlotPagination(slotsQuery.data.pagination);
-    }, 0);
-    return () => window.clearTimeout(timeoutId);
-  }, [slotsQuery.data]);
-
-  useEffect(() => {
-    const queryError = doctorsQuery.error || schedulesQuery.error || slotsQuery.error;
-    if (!queryError) return;
-    const timeoutId = window.setTimeout(() => {
-      setError(queryError instanceof Error ? queryError.message : "Không tải được dữ liệu lịch khám");
-    }, 0);
-    return () => window.clearTimeout(timeoutId);
-  }, [doctorsQuery.error, schedulesQuery.error, slotsQuery.error]);
   useEffect(() => {
     if (!notice && !error) return;
     const timeoutId = window.setTimeout(() => {
@@ -256,17 +279,15 @@ export default function SchedulesPage() {
     scrollTo(slotListRef);
   };
 
-  const slotSummary = useMemo(
-    () => ({
-      total: slots.length,
-      available: slots.filter((slot) => slot.status === "AVAILABLE" && !isVietnamSlotStartInPast(slot.date, slot.startTime)).length,
-      booked: slots.filter((slot) => slot.status === "BOOKED").length,
-      locked: slots.filter((slot) => slot.status === "LOCKED").length,
-    }),
-    [slots],
-  );
+  const slotSummary = {
+    total: slots.length,
+    available: slots.filter((slot) => slot.status === "AVAILABLE" && !isVietnamSlotStartInPast(slot.date, slot.startTime)).length,
+    booked: slots.filter((slot) => slot.status === "BOOKED").length,
+    locked: slots.filter((slot) => slot.status === "LOCKED").length,
+  };
 
   const startCreate = () => {
+    setWorkspaceOpen(true);
     setEditingSchedule(null);
     setDeleteScheduleTarget(null);
     setScheduleForm(emptyScheduleForm);
@@ -276,6 +297,7 @@ export default function SchedulesPage() {
   };
 
   const startEdit = (schedule: DoctorSchedule) => {
+    setWorkspaceOpen(true);
     setEditingSchedule(schedule);
     setDeleteScheduleTarget(null);
     setScheduleForm(toScheduleForm(schedule));
@@ -360,7 +382,7 @@ export default function SchedulesPage() {
       await invalidateSlots();
       scrollTo(slotListRef);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Không sinh được slot");
+      setError(err instanceof Error ? err.message : "Không tạo được khung giờ");
     } finally {
       setSaving(false);
     }
@@ -370,7 +392,7 @@ export default function SchedulesPage() {
     if (!canWrite) return;
     const reason = status === "LOCKED" ? lockReason.trim() : null;
     if (status === "LOCKED" && (!reason || reason.length < 2)) {
-      setError("Lý do khoá slot tối thiểu 2 ký tự");
+      setError("Lý do khóa khung giờ cần có ít nhất 2 ký tự");
       return;
     }
 
@@ -381,12 +403,12 @@ export default function SchedulesPage() {
         method: "PATCH",
         body: { status, lockReason: reason },
       });
-      setNotice("Đã cập nhật slot");
+      setNotice("Đã cập nhật khung giờ");
       setLockSlotTarget(null);
       setLockReason("");
       await invalidateSlots();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Không cập nhật được slot");
+      setError(err instanceof Error ? err.message : "Không cập nhật được khung giờ");
     }
   };
 
@@ -394,7 +416,7 @@ export default function SchedulesPage() {
     if (!canManageSlots) return;
     const reason = lockReason.trim();
     if (reason.length < 2) {
-      setError("Lý do khóa slot tối thiểu 2 ký tự");
+      setError("Lý do khóa khung giờ cần có ít nhất 2 ký tự");
       return;
     }
     setError("");
@@ -405,12 +427,12 @@ export default function SchedulesPage() {
         method: "PATCH",
         body: { lockReason: reason },
       });
-      setNotice("Đã khóa slot khám");
+      setNotice("Đã khóa khung giờ khám");
       setLockSlotTarget(null);
       setLockReason("");
       void invalidateSlots();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Không khóa được slot");
+      setError(err instanceof Error ? err.message : "Không khóa được khung giờ");
     } finally {
       setSaving(false);
     }
@@ -423,10 +445,10 @@ export default function SchedulesPage() {
       await apiRequest<DoctorTimeSlot>(`/dashboard/doctor-time-slots/${slot.id}/unlock`, {
         method: "PATCH",
       });
-      setNotice("Đã mở khoá slot");
+      setNotice("Đã mở khóa khung giờ");
       await invalidateSlots();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Không mở khoá được slot");
+      setError(err instanceof Error ? err.message : "Không mở khóa được khung giờ");
     }
   };
 
@@ -436,42 +458,65 @@ export default function SchedulesPage() {
     setNotice("");
     try {
       await apiRequest<DoctorTimeSlot>(`/dashboard/doctor-time-slots/${deleteSlotTarget.id}`, { method: "DELETE" });
-      setNotice("Đã xoá slot");
+      setNotice("Đã xoá khung giờ");
       setDeleteSlotTarget(null);
       await invalidateSlots();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Không xoá được slot");
+      setError(err instanceof Error ? err.message : "Không xoá được khung giờ");
+    }
+  };
+
+  const handleReconcileSlots = async (repair: boolean) => {
+    if (!canReconcile) return;
+    setReconciling(repair ? "repair" : "scan");
+    setError("");
+    setNotice("");
+    try {
+      const result = await apiRequest<SlotReconciliationResult>(
+        "/dashboard/doctor-time-slots/reconcile",
+        {
+          method: "POST",
+          body: { repair, batchSize: 500 },
+        },
+      );
+      setReconciliationResult(result);
+      setNotice(
+        repair
+          ? `Đã đối soát ${result.scanned} khung giờ và sửa ${result.repairedCount} sai lệch an toàn.`
+          : `Đã kiểm tra ${result.scanned} khung giờ, phát hiện ${result.findingCount} sai lệch.`,
+      );
+      if (repair && result.repairedCount > 0) await invalidateSlots();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Không thể đối soát khung giờ");
+    } finally {
+      setReconciling(null);
     }
   };
 
   return (
-    <div className={`grid gap-6 ${canWrite || isDoctor ? "xl:grid-cols-[minmax(0,1fr)_380px]" : ""}`}>
-      {notice || error ? (
-        <div className="fixed right-4 top-4 z-50 w-[calc(100%-2rem)] max-w-md sm:right-6 sm:top-6">
-          <div className={`rounded-md border px-4 py-3 shadow-lg ${error ? "border-[#f2b8b5] bg-[#fff3f2] text-[#b3261e]" : "border-[#a8dab5] bg-[#f0fff4] text-[#1f7a3a]"}`}>
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className="text-sm font-semibold">{error ? "Có lỗi xảy ra" : "Thành công"}</p>
-                <p className="mt-1 text-sm">{error || notice}</p>
-              </div>
-              <button type="button" onClick={() => { setError(""); setNotice(""); }} className="rounded-md px-2 text-lg leading-none opacity-70 hover:bg-black/5 hover:opacity-100" aria-label="Đóng thông báo">x</button>
-            </div>
-          </div>
-        </div>
-      ) : null}
+    <div className={`grid gap-6 transition-[grid-template-columns] duration-300 ${workspaceOpen && (canWrite || isDoctor) ? "xl:grid-cols-[minmax(0,1fr)_400px]" : "xl:grid-cols-1"}`}>
+      <DashboardFeedback error={visibleError} notice={notice} onDismiss={queryErrorMessage ? undefined : () => { setError(""); setNotice(""); }} />
 
       <section className="min-w-0 space-y-6">
+        <DashboardPageHeader
+          eyebrow={isDoctor ? "Lịch làm việc của tôi" : "Điều phối nguồn lực"}
+          title="Lịch làm việc bác sĩ"
+          description={isDoctor
+            ? "Theo dõi lịch mẫu và gửi yêu cầu thay đổi để bộ phận vận hành phê duyệt."
+            : "Quản lý lịch mẫu theo tuần, tạo khung giờ khám theo ngày và kiểm soát trạng thái từng khung giờ."}
+          actions={(
+            <>
+              {canWrite ? <Button onClick={startCreate} size="lg"><Plus />Tạo lịch mẫu</Button> : null}
+              {!workspaceOpen ? (
+                <Button variant="outline" size="lg" onClick={() => setWorkspaceOpen(true)}>
+                  <PanelRightOpen />
+                  {isDoctor ? "Mở yêu cầu đổi lịch" : "Mở công cụ lịch"}
+                </Button>
+              ) : null}
+            </>
+          )}
+        />
         <section ref={scheduleListRef} className="scroll-mt-24 rounded-md border border-[#dce3ee] bg-white">
-          <div className="flex flex-col gap-3 border-b border-[#e5ebf3] p-5 md:flex-row md:items-end md:justify-between">
-            <div>
-              <p className="text-sm font-medium text-[#55708f]">{isDoctor ? "Lịch làm việc của tôi" : "Lịch mẫu theo tuần"}</p>
-              <h2 className="mt-1 text-2xl font-semibold">Lịch làm việc bác sĩ</h2>
-              <p className="mt-2 text-sm text-[#667892]">
-                {isDoctor ? "Bạn có thể gửi yêu cầu thay đổi lịch mẫu. Staff/Admin duyệt trước khi áp dụng." : "Tạo khung giờ lặp lại theo thứ để sinh slot khám theo ngày."}
-              </p>
-            </div>
-            {canWrite ? <button onClick={startCreate} className="rounded-md bg-[#0d4f8b] px-4 py-2 text-sm font-semibold text-white hover:bg-[#083d6d]">Tạo lịch mẫu</button> : null}
-          </div>
           <div className={`grid gap-3 border-b border-[#e5ebf3] p-4 ${isDoctor ? "lg:grid-cols-[160px_160px]" : "lg:grid-cols-2 2xl:grid-cols-[minmax(0,1fr)_160px_160px]"}`}>
             {!isDoctor ? (
               <select value={doctorId} onChange={(e) => { setDoctorId(e.target.value); setSchedulePage(1); }} className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]">
@@ -496,7 +541,7 @@ export default function SchedulesPage() {
                   <th className="border-b border-[#e5ebf3] px-4 py-3 font-semibold">Bác sĩ</th>
                   <th className="border-b border-[#e5ebf3] px-4 py-3 font-semibold">Thứ</th>
                   <th className="border-b border-[#e5ebf3] px-4 py-3 font-semibold">Giờ</th>
-                  <th className="border-b border-[#e5ebf3] px-4 py-3 font-semibold">Slot</th>
+                  <th className="border-b border-[#e5ebf3] px-4 py-3 font-semibold">Khung giờ</th>
                   <th className="border-b border-[#e5ebf3] px-4 py-3 font-semibold">Trạng thái</th>
                   <th className="border-b border-[#e5ebf3] px-4 py-3 text-right font-semibold">Thao tác</th>
                 </tr>
@@ -516,7 +561,7 @@ export default function SchedulesPage() {
                     <td className="border-b border-[#eef2f7] px-4 py-3">{schedule.startTime} - {schedule.endTime}</td>
                     <td className="border-b border-[#eef2f7] px-4 py-3">{schedule.slotDuration} phút / tối đa {schedule.maxPatients}</td>
                     <td className="border-b border-[#eef2f7] px-4 py-3">
-                      <span className={`rounded-md px-2 py-1 text-xs font-semibold ${schedule.isActive ? "bg-[#e7f6ed] text-[#1f7a3a]" : "bg-[#eef2f7] text-[#667892]"}`}>{schedule.isActive ? "Đang dùng" : "Tạm tắt"}</span>
+                      <DashboardStatusBadge tone={schedule.isActive ? "positive" : "neutral"}>{schedule.isActive ? "Đang dùng" : "Tạm tắt"}</DashboardStatusBadge>
                     </td>
                     <td className="border-b border-[#eef2f7] px-4 py-3">
                       <div className="flex justify-end gap-2">
@@ -560,15 +605,15 @@ export default function SchedulesPage() {
 
         <section ref={slotListRef} className="scroll-mt-24 rounded-md border border-[#dce3ee] bg-white">
           <div className="border-b border-[#e5ebf3] p-5">
-            <p className="text-sm font-medium text-[#55708f]">{isDoctor ? "Slot khám của tôi" : "Slot khám theo ngày"}</p>
-            <h2 className="mt-1 text-2xl font-semibold">Slot khám</h2>
+            <p className="text-sm font-medium text-[#55708f]">{isDoctor ? "Khung giờ khám của tôi" : "Khung giờ khám theo ngày"}</p>
+            <h2 className="mt-1 text-2xl font-semibold">Khung giờ khám</h2>
             <p className="mt-2 text-sm text-[#667892]">
-              {isDoctor ? "Theo dõi slot của mình; có thể khóa hoặc mở khóa slot chưa đặt và chưa qua giờ." : "Sinh slot từ lịch mẫu, khoá/mở khoá, huỷ hoặc xoá slot chưa được đặt."}
+              {isDoctor ? "Theo dõi khung giờ của mình; có thể khóa hoặc mở khóa khung giờ chưa đặt và chưa qua giờ." : "Tạo khung giờ từ lịch mẫu; khóa, mở khóa, hủy hoặc xóa khung giờ chưa được đặt."}
             </p>
           </div>
           {isDoctor ? (
             <div className="grid gap-3 border-b border-[#e5ebf3] p-4 sm:grid-cols-2 xl:grid-cols-4">
-              <button type="button" onClick={() => setSlotQuickFilter("", today())} className="rounded-md border border-[#cfe4fa] bg-[#f3f8ff] p-4 text-left text-[#0d4f8b] transition hover:-translate-y-0.5 hover:shadow-sm"><p className="text-sm font-medium opacity-80">Slot đang lọc</p><p className="mt-2 text-2xl font-semibold">{slotSummary.total}</p><p className="mt-1 text-xs opacity-75">Toàn bộ slot trong ngày</p></button>
+              <button type="button" onClick={() => setSlotQuickFilter("", today())} className="rounded-md border border-[#cfe4fa] bg-[#f3f8ff] p-4 text-left text-[#0d4f8b] transition hover:-translate-y-0.5 hover:shadow-sm"><p className="text-sm font-medium opacity-80">Khung giờ đang lọc</p><p className="mt-2 text-2xl font-semibold">{slotSummary.total}</p><p className="mt-1 text-xs opacity-75">Toàn bộ khung giờ trong ngày</p></button>
               <button type="button" onClick={() => setSlotQuickFilter("AVAILABLE", today())} className="rounded-md border border-[#c7ead0] bg-[#f0fff4] p-4 text-left text-[#1f7a3a] transition hover:-translate-y-0.5 hover:shadow-sm"><p className="text-sm font-medium opacity-80">Còn trống</p><p className="mt-2 text-2xl font-semibold">{slotSummary.available}</p><p className="mt-1 text-xs opacity-75">Có thể nhận đặt lịch</p></button>
               <button type="button" onClick={() => setSlotQuickFilter("BOOKED", today())} className="rounded-md border border-[#cfe4fa] bg-[#f3f8ff] p-4 text-left text-[#0d4f8b] transition hover:-translate-y-0.5 hover:shadow-sm"><p className="text-sm font-medium opacity-80">Đã đặt</p><p className="mt-2 text-2xl font-semibold">{slotSummary.booked}</p><p className="mt-1 text-xs opacity-75">Có lịch hẹn liên quan</p></button>
               <button type="button" onClick={() => setSlotQuickFilter("LOCKED", today())} className="rounded-md border border-[#f4d7a1] bg-[#fff8eb] p-4 text-left text-[#946200] transition hover:-translate-y-0.5 hover:shadow-sm"><p className="text-sm font-medium opacity-80">Đã khóa</p><p className="mt-2 text-2xl font-semibold">{slotSummary.locked}</p><p className="mt-1 text-xs opacity-75">Không nhận đặt lịch</p></button>
@@ -581,7 +626,7 @@ export default function SchedulesPage() {
               {doctors.map((doctor) => <option key={doctor.id} value={doctor.id}>{doctorName(doctor)}</option>)}
             </select>
             ) : null}
-            <VietnamDateInput value={slotDate} onChange={(value) => { setSlotDate(value); setSlotPage(1); }} ariaLabel="Ngày lọc slot" className="w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" />
+            <VietnamDateInput value={slotDate} onChange={(value) => { setSlotDate(value); setSlotPage(1); }} ariaLabel="Ngày lọc khung giờ" className="w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" />
             <select value={slotStatus} onChange={(e) => { setSlotStatus(e.target.value); setSlotPage(1); }} className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]">
               {slotStatuses.map((status) => <option key={status.value} value={status.value}>{status.label}</option>)}
             </select>
@@ -600,9 +645,9 @@ export default function SchedulesPage() {
               </thead>
               <tbody>
                 {loadingSlots ? (
-                  <tr><td colSpan={6} className="px-4 py-10 text-center text-[#667892]">Đang tải slot...</td></tr>
+                  <tr><td colSpan={6} className="px-4 py-10 text-center text-[#667892]">Đang tải khung giờ...</td></tr>
                 ) : slots.length === 0 ? (
-                  <tr><td colSpan={6} className="px-4 py-10 text-center text-[#667892]">Chưa có slot phù hợp</td></tr>
+                  <tr><td colSpan={6} className="px-4 py-10 text-center text-[#667892]">Chưa có khung giờ phù hợp</td></tr>
                 ) : slots.map((slot) => {
                   const status = effectiveSlotStatus(slot);
 
@@ -646,14 +691,14 @@ export default function SchedulesPage() {
             <div className="border-t border-[#f2d4d2] bg-[#fff8f7] p-4">
               <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                 <div>
-                  <p className="text-sm font-semibold text-[#8f1d18]">Xoá slot khám?</p>
+                  <p className="text-sm font-semibold text-[#8f1d18]">Xoá khung giờ khám?</p>
                   <p className="mt-1 text-sm text-[#667892]">
                     {formatDate(deleteSlotTarget.date)} - {deleteSlotTarget.startTime} đến {deleteSlotTarget.endTime}, {doctorName(deleteSlotTarget.doctor)}
                   </p>
                 </div>
                 <div className="flex gap-2">
                   <button type="button" onClick={() => setDeleteSlotTarget(null)} className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm font-medium text-[#42526b]">Giữ lại</button>
-                  <button type="button" onClick={() => void handleDeleteSlot()} className="rounded-md bg-[#b3261e] px-3 py-2 text-sm font-semibold text-white hover:bg-[#8f1d18]">Xoá slot</button>
+                  <button type="button" onClick={() => void handleDeleteSlot()} className="rounded-md bg-[#b3261e] px-3 py-2 text-sm font-semibold text-white hover:bg-[#8f1d18]">Xoá khung giờ</button>
                 </div>
               </div>
             </div>
@@ -668,8 +713,15 @@ export default function SchedulesPage() {
         </section>
       </section>
 
-      {canWrite || isDoctor ? (
-        <aside className="space-y-4">
+      {workspaceOpen && (canWrite || isDoctor) ? (
+        <aside className="min-w-0">
+          <DashboardWorkspace
+            open={workspaceOpen}
+            onOpenChange={setWorkspaceOpen}
+            title={isDoctor ? "Yêu cầu thay đổi lịch" : "Công cụ lịch bác sĩ"}
+            description={isDoctor ? "Gửi và theo dõi yêu cầu điều chỉnh lịch làm việc." : "Tạo lịch mẫu và phát sinh khung giờ khám theo ngày."}
+          >
+          <div className="space-y-4">
           {canWrite ? <>
           <section ref={formPanelRef} className="scroll-mt-24 rounded-md border border-[#dce3ee] bg-white p-5">
             <h3 className="text-lg font-semibold">{editingSchedule ? "Cập nhật lịch mẫu" : "Tạo lịch mẫu"}</h3>
@@ -703,11 +755,11 @@ export default function SchedulesPage() {
               </div>
               <div className="grid gap-3 sm:grid-cols-2">
                 <label className="block">
-                  <span className="text-sm font-medium text-[#334155]">Thời lượng slot</span>
+                  <span className="text-sm font-medium text-[#334155]">Thời lượng khung giờ</span>
                   <input value={scheduleForm.slotDuration} onChange={(e) => setScheduleForm((current) => ({ ...current, slotDuration: e.target.value.replace(/\D/g, "") }))} inputMode="numeric" className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" required />
                 </label>
                 <label className="block">
-                  <span className="text-sm font-medium text-[#334155]">Tối đa BN</span>
+                  <span className="text-sm font-medium text-[#334155]">Số bệnh nhân tối đa</span>
                   <input value={scheduleForm.maxPatients} onChange={(e) => setScheduleForm((current) => ({ ...current, maxPatients: e.target.value.replace(/\D/g, "") }))} inputMode="numeric" className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" required />
                 </label>
               </div>
@@ -723,8 +775,8 @@ export default function SchedulesPage() {
           </section>
 
           <section className="rounded-md border border-[#dce3ee] bg-white p-5">
-            <h3 className="text-lg font-semibold">Sinh slot theo ngày</h3>
-            <p className="mt-2 text-sm leading-6 text-[#667892]">Chọn bác sĩ và ngày. Backend sẽ sinh slot từ lịch mẫu đúng với thứ của ngày đó.</p>
+            <h3 className="text-lg font-semibold">Tạo khung giờ theo ngày</h3>
+            <p className="mt-2 text-sm leading-6 text-[#667892]">Chọn bác sĩ và ngày. Hệ thống sẽ tạo các khung giờ từ lịch mẫu tương ứng với ngày trong tuần.</p>
             <form className="mt-5 space-y-4" onSubmit={handleGenerateSlots}>
               <label className="block">
                 <span className="text-sm font-medium text-[#334155]">Bác sĩ</span>
@@ -734,27 +786,90 @@ export default function SchedulesPage() {
                 </select>
               </label>
               <label className="block">
-                <span className="text-sm font-medium text-[#334155]">Ngày sinh slot</span>
-                <VietnamDateInput value={generateDate} onChange={setGenerateDate} required ariaLabel="Ngày sinh slot" className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" />
+                <span className="text-sm font-medium text-[#334155]">Ngày tạo khung giờ</span>
+                <VietnamDateInput value={generateDate} onChange={setGenerateDate} required ariaLabel="Ngày tạo khung giờ" className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" />
               </label>
-              <button disabled={saving} className="w-full rounded-md bg-[#0d4f8b] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#083d6d] disabled:opacity-60">{saving ? "Đang sinh..." : "Sinh slot"}</button>
+              <button disabled={saving} className="w-full rounded-md bg-[#0d4f8b] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#083d6d] disabled:opacity-60">{saving ? "Đang tạo..." : "Tạo khung giờ"}</button>
             </form>
           </section>
+          {canReconcile ? (
+            <section className="rounded-md border border-[#dce3ee] bg-white p-5">
+              <div className="flex items-start gap-3">
+                <span className="rounded-md bg-[#e7f6ed] p-2 text-[#1f7a3a]">
+                  <ShieldCheck className="h-5 w-5" />
+                </span>
+                <div>
+                  <h3 className="text-lg font-semibold">Đối soát khung giờ</h3>
+                  <p className="mt-1 text-sm leading-6 text-[#667892]">
+                    Phát hiện khung giờ và lịch hẹn lệch trạng thái. Bước kiểm tra chỉ đọc dữ liệu; bước khắc phục chỉ sửa các trường hợp an toàn.
+                  </p>
+                </div>
+              </div>
+              <div className="mt-4 grid gap-2 sm:grid-cols-2">
+                <button
+                  type="button"
+                  disabled={Boolean(reconciling)}
+                  onClick={() => void handleReconcileSlots(false)}
+                  className="rounded-md border border-[#cfd8e6] px-4 py-2.5 text-sm font-semibold text-[#42526b] hover:bg-[#f8fafc] disabled:opacity-60"
+                >
+                  {reconciling === "scan" ? "Đang kiểm tra..." : "Kiểm tra dữ liệu"}
+                </button>
+                <button
+                  type="button"
+                  disabled={Boolean(reconciling) || !hasRepairableReconciliationFindings}
+                  onClick={() => void handleReconcileSlots(true)}
+                  className="inline-flex items-center justify-center gap-2 rounded-md bg-[#1f7a3a] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#17622e] disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <Wrench className="h-4 w-4" />
+                  {reconciling === "repair" ? "Đang khắc phục..." : "Khắc phục an toàn"}
+                </button>
+              </div>
+              {reconciliationResult ? (
+                <div className="mt-4 rounded-md border border-[#e5ebf3] bg-[#f8fafc] p-3 text-sm">
+                  <div className="grid grid-cols-3 gap-2 text-center">
+                    <div><p className="text-xs text-[#667892]">Đã quét</p><p className="mt-1 font-semibold">{reconciliationResult.scanned}</p></div>
+                    <div><p className="text-xs text-[#667892]">Sai lệch</p><p className="mt-1 font-semibold text-[#8a5a00]">{reconciliationResult.findingCount}</p></div>
+                    <div><p className="text-xs text-[#667892]">Đã sửa</p><p className="mt-1 font-semibold text-[#1f7a3a]">{reconciliationResult.repairedCount}</p></div>
+                  </div>
+                  {reconciliationResult.findings.length ? (
+                    <div className="mt-3 space-y-2 border-t border-[#e5ebf3] pt-3">
+                      {reconciliationResult.findings.slice(0, 8).map((finding) => (
+                        <div key={`${finding.type}-${finding.slotId}`} className="rounded-md bg-white px-3 py-2">
+                          <div className="flex items-start justify-between gap-2">
+                            <span className="font-medium text-[#334155]">{reconciliationFindingLabels[finding.type]}</span>
+                            <DashboardStatusBadge tone={finding.repaired ? "positive" : finding.type === "APPOINTMENT_SLOT_MISMATCH" ? "danger" : "warning"}>
+                              {finding.repaired ? "Đã sửa" : finding.type === "APPOINTMENT_SLOT_MISMATCH" ? "Cần kiểm tra thủ công" : "Chưa sửa"}
+                            </DashboardStatusBadge>
+                          </div>
+                          <p className="mt-1 break-all text-xs text-[#667892]">Slot: {finding.slotId}{finding.appointmentId ? ` · Lịch hẹn: ${finding.appointmentId}` : ""}</p>
+                        </div>
+                      ))}
+                      {reconciliationResult.findings.length > 8 ? <p className="text-xs text-[#667892]">Còn {reconciliationResult.findings.length - 8} sai lệch khác trong lượt đối soát này.</p> : null}
+                    </div>
+                  ) : (
+                    <p className="mt-3 border-t border-[#e5ebf3] pt-3 text-center text-[#1f7a3a]">Dữ liệu khung giờ đang nhất quán.</p>
+                  )}
+                </div>
+              ) : null}
+            </section>
+          ) : null}
           </> : null}
           <ScheduleChangeRequestPanel isDoctor={Boolean(isDoctor)} schedules={schedules} onNotice={setNotice} onError={setError} />
+          </div>
+          </DashboardWorkspace>
         </aside>
       ) : null}
       {lockSlotTarget ? (
         <div className="fixed inset-0 z-[70] flex items-end justify-center p-4 sm:items-center" role="dialog" aria-modal="true" aria-labelledby="lock-slot-title">
-          <button type="button" aria-label={"Đóng popup khóa slot"} onClick={() => { setLockSlotTarget(null); setLockReason(""); }} className="absolute inset-0 cursor-default bg-[#172033]/40" />
+          <button type="button" aria-label={"Đóng hộp thoại khóa khung giờ"} onClick={() => { setLockSlotTarget(null); setLockReason(""); }} className="absolute inset-0 cursor-default bg-[#172033]/40" />
           <form className="relative z-10 w-full max-w-lg rounded-md border border-[#dce3ee] bg-white p-5 shadow-2xl" onSubmit={(event) => { event.preventDefault(); void handleLockSlot(lockSlotTarget); }}>
             <div className="flex items-start justify-between gap-4 border-b border-[#e5ebf3] pb-4">
-              <div><p className="text-sm font-medium text-[#8a5a00]">{"Điều chỉnh khả dụng"}</p><h3 id="lock-slot-title" className="mt-1 text-xl font-semibold text-[#172033]">{"Khóa slot khám"}</h3></div>
+              <div><p className="text-sm font-medium text-[#8a5a00]">{"Điều chỉnh khả dụng"}</p><h3 id="lock-slot-title" className="mt-1 text-xl font-semibold text-[#172033]">{"Khóa khung giờ khám"}</h3></div>
               <button type="button" onClick={() => { setLockSlotTarget(null); setLockReason(""); }} className="rounded-md p-2 text-[#667892] hover:bg-[#f1f5f9] hover:text-[#172033]" aria-label={"Đóng"}><X className="h-5 w-5" /></button>
             </div>
             <div className="mt-4 rounded-md border border-[#f4d7a1] bg-[#fff8eb] p-3 text-sm text-[#6f4b00]"><p className="font-semibold">{formatDate(lockSlotTarget.date)}</p><p className="mt-1">{lockSlotTarget.startTime}{" đến "}{lockSlotTarget.endTime} - {doctorName(lockSlotTarget.doctor)}</p></div>
             <label className="mt-5 block"><span className="text-sm font-medium text-[#334155]">{"Lý do khóa"}</span><textarea autoFocus value={lockReason} onChange={(event) => setLockReason(event.target.value.slice(0, 300))} className="mt-1 min-h-28 w-full resize-y rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" placeholder={"Ví dụ: bận họp chuyên môn"} minLength={2} required /></label>
-            <p className="mt-2 text-xs leading-5 text-[#667892]">{"Slot chưa có lịch hẹn sẽ tạm ẩn khỏi luồng đặt lịch. Bạn có thể mở khóa lại khi sẵn sàng nhận lịch."}</p>
+            <p className="mt-2 text-xs leading-5 text-[#667892]">{"Khung giờ chưa có lịch hẹn sẽ tạm ẩn khỏi luồng đặt lịch. Bạn có thể mở khóa lại khi sẵn sàng nhận lịch."}</p>
             <div className="mt-5 grid grid-cols-2 gap-3"><button type="button" onClick={() => { setLockSlotTarget(null); setLockReason(""); }} className="rounded-md border border-[#cfd8e6] px-4 py-2.5 text-sm font-semibold text-[#42526b] hover:bg-[#f8fafc]">{"Hủy"}</button><button disabled={saving} type="submit" className="rounded-md bg-[#8a5a00] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#6f4b00] disabled:opacity-60">{saving ? "Đang khóa..." : "Xác nhận khóa"}</button></div>
           </form>
         </div>

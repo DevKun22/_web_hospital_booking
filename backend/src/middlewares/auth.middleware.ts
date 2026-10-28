@@ -1,7 +1,7 @@
 import { NextFunction, Request, Response } from "express";
 import type { Role } from "../../generated/prisma/enums.js";
 import { prisma } from "../config/prisma.js";
-import { verifyToken } from "../utils/jwt.js";
+import { verifyDashboardAccessToken } from "../utils/jwt.js";
 import {
   cacheDashboardAuthSnapshot,
   getCachedDashboardAuthSnapshot,
@@ -25,22 +25,13 @@ export const authDashboard = async (
       });
     }
 
-    const payload = verifyToken(token);
+    const payload = verifyDashboardAccessToken(token);
 
-    if (payload.tokenType && payload.tokenType !== "DASHBOARD_ACCESS") {
-      return res.status(401).json({
-        success: false,
-        message: "Token không hợp lệ",
-      });
-    }
-
-    if (payload.sessionId) {
-      await AuthSessionService.assertActiveSession({
-        sessionId: payload.sessionId,
-        userId: payload.userId,
-        kind: "DASHBOARD",
-      });
-    }
+    await AuthSessionService.assertActiveSession({
+      sessionId: payload.sessionId!,
+      userId: payload.userId,
+      kind: "DASHBOARD",
+    });
 
     let user = getCachedDashboardAuthSnapshot(payload.userId);
 

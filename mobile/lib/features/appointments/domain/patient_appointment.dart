@@ -120,6 +120,7 @@ class PatientAppointment {
     required this.startTime,
     required this.endTime,
     required this.status,
+    this.patientName = '',
     required this.doctorName,
     required this.departmentName,
     required this.finalAmount,
@@ -131,12 +132,14 @@ class PatientAppointment {
     this.reason,
     this.estimatedPrice = 0,
     this.serviceFee = 0,
+    this.hasBhyt = false,
     this.bhytDiscount = 0,
     this.confirmedAt,
     this.cancelledAt,
     this.cancelledReason,
     this.completedAt,
     this.createdAt,
+    this.dependentProfileId,
   });
 
   factory PatientAppointment.fromJson(Map<String, dynamic> json) {
@@ -151,6 +154,8 @@ class PatientAppointment {
       startTime: _string(json['startTime']),
       endTime: _string(json['endTime']),
       status: PatientAppointmentStatus.fromApi(json['status']),
+      patientName: _string(json['patientName']),
+      dependentProfileId: _nullableString(json['dependentProfileId']),
       doctorId: _nullableString(doctor['id']),
       doctorName: formatProfessionalName(
         title: _nullableString(doctor['title']),
@@ -164,6 +169,7 @@ class PatientAppointment {
       reason: _nullableString(json['reason']),
       estimatedPrice: _number(json['estimatedPrice']),
       serviceFee: _number(json['serviceFee']),
+      hasBhyt: json['hasBHYT'] == true,
       bhytDiscount: _number(json['bhytDiscount']),
       finalAmount: _number(json['finalAmount']),
       confirmedAt: _dateTime(json['confirmedAt']),
@@ -180,6 +186,8 @@ class PatientAppointment {
   final String startTime;
   final String endTime;
   final PatientAppointmentStatus status;
+  final String patientName;
+  final String? dependentProfileId;
   final String? doctorId;
   final String doctorName;
   final String? doctorAvatar;
@@ -190,6 +198,7 @@ class PatientAppointment {
   final String? reason;
   final double estimatedPrice;
   final double serviceFee;
+  final bool hasBhyt;
   final double bhytDiscount;
   final double finalAmount;
   final DateTime? confirmedAt;
@@ -202,7 +211,7 @@ class PatientAppointment {
 
   bool canCancelAt(DateTime now) {
     if (!status.canCancel) return false;
-    final scheduledStart = _scheduledStart;
+    final scheduledStart = this.scheduledStart;
     return scheduledStart != null && scheduledStart.isAfter(now);
   }
 
@@ -212,13 +221,13 @@ class PatientAppointment {
         status == PatientAppointmentStatus.inProgress) {
       return false;
     }
-    final scheduledEnd = _scheduledEnd;
+    final scheduledEnd = this.scheduledEnd;
     return scheduledEnd != null && scheduledEnd.isBefore(DateTime.now());
   }
 
-  DateTime? get _scheduledStart => _scheduledDateTime(startTime);
+  DateTime? get scheduledStart => _scheduledDateTime(startTime);
 
-  DateTime? get _scheduledEnd => _scheduledDateTime(endTime);
+  DateTime? get scheduledEnd => _scheduledDateTime(endTime);
 
   DateTime? _scheduledDateTime(String time) {
     final date = DateTime.tryParse(appointmentDate);
@@ -231,6 +240,7 @@ class PatientAppointment {
   }
 
   String get careUnit => packageName ?? departmentName;
+  bool get isDependentBooking => dependentProfileId != null;
 }
 
 class AppointmentPage {

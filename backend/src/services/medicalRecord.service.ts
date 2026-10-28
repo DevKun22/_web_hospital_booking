@@ -7,6 +7,7 @@ import { prisma } from "../config/prisma.js";
 import { AppError } from "../utils/appError.js";
 import { parseDateOnly } from "../utils/time.js";
 import { generateRecordCode } from "../utils/recordCode.js";
+import PatientEventNotificationService from "./patientEventNotification.service.js";
 
 type Actor = {
   userId: string;
@@ -255,14 +256,33 @@ class MedicalRecordService {
       );
     }
 
-    return prisma.medicalRecord.update({
-      where: { id },
-      data: {
-        status: "PUBLISHED",
-        publishedAt: new Date(),
-      },
-      select: medicalRecordSelect,
+    const transition = await prisma.$transaction(async (tx) => {
+      const updatedRecord = await tx.medicalRecord.update({
+        where: { id },
+        data: {
+          status: "PUBLISHED",
+          publishedAt: new Date(),
+        },
+        select: medicalRecordSelect,
+      });
+      const notification =
+        await PatientEventNotificationService.createMedicalResultPublished(
+          {
+            userId: record.patient.id,
+            recordId: record.id,
+            recordCode: record.recordCode,
+            bookingCode: record.appointment.bookingCode,
+          },
+          tx,
+        );
+
+      return { updatedRecord, notificationId: notification.id };
     });
+
+    await PatientEventNotificationService.dispatchBestEffort(
+      transition.notificationId,
+    );
+    return transition.updatedRecord;
   }
 
   async archive(id: string, actor: Actor) {

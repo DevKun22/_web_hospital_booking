@@ -9,6 +9,7 @@ import 'package:hospital_booking_mobile/features/appointments/presentation/appoi
 import 'package:hospital_booking_mobile/features/auth/application/auth_controller.dart';
 import 'package:hospital_booking_mobile/features/auth/application/auth_state.dart';
 import 'package:hospital_booking_mobile/features/auth/domain/patient_user.dart';
+import 'package:hospital_booking_mobile/features/notifications/domain/patient_notification.dart';
 
 const _patient = PatientUser(
   id: 'patient-1',
@@ -112,6 +113,48 @@ void main() {
 
     expect(find.text('Yêu cầu hủy lịch'), findsNothing);
   });
+
+  testWidgets(
+    'explains that a notification event can differ from current status',
+    (tester) async {
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            authControllerProvider.overrideWith(_AuthenticatedController.new),
+            appointmentsRepositoryProvider.overrideWithValue(
+              _DetailRepository(),
+            ),
+          ],
+          child: MaterialApp(
+            home: AppointmentDetailScreen(
+              appointmentId: 'appointment-1',
+              notificationType: PatientNotificationType.appointmentCancelled,
+              notificationPublishedAt: DateTime(2030, 1, 2, 9),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('Hủy lịch khám'), findsOneWidget);
+      expect(
+        find.textContaining('Thông tin bên dưới là trạng thái mới nhất'),
+        findsOneWidget,
+      );
+      expect(find.text('Đã xác nhận'), findsOneWidget);
+      expect(find.text('Hành trình lịch khám'), findsOneWidget);
+      expect(find.byKey(const Key('appointment-add-calendar')), findsOneWidget);
+      expect(find.byKey(const Key('appointment-show-qr')), findsOneWidget);
+
+      await tester.ensureVisible(find.byKey(const Key('appointment-show-qr')));
+      await tester.tap(find.byKey(const Key('appointment-show-qr')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Vé khám QR'), findsWidgets);
+      expect(find.text('HB-1001'), findsOneWidget);
+      expect(find.textContaining('Không chia sẻ công khai'), findsOneWidget);
+    },
+  );
 }
 
 class _PastDetailRepository extends _DetailRepository {

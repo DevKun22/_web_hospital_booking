@@ -4,6 +4,13 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { DashboardFeedback } from "@/components/dashboard/dashboard-feedback";
+import {
+  DashboardEmptyState,
+  DashboardPageHeader,
+  DashboardStatusBadge,
+  DashboardSurface,
+} from "@/components/dashboard/dashboard-ui";
 import { apiRequest } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { type CleanupUnusedMediaAssetsResult, useDashboardUploads } from "@/lib/dashboard-uploads-query";
@@ -24,8 +31,8 @@ const folderOptions = [
   { label: "Bác sĩ", value: "hospital/doctors" },
   { label: "Gói khám", value: "hospital/packages" },
   { label: "Kết quả y tế", value: "hospital/medical-results" },
-  { label: "Cấu hình website", value: "hospital/site-settings" },
-  { label: "Banner", value: "hospital/banners" },
+  { label: "Cấu hình trang người dùng", value: "hospital/site-settings" },
+  { label: "Ảnh quảng bá", value: "hospital/banners" },
 ];
 
 const formatBytes = (value: number | null) => {
@@ -42,8 +49,6 @@ export default function UploadsPage() {
   const queryClient = useQueryClient();
   const canManage = user?.role === "ADMIN" || user?.role === "STAFF";
   const canDelete = user?.role === "ADMIN";
-  const [assets, setAssets] = useState<MediaAsset[]>([]);
-  const [pagination, setPagination] = useState({ page: 1, limit: 20, total: 0, totalPages: 1 });
   const [isUsed, setIsUsed] = useState("false");
   const [folder, setFolder] = useState("");
   const [page, setPage] = useState(1);
@@ -67,28 +72,19 @@ export default function UploadsPage() {
   );
 
   const uploadsQuery = useDashboardUploads(query, canManage);
+  const assets = uploadsQuery.data?.items ?? [];
+  const pagination = uploadsQuery.data?.pagination ?? { page: 1, limit: 20, total: 0, totalPages: 1 };
   const loading = uploadsQuery.isLoading || (uploadsQuery.isFetching && !assets.length);
+  const queryError = uploadsQuery.error instanceof Error
+    ? uploadsQuery.error.message
+    : uploadsQuery.error
+      ? "Không tải được danh sách ảnh đã tải lên"
+      : "";
 
   const invalidateUploads = async () => {
     await queryClient.invalidateQueries({ queryKey: queryKeys.dashboardUploads });
   };
 
-  useEffect(() => {
-    if (!uploadsQuery.data) return;
-    const timeoutId = window.setTimeout(() => {
-      setAssets(uploadsQuery.data.items);
-      setPagination(uploadsQuery.data.pagination);
-    }, 0);
-    return () => window.clearTimeout(timeoutId);
-  }, [uploadsQuery.data]);
-
-  useEffect(() => {
-    if (!uploadsQuery.error) return;
-    const timeoutId = window.setTimeout(() => {
-      setError(uploadsQuery.error instanceof Error ? uploadsQuery.error.message : "Không tải được danh sách ảnh upload");
-    }, 0);
-    return () => window.clearTimeout(timeoutId);
-  }, [uploadsQuery.error]);
   useEffect(() => {
     if (!notice && !error) return;
     const timeoutId = window.setTimeout(() => {
@@ -144,47 +140,27 @@ export default function UploadsPage() {
   const copyUrl = async (url: string) => {
     try {
       await navigator.clipboard.writeText(url);
-      setNotice("Đã sao chép URL ảnh");
+      setNotice("Đã sao chép đường dẫn ảnh");
     } catch {
-      setError("Trình duyệt không cho phép sao chép URL");
+      setError("Trình duyệt không cho phép sao chép đường dẫn");
     }
   };
 
   if (!canManage) {
     return (
-      <section className="rounded-md border border-[var(--border)] bg-[var(--surface)] p-6">
-        <p className="text-sm font-medium text-[var(--text-muted)]">Upload</p>
-        <h2 className="mt-1 text-2xl font-semibold">Thư viện ảnh upload</h2>
-        <p className="mt-2 text-sm text-[var(--text-soft)]">Module này chỉ dành cho ADMIN hoặc STAFF.</p>
-      </section>
+      <DashboardPageHeader eyebrow="Tài nguyên" title="Thư viện ảnh" description="Phân hệ này chỉ dành cho quản trị viên hoặc nhân viên tiếp nhận." />
     );
   }
 
   return (
     <div className="space-y-6">
-      {notice || error ? (
-        <div className="fixed right-4 top-4 z-50 w-[calc(100%-2rem)] max-w-md sm:right-6 sm:top-6">
-          <div className={`rounded-md border px-4 py-3 shadow-lg ${error ? "border-[#f2b8b5] bg-[#fff3f2] text-[#b3261e]" : "border-[#a8dab5] bg-[#f0fff4] text-[#1f7a3a]"}`}>
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className="text-sm font-semibold">{error ? "Có lỗi xảy ra" : "Thành công"}</p>
-                <p className="mt-1 text-sm">{error || notice}</p>
-              </div>
-              <button type="button" onClick={() => { setError(""); setNotice(""); }} className="rounded-md px-2 text-lg leading-none opacity-70 hover:bg-black/5 hover:opacity-100" aria-label="Đóng thông báo">x</button>
-            </div>
-          </div>
-        </div>
-      ) : null}
+      <DashboardFeedback error={error || queryError} notice={notice} onDismiss={() => { setError(""); setNotice(""); }} />
 
-      <section className="border-b border-[var(--border)] pb-5">
-        <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
-          <div>
-            <p className="text-sm font-medium text-[var(--text-muted)]">Upload</p>
-            <h2 className="mt-1 text-2xl font-semibold">Thư viện ảnh upload</h2>
-            <p className="mt-2 text-sm text-[var(--text-soft)]">
-              Theo dõi ảnh đã dùng, ảnh tạm chưa gắn với dữ liệu và dọn ảnh thừa trên Cloudinary.
-            </p>
-          </div>
+      <DashboardPageHeader
+        eyebrow="Tài nguyên"
+        title="Thư viện ảnh"
+        description="Theo dõi ảnh đã dùng, ảnh tạm chưa gắn với dữ liệu và dọn ảnh thừa trên Cloudinary."
+        actions={
           <div className="flex flex-wrap items-center gap-2">
             <select value={isUsed} onChange={(event) => { setIsUsed(event.target.value); setPage(1); }} className="rounded-md border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm outline-none focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary-soft)]">
               {statusOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
@@ -199,16 +175,16 @@ export default function UploadsPage() {
               </button>
             ) : null}
           </div>
-        </div>
-      </section>
+        }
+      />
 
       {canDelete && cleanupOpen ? (
-        <section className="rounded-md border border-[#f4d48b] bg-[#fffaf0] p-5">
+        <DashboardSurface className="border-amber-200 bg-amber-50/60 p-5">
           <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_160px_160px_auto] lg:items-end">
             <div>
               <h3 className="font-semibold text-[#7a4c00]">Dọn ảnh chưa sử dụng</h3>
               <p className="mt-1 text-sm text-[var(--text-soft)]">
-                Chỉ xoá ảnh có `isUsed=false` và cũ hơn thời gian chỉ định. Ảnh đang dùng sẽ bị backend chặn xoá.
+                Chỉ xoá ảnh chưa được sử dụng và cũ hơn thời gian chỉ định. Hệ thống luôn chặn xoá ảnh đang được dùng.
               </p>
             </div>
             <label className="block">
@@ -231,10 +207,10 @@ export default function UploadsPage() {
               Đã quét {cleanupResult.scanned} ảnh, xoá {cleanupResult.deletedCount} ảnh, lỗi {cleanupResult.failedCount} ảnh.
             </div>
           ) : null}
-        </section>
+        </DashboardSurface>
       ) : null}
 
-      <section className="overflow-hidden rounded-md border border-[var(--border)] bg-[var(--surface)]">
+      <DashboardSurface className="overflow-hidden">
         <div className="flex flex-col gap-3 border-b border-[var(--border-soft)] bg-[var(--surface-muted)] px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h3 className="font-semibold">Danh sách ảnh</h3>
@@ -249,16 +225,16 @@ export default function UploadsPage() {
         </div>
 
         {loading ? (
-          <div className="p-8 text-center text-sm text-[var(--text-soft)]">Đang tải ảnh upload...</div>
+          <div className="p-8 text-center text-sm text-[var(--text-soft)]">Đang tải thư viện ảnh...</div>
         ) : assets.length ? (
           <div className="grid gap-4 p-4 sm:grid-cols-2 2xl:grid-cols-3">
             {assets.map((asset) => (
               <article key={asset.id} className="grid min-w-0 overflow-hidden rounded-md border border-[var(--border-soft)] bg-[var(--surface)]" style={{ height: 390, gridTemplateRows: "208px minmax(0, 1fr)" }}>
                 <div className="relative min-w-0 overflow-hidden bg-[var(--surface-muted)]" style={{ height: 208, minHeight: 208, maxHeight: 208 }}>
                   <img src={asset.url} alt={asset.publicId} className="block max-w-none object-cover" style={{ display: "block", width: "100%", height: "100%", maxWidth: "none", maxHeight: "none", objectFit: "cover" }} />
-                  <span className={`absolute left-3 top-3 rounded-md px-2 py-1 text-xs font-semibold shadow-sm ${asset.isUsed ? "bg-[#e7f6ed] text-[#1f7a3a]" : "bg-[#fff7ed] text-[#9a3412]"}`}>
+                  <DashboardStatusBadge className="absolute left-3 top-3 shadow-sm" tone={asset.isUsed ? "positive" : "warning"}>
                     {asset.isUsed ? "Đang sử dụng" : "Chưa sử dụng"}
-                  </span>
+                  </DashboardStatusBadge>
                 </div>
                 <div className="flex min-h-0 flex-col p-4">
                   <div className="flex flex-wrap items-center gap-2">
@@ -272,11 +248,11 @@ export default function UploadsPage() {
                       {asset.width || "-"} x {asset.height || "-"} px - {formatDateTime(asset.createdAt)}
                     </p>
                     <p className="truncate text-xs text-[var(--text-muted)]" title={asset.ownerType ? `${asset.ownerType} / ${asset.ownerId || "-"}` : "Chưa gắn dữ liệu"}>
-                      {asset.ownerType ? `Owner: ${asset.ownerType} / ${asset.ownerId || "-"}` : "Chưa gắn dữ liệu"}
+                      {asset.ownerType ? `Chủ sở hữu: ${asset.ownerType} / ${asset.ownerId || "-"}` : "Chưa gắn dữ liệu"}
                     </p>
                   </div>
                   <div className="mt-auto grid grid-cols-2 gap-2 border-t border-[var(--border-soft)] pt-3">
-                    <button type="button" onClick={() => void copyUrl(asset.url)} className="inline-flex h-8 items-center justify-center rounded-md border border-[var(--border)] px-2 text-xs font-medium text-[var(--text-soft)] hover:bg-[var(--surface-soft)]">Copy URL</button>
+                    <button type="button" onClick={() => void copyUrl(asset.url)} className="inline-flex h-8 items-center justify-center rounded-md border border-[var(--border)] px-2 text-xs font-medium text-[var(--text-soft)] hover:bg-[var(--surface-soft)]">Sao chép đường dẫn</button>
                     <a href={asset.url} target="_blank" rel="noreferrer" className="inline-flex h-8 items-center justify-center rounded-md border border-[var(--border)] px-2 text-xs font-medium text-[var(--text-soft)] hover:bg-[var(--surface-soft)]">Mở ảnh</a>
                     {canDelete && !asset.isUsed ? (
                       <button type="button" onClick={() => setDeleteTarget(asset)} className="col-span-2 inline-flex h-8 items-center justify-center rounded-md border border-[#f2b8b5] px-2 text-xs font-medium text-[#b3261e] hover:bg-[#fff3f2]">Xoá ảnh chưa sử dụng</button>
@@ -287,16 +263,16 @@ export default function UploadsPage() {
             ))}
           </div>
         ) : (
-          <div className="p-8 text-center text-sm text-[var(--text-soft)]">Không có ảnh phù hợp bộ lọc.</div>
+          <div className="p-5"><DashboardEmptyState title="Không có ảnh phù hợp" description="Hãy thay đổi trạng thái hoặc thư mục đang lọc." /></div>
         )}
-      </section>
+      </DashboardSurface>
 
       {deleteTarget ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-md rounded-md border border-[var(--border)] bg-[var(--surface)] p-5 shadow-xl">
-            <h3 className="text-lg font-semibold text-[#b3261e]">Xoá ảnh chưa sử dụng?</h3>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setDeleteTarget(null); }}>
+          <div role="dialog" aria-modal="true" aria-labelledby="delete-upload-title" className="w-full max-w-md rounded-md border border-[var(--border)] bg-[var(--surface)] p-5 shadow-xl">
+            <h3 id="delete-upload-title" className="text-lg font-semibold text-[#b3261e]">Xoá ảnh chưa sử dụng?</h3>
             <p className="mt-2 text-sm text-[var(--text-soft)]">
-              Ảnh sẽ bị xoá khỏi Cloudinary và bảng MediaAsset. Thao tác này không áp dụng cho ảnh đang sử dụng.
+              Ảnh sẽ bị xoá khỏi dịch vụ lưu trữ và bản ghi tài nguyên ảnh. Thao tác này không áp dụng cho ảnh đang sử dụng.
             </p>
             <div className="mt-4 overflow-hidden rounded-md border border-[var(--border-soft)]">
               <img src={deleteTarget.url} alt={deleteTarget.publicId} className="h-40 w-full object-cover" />

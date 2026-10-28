@@ -47,6 +47,7 @@ export type Department = {
 
 export type DoctorProfile = {
   id: string;
+  slug: string;
   title: string | null;
   bio: string | null;
   specialization: string | null;
@@ -300,6 +301,20 @@ export type Appointment = {
 };
 
 export type InvoiceStatus = "UNPAID" | "PAID" | "CANCELLED" | "REFUNDED";
+export type InvoiceItemType =
+  | "CONSULTATION"
+  | "PACKAGE"
+  | "SERVICE_FEE"
+  | "OTHER";
+export type InvoiceItem = {
+  id: string;
+  type: InvoiceItemType;
+  description: string;
+  quantity: number;
+  unitPrice: number;
+  amount: number;
+  sortOrder: number;
+};
 export type PaymentMethod =
   | "CASH"
   | "CARD"
@@ -312,7 +327,8 @@ export type PaymentTransactionStatus =
   | "PENDING"
   | "SUCCESS"
   | "FAILED"
-  | "CANCELLED";
+  | "CANCELLED"
+  | "EXPIRED";
 export type InsuranceRouteType =
   | "RIGHT_ROUTE"
   | "WRONG_ROUTE"
@@ -347,9 +363,14 @@ export type PublicAppointmentInvoice = {
   insuranceNote: string | null;
   status: InvoiceStatus;
   paymentMethod: PaymentMethod | null;
+  paymentReference: string | null;
   paidAt: string | null;
+  refundReason: string | null;
+  refundReference: string | null;
+  refundedAt: string | null;
   createdAt: string;
   updatedAt: string;
+  items: InvoiceItem[];
   paymentTransactions: PublicInvoicePaymentTransaction[];
 };
 
@@ -394,11 +415,26 @@ export type Invoice = {
   insuranceNote: string | null;
   status: InvoiceStatus;
   paymentMethod: PaymentMethod | null;
+  paymentReference: string | null;
   paidAt: string | null;
   refundReason: string | null;
+  refundReference: string | null;
   refundedAt: string | null;
   createdAt: string;
   updatedAt: string;
+  items: InvoiceItem[];
+  paymentTransactions: Array<{
+    id: string;
+    provider: PaymentProvider;
+    status: PaymentTransactionStatus;
+    amount: number;
+    transactionCode: string;
+    providerOrderId: string | null;
+    paidAt: string | null;
+    expiredAt: string;
+    createdAt: string;
+    updatedAt: string;
+  }>;
   patient: {
     id: string;
     fullName: string;

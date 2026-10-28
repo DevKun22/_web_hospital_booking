@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/api";
 import { queryKeys } from "@/lib/query-keys";
 import type { DoctorProfile, ListResult, Prescription } from "@/lib/types";
@@ -42,6 +42,10 @@ export function useDashboardPrescriptions(
   return useQuery({
     queryKey: queryKeys.dashboardPrescriptionsList(filters),
     queryFn: () => fetchDashboardPrescriptions(filters),
+    placeholderData: keepPreviousData,
+    staleTime: 15_000,
+    refetchOnReconnect: true,
+    refetchOnWindowFocus: true,
   });
 }
 
@@ -50,6 +54,7 @@ export function useDashboardPrescription(id?: string) {
     queryKey: queryKeys.dashboardPrescription(id),
     queryFn: () => fetchDashboardPrescription(id || ""),
     enabled: Boolean(id),
+    staleTime: 10_000,
   });
 }
 
@@ -61,5 +66,7 @@ export function useDashboardPrescriptionDoctors(
     queryKey: queryKeys.dashboardDoctors(filters),
     queryFn: () => fetchDashboardPrescriptionDoctors(filters),
     enabled,
+    placeholderData: keepPreviousData,
+    staleTime: 5 * 60_000,
   });
 }

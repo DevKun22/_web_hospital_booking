@@ -238,14 +238,16 @@ class ChatbotService {
         suggestedActions,
       };
 
-      await updateChatSession(
-        sessionId,
-        response,
-        input.message,
-        input.phone,
-        settings.sessionExpiresDays,
-      );
-      await this.saveLog(input, response);
+      await Promise.all([
+        updateChatSession(
+          sessionId,
+          response,
+          input.message,
+          input.phone,
+          settings.sessionExpiresDays,
+        ),
+        this.saveLog(input, response),
+      ]);
       return response;
     };
 

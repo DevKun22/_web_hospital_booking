@@ -60,35 +60,35 @@ export function DoctorDetailClient({ doctor, initialDate, initialSlots }: Doctor
 
   return (
     <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_380px]">
-      <article className="rounded-xl border border-[#cfe0f3] bg-white/95 p-5 shadow-[0_18px_48px_rgba(13,79,139,0.10)] ring-1 ring-[#e7f0fb] sm:p-6">
+      <article className="rounded-3xl border border-[var(--public-border)] bg-white p-5 shadow-[var(--public-shadow-soft)] sm:p-6">
         <div className="flex flex-col gap-5 sm:flex-row">
           {doctor.user.avatar ? (
-            <img src={doctor.user.avatar} alt={doctor.user.fullName} decoding="async" fetchPriority="high" className="h-36 w-36 rounded-lg border border-[#d8e9ff] object-cover shadow-sm" />
+            <img src={doctor.user.avatar} alt={doctor.user.fullName} decoding="async" fetchPriority="high" className="h-36 w-36 rounded-2xl border border-[var(--public-border)] object-cover shadow-sm ring-4 ring-[var(--public-primary-soft)]" />
           ) : (
-            <div className="flex h-36 w-36 shrink-0 items-center justify-center rounded-lg border border-[#d8e9ff] bg-[#e7f0fb] text-5xl font-semibold text-[#0d4f8b] shadow-sm">
+            <div className="flex h-36 w-36 shrink-0 items-center justify-center rounded-2xl border border-[var(--public-border)] bg-[var(--public-primary-soft)] text-5xl font-semibold text-[var(--public-primary)] shadow-sm">
               {firstLetter(doctor.user.fullName)}
             </div>
           )}
           <div className="min-w-0">
-            <p className="text-sm font-semibold uppercase tracking-wide text-[#667892]">{doctor.department.name}</p>
+            <p className="text-sm font-semibold uppercase tracking-wide text-[var(--public-primary)]">{doctor.department.name}</p>
             <h1 className="mt-2 text-3xl font-semibold leading-tight sm:text-4xl">{doctorName(doctor)}</h1>
-            <div className="mt-4 flex flex-wrap gap-2 text-sm text-[#667892]">
-              <span className="inline-flex items-center gap-2 rounded-md border border-[#d8e9ff] bg-[#f8fbff] px-3 py-2">
-                <Stethoscope className="h-4 w-4 text-[#0d4f8b]" />
+            <div className="mt-4 flex flex-wrap gap-2 text-sm text-[var(--public-muted)]">
+              <span className="inline-flex items-center gap-2 rounded-xl border border-[var(--public-border)] bg-[var(--public-surface-muted)] px-3 py-2">
+                <Stethoscope className="h-4 w-4 text-[var(--public-primary)]" />
                 {doctor.specialization || "Khám chuyên khoa"}
               </span>
-              <span className="inline-flex items-center gap-2 rounded-md border border-[#d8e9ff] bg-[#f8fbff] px-3 py-2">
-                <Clock className="h-4 w-4 text-[#0d4f8b]" />
+              <span className="inline-flex items-center gap-2 rounded-xl border border-[var(--public-border)] bg-[var(--public-surface-muted)] px-3 py-2">
+                <Clock className="h-4 w-4 text-[var(--public-primary)]" />
                 {doctor.experience || 0} năm kinh nghiệm
               </span>
             </div>
-            <p className="mt-5 text-2xl font-semibold text-[#0d4f8b]">{formatCurrency(doctor.consultationFee)}</p>
+            <p className="mt-5 text-2xl font-bold text-[var(--public-primary-dark)]">{formatCurrency(doctor.consultationFee)}</p>
           </div>
         </div>
 
         <div className="mt-6 border-t border-[#e5ebf3] pt-5">
           <h2 className="text-lg font-semibold">Giới thiệu</h2>
-          <p className="mt-3 text-sm leading-7 text-[#667892]">
+          <p className="mt-3 text-sm leading-7 text-[var(--public-muted)]">
             {doctor.bio || "Bác sĩ đang tiếp nhận lịch khám và tư vấn theo chuyên khoa. Bạn có thể chọn ngày để xem khung giờ trống trước khi đặt lịch."}
           </p>
         </div>
@@ -118,9 +118,9 @@ export function DoctorDetailClient({ doctor, initialDate, initialSlots }: Doctor
         ) : null}
       </article>
 
-      <aside className="h-fit rounded-xl border border-[#cfe0f3] bg-white/95 p-5 shadow-[0_18px_48px_rgba(13,79,139,0.08)] ring-1 ring-[#e7f0fb] lg:sticky lg:top-24">
-        <div className="flex items-center gap-2 text-sm font-semibold text-[#172033]">
-          <CalendarDays className="h-4 w-4 text-[#0d4f8b]" />
+      <aside className="h-fit rounded-3xl border border-[var(--public-border)] bg-white p-5 shadow-[var(--public-shadow-soft)] lg:sticky lg:top-28">
+        <div className="flex items-center gap-2 text-sm font-semibold text-[var(--public-ink)]">
+          <CalendarDays className="h-4 w-4 text-[var(--public-primary)]" />
           Lịch trống theo ngày
         </div>
         <VietnamDateInput
@@ -138,7 +138,7 @@ export function DoctorDetailClient({ doctor, initialDate, initialSlots }: Doctor
 
         <div className="mt-4 min-h-20 space-y-2">
           {loadingSlots ? (
-            <div className="flex items-center gap-2 text-sm text-[#667892]">
+            <div className="flex items-center gap-2 text-sm text-[var(--public-muted)]">
               <Loader2 className="h-4 w-4 animate-spin" />
               Đang tải khung giờ
             </div>
@@ -146,10 +146,10 @@ export function DoctorDetailClient({ doctor, initialDate, initialSlots }: Doctor
             <Link
               key={slot.id}
               href={getSlotBookingUrl(slot)}
-              className="flex items-center justify-between rounded-lg border border-[#cfd8e6] bg-white px-3 py-2.5 text-sm font-semibold text-[#42526b] transition hover:-translate-y-0.5 hover:border-[#0d4f8b] hover:bg-[#f8fbff] hover:text-[#0d4f8b]"
+              className="flex items-center justify-between rounded-xl border border-[var(--public-border)] bg-white px-3 py-2.5 text-sm font-semibold text-[var(--public-text-soft)] transition hover:-translate-y-0.5 hover:border-[var(--public-primary)] hover:bg-[var(--public-primary-soft)] hover:text-[var(--public-primary-dark)]"
             >
               <span>{formatTime(slot.startTime)} - {formatTime(slot.endTime)}</span>
-              <span className="inline-flex items-center gap-1 text-[#0d4f8b]">Chọn <ArrowRight className="h-3.5 w-3.5" /></span>
+              <span className="inline-flex items-center gap-1 text-[var(--public-primary)]">Chọn <ArrowRight className="h-3.5 w-3.5" /></span>
             </Link>
           )) : (
             <div className="rounded-md border border-dashed border-[#dce3ee] px-3 py-4 text-sm text-[#667892]">
@@ -158,7 +158,7 @@ export function DoctorDetailClient({ doctor, initialDate, initialSlots }: Doctor
           )}
         </div>
 
-        <Link href={bookingUrl} className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-md bg-[#0d4f8b] px-4 py-3 text-sm font-semibold text-white shadow-[0_12px_26px_rgba(13,79,139,0.22)] transition hover:-translate-y-0.5 hover:bg-[#083d6d]">
+        <Link href={bookingUrl} className="public-button-primary mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold">
           Đặt lịch với bác sĩ này
           <ArrowRight className="h-4 w-4" />
         </Link>

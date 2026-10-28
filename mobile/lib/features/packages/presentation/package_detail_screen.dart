@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:hospital_booking_mobile/app/navigation/booking_navigation.dart';
 import 'package:hospital_booking_mobile/app/theme/app_theme.dart';
 import 'package:hospital_booking_mobile/core/errors/api_exception.dart';
 import 'package:hospital_booking_mobile/core/formatters/display_formatters.dart';
@@ -9,6 +10,7 @@ import 'package:hospital_booking_mobile/core/widgets/app_route_back_scope.dart';
 import 'package:hospital_booking_mobile/core/widgets/app_ui.dart';
 import 'package:hospital_booking_mobile/features/packages/application/package_providers.dart';
 import 'package:hospital_booking_mobile/features/packages/domain/medical_package.dart';
+import 'package:hospital_booking_mobile/features/chatbot/domain/chatbot_entry_context.dart';
 
 class PackageDetailScreen extends ConsumerWidget {
   const PackageDetailScreen({required this.slug, super.key});
@@ -41,7 +43,24 @@ class PackageDetailScreen extends ConsumerWidget {
         bottomNavigationBar: detail.when(
           loading: () => null,
           error: (_, _) => null,
-          data: (packageItem) => _PackageBookingBar(packageItem: packageItem),
+          data: (packageItem) => AppStickyActionBar(
+            eyebrow: 'Tổng dự kiến',
+            value: formatVnd(packageItem.finalPrice),
+            secondaryLabel: 'Hỏi trợ lý',
+            secondaryIcon: Icons.smart_toy_outlined,
+            onSecondary: () => context.push(
+              chatbotLocationForContext(
+                kind: ChatbotEntryKind.medicalPackage,
+                displayName: packageItem.name,
+              ),
+            ),
+            primaryLabel: 'Đặt gói này',
+            primaryIcon: Icons.calendar_month_outlined,
+            onPrimary: () => openBookingFromCurrentRoute(
+              context,
+              _bookingLocation(packageItem),
+            ),
+          ),
         ),
       ),
     );
@@ -169,56 +188,6 @@ class _PackageDetailBody extends StatelessWidget {
           ),
         ],
       ],
-    ),
-  );
-}
-
-class _PackageBookingBar extends StatelessWidget {
-  const _PackageBookingBar({required this.packageItem});
-
-  final MedicalPackage packageItem;
-
-  @override
-  Widget build(BuildContext context) => Material(
-    color: Theme.of(context).colorScheme.surface,
-    elevation: 10,
-    child: SafeArea(
-      top: false,
-      minimum: const EdgeInsets.fromLTRB(20, 12, 20, 12),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Tổng dự kiến',
-                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
-                ),
-                Text(
-                  formatVnd(packageItem.finalPrice),
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: AppTheme.primaryDark,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          FilledButton.icon(
-            style: FilledButton.styleFrom(minimumSize: const Size(0, 50)),
-            // Booking is a root of the indexed navigation shell. Switching to
-            // it with `go` avoids pushing a second shell on top of the current
-            // one, which can leave the branch body blank on Android.
-            onPressed: () => context.go(_bookingLocation(packageItem)),
-            icon: const Icon(Icons.calendar_month_outlined),
-            label: const Text('Đặt gói này'),
-          ),
-        ],
-      ),
     ),
   );
 }

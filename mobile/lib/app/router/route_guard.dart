@@ -2,10 +2,15 @@ import 'package:hospital_booking_mobile/features/auth/application/auth_state.dar
 
 const _protectedPrefixes = <String>[
   '/profile',
+  '/records',
   '/appointments',
   '/medical-records',
   '/prescriptions',
   '/invoices',
+  '/notifications',
+  '/notification-settings',
+  '/notification-appointments',
+  '/dependents',
 ];
 
 String? safeReturnLocation(String? value) {
@@ -34,6 +39,7 @@ String? resolveAppRedirect({
   required bool hasChallenge,
   required bool? welcomeSeen,
   required String location,
+  bool launchPresentationCompleted = true,
   String? returnTo,
 }) {
   final isAuthRoute = location == '/login' || location == '/verify-otp';
@@ -41,6 +47,10 @@ String? resolveAppRedirect({
   final isProtected = _protectedPrefixes.any(
     (prefix) => location == prefix || location.startsWith('$prefix/'),
   );
+
+  if (!launchPresentationCompleted) {
+    return location == '/splash' ? null : '/splash';
+  }
 
   if (authStatus == AuthStatus.bootstrapping ||
       authStatus == AuthStatus.offline) {

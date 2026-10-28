@@ -2,12 +2,13 @@ import bcrypt from "bcrypt";
 import type { SignOptions } from "jsonwebtoken";
 import { prisma } from "../config/prisma.js";
 import AuthOtpService from "./authOtp.service.js";
-import { generateToken } from "../utils/jwt.js";
+import { generateDashboardAccessToken } from "../utils/jwt.js";
 import { AppError } from "../utils/appError.js";
 import type { OtpPurpose, Role } from "../../generated/prisma/enums.js";
 import AuthSessionService, {
   type SessionMeta,
 } from "./authSession.service.js";
+import DashboardLoginSecurityService from "./dashboardLoginSecurity.service.js";
 
 const DASHBOARD_ROLES: Role[] = ["ADMIN", "DOCTOR", "STAFF"];
 const MAX_CHALLENGE_ATTEMPTS = 5;
@@ -22,6 +23,12 @@ const readRefreshTokenDays = () => {
 };
 
 const REFRESH_TOKEN_DAYS = readRefreshTokenDays();
+// Giữ thời gian so sánh mật khẩu tương đương khi tài khoản không tồn tại để
+// hạn chế suy đoán số điện thoại đã đăng ký qua chênh lệch thời gian phản hồi.
+const DUMMY_PASSWORD_HASH = bcrypt.hashSync(
+  "hospital-booking-invalid-password",
+  10,
+);
 
 const dashboardPurposeByRole: Record<
   Extract<Role, "ADMIN" | "DOCTOR" | "STAFF">,
@@ -69,29 +76,30 @@ const createAccessToken = (
   user: { id: string; role: Role },
   sessionId: string,
 ) =>
-  generateToken(
+  generateDashboardAccessToken(
     {
       userId: user.id,
       role: user.role,
       sessionId,
-      tokenType: "DASHBOARD_ACCESS",
     },
     ACCESS_TOKEN_EXPIRES_IN,
   );
 
 class DashboardAuthService {
   async login(phone: string, password: string, ipAddress: string) {
+    await DashboardLoginSecurityService.assertAllowed(phone, ipAddress);
+
     const user = await prisma.user.findUnique({
       where: { phone },
     });
 
-    if (!user || !user.password) {
-      throw new AppError("Số điện thoại hoặc mật khẩu không chính xác", 401);
-    }
+    const validPassword = await bcrypt.compare(
+      password,
+      user?.password || DUMMY_PASSWORD_HASH,
+    );
 
-    const validPassword = await bcrypt.compare(password, user.password);
-
-    if (!validPassword) {
+    if (!user || !user.password || !validPassword) {
+      await DashboardLoginSecurityService.recordFailure(phone, ipAddress);
       throw new AppError("Số điện thoại hoặc mật khẩu không chính xác", 401);
     }
 
@@ -102,6 +110,8 @@ class DashboardAuthService {
     if (!isDashboardRole(user.role)) {
       throw new AppError("Không có quyền truy cập dashboard", 403);
     }
+
+    await DashboardLoginSecurityService.clearAccountFailures(phone);
 
     const purpose = dashboardPurposeByRole[user.role];
     const otpChannel = user.email ? "EMAIL" : "SMS";

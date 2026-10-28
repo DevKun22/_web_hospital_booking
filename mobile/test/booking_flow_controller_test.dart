@@ -48,7 +48,8 @@ const _packages = [
 class _FakeBookingCatalogRepository extends BookingCatalogRepository {
   _FakeBookingCatalogRepository({this.slots = const []}) : super(Dio());
 
-  final List<BookingSlot> slots;
+  List<BookingSlot> slots;
+  int slotFetchCalls = 0;
 
   @override
   Future<BookingCatalog> fetchCatalog() async => const BookingCatalog(
@@ -61,7 +62,10 @@ class _FakeBookingCatalogRepository extends BookingCatalogRepository {
   Future<List<BookingSlot>> fetchAvailableSlots({
     required String doctorId,
     required String date,
-  }) async => slots;
+  }) async {
+    slotFetchCalls += 1;
+    return slots;
+  }
 }
 
 Future<void> _waitUntil(bool Function() condition) async {
@@ -164,6 +168,48 @@ void main() {
     expect(store.selection?.slotId, isNull);
   });
 
+  test('revalidates and clears a slot taken before submission', () async {
+    final date = _tomorrowInVietnam();
+    final repository = _FakeBookingCatalogRepository(
+      slots: [
+        BookingSlot(
+          id: 'slot-1',
+          date: date,
+          startTime: '09:00',
+          endTime: '09:30',
+        ),
+      ],
+    );
+    final container = ProviderContainer(
+      overrides: [
+        bookingSelectionStoreProvider.overrideWithValue(
+          MemoryBookingSelectionStore(),
+        ),
+        bookingCatalogRepositoryProvider.overrideWithValue(repository),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    final controller = container.read(bookingFlowControllerProvider.notifier);
+    await _waitUntil(
+      () => !container.read(bookingFlowControllerProvider).isCatalogLoading,
+    );
+    await controller.selectDepartment('department-1');
+    await controller.selectDoctor('doctor-1');
+    await controller.selectDate(date);
+    await controller.selectSlot('slot-1');
+
+    repository.slots = [];
+    final result = await controller.revalidateSelectedSlot();
+
+    expect(result, SelectedSlotValidation.unavailable);
+    expect(
+      container.read(bookingFlowControllerProvider).selection.slotId,
+      isNull,
+    );
+    expect(repository.slotFetchCalls, 2);
+  });
+
   test('a deep-link doctor preset wins over a restored draft', () async {
     final date = _tomorrowInVietnam();
     final store = MemoryBookingSelectionStore(
@@ -235,6 +281,56 @@ void main() {
     expect(selection.doctorId, 'doctor-1');
     expect(selection.date, date);
     expect(selection.slotId, 'slot-from-chatbot');
+  });
+
+  test('chatbot doctor preset replaces a restored package draft', () async {
+    final date = _tomorrowInVietnam();
+    final store = MemoryBookingSelectionStore(
+      const BookingSelection(
+        serviceMode: BookingServiceMode.package,
+        packageId: 'package-1',
+        departmentId: 'department-1',
+        doctorId: 'doctor-1',
+      ),
+    );
+    final repository = _FakeBookingCatalogRepository(
+      slots: [
+        BookingSlot(
+          id: 'slot-from-chatbot',
+          date: date,
+          startTime: '10:00',
+          endTime: '10:30',
+        ),
+      ],
+    );
+    final container = ProviderContainer(
+      overrides: [
+        bookingSelectionStoreProvider.overrideWithValue(store),
+        bookingCatalogRepositoryProvider.overrideWithValue(repository),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    final controller = container.read(bookingFlowControllerProvider.notifier);
+    await controller.applyPreset(
+      departmentId: 'department-2',
+      doctorId: 'doctor-2',
+      date: date,
+      timeSlotId: 'slot-from-chatbot',
+    );
+    await _waitUntil(() {
+      final state = container.read(bookingFlowControllerProvider);
+      return !state.isCatalogLoading && !state.isSlotsLoading;
+    });
+
+    final selection = container.read(bookingFlowControllerProvider).selection;
+    expect(selection.serviceMode, BookingServiceMode.doctor);
+    expect(selection.packageId, isNull);
+    expect(selection.departmentId, 'department-2');
+    expect(selection.doctorId, 'doctor-2');
+    expect(selection.date, date);
+    expect(selection.slotId, 'slot-from-chatbot');
+    expect(store.selection, selection);
   });
 
   test(

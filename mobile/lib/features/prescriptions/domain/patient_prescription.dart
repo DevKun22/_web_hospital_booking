@@ -68,6 +68,8 @@ class PatientPrescription {
     this.doctorId,
     this.doctorAvatar,
     this.specialization,
+    this.patientName,
+    this.dependentProfileId,
   });
 
   factory PatientPrescription.fromJson(Map<String, dynamic> json) {
@@ -84,6 +86,8 @@ class PatientPrescription {
       createdAt: _dateTime(json['createdAt']),
       appointmentId: _string(appointment['id']),
       bookingCode: _string(appointment['bookingCode']),
+      patientName: _nullableString(appointment['patientName']),
+      dependentProfileId: _nullableString(appointment['dependentProfileId']),
       appointmentDate: _dateOnly(appointment['appointmentDate']),
       startTime: _string(appointment['startTime']),
       endTime: _string(appointment['endTime']),
@@ -115,6 +119,8 @@ class PatientPrescription {
   final DateTime? createdAt;
   final String appointmentId;
   final String bookingCode;
+  final String? patientName;
+  final String? dependentProfileId;
   final String appointmentDate;
   final String startTime;
   final String endTime;
@@ -123,6 +129,8 @@ class PatientPrescription {
   final String? doctorAvatar;
   final String? specialization;
   final List<PrescriptionMedicine> items;
+
+  bool get isDependentPrescription => dependentProfileId != null;
 }
 
 class PrescriptionPage {

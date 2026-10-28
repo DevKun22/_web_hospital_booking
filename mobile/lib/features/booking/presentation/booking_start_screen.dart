@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -8,6 +10,7 @@ import 'package:hospital_booking_mobile/core/widgets/resized_network_image.dart'
 import 'package:hospital_booking_mobile/features/booking/application/booking_flow_controller.dart';
 import 'package:hospital_booking_mobile/features/booking/application/booking_submission_controller.dart';
 import 'package:hospital_booking_mobile/features/booking/domain/booking_catalog.dart';
+import 'package:hospital_booking_mobile/features/booking/presentation/widgets/booking_journey_indicator.dart';
 import 'package:hospital_booking_mobile/features/packages/domain/medical_package.dart';
 
 class BookingStartScreen extends ConsumerStatefulWidget {
@@ -18,6 +21,7 @@ class BookingStartScreen extends ConsumerStatefulWidget {
     this.doctorId,
     this.date,
     this.timeSlotId,
+    this.returnTo,
   });
 
   final String? packageId;
@@ -25,17 +29,39 @@ class BookingStartScreen extends ConsumerStatefulWidget {
   final String? doctorId;
   final String? date;
   final String? timeSlotId;
+  final String? returnTo;
 
   @override
   ConsumerState<BookingStartScreen> createState() => _BookingStartScreenState();
 }
 
 class _BookingStartScreenState extends ConsumerState<BookingStartScreen> {
+  static const _slotPollInterval = Duration(seconds: 30);
+  Timer? _slotPollTimer;
+
   @override
   void initState() {
     super.initState();
-    Future<void>.microtask(
-      () => ref
+    _applyRoutePreset();
+    _slotPollTimer = Timer.periodic(_slotPollInterval, _pollSlotsIfVisible);
+  }
+
+  @override
+  void didUpdateWidget(covariant BookingStartScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.packageId != widget.packageId ||
+        oldWidget.departmentId != widget.departmentId ||
+        oldWidget.doctorId != widget.doctorId ||
+        oldWidget.date != widget.date ||
+        oldWidget.timeSlotId != widget.timeSlotId) {
+      _applyRoutePreset();
+    }
+  }
+
+  void _applyRoutePreset() {
+    Future<void>.microtask(() async {
+      if (!mounted) return;
+      await ref
           .read(bookingFlowControllerProvider.notifier)
           .applyPreset(
             packageId: widget.packageId,
@@ -43,8 +69,29 @@ class _BookingStartScreenState extends ConsumerState<BookingStartScreen> {
             doctorId: widget.doctorId,
             date: widget.date,
             timeSlotId: widget.timeSlotId,
-          ),
-    );
+          );
+    });
+  }
+
+  @override
+  void dispose() {
+    _slotPollTimer?.cancel();
+    super.dispose();
+  }
+
+  void _pollSlotsIfVisible(Timer _) {
+    if (!mounted ||
+        !TickerMode.of(context) ||
+        ModalRoute.of(context)?.isCurrent != true) {
+      return;
+    }
+    final state = ref.read(bookingFlowControllerProvider);
+    if (state.selection.doctorId == null ||
+        state.selection.date == null ||
+        state.isSlotsLoading) {
+      return;
+    }
+    unawaited(ref.read(bookingFlowControllerProvider.notifier).refreshSlots());
   }
 
   @override
@@ -53,8 +100,15 @@ class _BookingStartScreenState extends ConsumerState<BookingStartScreen> {
     final submission = ref.watch(bookingSubmissionControllerProvider);
     final controller = ref.read(bookingFlowControllerProvider.notifier);
 
-    return Scaffold(
+    final content = Scaffold(
       appBar: AppBar(
+        leading: widget.returnTo == null
+            ? null
+            : IconButton(
+                tooltip: 'Quay lại',
+                onPressed: () => context.go(widget.returnTo!),
+                icon: const Icon(Icons.arrow_back_rounded),
+              ),
         title: const Text('Đặt lịch khám'),
         actions: [
           if (state.selection.departmentId != null)
@@ -72,18 +126,12 @@ class _BookingStartScreenState extends ConsumerState<BookingStartScreen> {
             physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
             children: [
-              Text(
-                'Chọn lịch khám phù hợp',
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                'Lựa chọn được lưu trên thiết bị. Khung giờ luôn được kiểm tra lại từ bệnh viện.',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
+              const BookingJourneyIndicator(currentStep: 0),
+              const SizedBox(height: 20),
+              const AppPageIntro(
+                title: 'Chọn lịch khám phù hợp',
+                subtitle:
+                    'Lựa chọn được lưu trên thiết bị. Khung giờ luôn được kiểm tra lại từ bệnh viện.',
               ),
               const SizedBox(height: 18),
               _ProgressStrip(state: state),
@@ -264,15 +312,23 @@ class _BookingStartScreenState extends ConsumerState<BookingStartScreen> {
                       onSelected: controller.selectSlot,
                     ),
                 ],
-                if (state.selectedSlot != null) ...[
-                  const SizedBox(height: 28),
-                  _SelectionSummary(state: state),
-                ],
               ],
             ],
           ),
         ),
       ),
+      bottomNavigationBar: state.selectedSlot == null
+          ? null
+          : _BookingStickySummary(state: state),
+    );
+    final returnTo = widget.returnTo;
+    if (returnTo == null) return content;
+    return BackButtonListener(
+      onBackButtonPressed: () async {
+        context.go(returnTo);
+        return true;
+      },
+      child: content,
     );
   }
 }
@@ -762,41 +818,53 @@ class _DatePicker extends StatelessWidget {
           final date = dates[index];
           final value = _formatApiDate(date);
           final selected = value == selectedDate;
-          return InkWell(
+          final label =
+              '${_weekdayLabel(date.weekday)}, '
+              '${date.day}/${date.month}';
+          return Semantics(
+            key: ValueKey('booking-date-$value'),
+            button: true,
+            selected: selected,
+            label: label,
             onTap: () => onSelected(value),
-            borderRadius: BorderRadius.circular(16),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 160),
-              width: 68,
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              decoration: BoxDecoration(
-                color: selected ? AppTheme.primary : Colors.white,
+            child: ExcludeSemantics(
+              child: InkWell(
+                onTap: () => onSelected(value),
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color: selected ? AppTheme.primary : AppTheme.softBorder,
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 160),
+                  width: 68,
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  decoration: BoxDecoration(
+                    color: selected ? AppTheme.primary : Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: selected ? AppTheme.primary : AppTheme.softBorder,
+                    ),
+                  ),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        _weekdayLabel(date.weekday),
+                        style: TextStyle(
+                          color: selected
+                              ? Colors.white
+                              : Theme.of(context).colorScheme.onSurfaceVariant,
+                          fontSize: 12,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        '${date.day}/${date.month}',
+                        style: TextStyle(
+                          color: selected ? Colors.white : AppTheme.clinicalInk,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    _weekdayLabel(date.weekday),
-                    style: TextStyle(
-                      color: selected
-                          ? Colors.white
-                          : Theme.of(context).colorScheme.onSurfaceVariant,
-                      fontSize: 12,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    '${date.day}/${date.month}',
-                    style: TextStyle(
-                      color: selected ? Colors.white : AppTheme.clinicalInk,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ],
               ),
             ),
           );
@@ -822,22 +890,32 @@ class _SlotPicker extends StatelessWidget {
     spacing: 8,
     runSpacing: 8,
     children: items
-        .map(
-          (slot) => ChoiceChip(
-            label: Text(
-              '${_shortTime(slot.startTime)} – ${_shortTime(slot.endTime)}',
+        .map((slot) {
+          final selected = slot.id == selectedId;
+          final label =
+              '${_shortTime(slot.startTime)} – ${_shortTime(slot.endTime)}';
+          return Semantics(
+            key: ValueKey('booking-slot-${slot.id}'),
+            button: true,
+            selected: selected,
+            label: label,
+            onTap: () => onSelected(slot.id),
+            child: ExcludeSemantics(
+              child: ChoiceChip(
+                label: Text(label),
+                selected: selected,
+                onSelected: (_) => onSelected(slot.id),
+                avatar: const Icon(Icons.schedule_rounded, size: 17),
+              ),
             ),
-            selected: slot.id == selectedId,
-            onSelected: (_) => onSelected(slot.id),
-            avatar: const Icon(Icons.schedule_rounded, size: 17),
-          ),
-        )
+          );
+        })
         .toList(growable: false),
   );
 }
 
-class _SelectionSummary extends StatelessWidget {
-  const _SelectionSummary({required this.state});
+class _BookingStickySummary extends StatelessWidget {
+  const _BookingStickySummary({required this.state});
 
   final BookingFlowState state;
 
@@ -847,54 +925,72 @@ class _SelectionSummary extends StatelessWidget {
     final doctor = state.selectedDoctor!;
     final slot = state.selectedSlot!;
     final packageItem = state.selectedPackage;
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: const Color(0xFFE4F5EF),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFFBDE4D6)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const AppStatusBadge(
-            label: 'ĐÃ CHỌN ĐỦ THÔNG TIN',
-            tone: AppStatusTone.success,
-            icon: Icons.check_circle_outline_rounded,
-          ),
-          const SizedBox(height: 14),
-          if (packageItem != null) ...[
+    final price = packageItem?.finalPrice ?? doctor.consultationFee;
+    return Material(
+      color: Theme.of(context).colorScheme.surface,
+      elevation: 8,
+      shadowColor: AppPalette.ink.withValues(alpha: 0.12),
+      child: SafeArea(
+        top: false,
+        minimum: const EdgeInsets.fromLTRB(
+          AppSpacing.page,
+          AppSpacing.sm,
+          AppSpacing.page,
+          AppSpacing.sm,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const AppStatusBadge(
+                  label: 'ĐÃ CHỌN ĐỦ THÔNG TIN',
+                  tone: AppStatusTone.success,
+                  icon: Icons.check_circle_outline_rounded,
+                ),
+                const Spacer(),
+                Text(
+                  packageItem == null
+                      ? _formatVnd(price)
+                      : 'Giá gói: ${_formatVnd(price)}',
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    color: AppPalette.brandDark,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.xxs),
             Text(
-              packageItem.name,
+              packageItem?.name ?? doctor.displayName,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
               style: Theme.of(
                 context,
-              ).textTheme.titleMedium?.copyWith(color: AppTheme.primaryDark),
+              ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
             ),
-            const SizedBox(height: 4),
-            Text('Giá gói: ${_formatVnd(packageItem.finalPrice)}'),
-            const Divider(height: 20),
+            const SizedBox(height: AppSpacing.xxs),
+            Text(
+              '${department.name} · ${_displayDate(slot.date)} · ${_shortTime(slot.startTime)}–${_shortTime(slot.endTime)}',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: AppSpacing.xs),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                key: const Key('booking-sticky-continue'),
+                onPressed: () => context.push('/booking/patient'),
+                icon: const Icon(Icons.arrow_forward_rounded),
+                label: const Text('Tiếp tục nhập thông tin'),
+              ),
+            ),
           ],
-          Text(department.name, style: Theme.of(context).textTheme.titleMedium),
-          const SizedBox(height: 4),
-          Text(doctor.displayName),
-          const SizedBox(height: 4),
-          Text(
-            '${_displayDate(slot.date)} · ${_shortTime(slot.startTime)} – ${_shortTime(slot.endTime)}',
-            style: const TextStyle(
-              color: AppTheme.primaryDark,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          const SizedBox(height: 14),
-          SizedBox(
-            width: double.infinity,
-            child: FilledButton.icon(
-              onPressed: () => context.push('/booking/patient'),
-              icon: const Icon(Icons.arrow_forward_rounded),
-              label: const Text('Tiếp tục nhập thông tin'),
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }

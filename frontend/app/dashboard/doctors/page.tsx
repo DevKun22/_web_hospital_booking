@@ -2,12 +2,18 @@
 
 import { useQueryClient } from "@tanstack/react-query";
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { PanelRightOpen, Plus, Search } from "lucide-react";
+import { DashboardFeedback } from "@/components/dashboard/dashboard-feedback";
+import { DashboardPageHeader, DashboardStatusBadge, DashboardSurface } from "@/components/dashboard/dashboard-ui";
+import { DashboardWorkspace } from "@/components/dashboard/dashboard-workspace";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { apiRequest } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { useDashboardDepartments } from "@/lib/dashboard-departments-query";
 import { useDashboardDoctors, useDashboardDoctorUsers } from "@/lib/dashboard-doctors-query";
 import { queryKeys } from "@/lib/query-keys";
-import type { DashboardUser, Department, DoctorProfile } from "@/lib/types";
+import type { DoctorProfile } from "@/lib/types";
 
 type DoctorForm = {
   userId: string;
@@ -86,17 +92,15 @@ const parseMoneyInput = (value: string) => value.replace(/\D/g, "");
 export default function DoctorsPage() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const [doctors, setDoctors] = useState<DoctorProfile[]>([]);
-  const [departments, setDepartments] = useState<Department[]>([]);
-  const [doctorUsers, setDoctorUsers] = useState<DashboardUser[]>([]);
-  const [pagination, setPagination] = useState({ page: 1, limit: 10, total: 0, totalPages: 1 });
   const [search, setSearch] = useState("");
+  const [appliedSearch, setAppliedSearch] = useState("");
   const [departmentId, setDepartmentId] = useState("");
   const [isAvailable, setIsAvailable] = useState("");
   const [page, setPage] = useState(1);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [workspaceOpen, setWorkspaceOpen] = useState(false);
   const [editing, setEditing] = useState<DoctorProfile | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<DoctorProfile | null>(null);
   const [form, setForm] = useState<DoctorForm>(emptyForm);
@@ -108,13 +112,13 @@ export default function DoctorsPage() {
 
   const query = useMemo(
     () => ({
-      search: search.trim() || undefined,
+      search: appliedSearch || undefined,
       departmentId: departmentId || undefined,
       isAvailable: isAvailable || undefined,
       page,
       limit: 10,
     }),
-    [departmentId, isAvailable, page, search],
+    [appliedSearch, departmentId, isAvailable, page],
   );
   const departmentQuery = useMemo(() => ({ isActive: "true", limit: 100 }), []);
   const doctorUsersQuery = useMemo(() => ({ role: "DOCTOR", isActive: "true", limit: 100 }), []);
@@ -122,6 +126,17 @@ export default function DoctorsPage() {
   const departmentsQuery = useDashboardDepartments(departmentQuery);
   const doctorUsersResult = useDashboardDoctorUsers(doctorUsersQuery, user?.role === "ADMIN");
   const loading = doctorsQuery.isLoading;
+  const doctors = doctorsQuery.data?.items ?? [];
+  const departments = departmentsQuery.data?.items ?? [];
+  const doctorUsers = doctorUsersResult.data?.items ?? [];
+  const pagination = doctorsQuery.data?.pagination ?? { page, limit: 10, total: 0, totalPages: 1 };
+  const queryError = doctorsQuery.error || departmentsQuery.error || doctorUsersResult.error;
+  const queryErrorMessage = queryError
+    ? queryError instanceof Error
+      ? queryError.message
+      : "Không tải được dữ liệu bác sĩ"
+    : "";
+  const visibleError = error || queryErrorMessage;
 
   const scrollToForm = () => {
     window.setTimeout(() => {
@@ -145,34 +160,6 @@ export default function DoctorsPage() {
   };
 
   useEffect(() => {
-    const timeoutId = window.setTimeout(() => {
-      if (!doctorsQuery.data) return;
-      setDoctors(doctorsQuery.data.items);
-      setPagination(doctorsQuery.data.pagination);
-    }, 0);
-    return () => window.clearTimeout(timeoutId);
-  }, [doctorsQuery.data]);
-
-  useEffect(() => {
-    const timeoutId = window.setTimeout(() => setDepartments(departmentsQuery.data?.items || []), 0);
-    return () => window.clearTimeout(timeoutId);
-  }, [departmentsQuery.data]);
-
-  useEffect(() => {
-    const timeoutId = window.setTimeout(() => setDoctorUsers(doctorUsersResult.data?.items || []), 0);
-    return () => window.clearTimeout(timeoutId);
-  }, [doctorUsersResult.data]);
-
-  useEffect(() => {
-    const queryError = doctorsQuery.error || departmentsQuery.error || doctorUsersResult.error;
-    if (!queryError) return;
-    const timeoutId = window.setTimeout(() => {
-      setError(queryError instanceof Error ? queryError.message : "Không tải được dữ liệu bác sĩ");
-    }, 0);
-    return () => window.clearTimeout(timeoutId);
-  }, [departmentsQuery.error, doctorUsersResult.error, doctorsQuery.error]);
-
-  useEffect(() => {
     if (!notice && !error) return;
 
     const timeoutId = window.setTimeout(() => {
@@ -183,7 +170,14 @@ export default function DoctorsPage() {
     return () => window.clearTimeout(timeoutId);
   }, [error, notice]);
 
+  const applySearch = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setAppliedSearch(search.trim());
+    setPage(1);
+  };
+
   const startCreate = () => {
+    setWorkspaceOpen(true);
     setEditing(null);
     setDeleteTarget(null);
     setForm(emptyForm);
@@ -193,6 +187,7 @@ export default function DoctorsPage() {
   };
 
   const startEdit = (doctor: DoctorProfile) => {
+    setWorkspaceOpen(true);
     setEditing(doctor);
     setDeleteTarget(null);
     setForm(toForm(doctor));
@@ -202,6 +197,7 @@ export default function DoctorsPage() {
   };
 
   const startDelete = (doctor: DoctorProfile) => {
+    setWorkspaceOpen(true);
     setDeleteTarget(doctor);
     setEditing(null);
     setNotice("");
@@ -292,36 +288,17 @@ export default function DoctorsPage() {
   });
 
   return (
-    <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_400px]">
-      {notice || error ? (
-        <div className="fixed right-4 top-4 z-50 w-[calc(100%-2rem)] max-w-md sm:right-6 sm:top-6">
-          <div className={`rounded-md border px-4 py-3 shadow-lg ${error ? "border-[#f2b8b5] bg-[#fff3f2] text-[#b3261e]" : "border-[#a8dab5] bg-[#f0fff4] text-[#1f7a3a]"}`}>
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className="text-sm font-semibold">{error ? "Có lỗi xảy ra" : "Thành công"}</p>
-                <p className="mt-1 text-sm">{error || notice}</p>
-              </div>
-              <button type="button" onClick={() => { setError(""); setNotice(""); }} className="rounded-md px-2 text-lg leading-none opacity-70 hover:bg-black/5 hover:opacity-100" aria-label="Đóng thông báo">x</button>
-            </div>
-          </div>
-        </div>
-      ) : null}
+    <div className={`grid gap-6 transition-[grid-template-columns] duration-300 ${workspaceOpen && canWrite ? "xl:grid-cols-[minmax(0,1fr)_420px]" : "xl:grid-cols-1"}`}>
+      <DashboardFeedback error={visibleError} notice={notice} onDismiss={queryErrorMessage ? undefined : () => { setError(""); setNotice(""); }} />
 
       <section ref={listPanelRef} className="min-w-0 scroll-mt-24 space-y-4">
-        <div className="flex flex-col gap-3 rounded-md border border-[#dce3ee] bg-white p-5 md:flex-row md:items-end md:justify-between">
-          <div>
-            <p className="text-sm font-medium text-[#55708f]">Dữ liệu nền</p>
-            <h2 className="mt-1 text-2xl font-semibold">Bác sĩ</h2>
-            <p className="mt-2 text-sm text-[#667892]">Quản lý hồ sơ bác sĩ, chuyên khoa phụ trách, phí khám và trạng thái sẵn sàng nhận lịch.</p>
-          </div>
-          {canWrite ? (
-            <button onClick={startCreate} className="rounded-md bg-[#0d4f8b] px-4 py-2 text-sm font-semibold text-white hover:bg-[#083d6d]">Tạo hồ sơ</button>
-          ) : null}
-        </div>
+        <DashboardPageHeader eyebrow="Dữ liệu nền" title="Bác sĩ" description="Quản lý hồ sơ chuyên môn, chuyên khoa, phí khám và trạng thái nhận lịch."
+          actions={canWrite ? <><Button onClick={startCreate} size="lg"><Plus />Tạo hồ sơ</Button>{!workspaceOpen && (editing || deleteTarget) ? <Button variant="outline" size="lg" onClick={() => setWorkspaceOpen(true)}><PanelRightOpen />Mở lại hồ sơ</Button> : null}</> : undefined}
+        />
 
-        <div className="rounded-md border border-[#dce3ee] bg-white">
-          <div className="grid gap-3 border-b border-[#e5ebf3] p-4 lg:grid-cols-2 2xl:grid-cols-[minmax(0,1fr)_220px_170px]">
-            <input value={search} onChange={(event) => { setSearch(event.target.value); setPage(1); }} placeholder="Tìm theo tên, SĐT, học hàm, chuyên môn" className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" />
+        <DashboardSurface>
+          <form onSubmit={applySearch} className="grid gap-3 border-b border-border p-4 lg:grid-cols-2 2xl:grid-cols-[minmax(0,1fr)_220px_170px_auto]">
+            <Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Tìm theo tên, SĐT, học hàm, chuyên môn" />
             <select value={departmentId} onChange={(event) => { setDepartmentId(event.target.value); setPage(1); }} className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]">
               <option value="">Tất cả chuyên khoa</option>
               {departments.map((department) => <option key={department.id} value={department.id}>{department.name}</option>)}
@@ -329,7 +306,8 @@ export default function DoctorsPage() {
             <select value={isAvailable} onChange={(event) => { setIsAvailable(event.target.value); setPage(1); }} className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]">
               {availabilityOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
             </select>
-          </div>
+            <Button type="submit"><Search />Tìm kiếm</Button>
+          </form>
 
           <div className="overflow-x-auto">
             <table className="w-full min-w-[980px] border-separate border-spacing-0 text-left text-sm">
@@ -350,7 +328,7 @@ export default function DoctorsPage() {
                 ) : doctors.length === 0 ? (
                   <tr><td colSpan={7} className="px-4 py-10 text-center text-[#667892]">Chưa có hồ sơ bác sĩ phù hợp</td></tr>
                 ) : doctors.map((doctor) => (
-                  <tr key={doctor.id} className="align-top">
+                  <tr key={doctor.id} className={`align-top transition-colors ${editing?.id === doctor.id || deleteTarget?.id === doctor.id ? "bg-primary/5" : "hover:bg-muted/30"}`}>
                     <td className="border-b border-[#eef2f7] px-4 py-3">
                       <div className="flex items-center gap-3">
                         {doctor.user.avatar ? (
@@ -367,7 +345,7 @@ export default function DoctorsPage() {
                     <td className="border-b border-[#eef2f7] px-4 py-3"><p>{doctor.specialization || "-"}</p><p className="mt-1 text-xs text-[#667892]">{doctor.experience ?? 0} năm kinh nghiệm</p></td>
                     <td className="border-b border-[#eef2f7] px-4 py-3">{formatCurrency(doctor.consultationFee)}</td>
                     <td className="border-b border-[#eef2f7] px-4 py-3 text-[#42526b]">{doctor._count.schedules} lịch / {doctor._count.timeSlots} slot</td>
-                    <td className="border-b border-[#eef2f7] px-4 py-3"><span className={`inline-flex rounded-md px-2 py-1 text-xs font-semibold ${doctor.isAvailable ? "bg-[#e7f6ed] text-[#1f7a3a]" : "bg-[#eef2f7] text-[#667892]"}`}>{doctor.isAvailable ? "Sẵn sàng" : "Tạm ngừng"}</span></td>
+                    <td className="border-b border-[#eef2f7] px-4 py-3"><DashboardStatusBadge tone={doctor.isAvailable ? "positive" : "neutral"}>{doctor.isAvailable ? "Sẵn sàng" : "Tạm ngừng"}</DashboardStatusBadge></td>
                     <td className="border-b border-[#eef2f7] px-4 py-3">
                       <div className="flex justify-end gap-2">
                         {canWrite ? (
@@ -392,10 +370,17 @@ export default function DoctorsPage() {
               <button disabled={page >= pagination.totalPages} onClick={() => setPage((current) => current + 1)} className="rounded-md border border-[#cfd8e6] px-3 py-1.5 font-medium disabled:opacity-50">Sau</button>
             </div>
           </div>
-        </div>
+        </DashboardSurface>
       </section>
 
-      <aside ref={formPanelRef} className="scroll-mt-24 rounded-md border border-[#dce3ee] bg-white p-5 xl:sticky xl:top-24 xl:self-start">
+      {workspaceOpen && canWrite ? (
+      <aside ref={formPanelRef} className="min-w-0 scroll-mt-24">
+        <DashboardWorkspace
+          open={workspaceOpen}
+          onOpenChange={setWorkspaceOpen}
+          title={editing ? `Hồ sơ ${editing.user.fullName}` : "Công cụ hồ sơ bác sĩ"}
+          description="Quản lý chuyên khoa, thông tin chuyên môn, phí khám và trạng thái nhận lịch."
+        >
         {deleteTarget ? (
           <div className="mb-5 rounded-md border border-[#f2b8b5] bg-[#fff3f2] p-4">
             <h3 className="font-semibold text-[#b3261e]">Xác nhận xóa hồ sơ bác sĩ</h3>
@@ -459,7 +444,9 @@ export default function DoctorsPage() {
             </div>
           ) : null}
         </form>
+        </DashboardWorkspace>
       </aside>
+      ) : null}
     </div>
   );
 }

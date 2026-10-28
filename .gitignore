@@ -13,6 +13,7 @@ node_modules/
 .env.*
 !.env.example
 !.env.local.example
+production.example.env
 
 # build outputs
 .next/
@@ -30,8 +31,24 @@ frontend/out/
 # cache
 .turbo/
 .cache/
+.codex/
 .eslintcache
 *.tsbuildinfo
+
+# Graphify keeps the project graph at the repository root. Local AST caches
+# and per-package graphs are rebuildable intermediates and should stay local.
+**/graphify-out/cache/
+backend/graphify-out/
+frontend/graphify-out/
+mobile/graphify-out/
+graphify-out/.graphify*
+graphify-out/manifest.json
+
+# Archify exports the reusable source and HTML explainer. Delivery/finalization
+# metadata is local execution state and can be regenerated.
+.archify/**/*.delivery.json
+.archify/**/*.finalize.json
+.archify/**/*.finalize-summary.json
 
 # logs
 logs/
@@ -62,9 +79,13 @@ uploads/
 *.pem
 *.key
 *.crt
+backend/secrets/
 
 # other
 docs/*
 !docs/phase-2-flutter-foundation.md
+!docs/bao-cao-nang-cap-backend-den-mobile.md
+!docs/nghien-cuu-uiux-vinmec-va-de-xuat-ap-dung.md
+!docs/van-hanh-thong-bao.md
+!docs/checklist-kiem-thu-production-thiet-bi-that.md
 tools
-docs

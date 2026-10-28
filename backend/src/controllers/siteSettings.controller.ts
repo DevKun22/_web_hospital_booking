@@ -1,5 +1,6 @@
 import type { Request, Response, NextFunction } from "express";
 import SiteSettingsService from "../services/siteSettings.service.js";
+import PublicBootstrapService from "../services/publicBootstrap.service.js";
 
 export const getPublicSiteSettingsHandler = async (
   _req: Request,
@@ -42,6 +43,7 @@ export const updateDashboardSiteSettingsHandler = async (
 ) => {
   try {
     const settings = await SiteSettingsService.update(req.body);
+    PublicBootstrapService.invalidate();
 
     return res.json({
       success: true,

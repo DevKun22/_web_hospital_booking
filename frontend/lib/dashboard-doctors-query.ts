@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/api";
 import { queryKeys } from "@/lib/query-keys";
 import type { DashboardUser, DoctorProfile, ListResult } from "@/lib/types";
@@ -36,6 +36,10 @@ export function useDashboardDoctors(filters: DashboardDoctorFilters) {
   return useQuery({
     queryKey: queryKeys.dashboardDoctors(filters),
     queryFn: () => fetchDashboardDoctors(filters),
+    placeholderData: keepPreviousData,
+    staleTime: 30_000,
+    refetchOnReconnect: true,
+    refetchOnWindowFocus: true,
   });
 }
 
@@ -46,6 +50,8 @@ export function useDashboardDoctorUsers(
   return useQuery({
     queryKey: queryKeys.dashboardUsers(filters),
     queryFn: () => fetchDashboardDoctorUsers(filters),
+    placeholderData: keepPreviousData,
     enabled,
+    staleTime: 5 * 60_000,
   });
 }

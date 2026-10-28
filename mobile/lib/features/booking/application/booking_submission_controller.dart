@@ -14,7 +14,10 @@ final pendingBookingStoreProvider = Provider<PendingBookingStore>(
 
 final bookingSubmissionRepositoryProvider =
     Provider<BookingSubmissionRepository>(
-      (ref) => BookingSubmissionRepository(ref.watch(authDioProvider)),
+      (ref) => BookingSubmissionRepository(
+        ref.watch(authDioProvider),
+        ref.watch(authenticatedDioProvider),
+      ),
     );
 
 final bookingSubmissionControllerProvider =
@@ -29,6 +32,7 @@ enum BookingSubmissionStatus {
   awaitingOtp,
   resendingOtp,
   verifyingOtp,
+  abandoning,
   success,
   expired,
 }
@@ -52,7 +56,8 @@ class BookingSubmissionState {
   bool get isBusy =>
       status == BookingSubmissionStatus.submitting ||
       status == BookingSubmissionStatus.resendingOtp ||
-      status == BookingSubmissionStatus.verifyingOtp;
+      status == BookingSubmissionStatus.verifyingOtp ||
+      status == BookingSubmissionStatus.abandoning;
 }
 
 class BookingSubmissionController extends Notifier<BookingSubmissionState> {
@@ -180,6 +185,29 @@ class BookingSubmissionController extends Notifier<BookingSubmissionState> {
   Future<void> reset() async {
     await _clearPendingSafely();
     state = const BookingSubmissionState.idle();
+  }
+
+  Future<bool> discardPending() async {
+    final pending = state.pending;
+    if (pending == null) return true;
+    if (state.isBusy) return false;
+    state = BookingSubmissionState(
+      status: BookingSubmissionStatus.abandoning,
+      pending: pending,
+    );
+    try {
+      await ref.read(bookingSubmissionRepositoryProvider).abandon(pending);
+      await _clearPendingSafely();
+      state = const BookingSubmissionState.idle();
+      return true;
+    } on ApiException catch (error) {
+      state = BookingSubmissionState(
+        status: BookingSubmissionStatus.awaitingOtp,
+        pending: pending,
+        error: error,
+      );
+      return false;
+    }
   }
 
   Future<void> expirePending() async {

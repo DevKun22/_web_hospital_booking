@@ -123,6 +123,7 @@ export function PublicBookingWidget({
       window.setTimeout(() => {
         const element = target && "current" in target ? target.current : target;
         element?.scrollIntoView({ behavior: "smooth", block: "center" });
+        element?.focus({ preventScroll: true });
       }, 50);
     },
     [],
@@ -177,6 +178,13 @@ export function PublicBookingWidget({
     selectedPackage,
     selection.serviceMode,
   ]);
+  const activeBookingStep = pending
+    ? 3
+    : draft.patientName.trim() || draft.patientPhone.trim()
+      ? 2
+      : draft.timeSlotId
+        ? 1
+        : 0;
 
   const slotsQuery = usePublicAvailableSlots({
     doctorId: selection.doctorId,
@@ -452,20 +460,20 @@ export function PublicBookingWidget({
       className="ui-container scroll-mt-24 py-12 sm:py-16"
     >
       <ScrollReveal>
-        <div className="grid gap-6 rounded-xl border border-[#cfe0f3] bg-gradient-to-b from-[#f4f9ff] via-white to-white p-3 shadow-[0_18px_50px_rgba(13,79,139,0.10)] ring-1 ring-[#e7f0fb] sm:p-5 lg:grid-cols-[minmax(0,1fr)_360px] lg:p-6">
+        <div className="grid gap-6 rounded-3xl border border-[var(--public-border)] bg-gradient-to-b from-[var(--public-primary-soft)] via-white to-white p-3 shadow-[var(--public-shadow-soft)] sm:p-5 lg:grid-cols-[minmax(0,1fr)_360px] lg:p-6">
           <div>
-            <div className="flex items-start gap-3 rounded-lg border border-[#d8e9ff] bg-white/90 p-4 shadow-sm sm:p-5">
-              <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-md bg-[#e7f0fb] text-[#0d4f8b]">
+            <div className="flex items-start gap-3 rounded-2xl border border-[var(--public-border)] bg-white/90 p-4 shadow-sm sm:p-5">
+              <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[var(--public-primary-soft)] text-[var(--public-primary)]">
                 <CalendarDays className="h-5 w-5" aria-hidden="true" />
               </span>
               <div>
-                <p className="text-sm font-semibold uppercase tracking-wide text-[#0d4f8b]">
+                <p className="text-sm font-semibold uppercase tracking-wide text-[var(--public-primary)]">
                   Đặt lịch nhanh
                 </p>
-                <h2 className="mt-1 text-2xl font-semibold text-[#172033]">
+                <h2 className="mt-1 text-2xl font-semibold text-[var(--public-ink)]">
                   Chọn lịch khám và xác thực OTP
                 </h2>
-                <p className="mt-2 text-sm leading-6 text-[#667892]">
+                <p className="mt-2 text-sm leading-6 text-[var(--public-muted)]">
                   Chọn chuyên khoa, bác sĩ và khung giờ phù hợp. Sau đó nhập
                   thông tin để bệnh viện gửi OTP giữ lịch.
                 </p>
@@ -477,10 +485,11 @@ export function PublicBookingWidget({
                 (label, index) => (
                   <li
                     key={label}
-                    className="flex min-w-0 items-center gap-2 rounded-lg border border-[#d8e9ff] bg-white px-3 py-2.5 text-xs font-semibold text-[#42526b]"
+                    aria-current={activeBookingStep === index ? "step" : undefined}
+                    className={`flex min-w-0 items-center gap-2 rounded-xl border px-3 py-2.5 text-xs font-semibold ${activeBookingStep === index ? "border-[var(--public-primary)] bg-[var(--public-primary-soft)] text-[var(--public-primary-dark)]" : index < activeBookingStep ? "border-[var(--public-border)] bg-white text-[var(--public-primary-dark)]" : "border-[var(--public-border)] bg-white text-[var(--public-text-soft)]"}`}
                   >
-                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#e7f0fb] text-[#0d4f8b]">
-                      {index + 1}
+                    <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full ${index <= activeBookingStep ? "bg-[var(--public-primary)] text-white" : "bg-[var(--public-surface-muted)] text-[var(--public-muted)]"}`}>
+                      {index < activeBookingStep ? <CheckCircle2 className="h-4 w-4" aria-hidden="true" /> : index + 1}
                     </span>
                     <span className="truncate">{label}</span>
                   </li>
@@ -488,15 +497,16 @@ export function PublicBookingWidget({
               )}
             </ol>
 
-            <div className="mt-4 rounded-lg border border-[#d8e9ff] bg-white p-4 shadow-sm sm:p-5">
+            <div className="mt-4 rounded-2xl border border-[var(--public-border)] bg-white p-4 shadow-sm sm:p-5">
               <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-[#172033]">
-                <span className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-[#e7f0fb] text-[#0d4f8b]">
+                <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-[var(--public-primary-soft)] text-[var(--public-primary)]">
                   <CalendarDays className="h-4 w-4" aria-hidden="true" />
                 </span>
                 Lựa chọn lịch khám
               </div>
               <div className="grid gap-3 md:grid-cols-3">
                 <select
+                  aria-label="Chọn chuyên khoa"
                   value={selection.departmentId}
                   onChange={(event) => {
                     updateSelection({
@@ -507,7 +517,7 @@ export function PublicBookingWidget({
                     });
                     updateDraft({ timeSlotId: "" });
                   }}
-                  className="ui-field px-3 py-2.5 text-sm"
+                  className="ui-field px-3 py-2.5 text-base sm:text-sm"
                   disabled={loading}
                 >
                   <option value="">Chọn chuyên khoa</option>
@@ -534,7 +544,7 @@ export function PublicBookingWidget({
                         : { packageId: "", serviceMode: "DOCTOR_ONLY" },
                     );
                   }}
-                  className="ui-field px-3 py-2.5 text-sm"
+                  className="ui-field px-3 py-2.5 text-base sm:text-sm"
                   disabled={loading || !selection.departmentId}
                 >
                   <option value="__UNDECIDED__" disabled>
@@ -548,12 +558,13 @@ export function PublicBookingWidget({
                   ))}
                 </select>
                 <select
+                  aria-label="Chọn bác sĩ"
                   value={selection.doctorId}
                   onChange={(event) => {
                     updateSelection({ doctorId: event.target.value });
                     updateDraft({ timeSlotId: "" });
                   }}
-                  className="ui-field px-3 py-2.5 text-sm"
+                  className="ui-field px-3 py-2.5 text-base sm:text-sm"
                   disabled={loading || !selection.departmentId || !selection.serviceMode}
                 >
                   <option value="">Chọn bác sĩ</option>
@@ -566,7 +577,7 @@ export function PublicBookingWidget({
               </div>
 
               {selection.departmentId && !selection.serviceMode ? (
-                <div className="mt-3 flex items-start gap-2 rounded-md border border-[#b8d7f4] bg-[#eef7ff] px-3 py-2.5 text-sm text-[#0d4f8b]">
+                <div className="mt-3 flex items-start gap-2 rounded-xl border border-[var(--public-border)] bg-[var(--public-primary-soft)] px-3 py-2.5 text-sm text-[var(--public-primary-dark)]">
                   <Info className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
                   <p>
                     Bạn chưa chọn gói khám. Có thể tiếp tục theo phí khám của bác sĩ
@@ -575,7 +586,7 @@ export function PublicBookingWidget({
                 </div>
               ) : null}
 
-              <div className="mt-4 grid gap-4 rounded-lg border border-[#e5ebf3] bg-[#f8fbff] p-3 sm:p-4 md:grid-cols-[220px_minmax(0,1fr)]">
+              <div className="mt-4 grid gap-4 rounded-2xl border border-[var(--public-divider)] bg-[var(--public-surface-muted)] p-3 sm:p-4 md:grid-cols-[220px_minmax(0,1fr)]">
                 <label className="block">
                   <span className="text-sm font-medium text-[#334155]">
                     Ngày khám
@@ -625,8 +636,8 @@ export function PublicBookingWidget({
                           onClick={() => updateDraft({ timeSlotId: slot.id })}
                           className={`inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm font-semibold transition ${
                             draft.timeSlotId === slot.id
-                              ? "border-[#0d4f8b] bg-[#e7f0fb] text-[#0d4f8b] shadow-[0_8px_18px_rgba(13,79,139,0.14)] ring-2 ring-[#cfe4fa]"
-                              : "border-[#cfd8e6] bg-white text-[#42526b] hover:border-[#0d4f8b] hover:bg-[#f8fbff]"
+                              ? "border-[var(--public-primary)] bg-[var(--public-primary-soft)] text-[var(--public-primary-dark)] shadow-sm ring-2 ring-[var(--public-border)]"
+                              : "border-[var(--public-border)] bg-white text-[var(--public-text-soft)] hover:border-[var(--public-primary)] hover:bg-[var(--public-primary-soft)]"
                           }`}
                         >
                           <Clock className="h-4 w-4" />
@@ -646,7 +657,7 @@ export function PublicBookingWidget({
               </div>
             </div>
 
-            <div className="mt-4 rounded-lg border border-[#d8e9ff] bg-white p-4 shadow-sm sm:p-5">
+            <div className="mt-4 rounded-2xl border border-[var(--public-border)] bg-white p-4 shadow-sm sm:p-5">
               <div className="flex items-start gap-3">
                 <span className="mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-[#e7f0fb] text-[#0d4f8b]">
                   <UserRound className="h-4 w-4" />
@@ -969,7 +980,9 @@ export function PublicBookingWidget({
             {error ? (
               <div
                 ref={formErrorRef}
-                className="mt-5 scroll-mt-24 flex items-start gap-2 rounded-md border border-[#f2b8b5] bg-[#fff3f2] px-4 py-3 text-sm font-medium text-[#b3261e] shadow-sm"
+                tabIndex={-1}
+                role="alert"
+                className="ui-status-danger mt-5 scroll-mt-24 flex items-start gap-2 rounded-xl border px-4 py-3 text-sm font-medium shadow-sm"
               >
                 <Info className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
                 <span>{error}</span>
@@ -981,7 +994,7 @@ export function PublicBookingWidget({
                 type="button"
                 onClick={() => void createAppointment()}
                 disabled={submitting || loading}
-                className="inline-flex items-center justify-center gap-2 rounded-md bg-[#0d4f8b] px-5 py-3 text-sm font-semibold text-white shadow-[0_12px_26px_rgba(13,79,139,0.22)] transition hover:-translate-y-0.5 hover:bg-[#083d6d] disabled:translate-y-0 disabled:opacity-60"
+                className="public-button-primary inline-flex items-center justify-center gap-2 rounded-xl px-5 py-3 text-sm font-semibold disabled:translate-y-0 disabled:opacity-60"
               >
                 {submitting ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -1005,7 +1018,9 @@ export function PublicBookingWidget({
 
           <aside
             ref={resultRef}
-            className="scroll-mt-24 rounded-lg border border-[#d8e9ff] bg-white p-4 shadow-sm lg:sticky lg:top-24 lg:self-start"
+            tabIndex={-1}
+            aria-label="Tóm tắt và xác thực lịch hẹn"
+            className="scroll-mt-24 rounded-2xl border border-[var(--public-border)] bg-white p-4 shadow-sm lg:sticky lg:top-28 lg:self-start"
           >
             <div className="rounded-md border border-[#e5ebf3] bg-[#f8fbff] p-4">
               <p className="text-sm font-semibold text-[#172033]">
@@ -1037,7 +1052,7 @@ export function PublicBookingWidget({
                       : "Chọn bác sĩ để xem lịch trống"
                   }
                   href={
-                    selectedDoctor ? `/doctors/${selectedDoctor.id}` : undefined
+                    selectedDoctor ? `/bac-si/${encodeURIComponent(selectedDoctor.slug || selectedDoctor.id)}` : undefined
                   }
                 />
                 <SummaryLink
@@ -1099,7 +1114,7 @@ export function PublicBookingWidget({
             </div>
 
             {message ? (
-              <div className="mt-4 flex items-start gap-2 rounded-md border border-[#bde5c8] bg-[#f0fff4] px-3 py-2 text-sm text-[#1f7a3a] shadow-sm">
+              <div className="ui-status-positive mt-4 flex items-start gap-2 rounded-xl border px-3 py-2 text-sm shadow-sm" role="status" aria-live="polite">
                 <CheckCircle2
                   className="mt-0.5 h-4 w-4 shrink-0"
                   aria-hidden="true"
@@ -1111,6 +1126,7 @@ export function PublicBookingWidget({
             {pending ? (
               <div
                 ref={pendingOtpRef}
+                tabIndex={-1}
                 className="mt-5 scroll-mt-24 rounded-md border border-[#cfe4fa] bg-[#fbfdff] p-4 shadow-sm"
               >
                 <div className="flex items-center gap-2 text-sm font-semibold text-[#0d4f8b]">
@@ -1192,6 +1208,8 @@ export function PublicBookingWidget({
             {verifiedAppointment ? (
               <div
                 ref={verifiedBoxRef}
+                tabIndex={-1}
+                role="status"
                 className="mt-5 scroll-mt-24 rounded-md border border-[#bde5c8] bg-[#fbfffc] p-4 shadow-sm"
               >
                 <div className="flex items-center gap-2 text-sm font-semibold text-[#1f7a3a]">

@@ -3,55 +3,25 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { type FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { CalendarClock, ChevronLeft, ChevronRight, PanelRightOpen, RotateCcw, Search, X } from "lucide-react";
+import { DashboardEmptyState, DashboardPageHeader, DashboardSurface } from "@/components/dashboard/dashboard-ui";
+import { DashboardWorkspace } from "@/components/dashboard/dashboard-workspace";
+import { Alert, AlertAction, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
 import { VietnamDateInput } from "@/components/ui/vietnam-date-input";
+import {
+  AppointmentStatusBadge,
+  appointmentStatusOptions,
+} from "@/features/appointments/appointment-status";
 import { apiRequest } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
-import { useDashboardAppointmentDoctors, useDashboardAppointments } from "@/lib/dashboard-appointments-query";
+import { useDashboardAppointmentDoctors, useDashboardAppointments, useDashboardPendingInvoiceAppointments } from "@/lib/dashboard-appointments-query";
 import { formatVietnamDate, getVietnamDateInput, getVietnamYesterdayDateInput } from "@/lib/date";
+import { usePublicAvailableSlots } from "@/lib/public-booking-query";
 import { queryKeys } from "@/lib/query-keys";
 import type { Appointment, AppointmentStatus, DoctorProfile } from "@/lib/types";
-
-const statusOptions: { value: "" | AppointmentStatus; label: string }[] = [
-  { value: "", label: "Tất cả trạng thái" },
-  { value: "PENDING_OTP", label: "Chờ OTP" },
-  { value: "PENDING_CONFIRM", label: "Chờ xác nhận" },
-  { value: "CONFIRMED", label: "Đã xác nhận" },
-  { value: "CHECKED_IN", label: "Đã check-in" },
-  { value: "IN_PROGRESS", label: "Đang khám" },
-  { value: "COMPLETED", label: "Hoàn thành" },
-  { value: "NO_SHOW", label: "Không đến" },
-  { value: "CANCELLED_BY_ADMIN", label: "Admin hủy" },
-  { value: "CANCELLED_BY_DOCTOR", label: "Bác sĩ hủy" },
-  { value: "CANCELLED_BY_PATIENT", label: "Bệnh nhân hủy" },
-];
-
-const statusLabel: Record<AppointmentStatus, string> = {
-  PENDING_OTP: "Chờ OTP",
-  PENDING_CONFIRM: "Chờ xác nhận",
-  CONFIRMED: "Đã xác nhận",
-  CHECKED_IN: "Đã check-in",
-  IN_PROGRESS: "Đang khám",
-  COMPLETED: "Hoàn thành",
-  RESCHEDULED: "Đã đổi lịch",
-  CANCELLED_BY_PATIENT: "BN hủy",
-  CANCELLED_BY_DOCTOR: "BS hủy",
-  CANCELLED_BY_ADMIN: "Admin hủy",
-  NO_SHOW: "Không đến",
-};
-
-const statusClass: Record<AppointmentStatus, string> = {
-  PENDING_OTP: "bg-[#fff4d6] text-[#8a5a00]",
-  PENDING_CONFIRM: "bg-[#fff4d6] text-[#8a5a00]",
-  CONFIRMED: "bg-[#e7f0fb] text-[#0d4f8b]",
-  CHECKED_IN: "bg-[#e7f0fb] text-[#0d4f8b]",
-  IN_PROGRESS: "bg-[#f1e9ff] text-[#673ab7]",
-  COMPLETED: "bg-[#e7f6ed] text-[#1f7a3a]",
-  RESCHEDULED: "bg-[#eef2f7] text-[#667892]",
-  CANCELLED_BY_PATIENT: "bg-[#fff3f2] text-[#b3261e]",
-  CANCELLED_BY_DOCTOR: "bg-[#fff3f2] text-[#b3261e]",
-  CANCELLED_BY_ADMIN: "bg-[#fff3f2] text-[#b3261e]",
-  NO_SHOW: "bg-[#fff3f2] text-[#b3261e]",
-};
 
 const today = () => getVietnamDateInput();
 
@@ -122,21 +92,26 @@ const canEditPatientInfoStatus = (status: AppointmentStatus) =>
 export default function AppointmentsPage() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const [appointments, setAppointments] = useState<Appointment[]>([]);
-  const [doctors, setDoctors] = useState<DoctorProfile[]>([]);
-  const [pagination, setPagination] = useState({ page: 1, limit: 20, total: 0, totalPages: 1 });
   const [status, setStatus] = useState("");
   const [doctorId, setDoctorId] = useState("");
   const [date, setDate] = useState(today());
   const [phone, setPhone] = useState("");
   const [bookingCode, setBookingCode] = useState("");
+  const [billingState, setBillingState] = useState<"" | "PENDING_INVOICE" | "HAS_INVOICE">("");
+  const [appliedPhone, setAppliedPhone] = useState("");
+  const [appliedBookingCode, setAppliedBookingCode] = useState("");
   const [page, setPage] = useState(1);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
-  const [selected, setSelected] = useState<Appointment | null>(null);
+  const [selectedSnapshot, setSelected] = useState<Appointment | null>(null);
+  const [workspaceOpen, setWorkspaceOpen] = useState(false);
   const [cancelTarget, setCancelTarget] = useState<Appointment | null>(null);
   const [cancelReason, setCancelReason] = useState("");
+  const [rescheduleTarget, setRescheduleTarget] = useState<Appointment | null>(null);
+  const [rescheduleDate, setRescheduleDate] = useState(today());
+  const [rescheduleSlotId, setRescheduleSlotId] = useState("");
+  const [rescheduleReason, setRescheduleReason] = useState("");
   const [editingPatientInfo, setEditingPatientInfo] = useState(false);
   const [patientInfoForm, setPatientInfoForm] = useState<PatientInfoForm>(emptyPatientInfoForm);
   const listRef = useRef<HTMLElement | null>(null);
@@ -144,28 +119,53 @@ export default function AppointmentsPage() {
 
   const canStaffActions = user?.role === "ADMIN" || user?.role === "STAFF";
   const isDoctor = user?.role === "DOCTOR";
-  const canEditSelectedPatientInfo =
-    canStaffActions &&
-    Boolean(selected) &&
-    !selected?.invoice &&
-    Boolean(selected && canEditPatientInfoStatus(selected.status));
 
   const query = useMemo(
     () => ({
       status: status || undefined,
       doctorId: isDoctor ? undefined : doctorId || undefined,
       date: date || undefined,
-      phone: phone.trim() || undefined,
-      bookingCode: bookingCode.trim() || undefined,
+      phone: appliedPhone || undefined,
+      bookingCode: appliedBookingCode || undefined,
+      billingState: canStaffActions ? billingState || undefined : undefined,
       page,
       limit: 20,
     }),
-    [bookingCode, date, doctorId, isDoctor, page, phone, status],
+    [appliedBookingCode, appliedPhone, billingState, canStaffActions, date, doctorId, isDoctor, page, status],
   );
   const doctorQuery = useMemo(() => ({ limit: 100 }), []);
   const appointmentsQuery = useDashboardAppointments(query);
+  const pendingInvoiceQuery = useDashboardPendingInvoiceAppointments(canStaffActions);
   const doctorsQuery = useDashboardAppointmentDoctors(doctorQuery, !isDoctor);
+  const rescheduleSlotsQuery = usePublicAvailableSlots({
+    doctorId: rescheduleTarget?.doctor.id,
+    date: rescheduleTarget ? rescheduleDate : undefined,
+  });
   const loading = appointmentsQuery.isLoading;
+  const appointments = appointmentsQuery.data?.items ?? [];
+  const doctors = doctorsQuery.data?.items ?? [];
+  const pendingInvoiceCount = pendingInvoiceQuery.data?.pagination.total ?? 0;
+  const selected = selectedSnapshot
+    ? appointments.find((appointment) => appointment.id === selectedSnapshot.id) ?? selectedSnapshot
+    : null;
+  const canEditSelectedPatientInfo =
+    canStaffActions &&
+    Boolean(selected) &&
+    !selected?.invoice &&
+    Boolean(selected && canEditPatientInfoStatus(selected.status));
+  const pagination = appointmentsQuery.data?.pagination ?? {
+    page,
+    limit: 20,
+    total: 0,
+    totalPages: 1,
+  };
+  const queryError = appointmentsQuery.error || doctorsQuery.error || pendingInvoiceQuery.error;
+  const queryErrorMessage = queryError
+    ? queryError instanceof Error
+      ? queryError.message
+      : "Không tải được dữ liệu lịch hẹn"
+    : "";
+  const visibleError = error || queryErrorMessage;
 
   const invalidateAppointments = async () => {
     await Promise.all([
@@ -178,31 +178,6 @@ export default function AppointmentsPage() {
     ]);
   };
 
-  useEffect(() => {
-    const timeoutId = window.setTimeout(() => {
-      if (!appointmentsQuery.data) return;
-      setAppointments(appointmentsQuery.data.items);
-      setPagination(appointmentsQuery.data.pagination);
-      setSelected((current) =>
-        current ? appointmentsQuery.data.items.find((item) => item.id === current.id) || current : current,
-      );
-    }, 0);
-    return () => window.clearTimeout(timeoutId);
-  }, [appointmentsQuery.data]);
-
-  useEffect(() => {
-    const timeoutId = window.setTimeout(() => setDoctors(doctorsQuery.data?.items || []), 0);
-    return () => window.clearTimeout(timeoutId);
-  }, [doctorsQuery.data]);
-
-  useEffect(() => {
-    const queryError = appointmentsQuery.error || doctorsQuery.error;
-    if (!queryError) return;
-    const timeoutId = window.setTimeout(() => {
-      setError(queryError instanceof Error ? queryError.message : "Không tải được dữ liệu lịch hẹn");
-    }, 0);
-    return () => window.clearTimeout(timeoutId);
-  }, [appointmentsQuery.error, doctorsQuery.error]);
   useEffect(() => {
     if (!notice && !error) return;
     const timeoutId = window.setTimeout(() => {
@@ -220,21 +195,54 @@ export default function AppointmentsPage() {
 
   const setQuickFilter = (nextStatus: "" | AppointmentStatus, nextDate = today()) => {
     setStatus(nextStatus);
+    setBillingState("");
     setDate(nextDate);
     setPhone("");
     setBookingCode("");
+    setAppliedPhone("");
+    setAppliedBookingCode("");
     setPage(1);
     scrollTo(listRef);
   };
 
-  const doctorSummary = useMemo(() => {
-    return {
-      total: appointments.length,
-      waiting: appointments.filter((item) => item.status === "CHECKED_IN").length,
-      inProgress: appointments.filter((item) => item.status === "IN_PROGRESS").length,
-      completed: appointments.filter((item) => item.status === "COMPLETED").length,
-    };
-  }, [appointments]);
+  const openPendingInvoiceQueue = () => {
+    setStatus("COMPLETED");
+    setBillingState("PENDING_INVOICE");
+    setDoctorId("");
+    setDate("");
+    setPhone("");
+    setBookingCode("");
+    setAppliedPhone("");
+    setAppliedBookingCode("");
+    setPage(1);
+    scrollTo(listRef);
+  };
+
+  const doctorSummary = {
+    total: appointments.length,
+    waiting: appointments.filter((item) => item.status === "CHECKED_IN").length,
+    inProgress: appointments.filter((item) => item.status === "IN_PROGRESS").length,
+    completed: appointments.filter((item) => item.status === "COMPLETED").length,
+  };
+
+  const applySearchFilters = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setAppliedPhone(phone.trim());
+    setAppliedBookingCode(bookingCode.trim());
+    setPage(1);
+  };
+
+  const resetFilters = () => {
+    setStatus("");
+    setDoctorId("");
+    setDate(today());
+    setPhone("");
+    setBookingCode("");
+    setBillingState("");
+    setAppliedPhone("");
+    setAppliedBookingCode("");
+    setPage(1);
+  };
 
   const runAction = async (appointment: Appointment, path: string, message: string, body?: unknown) => {
     setBusy(true);
@@ -257,6 +265,7 @@ export default function AppointmentsPage() {
 
   const openPatientInfoEditor = (appointment: Appointment) => {
     setSelected(appointment);
+    setWorkspaceOpen(true);
     setPatientInfoForm(buildPatientInfoForm(appointment));
     setEditingPatientInfo(true);
     setCancelTarget(null);
@@ -321,12 +330,73 @@ export default function AppointmentsPage() {
 
   const startCancelAppointment = (appointment: Appointment) => {
     setSelected(appointment);
+    setWorkspaceOpen(true);
     setEditingPatientInfo(false);
     setCancelTarget(appointment);
+    setRescheduleTarget(null);
     setCancelReason("");
     setError("");
     setNotice("");
     scrollTo(detailRef);
+  };
+
+  const startRescheduleAppointment = (appointment: Appointment) => {
+    setSelected(appointment);
+    setWorkspaceOpen(true);
+    setEditingPatientInfo(false);
+    setCancelTarget(null);
+    setCancelReason("");
+    setRescheduleTarget(appointment);
+    setRescheduleDate(appointment.appointmentDate.slice(0, 10));
+    setRescheduleSlotId("");
+    setRescheduleReason("");
+    setError("");
+    setNotice("");
+    scrollTo(detailRef);
+  };
+
+  const rescheduleAppointment = async () => {
+    if (!rescheduleTarget) return;
+    if (!rescheduleSlotId) {
+      setError("Vui lòng chọn khung giờ mới");
+      return;
+    }
+    if (rescheduleReason.trim().length < 2) {
+      setError("Vui lòng nhập lý do đổi lịch");
+      return;
+    }
+
+    setBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      const updated = await apiRequest<Appointment>(
+        `/dashboard/appointments/${rescheduleTarget.id}/reschedule`,
+        {
+          method: "PATCH",
+          body: {
+            timeSlotId: rescheduleSlotId,
+            reason: rescheduleReason.trim(),
+          },
+        },
+      );
+      setSelected(updated);
+      setPatientInfoForm(buildPatientInfoForm(updated));
+      setRescheduleTarget(null);
+      setRescheduleSlotId("");
+      setRescheduleReason("");
+      setNotice(`Đã đổi lịch sang ${formatDate(updated.appointmentDate)} lúc ${updated.startTime}`);
+      await Promise.all([
+        invalidateAppointments(),
+        queryClient.invalidateQueries({ queryKey: ["public", "available-slots"] }),
+      ]);
+      scrollTo(detailRef);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Không đổi được lịch hẹn");
+      await rescheduleSlotsQuery.refetch();
+    } finally {
+      setBusy(false);
+    }
   };
 
   const cancelAppointment = async () => {
@@ -350,10 +420,10 @@ export default function AppointmentsPage() {
         "/dashboard/appointments/cleanup-expired-otp",
         { method: "POST" },
       );
-      setNotice(`Đã dọn ${result.count} lịch quá hạn OTP`);
+      setNotice(`Đã dọn ${result.count} lịch quá hạn xác thực`);
       await invalidateAppointments();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Không dọn được lịch OTP");
+      setError(err instanceof Error ? err.message : "Không dọn được lịch quá hạn xác thực");
     } finally {
       setBusy(false);
     }
@@ -361,10 +431,14 @@ export default function AppointmentsPage() {
 
   const openDetail = (appointment: Appointment) => {
     setSelected(appointment);
+    setWorkspaceOpen(true);
     setPatientInfoForm(buildPatientInfoForm(appointment));
     setEditingPatientInfo(false);
     setCancelTarget(null);
     setCancelReason("");
+    setRescheduleTarget(null);
+    setRescheduleSlotId("");
+    setRescheduleReason("");
     scrollTo(detailRef);
   };
 
@@ -377,7 +451,10 @@ export default function AppointmentsPage() {
           <button onClick={() => void runAction(appointment, "/confirm", "Đã xác nhận lịch")} className="rounded-md border border-[#cfd8e6] px-3 py-1.5 text-xs font-medium text-[#42526b]">Xác nhận</button>
         ) : null}
         {canStaffActions && appointment.status === "CONFIRMED" ? (
-          <button onClick={() => void runAction(appointment, "/check-in", "Đã check-in")} className="rounded-md border border-[#cfd8e6] px-3 py-1.5 text-xs font-medium text-[#42526b]">Check-in</button>
+          <button onClick={() => void runAction(appointment, "/check-in", "Đã tiếp nhận bệnh nhân")} className="rounded-md border border-[#cfd8e6] px-3 py-1.5 text-xs font-medium text-[#42526b]">Tiếp nhận</button>
+        ) : null}
+        {canStaffActions && appointment.status === "CONFIRMED" ? (
+          <button onClick={() => startRescheduleAppointment(appointment)} className="rounded-md border border-[#cfe4fa] px-3 py-1.5 text-xs font-medium text-[#0d4f8b]">Đổi lịch</button>
         ) : null}
         {appointment.status === "CHECKED_IN" ? (
           <button onClick={() => void runAction(appointment, "/start", "Đã bắt đầu khám")} className="rounded-md border border-[#cfd8e6] px-3 py-1.5 text-xs font-medium text-[#42526b]">Bắt đầu</button>
@@ -397,7 +474,7 @@ export default function AppointmentsPage() {
           </Link>
         ) : null}
         {canStaffActions && ["CONFIRMED", "CHECKED_IN"].includes(appointment.status) ? (
-          <button onClick={() => void runAction(appointment, "/no-show", "Đã đánh dấu no-show")} className="rounded-md border border-[#cfd8e6] px-3 py-1.5 text-xs font-medium text-[#42526b]">No-show</button>
+          <button onClick={() => void runAction(appointment, "/no-show", "Đã đánh dấu bệnh nhân vắng mặt")} className="rounded-md border border-[#cfd8e6] px-3 py-1.5 text-xs font-medium text-[#42526b]">Vắng mặt</button>
         ) : null}
         {appointment.status !== "PENDING_OTP" && appointment.status !== "COMPLETED" ? (
           <button onClick={() => startCancelAppointment(appointment)} className="rounded-md border border-[#f2b8b5] px-3 py-1.5 text-xs font-medium text-[#b3261e]">Hủy</button>
@@ -407,34 +484,50 @@ export default function AppointmentsPage() {
   };
 
   return (
-    <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
-      {notice || error ? (
+    <div className={`grid gap-6 transition-[grid-template-columns] duration-300 ${workspaceOpen ? "xl:grid-cols-[minmax(0,1fr)_400px]" : "xl:grid-cols-1"}`}>
+      {notice || visibleError ? (
         <div className="fixed right-4 top-4 z-50 w-[calc(100%-2rem)] max-w-md sm:right-6 sm:top-6">
-          <div className={`rounded-md border px-4 py-3 shadow-lg ${error ? "border-[#f2b8b5] bg-[#fff3f2] text-[#b3261e]" : "border-[#a8dab5] bg-[#f0fff4] text-[#1f7a3a]"}`}>
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className="text-sm font-semibold">{error ? "Có lỗi xảy ra" : "Thành công"}</p>
-                <p className="mt-1 text-sm">{error || notice}</p>
-              </div>
-              <button type="button" onClick={() => { setError(""); setNotice(""); }} className="rounded-md px-2 text-lg leading-none opacity-70 hover:bg-black/5 hover:opacity-100" aria-label="Đóng thông báo">x</button>
-            </div>
-          </div>
+          <Alert
+            variant={visibleError ? "destructive" : "default"}
+            role={visibleError ? "alert" : "status"}
+            aria-live={visibleError ? "assertive" : "polite"}
+            className="bg-card px-4 py-3 shadow-lg"
+          >
+            <AlertTitle>{visibleError ? "Có lỗi xảy ra" : "Thao tác thành công"}</AlertTitle>
+            <AlertDescription>{visibleError || notice}</AlertDescription>
+            <AlertAction>
+              <Button type="button" variant="ghost" size="icon-sm" onClick={() => { setError(""); setNotice(""); }} aria-label="Đóng thông báo">
+                <X />
+              </Button>
+            </AlertAction>
+          </Alert>
         </div>
       ) : null}
 
       <section ref={listRef} className="min-w-0 scroll-mt-24 space-y-4">
-        <div className="flex flex-col gap-3 rounded-md border border-[#dce3ee] bg-white p-5 md:flex-row md:items-end md:justify-between">
-          <div>
-            <p className="text-sm font-medium text-[#55708f]">{isDoctor ? "Khu làm việc bác sĩ" : "Vận hành khám bệnh"}</p>
-            <h2 className="mt-1 text-2xl font-semibold">Lịch hẹn</h2>
-            <p className="mt-2 text-sm text-[#667892]">
-              {isDoctor ? "Theo dõi lịch hôm nay, bắt đầu khám và mở hồ sơ sau khi tiếp nhận bệnh nhân." : "Theo dõi và chuyển trạng thái lịch hẹn trong ngày."}
-            </p>
-          </div>
-          {canStaffActions ? (
-            <button disabled={busy} onClick={() => void cleanupExpiredOtp()} className="rounded-md border border-[#cfd8e6] px-4 py-2 text-sm font-semibold text-[#42526b] hover:bg-[#f6f8fb] disabled:opacity-60">Dọn lịch quá hạn OTP</button>
-          ) : null}
-        </div>
+        <DashboardPageHeader
+          eyebrow={isDoctor ? "Khu làm việc bác sĩ" : "Vận hành khám bệnh"}
+          title="Lịch hẹn"
+          description={isDoctor
+            ? "Theo dõi hàng đợi hôm nay, tiếp nhận bệnh nhân và chuyển nhanh sang hồ sơ khám."
+            : "Tìm kiếm, tiếp nhận và điều phối lịch hẹn theo một quy trình thống nhất."}
+          actions={(
+            <>
+              {selected && !workspaceOpen ? (
+                <Button variant="outline" size="lg" onClick={() => setWorkspaceOpen(true)}>
+                  <PanelRightOpen />
+                  Mở chi tiết
+                </Button>
+              ) : null}
+              {canStaffActions ? (
+                <Button disabled={busy} variant="outline" size="lg" onClick={() => void cleanupExpiredOtp()}>
+                  <RotateCcw />
+                  Dọn lịch quá hạn xác thực
+                </Button>
+              ) : null}
+            </>
+          )}
+        />
 
         {isDoctor ? (
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -444,7 +537,7 @@ export default function AppointmentsPage() {
               <p className="mt-1 text-xs opacity-75">Xem toàn bộ lịch trong ngày</p>
             </button>
             <button type="button" onClick={() => setQuickFilter("CHECKED_IN", today())} className="rounded-md border border-[#f4d7a1] bg-[#fff8eb] p-4 text-left text-[#946200] transition hover:-translate-y-0.5 hover:shadow-sm">
-              <p className="text-sm font-medium opacity-80">Đã check-in</p>
+              <p className="text-sm font-medium opacity-80">Đã tiếp nhận</p>
               <p className="mt-2 text-2xl font-semibold">{doctorSummary.waiting}</p>
               <p className="mt-1 text-xs opacity-75">Ưu tiên bắt đầu khám</p>
             </button>
@@ -461,83 +554,192 @@ export default function AppointmentsPage() {
           </div>
         ) : null}
 
-        <div className="rounded-md border border-[#dce3ee] bg-white">
-          <div className={`grid gap-3 border-b border-[#e5ebf3] p-4 ${isDoctor ? "lg:grid-cols-2 2xl:grid-cols-[170px_170px_minmax(0,1fr)_minmax(0,1fr)]" : "lg:grid-cols-2 2xl:grid-cols-[170px_minmax(0,1fr)_150px_150px_150px]"}`}>
-            <VietnamDateInput value={date} onChange={(value) => { setDate(value); setPage(1); }} ariaLabel="Ngày lọc lịch hẹn" className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" />
-            {!isDoctor ? (
-              <select value={doctorId} onChange={(e) => { setDoctorId(e.target.value); setPage(1); }} className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]">
-                <option value="">Tất cả bác sĩ</option>
-                {doctors.map((doctor) => <option key={doctor.id} value={doctor.id}>{doctorName(doctor)}</option>)}
-              </select>
-            ) : null}
-            <select value={status} onChange={(e) => { setStatus(e.target.value); setPage(1); }} className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]">
-              {statusOptions.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
-            </select>
-            <input value={phone} onChange={(e) => { setPhone(e.target.value); setPage(1); }} placeholder="Số điện thoại" className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" />
-            <input value={bookingCode} onChange={(e) => { setBookingCode(e.target.value); setPage(1); }} placeholder="Mã lịch" className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" />
-          </div>
+        {canStaffActions ? (
+          <DashboardSurface className="overflow-hidden border-amber-200 bg-amber-50/70">
+            <div className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
+              <div className="flex min-w-0 items-start gap-3">
+                <div className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-amber-100 font-semibold text-amber-800">
+                  {pendingInvoiceQuery.isLoading ? "…" : pendingInvoiceCount}
+                </div>
+                <div>
+                  <h3 className="font-semibold text-amber-950">Chờ lập hóa đơn</h3>
+                  <p className="mt-1 text-sm leading-6 text-amber-900/75">
+                    Lịch đã hoàn tất khám nhưng chưa phát hành hóa đơn. Hãy kiểm tra thông tin tiếp nhận và quyền lợi BHYT trước khi lập hóa đơn.
+                  </p>
+                </div>
+              </div>
+              <Button type="button" variant="outline" size="lg" onClick={openPendingInvoiceQueue} className="shrink-0 border-amber-300 bg-white text-amber-900 hover:bg-amber-100">
+                Mở hàng đợi
+              </Button>
+            </div>
+          </DashboardSurface>
+        ) : null}
 
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[1100px] border-separate border-spacing-0 text-left text-sm">
-              <thead>
-                <tr className="text-[#667892]">
-                  <th className="border-b border-[#e5ebf3] px-4 py-3 font-semibold">Mã lịch</th>
-                  <th className="border-b border-[#e5ebf3] px-4 py-3 font-semibold">Bệnh nhân</th>
-                  <th className="border-b border-[#e5ebf3] px-4 py-3 font-semibold">Thời gian</th>
-                  <th className="border-b border-[#e5ebf3] px-4 py-3 font-semibold">Bác sĩ</th>
-                  <th className="border-b border-[#e5ebf3] px-4 py-3 font-semibold">Dịch vụ</th>
-                  <th className="border-b border-[#e5ebf3] px-4 py-3 font-semibold">Trạng thái</th>
-                  <th className="border-b border-[#e5ebf3] px-4 py-3 text-right font-semibold">Thao tác</th>
-                </tr>
-              </thead>
-              <tbody>
-                {loading ? (
-                  <tr><td colSpan={7} className="px-4 py-10 text-center text-[#667892]">Đang tải lịch hẹn...</td></tr>
-                ) : appointments.length === 0 ? (
-                  <tr><td colSpan={7} className="px-4 py-10 text-center text-[#667892]">Chưa có lịch hẹn phù hợp</td></tr>
-                ) : appointments.map((appointment) => (
-                  <tr key={appointment.id} className="align-top">
-                    <td className="border-b border-[#eef2f7] px-4 py-3">
-                      <button onClick={() => openDetail(appointment)} className="font-semibold text-[#0d4f8b] hover:underline">{appointment.bookingCode}</button>
-                      <p className="mt-1 text-xs text-[#667892]">{formatCurrency(appointment.finalAmount)}</p>
-                    </td>
-                    <td className="border-b border-[#eef2f7] px-4 py-3">
-                      <p className="font-semibold">{appointment.patientName}</p>
-                      <p className="mt-1 text-xs text-[#667892]">{appointment.patientPhone}</p>
-                    </td>
-                    <td className="border-b border-[#eef2f7] px-4 py-3">{formatDate(appointment.appointmentDate)}<p className="mt-1 text-xs text-[#667892]">{appointment.startTime} - {appointment.endTime}</p></td>
-                    <td className="border-b border-[#eef2f7] px-4 py-3">{doctorName(appointment.doctor)}<p className="mt-1 text-xs text-[#667892]">{appointment.department.name}</p></td>
-                    <td className="border-b border-[#eef2f7] px-4 py-3">{appointment.package?.name || "Khám bác sĩ"}<p className="mt-1 text-xs text-[#667892]">{appointment.reason || "Không có lý do"}</p></td>
-                    <td className="border-b border-[#eef2f7] px-4 py-3"><span className={`rounded-md px-2 py-1 text-xs font-semibold ${statusClass[appointment.status]}`}>{statusLabel[appointment.status]}</span></td>
-                    <td className="border-b border-[#eef2f7] px-4 py-3">
-                      <div className="flex flex-wrap justify-end gap-2">
-                        <button onClick={() => openDetail(appointment)} className="rounded-md border border-[#cfd8e6] px-3 py-1.5 text-xs font-medium text-[#42526b]">Chi tiết</button>
-                        {renderActions(appointment)}
+        <DashboardSurface>
+          <form onSubmit={applySearchFilters} className="border-b border-border p-4 sm:p-5">
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h3 className="font-semibold">Bộ lọc lịch hẹn</h3>
+                <p className="mt-1 text-sm text-muted-foreground">Ngày và trạng thái cập nhật tức thời; số điện thoại và mã lịch chỉ tìm khi gửi biểu mẫu.</p>
+              </div>
+              <Button type="button" variant="ghost" onClick={resetFilters}>
+                <RotateCcw />
+                Đặt lại
+              </Button>
+            </div>
+            <div className={`grid gap-3 ${isDoctor ? "md:grid-cols-2 xl:grid-cols-4" : "md:grid-cols-2 xl:grid-cols-3"}`}>
+              <label className="grid gap-1.5 text-sm font-medium">
+                Ngày khám
+                <VietnamDateInput value={date} onChange={(value) => { setDate(value); setPage(1); }} ariaLabel="Ngày lọc lịch hẹn" className="h-9 rounded-lg border border-input bg-transparent px-3 text-sm outline-none focus:border-ring focus:ring-3 focus:ring-ring/50" />
+              </label>
+              {!isDoctor ? (
+                <label className="grid gap-1.5 text-sm font-medium">
+                  Bác sĩ
+                  <select value={doctorId} onChange={(e) => { setDoctorId(e.target.value); setPage(1); }} className="h-9 rounded-lg border border-input bg-transparent px-3 text-sm outline-none focus:border-ring focus:ring-3 focus:ring-ring/50">
+                    <option value="">Tất cả bác sĩ</option>
+                    {doctors.map((doctor) => <option key={doctor.id} value={doctor.id}>{doctorName(doctor)}</option>)}
+                  </select>
+                </label>
+              ) : null}
+              <label className="grid gap-1.5 text-sm font-medium">
+                Trạng thái
+                <select value={status} onChange={(e) => { setStatus(e.target.value); setPage(1); }} className="h-9 rounded-lg border border-input bg-transparent px-3 text-sm outline-none focus:border-ring focus:ring-3 focus:ring-ring/50">
+                  {appointmentStatusOptions.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
+                </select>
+              </label>
+              {!isDoctor ? (
+                <label className="grid gap-1.5 text-sm font-medium">
+                  Tình trạng hóa đơn
+                  <select value={billingState} onChange={(event) => { setBillingState(event.target.value as typeof billingState); setPage(1); }} className="h-9 rounded-lg border border-input bg-transparent px-3 text-sm outline-none focus:border-ring focus:ring-3 focus:ring-ring/50">
+                    <option value="">Tất cả</option>
+                    <option value="PENDING_INVOICE">Chờ lập hóa đơn</option>
+                    <option value="HAS_INVOICE">Đã có hóa đơn</option>
+                  </select>
+                </label>
+              ) : null}
+              <label className="grid gap-1.5 text-sm font-medium">
+                Số điện thoại
+                <Input value={phone} inputMode="tel" onChange={(event) => setPhone(event.target.value)} placeholder="Ví dụ: 0912..." />
+              </label>
+              <label className="grid gap-1.5 text-sm font-medium">
+                Mã lịch
+                <Input value={bookingCode} onChange={(event) => setBookingCode(event.target.value)} placeholder="Ví dụ: HB-8492" />
+              </label>
+            </div>
+            <div className="mt-4 flex items-center justify-end">
+              <Button type="submit" size="lg">
+                <Search />
+                Tìm lịch hẹn
+              </Button>
+            </div>
+          </form>
+
+          {loading ? (
+            <div className="grid gap-3 p-4" aria-label="Đang tải lịch hẹn">
+              {[0, 1, 2].map((item) => <Skeleton key={item} className="h-20 w-full" />)}
+            </div>
+          ) : appointments.length === 0 ? (
+            <div className="p-4 sm:p-6">
+              <DashboardEmptyState title="Chưa có lịch hẹn phù hợp" description="Thử thay đổi ngày, trạng thái hoặc đặt lại bộ lọc." />
+            </div>
+          ) : (
+            <>
+              <div className="hidden overflow-x-auto lg:block">
+                <table className="w-full min-w-[980px] border-separate border-spacing-0 text-left text-sm">
+                  <thead className="bg-muted/40 text-muted-foreground">
+                    <tr>
+                      {['Mã lịch', 'Bệnh nhân', 'Thời gian', 'Bác sĩ / dịch vụ', 'Trạng thái'].map((label) => (
+                        <th key={label} className="border-b border-border px-4 py-3 font-semibold">{label}</th>
+                      ))}
+                      <th className="border-b border-border px-4 py-3 text-right font-semibold">Thao tác</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {appointments.map((appointment) => (
+                      <tr key={appointment.id} className={`align-top transition-colors ${selected?.id === appointment.id ? "bg-primary/5" : "hover:bg-muted/30"}`}>
+                        <td className="border-b border-border px-4 py-4">
+                          <button onClick={() => openDetail(appointment)} className="font-semibold text-primary hover:underline">{appointment.bookingCode}</button>
+                          <p className="mt-1 text-xs text-muted-foreground">{formatCurrency(appointment.finalAmount)}</p>
+                        </td>
+                        <td className="border-b border-border px-4 py-4">
+                          <p className="font-semibold">{appointment.patientName}</p>
+                          <p className="mt-1 text-xs text-muted-foreground">{appointment.patientPhone}</p>
+                        </td>
+                        <td className="border-b border-border px-4 py-4">
+                          {formatDate(appointment.appointmentDate)}
+                          <p className="mt-1 text-xs text-muted-foreground">{appointment.startTime} - {appointment.endTime}</p>
+                        </td>
+                        <td className="max-w-56 border-b border-border px-4 py-4">
+                          <p className="font-medium">{doctorName(appointment.doctor)}</p>
+                          <p className="mt-1 truncate text-xs text-muted-foreground">{appointment.package?.name || appointment.department.name}</p>
+                        </td>
+                        <td className="border-b border-border px-4 py-4"><AppointmentStatusBadge status={appointment.status} /></td>
+                        <td className="border-b border-border px-4 py-4">
+                          <div className="flex max-w-72 flex-wrap justify-end gap-2">
+                            <Button variant="outline" size="sm" onClick={() => openDetail(appointment)}>Chi tiết</Button>
+                            {renderActions(appointment)}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="grid gap-3 p-3 lg:hidden">
+                {appointments.map((appointment) => (
+                  <article key={appointment.id} className={`rounded-xl border bg-card p-4 shadow-xs transition-colors ${selected?.id === appointment.id ? "border-primary/40 bg-primary/[0.03]" : "border-border"}`}>
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <button onClick={() => openDetail(appointment)} className="font-semibold text-primary hover:underline">{appointment.bookingCode}</button>
+                        <h3 className="mt-1 truncate font-semibold">{appointment.patientName}</h3>
+                        <p className="text-sm text-muted-foreground">{appointment.patientPhone}</p>
                       </div>
-                    </td>
-                  </tr>
+                      <AppointmentStatusBadge status={appointment.status} />
+                    </div>
+                    <div className="mt-4 grid gap-2 rounded-lg bg-muted/50 p-3 text-sm">
+                      <p className="flex items-center gap-2"><CalendarClock className="size-4 text-primary" />{formatDate(appointment.appointmentDate)}, {appointment.startTime} - {appointment.endTime}</p>
+                      <p className="truncate font-medium">{doctorName(appointment.doctor)}</p>
+                      <p className="truncate text-muted-foreground">{appointment.package?.name || appointment.department.name}</p>
+                    </div>
+                    <div className="mt-4 flex flex-wrap justify-end gap-2">
+                      <Button variant="outline" size="sm" onClick={() => openDetail(appointment)}>Chi tiết</Button>
+                      {renderActions(appointment)}
+                    </div>
+                  </article>
                 ))}
-              </tbody>
-            </table>
-          </div>
+              </div>
+            </>
+          )}
 
-          <div className="flex items-center justify-between border-t border-[#e5ebf3] px-4 py-3 text-sm text-[#667892]">
-            <span>{pagination.total} kết quả, trang {pagination.page}/{pagination.totalPages || 1}</span>
+          <div className="flex flex-col gap-3 border-t border-border px-4 py-3 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
+            <span>{pagination.total} kết quả · Trang {pagination.page}/{pagination.totalPages || 1}</span>
             <div className="flex gap-2">
-              <button disabled={page <= 1} onClick={() => setPage((current) => Math.max(current - 1, 1))} className="rounded-md border border-[#cfd8e6] px-3 py-1.5 font-medium disabled:opacity-50">Trước</button>
-              <button disabled={page >= pagination.totalPages} onClick={() => setPage((current) => current + 1)} className="rounded-md border border-[#cfd8e6] px-3 py-1.5 font-medium disabled:opacity-50">Sau</button>
+              <Button variant="outline" disabled={page <= 1} onClick={() => setPage((current) => Math.max(current - 1, 1))}>
+                <ChevronLeft /> Trước
+              </Button>
+              <Button variant="outline" disabled={page >= pagination.totalPages} onClick={() => setPage((current) => current + 1)}>
+                Sau <ChevronRight />
+              </Button>
             </div>
           </div>
-        </div>
+        </DashboardSurface>
       </section>
 
-      <aside ref={detailRef} className="scroll-mt-24 rounded-md border border-[#dce3ee] bg-white p-5 xl:sticky xl:top-24 xl:self-start">
+      {workspaceOpen ? (
+        <section ref={detailRef} className="min-w-0 scroll-mt-24">
+          <DashboardWorkspace
+            open={workspaceOpen}
+            onOpenChange={setWorkspaceOpen}
+            title={selected ? `Lịch hẹn ${selected.bookingCode}` : "Chi tiết lịch hẹn"}
+            description="Thông tin bệnh nhân, dịch vụ và các thao tác phù hợp với trạng thái hiện tại."
+          >
         {selected ? (
           <div className="space-y-5">
             <div>
               <p className="text-sm font-medium text-[#55708f]">Chi tiết lịch hẹn</p>
               <h3 className="mt-1 text-xl font-semibold">{selected.bookingCode}</h3>
-              <span className={`mt-3 inline-flex rounded-md px-2 py-1 text-xs font-semibold ${statusClass[selected.status]}`}>{statusLabel[selected.status]}</span>
+              <AppointmentStatusBadge status={selected.status} className="mt-3" />
             </div>
             <div className="space-y-3 text-sm">
               <div><p className="text-[#667892]">Bệnh nhân</p><p className="font-semibold">{selected.patientName}</p><p>{selected.patientPhone}</p><p>{selected.patientEmail || "-"}</p></div>
@@ -583,7 +785,7 @@ export default function AppointmentsPage() {
                     <VietnamDateInput value={patientInfoForm.dateOfBirth} max={getVietnamYesterdayDateInput()} onChange={(value) => updatePatientInfoField("dateOfBirth", value)} ariaLabel="Ngày sinh bệnh nhân" className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" />
                   </label>
                   <label className="block">
-                    <span className="text-xs font-medium text-[#334155]">CCCD</span>
+                        <span className="text-xs font-medium text-[#334155]">Căn cước công dân</span>
                     <input value={patientInfoForm.cccd} onChange={(event) => updatePatientInfoField("cccd", event.target.value)} className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" />
                   </label>
                   <label className="block sm:col-span-2">
@@ -606,7 +808,7 @@ export default function AppointmentsPage() {
                         <input value={patientInfoForm.healthInsuranceCode} onChange={(event) => updatePatientInfoField("healthInsuranceCode", event.target.value)} className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" required />
                       </label>
                       <label className="block">
-                        <span className="text-xs font-medium text-[#334155]">Nơi đăng ký KCB</span>
+                        <span className="text-xs font-medium text-[#334155]">Nơi đăng ký khám chữa bệnh</span>
                         <input value={patientInfoForm.registeredHospital} onChange={(event) => updatePatientInfoField("registeredHospital", event.target.value)} className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" />
                       </label>
                     </div>
@@ -631,6 +833,66 @@ export default function AppointmentsPage() {
                   <button type="button" onClick={() => { setEditingPatientInfo(false); setPatientInfoForm(buildPatientInfoForm(selected)); }} className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm font-medium text-[#42526b]">Đóng</button>
                 </div>
               </form>
+            ) : null}
+            {rescheduleTarget?.id === selected.id ? (
+              <div className="rounded-md border border-[#cfe4fa] bg-[#f4f9ff] p-4">
+                <div>
+                  <h4 className="font-semibold text-[#0d4f8b]">Đổi lịch hẹn</h4>
+                  <p className="mt-1 text-xs leading-5 text-[#55708f]">
+                    Giữ nguyên bác sĩ và thông tin khám; hệ thống sẽ phát hành mã lịch mới, giải phóng khung giờ cũ và gửi thông báo cho bệnh nhân.
+                  </p>
+                </div>
+                <label className="mt-3 block">
+                  <span className="text-sm font-medium text-[#334155]">Ngày khám mới</span>
+                  <VietnamDateInput
+                    value={rescheduleDate}
+                    min={today()}
+                    onChange={(value) => {
+                      setRescheduleDate(value);
+                      setRescheduleSlotId("");
+                    }}
+                    className="mt-1 w-full rounded-md border border-[#cfd8e6] bg-white px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]"
+                    required
+                  />
+                </label>
+                <div className="mt-3">
+                  <p className="text-sm font-medium text-[#334155]">Khung giờ còn trống</p>
+                  {rescheduleSlotsQuery.isLoading || rescheduleSlotsQuery.isFetching ? (
+                    <p className="mt-2 text-sm text-[#667892]">Đang cập nhật khung giờ...</p>
+                  ) : rescheduleSlotsQuery.isError ? (
+                    <button type="button" onClick={() => void rescheduleSlotsQuery.refetch()} className="mt-2 text-sm font-medium text-[#b3261e] hover:underline">Không tải được khung giờ. Thử lại</button>
+                  ) : (rescheduleSlotsQuery.data?.length || 0) === 0 ? (
+                    <p className="mt-2 rounded-md bg-white px-3 py-2 text-sm text-[#667892]">Bác sĩ chưa còn khung giờ trống trong ngày này.</p>
+                  ) : (
+                    <div className="mt-2 grid grid-cols-2 gap-2">
+                      {rescheduleSlotsQuery.data?.map((slot) => (
+                        <button
+                          key={slot.id}
+                          type="button"
+                          onClick={() => setRescheduleSlotId(slot.id)}
+                          className={`rounded-md border px-3 py-2 text-sm font-medium transition ${rescheduleSlotId === slot.id ? "border-[#0d4f8b] bg-[#0d4f8b] text-white" : "border-[#cfd8e6] bg-white text-[#42526b] hover:border-[#0d4f8b]"}`}
+                        >
+                          {slot.startTime} - {slot.endTime}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <label className="mt-3 block">
+                  <span className="text-sm font-medium text-[#334155]">Lý do đổi lịch</span>
+                  <textarea
+                    value={rescheduleReason}
+                    onChange={(event) => setRescheduleReason(event.target.value)}
+                    rows={3}
+                    className="mt-1 w-full resize-none rounded-md border border-[#cfd8e6] bg-white px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]"
+                    placeholder="Ví dụ: bác sĩ thay đổi lịch làm việc"
+                  />
+                </label>
+                <div className="mt-3 flex gap-2">
+                  <button disabled={busy || !rescheduleSlotId} onClick={() => void rescheduleAppointment()} className="rounded-md bg-[#0d4f8b] px-3 py-2 text-sm font-semibold text-white disabled:opacity-60">{busy ? "Đang đổi lịch..." : "Xác nhận đổi lịch"}</button>
+                  <button type="button" onClick={() => { setRescheduleTarget(null); setRescheduleSlotId(""); setRescheduleReason(""); }} className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm font-medium text-[#42526b]">Đóng</button>
+                </div>
+              </div>
             ) : null}
             {cancelTarget?.id === selected.id ? (
               <div className="rounded-md border border-[#f2b8b5] bg-[#fff3f2] p-4">
@@ -659,7 +921,9 @@ export default function AppointmentsPage() {
             <p className="mt-2 text-sm leading-6 text-[#667892]">Bấm vào mã lịch hoặc nút chi tiết để xem thông tin bệnh nhân, giá tiền và thao tác phù hợp.</p>
           </div>
         )}
-      </aside>
+          </DashboardWorkspace>
+        </section>
+      ) : null}
     </div>
   );
 }

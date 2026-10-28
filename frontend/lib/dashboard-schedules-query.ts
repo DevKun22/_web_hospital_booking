@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/api";
 import { queryKeys } from "@/lib/query-keys";
 import type {
@@ -60,7 +60,9 @@ export function useDashboardScheduleDoctors(
   return useQuery({
     queryKey: queryKeys.dashboardDoctors(filters),
     queryFn: () => fetchDashboardScheduleDoctors(filters),
+    placeholderData: keepPreviousData,
     enabled,
+    staleTime: 5 * 60_000,
   });
 }
 
@@ -70,6 +72,10 @@ export function useDashboardDoctorSchedules(
   return useQuery({
     queryKey: queryKeys.dashboardDoctorSchedules(filters),
     queryFn: () => fetchDashboardDoctorSchedules(filters),
+    placeholderData: keepPreviousData,
+    staleTime: 30_000,
+    refetchOnReconnect: true,
+    refetchOnWindowFocus: true,
   });
 }
 
@@ -79,5 +85,10 @@ export function useDashboardDoctorTimeSlots(
   return useQuery({
     queryKey: queryKeys.dashboardDoctorTimeSlots(filters),
     queryFn: () => fetchDashboardDoctorTimeSlots(filters),
+    placeholderData: keepPreviousData,
+    staleTime: 15_000,
+    refetchInterval: 30_000,
+    refetchOnReconnect: true,
+    refetchOnWindowFocus: true,
   });
 }

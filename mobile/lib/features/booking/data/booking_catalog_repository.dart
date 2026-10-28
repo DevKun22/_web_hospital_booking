@@ -23,25 +23,44 @@ class BookingCatalogRepository {
 
   Future<BookingCatalog> fetchCatalog() async {
     try {
-      final responses = await Future.wait<Response<dynamic>>([
-        _dio.get<dynamic>('/departments'),
-        _dio.get<dynamic>('/doctors'),
-        _dio.get<dynamic>('/packages'),
-      ]);
+      final response = await _dio.get<dynamic>(
+        '/public/bootstrap',
+        queryParameters: {'view': 'catalog'},
+      );
+      final data = requireDataMap(response.data);
       return BookingCatalog(
-        departments: requireDataList(
-          responses[0].data,
+        departments: _list(
+          data,
+          'departments',
         ).map(BookingDepartment.fromJson).toList(growable: false),
-        doctors: requireDataList(
-          responses[1].data,
+        doctors: _list(
+          data,
+          'doctors',
         ).map(BookingDoctor.fromJson).toList(growable: false),
-        packages: requireDataList(
-          responses[2].data,
+        packages: _list(
+          data,
+          'packages',
         ).map(MedicalPackage.fromJson).toList(growable: false),
       );
     } on DioException catch (error) {
       throw ApiException.fromDio(error);
     }
+  }
+
+  List<Map<String, dynamic>> _list(Map<String, dynamic> data, String key) {
+    final value = data[key];
+    if (value is! List) {
+      throw const ApiException(
+        kind: ApiErrorKind.unknown,
+        code: 'INVALID_API_CONTRACT',
+        message: 'Phản hồi máy chủ không đúng định dạng.',
+      );
+    }
+
+    return value
+        .whereType<Map>()
+        .map((item) => Map<String, dynamic>.from(item))
+        .toList(growable: false);
   }
 
   Future<BookingDoctor> fetchDoctor(String doctorId) async {

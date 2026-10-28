@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hospital_booking_mobile/app/theme/app_theme.dart';
+import 'package:hospital_booking_mobile/core/sync/patient_data_sync_coordinator.dart';
 import 'package:hospital_booking_mobile/core/widgets/app_ui.dart';
 import 'package:hospital_booking_mobile/features/booking/application/booking_flow_controller.dart';
 import 'package:hospital_booking_mobile/features/booking/application/booking_submission_controller.dart';
@@ -165,6 +168,15 @@ class BookingSuccessScreen extends ConsumerWidget {
     BuildContext context,
     String destination,
   ) async {
+    final appointmentId = ref
+        .read(bookingSubmissionControllerProvider)
+        .appointment
+        ?.id;
+    unawaited(
+      ref
+          .read(patientDataSyncCoordinatorProvider)
+          .handleBookingCompleted(appointmentId: appointmentId),
+    );
     await ref.read(bookingSubmissionControllerProvider.notifier).reset();
     await ref.read(bookingFlowControllerProvider.notifier).clearSelection();
     if (context.mounted) context.go(destination);

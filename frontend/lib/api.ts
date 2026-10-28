@@ -3,6 +3,7 @@ const API_BASE_URL =
   "http://localhost:4000/api";
 
 export const AUTH_EXPIRED_EVENT = "hospital-dashboard:auth-expired";
+const DASHBOARD_REQUEST_HEADER = "X-Hospital-Dashboard-Request";
 
 type ApiEnvelope<T> = {
   success: boolean;
@@ -58,6 +59,7 @@ const refreshDashboardSession = async () => {
     credentials: "include",
     headers: {
       Accept: "application/json",
+      [DASHBOARD_REQUEST_HEADER]: "1",
     },
   })
     .then(async (response) => {
@@ -92,6 +94,9 @@ export async function apiRequest<T>(
     credentials: "include",
     headers: {
       Accept: "application/json",
+      ...((init.method || "GET").toUpperCase() !== "GET"
+        ? { [DASHBOARD_REQUEST_HEADER]: "1" }
+        : {}),
       ...(body !== undefined ? { "Content-Type": "application/json" } : {}),
       ...headers,
     },
@@ -105,6 +110,7 @@ export async function apiRequest<T>(
   if (!response.ok || payload?.success === false) {
     if (
       response.status === 401 &&
+      isDashboardRoute() &&
       !skipAuthRefresh &&
       path !== "/auth/dashboard/refresh"
     ) {
@@ -144,6 +150,7 @@ export async function uploadImages(files: File[], folder: string) {
     credentials: "include",
     headers: {
       Accept: "application/json",
+      [DASHBOARD_REQUEST_HEADER]: "1",
     },
     body: formData,
   });

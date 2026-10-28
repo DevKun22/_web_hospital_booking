@@ -15,11 +15,11 @@ class AppRouteBackScope extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final canPop = context.canPop();
-    return PopScope<void>(
-      canPop: canPop,
-      onPopInvokedWithResult: (didPop, _) {
-        if (!didPop) context.go(fallbackLocation);
+    return BackButtonListener(
+      onBackButtonPressed: () async {
+        if (context.canPop()) return false;
+        context.go(fallbackLocation);
+        return true;
       },
       child: child,
     );

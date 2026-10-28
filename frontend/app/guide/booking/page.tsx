@@ -2,7 +2,8 @@
 
 import { ArrowRight, CalendarCheck, CheckCircle2, ClipboardList, Search, ShieldCheck, Stethoscope } from "lucide-react";
 import Link from "next/link";
-import { PublicPageHeader, PublicPageHero } from "@/components/public/public-page-layout";
+import { PublicPageHero } from "@/components/public/public-page-layout";
+import { absoluteUrl, jsonLdString } from "@/lib/seo";
 
 const steps = [
   {
@@ -16,7 +17,7 @@ const steps = [
     title: "Chọn bác sĩ hoặc gói khám",
     text: "Nếu đã biết bác sĩ, chọn bác sĩ để xem lịch trống. Nếu muốn rõ chi phí, chọn gói khám phù hợp.",
     icon: <ClipboardList className="h-5 w-5" />,
-    href: "/doctors",
+    href: "/bac-si",
     action: "Xem bác sĩ",
   },
   {
@@ -50,9 +51,24 @@ const steps = [
 ];
 
 export default function BookingGuidePage() {
+  const howToJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "HowTo",
+    name: "Cách đặt lịch khám trực tuyến",
+    description: "Các bước chọn dịch vụ, nhập thông tin, xác thực OTP và theo dõi lịch hẹn.",
+    inLanguage: "vi-VN",
+    step: steps.map((step, index) => ({
+      "@type": "HowToStep",
+      position: index + 1,
+      name: step.title,
+      text: step.text,
+      url: absoluteUrl(`/guide/booking#step-${index + 1}`),
+    })),
+  };
+
   return (
-    <main className="min-h-screen bg-[#f6f8fb] text-[#172033]">
-      <PublicPageHeader />
+    <main className="min-h-screen bg-[var(--public-canvas)] text-[var(--public-ink)]">
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdString(howToJsonLd) }} />
       <PublicPageHero
         eyebrow="Hướng dẫn đặt lịch"
         title="Từ chọn chuyên khoa đến tra cứu trạng thái"
@@ -62,18 +78,18 @@ export default function BookingGuidePage() {
       <section className="ui-container py-10 sm:py-12">
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {steps.map((step, index) => (
-            <article key={step.title} className="ui-lift-card flex h-full flex-col rounded-xl border border-[#dce3ee] bg-white p-5">
+            <article id={`step-${index + 1}`} key={step.title} className="ui-lift-card flex h-full flex-col rounded-2xl border border-[var(--public-border)] bg-white p-5 shadow-sm">
               <div className="flex items-start gap-3">
-                <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-[#e7f0fb] text-[#0d4f8b]">
+                <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[var(--public-primary-soft)] text-[var(--public-primary)]">
                   {step.icon}
                 </span>
                 <div>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-[#667892]">Bước {index + 1}</p>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-[var(--public-muted)]">Bước {index + 1}</p>
                   <h2 className="mt-1 text-lg font-semibold">{step.title}</h2>
                 </div>
               </div>
-              <p className="mt-4 text-sm leading-7 text-[#667892]">{step.text}</p>
-              <Link href={step.href} className="mt-auto inline-flex items-center gap-2 pt-5 text-sm font-semibold text-[#0d4f8b]">
+              <p className="mt-4 text-sm leading-7 text-[var(--public-muted)]">{step.text}</p>
+              <Link href={step.href} className="mt-auto inline-flex items-center gap-2 pt-5 text-sm font-semibold text-[var(--public-primary)]">
                 {step.action}
                 <ArrowRight className="h-4 w-4" />
               </Link>
@@ -81,18 +97,18 @@ export default function BookingGuidePage() {
           ))}
         </div>
 
-        <div className="mt-8 grid gap-4 rounded-md border border-[#dce3ee] bg-white p-5 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
+        <div className="mt-8 grid gap-4 rounded-2xl border border-[var(--public-border)] bg-white p-5 shadow-sm lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
           <div>
             <h2 className="text-xl font-semibold">Sẵn sàng đặt lịch?</h2>
-            <p className="mt-2 text-sm leading-6 text-[#667892]">
+            <p className="mt-2 text-sm leading-6 text-[var(--public-muted)]">
               Bạn có thể bắt đầu ngay từ form đặt lịch hoặc xem thêm câu hỏi thường gặp nếu cần giải thích chi tiết hơn.
             </p>
           </div>
           <div className="flex flex-col gap-2 sm:flex-row">
-            <Link href="/#booking" className="inline-flex items-center justify-center rounded-md bg-[#0d4f8b] px-4 py-3 text-sm font-semibold text-white hover:bg-[#083d6d]">
+            <Link href="/#booking" className="public-button-primary inline-flex items-center justify-center rounded-xl px-4 py-3 text-sm font-semibold">
               Bắt đầu đặt lịch
             </Link>
-            <Link href="/faqs" className="inline-flex items-center justify-center rounded-md border border-[#cfd8e6] px-4 py-3 text-sm font-semibold text-[#42526b] hover:bg-[#f8fafc]">
+            <Link href="/faqs" className="public-button-secondary inline-flex items-center justify-center rounded-xl px-4 py-3 text-sm font-semibold">
               Xem FAQ
             </Link>
           </div>

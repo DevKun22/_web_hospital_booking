@@ -369,6 +369,7 @@ class PublicSearchService {
       },
       select: {
         id: true,
+        slug: true,
         title: true,
         bio: true,
         specialization: true,
@@ -386,7 +387,7 @@ class PublicSearchService {
         type: "doctor",
         title: [item.title, item.user.fullName].filter(Boolean).join(" "),
         description: item.bio || item.specialization,
-        url: `/doctors/${item.id}`,
+        url: `/bac-si/${item.slug}`,
         image: item.user.avatar,
         departmentName: item.department.name,
         price: item.consultationFee,

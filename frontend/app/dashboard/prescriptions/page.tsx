@@ -3,6 +3,12 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { PanelRightOpen, Search } from "lucide-react";
+import { DashboardFeedback } from "@/components/dashboard/dashboard-feedback";
+import { DashboardPageHeader, DashboardStatusBadge, DashboardSurface } from "@/components/dashboard/dashboard-ui";
+import { DashboardWorkspace } from "@/components/dashboard/dashboard-workspace";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { apiRequest } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import {
@@ -55,10 +61,10 @@ const statusLabel: Record<PrescriptionStatus, string> = {
   CANCELLED: "Đã huỷ",
 };
 
-const statusClass: Record<PrescriptionStatus, string> = {
-  DRAFT: "bg-[#fff4d6] text-[#8a5a00]",
-  ISSUED: "bg-[#e7f6ed] text-[#1f7a3a]",
-  CANCELLED: "bg-[#fff3f2] text-[#b3261e]",
+const statusTone: Record<PrescriptionStatus, "warning" | "positive" | "danger"> = {
+  DRAFT: "warning",
+  ISSUED: "positive",
+  CANCELLED: "danger",
 };
 
 const doctorName = (doctor: DoctorProfile | Prescription["doctor"]) =>
@@ -89,18 +95,18 @@ const buildItemPayload = (form: ItemForm) => ({
 export default function PrescriptionsPage() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const [prescriptions, setPrescriptions] = useState<Prescription[]>([]);
-  const [doctors, setDoctors] = useState<DoctorProfile[]>([]);
-  const [pagination, setPagination] = useState({ page: 1, limit: 20, total: 0, totalPages: 1 });
   const [status, setStatus] = useState("");
   const [doctorId, setDoctorId] = useState("");
   const [prescriptionCode, setPrescriptionCode] = useState("");
   const [medicalRecordId, setMedicalRecordId] = useState("");
+  const [appliedPrescriptionCode, setAppliedPrescriptionCode] = useState("");
+  const [appliedMedicalRecordId, setAppliedMedicalRecordId] = useState("");
   const [page, setPage] = useState(1);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
-  const [selected, setSelected] = useState<Prescription | null>(null);
+  const [workspaceOpen, setWorkspaceOpen] = useState(false);
+  const [selectedSnapshot, setSelected] = useState<Prescription | null>(null);
   const [createRecordId, setCreateRecordId] = useState("");
   const [createNote, setCreateNote] = useState("");
   const [note, setNote] = useState("");
@@ -118,18 +124,29 @@ export default function PrescriptionsPage() {
     () => ({
       status: status || undefined,
       doctorId: isDoctor ? undefined : doctorId || undefined,
-      prescriptionCode: prescriptionCode.trim() || undefined,
-      medicalRecordId: medicalRecordId.trim() || undefined,
+      prescriptionCode: appliedPrescriptionCode || undefined,
+      medicalRecordId: appliedMedicalRecordId || undefined,
       page,
       limit: 20,
     }),
-    [doctorId, isDoctor, medicalRecordId, page, prescriptionCode, status],
+    [appliedMedicalRecordId, appliedPrescriptionCode, doctorId, isDoctor, page, status],
   );
   const doctorQuery = useMemo(() => ({ limit: 100 }), []);
   const prescriptionsQuery = useDashboardPrescriptions(query);
   const doctorsQuery = useDashboardPrescriptionDoctors(doctorQuery, !isDoctor);
-  const selectedPrescriptionQuery = useDashboardPrescription(selected?.id);
+  const selectedPrescriptionQuery = useDashboardPrescription(selectedSnapshot?.id);
   const loading = prescriptionsQuery.isLoading;
+  const prescriptions = prescriptionsQuery.data?.items ?? [];
+  const doctors = doctorsQuery.data?.items ?? [];
+  const pagination = prescriptionsQuery.data?.pagination ?? { page, limit: 20, total: 0, totalPages: 1 };
+  const selected = selectedPrescriptionQuery.data ?? selectedSnapshot;
+  const queryError = prescriptionsQuery.error || doctorsQuery.error || selectedPrescriptionQuery.error;
+  const queryErrorMessage = queryError
+    ? queryError instanceof Error
+      ? queryError.message
+      : "Không tải được dữ liệu đơn thuốc"
+    : "";
+  const visibleError = error || queryErrorMessage;
 
   const invalidatePrescriptions = async () => {
     await Promise.all([
@@ -150,40 +167,6 @@ export default function PrescriptionsPage() {
     return refreshed;
   };
 
-  useEffect(() => {
-    const timeoutId = window.setTimeout(() => {
-      if (!prescriptionsQuery.data) return;
-      setPrescriptions(prescriptionsQuery.data.items);
-      setPagination(prescriptionsQuery.data.pagination);
-      setSelected((current) =>
-        current ? prescriptionsQuery.data.items.find((item) => item.id === current.id) || current : current,
-      );
-    }, 0);
-    return () => window.clearTimeout(timeoutId);
-  }, [prescriptionsQuery.data]);
-
-  useEffect(() => {
-    const timeoutId = window.setTimeout(() => setDoctors(doctorsQuery.data?.items || []), 0);
-    return () => window.clearTimeout(timeoutId);
-  }, [doctorsQuery.data]);
-
-  useEffect(() => {
-    const timeoutId = window.setTimeout(() => {
-      if (!selectedPrescriptionQuery.data) return;
-      setSelected(selectedPrescriptionQuery.data);
-      setNote(selectedPrescriptionQuery.data.note || "");
-    }, 0);
-    return () => window.clearTimeout(timeoutId);
-  }, [selectedPrescriptionQuery.data]);
-
-  useEffect(() => {
-    const queryError = prescriptionsQuery.error || doctorsQuery.error || selectedPrescriptionQuery.error;
-    if (!queryError) return;
-    const timeoutId = window.setTimeout(() => {
-      setError(queryError instanceof Error ? queryError.message : "Không tải được dữ liệu đơn thuốc");
-    }, 0);
-    return () => window.clearTimeout(timeoutId);
-  }, [doctorsQuery.error, prescriptionsQuery.error, selectedPrescriptionQuery.error]);
   useEffect(() => {
     if (!notice && !error) return;
     const timeoutId = window.setTimeout(() => {
@@ -209,22 +192,29 @@ export default function PrescriptionsPage() {
     setStatus(nextStatus);
     setPrescriptionCode("");
     setMedicalRecordId("");
+    setAppliedPrescriptionCode("");
+    setAppliedMedicalRecordId("");
     setPage(1);
     scrollList();
   };
 
-  const doctorSummary = useMemo(
-    () => ({
-      total: prescriptions.length,
-      draft: prescriptions.filter((item) => item.status === "DRAFT").length,
-      issued: prescriptions.filter((item) => item.status === "ISSUED").length,
-      emptyDraft: prescriptions.filter((item) => item.status === "DRAFT" && item.items.length === 0).length,
-    }),
-    [prescriptions],
-  );
+  const doctorSummary = {
+    total: prescriptions.length,
+    draft: prescriptions.filter((item) => item.status === "DRAFT").length,
+    issued: prescriptions.filter((item) => item.status === "ISSUED").length,
+    emptyDraft: prescriptions.filter((item) => item.status === "DRAFT" && item.items.length === 0).length,
+  };
+
+  const applySearch = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setAppliedPrescriptionCode(prescriptionCode.trim());
+    setAppliedMedicalRecordId(medicalRecordId.trim());
+    setPage(1);
+  };
 
   const openDetail = (prescription: Prescription) => {
     setSelected(prescription);
+    setWorkspaceOpen(true);
     setNote(prescription.note || "");
     setEditingItem(null);
     setDeleteItemTarget(null);
@@ -353,26 +343,14 @@ export default function PrescriptionsPage() {
   };
 
   return (
-    <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_420px]">
-      {notice || error ? (
-        <div className="fixed right-4 top-4 z-50 w-[calc(100%-2rem)] max-w-md sm:right-6 sm:top-6">
-          <div className={`rounded-md border px-4 py-3 shadow-lg ${error ? "border-[#f2b8b5] bg-[#fff3f2] text-[#b3261e]" : "border-[#a8dab5] bg-[#f0fff4] text-[#1f7a3a]"}`}>
-            <div className="flex items-start justify-between gap-3">
-              <div><p className="text-sm font-semibold">{error ? "Có lỗi xảy ra" : "Thành công"}</p><p className="mt-1 text-sm">{error || notice}</p></div>
-              <button type="button" onClick={() => { setError(""); setNotice(""); }} className="rounded-md px-2 text-lg leading-none opacity-70 hover:bg-black/5 hover:opacity-100" aria-label="Đóng thông báo">x</button>
-            </div>
-          </div>
-        </div>
-      ) : null}
+    <div className={`grid gap-6 transition-[grid-template-columns] duration-300 ${workspaceOpen ? "xl:grid-cols-[minmax(0,1fr)_420px]" : "xl:grid-cols-1"}`}>
+      <DashboardFeedback error={visibleError} notice={notice} onDismiss={queryErrorMessage ? undefined : () => { setError(""); setNotice(""); }} />
 
       <section ref={listRef} className="min-w-0 scroll-mt-24 space-y-4">
-        <div className="rounded-md border border-[#dce3ee] bg-white p-5">
-          <p className="text-sm font-medium text-[#55708f]">{isDoctor ? "Khu làm việc bác sĩ" : "Chuyên môn"}</p>
-          <h2 className="mt-1 text-2xl font-semibold">Đơn thuốc</h2>
-          <p className="mt-2 text-sm text-[#667892]">
-            {isDoctor ? "Hoàn thiện đơn nháp, thêm thuốc và phát hành đơn thuốc cho bệnh nhân." : "Tạo đơn từ hồ sơ khám, thêm thuốc và phát hành đơn."}
-          </p>
-        </div>
+        <DashboardPageHeader eyebrow={isDoctor ? "Khu làm việc bác sĩ" : "Chuyên môn"} title="Đơn thuốc"
+          description={isDoctor ? "Hoàn thiện đơn nháp, kiểm tra thuốc và phát hành đơn cho bệnh nhân." : "Tạo đơn từ hồ sơ khám, quản lý thuốc và theo dõi trạng thái phát hành."}
+          actions={!workspaceOpen ? <Button variant="outline" size="lg" onClick={() => setWorkspaceOpen(true)}><PanelRightOpen />{canEdit ? "Mở công cụ đơn thuốc" : "Mở đơn đang chọn"}</Button> : undefined}
+        />
 
         {isDoctor ? (
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -399,8 +377,8 @@ export default function PrescriptionsPage() {
           </div>
         ) : null}
 
-        <div className="rounded-md border border-[#dce3ee] bg-white">
-          <div className={`grid gap-3 border-b border-[#e5ebf3] p-4 ${isDoctor ? "lg:grid-cols-2 2xl:grid-cols-[170px_minmax(0,1fr)_minmax(0,1fr)]" : "lg:grid-cols-2 2xl:grid-cols-[170px_minmax(0,1fr)_170px_170px]"}`}>
+        <DashboardSurface>
+          <form onSubmit={applySearch} className={`grid gap-3 border-b border-border p-4 ${isDoctor ? "lg:grid-cols-2 2xl:grid-cols-[170px_minmax(0,1fr)_minmax(0,1fr)_auto]" : "lg:grid-cols-2 2xl:grid-cols-[170px_minmax(0,1fr)_170px_170px_auto]"}`}>
             <select value={status} onChange={(e) => { setStatus(e.target.value); setPage(1); }} className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]">
               {statusOptions.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
             </select>
@@ -410,9 +388,10 @@ export default function PrescriptionsPage() {
                 {doctors.map((doctor) => <option key={doctor.id} value={doctor.id}>{doctorName(doctor)}</option>)}
               </select>
             ) : null}
-            <input value={prescriptionCode} onChange={(e) => { setPrescriptionCode(e.target.value); setPage(1); }} placeholder="Mã đơn" className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" />
-            <input value={medicalRecordId} onChange={(e) => { setMedicalRecordId(e.target.value); setPage(1); }} placeholder="UUID hồ sơ" className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" />
-          </div>
+            <Input value={prescriptionCode} onChange={(e) => setPrescriptionCode(e.target.value)} placeholder="Mã đơn" />
+            <Input value={medicalRecordId} onChange={(e) => setMedicalRecordId(e.target.value)} placeholder="Mã hồ sơ hoặc mã định danh" />
+            <Button type="submit"><Search />Tìm kiếm</Button>
+          </form>
 
           <div className="overflow-x-auto">
             <table className="w-full min-w-[980px] border-separate border-spacing-0 text-left text-sm">
@@ -437,7 +416,7 @@ export default function PrescriptionsPage() {
                     <td className="border-b border-[#eef2f7] px-4 py-3"><p className="font-semibold">{prescription.patient.fullName}</p><p className="mt-1 text-xs text-[#667892]">{prescription.patient.phone}</p></td>
                     <td className="border-b border-[#eef2f7] px-4 py-3"><p>{prescription.medicalRecord.recordCode}</p><p className="mt-1 text-xs text-[#667892]">{prescription.medicalRecord.diagnosis || "Chưa có chẩn đoán"}</p></td>
                     <td className="border-b border-[#eef2f7] px-4 py-3"><p>{doctorName(prescription.doctor)}</p><p className="mt-1 text-xs text-[#667892]">{prescription.doctor.department.name}</p></td>
-                    <td className="border-b border-[#eef2f7] px-4 py-3"><span className={`rounded-md px-2 py-1 text-xs font-semibold ${statusClass[prescription.status]}`}>{statusLabel[prescription.status]}</span></td>
+                    <td className="border-b border-[#eef2f7] px-4 py-3"><DashboardStatusBadge tone={statusTone[prescription.status]}>{statusLabel[prescription.status]}</DashboardStatusBadge></td>
                     <td className="border-b border-[#eef2f7] px-4 py-3">
                       <div className="flex flex-wrap justify-end gap-2">
                         <button onClick={() => openDetail(prescription)} className="rounded-md border border-[#cfd8e6] px-3 py-1.5 text-xs font-medium text-[#42526b]">Chi tiết</button>
@@ -458,16 +437,24 @@ export default function PrescriptionsPage() {
               <button disabled={page >= pagination.totalPages} onClick={() => setPage((current) => current + 1)} className="rounded-md border border-[#cfd8e6] px-3 py-1.5 font-medium disabled:opacity-50">Sau</button>
             </div>
           </div>
-        </div>
+        </DashboardSurface>
       </section>
 
-      <aside ref={detailRef} className="scroll-mt-24 space-y-4">
+      {workspaceOpen ? (
+      <aside ref={detailRef} className="min-w-0 scroll-mt-24">
+        <DashboardWorkspace
+          open={workspaceOpen}
+          onOpenChange={setWorkspaceOpen}
+          title={selected ? `Đơn thuốc ${selected.prescriptionCode}` : "Công cụ đơn thuốc"}
+          description="Tạo, kiểm tra và phát hành đơn thuốc trong một vùng làm việc tập trung."
+        >
+        <div className="space-y-4">
         {canEdit ? (
           <section className="rounded-md border border-[#dce3ee] bg-white p-5">
             <h3 className="text-lg font-semibold">Tạo đơn thuốc</h3>
-            <p className="mt-2 text-sm text-[#667892]">Nhập mã hồ sơ hiển thị trên bảng, ví dụ MR..., hoặc UUID hồ sơ. Hồ sơ phải đang IN_PROGRESS/COMPLETED và chưa có đơn.</p>
+            <p className="mt-2 text-sm text-[#667892]">Nhập mã hồ sơ hiển thị trên bảng hoặc mã định danh. Hồ sơ phải thuộc ca đang khám hoặc đã hoàn thành và chưa có đơn thuốc.</p>
             <form className="mt-4 space-y-3" onSubmit={createPrescription}>
-              <input value={createRecordId} onChange={(e) => setCreateRecordId(e.target.value)} placeholder="Mã hồ sơ MR... hoặc UUID" className="w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" required />
+              <input value={createRecordId} onChange={(e) => setCreateRecordId(e.target.value)} placeholder="Mã hồ sơ hoặc mã định danh" className="w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" required />
               <textarea value={createNote} onChange={(e) => setCreateNote(e.target.value)} placeholder="Ghi chú đơn" rows={2} className="w-full resize-none rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" />
               <button disabled={busy} className="w-full rounded-md bg-[#0d4f8b] px-4 py-2 text-sm font-semibold text-white disabled:opacity-60">{busy ? "Đang tạo..." : "Tạo đơn"}</button>
             </form>
@@ -480,7 +467,7 @@ export default function PrescriptionsPage() {
               <div>
                 <p className="text-sm font-medium text-[#55708f]">Chi tiết đơn thuốc</p>
                 <h3 className="mt-1 text-xl font-semibold">{selected.prescriptionCode}</h3>
-                <span className={`mt-3 inline-flex rounded-md px-2 py-1 text-xs font-semibold ${statusClass[selected.status]}`}>{statusLabel[selected.status]}</span>
+                <DashboardStatusBadge tone={statusTone[selected.status]} className="mt-3">{statusLabel[selected.status]}</DashboardStatusBadge>
               </div>
               <div className="rounded-md border border-[#e5ebf3] p-3 text-sm">
                 <p className="font-semibold">{selected.patient.fullName}</p>
@@ -517,7 +504,7 @@ export default function PrescriptionsPage() {
                         <div>
                           <p className="font-semibold">{item.medicineName}</p>
                           <p className="text-[#667892]">{item.dosage || "-"} · {item.frequency || "-"} · {item.duration || "-"}</p>
-                          <p className="text-xs text-[#667892]">SL: {item.quantity ?? "-"} {item.unit || ""}</p>
+                          <p className="text-xs text-[#667892]">Số lượng: {item.quantity ?? "-"} {item.unit || ""}</p>
                           <p className="mt-1">{item.instruction || ""}</p>
                         </div>
                         {canEdit && selected.status === "DRAFT" ? (
@@ -570,7 +557,10 @@ export default function PrescriptionsPage() {
             </div>
           )}
         </section>
+        </div>
+        </DashboardWorkspace>
       </aside>
+      ) : null}
     </div>
   );
 }

@@ -355,7 +355,11 @@ class PackageService {
     return item;
   }
 
-  async publicList(query: { search?: string; isPopular?: boolean }) {
+  async publicList(query: {
+    search?: string;
+    isPopular?: boolean;
+    limit?: number;
+  }) {
     const where: Prisma.PackageWhereInput = {
       isActive: true,
       isPopular: query.isPopular,
@@ -373,9 +377,60 @@ class PackageService {
       where,
       select: publicPackageSelect,
       orderBy: [{ isPopular: "desc" }, { basePrice: "asc" }],
+      take: query.limit
+        ? Math.min(Math.max(Math.trunc(query.limit), 1), 50)
+        : undefined,
     });
 
     return packages.map(withFinalPrice);
+  }
+
+  async publicCatalog(query: {
+    search?: string;
+    departmentId?: string;
+    isPopular?: boolean;
+    isBhytSupport?: boolean;
+    page?: number;
+    limit?: number;
+  }) {
+    const page = Math.max(Math.trunc(query.page || 1), 1);
+    const limit = Math.min(Math.max(Math.trunc(query.limit || 10), 1), 50);
+    const where: Prisma.PackageWhereInput = {
+      isActive: true,
+      isPopular: query.isPopular,
+      isBHYTSupport: query.isBhytSupport,
+      departmentId: query.departmentId,
+    };
+
+    if (query.search) {
+      where.OR = [
+        { name: { contains: query.search, mode: "insensitive" } },
+        { slug: { contains: query.search, mode: "insensitive" } },
+        { summary: { contains: query.search, mode: "insensitive" } },
+        { department: { name: { contains: query.search, mode: "insensitive" } } },
+      ];
+    }
+
+    const [packages, total] = await prisma.$transaction([
+      prisma.package.findMany({
+        where,
+        select: publicPackageSelect,
+        orderBy: [{ isPopular: "desc" }, { basePrice: "asc" }],
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      prisma.package.count({ where }),
+    ]);
+
+    return {
+      items: packages.map(withFinalPrice),
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
   }
 
   async publicGetBySlug(slug: string) {

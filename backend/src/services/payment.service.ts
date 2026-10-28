@@ -11,9 +11,14 @@ import {
   assertPaymentProviderAvailable,
   getPaymentProviderAdapter,
   getPaymentProviderCapabilities,
+  parseVerifiedMomoCallback,
 } from "./paymentProviders/index.js";
+import type { VerifiedMomoCallback } from "./paymentProviders/index.js";
+import PatientEventNotificationService from "./patientEventNotification.service.js";
 
 const PAYMENT_EXPIRES_MINUTES = 15;
+const MOMO_PENDING_RESULT_CODES = new Set([1000, 7000, 7002]);
+const MOMO_SUCCESS_RESULT_CODES = new Set([0, 9000]);
 
 type CreatePaymentTransactionInput = {
   provider: PaymentProvider;
@@ -78,11 +83,16 @@ class PaymentService {
     idempotencyKey?: string,
   ) {
     assertPaymentProviderAvailable(input.provider);
-    const activeKey = `${invoiceId}:${input.provider}`;
+    // Only one externally payable transaction may remain active for an
+    // invoice, even when more providers are added later.
+    const activeKey = `invoice:${invoiceId}`;
     const now = new Date();
     let reservation;
     try {
       reservation = await prisma.$transaction(async (tx) => {
+        await tx.$queryRaw(
+          Prisma.sql`SELECT "id" FROM "Invoice" WHERE "id" = ${invoiceId} FOR UPDATE`,
+        );
         const invoice = await tx.invoice.findFirst({
           where: { id: invoiceId, patientId },
           select: {
@@ -267,14 +277,192 @@ class PaymentService {
     return getPaymentProviderCapabilities();
   }
 
-  async getById(id: string, patientId: string) {
+  async handleMomoWebhook(payload: Record<string, unknown>) {
+    const callback = parseVerifiedMomoCallback(payload);
+    const configuredPartnerCode = process.env.MOMO_PARTNER_CODE?.trim();
+    if (!configuredPartnerCode || callback.partnerCode !== configuredPartnerCode) {
+      throw new AppError(
+        "Callback không thuộc đối tác MoMo đã cấu hình",
+        400,
+        "MOMO_PARTNER_MISMATCH",
+      );
+    }
+
     const transaction = await prisma.paymentTransaction.findFirst({
+      where: { transactionCode: callback.orderId, provider: "MOMO" },
+      select: {
+        id: true,
+        status: true,
+        amount: true,
+        transactionCode: true,
+        invoiceId: true,
+        invoice: {
+          select: {
+            id: true,
+            invoiceCode: true,
+            status: true,
+            finalAmount: true,
+            patientId: true,
+            appointment: { select: { id: true, bookingCode: true } },
+          },
+        },
+      },
+    });
+    if (!transaction) {
+      throw new AppError(
+        "Không tìm thấy giao dịch MoMo",
+        404,
+        "MOMO_TRANSACTION_NOT_FOUND",
+      );
+    }
+    this.assertMomoCallbackMatchesTransaction(callback, transaction);
+
+    const safeResponse = this.safeMomoCallback(callback);
+    if (MOMO_PENDING_RESULT_CODES.has(callback.resultCode)) {
+      if (transaction.status === "PENDING") {
+        await prisma.paymentTransaction.update({
+          where: { id: transaction.id },
+          data: { rawResponse: safeResponse },
+        });
+      }
+      return this.getById(transaction.id, transaction.invoice.patientId);
+    }
+
+    if (!MOMO_SUCCESS_RESULT_CODES.has(callback.resultCode)) {
+      if (transaction.status === "PENDING") {
+        await prisma.paymentTransaction.updateMany({
+          where: { id: transaction.id, status: "PENDING" },
+          data: {
+            status: "FAILED",
+            activeKey: null,
+            rawResponse: safeResponse,
+          },
+        });
+      }
+      return this.getById(transaction.id, transaction.invoice.patientId);
+    }
+
+    if (transaction.status === "SUCCESS") {
+      return this.getById(transaction.id, transaction.invoice.patientId);
+    }
+    if (!(["PENDING", "EXPIRED"] as const).includes(transaction.status as "PENDING" | "EXPIRED")) {
+      throw new AppError(
+        "Giao dịch không thể chuyển sang thành công từ trạng thái hiện tại",
+        409,
+        "PAYMENT_STATE_CONFLICT",
+      );
+    }
+
+    const paidAt = new Date();
+    const transition = await prisma.$transaction(async (tx) => {
+      await tx.$queryRaw(
+        Prisma.sql`SELECT "id" FROM "Invoice" WHERE "id" = ${transaction.invoice.id} FOR UPDATE`,
+      );
+      const claimed = await tx.paymentTransaction.updateMany({
+        where: {
+          id: transaction.id,
+          status: { in: ["PENDING", "EXPIRED"] },
+          amount: callback.amount,
+        },
+        data: {
+          status: "SUCCESS",
+          activeKey: null,
+          paidAt,
+          providerOrderId: callback.transId ?? callback.orderId,
+          rawResponse: safeResponse,
+        },
+      });
+      if (claimed.count !== 1) return { notificationId: null };
+
+      const invoiceUpdated = await tx.invoice.updateMany({
+        where: {
+          id: transaction.invoice.id,
+          status: "UNPAID",
+          finalAmount: callback.amount,
+        },
+        data: {
+          status: "PAID",
+          paymentMethod: "MOMO",
+          paymentReference: callback.transId ?? callback.orderId,
+          paidAt,
+        },
+      });
+      if (invoiceUpdated.count !== 1) {
+        const currentInvoice = await tx.invoice.findUniqueOrThrow({
+          where: { id: transaction.invoice.id },
+          select: { status: true, finalAmount: true },
+        });
+        if (
+          currentInvoice.status !== "PAID" ||
+          currentInvoice.finalAmount !== callback.amount
+        ) {
+          throw new AppError(
+            "Trạng thái hóa đơn đã thay đổi",
+            409,
+            "INVOICE_STATE_CONFLICT",
+          );
+        }
+        return { notificationId: null };
+      }
+
+      await tx.appointmentLog.create({
+        data: {
+          appointmentId: transaction.invoice.appointment.id,
+          action: "PAYMENT_RECORDED",
+          note: `MoMo xác nhận thanh toán · ${callback.transId ?? callback.orderId}`,
+        },
+      });
+
+      const notification =
+        await PatientEventNotificationService.createPaymentSucceeded(
+          {
+            userId: transaction.invoice.patientId,
+            invoiceId: transaction.invoice.id,
+            invoiceCode: transaction.invoice.invoiceCode,
+            bookingCode: transaction.invoice.appointment.bookingCode,
+            finalAmount: transaction.invoice.finalAmount,
+          },
+          tx,
+        );
+      return { notificationId: notification.id };
+    });
+
+    if (transition.notificationId) {
+      await PatientEventNotificationService.dispatchBestEffort(
+        transition.notificationId,
+      );
+    }
+    return this.getById(transaction.id, transaction.invoice.patientId);
+  }
+
+  async getById(id: string, patientId: string) {
+    let transaction = await prisma.paymentTransaction.findFirst({
       where: { id, invoice: { patientId } },
       select: paymentTransactionSelect,
     });
 
     if (!transaction) {
       throw new AppError("Không tìm thấy giao dịch thanh toán", 404);
+    }
+
+    if (
+      transaction.status === "PENDING" &&
+      transaction.expiredAt.getTime() <= Date.now()
+    ) {
+      const expired = await prisma.paymentTransaction.updateMany({
+        where: {
+          id: transaction.id,
+          status: "PENDING",
+          expiredAt: { lte: new Date() },
+        },
+        data: { status: "EXPIRED", activeKey: null },
+      });
+      if (expired.count === 1) {
+        transaction = await prisma.paymentTransaction.findUniqueOrThrow({
+          where: { id: transaction.id },
+          select: paymentTransactionSelect,
+        });
+      }
     }
 
     return transaction;
@@ -303,14 +491,23 @@ class PaymentService {
       select: {
         id: true,
         invoiceId: true,
+        transactionCode: true,
         provider: true,
         status: true,
         amount: true,
         expiredAt: true,
         invoice: {
           select: {
+            id: true,
+            invoiceCode: true,
             status: true,
             finalAmount: true,
+            appointment: {
+              select: {
+                id: true,
+                bookingCode: true,
+              },
+            },
           },
         },
       },
@@ -336,7 +533,10 @@ class PaymentService {
 
     const paidAt = new Date();
 
-    return prisma.$transaction(async (tx) => {
+    const transition = await prisma.$transaction(async (tx) => {
+      await tx.$queryRaw(
+        Prisma.sql`SELECT "id" FROM "Invoice" WHERE "id" = ${transaction.invoiceId} FOR UPDATE`,
+      );
       const claimed = await tx.paymentTransaction.updateMany({
         where: {
           id: transaction.id,
@@ -368,10 +568,11 @@ class PaymentService {
           );
         }
 
-        return tx.paymentTransaction.findUniqueOrThrow({
+        const payment = await tx.paymentTransaction.findUniqueOrThrow({
           where: { id: transaction.id },
           select: paymentTransactionSelect,
         });
+        return { payment, notificationId: null };
       }
 
       const invoiceUpdate = await tx.invoice.updateMany({
@@ -383,6 +584,7 @@ class PaymentService {
         data: {
           status: "PAID",
           paymentMethod: mapProviderToPaymentMethod(transaction.provider),
+          paymentReference: transaction.transactionCode,
           paidAt,
         },
       });
@@ -395,13 +597,42 @@ class PaymentService {
         );
       }
 
-      return tx.paymentTransaction.findUniqueOrThrow({
+      if (invoiceUpdate.count === 1) {
+        await tx.appointmentLog.create({
+          data: {
+            appointmentId: transaction.invoice.appointment.id,
+            action: "PAYMENT_RECORDED",
+            note: `Thanh toán ${transaction.provider} được xác nhận · ${transaction.transactionCode}`,
+          },
+        });
+      }
+
+      const notification =
+        await PatientEventNotificationService.createPaymentSucceeded(
+          {
+            userId: patientId,
+            invoiceId: transaction.invoice.id,
+            invoiceCode: transaction.invoice.invoiceCode,
+            bookingCode: transaction.invoice.appointment.bookingCode,
+            finalAmount: transaction.invoice.finalAmount,
+          },
+          tx,
+        );
+      const payment = await tx.paymentTransaction.findUniqueOrThrow({
         where: {
           id: transaction.id,
         },
         select: paymentTransactionSelect,
       });
+      return { payment, notificationId: notification.id };
     });
+
+    if (transition.notificationId) {
+      await PatientEventNotificationService.dispatchBestEffort(
+        transition.notificationId,
+      );
+    }
+    return transition.payment;
   }
 
   async markMockFailed(transactionCode: string, patientId: string) {
@@ -456,6 +687,7 @@ class PaymentService {
       where: { id, invoice: { patientId } },
       select: {
         id: true,
+        provider: true,
         status: true,
       },
     });
@@ -466,6 +698,13 @@ class PaymentService {
 
     if (transaction.status !== "PENDING") {
       throw new AppError("Chỉ có thể hủy giao dịch đang chờ thanh toán", 400);
+    }
+    if (transaction.provider !== "MOCK") {
+      throw new AppError(
+        "Không thể hủy giao dịch tại cổng thanh toán từ ứng dụng. Nếu chưa thanh toán, giao dịch sẽ tự hết hạn.",
+        409,
+        "PROVIDER_PAYMENT_CANNOT_BE_CANCELLED_LOCALLY",
+      );
     }
 
     const cancelled = await prisma.paymentTransaction.updateMany({
@@ -496,6 +735,52 @@ class PaymentService {
     if (expiredAt.getTime() <= Date.now()) {
       throw new AppError("Giao dịch thanh toán đã hết hạn", 400);
     }
+  }
+
+  private assertMomoCallbackMatchesTransaction(
+    callback: VerifiedMomoCallback,
+    transaction: {
+      transactionCode: string;
+      amount: number;
+      invoice: { finalAmount: number };
+    },
+  ) {
+    if (
+      callback.orderId !== transaction.transactionCode ||
+      callback.requestId !== transaction.transactionCode
+    ) {
+      throw new AppError(
+        "Mã giao dịch trong callback MoMo không khớp",
+        400,
+        "MOMO_TRANSACTION_MISMATCH",
+      );
+    }
+    if (
+      callback.amount !== transaction.amount ||
+      callback.amount !== transaction.invoice.finalAmount
+    ) {
+      throw new AppError(
+        "Số tiền trong callback MoMo không khớp hóa đơn",
+        400,
+        "MOMO_AMOUNT_MISMATCH",
+      );
+    }
+  }
+
+  private safeMomoCallback(
+    callback: VerifiedMomoCallback,
+  ): Prisma.InputJsonObject {
+    return {
+      provider: "MOMO",
+      partnerCode: callback.partnerCode,
+      orderId: callback.orderId,
+      requestId: callback.requestId,
+      amount: callback.amount,
+      resultCode: callback.resultCode,
+      message: callback.message,
+      transId: callback.transId,
+      responseTime: callback.responseTime,
+    };
   }
 
   private async generateUniqueTransactionCode(tx: Prisma.TransactionClient) {

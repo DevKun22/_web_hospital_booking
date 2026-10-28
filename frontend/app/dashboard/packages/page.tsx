@@ -2,12 +2,18 @@
 
 import { useQueryClient } from "@tanstack/react-query";
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { PanelRightOpen, Plus, Search } from "lucide-react";
+import { DashboardFeedback } from "@/components/dashboard/dashboard-feedback";
+import { DashboardPageHeader, DashboardStatusBadge, DashboardSurface } from "@/components/dashboard/dashboard-ui";
+import { DashboardWorkspace } from "@/components/dashboard/dashboard-workspace";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { apiRequest } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { useDashboardDepartments } from "@/lib/dashboard-departments-query";
 import { useDashboardPackages } from "@/lib/dashboard-packages-query";
 import { queryKeys } from "@/lib/query-keys";
-import type { Department, MedicalPackage, PackageItem } from "@/lib/types";
+import type { MedicalPackage, PackageItem } from "@/lib/types";
 
 type PackageForm = {
   name: string;
@@ -140,21 +146,20 @@ const buildItemPayload = (form: ItemForm) => ({
 export default function PackagesPage() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const [packages, setPackages] = useState<MedicalPackage[]>([]);
-  const [departments, setDepartments] = useState<Department[]>([]);
-  const [pagination, setPagination] = useState({ page: 1, limit: 10, total: 0, totalPages: 1 });
   const [search, setSearch] = useState("");
+  const [appliedSearch, setAppliedSearch] = useState("");
   const [status, setStatus] = useState("");
   const [popular, setPopular] = useState("");
   const [page, setPage] = useState(1);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [workspaceOpen, setWorkspaceOpen] = useState(false);
   const [editing, setEditing] = useState<MedicalPackage | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<MedicalPackage | null>(null);
   const [form, setForm] = useState<PackageForm>(emptyPackageForm);
   const [slugTouched, setSlugTouched] = useState(false);
-  const [selectedPackage, setSelectedPackage] = useState<MedicalPackage | null>(null);
+  const [selectedPackageSnapshot, setSelectedPackage] = useState<MedicalPackage | null>(null);
   const [editingItem, setEditingItem] = useState<PackageItem | null>(null);
   const [deleteItemTarget, setDeleteItemTarget] = useState<PackageItem | null>(null);
   const [itemForm, setItemForm] = useState<ItemForm>(emptyItemForm);
@@ -167,18 +172,31 @@ export default function PackagesPage() {
 
   const query = useMemo(
     () => ({
-      search: search.trim() || undefined,
+      search: appliedSearch || undefined,
       isActive: status || undefined,
       isPopular: popular || undefined,
       page,
       limit: 10,
     }),
-    [page, popular, search, status],
+    [appliedSearch, page, popular, status],
   );
   const departmentQuery = useMemo(() => ({ isActive: "true", limit: 100 }), []);
   const packagesQuery = useDashboardPackages(query);
   const departmentsQuery = useDashboardDepartments(departmentQuery);
   const loading = packagesQuery.isLoading;
+  const packages = packagesQuery.data?.items ?? [];
+  const departments = departmentsQuery.data?.items ?? [];
+  const pagination = packagesQuery.data?.pagination ?? { page, limit: 10, total: 0, totalPages: 1 };
+  const selectedPackage = selectedPackageSnapshot
+    ? packages.find((item) => item.id === selectedPackageSnapshot.id) ?? selectedPackageSnapshot
+    : null;
+  const queryError = packagesQuery.error || departmentsQuery.error;
+  const queryErrorMessage = queryError
+    ? queryError instanceof Error
+      ? queryError.message
+      : "Không tải được dữ liệu gói khám"
+    : "";
+  const visibleError = error || queryErrorMessage;
 
   const scrollToList = () => {
     window.setTimeout(() => listPanelRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 0);
@@ -201,31 +219,6 @@ export default function PackagesPage() {
   };
 
   useEffect(() => {
-    const timeoutId = window.setTimeout(() => {
-      if (!packagesQuery.data) return;
-      setPackages(packagesQuery.data.items);
-      setPagination(packagesQuery.data.pagination);
-      setSelectedPackage((current) =>
-        current ? packagesQuery.data.items.find((item) => item.id === current.id) || current : current,
-      );
-    }, 0);
-    return () => window.clearTimeout(timeoutId);
-  }, [packagesQuery.data]);
-
-  useEffect(() => {
-    const timeoutId = window.setTimeout(() => setDepartments(departmentsQuery.data?.items || []), 0);
-    return () => window.clearTimeout(timeoutId);
-  }, [departmentsQuery.data]);
-
-  useEffect(() => {
-    const queryError = packagesQuery.error || departmentsQuery.error;
-    if (!queryError) return;
-    const timeoutId = window.setTimeout(() => {
-      setError(queryError instanceof Error ? queryError.message : "Không tải được dữ liệu gói khám");
-    }, 0);
-    return () => window.clearTimeout(timeoutId);
-  }, [departmentsQuery.error, packagesQuery.error]);
-  useEffect(() => {
     if (!notice && !error) return;
     const timeoutId = window.setTimeout(() => {
       setNotice("");
@@ -234,7 +227,14 @@ export default function PackagesPage() {
     return () => window.clearTimeout(timeoutId);
   }, [error, notice]);
 
+  const applySearch = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setAppliedSearch(search.trim());
+    setPage(1);
+  };
+
   const startCreate = () => {
+    setWorkspaceOpen(true);
     setEditing(null);
     setDeleteTarget(null);
     setForm(emptyPackageForm);
@@ -245,6 +245,7 @@ export default function PackagesPage() {
   };
 
   const startEdit = (item: MedicalPackage) => {
+    setWorkspaceOpen(true);
     setEditing(item);
     setDeleteTarget(null);
     setForm(toPackageForm(item));
@@ -255,6 +256,7 @@ export default function PackagesPage() {
   };
 
   const startDelete = (item: MedicalPackage) => {
+    setWorkspaceOpen(true);
     setDeleteTarget(item);
     setEditing(null);
     setError("");
@@ -330,6 +332,7 @@ export default function PackagesPage() {
   };
 
   const openItems = (item: MedicalPackage) => {
+    setWorkspaceOpen(false);
     setSelectedPackage(item);
     setEditingItem(null);
     setDeleteItemTarget(null);
@@ -399,41 +402,25 @@ export default function PackagesPage() {
   };
 
   return (
-    <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_420px]">
-      {notice || error ? (
-        <div className="fixed right-4 top-4 z-50 w-[calc(100%-2rem)] max-w-md sm:right-6 sm:top-6">
-          <div className={`rounded-md border px-4 py-3 shadow-lg ${error ? "border-[#f2b8b5] bg-[#fff3f2] text-[#b3261e]" : "border-[#a8dab5] bg-[#f0fff4] text-[#1f7a3a]"}`}>
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className="text-sm font-semibold">{error ? "Có lỗi xảy ra" : "Thành công"}</p>
-                <p className="mt-1 text-sm">{error || notice}</p>
-              </div>
-              <button type="button" onClick={() => { setError(""); setNotice(""); }} className="rounded-md px-2 text-lg leading-none opacity-70 hover:bg-black/5 hover:opacity-100" aria-label="Đóng thông báo">x</button>
-            </div>
-          </div>
-        </div>
-      ) : null}
+    <div className={`grid gap-6 transition-[grid-template-columns] duration-300 ${workspaceOpen && canWrite ? "xl:grid-cols-[minmax(0,1fr)_430px]" : "xl:grid-cols-1"}`}>
+      <DashboardFeedback error={visibleError} notice={notice} onDismiss={queryErrorMessage ? undefined : () => { setError(""); setNotice(""); }} />
 
       <section ref={listPanelRef} className="min-w-0 scroll-mt-24 space-y-4">
-        <div className="flex flex-col gap-3 rounded-md border border-[#dce3ee] bg-white p-5 md:flex-row md:items-end md:justify-between">
-          <div>
-            <p className="text-sm font-medium text-[#55708f]">Dữ liệu nền</p>
-            <h2 className="mt-1 text-2xl font-semibold">Gói khám</h2>
-            <p className="mt-2 text-sm text-[#667892]">Quản lý giá gói, phí dịch vụ, hỗ trợ BHYT và các hạng mục nằm trong gói.</p>
-          </div>
-          {canWrite ? <button onClick={startCreate} className="rounded-md bg-[#0d4f8b] px-4 py-2 text-sm font-semibold text-white hover:bg-[#083d6d]">Tạo gói khám</button> : null}
-        </div>
+        <DashboardPageHeader eyebrow="Dữ liệu nền" title="Gói khám" description="Quản lý giá, phí dịch vụ, hỗ trợ BHYT và các hạng mục cấu thành từng gói."
+          actions={canWrite ? <><Button onClick={startCreate} size="lg"><Plus />Tạo gói khám</Button>{!workspaceOpen && (editing || deleteTarget) ? <Button variant="outline" size="lg" onClick={() => setWorkspaceOpen(true)}><PanelRightOpen />Mở lại biểu mẫu</Button> : null}</> : undefined}
+        />
 
-        <div className="rounded-md border border-[#dce3ee] bg-white">
-          <div className="grid gap-3 border-b border-[#e5ebf3] p-4 lg:grid-cols-2 2xl:grid-cols-[minmax(0,1fr)_170px_150px]">
-            <input value={search} onChange={(event) => { setSearch(event.target.value); setPage(1); }} placeholder="Tìm theo tên, slug hoặc tóm tắt" className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" />
+        <DashboardSurface>
+          <form onSubmit={applySearch} className="grid gap-3 border-b border-border p-4 lg:grid-cols-2 2xl:grid-cols-[minmax(0,1fr)_170px_150px_auto]">
+            <Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Tìm theo tên, đường dẫn hoặc tóm tắt" />
             <select value={status} onChange={(event) => { setStatus(event.target.value); setPage(1); }} className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]">
               {statusOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
             </select>
             <select value={popular} onChange={(event) => { setPopular(event.target.value); setPage(1); }} className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]">
               {popularOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
             </select>
-          </div>
+            <Button type="submit"><Search />Tìm kiếm</Button>
+          </form>
 
           <div className="overflow-x-auto">
             <table className="w-full min-w-[980px] border-separate border-spacing-0 text-left text-sm">
@@ -457,15 +444,15 @@ export default function PackagesPage() {
                   const includedTotal = item.includedItemsTotal ?? getIncludedItemsTotal(item.items);
 
                   return (
-                  <tr key={item.id} className="align-top">
+                  <tr key={item.id} className={`align-top transition-colors ${editing?.id === item.id || deleteTarget?.id === item.id || selectedPackage?.id === item.id ? "bg-primary/5" : "hover:bg-muted/30"}`}>
                     <td className="border-b border-[#eef2f7] px-4 py-3"><p className="font-semibold text-[#172033]">{item.name}</p><p className="mt-1 max-w-sm truncate text-xs text-[#667892]">{item.summary || item.slug || "Chưa có tóm tắt"}</p></td>
                     <td className="border-b border-[#eef2f7] px-4 py-3">{item.department?.name || "Tất cả khoa"}</td>
                     <td className="border-b border-[#eef2f7] px-4 py-3"><p className="font-semibold">{formatCurrency(item.finalPrice)}</p><p className="mt-1 text-xs text-[#667892]">Hạng mục {formatCurrency(includedTotal || item.basePrice)} + phí {formatCurrency(item.serviceFee)}</p></td>
                     <td className="border-b border-[#eef2f7] px-4 py-3">
                       <div className="flex flex-wrap gap-1">
-                        {item.isPopular ? <span className="rounded-md bg-[#fff4d6] px-2 py-1 text-xs font-semibold text-[#8a5a00]">Nổi bật</span> : null}
-                        {item.isBHYTSupport ? <span className="rounded-md bg-[#e7f6ed] px-2 py-1 text-xs font-semibold text-[#1f7a3a]">BHYT</span> : null}
-                        <span className={`rounded-md px-2 py-1 text-xs font-semibold ${item.isActive ? "bg-[#e7f6ed] text-[#1f7a3a]" : "bg-[#eef2f7] text-[#667892]"}`}>{item.isActive ? "Hiển thị" : "Tạm ẩn"}</span>
+                        {item.isPopular ? <DashboardStatusBadge tone="warning">Nổi bật</DashboardStatusBadge> : null}
+                        {item.isBHYTSupport ? <DashboardStatusBadge tone="positive">BHYT</DashboardStatusBadge> : null}
+                        <DashboardStatusBadge tone={item.isActive ? "positive" : "neutral"}>{item.isActive ? "Hiển thị" : "Tạm ẩn"}</DashboardStatusBadge>
                       </div>
                     </td>
                     <td className="border-b border-[#eef2f7] px-4 py-3">{item.items.length}</td>
@@ -491,7 +478,7 @@ export default function PackagesPage() {
               <button disabled={page >= pagination.totalPages} onClick={() => setPage((current) => current + 1)} className="rounded-md border border-[#cfd8e6] px-3 py-1.5 font-medium disabled:opacity-50">Sau</button>
             </div>
           </div>
-        </div>
+        </DashboardSurface>
 
         {selectedPackage ? (
           <section ref={itemPanelRef} className="scroll-mt-24 rounded-md border border-[#dce3ee] bg-white p-5">
@@ -546,7 +533,14 @@ export default function PackagesPage() {
         ) : null}
       </section>
 
-      <aside ref={formPanelRef} className="scroll-mt-24 rounded-md border border-[#dce3ee] bg-white p-5 xl:sticky xl:top-24 xl:self-start">
+      {workspaceOpen && canWrite ? (
+      <aside ref={formPanelRef} className="min-w-0 scroll-mt-24">
+        <DashboardWorkspace
+          open={workspaceOpen}
+          onOpenChange={setWorkspaceOpen}
+          title={editing ? `Gói khám ${editing.name}` : "Công cụ gói khám"}
+          description="Quản lý giá, quyền lợi BHYT, nội dung hiển thị và trạng thái cung cấp dịch vụ."
+        >
         {deleteTarget ? (
           <div className="mb-5 rounded-md border border-[#f2b8b5] bg-[#fff3f2] p-4">
             <h3 className="font-semibold text-[#b3261e]">Xác nhận xóa gói khám</h3>
@@ -556,11 +550,11 @@ export default function PackagesPage() {
         ) : null}
 
         <h3 className="text-lg font-semibold">{editing ? "Cập nhật gói khám" : "Tạo gói khám"}</h3>
-        <p className="mt-2 text-sm leading-6 text-[#667892]">Slug tự sinh theo tên gói. Backend hiện chưa có field ảnh cho gói khám, nên UI chưa upload ảnh ở màn này.</p>
+        <p className="mt-2 text-sm leading-6 text-[#667892]">Đường dẫn tự sinh theo tên gói. Dữ liệu gói khám hiện chưa hỗ trợ trường hình ảnh nên màn này chưa có chức năng tải ảnh lên.</p>
 
         <form className="mt-5 space-y-4" onSubmit={handleSubmit}>
           <label className="block"><span className="text-sm font-medium text-[#334155]">Tên gói khám</span><input value={form.name} onChange={(event) => handleNameChange(event.target.value)} disabled={!canWrite} className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa] disabled:bg-[#f6f8fb]" required /></label>
-          <label className="block"><span className="text-sm font-medium text-[#334155]">Slug</span><input value={form.slug} onChange={(event) => { setSlugTouched(true); setForm((current) => ({ ...current, slug: createSlug(event.target.value) })); }} disabled={!canWrite} className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa] disabled:bg-[#f6f8fb]" /></label>
+          <label className="block"><span className="text-sm font-medium text-[#334155]">Đường dẫn</span><input value={form.slug} onChange={(event) => { setSlugTouched(true); setForm((current) => ({ ...current, slug: createSlug(event.target.value) })); }} disabled={!canWrite} className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa] disabled:bg-[#f6f8fb]" /></label>
           <label className="block"><span className="text-sm font-medium text-[#334155]">Chuyên khoa</span><select value={form.departmentId} onChange={(event) => setForm((current) => ({ ...current, departmentId: event.target.value }))} disabled={!canWrite} className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa] disabled:bg-[#f6f8fb]"><option value="">Tất cả khoa</option>{departments.map((department) => <option key={department.id} value={department.id}>{department.name}</option>)}</select></label>
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="block"><span className="text-sm font-medium text-[#334155]">Giá nền khi chưa có hạng mục</span><input value={formatMoneyInput(form.basePrice)} onChange={(event) => setForm((current) => ({ ...current, basePrice: parseMoneyInput(event.target.value) }))} disabled={!canWrite} placeholder="500.000" inputMode="numeric" className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa] disabled:bg-[#f6f8fb]" required /></label>
@@ -574,7 +568,9 @@ export default function PackagesPage() {
 
           {canWrite ? <div className="flex gap-2"><button disabled={saving} className="flex-1 rounded-md bg-[#0d4f8b] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#083d6d] disabled:opacity-60">{saving ? "Đang lưu..." : editing ? "Lưu thay đổi" : "Tạo gói khám"}</button>{editing ? <button type="button" onClick={startCreate} className="rounded-md border border-[#cfd8e6] px-4 py-2.5 text-sm font-medium text-[#42526b] hover:bg-[#f6f8fb]">Hủy</button> : null}</div> : null}
         </form>
+        </DashboardWorkspace>
       </aside>
+      ) : null}
     </div>
   );
 }

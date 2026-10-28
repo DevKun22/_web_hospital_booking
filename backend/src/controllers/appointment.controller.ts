@@ -1,24 +1,11 @@
 import type { Request, Response, NextFunction } from "express";
 import type { AppointmentStatus, Role } from "../../generated/prisma/enums.js";
 import AppointmentService from "../services/appointment.service.js";
+import {
+  getRequiredPathParam as getParam,
+  parseNumberQuery,
+} from "../shared/http/requestParsers.js";
 import { AppError } from "../utils/appError.js";
-
-const parseNumberQuery = (value: unknown) => {
-  if (typeof value !== "string") return undefined;
-
-  const number = Number(value);
-  return Number.isFinite(number) ? number : undefined;
-};
-
-const getParam = (value: string | string[] | undefined, name = "id") => {
-  const param = Array.isArray(value) ? value[0] : value;
-
-  if (!param) {
-    throw new AppError(`Thiếu ${name}`, 400);
-  }
-
-  return param;
-};
 
 const getIpAddress = (req: Request) =>
   req.headers["x-forwarded-for"]?.toString().split(",")[0]?.trim() ||
@@ -42,7 +29,11 @@ export const createAppointmentHandler = async (
   next: NextFunction,
 ) => {
   try {
-    const result = await AppointmentService.create(req.body, getIpAddress(req));
+    const result = await AppointmentService.create(
+      req.body,
+      getIpAddress(req),
+      req.patient ? { userId: req.patient.userId } : undefined,
+    );
 
     return res.status(201).json({
       success: true,
@@ -68,6 +59,26 @@ export const resendAppointmentOtpHandler = async (
     return res.json({
       success: true,
       message: "OTP đã được gửi lại",
+      data: result,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const abandonPendingAppointmentHandler = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const result = await AppointmentService.abandonPendingOtp(
+      getParam(req.params.id),
+      req.body.holdReleaseToken,
+    );
+    return res.json({
+      success: true,
+      message: "Đã hủy giữ lịch và giải phóng khung giờ",
       data: result,
     });
   } catch (error) {
@@ -278,6 +289,11 @@ export const listDashboardAppointmentsHandler = async (
           typeof req.query.bookingCode === "string"
             ? req.query.bookingCode
             : undefined,
+        billingState:
+          req.query.billingState === "PENDING_INVOICE" ||
+          req.query.billingState === "HAS_INVOICE"
+            ? req.query.billingState
+            : undefined,
         page: parseNumberQuery(req.query.page),
         limit: parseNumberQuery(req.query.limit),
       },
@@ -387,6 +403,28 @@ export const cancelDashboardAppointmentHandler = async (
     return res.json({
       success: true,
       message: "Hủy lịch hẹn thành công",
+      data: appointment,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const rescheduleDashboardAppointmentHandler = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const appointment = await AppointmentService.reschedule(
+      getParam(req.params.id),
+      req.body,
+      getActor(req),
+    );
+
+    return res.json({
+      success: true,
+      message: "Đổi lịch hẹn thành công",
       data: appointment,
     });
   } catch (error) {

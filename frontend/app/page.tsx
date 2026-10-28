@@ -1,47 +1,55 @@
 import { PublicHomeClient } from "@/components/public/public-home-client";
 import { emptyHomeData, type PublicHomeData } from "@/components/public/public-home-types";
 import { serverApiRequest } from "@/lib/server-api";
-import { absoluteUrl, jsonLdString } from "@/lib/seo";
+import { absoluteUrl, buildOpenGraph, jsonLdString } from "@/lib/seo";
 import type { Banner, DoctorProfile, MedicalPackage, PublicFAQ, SiteSettingsValue } from "@/lib/types";
 import type { Metadata } from "next";
 
 export const revalidate = 300;
 
 export const metadata: Metadata = {
+  ...buildOpenGraph({
   title: "Đặt lịch khám trực tuyến",
   description: "Đặt lịch khám, chọn chuyên khoa, bác sĩ, gói khám và tra cứu lịch hẹn trực tuyến.",
-  alternates: {
-    canonical: "/",
-  },
+  path: "/",
+  keywords: ["đặt lịch khám", "đặt lịch bác sĩ", "gói khám", "tra cứu lịch hẹn"],
+  }),
   verification: {
-    google: "j_aO8IuKTc90WaB5XcpNQsVXAPIsEHC34mUgaeRoMAA"
-  }
+    google:
+      process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION ||
+      "j_aO8IuKTc90WaB5XcpNQsVXAPIsEHC34mUgaeRoMAA",
+  },
+};
+
+type PublicBootstrapData = {
+  siteSettings: SiteSettingsValue | null;
+  banners: Banner[];
+  departments: PublicHomeData["departments"];
+  doctors: DoctorProfile[];
+  packages: MedicalPackage[];
+  faqs: PublicFAQ[];
 };
 
 async function getHomeData(): Promise<{ data: PublicHomeData; error: string }> {
   try {
-    const [settings, banners, departments, doctors, packages, faqs] = await Promise.all([
-      serverApiRequest<SiteSettingsValue>("/site-settings"),
-      serverApiRequest<{ items: Banner[] }>("/banners"),
-      serverApiRequest<PublicHomeData["departments"]>("/departments"),
-      serverApiRequest<DoctorProfile[]>("/doctors"),
-      serverApiRequest<MedicalPackage[]>("/packages"),
-      serverApiRequest<{ items: PublicFAQ[] }>("/faqs"),
-    ]);
-    const publicBanners = banners.items || [];
+    const bootstrap = await serverApiRequest<PublicBootstrapData>(
+      "/public/bootstrap",
+      { query: { view: "full" } },
+    );
+    const publicBanners = bootstrap.banners || [];
     const heroPositions = new Set(["HOME_HERO", "HOME_PROMO", "HOME_DEPARTMENT"]);
     const heroBanners = publicBanners.filter((banner) => heroPositions.has(banner.position));
     const promoBanners = publicBanners.filter((banner) => banner.position === "HOME_PROMO");
 
     return {
       data: {
-        settings,
+        settings: bootstrap.siteSettings,
         heroBanners: heroBanners.length ? heroBanners : publicBanners,
         promoBanners,
-        departments,
-        doctors,
-        packages,
-        faqs: faqs.items || [],
+        departments: bootstrap.departments,
+        doctors: bootstrap.doctors,
+        packages: bootstrap.packages,
+        faqs: bootstrap.faqs,
       },
       error: "",
     };
@@ -61,6 +69,7 @@ function buildMedicalOrganizationJsonLd(data: PublicHomeData) {
   return {
     "@context": "https://schema.org",
     "@type": "MedicalOrganization",
+    "@id": absoluteUrl("/#organization"),
     name: hospitalName,
     url: absoluteUrl("/"),
     logo: absoluteUrl(settings?.logo),
@@ -75,6 +84,22 @@ function buildMedicalOrganizationJsonLd(data: PublicHomeData) {
       : undefined,
     sameAs: socialLinks.length ? socialLinks : undefined,
     medicalSpecialty: data.departments.slice(0, 12).map((item) => item.name),
+  };
+}
+
+function buildWebSiteJsonLd(data: PublicHomeData) {
+  const hospitalName = data.settings?.hospitalName || "Hospital Booking";
+
+  return {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    "@id": absoluteUrl("/#website"),
+    name: hospitalName,
+    url: absoluteUrl("/"),
+    inLanguage: "vi-VN",
+    publisher: {
+      "@id": absoluteUrl("/#organization"),
+    },
   };
 }
 
@@ -105,6 +130,10 @@ export default async function PublicHomePage() {
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: jsonLdString(buildMedicalOrganizationJsonLd(data)) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: jsonLdString(buildWebSiteJsonLd(data)) }}
       />
       {faqJsonLd ? (
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdString(faqJsonLd) }} />

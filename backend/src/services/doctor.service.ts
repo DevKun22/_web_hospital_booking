@@ -1,6 +1,7 @@
 import { Prisma } from "../../generated/prisma/client.js";
 import { prisma } from "../config/prisma.js";
 import { AppError } from "../utils/appError.js";
+import { createSlug } from "../utils/slug.js";
 import SearchIndexer from "./search/search.indexer.js";
 
 type CreateDoctorProfileInput = {
@@ -26,6 +27,7 @@ type UpdateDoctorProfileInput = {
 
 const doctorProfileSelect = {
   id: true,
+  slug: true,
   title: true,
   bio: true,
   specialization: true,
@@ -65,6 +67,16 @@ const normalizeOptionalString = (value?: string | null) =>
   value === undefined ? undefined : value || null;
 
 class DoctorService {
+  private async createUniqueSlug(fullName: string, userId: string) {
+    const baseSlug = createSlug(fullName) || `bac-si-${userId.slice(0, 8)}`;
+    const existing = await prisma.doctorProfile.findUnique({
+      where: { slug: baseSlug },
+      select: { id: true },
+    });
+
+    return existing ? `${baseSlug}-${userId.slice(0, 8)}` : baseSlug;
+  }
+
   async list(query: {
     search?: string;
     departmentId?: string;
@@ -132,6 +144,7 @@ class DoctorService {
       where: { id: input.userId },
       select: {
         id: true,
+        fullName: true,
         role: true,
         doctorProfile: {
           select: { id: true },
@@ -162,6 +175,7 @@ class DoctorService {
 
     const doctor = await prisma.doctorProfile.create({
       data: {
+        slug: await this.createUniqueSlug(user.fullName, user.id),
         userId: input.userId,
         departmentId: input.departmentId,
         title: normalizeOptionalString(input.title),

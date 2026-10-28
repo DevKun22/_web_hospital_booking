@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:hospital_booking_mobile/app/theme/app_theme.dart';
 import 'package:hospital_booking_mobile/core/formatters/display_formatters.dart';
 import 'package:hospital_booking_mobile/core/widgets/app_error_banner.dart';
 import 'package:hospital_booking_mobile/core/widgets/app_ui.dart';
@@ -45,9 +44,12 @@ class InvoicesScreen extends ConsumerWidget {
                       padding: const EdgeInsets.fromLTRB(16, 8, 16, 14),
                       sliver: SliverList.list(
                         children: [
-                          _OverviewCard(
-                            visible: state.items.length,
-                            total: state.total,
+                          AppGradientOverviewCard(
+                            icon: Icons.receipt_long_outlined,
+                            title: '${state.total} hóa đơn trên hệ thống',
+                            subtitle: state.items.length < state.total
+                                ? 'Đang hiển thị ${state.items.length} hóa đơn gần nhất'
+                                : 'Chi phí và quyền lợi BHYT được đồng bộ từ bệnh viện',
                           ),
                           if (state.error != null) ...[
                             const SizedBox(height: 14),
@@ -122,61 +124,6 @@ class InvoicesScreen extends ConsumerWidget {
   }
 }
 
-class _OverviewCard extends StatelessWidget {
-  const _OverviewCard({required this.visible, required this.total});
-
-  final int visible;
-  final int total;
-
-  @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.all(18),
-    decoration: BoxDecoration(
-      gradient: const LinearGradient(
-        colors: [AppTheme.primaryDark, AppTheme.primary],
-      ),
-      borderRadius: BorderRadius.circular(20),
-    ),
-    child: Row(
-      children: [
-        Container(
-          width: 50,
-          height: 50,
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.15),
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: const Icon(Icons.receipt_long_outlined, color: Colors.white),
-        ),
-        const SizedBox(width: 14),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                '$total hóa đơn trên hệ thống',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                visible < total
-                    ? 'Đang hiển thị $visible hóa đơn gần nhất'
-                    : 'Chi phí và quyền lợi BHYT được đồng bộ từ bệnh viện',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Colors.white.withValues(alpha: 0.84),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    ),
-  );
-}
-
 class _InvoiceCard extends StatelessWidget {
   const _InvoiceCard({required this.invoice, required this.onTap});
 
@@ -229,6 +176,27 @@ class _InvoiceCard extends StatelessWidget {
                 ),
               ),
             ],
+            if (invoice.isDependentInvoice && invoice.patientName != null) ...[
+              const SizedBox(height: 7),
+              Row(
+                children: [
+                  Icon(
+                    Icons.family_restroom_outlined,
+                    size: 17,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      'Người khám: ${invoice.patientName}',
+                      style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
             const SizedBox(height: 14),
             DecoratedBox(
               decoration: BoxDecoration(
@@ -244,7 +212,7 @@ class _InvoiceCard extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Cần thanh toán',
+                            invoice.status.amountLabel,
                             style: Theme.of(context).textTheme.bodySmall,
                           ),
                           const SizedBox(height: 2),

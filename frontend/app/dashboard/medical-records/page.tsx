@@ -4,6 +4,12 @@ import { useQueryClient } from "@tanstack/react-query";
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import { PanelRightOpen, Search } from "lucide-react";
+import { DashboardFeedback } from "@/components/dashboard/dashboard-feedback";
+import { DashboardPageHeader, DashboardStatusBadge, DashboardSurface } from "@/components/dashboard/dashboard-ui";
+import { DashboardWorkspace } from "@/components/dashboard/dashboard-workspace";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { VietnamDateInput } from "@/components/ui/vietnam-date-input";
 import { apiRequest, uploadImages } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
@@ -71,10 +77,10 @@ const statusLabel: Record<MedicalResultStatus, string> = {
   ARCHIVED: "Đã lưu trữ",
 };
 
-const statusClass: Record<MedicalResultStatus, string> = {
-  DRAFT: "bg-[#fff4d6] text-[#8a5a00]",
-  PUBLISHED: "bg-[#e7f6ed] text-[#1f7a3a]",
-  ARCHIVED: "bg-[#eef2f7] text-[#667892]",
+const statusTone: Record<MedicalResultStatus, "warning" | "positive" | "neutral"> = {
+  DRAFT: "warning",
+  PUBLISHED: "positive",
+  ARCHIVED: "neutral",
 };
 
 const today = () => getVietnamDateInput();
@@ -124,20 +130,19 @@ export default function MedicalRecordsPage() {
   const { user } = useAuth();
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
-  const [records, setRecords] = useState<MedicalRecord[]>([]);
-  const [doctors, setDoctors] = useState<DoctorProfile[]>([]);
-  const [pagination, setPagination] = useState({ page: 1, limit: 20, total: 0, totalPages: 1 });
   const [status, setStatus] = useState("");
   const [doctorId, setDoctorId] = useState("");
   const [date, setDate] = useState(today());
   const [recordCode, setRecordCode] = useState("");
+  const [appliedRecordCode, setAppliedRecordCode] = useState("");
   const [page, setPage] = useState(1);
   const [busy, setBusy] = useState(false);
   const [uploadingRecordFile, setUploadingRecordFile] = useState(false);
   const [uploadingLabFile, setUploadingLabFile] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
-  const [selected, setSelected] = useState<MedicalRecord | null>(null);
+  const [workspaceOpen, setWorkspaceOpen] = useState(false);
+  const [selectedSnapshot, setSelected] = useState<MedicalRecord | null>(null);
   const [recordForm, setRecordForm] = useState<RecordForm>(emptyRecordForm);
   const [editingLab, setEditingLab] = useState<LabResult | null>(null);
   const [deleteLabTarget, setDeleteLabTarget] = useState<LabResult | null>(null);
@@ -154,17 +159,28 @@ export default function MedicalRecordsPage() {
       status: status || undefined,
       doctorId: isDoctor ? undefined : doctorId || undefined,
       date: date || undefined,
-      recordCode: recordCode.trim() || undefined,
+      recordCode: appliedRecordCode || undefined,
       page,
       limit: 20,
     }),
-    [date, doctorId, isDoctor, page, recordCode, status],
+    [appliedRecordCode, date, doctorId, isDoctor, page, status],
   );
   const doctorQuery = useMemo(() => ({ limit: 100 }), []);
   const recordsQuery = useDashboardMedicalRecords(query);
   const doctorsQuery = useDashboardMedicalRecordDoctors(doctorQuery, !isDoctor);
-  const selectedRecordQuery = useDashboardMedicalRecord(selected?.id);
+  const selectedRecordQuery = useDashboardMedicalRecord(selectedSnapshot?.id);
   const loading = recordsQuery.isLoading;
+  const records = recordsQuery.data?.items ?? [];
+  const doctors = doctorsQuery.data?.items ?? [];
+  const pagination = recordsQuery.data?.pagination ?? { page, limit: 20, total: 0, totalPages: 1 };
+  const selected = selectedRecordQuery.data ?? selectedSnapshot;
+  const queryError = recordsQuery.error || doctorsQuery.error || selectedRecordQuery.error;
+  const queryErrorMessage = queryError
+    ? queryError instanceof Error
+      ? queryError.message
+      : "Không tải được dữ liệu hồ sơ khám"
+    : "";
+  const visibleError = error || queryErrorMessage;
 
   useEffect(() => {
     const linkedRecordCode = searchParams.get("recordCode")?.trim().toUpperCase();
@@ -172,6 +188,7 @@ export default function MedicalRecordsPage() {
 
     const timeoutId = window.setTimeout(() => {
       setRecordCode(linkedRecordCode);
+      setAppliedRecordCode(linkedRecordCode);
       setDate("");
       setPage(1);
     }, 0);
@@ -198,40 +215,6 @@ export default function MedicalRecordsPage() {
   };
 
   useEffect(() => {
-    const timeoutId = window.setTimeout(() => {
-      if (!recordsQuery.data) return;
-      setRecords(recordsQuery.data.items);
-      setPagination(recordsQuery.data.pagination);
-      setSelected((current) =>
-        current ? recordsQuery.data.items.find((item) => item.id === current.id) || current : current,
-      );
-    }, 0);
-    return () => window.clearTimeout(timeoutId);
-  }, [recordsQuery.data]);
-
-  useEffect(() => {
-    const timeoutId = window.setTimeout(() => setDoctors(doctorsQuery.data?.items || []), 0);
-    return () => window.clearTimeout(timeoutId);
-  }, [doctorsQuery.data]);
-
-  useEffect(() => {
-    const timeoutId = window.setTimeout(() => {
-      if (!selectedRecordQuery.data) return;
-      setSelected(selectedRecordQuery.data);
-      setRecordForm(toRecordForm(selectedRecordQuery.data));
-    }, 0);
-    return () => window.clearTimeout(timeoutId);
-  }, [selectedRecordQuery.data]);
-
-  useEffect(() => {
-    const queryError = recordsQuery.error || doctorsQuery.error || selectedRecordQuery.error;
-    if (!queryError) return;
-    const timeoutId = window.setTimeout(() => {
-      setError(queryError instanceof Error ? queryError.message : "Không tải được dữ liệu hồ sơ khám");
-    }, 0);
-    return () => window.clearTimeout(timeoutId);
-  }, [doctorsQuery.error, recordsQuery.error, selectedRecordQuery.error]);
-  useEffect(() => {
     if (!notice && !error) return;
     const timeoutId = window.setTimeout(() => {
       setNotice("");
@@ -250,23 +233,28 @@ export default function MedicalRecordsPage() {
     setStatus(nextStatus);
     setDate(nextDate);
     setRecordCode("");
+    setAppliedRecordCode("");
     setPage(1);
     scrollTo(listRef);
   };
 
-  const doctorSummary = useMemo(
-    () => ({
-      total: records.length,
-      draft: records.filter((record) => record.status === "DRAFT").length,
-      publishable: records.filter((record) => record.status === "DRAFT" && ["IN_PROGRESS", "COMPLETED"].includes(record.appointment.status)).length,
-      published: records.filter((record) => record.status === "PUBLISHED").length,
-      needPrescription: records.filter((record) => !record.prescriptionRecord && ["IN_PROGRESS", "COMPLETED"].includes(record.appointment.status)).length,
-    }),
-    [records],
-  );
+  const doctorSummary = {
+    total: records.length,
+    draft: records.filter((record) => record.status === "DRAFT").length,
+    publishable: records.filter((record) => record.status === "DRAFT" && ["IN_PROGRESS", "COMPLETED"].includes(record.appointment.status)).length,
+    published: records.filter((record) => record.status === "PUBLISHED").length,
+    needPrescription: records.filter((record) => !record.prescriptionRecord && ["IN_PROGRESS", "COMPLETED"].includes(record.appointment.status)).length,
+  };
+
+  const applyRecordSearch = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setAppliedRecordCode(recordCode.trim());
+    setPage(1);
+  };
 
   const openDetail = (record: MedicalRecord) => {
     setSelected(record);
+    setWorkspaceOpen(true);
     setRecordForm(toRecordForm(record));
     setEditingLab(null);
     setDeleteLabTarget(null);
@@ -304,12 +292,12 @@ export default function MedicalRecordsPage() {
     try {
       const [asset] = await uploadImages([file], "medical-results");
       if (!asset) {
-        throw new Error("Upload thành công nhưng không nhận được URL file");
+        throw new Error("Đã tải lên nhưng không nhận được đường dẫn tệp");
       }
       setRecordForm((current) => ({ ...current, resultPdfUrl: asset.url }));
-      setNotice("Đã upload file kết quả");
+      setNotice("Đã tải tệp kết quả lên");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Không upload được file kết quả");
+      setError(err instanceof Error ? err.message : "Không tải được tệp kết quả lên");
     } finally {
       setUploadingRecordFile(false);
     }
@@ -323,12 +311,12 @@ export default function MedicalRecordsPage() {
     try {
       const [asset] = await uploadImages([file], "medical-results");
       if (!asset) {
-        throw new Error("Upload thành công nhưng không nhận được URL file");
+        throw new Error("Đã tải lên nhưng không nhận được đường dẫn tệp");
       }
       setLabForm((current) => ({ ...current, fileUrl: asset.url }));
-      setNotice("Đã upload file cận lâm sàng");
+      setNotice("Đã tải tệp cận lâm sàng lên");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Không upload được file cận lâm sàng");
+      setError(err instanceof Error ? err.message : "Không tải được tệp cận lâm sàng lên");
     } finally {
       setUploadingLabFile(false);
     }
@@ -431,26 +419,14 @@ export default function MedicalRecordsPage() {
   };
 
   return (
-    <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_430px]">
-      {notice || error ? (
-        <div className="fixed right-4 top-4 z-50 w-[calc(100%-2rem)] max-w-md sm:right-6 sm:top-6">
-          <div className={`rounded-md border px-4 py-3 shadow-lg ${error ? "border-[#f2b8b5] bg-[#fff3f2] text-[#b3261e]" : "border-[#a8dab5] bg-[#f0fff4] text-[#1f7a3a]"}`}>
-            <div className="flex items-start justify-between gap-3">
-              <div><p className="text-sm font-semibold">{error ? "Có lỗi xảy ra" : "Thành công"}</p><p className="mt-1 text-sm">{error || notice}</p></div>
-              <button type="button" onClick={() => { setError(""); setNotice(""); }} className="rounded-md px-2 text-lg leading-none opacity-70 hover:bg-black/5 hover:opacity-100" aria-label="Đóng thông báo">x</button>
-            </div>
-          </div>
-        </div>
-      ) : null}
+    <div className={`grid gap-6 transition-[grid-template-columns] duration-300 ${workspaceOpen ? "xl:grid-cols-[minmax(0,1fr)_430px]" : "xl:grid-cols-1"}`}>
+      <DashboardFeedback error={visibleError} notice={notice} onDismiss={queryErrorMessage ? undefined : () => { setError(""); setNotice(""); }} />
 
       <section ref={listRef} className="min-w-0 scroll-mt-24 space-y-4">
-        <div className="rounded-md border border-[#dce3ee] bg-white p-5">
-          <p className="text-sm font-medium text-[#55708f]">{isDoctor ? "Khu làm việc bác sĩ" : "Chuyên môn"}</p>
-          <h2 className="mt-1 text-2xl font-semibold">Hồ sơ khám</h2>
-          <p className="mt-2 text-sm text-[#667892]">
-            {isDoctor ? "Ưu tiên hoàn thiện hồ sơ trong ca khám, thêm kết quả cận lâm sàng, kê đơn và công bố kết quả." : "Cập nhật chẩn đoán, điều trị, kết quả cận lâm sàng và công bố kết quả khám."}
-          </p>
-        </div>
+        <DashboardPageHeader eyebrow={isDoctor ? "Khu làm việc bác sĩ" : "Chuyên môn"} title="Hồ sơ khám"
+          description={isDoctor ? "Hoàn thiện hồ sơ trong ca khám, bổ sung kết quả cận lâm sàng, kê đơn và công bố kết quả." : "Theo dõi chẩn đoán, điều trị, kết quả cận lâm sàng và trạng thái công bố."}
+          actions={selected && !workspaceOpen ? <Button variant="outline" size="lg" onClick={() => setWorkspaceOpen(true)}><PanelRightOpen />Mở hồ sơ đang chọn</Button> : undefined}
+        />
 
         {isDoctor ? (
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -477,8 +453,8 @@ export default function MedicalRecordsPage() {
           </div>
         ) : null}
 
-        <div className="rounded-md border border-[#dce3ee] bg-white">
-          <div className={`grid gap-3 border-b border-[#e5ebf3] p-4 ${isDoctor ? "lg:grid-cols-2 2xl:grid-cols-[170px_170px_minmax(0,1fr)]" : "lg:grid-cols-2 2xl:grid-cols-[170px_minmax(0,1fr)_170px_170px]"}`}>
+        <DashboardSurface>
+          <form onSubmit={applyRecordSearch} className={`grid gap-3 border-b border-border p-4 ${isDoctor ? "lg:grid-cols-2 2xl:grid-cols-[170px_170px_minmax(0,1fr)_auto]" : "lg:grid-cols-2 2xl:grid-cols-[170px_minmax(0,1fr)_170px_170px_auto]"}`}>
             <VietnamDateInput value={date} onChange={(value) => { setDate(value); setPage(1); }} ariaLabel="Ngày lọc hồ sơ khám" className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" />
             {!isDoctor ? (
               <select value={doctorId} onChange={(e) => { setDoctorId(e.target.value); setPage(1); }} className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]">
@@ -489,8 +465,9 @@ export default function MedicalRecordsPage() {
             <select value={status} onChange={(e) => { setStatus(e.target.value); setPage(1); }} className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]">
               {statusOptions.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
             </select>
-            <input value={recordCode} onChange={(e) => { setRecordCode(e.target.value); setPage(1); }} placeholder="Mã hồ sơ" className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" />
-          </div>
+            <Input value={recordCode} onChange={(e) => setRecordCode(e.target.value)} placeholder="Mã hồ sơ" />
+            <Button type="submit"><Search />Tìm kiếm</Button>
+          </form>
 
           <div className="overflow-x-auto">
             <table className="w-full min-w-[980px] border-separate border-spacing-0 text-left text-sm">
@@ -513,12 +490,12 @@ export default function MedicalRecordsPage() {
                   <tr key={record.id} className="align-top">
                     <td className="border-b border-[#eef2f7] px-4 py-3">
                       <button onClick={() => openDetail(record)} className="font-semibold text-[#0d4f8b] hover:underline">{record.recordCode}</button>
-                      <p className="mt-1 text-xs text-[#667892]">{record.labResults.length} kết quả CLS</p>
+                      <p className="mt-1 text-xs text-[#667892]">{record.labResults.length} kết quả cận lâm sàng</p>
                     </td>
                     <td className="border-b border-[#eef2f7] px-4 py-3"><p className="font-semibold">{record.patient.fullName}</p><p className="mt-1 text-xs text-[#667892]">{record.patient.phone}</p></td>
                     <td className="border-b border-[#eef2f7] px-4 py-3"><p>{record.appointment.bookingCode}</p><p className="mt-1 text-xs text-[#667892]">{formatDate(record.appointment.appointmentDate)} {record.appointment.startTime}</p></td>
                     <td className="border-b border-[#eef2f7] px-4 py-3"><p>{doctorName(record.doctor)}</p><p className="mt-1 text-xs text-[#667892]">{record.doctor.department.name}</p></td>
-                    <td className="border-b border-[#eef2f7] px-4 py-3"><span className={`rounded-md px-2 py-1 text-xs font-semibold ${statusClass[record.status]}`}>{statusLabel[record.status]}</span><p className="mt-1 text-xs text-[#667892]">{record.diagnosis || "Chưa có chẩn đoán"}</p></td>
+                    <td className="border-b border-[#eef2f7] px-4 py-3"><DashboardStatusBadge tone={statusTone[record.status]}>{statusLabel[record.status]}</DashboardStatusBadge><p className="mt-1 text-xs text-[#667892]">{record.diagnosis || "Chưa có chẩn đoán"}</p></td>
                     <td className="border-b border-[#eef2f7] px-4 py-3 text-right"><button onClick={() => openDetail(record)} className="rounded-md border border-[#cfd8e6] px-3 py-1.5 text-xs font-medium text-[#42526b]">Chi tiết</button></td>
                   </tr>
                 ))}
@@ -533,16 +510,23 @@ export default function MedicalRecordsPage() {
               <button disabled={page >= pagination.totalPages} onClick={() => setPage((current) => current + 1)} className="rounded-md border border-[#cfd8e6] px-3 py-1.5 font-medium disabled:opacity-50">Sau</button>
             </div>
           </div>
-        </div>
+        </DashboardSurface>
       </section>
 
-      <aside ref={detailRef} className="scroll-mt-24 rounded-md border border-[#dce3ee] bg-white p-5 xl:sticky xl:top-24 xl:self-start">
+      {workspaceOpen ? (
+      <aside ref={detailRef} className="min-w-0 scroll-mt-24">
+        <DashboardWorkspace
+          open={workspaceOpen}
+          onOpenChange={setWorkspaceOpen}
+          title={selected ? `Hồ sơ ${selected.recordCode}` : "Chi tiết hồ sơ khám"}
+          description="Cập nhật chẩn đoán, điều trị và kết quả cận lâm sàng trong cùng một vùng làm việc."
+        >
         {selected ? (
           <div className="space-y-5">
             <div>
               <p className="text-sm font-medium text-[#55708f]">Chi tiết hồ sơ</p>
               <h3 className="mt-1 text-xl font-semibold">{selected.recordCode}</h3>
-              <span className={`mt-3 inline-flex rounded-md px-2 py-1 text-xs font-semibold ${statusClass[selected.status]}`}>{statusLabel[selected.status]}</span>
+              <DashboardStatusBadge tone={statusTone[selected.status]} className="mt-3">{statusLabel[selected.status]}</DashboardStatusBadge>
             </div>
 
             <div className="rounded-md border border-[#e5ebf3] p-3 text-sm">
@@ -565,7 +549,7 @@ export default function MedicalRecordsPage() {
                 </label>
               ))}
               <label className="block">
-                <span className="text-sm font-medium text-[#334155]">URL file kết quả</span>
+                <span className="text-sm font-medium text-[#334155]">Đường dẫn tệp kết quả</span>
                 <input value={recordForm.resultPdfUrl} onChange={(e) => setRecordForm((current) => ({ ...current, resultPdfUrl: e.target.value }))} placeholder="https://..." className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" />
                 <input
                   type="file"
@@ -575,14 +559,14 @@ export default function MedicalRecordsPage() {
                   className="mt-2 w-full rounded-md border border-dashed border-[#cfd8e6] bg-[#f8fafc] px-3 py-2 text-sm file:mr-3 file:rounded-md file:border-0 file:bg-[#0d4f8b] file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-white disabled:opacity-60"
                 />
                 <p className="mt-1 text-xs text-[#667892]">
-                  Upload hiện hỗ trợ JPG, PNG, WEBP qua folder medical-results.
+                  Tải lên hỗ trợ ảnh JPG, PNG và WEBP trong thư mục kết quả khám.
                 </p>
                 {recordForm.resultPdfUrl ? (
                   <div className="mt-2 rounded-md border border-[#e5ebf3] p-2">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={recordForm.resultPdfUrl}
-                      alt="Preview file kết quả"
+                      alt="Xem trước tệp kết quả"
                       className="h-36 w-full rounded-md object-cover"
                     />
                     <p className="mt-2 truncate text-xs text-[#667892]">{recordForm.resultPdfUrl}</p>
@@ -590,7 +574,7 @@ export default function MedicalRecordsPage() {
                 ) : null}
               </label>
               <div className="flex flex-wrap gap-2">
-                <button disabled={busy || uploadingRecordFile} className="rounded-md bg-[#0d4f8b] px-4 py-2 text-sm font-semibold text-white disabled:opacity-60">{uploadingRecordFile ? "Đang upload..." : "Lưu hồ sơ"}</button>
+                <button disabled={busy || uploadingRecordFile} className="rounded-md bg-[#0d4f8b] px-4 py-2 text-sm font-semibold text-white disabled:opacity-60">{uploadingRecordFile ? "Đang tải lên..." : "Lưu hồ sơ"}</button>
                 {selected.status !== "PUBLISHED" ? <button type="button" disabled={busy} onClick={() => void simpleRecordAction(selected, "/publish", "Đã công bố kết quả")} className="rounded-md border border-[#cfd8e6] px-4 py-2 text-sm font-medium text-[#42526b]">Công bố</button> : null}
                 {canCreatePrescription && !selected.prescriptionRecord ? <button type="button" disabled={busy} onClick={() => void createPrescriptionFromRecord(selected)} className="rounded-md border border-[#cfe4fa] px-4 py-2 text-sm font-medium text-[#0d4f8b]">Tạo đơn thuốc</button> : null}
                 {selected.prescriptionRecord ? <Link href="/dashboard/prescriptions" className="rounded-md border border-[#cfe4fa] px-4 py-2 text-sm font-medium text-[#0d4f8b]">Mở đơn thuốc</Link> : null}
@@ -601,7 +585,7 @@ export default function MedicalRecordsPage() {
             <section className="border-t border-[#e5ebf3] pt-5">
               <h4 className="font-semibold">Kết quả cận lâm sàng</h4>
               <div className="mt-3 space-y-2">
-                {selected.labResults.length === 0 ? <p className="text-sm text-[#667892]">Chưa có kết quả CLS</p> : selected.labResults.map((lab) => (
+                {selected.labResults.length === 0 ? <p className="text-sm text-[#667892]">Chưa có kết quả cận lâm sàng</p> : selected.labResults.map((lab) => (
                   <div key={lab.id} className="rounded-md border border-[#e5ebf3] p-3 text-sm">
                     <div className="flex items-start justify-between gap-3">
                       <div>
@@ -631,7 +615,7 @@ export default function MedicalRecordsPage() {
               ) : null}
 
               <form className="mt-4 space-y-3 rounded-md border border-[#e5ebf3] p-3" onSubmit={saveLabResult}>
-                <h5 className="font-semibold">{editingLab ? "Sửa kết quả CLS" : "Thêm kết quả CLS"}</h5>
+                <h5 className="font-semibold">{editingLab ? "Sửa kết quả cận lâm sàng" : "Thêm kết quả cận lâm sàng"}</h5>
                 <input value={labForm.testName} onChange={(e) => setLabForm((current) => ({ ...current, testName: e.target.value }))} placeholder="Tên xét nghiệm" className="w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" required />
                 <div className="grid gap-2 sm:grid-cols-2">
                   <input value={labForm.resultValue} onChange={(e) => setLabForm((current) => ({ ...current, resultValue: e.target.value }))} placeholder="Giá trị" className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" />
@@ -640,7 +624,7 @@ export default function MedicalRecordsPage() {
                 <input value={labForm.referenceRange} onChange={(e) => setLabForm((current) => ({ ...current, referenceRange: e.target.value }))} placeholder="Khoảng tham chiếu" className="w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" />
                 <textarea value={labForm.conclusion} onChange={(e) => setLabForm((current) => ({ ...current, conclusion: e.target.value }))} placeholder="Kết luận" rows={2} className="w-full resize-none rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" />
                 <div>
-                  <input value={labForm.fileUrl} onChange={(e) => setLabForm((current) => ({ ...current, fileUrl: e.target.value }))} placeholder="URL file kết quả" className="w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" />
+                  <input value={labForm.fileUrl} onChange={(e) => setLabForm((current) => ({ ...current, fileUrl: e.target.value }))} placeholder="Đường dẫn tệp kết quả" className="w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" />
                   <input
                     type="file"
                     accept="image/jpeg,image/png,image/webp"
@@ -649,14 +633,14 @@ export default function MedicalRecordsPage() {
                     className="mt-2 w-full rounded-md border border-dashed border-[#cfd8e6] bg-[#f8fafc] px-3 py-2 text-sm file:mr-3 file:rounded-md file:border-0 file:bg-[#0d4f8b] file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-white disabled:opacity-60"
                   />
                   <p className="mt-1 text-xs text-[#667892]">
-                    Upload hiện hỗ trợ JPG, PNG, WEBP qua folder medical-results.
+                    Tải lên hỗ trợ ảnh JPG, PNG và WEBP trong thư mục kết quả khám.
                   </p>
                   {labForm.fileUrl ? (
                     <div className="mt-2 rounded-md border border-[#e5ebf3] p-2">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src={labForm.fileUrl}
-                        alt="Preview file cận lâm sàng"
+                        alt="Xem trước tệp cận lâm sàng"
                         className="h-32 w-full rounded-md object-cover"
                       />
                       <p className="mt-2 truncate text-xs text-[#667892]">{labForm.fileUrl}</p>
@@ -664,7 +648,7 @@ export default function MedicalRecordsPage() {
                   ) : null}
                 </div>
                 <div className="flex gap-2">
-                  <button disabled={busy || uploadingLabFile} className="flex-1 rounded-md bg-[#0d4f8b] px-3 py-2 text-sm font-semibold text-white disabled:opacity-60">{uploadingLabFile ? "Đang upload..." : busy ? "Đang lưu..." : editingLab ? "Lưu CLS" : "Thêm CLS"}</button>
+                  <button disabled={busy || uploadingLabFile} className="flex-1 rounded-md bg-[#0d4f8b] px-3 py-2 text-sm font-semibold text-white disabled:opacity-60">{uploadingLabFile ? "Đang tải lên..." : busy ? "Đang lưu..." : editingLab ? "Lưu kết quả" : "Thêm kết quả"}</button>
                   {editingLab ? <button type="button" onClick={() => { setEditingLab(null); setLabForm(emptyLabForm); }} className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm font-medium text-[#42526b]">Huỷ</button> : null}
                 </div>
               </form>
@@ -677,7 +661,9 @@ export default function MedicalRecordsPage() {
             <p className="mt-2 text-sm leading-6 text-[#667892]">Bấm vào mã hồ sơ để cập nhật chẩn đoán, điều trị và kết quả cận lâm sàng.</p>
           </div>
         )}
+        </DashboardWorkspace>
       </aside>
+      ) : null}
     </div>
   );
 }

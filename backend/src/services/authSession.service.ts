@@ -13,6 +13,15 @@ export type SessionMeta = {
   appVersion?: string;
 };
 
+export type PushTokenRegistration = {
+  sessionId: string;
+  userId: string;
+  kind: SessionKind;
+  pushToken: string;
+  platform?: string;
+  appVersion?: string;
+};
+
 const createOpaqueToken = () => crypto.randomBytes(48).toString("base64url");
 
 export const hashRefreshToken = (token: string) =>
@@ -219,7 +228,11 @@ class AuthSessionService {
         kind: input.kind,
         revokedAt: null,
       },
-      data: { revokedAt: new Date() },
+      data: {
+        revokedAt: new Date(),
+        pushToken: null,
+        pushDisabledAt: new Date(),
+      },
     });
 
     if (result.count !== 1) {
@@ -230,6 +243,119 @@ class AuthSessionService {
       where: { sessionId: input.sessionId, revokedAt: null },
       data: { revokedAt: new Date() },
     });
+  }
+
+  async registerPushToken(input: PushTokenRegistration) {
+    const now = new Date();
+    const pushToken = input.pushToken.trim();
+    const platform = normalize(input.platform, true);
+    const appVersion = normalize(input.appVersion);
+
+    return prisma.$transaction(async (tx) => {
+      const session = await tx.dashboardSession.findFirst({
+        where: {
+          id: input.sessionId,
+          userId: input.userId,
+          kind: input.kind,
+          revokedAt: null,
+          expiresAt: { gt: now },
+        },
+        select: { id: true },
+      });
+
+      if (!session) {
+        throw new AppError(
+          "Phiên đăng nhập không hợp lệ",
+          401,
+          "SESSION_REVOKED",
+        );
+      }
+
+      // Một FCM token đại diện cho một installation. Khi người dùng đăng nhập
+      // lại, chuyển quyền sở hữu token sang phiên hiện tại thay vì gửi trùng.
+      await tx.dashboardSession.updateMany({
+        where: {
+          pushToken,
+          id: { not: input.sessionId },
+        },
+        data: {
+          pushToken: null,
+          pushDisabledAt: now,
+        },
+      });
+
+      const updated = await tx.dashboardSession.update({
+        where: { id: input.sessionId },
+        data: {
+          pushToken,
+          pushTokenUpdatedAt: now,
+          pushDisabledAt: null,
+          ...(platform === undefined ? {} : { platform }),
+          ...(appVersion === undefined ? {} : { appVersion }),
+        },
+        select: {
+          pushTokenUpdatedAt: true,
+        },
+      });
+
+      // Nếu người bệnh bật push sau khi lịch đã được xác nhận, gắn phiên mới
+      // vào các thông báo đã lên lịch để không bỏ lỡ lời nhắc sắp tới.
+      const scheduledNotifications = await tx.notification.findMany({
+        where: {
+          userId: input.userId,
+          publishedAt: null,
+          cancelledAt: null,
+          OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],
+        },
+        select: { id: true },
+        take: 100,
+      });
+      if (scheduledNotifications.length > 0) {
+        await tx.notificationDelivery.createMany({
+          data: scheduledNotifications.map((notification) => ({
+            notificationId: notification.id,
+            sessionId: input.sessionId,
+          })),
+          skipDuplicates: true,
+        });
+      }
+
+      return {
+        enabled: true,
+        updatedAt: updated.pushTokenUpdatedAt,
+      };
+    });
+  }
+
+  async disablePushToken(input: {
+    sessionId: string;
+    userId: string;
+    kind: SessionKind;
+  }) {
+    const now = new Date();
+    const updated = await prisma.dashboardSession.updateMany({
+      where: {
+        id: input.sessionId,
+        userId: input.userId,
+        kind: input.kind,
+        revokedAt: null,
+        expiresAt: { gt: now },
+      },
+      data: {
+        pushToken: null,
+        pushDisabledAt: now,
+      },
+    });
+
+    if (updated.count !== 1) {
+      throw new AppError(
+        "Phiên đăng nhập không hợp lệ",
+        401,
+        "SESSION_REVOKED",
+      );
+    }
+
+    return { enabled: false, disabledAt: now };
   }
 
   async list(userId: string, kind: SessionKind, currentSessionId: string) {
@@ -278,6 +404,35 @@ class AuthSessionService {
     }
   }
 
+  async assertActivePatientSession(input: {
+    sessionId: string;
+    userId: string;
+  }) {
+    const session = await prisma.dashboardSession.findFirst({
+      where: {
+        id: input.sessionId,
+        userId: input.userId,
+        kind: "PATIENT",
+        revokedAt: null,
+        expiresAt: { gt: new Date() },
+        user: {
+          role: "PATIENT",
+          isActive: true,
+          isPhoneVerified: true,
+        },
+      },
+      select: { id: true },
+    });
+
+    if (!session) {
+      throw new AppError(
+        "Phiên đăng nhập không hợp lệ",
+        401,
+        "SESSION_REVOKED",
+      );
+    }
+  }
+
   private async revokeFamily(
     sessionId: string,
     revokedAt = new Date(),
@@ -285,7 +440,11 @@ class AuthSessionService {
   ) {
     await tx.dashboardSession.updateMany({
       where: { id: sessionId, revokedAt: null },
-      data: { revokedAt },
+      data: {
+        revokedAt,
+        pushToken: null,
+        pushDisabledAt: revokedAt,
+      },
     });
     await tx.authRefreshToken.updateMany({
       where: { sessionId, revokedAt: null },

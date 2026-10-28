@@ -1,6 +1,7 @@
 import type { Request, Response, NextFunction } from "express";
 import DepartmentService from "../services/department.service.js";
 import { AppError } from "../utils/appError.js";
+import PublicBootstrapService from "../services/publicBootstrap.service.js";
 
 const parseBooleanQuery = (value: unknown) => {
   if (value === "true") return true;
@@ -72,6 +73,7 @@ export const createDepartmentHandler = async (
 ) => {
   try {
     const department = await DepartmentService.create(req.body);
+    PublicBootstrapService.invalidate();
 
     return res.status(201).json({
       success: true,
@@ -93,6 +95,7 @@ export const updateDepartmentHandler = async (
       getParam(req.params.id),
       req.body,
     );
+    PublicBootstrapService.invalidate();
 
     return res.json({
       success: true,
@@ -111,6 +114,7 @@ export const deleteDepartmentHandler = async (
 ) => {
   try {
     const department = await DepartmentService.delete(getParam(req.params.id));
+    PublicBootstrapService.invalidate();
 
     return res.json({
       success: true,

@@ -39,6 +39,14 @@ enum PatientInvoiceStatus {
     PatientInvoiceStatus.unknown => 'Trạng thái hóa đơn đang được đồng bộ.',
   };
 
+  String get amountLabel => switch (this) {
+    PatientInvoiceStatus.unpaid => 'Cần thanh toán',
+    PatientInvoiceStatus.paid => 'Đã thanh toán',
+    PatientInvoiceStatus.refunded => 'Đã hoàn tiền',
+    PatientInvoiceStatus.cancelled ||
+    PatientInvoiceStatus.unknown => 'Giá trị hóa đơn',
+  };
+
   AppStatusTone get tone => switch (this) {
     PatientInvoiceStatus.paid => AppStatusTone.success,
     PatientInvoiceStatus.unpaid => AppStatusTone.warning,
@@ -95,6 +103,31 @@ enum PatientInsuranceRoute {
   final String label;
 }
 
+class PatientInvoiceItem {
+  const PatientInvoiceItem({
+    required this.id,
+    required this.description,
+    required this.quantity,
+    required this.unitPrice,
+    required this.amount,
+  });
+
+  factory PatientInvoiceItem.fromJson(Map<String, dynamic> json) =>
+      PatientInvoiceItem(
+        id: _string(json['id']),
+        description: _string(json['description']),
+        quantity: _integer(json['quantity']),
+        unitPrice: _integer(json['unitPrice']),
+        amount: _integer(json['amount']),
+      );
+
+  final String id;
+  final String description;
+  final int quantity;
+  final int unitPrice;
+  final int amount;
+}
+
 class PatientInvoice {
   const PatientInvoice({
     required this.id,
@@ -105,6 +138,7 @@ class PatientInvoice {
     required this.insuranceEligibleAmount,
     required this.insuranceCoverageRate,
     required this.insuranceDiscountAmount,
+    required this.items,
     required this.status,
     required this.appointmentId,
     required this.bookingCode,
@@ -115,10 +149,15 @@ class PatientInvoice {
     required this.departmentName,
     this.insuranceRouteType,
     this.paymentMethod,
+    this.paymentReference,
     this.paidAt,
+    this.refundReason,
+    this.refundReference,
     this.refundedAt,
     this.createdAt,
     this.packageName,
+    this.patientName,
+    this.dependentProfileId,
   });
 
   factory PatientInvoice.fromJson(Map<String, dynamic> json) {
@@ -127,6 +166,16 @@ class PatientInvoice {
     final doctorUser = _map(doctor['user']);
     final department = _map(appointment['department']);
     final package = _map(appointment['package']);
+    final items = json['items'] is List
+        ? (json['items'] as List<dynamic>)
+              .whereType<Map>()
+              .map(
+                (item) => PatientInvoiceItem.fromJson(
+                  Map<String, dynamic>.from(item),
+                ),
+              )
+              .toList(growable: false)
+        : const <PatientInvoiceItem>[];
     return PatientInvoice(
       id: _string(json['id']),
       invoiceCode: _string(json['invoiceCode']),
@@ -136,6 +185,7 @@ class PatientInvoice {
       insuranceEligibleAmount: _integer(json['insuranceEligibleAmount']),
       insuranceCoverageRate: _integer(json['insuranceCoverageRate']),
       insuranceDiscountAmount: _integer(json['insuranceDiscountAmount']),
+      items: items,
       insuranceRouteType: json['insuranceRouteType'] == null
           ? null
           : PatientInsuranceRoute.fromApi(json['insuranceRouteType']),
@@ -143,11 +193,16 @@ class PatientInvoice {
       paymentMethod: json['paymentMethod'] == null
           ? null
           : PatientPaymentMethod.fromApi(json['paymentMethod']),
+      paymentReference: _nullableString(json['paymentReference']),
       paidAt: _dateTime(json['paidAt']),
+      refundReason: _nullableString(json['refundReason']),
+      refundReference: _nullableString(json['refundReference']),
       refundedAt: _dateTime(json['refundedAt']),
       createdAt: _dateTime(json['createdAt']),
       appointmentId: _string(appointment['id']),
       bookingCode: _string(appointment['bookingCode']),
+      patientName: _nullableString(appointment['patientName']),
+      dependentProfileId: _nullableString(appointment['dependentProfileId']),
       appointmentDate: _dateOnly(appointment['appointmentDate']),
       startTime: _string(appointment['startTime']),
       endTime: _string(appointment['endTime']),
@@ -168,14 +223,20 @@ class PatientInvoice {
   final int insuranceEligibleAmount;
   final int insuranceCoverageRate;
   final int insuranceDiscountAmount;
+  final List<PatientInvoiceItem> items;
   final PatientInsuranceRoute? insuranceRouteType;
   final PatientInvoiceStatus status;
   final PatientPaymentMethod? paymentMethod;
+  final String? paymentReference;
   final DateTime? paidAt;
+  final String? refundReason;
+  final String? refundReference;
   final DateTime? refundedAt;
   final DateTime? createdAt;
   final String appointmentId;
   final String bookingCode;
+  final String? patientName;
+  final String? dependentProfileId;
   final String appointmentDate;
   final String startTime;
   final String endTime;
@@ -193,6 +254,7 @@ class PatientInvoice {
       insuranceRouteType != null;
 
   String get careUnit => packageName ?? departmentName;
+  bool get isDependentInvoice => dependentProfileId != null;
 }
 
 class InvoicePage {

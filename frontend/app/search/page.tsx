@@ -1,11 +1,5 @@
-import type { Metadata } from "next";
 import { Suspense } from "react";
 import SearchClient from "./search-client";
-
-export const metadata: Metadata = {
-  title: "Tìm kiếm | Hospital Booking",
-  description: "Tìm kiếm chuyên khoa, bác sĩ, gói khám và câu hỏi thường gặp.",
-};
 
 export default function PublicSearchPage() {
   return (

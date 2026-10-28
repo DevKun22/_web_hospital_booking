@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/api";
 import { queryKeys } from "@/lib/query-keys";
 import type { DashboardUser, ListResult } from "@/lib/types";
@@ -26,5 +26,9 @@ export function useDashboardUsers(
     queryKey: queryKeys.dashboardUsers(filters),
     queryFn: () => fetchDashboardUsers(filters),
     enabled,
+    placeholderData: keepPreviousData,
+    staleTime: 30_000,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
   });
 }

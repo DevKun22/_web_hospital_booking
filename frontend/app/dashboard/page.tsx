@@ -1,7 +1,8 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useMemo, useState } from "react";
 import Link from "next/link";
+import { ArrowRight, RefreshCw } from "lucide-react";
 import {
   Area,
   AreaChart,
@@ -18,6 +19,11 @@ import {
   YAxis,
 } from "recharts";
 import { VietnamDateInput } from "@/components/ui/vietnam-date-input";
+import { DashboardPageHeader, DashboardSurface } from "@/components/dashboard/dashboard-ui";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import { AppointmentStatusBadge } from "@/features/appointments/appointment-status";
 import { useAuth } from "@/lib/auth";
 import {
   type DoctorDashboardData,
@@ -25,14 +31,7 @@ import {
   useDoctorDashboardOverview,
 } from "@/lib/dashboard-overview-query";
 import { formatVietnamDate, formatVietnamDateTime, getVietnamDateInput } from "@/lib/date";
-import type {
-  DashboardAppointmentStatistics,
-  DashboardDepartmentStatistics,
-  DashboardDoctorStatistics,
-  DashboardRevenueStatistics,
-  DashboardStatisticsOverview,
-  PaymentMethod,
-} from "@/lib/types";
+import type { PaymentMethod } from "@/lib/types";
 
 const statusLabel: Record<string, string> = {
   PENDING_OTP: "Chờ OTP",
@@ -133,18 +132,18 @@ type MetricCardProps = {
 };
 
 const metricTone = {
-  blue: "border-[#cfe4fa] bg-[#f3f8ff] text-[#0d4f8b]",
-  green: "border-[#c7ead0] bg-[#f0fff4] text-[#1f7a3a]",
-  amber: "border-[#f4d7a1] bg-[#fff8eb] text-[#946200]",
-  red: "border-[#f2b8b5] bg-[#fff3f2] text-[#b3261e]",
-  slate: "border-[#dce3ee] bg-white text-[#172033]",
+  blue: "border-sky-200 bg-sky-50 text-sky-900",
+  green: "border-emerald-200 bg-emerald-50 text-emerald-900",
+  amber: "border-amber-200 bg-amber-50 text-amber-900",
+  red: "border-rose-200 bg-rose-50 text-rose-900",
+  slate: "border-border bg-card text-card-foreground",
 };
 
 function MetricCard({ title, value, tone = "slate", caption }: MetricCardProps) {
   return (
-    <div className={`rounded-md border p-4 ${metricTone[tone]}`}>
-      <p className="text-sm font-medium opacity-80">{title}</p>
-      <p className="mt-2 text-2xl font-semibold">{value}</p>
+    <div className={`rounded-xl border p-4 shadow-xs ${metricTone[tone]}`}>
+      <p className="text-sm font-medium opacity-75">{title}</p>
+      <p className="mt-2 text-2xl font-semibold tracking-tight">{value}</p>
       {caption ? <p className="mt-1 text-xs opacity-70">{caption}</p> : null}
     </div>
   );
@@ -152,7 +151,7 @@ function MetricCard({ title, value, tone = "slate", caption }: MetricCardProps) 
 
 function EmptyChart({ message }: { message: string }) {
   return (
-    <div className="flex h-full min-h-56 items-center justify-center rounded-md border border-dashed border-[#dce3ee] bg-[#f8fafc] px-4 text-center text-sm text-[#667892]">
+    <div className="flex h-full min-h-56 items-center justify-center rounded-xl border border-dashed border-border bg-muted/40 px-4 text-center text-sm text-muted-foreground">
       {message}
     </div>
   );
@@ -170,18 +169,18 @@ function ActionRow({
   tone?: "amber" | "red" | "blue";
 }) {
   const toneClass = {
-    amber: "bg-[#fff8eb] text-[#946200]",
-    red: "bg-[#fff3f2] text-[#b3261e]",
-    blue: "bg-[#f3f8ff] text-[#0d4f8b]",
+    amber: "bg-amber-50 text-amber-800",
+    red: "bg-rose-50 text-rose-800",
+    blue: "bg-sky-50 text-sky-800",
   }[tone];
 
   return (
-    <Link href={href} className="flex items-center justify-between gap-3 rounded-md border border-[#e5ebf3] p-3 hover:border-[#0d4f8b]">
+    <Link href={href} className="group flex items-center justify-between gap-3 rounded-lg border border-border p-3 transition-colors hover:border-primary/40 hover:bg-muted/40">
       <div>
-        <p className="text-sm font-semibold text-[#172033]">{title}</p>
-        <p className="mt-1 text-xs text-[#667892]">Mở màn hình xử lý liên quan</p>
+        <p className="text-sm font-semibold text-foreground">{title}</p>
+        <p className="mt-1 text-xs text-muted-foreground">Mở màn hình xử lý liên quan</p>
       </div>
-      <span className={`rounded-md px-2 py-1 text-sm font-semibold ${toneClass}`}>{value}</span>
+      <span className={`rounded-lg px-2 py-1 text-sm font-semibold ${toneClass}`}>{value}</span>
     </Link>
   );
 }
@@ -202,16 +201,16 @@ function SearchAnalyticsList({
     : "bg-[#e7f0fb] text-[#0d4f8b]";
 
   return (
-    <div className="rounded-md border border-[#eef2f7] bg-[#f8fafc] p-4">
-      <h4 className="text-sm font-semibold text-[#172033]">{title}</h4>
+    <div className="rounded-xl border border-border bg-muted/30 p-4">
+      <h4 className="text-sm font-semibold text-foreground">{title}</h4>
       <div className="mt-3 space-y-2">
         {items.length ? items.map((item, index) => (
-          <div key={`${item.label}-${index}`} className="flex items-center justify-between gap-3 rounded-md bg-white px-3 py-2 text-sm">
-            <span className="min-w-0 truncate text-[#42526b]">{item.label}</span>
+          <div key={`${item.label}-${index}`} className="flex items-center justify-between gap-3 rounded-lg bg-card px-3 py-2 text-sm">
+            <span className="min-w-0 truncate text-foreground/80">{item.label}</span>
             <span className={`shrink-0 rounded-md px-2 py-1 text-xs font-semibold ${badgeClass}`}>{item.value}</span>
           </div>
         )) : (
-          <p className="rounded-md border border-dashed border-[#dce3ee] bg-white px-3 py-4 text-center text-xs text-[#667892]">
+          <p className="rounded-lg border border-dashed border-border bg-card px-3 py-4 text-center text-xs text-muted-foreground">
             {empty}
           </p>
         )}
@@ -229,14 +228,6 @@ function DashboardPage() {
   const [from, setFrom] = useState(monthRange.from);
   const [to, setTo] = useState(monthRange.to);
   const [appliedRange, setAppliedRange] = useState(monthRange);
-  const [overview, setOverview] = useState<DashboardStatisticsOverview | null>(null);
-  const [appointments, setAppointments] = useState<DashboardAppointmentStatistics | null>(null);
-  const [revenue, setRevenue] = useState<DashboardRevenueStatistics | null>(null);
-  const [doctors, setDoctors] = useState<DashboardDoctorStatistics | null>(null);
-  const [departments, setDepartments] = useState<DashboardDepartmentStatistics | null>(null);
-  const [error, setError] = useState("");
-  const [doctorDashboard, setDoctorDashboard] = useState<DoctorDashboardData | null>(null);
-  const [doctorError, setDoctorError] = useState("");
 
   const statisticsQuery = useMemo(
     () => ({
@@ -249,44 +240,22 @@ function DashboardPage() {
   const doctorDashboardResult = useDoctorDashboardOverview(todayDate, isDoctorDashboard);
   const loading = statisticsResult.isLoading;
   const doctorLoading = doctorDashboardResult.isLoading;
-
-  useEffect(() => {
-    const timeoutId = window.setTimeout(() => {
-      if (!statisticsResult.data) return;
-      setOverview(statisticsResult.data.overview);
-      setAppointments(statisticsResult.data.appointments);
-      setRevenue(statisticsResult.data.revenue);
-      setDoctors(statisticsResult.data.doctors);
-      setDepartments(statisticsResult.data.departments);
-      setError("");
-    }, 0);
-    return () => window.clearTimeout(timeoutId);
-  }, [statisticsResult.data]);
-
-  useEffect(() => {
-    if (!statisticsResult.error) return;
-    const timeoutId = window.setTimeout(() => {
-      setError(statisticsResult.error instanceof Error ? statisticsResult.error.message : "Không tải được thống kê tổng quan");
-    }, 0);
-    return () => window.clearTimeout(timeoutId);
-  }, [statisticsResult.error]);
-
-  useEffect(() => {
-    const timeoutId = window.setTimeout(() => {
-      if (!doctorDashboardResult.data) return;
-      setDoctorDashboard(doctorDashboardResult.data);
-      setDoctorError("");
-    }, 0);
-    return () => window.clearTimeout(timeoutId);
-  }, [doctorDashboardResult.data]);
-
-  useEffect(() => {
-    if (!doctorDashboardResult.error) return;
-    const timeoutId = window.setTimeout(() => {
-      setDoctorError(doctorDashboardResult.error instanceof Error ? doctorDashboardResult.error.message : "Không tải được tổng quan bác sĩ");
-    }, 0);
-    return () => window.clearTimeout(timeoutId);
-  }, [doctorDashboardResult.error]);
+  const overview = statisticsResult.data?.overview ?? null;
+  const appointments = statisticsResult.data?.appointments ?? null;
+  const revenue = statisticsResult.data?.revenue ?? null;
+  const doctors = statisticsResult.data?.doctors ?? null;
+  const departments = statisticsResult.data?.departments ?? null;
+  const doctorDashboard: DoctorDashboardData | null = doctorDashboardResult.data ?? null;
+  const error = statisticsResult.error
+    ? statisticsResult.error instanceof Error
+      ? statisticsResult.error.message
+      : "Không tải được thống kê tổng quan"
+    : "";
+  const doctorError = doctorDashboardResult.error
+    ? doctorDashboardResult.error instanceof Error
+      ? doctorDashboardResult.error.message
+      : "Không tải được tổng quan bác sĩ"
+    : "";
   const applyFilter = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setAppliedRange({ from, to });
@@ -368,36 +337,30 @@ function DashboardPage() {
   if (isDoctorDashboard) {
     return (
       <div className="space-y-6">
-        <section className="rounded-md border border-[#dce3ee] bg-white p-5">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <div>
-              <p className="text-sm font-medium text-[#55708f]">Xin chào, {user?.fullName}</p>
-              <h2 className="mt-1 text-2xl font-semibold text-[#172033]">Tổng quan bác sĩ</h2>
-              <p className="mt-2 text-sm text-[#667892]">
-                Dữ liệu được lấy từ các API đã giới hạn theo tài khoản bác sĩ, ngày {formatDate(todayDate)}.
-              </p>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={() => void doctorDashboardResult.refetch()}
-                className="rounded-md border border-[#cfd8e6] px-4 py-2 text-sm font-semibold text-[#42526b] hover:bg-[#f8fafc]"
-              >
+        <DashboardPageHeader
+          eyebrow={`Xin chào, ${user?.fullName || "bác sĩ"}`}
+          title="Tổng quan bác sĩ"
+          description={`Hàng đợi khám, hồ sơ cần hoàn thiện và lịch làm việc ngày ${formatDate(todayDate)}.`}
+          actions={(
+            <>
+              <Button type="button" variant="outline" size="lg" onClick={() => void doctorDashboardResult.refetch()} disabled={doctorDashboardResult.isFetching}>
+                <RefreshCw className={doctorDashboardResult.isFetching ? "animate-spin" : ""} />
                 Làm mới
-              </button>
-              <Link href="/dashboard/appointments" className="rounded-md bg-[#0d4f8b] px-4 py-2 text-sm font-semibold text-white hover:bg-[#083d6d]">
-                Mở lịch hẹn
-              </Link>
-            </div>
-          </div>
-        </section>
+              </Button>
+              <Button asChild size="lg"><Link href="/dashboard/appointments">Mở lịch hẹn <ArrowRight /></Link></Button>
+            </>
+          )}
+        />
 
         {doctorError ? (
-          <section className="rounded-md border border-[#f2b8b5] bg-[#fff3f2] p-4 text-sm text-[#b3261e]">{doctorError}</section>
+          <Alert variant="destructive"><AlertTitle>Không tải được tổng quan</AlertTitle><AlertDescription>{doctorError}</AlertDescription></Alert>
         ) : null}
 
         {doctorLoading ? (
-          <section className="rounded-md border border-[#dce3ee] bg-white p-8 text-center text-sm text-[#667892]">Đang tải tổng quan bác sĩ...</section>
+          <DashboardSurface className="grid gap-3 p-5">
+            <Skeleton className="h-20 w-full" />
+            <Skeleton className="h-20 w-full" />
+          </DashboardSurface>
         ) : null}
 
         <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
@@ -484,9 +447,7 @@ function DashboardPage() {
                     </td>
                     <td className="border-b border-[#eef2f7] py-3">{item.startTime} - {item.endTime}</td>
                     <td className="border-b border-[#eef2f7] py-3">{item.reason || "Khám bác sĩ"}</td>
-                    <td className="border-b border-[#eef2f7] py-3">
-                      <span className="rounded-md bg-[#f1f5f9] px-2 py-1 text-xs font-semibold text-[#42526b]">{statusLabel[item.status] || item.status}</span>
-                    </td>
+                    <td className="border-b border-[#eef2f7] py-3"><AppointmentStatusBadge status={item.status} /></td>
                     <td className="border-b border-[#eef2f7] py-3">
                       <div className="flex justify-end gap-2">
                         <Link href="/dashboard/appointments" className="rounded-md border border-[#cfd8e6] px-3 py-1.5 text-xs font-medium text-[#42526b]">Lịch hẹn</Link>
@@ -528,36 +489,35 @@ function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      <section className="rounded-md border border-[#dce3ee] bg-white p-5">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-          <div>
-            <p className="text-sm font-medium text-[#55708f]">Xin chào, {user?.fullName}</p>
-            <h2 className="mt-1 text-2xl font-semibold text-[#172033]">Tổng quan vận hành</h2>
-            <p className="mt-2 text-sm text-[#667892]">
-              Dữ liệu từ API thống kê theo khoảng {formatDate(appliedRange.from)} - {formatDate(appliedRange.to)}.
-            </p>
-          </div>
+      <DashboardPageHeader
+        eyebrow={`Xin chào, ${user?.fullName || "quản trị viên"}`}
+        title="Tổng quan vận hành"
+        description={`Theo dõi hoạt động khám và doanh thu từ ${formatDate(appliedRange.from)} đến ${formatDate(appliedRange.to)}.`}
+        actions={(
           <form onSubmit={applyFilter} className="grid gap-2 sm:grid-cols-[150px_150px_auto_auto]">
             <label className="block">
-              <span className="text-xs font-medium text-[#667892]">Từ ngày</span>
-              <VietnamDateInput value={from} onChange={setFrom} ariaLabel="Từ ngày thống kê" className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" />
+              <span className="text-xs font-medium text-muted-foreground">Từ ngày</span>
+              <VietnamDateInput value={from} onChange={setFrom} ariaLabel="Từ ngày thống kê" className="mt-1 h-9 w-full rounded-lg border border-input bg-transparent px-3 text-sm outline-none focus:border-ring focus:ring-3 focus:ring-ring/50" />
             </label>
             <label className="block">
-              <span className="text-xs font-medium text-[#667892]">Đến ngày</span>
-              <VietnamDateInput value={to} onChange={setTo} ariaLabel="Đến ngày thống kê" className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" />
+              <span className="text-xs font-medium text-muted-foreground">Đến ngày</span>
+              <VietnamDateInput value={to} onChange={setTo} ariaLabel="Đến ngày thống kê" className="mt-1 h-9 w-full rounded-lg border border-input bg-transparent px-3 text-sm outline-none focus:border-ring focus:ring-3 focus:ring-ring/50" />
             </label>
-            <button className="self-end rounded-md bg-[#0d4f8b] px-4 py-2 text-sm font-semibold text-white hover:bg-[#083d6d]">Áp dụng</button>
-            <button type="button" onClick={resetMonth} className="self-end rounded-md border border-[#cfd8e6] px-4 py-2 text-sm font-semibold text-[#42526b] hover:bg-[#f8fafc]">Tháng này</button>
+            <Button className="self-end" size="lg">Áp dụng</Button>
+            <Button type="button" variant="outline" size="lg" onClick={resetMonth} className="self-end">Tháng này</Button>
           </form>
-        </div>
-      </section>
+        )}
+      />
 
       {error ? (
-        <section className="rounded-md border border-[#f2b8b5] bg-[#fff3f2] p-4 text-sm text-[#b3261e]">{error}</section>
+        <Alert variant="destructive"><AlertTitle>Không tải được thống kê</AlertTitle><AlertDescription>{error}</AlertDescription></Alert>
       ) : null}
 
       {loading ? (
-        <section className="rounded-md border border-[#dce3ee] bg-white p-8 text-center text-sm text-[#667892]">Đang tải thống kê...</section>
+        <DashboardSurface className="grid gap-3 p-5">
+          <Skeleton className="h-24 w-full" />
+          <Skeleton className="h-24 w-full" />
+        </DashboardSurface>
       ) : null}
 
       {overview ? (
@@ -657,7 +617,12 @@ function DashboardPage() {
             </div>
             <div className="mt-4 h-72">
               {hasAppointmentTrend ? (
-                <ResponsiveContainer width="100%" height="100%">
+                <ResponsiveContainer
+                  width="100%"
+                  height="100%"
+                  minWidth={0}
+                  initialDimension={{ width: 720, height: 288 }}
+                >
                   <BarChart data={appointmentDaily}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#e5ebf3" />
                     <XAxis dataKey="label" tick={{ fontSize: 11 }} minTickGap={18} />
@@ -694,7 +659,12 @@ function DashboardPage() {
           <p className="mt-1 text-sm text-[#667892]">Đã thu, hoàn tiền và doanh thu thuần.</p>
           <div className="mt-4 h-72">
             {hasRevenueTrend ? (
-              <ResponsiveContainer width="100%" height="100%">
+              <ResponsiveContainer
+                width="100%"
+                height="100%"
+                minWidth={0}
+                initialDimension={{ width: 720, height: 288 }}
+              >
                 <AreaChart data={revenueDaily}>
                   <defs>
                     <linearGradient id="netRevenue" x1="0" x2="0" y1="0" y2="1">
@@ -724,7 +694,12 @@ function DashboardPage() {
           </div>
           <div className="mt-4 h-56">
             {hasPaymentMethod ? (
-              <ResponsiveContainer width="100%" height="100%">
+              <ResponsiveContainer
+                width="100%"
+                height="100%"
+                minWidth={0}
+                initialDimension={{ width: 420, height: 224 }}
+              >
                 <PieChart>
                   <Pie data={paymentMethodData} dataKey="amount" nameKey="label" innerRadius={44} outerRadius={78} paddingAngle={2}>
                     {paymentMethodData.map((_, index) => <Cell key={index} fill={pieColors[index % pieColors.length]} />)}
@@ -751,7 +726,12 @@ function DashboardPage() {
           <h3 className="font-semibold">Trạng thái lịch hẹn</h3>
           <div className="mt-4 h-72">
             {hasAppointmentStatus ? (
-              <ResponsiveContainer width="100%" height="100%">
+              <ResponsiveContainer
+                width="100%"
+                height="100%"
+                minWidth={0}
+                initialDimension={{ width: 720, height: 288 }}
+              >
                 <BarChart data={appointmentStatusData} layout="vertical" margin={{ left: 18 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#e5ebf3" />
                   <XAxis type="number" allowDecimals={false} tick={{ fontSize: 11 }} />
@@ -835,7 +815,7 @@ function DashboardPage() {
                     <td className="border-b border-[#eef2f7] py-3"><p>{item.patientName}</p><p className="mt-1 text-xs text-[#667892]">{item.patientPhone}</p></td>
                     <td className="border-b border-[#eef2f7] py-3">{item.doctor.title ? `${item.doctor.title} ` : ""}{item.doctor.user.fullName}</td>
                     <td className="border-b border-[#eef2f7] py-3">{formatDateTime(item.appointmentDate)} - {item.startTime}</td>
-                    <td className="border-b border-[#eef2f7] py-3"><span className="rounded-md bg-[#f1f5f9] px-2 py-1 text-xs font-semibold text-[#42526b]">{statusLabel[item.status] || item.status}</span></td>
+                    <td className="border-b border-[#eef2f7] py-3"><AppointmentStatusBadge status={item.status} /></td>
                   </tr>
                 )) : <tr><td colSpan={5} className="py-8 text-center text-[#667892]">Chưa có lịch hẹn trong khoảng này.</td></tr>}
               </tbody>

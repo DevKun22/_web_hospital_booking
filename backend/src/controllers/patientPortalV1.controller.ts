@@ -1,9 +1,11 @@
 import type { NextFunction, Request, Response } from "express";
+import { isFirebaseAdminConfigured } from "../config/firebaseAdmin.js";
 import type { AppointmentStatus, InvoiceStatus } from "../../generated/prisma/enums.js";
 import PatientPortalService from "../services/patientPortal.service.js";
 import SecureMedicalFileService from "../services/secureMedicalFile.service.js";
 import { AppError } from "../utils/appError.js";
 import { parsePagination } from "../utils/pagination.js";
+import PaymentService from "../services/payment.service.js";
 
 const appointmentStatuses = new Set<AppointmentStatus>([
   "PENDING_OTP", "PENDING_CONFIRM", "CONFIRMED", "CHECKED_IN",
@@ -132,16 +134,26 @@ export const getPatientInvoiceHandler = async (req: Request, res: Response, next
   } catch (error) { next(error); }
 };
 
-export const patientCapabilitiesHandler = (_req: Request, res: Response) =>
-  res.json({
+export const patientCapabilitiesHandler = (_req: Request, res: Response) => {
+  const pushDeliveryEnabled = isFirebaseAdminConfigured();
+  const paymentProviders = PaymentService.getCapabilities().providers;
+  return res.json({
     success: true,
     data: {
       apiVersion: "v1",
       payment: {
-        enabled: false,
-        reason: "PAYMENT_EXCLUDED_FROM_PATIENT_MVP",
-        supportedProviders: [],
+        enabled: paymentProviders.length > 0,
+        reason:
+          paymentProviders.length > 0
+            ? null
+            : "PAYMENT_PROVIDER_NOT_CONFIGURED",
+        supportedProviders: paymentProviders.map((item) => item.provider),
       },
-      pushNotifications: { enabled: false },
+      notifications: {
+        inAppInbox: true,
+        pushDelivery: pushDeliveryEnabled,
+      },
+      pushNotifications: { enabled: pushDeliveryEnabled },
     },
   });
+};

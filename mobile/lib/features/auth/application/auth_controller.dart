@@ -5,6 +5,7 @@ import 'package:hospital_booking_mobile/core/errors/api_exception.dart';
 import 'package:hospital_booking_mobile/core/providers/app_providers.dart';
 import 'package:hospital_booking_mobile/features/auth/application/auth_state.dart';
 import 'package:hospital_booking_mobile/features/auth/domain/patient_user.dart';
+import 'package:hospital_booking_mobile/features/notifications/data/push_messaging_gateway.dart';
 
 final authControllerProvider = NotifierProvider<AuthController, AuthState>(
   AuthController.new,
@@ -127,6 +128,11 @@ class AuthController extends Notifier<AuthState> {
     state = AuthState(status: AuthStatus.loggingOut, user: user);
     try {
       await ref.read(authRepositoryProvider).logout();
+      try {
+        await ref.read(pushMessagingGatewayProvider).deleteToken();
+      } catch (_) {
+        // Logout remains successful when Firebase is temporarily unavailable.
+      }
       state = const AuthState.loggedOut();
       return true;
     } finally {

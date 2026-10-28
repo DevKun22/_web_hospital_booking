@@ -60,15 +60,26 @@ class ChatbotActionService {
     draft: ChatBookingDraft,
     maxSuggestedActions = 3,
   ) {
+    const checkedActions = await Promise.all(
+      actions.map(async (action) => {
+        if (!allowedActionTypes.has(action.type)) return null;
+        const payload = isObject(action.payload) ? action.payload : {};
+        if (!(await this.isPayloadValid(action.type, payload))) return null;
+
+        return {
+          type: action.type,
+          label: action.label || defaultActionLabels[action.type],
+          payload,
+        } satisfies SuggestedAction;
+      }),
+    );
+
     const validActions: SuggestedAction[] = [];
     const seen = new Set<string>();
 
-    for (const action of actions) {
-      if (!allowedActionTypes.has(action.type)) continue;
-
-      const payload = isObject(action.payload) ? action.payload : {};
-
-      if (await this.isPayloadValid(action.type, payload)) {
+    for (const action of checkedActions) {
+      if (action) {
+        const payload = action.payload;
         const actionKey = [
           action.type,
           getString(payload, "departmentId") ||
@@ -86,7 +97,7 @@ class ChatbotActionService {
 
         validActions.push({
           type: action.type,
-          label: action.label || defaultActionLabels[action.type],
+          label: action.label,
           payload,
         });
       }
