@@ -44,7 +44,11 @@ jobs:
         run: |
           forbidden="$(git ls-files 'backend/.env' 'backend/secrets/**' 'mobile/config/dev.json' 'mobile/config/prod.json')"
           test -z "$forbidden" || { echo "Local secret/config files are tracked:"; echo "$forbidden"; exit 1; }
-          ! git grep -n -- '-----BEGIN PRIVATE KEY-----'
+          private_key_marker='-----BEGIN PRIVATE'' KEY-----'
+          if git grep -n -- "$private_key_marker"; then
+            echo "A tracked private key marker was found."
+            exit 1
+          fi
       - uses: actions/setup-node@v4
         with:
           node-version: 22
