@@ -54,6 +54,7 @@ export const buildIntegrationEnvironment = () => {
     ...process.env,
     NODE_ENV: "test",
     DATABASE_URL: testDatabaseUrl,
+    QUEUE_REDIS_URL: "",
     REDIS_URL: "",
     OTP_DEBUG_ENABLED: "true",
     JWT_SECRET: "phase0_test_jwt_secret_at_least_32_chars",

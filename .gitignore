@@ -34,6 +34,7 @@ frontend/out/
 .codex/
 .eslintcache
 *.tsbuildinfo
+.frontend-dev.pid
 
 # Graphify keeps the project graph at the repository root. Local AST caches
 # and per-package graphs are rebuildable intermediates and should stay local.
@@ -88,4 +89,9 @@ docs/*
 !docs/nghien-cuu-uiux-vinmec-va-de-xuat-ap-dung.md
 !docs/van-hanh-thong-bao.md
 !docs/checklist-kiem-thu-production-thiet-bi-that.md
+!docs/docker-architecture.md
+!docs/docker-architecture-flow.html
+
+# Archify working candidates and browser-check evidence (final HTML stays in docs/)
+.archify/
 tools

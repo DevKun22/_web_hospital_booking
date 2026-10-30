@@ -254,6 +254,10 @@ POST               /api/uploads/images/cleanup-unused
 
 ## Cài Đặt Local
 
+### Hạ tầng Docker (khuyến nghị)
+
+Docker có thể cấp PostgreSQL, Redis, backend API và các worker bằng một quy trình có health check và migration gate. Xem [tài liệu kiến trúc Docker](docs/docker-architecture.md) để chọn chế độ chỉ chạy hạ tầng hoặc chạy đầy đủ backend.
+
 ### Backend
 
 ```bash

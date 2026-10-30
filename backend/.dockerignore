@@ -1,0 +1,13 @@
+node_modules
+dist
+generated
+coverage
+test
+graphify-out
+.env
+.env.*
+secrets
+*.log
+Dockerfile*
+.git
+.gitignore
