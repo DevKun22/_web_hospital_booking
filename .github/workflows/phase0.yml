@@ -31,10 +31,20 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
 
     env:
       TEST_DATABASE_URL: postgresql://phase0:phase0@127.0.0.1:5432/hospital_booking_test
       DATABASE_URL: postgresql://phase0:phase0@127.0.0.1:5432/hospital_booking_ci_placeholder
+      QUEUE_REDIS_URL: redis://127.0.0.1:6379/0
       CLOUDINARY_URL: cloudinary://ci_test_key:ci_test_secret@ci_test_cloud
 
     steps:
@@ -69,6 +79,16 @@ jobs:
       - name: Build backend
         working-directory: backend
         run: npm run build
+      - name: Validate Docker Compose configuration
+        run: docker compose -f compose.yaml -f compose.backend.yaml config --quiet
+
+      - name: Validate remote database Compose override
+        env:
+          DATABASE_URL: postgresql://ci_placeholder:ci_placeholder@db.example.invalid:5432/hospital_booking_demo?sslmode=require
+          HOSPITAL_REMOTE_ENV_FILE: /dev/null
+        run: docker compose -f compose.yaml -f compose.backend.yaml -f compose.remote-db.yaml --profile notifications config --quiet
+      - name: Build backend runtime image
+        run: docker build --target runtime --tag hospital-booking-backend:ci ./backend
 
       - name: Install frontend dependencies
         working-directory: frontend

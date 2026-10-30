@@ -1,0 +1,54 @@
+x-remote-environment: &remote-environment
+  NODE_ENV: development
+  DATABASE_URL: ${DATABASE_URL:?DATABASE_URL must be supplied through the normalized remote environment file}
+  TEST_DATABASE_URL: ""
+  REDIS_URL: redis://redis:6379/0
+  QUEUE_REDIS_URL: redis://redis:6379/0
+  FRONTEND_URL: http://localhost:${HOSPITAL_FRONTEND_PORT:-3000}
+  FRONTEND_URLS: ${HOSPITAL_REMOTE_FRONTEND_URLS:-http://localhost:3000,http://localhost:3001}
+  APP_BASE_URL: http://localhost:${HOSPITAL_BACKEND_PORT:-4000}
+  DASHBOARD_COOKIE_SAME_SITE: lax
+  JWT_SECRET: ${JWT_SECRET:-docker_remote_dev_jwt_secret_not_for_production_2026}
+  OTP_SECRET: ${OTP_SECRET:-docker_remote_dev_otp_secret_not_for_production_2026}
+  LOOKUP_GRANT_SECRET: ${LOOKUP_GRANT_SECRET:-docker_remote_dev_lookup_secret_not_for_production_2026}
+  OTP_DEBUG_ENABLED: "true"
+  PAYMENT_MOCK_ENABLED: ${PAYMENT_MOCK_ENABLED:-true}
+  PAYMENT_MOMO_ENABLED: ${PAYMENT_MOMO_ENABLED:-false}
+  CLOUDINARY_URL: ${CLOUDINARY_URL:-cloudinary://docker_local_key:docker_local_secret@docker_local_cloud}
+  ELASTICSEARCH_ENABLED: ${ELASTICSEARCH_ENABLED:-false}
+  GOOGLE_APPLICATION_CREDENTIALS: ""
+  FIREBASE_SERVICE_ACCOUNT_BASE64: ${FIREBASE_SERVICE_ACCOUNT_BASE64:-}
+
+x-remote-service: &remote-service
+  env_file:
+    - ${HOSPITAL_REMOTE_ENV_FILE:?HOSPITAL_REMOTE_ENV_FILE must point to a normalized temporary env file}
+  environment: *remote-environment
+
+services:
+  # Remote mode never applies migrations implicitly. Run the explicit migration
+  # command from the documentation only after reviewing the target database.
+  backend-migrate:
+    <<: *remote-service
+    command:
+      [
+        "node",
+        "-e",
+        "console.log('[MIGRATION] skipped in remote-db mode; run the reviewed migration command explicitly')",
+      ]
+
+  backend-api:
+    <<: *remote-service
+
+  otp-worker:
+    <<: *remote-service
+
+  appointment-worker:
+    <<: *remote-service
+
+  notification-worker:
+    <<: *remote-service
+    environment:
+      <<: *remote-environment
+      GOOGLE_APPLICATION_CREDENTIALS: /run/secrets/firebase-admin.json
+    volumes:
+      - ./backend/secrets/firebase-admin.local.json:/run/secrets/firebase-admin.json:ro
