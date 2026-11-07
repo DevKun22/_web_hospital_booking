@@ -1452,7 +1452,7 @@ export function PublicBookingWidget({
                   <p className="text-xs font-medium leading-5">
                     Nếu lỡ thoát màn hình này, hãy vào{" "}
                     <Link
-                      href={`/tra-cuu-lich-hen?bookingCode=${pending.bookingCode}&phone=${pending.patientPhone}`}
+                      href={`/tai-khoan/dang-nhap?next=/tai-khoan/lich-hen&phone=${pending.patientPhone}`}
                       className="font-semibold underline underline-offset-2"
                     >
                       Tra cứu lịch hẹn
@@ -1503,7 +1503,7 @@ export function PublicBookingWidget({
                   Đổi lịch và trả khung giờ đang giữ
                 </button>
                 <Link
-                  href={`/tra-cuu-lich-hen?bookingCode=${pending.bookingCode}&phone=${pending.patientPhone}`}
+                  href={`/tai-khoan/dang-nhap?next=/tai-khoan/lich-hen&phone=${pending.patientPhone}`}
                   className="mt-2 inline-flex w-full items-center justify-center rounded-md border border-[#cfd8e6] px-4 py-2.5 text-sm font-semibold text-[#42526b] hover:bg-[#f8fafc]"
                 >
                   Xác thực lại qua tra cứu
@@ -1575,7 +1575,7 @@ export function PublicBookingWidget({
                   </p>
                 </div>
                 <Link
-                  href={`/tra-cuu-lich-hen?bookingCode=${verifiedAppointment.bookingCode}&phone=${verifiedAppointment.patientPhone}`}
+                  href={`/tai-khoan/dang-nhap?next=/tai-khoan/lich-hen&phone=${verifiedAppointment.patientPhone}`}
                   className="mt-4 inline-flex w-full items-center justify-center rounded-md border border-[#cfd8e6] px-4 py-2.5 text-sm font-semibold text-[#42526b] hover:bg-[#f8fafc]"
                 >
                   Tra cứu lịch hẹn

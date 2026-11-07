@@ -197,7 +197,7 @@ export function PublicChatbotWidget() {
 
     if (action.type === "LOOKUP_APPOINTMENT") {
       window.setTimeout(() => {
-        window.location.href = "/tra-cuu-lich-hen";
+        window.location.href = "/tai-khoan/dang-nhap?next=/tai-khoan/lich-hen";
       }, 450);
       return;
     }
@@ -210,12 +210,9 @@ export function PublicChatbotWidget() {
     }
 
     if (action.type === "CONTACT_STAFF") {
-      window.dispatchEvent(new Event("open-consultation-request"));
       window.setTimeout(() => {
-        document
-          .getElementById("consultation")
-          ?.scrollIntoView({ behavior: "smooth", block: "center" });
-      }, 100);
+        window.location.href = "/ho-tro";
+      }, 450);
       return;
     }
 

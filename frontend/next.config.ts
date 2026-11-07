@@ -52,7 +52,12 @@ const nextConfig: NextConfig = {
       },
       {
         source: "/appointments/lookup",
-        destination: "/tra-cuu-lich-hen",
+        destination: "/tai-khoan/dang-nhap?next=/tai-khoan/lich-hen",
+        permanent: true,
+      },
+      {
+        source: "/tra-cuu-lich-hen",
+        destination: "/tai-khoan/dang-nhap?next=/tai-khoan/lich-hen",
         permanent: true,
       },
       {

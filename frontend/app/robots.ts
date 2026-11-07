@@ -11,7 +11,7 @@ export default function robots(): MetadataRoute.Robots {
           "/dashboard",
           "/dashboard/",
           "/login",
-          "/tra-cuu-lich-hen",
+          "/tai-khoan",
           "/tim-kiem",
           "/thanh-toan",
           "/thanh-toan/",

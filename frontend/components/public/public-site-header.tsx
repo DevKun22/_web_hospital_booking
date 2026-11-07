@@ -211,7 +211,7 @@ export function PublicSiteHeader({
           <div className="hidden items-center gap-2 xl:flex">
             <ThemeToggle />
             <Link
-              href="/tra-cuu-lich-hen"
+              href="/tai-khoan/dang-nhap?next=/tai-khoan/lich-hen"
               className="inline-flex min-h-11 items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold text-[var(--public-text-soft)] transition hover:bg-[var(--public-surface-muted)] hover:text-[var(--public-primary)]"
             >
               <CalendarCheck className="h-4 w-4" aria-hidden="true" />
@@ -314,7 +314,7 @@ export function PublicSiteHeader({
               <Link href="/tim-kiem" onClick={() => setMobileOpen(false)} className="block min-h-12 rounded-xl px-4 py-3 text-sm font-semibold text-[var(--public-text-soft)] hover:bg-[var(--public-surface-muted)]">
                 Tìm kiếm dịch vụ
               </Link>
-              <Link href="/tra-cuu-lich-hen" onClick={() => setMobileOpen(false)} className="block min-h-12 rounded-xl px-4 py-3 text-sm font-semibold text-[var(--public-text-soft)] hover:bg-[var(--public-surface-muted)]">
+              <Link href="/tai-khoan/dang-nhap?next=/tai-khoan/lich-hen" onClick={() => setMobileOpen(false)} className="block min-h-12 rounded-xl px-4 py-3 text-sm font-semibold text-[var(--public-text-soft)] hover:bg-[var(--public-surface-muted)]">
                 Tra cứu lịch hẹn
               </Link>
               <PatientIdentity

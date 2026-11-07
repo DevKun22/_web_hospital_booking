@@ -156,7 +156,7 @@ function PublicServiceHub() {
   ];
 
   const utilityItems = [
-    { title: "Tra cứu lịch hẹn", href: "/tra-cuu-lich-hen", icon: ShieldCheck },
+    { title: "Tra cứu lịch hẹn", href: "/tai-khoan/dang-nhap?next=/tai-khoan/lich-hen", icon: ShieldCheck },
     { title: "Tìm kiếm dịch vụ", href: "/tim-kiem", icon: Search },
     { title: "Hỏi đáp & hướng dẫn", href: "/ho-tro", icon: HelpCircle },
   ];

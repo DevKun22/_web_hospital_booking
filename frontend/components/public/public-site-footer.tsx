@@ -86,7 +86,7 @@ export function PublicSiteFooter({
           <div className="mt-4 space-y-3 text-sm text-[var(--public-muted)]">
             <Link className="block transition hover:text-[var(--public-primary)]" href="/ho-tro">Trung tâm hỗ trợ</Link>
             <Link className="block transition hover:text-[var(--public-primary)]" href="/huong-dan/dat-lich">Hướng dẫn đặt lịch</Link>
-            <Link className="block transition hover:text-[var(--public-primary)]" href="/tra-cuu-lich-hen">Tra cứu lịch hẹn</Link>
+            <Link className="block transition hover:text-[var(--public-primary)]" href="/tai-khoan/dang-nhap?next=/tai-khoan/lich-hen">Tra cứu lịch hẹn</Link>
             <Link className="block transition hover:text-[var(--public-primary)]" href="/hoi-dap">Câu hỏi thường gặp</Link>
           </div>
         </div>

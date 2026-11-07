@@ -35,7 +35,7 @@ export const resolveSupportSearchUrl = (input: {
       "otp lai",
     ])
   ) {
-    return "/tra-cuu-lich-hen";
+    return "/tai-khoan/dang-nhap?next=/tai-khoan/lich-hen";
   }
 
   if (

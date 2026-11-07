@@ -38,14 +38,14 @@ const steps = [
     title: "Xác thực OTP",
     text: "Sau khi tạo lịch, hệ thống gửi OTP qua SMS hoặc email. Xác thực thành công thì lịch chuyển sang trạng thái chờ xác nhận.",
     icon: <ShieldCheck className="h-5 w-5" />,
-    href: "/tra-cuu-lich-hen",
+    href: "/tai-khoan/dang-nhap?next=/tai-khoan/lich-hen",
     action: "Tra cứu lịch",
   },
   {
     title: "Theo dõi trạng thái",
     text: "Dùng mã lịch và số điện thoại để tra cứu. Nếu quên mã lịch, xác thực OTP bằng số điện thoại để xem lịch gần đây.",
     icon: <Search className="h-5 w-5" />,
-    href: "/tra-cuu-lich-hen",
+    href: "/tai-khoan/dang-nhap?next=/tai-khoan/lich-hen",
     action: "Tra cứu ngay",
   },
 ];
