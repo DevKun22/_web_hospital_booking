@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Be_Vietnam_Pro } from "next/font/google";
+import Script from "next/script";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { Analytics } from "@vercel/analytics/next";
 import { Providers } from "@/components/providers";
@@ -87,7 +88,23 @@ export async function generateMetadata(): Promise<Metadata> {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
+  colorScheme: "light dark",
 };
+
+const themeInitializationScript = `
+  (() => {
+    try {
+      const stored = localStorage.getItem("hospital-web-theme");
+      const theme = stored === "light" || stored === "dark"
+        ? stored
+        : (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+      const root = document.documentElement;
+      root.dataset.theme = theme;
+      root.classList.add(theme === "dark" ? "theme-dark" : "theme-light");
+      root.style.colorScheme = theme;
+    } catch {}
+  })();
+`;
 
 export default function RootLayout({
   children,
@@ -95,8 +112,13 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="vi" data-scroll-behavior="smooth" className={beVietnamPro.variable}>
+    <html lang="vi" data-scroll-behavior="smooth" className={beVietnamPro.variable} suppressHydrationWarning>
       <head>
+        <Script
+          id="theme-initialization"
+          strategy="beforeInteractive"
+          dangerouslySetInnerHTML={{ __html: themeInitializationScript }}
+        />
         <link rel="preconnect" href="https://res.cloudinary.com" />
         <link rel="dns-prefetch" href="https://res.cloudinary.com" />
       </head>

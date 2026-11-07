@@ -33,25 +33,25 @@ export function PublicSiteFooter({
   );
 
   return (
-    <footer className="border-t border-white/10 bg-[var(--public-primary-dark)] text-white">
-      <div className="ui-container grid gap-10 py-12 sm:py-14 lg:grid-cols-[1.25fr_0.8fr_0.8fr_1fr]">
+    <footer className="border-t border-[var(--public-divider)] bg-[var(--public-surface)] text-[var(--public-ink)]">
+      <div className="ui-container grid gap-8 py-10 sm:grid-cols-2 sm:gap-10 sm:py-12 lg:grid-cols-[1.25fr_0.8fr_0.8fr_1fr]">
         <div>
           <div className="flex items-center gap-3">
-            <span className="relative flex h-12 w-12 items-center justify-center overflow-hidden rounded-2xl border border-white/15 bg-white/10">
+            <span className="relative flex h-12 w-12 items-center justify-center overflow-hidden rounded-2xl border border-[var(--public-border)] bg-[var(--public-primary-soft)] text-[var(--public-primary)]">
               {logo ? (
-                <Image src={logo} alt="" fill sizes="48px" unoptimized className="object-contain p-1.5" />
+                <Image src={logo} alt="" fill sizes="48px" quality={75} className="object-contain p-1.5" />
               ) : (
                 <HeartPulse className="h-6 w-6" aria-hidden="true" />
               )}
             </span>
             <div>
               <p className="font-bold tracking-[-0.01em]">{hospitalName}</p>
-              <p className="mt-0.5 text-xs font-medium uppercase tracking-[0.14em] text-white/60">
+              <p className="mt-0.5 text-xs font-medium uppercase tracking-[0.14em] text-[var(--public-muted)]">
                 Chăm sóc chủ động
               </p>
             </div>
           </div>
-          <p className="mt-5 max-w-md text-sm leading-7 text-white/70">
+          <p className="mt-5 max-w-md text-sm leading-7 text-[var(--public-muted)]">
             Khám phá chuyên khoa, bác sĩ và gói chăm sóc phù hợp. Đặt lịch trực tuyến và theo dõi hành trình khám bằng thông tin minh bạch.
           </p>
           {socialLinks.length ? (
@@ -62,7 +62,7 @@ export function PublicSiteFooter({
                   href={normalizeExternalUrl(value)}
                   target="_blank"
                   rel="noreferrer"
-                  className="rounded-full border border-white/15 px-3 py-1.5 text-xs font-semibold text-white/76 transition hover:border-white/35 hover:bg-white/10 hover:text-white"
+                  className="rounded-full border border-[var(--public-border)] px-3 py-1.5 text-xs font-semibold text-[var(--public-text-soft)] transition hover:border-[var(--public-primary)] hover:bg-[var(--public-primary-soft)] hover:text-[var(--public-primary-dark)]"
                 >
                   {socialLabel(key)}
                 </a>
@@ -72,52 +72,52 @@ export function PublicSiteFooter({
         </div>
 
         <div>
-          <p className="text-sm font-bold text-white">Khám phá</p>
-          <div className="mt-4 space-y-3 text-sm text-white/68">
-            <Link className="block transition hover:text-white" href="/departments">Chuyên khoa</Link>
-            <Link className="block transition hover:text-white" href="/bac-si">Đội ngũ bác sĩ</Link>
-            <Link className="block transition hover:text-white" href="/packages">Gói khám sức khỏe</Link>
-            <Link className="block transition hover:text-white" href="/search">Tìm kiếm dịch vụ</Link>
+          <p className="text-sm font-bold">Khám phá</p>
+          <div className="mt-4 space-y-3 text-sm text-[var(--public-muted)]">
+            <Link className="block transition hover:text-[var(--public-primary)]" href="/chuyen-khoa">Chuyên khoa</Link>
+            <Link className="block transition hover:text-[var(--public-primary)]" href="/bac-si">Đội ngũ bác sĩ</Link>
+            <Link className="block transition hover:text-[var(--public-primary)]" href="/goi-kham">Gói khám sức khỏe</Link>
+            <Link className="block transition hover:text-[var(--public-primary)]" href="/tim-kiem">Tìm kiếm dịch vụ</Link>
           </div>
         </div>
 
         <div>
-          <p className="text-sm font-bold text-white">Hỗ trợ</p>
-          <div className="mt-4 space-y-3 text-sm text-white/68">
-            <Link className="block transition hover:text-white" href="/guide/booking">Hướng dẫn đặt lịch</Link>
-            <Link className="block transition hover:text-white" href="/appointments/lookup">Tra cứu lịch hẹn</Link>
-            <Link className="block transition hover:text-white" href="/faqs">Câu hỏi thường gặp</Link>
-            <Link className="block transition hover:text-white" href="/#booking">Đặt lịch trực tuyến</Link>
+          <p className="text-sm font-bold">Hỗ trợ</p>
+          <div className="mt-4 space-y-3 text-sm text-[var(--public-muted)]">
+            <Link className="block transition hover:text-[var(--public-primary)]" href="/ho-tro">Trung tâm hỗ trợ</Link>
+            <Link className="block transition hover:text-[var(--public-primary)]" href="/huong-dan/dat-lich">Hướng dẫn đặt lịch</Link>
+            <Link className="block transition hover:text-[var(--public-primary)]" href="/tra-cuu-lich-hen">Tra cứu lịch hẹn</Link>
+            <Link className="block transition hover:text-[var(--public-primary)]" href="/hoi-dap">Câu hỏi thường gặp</Link>
           </div>
         </div>
 
         <div>
-          <p className="text-sm font-bold text-white">Thông tin liên hệ</p>
-          <div className="mt-4 space-y-3 text-sm leading-6 text-white/70">
-            <a href={`tel:${hotline}`} className="flex items-start gap-2.5 transition hover:text-white">
-              <Phone className="mt-1 h-4 w-4 shrink-0 text-[var(--public-accent)]" aria-hidden="true" />
+          <p className="text-sm font-bold">Thông tin liên hệ</p>
+          <div className="mt-4 space-y-3 text-sm leading-6 text-[var(--public-muted)]">
+            <a href={`tel:${hotline}`} className="flex items-start gap-2.5 transition hover:text-[var(--public-primary)]">
+              <Phone className="mt-1 h-4 w-4 shrink-0 text-[var(--public-primary)]" aria-hidden="true" />
               <span>{hotline}</span>
             </a>
             {settings?.email ? (
-              <a href={`mailto:${settings.email}`} className="flex items-start gap-2.5 transition hover:text-white">
-                <Mail className="mt-1 h-4 w-4 shrink-0 text-[var(--public-accent)]" aria-hidden="true" />
+              <a href={`mailto:${settings.email}`} className="flex items-start gap-2.5 transition hover:text-[var(--public-primary)]">
+                <Mail className="mt-1 h-4 w-4 shrink-0 text-[var(--public-primary)]" aria-hidden="true" />
                 <span className="break-all">{settings.email}</span>
               </a>
             ) : null}
             {settings?.workingHours ? (
               <p className="flex items-start gap-2.5">
-                <Clock3 className="mt-1 h-4 w-4 shrink-0 text-[var(--public-accent)]" aria-hidden="true" />
+                <Clock3 className="mt-1 h-4 w-4 shrink-0 text-[var(--public-primary)]" aria-hidden="true" />
                 <span>{settings.workingHours}</span>
               </p>
             ) : null}
             {settings?.address ? (
               <p className="flex items-start gap-2.5">
-                <MapPin className="mt-1 h-4 w-4 shrink-0 text-[var(--public-accent)]" aria-hidden="true" />
+                <MapPin className="mt-1 h-4 w-4 shrink-0 text-[var(--public-primary)]" aria-hidden="true" />
                 <span>{settings.address}</span>
               </p>
             ) : null}
             {settings?.mapUrl ? (
-              <a href={normalizeExternalUrl(settings.mapUrl)} target="_blank" rel="noreferrer" className="inline-flex font-semibold text-white underline decoration-white/30 underline-offset-4 transition hover:decoration-white">
+              <a href={normalizeExternalUrl(settings.mapUrl)} target="_blank" rel="noreferrer" className="inline-flex font-semibold text-[var(--public-primary)] underline decoration-[var(--public-border)] underline-offset-4 transition hover:decoration-[var(--public-primary)]">
                 Xem chỉ đường
               </a>
             ) : null}
@@ -125,9 +125,9 @@ export function PublicSiteFooter({
         </div>
       </div>
 
-      <div className="border-t border-white/10">
-        <div className="ui-container flex flex-col gap-2 py-5 text-xs leading-5 text-white/52 sm:flex-row sm:items-center sm:justify-between">
-          <p>© {new Date().getFullYear()} {hospitalName}. Nền tảng đặt lịch và hỗ trợ người bệnh.</p>
+      <div className="border-t border-[var(--public-divider)] bg-[var(--public-surface-muted)]">
+        <div className="ui-container flex flex-col gap-2 py-5 text-xs leading-5 text-[var(--public-muted)] sm:flex-row sm:items-center sm:justify-between">
+          <p>© {new Date().getFullYear()} {hospitalName}. Nền tảng đặt lịch và hỗ trợ người khám.</p>
           <p>Thông tin trên website không thay thế chẩn đoán hoặc tư vấn trực tiếp của bác sĩ.</p>
         </div>
       </div>

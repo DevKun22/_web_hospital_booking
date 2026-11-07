@@ -2,7 +2,6 @@
 
 import dynamic from "next/dynamic";
 import { BackToTopButton } from "@/components/public/back-to-top-button";
-import { PublicConsultationRequest } from "@/components/public/public-consultation-request";
 
 const PublicChatbotWidget = dynamic(
   () =>
@@ -15,7 +14,6 @@ const PublicChatbotWidget = dynamic(
 export function PublicSiteUtilities() {
   return (
     <>
-      <PublicConsultationRequest />
       <BackToTopButton />
       <PublicChatbotWidget />
     </>

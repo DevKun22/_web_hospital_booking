@@ -6,9 +6,10 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useState,
 } from "react";
 
-type ThemeMode = "light";
+export type ThemeMode = "light" | "dark";
 
 type ThemeContextValue = {
   theme: ThemeMode;
@@ -17,27 +18,74 @@ type ThemeContextValue = {
 };
 
 const ThemeContext = createContext<ThemeContextValue | undefined>(undefined);
-const storageKey = "hospital-dashboard-theme";
+export const themeStorageKey = "hospital-web-theme";
+
+function isThemeMode(value: string | null): value is ThemeMode {
+  return value === "light" || value === "dark";
+}
+
+function systemTheme(): ThemeMode {
+  return window.matchMedia("(prefers-color-scheme: dark)").matches
+    ? "dark"
+    : "light";
+}
+
+function applyTheme(theme: ThemeMode) {
+  const root = document.documentElement;
+  root.dataset.theme = theme;
+  root.classList.toggle("theme-dark", theme === "dark");
+  root.classList.toggle("theme-light", theme === "light");
+  root.style.colorScheme = theme;
+}
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
+  const [theme, setThemeState] = useState<ThemeMode>("light");
+
   useEffect(() => {
-    document.documentElement.dataset.theme = "light";
-    document.documentElement.classList.remove("theme-dark");
-    document.documentElement.classList.add("theme-light");
-    document.documentElement.style.colorScheme = "light";
-    window.localStorage.setItem(storageKey, "light");
+    const storedTheme = window.localStorage.getItem(themeStorageKey);
+    const initialTheme = isThemeMode(storedTheme)
+      ? storedTheme
+      : systemTheme();
+
+    applyTheme(initialTheme);
+    const frame = window.requestAnimationFrame(() => {
+      setThemeState(initialTheme);
+    });
+
+    if (isThemeMode(storedTheme)) {
+      return () => window.cancelAnimationFrame(frame);
+    }
+
+    const media = window.matchMedia("(prefers-color-scheme: dark)");
+    const syncWithSystem = (event: MediaQueryListEvent) => {
+      const nextTheme: ThemeMode = event.matches ? "dark" : "light";
+      setThemeState(nextTheme);
+      applyTheme(nextTheme);
+    };
+    media.addEventListener("change", syncWithSystem);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      media.removeEventListener("change", syncWithSystem);
+    };
   }, []);
 
-  const setTheme = useCallback(() => undefined, []);
-  const toggleTheme = useCallback(() => undefined, []);
+  const setTheme = useCallback((nextTheme: ThemeMode) => {
+    setThemeState(nextTheme);
+    applyTheme(nextTheme);
+    window.localStorage.setItem(themeStorageKey, nextTheme);
+  }, []);
+
+  const toggleTheme = useCallback(() => {
+    setTheme(theme === "dark" ? "light" : "dark");
+  }, [setTheme, theme]);
 
   const value = useMemo(
     () => ({
-      theme: "light" as const,
+      theme,
       toggleTheme,
       setTheme,
     }),
-    [setTheme, toggleTheme],
+    [setTheme, theme, toggleTheme],
   );
 
   return (

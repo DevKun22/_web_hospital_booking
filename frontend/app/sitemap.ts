@@ -67,22 +67,24 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   const staticRoutes: MetadataRoute.Sitemap = [
     route("/", "daily", 1),
-    route("/departments", "weekly", 0.85),
+    route("/dat-lich", "daily", 0.95),
+    route("/chuyen-khoa", "weekly", 0.85),
     route("/bac-si", "weekly", 0.85),
-    route("/packages", "weekly", 0.85),
-    route("/faqs", "weekly", 0.7),
-    route("/guide/booking", "monthly", 0.7),
+    route("/goi-kham", "weekly", 0.85),
+    route("/ho-tro", "weekly", 0.8),
+    route("/hoi-dap", "weekly", 0.7),
+    route("/huong-dan/dat-lich", "monthly", 0.7),
   ];
 
   const departmentRoutes =
     departments
       ?.filter((item) => item.slug)
-      .map((item) => route(`/departments/${encodeURIComponent(item.slug!)}`, "weekly", 0.75, item.updatedAt)) || [];
+      .map((item) => route(`/chuyen-khoa/${encodeURIComponent(item.slug!)}`, "weekly", 0.75, item.updatedAt)) || [];
 
   const doctorRoutes = doctors?.map((item) => route(`/bac-si/${encodeURIComponent(item.slug || item.id)}`, "weekly", 0.65, item.updatedAt)) || [];
 
   const packageRoutes =
-    packages?.map((item) => route(`/packages/${encodeURIComponent(item.slug || item.id)}`, "weekly", 0.75, item.updatedAt)) || [];
+    packages?.map((item) => route(`/goi-kham/${encodeURIComponent(item.slug || item.id)}`, "weekly", 0.75, item.updatedAt)) || [];
 
   return [
     ...staticRoutes,

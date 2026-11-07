@@ -37,18 +37,11 @@ export function BackToTopButton() {
   if (!visible || floatingPanelOpen) return null;
 
   return (
-    <div className="public-floating-utility fixed bottom-[calc(max(1rem,env(safe-area-inset-bottom))+3.75rem)] right-3 z-[80] flex items-center gap-2 sm:bottom-6 sm:right-6">
+    <div className="public-floating-utility fixed bottom-[calc(max(1rem,env(safe-area-inset-bottom))+3.75rem)] right-3 z-[80] flex items-center sm:bottom-[calc(1.5rem+4.25rem)] sm:right-6">
       <button
         type="button"
         onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
-        className="ui-floating-callout ui-soft-glow hidden min-h-11 rounded-xl border border-[var(--public-border)] bg-white px-3 py-2 text-xs font-semibold text-[var(--public-text-soft)] shadow-lg shadow-black/10 transition hover:-translate-y-0.5 hover:bg-[var(--public-surface-muted)] sm:inline-flex sm:items-center"
-      >
-        Lên đầu trang
-      </button>
-      <button
-        type="button"
-        onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
-        className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-[var(--public-border)] bg-white text-[var(--public-primary)] shadow-lg shadow-black/15 transition hover:-translate-y-0.5 hover:bg-[var(--public-primary-soft)] focus:outline-none focus:ring-4 focus:ring-[var(--public-primary-soft)]"
+        className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-[var(--public-border)] bg-[var(--public-surface)] text-[var(--public-primary)] shadow-lg shadow-black/15 transition hover:-translate-y-0.5 hover:bg-[var(--public-primary-soft)] focus:outline-none focus:ring-4 focus:ring-[var(--public-primary-soft)]"
         aria-label="Cuộn lên đầu trang"
         title="Cuộn lên đầu trang"
       >

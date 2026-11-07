@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound, permanentRedirect } from "next/navigation";
 import { cache } from "react";
-import { DoctorDetailClient, type PublicSlot } from "@/app/doctors/[id]/doctor-detail-client";
+import { DoctorDetailClient, type PublicSlot } from "@/components/public/doctor-detail-client";
 import { PublicBreadcrumb } from "@/components/public/public-page-layout";
 import { getVietnamDateInput } from "@/lib/date";
 import { serverApiRequest } from "@/lib/server-api";
@@ -84,7 +84,7 @@ export default async function PublicDoctorDetailPage({ params }: PageProps) {
     <main className="min-h-screen bg-[linear-gradient(180deg,#f1faf7_0%,var(--public-canvas)_46%,#ffffff_100%)] text-[var(--public-ink)]">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdString(jsonLd) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdString(breadcrumbJsonLd) }} />
-      <section className="ui-container py-8 sm:py-10">
+      <section className="ui-container py-5 sm:py-7">
         <PublicBreadcrumb current={name} />
         <DoctorDetailClient doctor={doctor} initialDate={today} initialSlots={slots} />
       </section>

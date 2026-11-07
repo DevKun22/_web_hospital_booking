@@ -6,8 +6,8 @@ import { apiRequest } from "@/lib/api";
 import { ChatbotResultCards } from "@/components/ui/chatbot-result-cards";
 import { usePublicChatbotSettings } from "@/lib/public-chatbot-query";
 import {
+  PUBLIC_CHATBOT_OPEN_EVENT,
   PUBLIC_CHATBOT_CLOSE_EVENT,
-  PUBLIC_CONSULTATION_CLOSE_EVENT,
   setPublicFloatingPanelVisibility,
 } from "@/lib/public-ui-events";
 import {
@@ -43,13 +43,6 @@ const defaultMessages: ChatWidgetMessage[] = [
   },
 ];
 
-const chatbotSuggestionMessages = [
-  "Bạn muốn tìm bác sĩ phù hợp?",
-  "Cần hỏi nhanh về gói khám?",
-  "Muốn tra cứu hướng dẫn đặt lịch?",
-  "Chưa rõ nên chọn chuyên khoa nào?",
-];
-
 const createId = () =>
   typeof crypto !== "undefined" && "randomUUID" in crypto
     ? crypto.randomUUID()
@@ -76,7 +69,6 @@ export function PublicChatbotWidget() {
     useState<ChatWidgetMessage[]>(defaultMessages);
   const [actions, setActions] = useState<ChatbotSuggestedAction[]>([]);
   const [message, setMessage] = useState("");
-  const [suggestionIndex, setSuggestionIndex] = useState(0);
   const [sending, setSending] = useState(false);
   const [loadingText, setLoadingText] = useState(getActionLoadingText());
   const [inputPlaceholder, setInputPlaceholder] = useState("Nhập câu hỏi...");
@@ -86,6 +78,7 @@ export function PublicChatbotWidget() {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const sendingRef = useRef(false);
+  const dialogRef = useRef<HTMLElement | null>(null);
   const runtimeSettings = settingsQuery.data?.value;
   const chatbotOnline = Boolean(
     settingsQuery.data?.isActive &&
@@ -101,8 +94,13 @@ export function PublicChatbotWidget() {
 
   useEffect(() => {
     const closeChatbot = () => setOpen(false);
+    const openChatbot = () => setOpen(true);
     window.addEventListener(PUBLIC_CHATBOT_CLOSE_EVENT, closeChatbot);
-    return () => window.removeEventListener(PUBLIC_CHATBOT_CLOSE_EVENT, closeChatbot);
+    window.addEventListener(PUBLIC_CHATBOT_OPEN_EVENT, openChatbot);
+    return () => {
+      window.removeEventListener(PUBLIC_CHATBOT_CLOSE_EVENT, closeChatbot);
+      window.removeEventListener(PUBLIC_CHATBOT_OPEN_EVENT, openChatbot);
+    };
   }, []);
 
   useEffect(() => {
@@ -148,14 +146,48 @@ export function PublicChatbotWidget() {
   }, [open]);
 
   useEffect(() => {
-    const intervalId = window.setInterval(() => {
-      setSuggestionIndex(
-        (current) => (current + 1) % chatbotSuggestionMessages.length,
-      );
-    }, 4600);
+    if (!open) return;
 
-    return () => window.clearInterval(intervalId);
-  }, []);
+    const previouslyFocused = document.activeElement instanceof HTMLElement
+      ? document.activeElement
+      : null;
+    const previousOverflow = document.body.style.overflow;
+    if (window.matchMedia("(max-width: 639px)").matches) {
+      document.body.style.overflow = "hidden";
+    }
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        setOpen(false);
+        return;
+      }
+      if (event.key !== "Tab" || !dialogRef.current) return;
+
+      const focusable = Array.from(
+        dialogRef.current.querySelectorAll<HTMLElement>(
+          'button:not([disabled]), input:not([disabled]), a[href], textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])',
+        ),
+      );
+      if (!focusable.length) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener("keydown", handleKeyDown);
+      previouslyFocused?.focus({ preventScroll: true });
+    };
+  }, [open]);
 
   const handleActionSideEffect = (
     action: ChatbotSuggestedAction,
@@ -165,7 +197,7 @@ export function PublicChatbotWidget() {
 
     if (action.type === "LOOKUP_APPOINTMENT") {
       window.setTimeout(() => {
-        window.location.href = "/appointments/lookup";
+        window.location.href = "/tra-cuu-lich-hen";
       }, 450);
       return;
     }
@@ -311,9 +343,9 @@ export function PublicChatbotWidget() {
   );
 
   return (
-    <div className="public-floating-utility fixed bottom-[max(1rem,env(safe-area-inset-bottom))] right-3 z-[70] sm:bottom-24 sm:right-6">
+    <div className="public-floating-utility fixed bottom-[max(1rem,env(safe-area-inset-bottom))] right-3 z-[70] sm:bottom-6 sm:right-6">
       {open ? (
-        <section role="dialog" aria-modal="true" aria-labelledby="chatbot-title" className="flex h-[min(620px,calc(100dvh_-_2rem_-_env(safe-area-inset-bottom)))] w-[min(400px,calc(100vw_-_1.5rem))] flex-col overflow-hidden rounded-2xl border border-[var(--public-border)] bg-white shadow-2xl ring-1 ring-[var(--public-primary-soft)]">
+        <section ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="chatbot-title" className="flex h-[min(620px,calc(100dvh_-_2rem_-_env(safe-area-inset-bottom)))] w-[min(400px,calc(100vw_-_1.5rem))] flex-col overflow-hidden rounded-2xl border border-[var(--public-border)] bg-white shadow-2xl ring-1 ring-[var(--public-primary-soft)]">
           <header className="flex items-center justify-between border-b border-[var(--public-divider)] px-4 py-3">
             <div className="flex min-w-0 items-center gap-3">
               <div className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[var(--public-primary-soft)] text-[var(--public-primary)]">
@@ -459,25 +491,9 @@ export function PublicChatbotWidget() {
           <button
             type="button"
             onClick={() => {
-              window.dispatchEvent(new Event(PUBLIC_CONSULTATION_CLOSE_EVENT));
               setOpen(true);
             }}
-            className="hidden"
-            tabIndex={-1}
-            aria-hidden="true"
-          >
-            <span className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-[var(--public-primary)]">
-              Trợ lý
-            </span>
-            {chatbotSuggestionMessages[suggestionIndex]}
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              window.dispatchEvent(new Event(PUBLIC_CONSULTATION_CLOSE_EVENT));
-              setOpen(true);
-            }}
-            className={`group relative flex h-12 shrink-0 items-center justify-center gap-2 rounded-full px-3.5 text-white shadow-lg shadow-black/20 transition hover:-translate-y-0.5 focus:outline-none focus:ring-4 focus:ring-[var(--public-primary-soft)] sm:h-14 sm:w-14 sm:px-0 ${chatbotOnline ? "bg-[var(--public-primary)] hover:bg-[var(--public-primary-hover)]" : "bg-[#64748b] hover:bg-[#475569]"}`}
+            className={`group relative flex h-12 w-12 shrink-0 items-center justify-center rounded-full p-0 text-white shadow-lg shadow-black/20 transition hover:-translate-y-0.5 focus:outline-none focus:ring-4 focus:ring-[var(--public-primary-soft)] sm:h-14 sm:w-14 ${chatbotOnline ? "bg-[var(--public-primary)] hover:bg-[var(--public-primary-hover)]" : "bg-[#64748b] hover:bg-[#475569]"}`}
             aria-label="Mở trợ lý"
             title={chatbotStatusText}
           >
@@ -488,7 +504,7 @@ export function PublicChatbotWidget() {
               className="relative h-6 w-6 transition group-hover:scale-110"
               aria-hidden="true"
             />
-            <span className="text-xs font-bold sm:sr-only">Trợ lý AI</span>
+            <span className="sr-only">Trợ lý AI</span>
           </button>
         </div>
       )}
