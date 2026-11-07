@@ -1,11 +1,8 @@
-// Prisma schema - Website quản lý đặt lịch khám bệnh tích hợp chatbot
-// Flow chính:
-// - Bệnh nhân không cần đăng ký tài khoản
-// - Đặt lịch bằng số điện thoại + OTP
-// - Email khuyến khích nhập để nhận phiếu hẹn/kết quả
-// - Tra cứu lịch hẹn bằng số điện thoại
-// - Tra cứu kết quả bằng số điện thoại + OTP hoặc mã vạch hóa đơn
-// - Admin/Staff/Doctor có tài khoản đăng nhập
+// Prisma schema - Hệ thống đặt lịch khám bệnh tích hợp chatbot (web + mobile)
+// - Khách vãng lai đặt lịch bằng SĐT/email + OTP; hệ thống tạo tài khoản PATIENT.
+// - Mọi thao tác sau đặt lịch (xem lịch, hủy, kết quả, hóa đơn, đánh giá)
+//   đi qua cổng bệnh nhân sau khi đăng nhập bằng OTP.
+// - Admin/Staff/Doctor đăng nhập dashboard bằng mật khẩu + OTP.
 
 generator client {
   provider = "prisma-client"
@@ -23,6 +20,7 @@ enum Role {
   STAFF
   DOCTOR
   PATIENT
+  PHARMACIST // Dược sĩ: cấp phát thuốc và quản lý kho
 }
 
 enum Gender {
@@ -55,14 +53,11 @@ enum AppointmentStatus {
 
 enum OtpPurpose {
   BOOK_APPOINTMENT
-  LOOKUP_APPOINTMENT
   PATIENT_PORTAL_LOGIN
-  CANCEL_APPOINTMENT
-  REVIEW_APPOINTMENT
-  LOOKUP_RESULT
   ADMIN_LOGIN
   DOCTOR_LOGIN
   STAFF_LOGIN
+  PHARMACIST_LOGIN
 }
 
 enum OtpChannel {
@@ -94,16 +89,13 @@ enum PaymentMethod {
   CASH
   CARD
   BANK_TRANSFER
-  MOMO
   VNPAY
   OTHER
 }
 
+// Cổng thanh toán online duy nhất: VNPay (sandbox hoặc production theo cấu hình).
 enum PaymentProvider {
-  MOCK
   VNPAY
-  MOMO
-  ZALOPAY
 }
 
 enum PaymentTransactionStatus {
@@ -120,13 +112,6 @@ enum InsuranceRouteType {
   REFERRAL
   EMERGENCY
   SERVICE
-}
-
-enum ConsultationStatus {
-  NEW
-  CONTACTED
-  CANCELLED
-  COMPLETED
 }
 
 enum MedicalResultStatus {
@@ -159,6 +144,25 @@ enum AppointmentLogAction {
   PAYMENT_RECORDED
   INVOICE_CANCELLED
   PAYMENT_REFUNDED
+  // Nhật ký thao tác lâm sàng (chỉ ghi ai làm gì, không ghi nội dung y tế)
+  MEDICAL_RESULT_UPDATED
+  MEDICAL_RESULT_PUBLISHED
+  LAB_RESULT_CHANGED
+  PRESCRIPTION_ISSUED
+  PRESCRIPTION_CANCELLED
+  PRESCRIPTION_DISPENSED
+}
+
+// Trạng thái cấp phát của đơn thuốc: cấp nguyên đơn hoặc chưa cấp.
+enum DispenseStatus {
+  NOT_DISPENSED
+  DISPENSED
+}
+
+enum StockMovementType {
+  RECEIPT // nhập kho (quantity > 0)
+  DISPENSE // cấp phát theo đơn (quantity < 0)
+  ADJUSTMENT // kiểm kê, điều chỉnh có lý do (quantity có dấu)
 }
 
 enum ScheduleChangeType {
@@ -207,6 +211,7 @@ enum NotificationType {
   APPOINTMENT_COMPLETED
   MEDICAL_RESULT_PUBLISHED
   PRESCRIPTION_ISSUED
+  PRESCRIPTION_DISPENSED
   INVOICE_CREATED
   PAYMENT_SUCCEEDED
   PAYMENT_REFUNDED
@@ -269,6 +274,10 @@ model User {
   notificationPreference   NotificationPreference?
   mediaAssets MediaAsset[]
   dependents               DependentProfile[]        @relation("DependentOwner")
+
+  // Pharmacy (dược sĩ cấp thuốc và thao tác kho)
+  dispensedPrescriptions Prescription[]  @relation("PrescriptionDispensedBy")
+  stockMovements         StockMovement[]
 
   // Logs created by Admin/Staff/Doctor
   appointmentLogs AppointmentLog[]
@@ -708,7 +717,7 @@ model DoctorSchedule {
   @@index([dayOfWeek])
 }
 
-// Y?u c?u do b?c s? g?i ?? Staff/Admin duy?t tr??c khi thay ??i l?ch m?u.
+// Yêu cầu do bác sĩ gửi để Staff/Admin duyệt trước khi thay đổi lịch mẫu.
 model ScheduleChangeRequest {
   id String @id @default(uuid())
 
@@ -864,6 +873,11 @@ model Appointment {
   allergies           String?
   medicalHistory      String?
   familyHistory       String?
+
+  // Thời điểm và phiên bản thông báo người đặt lịch đã đồng ý khi nhập dữ liệu
+  // sức khỏe (dị ứng, tiền sử). Null khi không nhập dữ liệu sức khỏe.
+  healthConsentAt      DateTime?
+  healthConsentVersion String?
 
   estimatedPrice Int @default(0)
   serviceFee     Int @default(0)
@@ -1060,6 +1074,13 @@ model Prescription {
   status PrescriptionStatus @default(DRAFT)
   note   String?
 
+  // Cấp phát tại quầy dược: cấp nguyên đơn một lần, không cấp từng phần.
+  dispenseStatus DispenseStatus @default(NOT_DISPENSED)
+  dispensedAt    DateTime?
+  dispensedById  String?
+  dispensedBy    User?          @relation("PrescriptionDispensedBy", fields: [dispensedById], references: [id], onDelete: SetNull)
+  dispenseNote   String?
+
   items PrescriptionItem[]
 
   issuedAt    DateTime?
@@ -1072,6 +1093,7 @@ model Prescription {
   @@index([prescriptionCode])
   @@index([status])
   @@index([patientId, status, issuedAt])
+  @@index([status, dispenseStatus, issuedAt])
 }
 
 model PrescriptionItem {
@@ -1079,6 +1101,11 @@ model PrescriptionItem {
 
   prescriptionId String
   prescription   Prescription @relation(fields: [prescriptionId], references: [id], onDelete: Cascade)
+
+  // Null = thuốc mua ngoài, không đi qua kho. Các cột tên thuốc, liều, đơn vị
+  // bên dưới vẫn là bản chụp lúc kê nên đơn cũ luôn hiển thị đúng.
+  medicineId String?
+  medicine   Medicine? @relation(fields: [medicineId], references: [id], onDelete: Restrict)
 
   medicineName String
   dosage       String?
@@ -1089,11 +1116,74 @@ model PrescriptionItem {
   instruction  String?
   sortOrder    Int @default(0)
 
+  dispensedQuantity Int @default(0)
+
+  stockMovements StockMovement[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([prescriptionId])
   @@index([sortOrder])
+  @@index([medicineId])
+}
+
+// ===================== PHARMACY =====================
+
+// Danh mục thuốc kiêm tồn kho. Mỗi thuốc có một đơn vị cơ sở duy nhất, không quy
+// đổi. Thuốc đã dùng chỉ ngưng sử dụng (isActive = false), không xóa.
+// stockQuantity không bao giờ âm: có ràng buộc CHECK viết tay trong migration.
+model Medicine {
+  id String @id @default(uuid())
+
+  code             String  @unique
+  name             String
+  activeIngredient String?
+  strength         String?
+  dosageForm       String?
+  unit             String
+
+  stockQuantity Int     @default(0)
+  minStock      Int     @default(0)
+  isActive      Boolean @default(true)
+  note          String?
+
+  prescriptionItems PrescriptionItem[]
+  stockMovements    StockMovement[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([name])
+  @@index([isActive])
+}
+
+// Sổ kho chỉ thêm dòng, không sửa hay xóa. Sửa sai bằng dòng ADJUSTMENT đối ứng.
+// Tồn của thuốc luôn bằng tổng quantity của mọi dòng sổ kho thuộc thuốc đó.
+model StockMovement {
+  id String @id @default(uuid())
+
+  medicineId String
+  medicine   Medicine @relation(fields: [medicineId], references: [id], onDelete: Restrict)
+
+  type         StockMovementType
+  quantity     Int // có dấu: dương khi nhập, âm khi cấp phát; CHECK quantity <> 0
+  balanceAfter Int // tồn của thuốc ngay sau dòng này, phục vụ đối soát
+
+  // Có giá trị khi type = DISPENSE
+  prescriptionItemId String?
+  prescriptionItem   PrescriptionItem? @relation(fields: [prescriptionItemId], references: [id], onDelete: Restrict)
+
+  actorId String
+  actor   User   @relation(fields: [actorId], references: [id], onDelete: Restrict)
+
+  reason String? // bắt buộc khi ADJUSTMENT
+
+  createdAt DateTime @default(now())
+
+  @@index([medicineId, createdAt])
+  @@index([prescriptionItemId])
+  @@index([actorId])
 }
 
 // ===================== INVOICE / BARCODE LOGIN =====================
@@ -1249,18 +1339,6 @@ model ChatbotSession {
   @@index([expiresAt])
 }
 
-model ChatbotFAQ {
-  id String @id @default(uuid())
-
-  question String
-  answer   String
-  keywords String[]
-  isActive Boolean  @default(true)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
 model ChatbotSetting {
   id String @id @default(uuid())
 
@@ -1274,6 +1352,28 @@ model ChatbotSetting {
   updatedAt DateTime @updatedAt
 
   @@index([isActive])
+}
+
+// Một nguồn FAQ duy nhất cho trang Hỏi đáp và trợ lý ảo.
+model FAQ {
+  id String @id @default(uuid())
+
+  question String
+  answer   String
+  category String?
+  keywords String[] @default([])
+  order    Int      @default(0)
+
+  showOnWeb    Boolean @default(true)
+  useInChatbot Boolean @default(true)
+  isActive     Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([isActive, showOnWeb, order])
+  @@index([isActive, useInChatbot])
+  @@index([category])
 }
 
 // ===================== PUBLIC WEB CONFIG =====================
@@ -1316,61 +1416,6 @@ model Banner {
   @@index([position])
   @@index([isActive])
   @@index([order])
-}
-
-model PublicFAQ {
-  id String @id @default(uuid())
-
-  question String
-  answer   String
-  category String?
-
-  order    Int     @default(0)
-  isActive Boolean @default(true)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([category])
-  @@index([isActive])
-  @@index([order])
-}
-
-model SearchAnalyticsLog {
-  id String @id @default(uuid())
-
-  keyword     String
-  normalized  String
-  type        String @default("all")
-  source      String?
-  resultCount Int    @default(0)
-  hasResults  Boolean @default(false)
-
-  createdAt DateTime @default(now())
-
-  @@index([normalized])
-  @@index([type])
-  @@index([hasResults])
-  @@index([createdAt])
-}
-
-// ===================== CONSULTATION REQUEST =====================
-
-model ConsultationRequest {
-  id String @id @default(uuid())
-
-  phone    String
-  fullName String?
-  message  String?
-
-  status ConsultationStatus @default(NEW)
-  note   String?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([phone])
-  @@index([status])
 }
 
 // ===================== REVIEW =====================

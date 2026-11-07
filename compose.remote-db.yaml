@@ -10,12 +10,9 @@ x-remote-environment: &remote-environment
   DASHBOARD_COOKIE_SAME_SITE: lax
   JWT_SECRET: ${JWT_SECRET:-docker_remote_dev_jwt_secret_not_for_production_2026}
   OTP_SECRET: ${OTP_SECRET:-docker_remote_dev_otp_secret_not_for_production_2026}
-  LOOKUP_GRANT_SECRET: ${LOOKUP_GRANT_SECRET:-docker_remote_dev_lookup_secret_not_for_production_2026}
   OTP_DEBUG_ENABLED: "true"
-  PAYMENT_MOCK_ENABLED: ${PAYMENT_MOCK_ENABLED:-true}
-  PAYMENT_MOMO_ENABLED: ${PAYMENT_MOMO_ENABLED:-false}
+  PAYMENT_VNPAY_ENABLED: ${PAYMENT_VNPAY_ENABLED:-false}
   CLOUDINARY_URL: ${CLOUDINARY_URL:-cloudinary://docker_local_key:docker_local_secret@docker_local_cloud}
-  ELASTICSEARCH_ENABLED: ${ELASTICSEARCH_ENABLED:-false}
   GOOGLE_APPLICATION_CREDENTIALS: ""
   FIREBASE_SERVICE_ACCOUNT_BASE64: ${FIREBASE_SERVICE_ACCOUNT_BASE64:-}
 

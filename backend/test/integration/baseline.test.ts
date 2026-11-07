@@ -5,6 +5,7 @@ import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 
 import { getCookie, startHttpServer } from "../support/http.js";
+import { buildVnpayCallbackQuery } from "../support/vnpay.js";
 
 if (process.env.NODE_ENV !== "test") {
   throw new Error("Integration tests require NODE_ENV=test.");
@@ -37,13 +38,14 @@ const [
   { generateDashboardAccessToken, generatePatientAccessToken },
   { default: AuthOtpService },
   { default: AppointmentService },
-  { signLookupGrant },
   { default: ScheduleReconciliationService },
   { default: AuthSessionService },
   { default: NotificationService },
   { default: MedicalRecordService },
   { default: PrescriptionService },
   { default: InvoiceService },
+  { default: RbacService },
+  { default: PolicyService },
   { isFirebaseAdminConfigured },
 ] = await Promise.all([
   import("../../src/app.js"),
@@ -51,13 +53,14 @@ const [
   import("../../src/utils/jwt.js"),
   import("../../src/services/authOtp.service.js"),
   import("../../src/services/appointment.service.js"),
-  import("../../src/utils/lookupGrant.js"),
   import("../../src/services/scheduleReconciliation.service.js"),
   import("../../src/services/authSession.service.js"),
   import("../../src/services/notification.service.js"),
   import("../../src/services/medicalRecord.service.js"),
   import("../../src/services/prescription.service.js"),
   import("../../src/services/invoice.service.js"),
+  import("../../src/services/rbac.service.js"),
+  import("../../src/services/policy.service.js"),
   import("../../src/config/firebaseAdmin.js"),
 ]);
 
@@ -78,6 +81,8 @@ const resetDatabase = async () => {
     "DashboardLoginFailure",
     "OtpSecurityBlock",
     "OtpVerifyAttempt",
+    "StockMovement",
+    "Medicine",
     "User",
     "Department",
   ]
@@ -242,7 +247,10 @@ const createStoredAppointment = async (input: {
   });
 };
 
-const authCookie = async (userId: string, role: "ADMIN" | "DOCTOR") => {
+const authCookie = async (
+  userId: string,
+  role: "ADMIN" | "DOCTOR" | "STAFF" | "PHARMACIST",
+) => {
   const authSession = await AuthSessionService.create({
     userId,
     kind: "DASHBOARD",
@@ -320,23 +328,27 @@ test("v1 public content aliases preserve the legacy response contracts", async (
 });
 
 test("public catalogs paginate and filter without changing legacy arrays", async () => {
-  await prisma.package.createMany({
-    data: [
-      {
-        name: "Gói tim mạch phổ biến",
-        slug: "goi-tim-mach-pho-bien",
-        departmentId: fixture.department.id,
-        basePrice: 1200000,
-        isPopular: true,
-        isBHYTSupport: true,
-      },
-      {
-        name: "Gói kiểm tra cơ bản",
-        slug: "goi-kiem-tra-co-ban",
-        departmentId: fixture.department.id,
-        basePrice: 600000,
-      },
-    ],
+  // Gói công khai phải có ít nhất một hạng mục đã bao gồm (publicCompletePackageWhere).
+  const includedItem = { create: [{ name: "Khám lâm sàng", included: true }] };
+  await prisma.package.create({
+    data: {
+      name: "Gói tim mạch phổ biến",
+      slug: "goi-tim-mach-pho-bien",
+      departmentId: fixture.department.id,
+      basePrice: 1200000,
+      isPopular: true,
+      isBHYTSupport: true,
+      items: includedItem,
+    },
+  });
+  await prisma.package.create({
+    data: {
+      name: "Gói kiểm tra cơ bản",
+      slug: "goi-kiem-tra-co-ban",
+      departmentId: fixture.department.id,
+      basePrice: 600000,
+      items: includedItem,
+    },
   });
 
   const doctors = await http.request(
@@ -504,6 +516,7 @@ test("unverified booking input does not mutate an existing patient", async () =>
       patientEmail: "new-patient-email@example.com",
       address: "Unverified address",
       medicalHistory: "Unverified history",
+      healthConsent: true,
     },
   });
   assert.equal(booking.status, 201);
@@ -641,6 +654,351 @@ test("canonical ownership conflicts do not transition the appointment", async ()
     select: { status: true },
   });
   assert.equal(pending.status, "PENDING_OTP");
+});
+
+const emailBookingBody = (input: {
+  phone: string;
+  email: string;
+  timeSlotId?: string;
+}) => ({
+  ...bookingBody({ phone: input.phone, timeSlotId: input.timeSlotId }),
+  otpChannel: "EMAIL",
+  patientEmail: input.email,
+});
+
+test("an email OTP cannot attach a booking to a phone account owned by another email", async () => {
+  const victim = await prisma.user.create({
+    data: {
+      fullName: "Victim Patient",
+      phone: "0944444441",
+      email: "victim-owner@example.com",
+      role: "PATIENT",
+      isPhoneVerified: true,
+      isEmailVerified: true,
+      patientProfile: { create: { address: "Victim address" } },
+    },
+  });
+
+  const attempt = await http.request("/api/appointments", {
+    method: "POST",
+    body: {
+      ...emailBookingBody({
+        phone: victim.phone!,
+        email: "attacker@example.com",
+      }),
+      patientName: "Attacker Name",
+      address: "Attacker address",
+    },
+  });
+  assert.equal(attempt.status, 409);
+  assert.equal(attempt.body.code, "ACCOUNT_LOGIN_REQUIRED");
+
+  assert.equal(
+    await prisma.appointment.count({ where: { patientPhone: victim.phone! } }),
+    0,
+  );
+  assert.equal(
+    (await prisma.doctorTimeSlot.findUniqueOrThrow({
+      where: { id: fixture.slotOne.id },
+      select: { status: true },
+    })).status,
+    "AVAILABLE",
+  );
+
+  const stored = await prisma.user.findUniqueOrThrow({
+    where: { id: victim.id },
+    include: { patientProfile: true },
+  });
+  assert.equal(stored.email, "victim-owner@example.com");
+  assert.equal(stored.fullName, "Victim Patient");
+  assert.equal(stored.patientProfile?.address, "Victim address");
+});
+
+test("a phone-verified account without an email cannot be claimed by an email OTP", async () => {
+  const account = await prisma.user.create({
+    data: {
+      fullName: "Phone Only Patient",
+      phone: "0944444442",
+      role: "PATIENT",
+      isPhoneVerified: true,
+    },
+  });
+
+  const attempt = await http.request("/api/appointments", {
+    method: "POST",
+    body: emailBookingBody({
+      phone: account.phone!,
+      email: "claimer@example.com",
+    }),
+  });
+  assert.equal(attempt.status, 409);
+  assert.equal(attempt.body.code, "ACCOUNT_LOGIN_REQUIRED");
+
+  const stored = await prisma.user.findUniqueOrThrow({
+    where: { id: account.id },
+  });
+  assert.equal(stored.email, null);
+});
+
+test("the owner of the registered email can still book as a guest", async () => {
+  const owner = await prisma.user.create({
+    data: {
+      fullName: "Registered Owner",
+      phone: "0944444443",
+      email: "registered-owner@example.com",
+      role: "PATIENT",
+      isPhoneVerified: true,
+    },
+  });
+
+  const booking = await http.request("/api/appointments", {
+    method: "POST",
+    body: emailBookingBody({
+      phone: owner.phone!,
+      email: "Registered-Owner@Example.com",
+    }),
+  });
+  assert.equal(booking.status, 201);
+  assert.equal(typeof booking.body.data.debugOtp, "string");
+
+  const verification = await http.request(
+    `/api/appointments/${booking.body.data.appointmentId}/verify-otp`,
+    { method: "POST", body: { otp: booking.body.data.debugOtp } },
+  );
+  assert.equal(verification.status, 200);
+  assert.equal(verification.body.data.status, "PENDING_CONFIRM");
+
+  const appointment = await prisma.appointment.findUniqueOrThrow({
+    where: { id: booking.body.data.appointmentId },
+    select: { patientId: true },
+  });
+  assert.equal(appointment.patientId, owner.id);
+});
+
+test("a brand new phone is claimed by the first verified email and marks it verified", async () => {
+  const booking = await http.request("/api/appointments", {
+    method: "POST",
+    body: emailBookingBody({
+      phone: "0944444444",
+      email: "first-claim@example.com",
+    }),
+  });
+  assert.equal(booking.status, 201);
+
+  const verification = await http.request(
+    `/api/appointments/${booking.body.data.appointmentId}/verify-otp`,
+    { method: "POST", body: { otp: booking.body.data.debugOtp } },
+  );
+  assert.equal(verification.status, 200);
+
+  const claimed = await prisma.user.findUniqueOrThrow({
+    where: { phone: "0944444444" },
+  });
+  assert.equal(claimed.email, "first-claim@example.com");
+  assert.equal(claimed.isEmailVerified, true);
+});
+
+test("an account claimed between booking and verification blocks the second claimer", async () => {
+  // Two guests book the same unverified phone with different emails.
+  const first = await http.request("/api/appointments", {
+    method: "POST",
+    body: emailBookingBody({
+      phone: "0944444445",
+      email: "claim-one@example.com",
+      timeSlotId: fixture.slotOne.id,
+    }),
+  });
+  const second = await http.request("/api/appointments", {
+    method: "POST",
+    body: emailBookingBody({
+      phone: "0944444445",
+      email: "claim-two@example.com",
+      timeSlotId: fixture.slotTwo.id,
+    }),
+  });
+  assert.equal(first.status, 201);
+  assert.equal(second.status, 201);
+
+  const firstVerified = await http.request(
+    `/api/appointments/${first.body.data.appointmentId}/verify-otp`,
+    { method: "POST", body: { otp: first.body.data.debugOtp } },
+  );
+  assert.equal(firstVerified.status, 200);
+
+  const secondVerified = await http.request(
+    `/api/appointments/${second.body.data.appointmentId}/verify-otp`,
+    { method: "POST", body: { otp: second.body.data.debugOtp } },
+  );
+  assert.equal(secondVerified.status, 409);
+  assert.equal(secondVerified.body.code, "ACCOUNT_LOGIN_REQUIRED");
+
+  const owner = await prisma.user.findUniqueOrThrow({
+    where: { phone: "0944444445" },
+  });
+  assert.equal(owner.email, "claim-one@example.com");
+  assert.equal(
+    (await prisma.appointment.findUniqueOrThrow({
+      where: { id: second.body.data.appointmentId },
+      select: { status: true },
+    })).status,
+    "PENDING_OTP",
+  );
+});
+
+test("public booking is rate limited per phone with a Retry-After header", async () => {
+  // The limiter is off in the test environment so the suite can call the API in
+  // bulk; this test turns it on for its own requests only.
+  process.env.RATE_LIMIT_ENABLED = "true";
+  try {
+    const responses = [];
+    for (let attempt = 0; attempt < 6; attempt += 1) {
+      responses.push(
+        await http.request("/api/appointments", {
+          method: "POST",
+          body: bookingBody({ phone: "0933333333" }),
+        }),
+      );
+    }
+
+    assert.ok(responses.slice(0, 5).every((item) => item.status !== 429));
+
+    const limited = responses[5];
+    assert.equal(limited.status, 429);
+    assert.equal(limited.body.code, "RATE_LIMITED");
+    assert.ok(Number(limited.headers.get("retry-after")) > 0);
+  } finally {
+    delete process.env.RATE_LIMIT_ENABLED;
+  }
+});
+
+test("pharmacy schema enforces non-negative stock and consistent ledger rows", async () => {
+  const pharmacist = await prisma.user.create({
+    data: {
+      fullName: "Phase Pharmacist",
+      phone: "0900000009",
+      role: "PHARMACIST",
+      isPhoneVerified: true,
+    },
+  });
+  const medicine = await prisma.medicine.create({
+    data: { code: "PARA500", name: "Paracetamol 500mg", unit: "viên", stockQuantity: 10 },
+  });
+  const movement = (data: Record<string, unknown>) =>
+    prisma.stockMovement.create({
+      data: {
+        medicineId: medicine.id,
+        actorId: pharmacist.id,
+        type: "RECEIPT",
+        quantity: 5,
+        balanceAfter: 15,
+        ...data,
+      } as never,
+    });
+
+  // Stock can never go negative, even through a direct write.
+  await assert.rejects(
+    prisma.medicine.update({ where: { id: medicine.id }, data: { stockQuantity: -1 } }),
+    /Medicine_stockQuantity_nonnegative|check constraint/i,
+  );
+  // Medicine codes are unique.
+  await assert.rejects(
+    prisma.medicine.create({ data: { code: "PARA500", name: "Duplicate", unit: "viên" } }),
+    /Unique constraint|PARA500|code/i,
+  );
+
+  // Ledger rows must match their type.
+  await assert.rejects(movement({ quantity: 0 }), /quantity_nonzero|check constraint/i);
+  await assert.rejects(movement({ type: "RECEIPT", quantity: -5 }), /sign_matches_type|check constraint/i);
+  await assert.rejects(
+    movement({ type: "DISPENSE", quantity: -3, balanceAfter: 7, prescriptionItemId: null }),
+    /dispense_has_item|check constraint/i,
+  );
+  await assert.rejects(
+    movement({ type: "ADJUSTMENT", quantity: -2, balanceAfter: 8, reason: "   " }),
+    /adjustment_has_reason|check constraint/i,
+  );
+
+  const receipt = await movement({});
+  assert.equal(receipt.quantity, 5);
+
+  // The ledger is append-only.
+  await assert.rejects(
+    prisma.stockMovement.update({ where: { id: receipt.id }, data: { reason: "edited" } }),
+    /append-only|chỉ thêm dòng/i,
+  );
+  await assert.rejects(
+    prisma.stockMovement.delete({ where: { id: receipt.id } }),
+    /append-only|chỉ thêm dòng/i,
+  );
+
+  // Referenced medicines and actors cannot be deleted.
+  await assert.rejects(prisma.medicine.delete({ where: { id: medicine.id } }));
+  await assert.rejects(prisma.user.delete({ where: { id: pharmacist.id } }));
+});
+
+test("new log actions and prescription dispense defaults are available", async () => {
+  const appointment = await createStoredAppointment({ status: "COMPLETED" });
+
+  for (const action of [
+    "MEDICAL_RESULT_UPDATED",
+    "MEDICAL_RESULT_PUBLISHED",
+    "LAB_RESULT_CHANGED",
+    "PRESCRIPTION_ISSUED",
+    "PRESCRIPTION_CANCELLED",
+    "PRESCRIPTION_DISPENSED",
+  ] as const) {
+    await prisma.appointmentLog.create({
+      data: { appointmentId: appointment.id, action, note: "schema check" },
+    });
+  }
+  assert.equal(
+    await prisma.appointmentLog.count({ where: { appointmentId: appointment.id } }),
+    6,
+  );
+
+  const record = await prisma.medicalRecord.create({
+    data: {
+      recordCode: "REC-SCHEMA-1",
+      appointmentId: appointment.id,
+      patientId: appointment.patientId,
+      doctorId: fixture.doctorOne.id,
+    },
+  });
+  const prescription = await prisma.prescription.create({
+    data: {
+      prescriptionCode: "RX-SCHEMA-1",
+      medicalRecordId: record.id,
+      appointmentId: appointment.id,
+      patientId: appointment.patientId,
+      doctorId: fixture.doctorOne.id,
+      items: { create: [{ medicineName: "Thuốc mua ngoài", quantity: 2 }] },
+    },
+    include: { items: true },
+  });
+
+  assert.equal(prescription.dispenseStatus, "NOT_DISPENSED");
+  assert.equal(prescription.dispensedAt, null);
+  assert.equal(prescription.items[0].medicineId, null);
+  assert.equal(prescription.items[0].dispensedQuantity, 0);
+});
+
+test("health consent columns are optional on appointments", async () => {
+  const appointment = await createStoredAppointment({ status: "PENDING_CONFIRM" });
+  const stored = await prisma.appointment.findUniqueOrThrow({
+    where: { id: appointment.id },
+    select: { healthConsentAt: true, healthConsentVersion: true },
+  });
+  assert.equal(stored.healthConsentAt, null);
+  assert.equal(stored.healthConsentVersion, null);
+
+  const consentAt = new Date();
+  const updated = await prisma.appointment.update({
+    where: { id: appointment.id },
+    data: { healthConsentAt: consentAt, healthConsentVersion: "v1" },
+    select: { healthConsentAt: true, healthConsentVersion: true },
+  });
+  assert.equal(updated.healthConsentVersion, "v1");
+  assert.equal(updated.healthConsentAt?.toISOString(), consentAt.toISOString());
 });
 
 test("pending OTP expiry is idempotent and releases only its own slot", async () => {
@@ -874,17 +1232,18 @@ test("competing transitions produce exactly one committed state", async () => {
     status: "CHECKED_IN",
     bookingCode: "PHASE0-TRANSITION-RACE",
   });
-  const cookie = await authCookie(fixture.adminUser.id, "ADMIN");
+  const doctorCookie = await authCookie(fixture.doctorOneUser.id, "DOCTOR");
+  const adminCookie = await authCookie(fixture.adminUser.id, "ADMIN");
   const endpoint = `/api/dashboard/appointments/${appointment.id}`;
 
   const [start, noShow] = await Promise.all([
     http.request(`${endpoint}/start`, {
       method: "PATCH",
-      headers: dashboardHeaders(cookie),
+      headers: dashboardHeaders(doctorCookie),
     }),
     http.request(`${endpoint}/no-show`, {
       method: "PATCH",
-      headers: dashboardHeaders(cookie),
+      headers: dashboardHeaders(adminCookie),
     }),
   ]);
 
@@ -934,7 +1293,7 @@ test("starting the same appointment twice creates one medical record and log", a
     status: "CHECKED_IN",
     bookingCode: "PHASE0-START-RACE",
   });
-  const cookie = await authCookie(fixture.adminUser.id, "ADMIN");
+  const cookie = await authCookie(fixture.doctorOneUser.id, "DOCTOR");
   const endpoint = `/api/dashboard/appointments/${appointment.id}/start`;
 
   const responses = await Promise.all([
@@ -1079,170 +1438,6 @@ test("dashboard login limits repeated password failures by account and IP", asyn
   assert.equal(limited.body.code, "LOGIN_RATE_LIMITED");
 });
 
-test("lookup OTP returns the existing appointment list", async () => {
-  const phone = "0911111111";
-  const appointment = await createStoredAppointment({
-    status: "CONFIRMED",
-    phone,
-    bookingCode: "PHASE0-LOOKUP",
-  });
-
-  const requestOtp = await http.request(
-    "/api/appointments/lookup/request-otp",
-    {
-      method: "POST",
-      body: { phone, bookingCode: appointment.bookingCode },
-    },
-  );
-  assert.equal(requestOtp.status, 200);
-
-  const verifyOtp = await http.request(
-    "/api/appointments/lookup/verify-otp",
-    {
-      method: "POST",
-      body: {
-        phone,
-        bookingCode: appointment.bookingCode,
-        otp: requestOtp.body.data.debugOtp,
-      },
-    },
-  );
-
-  assert.equal(verifyOtp.status, 200);
-  assert.equal(verifyOtp.body.success, true);
-  assert.equal(verifyOtp.body.data.items.length, 1);
-  assert.equal(verifyOtp.body.data.items[0].id, appointment.id);
-  assert.equal(verifyOtp.body.data.grant.tokenType, "Bearer");
-  assert.equal(typeof verifyOtp.body.data.grant.token, "string");
-});
-
-test("medical results require a valid scoped grant for the same patient", async () => {
-  const phone = "0911111111";
-  const appointment = await createStoredAppointment({
-    status: "COMPLETED",
-    phone,
-    bookingCode: "PHASE0-RESULT-A",
-  });
-  await prisma.medicalRecord.create({
-    data: {
-      recordCode: "PHASE0-RECORD-A",
-      appointmentId: appointment.id,
-      patientId: appointment.patientId,
-      doctorId: fixture.doctorOne.id,
-      status: "PUBLISHED",
-      diagnosis: "Protected diagnosis A",
-      publishedAt: new Date(),
-    },
-  });
-
-  const requestOtp = await http.request(
-    "/api/appointments/lookup/request-otp",
-    {
-      method: "POST",
-      body: { phone, bookingCode: appointment.bookingCode },
-    },
-  );
-  const verifyOtp = await http.request(
-    "/api/appointments/lookup/verify-otp",
-    {
-      method: "POST",
-      body: {
-        phone,
-        bookingCode: appointment.bookingCode,
-        otp: requestOtp.body.data.debugOtp,
-      },
-    },
-  );
-  const lookupToken = verifyOtp.body.data.grant.token as string;
-  const resultPath = `/api/appointments/lookup/result?bookingCode=${appointment.bookingCode}`;
-
-  const missingGrant = await http.request(resultPath);
-  assert.equal(missingGrant.status, 401);
-
-  const authorized = await http.request(resultPath, {
-    headers: { authorization: `Bearer ${lookupToken}` },
-  });
-  assert.equal(authorized.status, 200);
-  assert.equal(
-    authorized.body.data.medicalRecord.diagnosis,
-    "Protected diagnosis A",
-  );
-
-  const patientB = await prisma.user.create({
-    data: {
-      fullName: "Patient B",
-      phone: "0933333333",
-      role: "PATIENT",
-      isPhoneVerified: true,
-    },
-  });
-  const appointmentB = await prisma.appointment.create({
-    data: {
-      bookingCode: "PHASE0-RESULT-B",
-      appointmentDate: dateOnly(fixture.appointmentDate),
-      startTime: "11:00",
-      endTime: "11:30",
-      status: "COMPLETED",
-      patientName: patientB.fullName,
-      patientPhone: patientB.phone!,
-      patientId: patientB.id,
-      doctorId: fixture.doctorOne.id,
-      departmentId: fixture.department.id,
-    },
-  });
-
-  const crossPatient = await http.request(
-    `/api/appointments/lookup/result?bookingCode=${appointmentB.bookingCode}`,
-    { headers: { authorization: `Bearer ${lookupToken}` } },
-  );
-  assert.equal(crossPatient.status, 404);
-
-  const restrictedGrant = signLookupGrant({
-    patientId: appointment.patientId,
-    scopes: ["appointments:read"],
-  });
-  const wrongScope = await http.request(resultPath, {
-    headers: { authorization: `Bearer ${restrictedGrant.token}` },
-  });
-  assert.equal(wrongScope.status, 403);
-
-  const wrongAudienceToken = jwt.sign(
-    {
-      scopes: ["results:read"],
-      purpose: "LOOKUP_RESULT",
-      verifiedAt: new Date().toISOString(),
-    },
-    process.env.LOOKUP_GRANT_SECRET!,
-    {
-      audience: "wrong-audience",
-      subject: appointment.patientId,
-      expiresIn: "5m",
-    },
-  );
-  const wrongAudience = await http.request(resultPath, {
-    headers: { authorization: `Bearer ${wrongAudienceToken}` },
-  });
-  assert.equal(wrongAudience.status, 401);
-
-  const expiredToken = jwt.sign(
-    {
-      scopes: ["results:read"],
-      purpose: "LOOKUP_RESULT",
-      verifiedAt: new Date(Date.now() - 60_000).toISOString(),
-    },
-    process.env.LOOKUP_GRANT_SECRET!,
-    {
-      audience: "patient-lookup",
-      subject: appointment.patientId,
-      expiresIn: -1,
-    },
-  );
-  const expired = await http.request(resultPath, {
-    headers: { authorization: `Bearer ${expiredToken}` },
-  });
-  assert.equal(expired.status, 401);
-});
-
 test("invoice creation is rejected until the appointment is COMPLETED", async () => {
   const appointment = await createStoredAppointment({ status: "CONFIRMED" });
   const cookie = await authCookie(fixture.adminUser.id, "ADMIN");
@@ -1381,7 +1576,7 @@ test("manual collection is blocked while an online payment is pending", async ()
   await prisma.paymentTransaction.create({
     data: {
       invoiceId: invoice.id,
-      provider: "MOCK",
+      provider: "VNPAY",
       amount: invoice.finalAmount,
       transactionCode: "PHASE0-PENDING-ONLINE",
       activeKey: `invoice:${invoice.id}`,
@@ -1401,60 +1596,94 @@ test("manual collection is blocked while an online payment is pending", async ()
   assert.equal(stored.status, "UNPAID");
 });
 
-test("payment APIs enforce grant ownership and the mock capability gate", async () => {
+const createPayableInvoice = async (input: {
+  bookingCode: string;
+  phone?: string;
+  timeSlotId?: string;
+  amount?: number;
+}) => {
+  const amount = input.amount ?? 300000;
   const appointment = await createStoredAppointment({
     status: "COMPLETED",
-    bookingCode: "PHASE0-PAYMENT",
+    bookingCode: input.bookingCode,
+    phone: input.phone,
+    timeSlotId: input.timeSlotId,
   });
   const invoice = await prisma.invoice.create({
     data: {
-      invoiceCode: "PHASE0-INVOICE",
-      barcode: "PHASE0-BARCODE",
+      invoiceCode: `INV-${input.bookingCode}`,
+      barcode: `BAR-${input.bookingCode}`,
       appointmentId: appointment.id,
       patientId: appointment.patientId,
-      totalAmount: 300000,
-      finalAmount: 300000,
+      totalAmount: amount,
+      finalAmount: amount,
     },
   });
-  const patientGrant = signLookupGrant({ patientId: appointment.patientId });
-  const authorization = `Bearer ${patientGrant.token}`;
+  const authorization = `Bearer ${(await loginPatient(appointment.patientPhone)).accessToken}`;
+  return { appointment, invoice, authorization };
+};
 
-  const missingGrant = await http.request(
-    `/api/payments/invoices/${invoice.id}/create`,
-    { method: "POST", body: { provider: "MOCK" } },
+const createVnpayPayment = async (
+  invoiceId: string,
+  authorization: string,
+  idempotencyKey: string,
+) => {
+  const response = await http.request(`/api/v1/me/invoices/${invoiceId}/payments`, {
+    method: "POST",
+    headers: { authorization, "idempotency-key": idempotencyKey },
+    body: { provider: "VNPAY" },
+  });
+  assert.equal(response.status, 201);
+  return response.body.data as { id: string; transactionCode: string; paymentUrl: string };
+};
+
+const vnpayIpn = (query: string) => http.request(`/api/payments/vnpay/ipn?${query}`);
+
+test("patient payment APIs enforce ownership, idempotency and the capability gate", async () => {
+  const { invoice, authorization } = await createPayableInvoice({
+    bookingCode: "PHASE0-PAYMENT",
+  });
+
+  const missingSession = await http.request(
+    `/api/v1/me/invoices/${invoice.id}/payments`,
+    { method: "POST", body: { provider: "VNPAY" } },
   );
-  assert.equal(missingGrant.status, 401);
+  assert.equal(missingSession.status, 401);
 
-  const capabilities = await http.request("/api/payments/capabilities", {
+  const capabilities = await http.request("/api/v1/me/payment-capabilities", {
     headers: { authorization },
   });
   assert.equal(capabilities.status, 200);
   assert.deepEqual(
-    capabilities.body.data.providers.map(
-      (item: { provider: string }) => item.provider,
-    ),
-    ["MOCK"],
+    capabilities.body.data.providers.map((item: { provider: string }) => item.provider),
+    ["VNPAY"],
   );
+  assert.equal(capabilities.body.data.providers[0].isMock, undefined);
+
+  // Providers that were removed are rejected by validation, not routed anywhere.
+  for (const provider of ["MOCK", "MOMO"]) {
+    const rejected = await http.request(`/api/v1/me/invoices/${invoice.id}/payments`, {
+      method: "POST",
+      headers: { authorization },
+      body: { provider },
+    });
+    assert.equal(rejected.status, 400);
+  }
 
   const createResponses = await Promise.all(
     Array.from({ length: 10 }, () =>
-      http.request(`/api/payments/invoices/${invoice.id}/create`, {
+      http.request(`/api/v1/me/invoices/${invoice.id}/payments`, {
         method: "POST",
-        headers: {
-          authorization,
-          "idempotency-key": "phase0-payment-create-retry",
-        },
-        body: { provider: "MOCK" },
+        headers: { authorization, "idempotency-key": "phase0-payment-create-retry" },
+        body: { provider: "VNPAY" },
       }),
     ),
   );
   assert.ok(createResponses.every((response) => response.status === 201));
   const [created] = createResponses;
-  assert.equal(created.body.data.provider, "MOCK");
-  assert.equal(
-    new Set(createResponses.map((response) => response.body.data.id)).size,
-    1,
-  );
+  assert.equal(created.body.data.provider, "VNPAY");
+  assert.match(created.body.data.paymentUrl, /^https:\/\/sandbox\.vnpayment\.vn\//);
+  assert.equal(new Set(createResponses.map((response) => response.body.data.id)).size, 1);
   assert.equal(
     await prisma.paymentTransaction.count({
       where: { invoiceId: invoice.id, status: "PENDING" },
@@ -1462,21 +1691,15 @@ test("payment APIs enforce grant ownership and the mock capability gate", async 
     1,
   );
 
-  const idempotentRetry = await http.request(
-    `/api/payments/invoices/${invoice.id}/create`,
-    {
-      method: "POST",
-      headers: {
-        authorization,
-        "idempotency-key": "phase0-payment-create-retry",
-      },
-      body: { provider: "MOCK" },
-    },
-  );
+  const idempotentRetry = await http.request(`/api/v1/me/invoices/${invoice.id}/payments`, {
+    method: "POST",
+    headers: { authorization, "idempotency-key": "phase0-payment-create-retry" },
+    body: { provider: "VNPAY" },
+  });
   assert.equal(idempotentRetry.status, 201);
   assert.equal(idempotentRetry.body.data.id, created.body.data.id);
 
-  const patientB = await prisma.user.create({
+  await prisma.user.create({
     data: {
       fullName: "Payment Patient B",
       phone: "0944444444",
@@ -1484,71 +1707,454 @@ test("payment APIs enforce grant ownership and the mock capability gate", async 
       isPhoneVerified: true,
     },
   });
-  const patientBGrant = signLookupGrant({ patientId: patientB.id });
-  const patientBAuthorization = `Bearer ${patientBGrant.token}`;
-
-  const crossPatientRead = await http.request(
-    `/api/payments/${created.body.data.id}`,
-    { headers: { authorization: patientBAuthorization } },
-  );
+  const patientBAuthorization = `Bearer ${(await loginPatient("0944444444")).accessToken}`;
+  const crossPatientRead = await http.request(`/api/v1/me/payments/${created.body.data.id}`, {
+    headers: { authorization: patientBAuthorization },
+  });
   assert.equal(crossPatientRead.status, 404);
 
-  const crossPatientSettlement = await http.request(
-    `/api/payments/mock/${created.body.data.transactionCode}/success`,
-    {
-      method: "POST",
-      headers: { authorization: patientBAuthorization },
-    },
+  // The simulated-settlement endpoints and the generic webhook no longer exist.
+  const removedMock = await http.request(
+    `/api/v1/me/payments/mock/${created.body.data.transactionCode}/success`,
+    { method: "POST", headers: { authorization } },
   );
-  assert.equal(crossPatientSettlement.status, 404);
-
-  const settlementWithoutGrant = await http.request(
-    `/api/payments/mock/${created.body.data.transactionCode}/success`,
-    { method: "POST" },
-  );
-  assert.equal(settlementWithoutGrant.status, 401);
-
-  const settlements = await Promise.all([
-    http.request(
-      `/api/payments/mock/${created.body.data.transactionCode}/success`,
-      { method: "POST", headers: { authorization } },
-    ),
-    http.request(
-      `/api/payments/mock/${created.body.data.transactionCode}/success`,
-      { method: "POST", headers: { authorization } },
-    ),
-  ]);
-  assert.ok(settlements.every((response) => response.status === 200));
-  assert.ok(
-    settlements.every((response) => response.body.data.status === "SUCCESS"),
-  );
-
-  const paidInvoice = await prisma.invoice.findUniqueOrThrow({
-    where: { id: invoice.id },
-    select: { status: true },
+  assert.equal(removedMock.status, 404);
+  const removedWebhook = await http.request("/api/payments/momo/webhook", {
+    method: "POST",
+    body: {},
   });
-  assert.equal(paidInvoice.status, "PAID");
+  assert.equal(removedWebhook.status, 404);
 
-  const dashboardInvoice = await http.request(
-    `/api/dashboard/invoices/${invoice.id}`,
-    {
-      headers: dashboardHeaders(
-        await authCookie(fixture.adminUser.id, "ADMIN"),
-      ),
-    },
-  );
+  const dashboardInvoice = await http.request(`/api/dashboard/invoices/${invoice.id}`, {
+    headers: dashboardHeaders(await authCookie(fixture.adminUser.id, "ADMIN")),
+  });
   assert.equal(dashboardInvoice.status, 200);
   assert.equal(dashboardInvoice.body.data.paymentTransactions.length, 1);
+  assert.equal(dashboardInvoice.body.data.paymentTransactions[0].rawResponse, undefined);
+
+  const originalFlag = process.env.PAYMENT_VNPAY_ENABLED;
+  process.env.PAYMENT_VNPAY_ENABLED = "false";
+  try {
+    const disabledCapabilities = await http.request("/api/v1/me/payment-capabilities", {
+      headers: { authorization },
+    });
+    assert.deepEqual(disabledCapabilities.body.data.providers, []);
+
+    const disabledCreate = await http.request(`/api/v1/me/invoices/${invoice.id}/payments`, {
+      method: "POST",
+      headers: { authorization },
+      body: { provider: "VNPAY" },
+    });
+    assert.equal(disabledCreate.status, 404);
+    assert.equal(disabledCreate.body.code, "PAYMENT_PROVIDER_UNAVAILABLE");
+  } finally {
+    process.env.PAYMENT_VNPAY_ENABLED = originalFlag;
+  }
+});
+
+test("VNPay IPN rejects forged callbacks and settles a payment exactly once", async () => {
+  const { appointment, invoice, authorization } = await createPayableInvoice({
+    bookingCode: "VNPAY-SETTLE",
+  });
+  const payment = await createVnpayPayment(invoice.id, authorization, "vnpay-settle");
+  const expectUnpaid = async () =>
+    assert.equal(
+      (await prisma.invoice.findUniqueOrThrow({ where: { id: invoice.id } })).status,
+      "UNPAID",
+    );
+
+  // Tampered amount after signing, wrong secret, wrong merchant, unknown reference.
+  const signed = buildVnpayCallbackQuery({ transactionCode: payment.transactionCode, amount: 300000 });
+  assert.equal((await vnpayIpn(signed.replace("vnp_Amount=30000000", "vnp_Amount=100"))).body.RspCode, "97");
   assert.equal(
-    dashboardInvoice.body.data.paymentTransactions[0].status,
+    (await vnpayIpn(buildVnpayCallbackQuery({ transactionCode: payment.transactionCode, amount: 300000, secret: "WRONGSECRETWRONGSECRETWRONGSEC12" }))).body.RspCode,
+    "97",
+  );
+  assert.equal((await vnpayIpn("vnp_ResponseCode=00")).body.RspCode, "97");
+  assert.equal(
+    (await vnpayIpn(buildVnpayCallbackQuery({ transactionCode: payment.transactionCode, amount: 300000, tmnCode: "OTHERTMN" }))).body.RspCode,
+    "99",
+  );
+  assert.equal(
+    (await vnpayIpn(buildVnpayCallbackQuery({ transactionCode: "NO-SUCH-TXN", amount: 300000 }))).body.RspCode,
+    "01",
+  );
+  // Correctly signed but for a different amount than the invoice.
+  assert.equal(
+    (await vnpayIpn(buildVnpayCallbackQuery({ transactionCode: payment.transactionCode, amount: 100000 }))).body.RspCode,
+    "04",
+  );
+  await expectUnpaid();
+  assert.equal(
+    (await prisma.paymentTransaction.findUniqueOrThrow({ where: { id: payment.id } })).status,
+    "PENDING",
+  );
+
+  // Two identical valid IPNs in parallel, then a replay: one settlement only.
+  const results = await Promise.all([vnpayIpn(signed), vnpayIpn(signed)]);
+  assert.ok(results.every((response) => response.status === 200 && response.body.RspCode === "00"));
+  assert.equal((await vnpayIpn(signed)).body.RspCode, "00");
+
+  const paid = await prisma.invoice.findUniqueOrThrow({ where: { id: invoice.id } });
+  assert.equal(paid.status, "PAID");
+  assert.equal(paid.paymentMethod, "VNPAY");
+  assert.equal(paid.paymentReference, "14000001");
+  assert.equal(
+    (await prisma.paymentTransaction.findUniqueOrThrow({ where: { id: payment.id } })).status,
     "SUCCESS",
   );
   assert.equal(
-    dashboardInvoice.body.data.paymentTransactions[0].rawResponse,
-    undefined,
+    await prisma.appointmentLog.count({
+      where: { appointmentId: appointment.id, action: "PAYMENT_RECORDED" },
+    }),
+    1,
+  );
+  assert.equal(
+    await prisma.notification.count({
+      where: { userId: appointment.patientId, type: "PAYMENT_SUCCEEDED" },
+    }),
+    1,
+  );
+});
+
+test("VNPay return URL records the result and redirects to the web result page", async () => {
+  const { invoice, authorization } = await createPayableInvoice({
+    bookingCode: "VNPAY-RETURN",
+  });
+  const payment = await createVnpayPayment(invoice.id, authorization, "vnpay-return");
+
+  const success = await http.request(
+    `/api/payments/vnpay/return?${buildVnpayCallbackQuery({ transactionCode: payment.transactionCode, amount: 300000 })}`,
+    { redirect: "manual" },
+  );
+  assert.equal(success.status, 302);
+  const location = new URL(success.headers.get("location") || "");
+  assert.equal(location.origin + location.pathname, "https://web.example.test/thanh-toan/ket-qua");
+  assert.equal(location.searchParams.get("status"), "success");
+  assert.equal(location.searchParams.get("orderId"), payment.transactionCode);
+  assert.equal(
+    (await prisma.invoice.findUniqueOrThrow({ where: { id: invoice.id } })).status,
+    "PAID",
   );
 
-  const expirySlot = await prisma.doctorTimeSlot.create({
+  const forged = await http.request(
+    `/api/payments/vnpay/return?${buildVnpayCallbackQuery({ transactionCode: payment.transactionCode, amount: 300000, secret: "WRONGSECRETWRONGSECRETWRONGSEC12" })}`,
+    { redirect: "manual" },
+  );
+  assert.equal(forged.status, 302);
+  assert.equal(new URL(forged.headers.get("location") || "").searchParams.get("status"), "error");
+});
+
+test("a failed VNPay payment frees the invoice and a late success is not applied", async () => {
+  const { invoice, authorization } = await createPayableInvoice({
+    bookingCode: "VNPAY-FAILED",
+  });
+  const first = await createVnpayPayment(invoice.id, authorization, "vnpay-failed-1");
+
+  // Customer cancelled on the VNPay page (code 24): a valid callback, not a payment.
+  const cancelled = await vnpayIpn(
+    buildVnpayCallbackQuery({ transactionCode: first.transactionCode, amount: 300000, responseCode: "24" }),
+  );
+  assert.equal(cancelled.body.RspCode, "00");
+  const failed = await prisma.paymentTransaction.findUniqueOrThrow({ where: { id: first.id } });
+  assert.equal(failed.status, "FAILED");
+  assert.equal(failed.activeKey, null);
+  assert.equal(
+    (await prisma.invoice.findUniqueOrThrow({ where: { id: invoice.id } })).status,
+    "UNPAID",
+  );
+
+  // A success that arrives for an already-failed transaction conflicts (code 02).
+  const late = await vnpayIpn(
+    buildVnpayCallbackQuery({ transactionCode: first.transactionCode, amount: 300000 }),
+  );
+  assert.equal(late.body.RspCode, "02");
+  assert.equal(
+    (await prisma.invoice.findUniqueOrThrow({ where: { id: invoice.id } })).status,
+    "UNPAID",
+  );
+
+  // The patient can start a fresh payment afterwards.
+  const second = await createVnpayPayment(invoice.id, authorization, "vnpay-failed-2");
+  assert.notEqual(second.id, first.id);
+});
+
+test("an expired VNPay transaction becomes EXPIRED but a genuine late success still pays", async () => {
+  const { invoice, authorization } = await createPayableInvoice({
+    bookingCode: "VNPAY-EXPIRY",
+  });
+  const payment = await createVnpayPayment(invoice.id, authorization, "vnpay-expiry");
+  await prisma.paymentTransaction.update({
+    where: { id: payment.id },
+    data: { expiredAt: new Date(Date.now() - 1000) },
+  });
+
+  const expired = await http.request(`/api/v1/me/payments/${payment.id}`, {
+    headers: { authorization },
+  });
+  assert.equal(expired.status, 200);
+  assert.equal(expired.body.data.status, "EXPIRED");
+  assert.equal(
+    (await prisma.paymentTransaction.findUniqueOrThrow({ where: { id: payment.id } })).activeKey,
+    null,
+  );
+
+  // The gateway can still confirm money that was actually taken after our timeout.
+  const late = await vnpayIpn(
+    buildVnpayCallbackQuery({ transactionCode: payment.transactionCode, amount: 300000 }),
+  );
+  assert.equal(late.body.RspCode, "00");
+  assert.equal(
+    (await prisma.invoice.findUniqueOrThrow({ where: { id: invoice.id } })).status,
+    "PAID",
+  );
+});
+
+const createDashboardUser = async (role: "STAFF" | "PHARMACIST", phone: string) =>
+  prisma.user.create({
+    data: {
+      fullName: `RBAC ${role}`,
+      phone,
+      role,
+      isPhoneVerified: true,
+    },
+  });
+
+test("dynamic permissions keep clinical data away from admin editing and staff", async () => {
+  const staff = await createDashboardUser("STAFF", "0900000011");
+  const pharmacist = await createDashboardUser("PHARMACIST", "0900000012");
+  const adminCookie = await authCookie(fixture.adminUser.id, "ADMIN");
+  const staffCookie = await authCookie(staff.id, "STAFF");
+  const pharmacistCookie = await authCookie(pharmacist.id, "PHARMACIST");
+  const doctorCookie = await authCookie(fixture.doctorOneUser.id, "DOCTOR");
+  const get = (path: string, cookie: string) =>
+    http.request(path, { headers: dashboardHeaders(cookie) });
+  const patch = (path: string, cookie: string, body: unknown = {}) =>
+    http.request(path, { method: "PATCH", headers: dashboardHeaders(cookie), body });
+
+  // Nhân viên không đọc bệnh án và đơn thuốc, nhưng vẫn làm việc tiếp đón.
+  assert.equal((await get("/api/dashboard/medical-records", staffCookie)).status, 403);
+  assert.equal((await get("/api/dashboard/prescriptions", staffCookie)).status, 403);
+  assert.equal((await get("/api/dashboard/appointments", staffCookie)).status, 200);
+  assert.equal((await get("/api/dashboard/invoices", staffCookie)).status, 200);
+
+  // Quản trị xem được nhưng không sửa; chỉ bác sĩ ghi bệnh án và kê đơn.
+  assert.equal((await get("/api/dashboard/medical-records", adminCookie)).status, 200);
+  assert.equal((await get("/api/dashboard/prescriptions", adminCookie)).status, 200);
+  assert.equal((await patch("/api/dashboard/prescriptions/any-id", adminCookie)).status, 403);
+  assert.equal((await patch("/api/dashboard/medical-records/any-id", adminCookie)).status, 403);
+  assert.equal((await get("/api/dashboard/medical-records", doctorCookie)).status, 200);
+
+  // Dược sĩ đăng nhập dashboard được và đọc đơn thuốc, nhưng không đụng bệnh án, hóa đơn.
+  assert.equal((await get("/api/dashboard/prescriptions", pharmacistCookie)).status, 200);
+  assert.equal((await get("/api/dashboard/medical-records", pharmacistCookie)).status, 403);
+  assert.equal((await get("/api/dashboard/invoices", pharmacistCookie)).status, 403);
+
+  // Hoàn tiền chỉ quản trị.
+  assert.equal((await patch("/api/dashboard/invoices/any-id/refund", staffCookie)).status, 403);
+
+  // Chỉ quản trị đọc ma trận.
+  assert.equal((await get("/api/dashboard/rbac", staffCookie)).status, 403);
+  assert.equal((await get("/api/dashboard/rbac", doctorCookie)).status, 403);
+  const matrix = await get("/api/dashboard/rbac", adminCookie);
+  assert.equal(matrix.status, 200);
+  const recordEdit = matrix.body.data.permissions.find(
+    (item: { code: string }) => item.code === "record.edit",
+  );
+  assert.deepEqual(recordEdit.roles, ["DOCTOR"]);
+  assert.deepEqual(recordEdit.eligibleRoles, ["DOCTOR"]);
+});
+
+test("the permission matrix is editable within eligibility and takes effect immediately", async () => {
+  const staff = await createDashboardUser("STAFF", "0900000011");
+  const adminCookie = await authCookie(fixture.adminUser.id, "ADMIN");
+  const staffCookie = await authCookie(staff.id, "STAFF");
+  const put = (grants: Record<string, string[]>) =>
+    http.request("/api/dashboard/rbac", {
+      method: "PUT",
+      headers: dashboardHeaders(adminCookie),
+      body: { grants },
+    });
+  const staffPay = () =>
+    http.request("/api/dashboard/invoices/any-id/pay", {
+      method: "PATCH",
+      headers: dashboardHeaders(staffCookie),
+      body: { paymentMethod: "CASH" },
+    });
+
+  try {
+    // Cấp quyền ngoài tập đủ điều kiện bị từ chối, nêu rõ lý do.
+    const notEligible = await put({ "record.edit": ["ADMIN"] });
+    assert.equal(notEligible.status, 400);
+    assert.equal(notEligible.body.code, "RBAC_ROLE_NOT_ELIGIBLE");
+    const unknown = await put({ "made.up": ["ADMIN"] });
+    assert.equal(unknown.status, 400);
+    assert.equal(unknown.body.code, "RBAC_UNKNOWN_PERMISSION");
+
+    // Gỡ quyền thu tiền của nhân viên: có hiệu lực ngay, không cần đăng nhập lại.
+    assert.notEqual((await staffPay()).status, 403);
+    assert.equal((await put({ "invoice.collect": ["ADMIN"] })).status, 200);
+    assert.equal((await staffPay()).status, 403);
+
+    // Quyền cố định không thể gỡ dù yêu cầu rỗng.
+    assert.equal((await put({ "rbac.manage": [] })).status, 200);
+    const stillManages = await http.request("/api/dashboard/rbac", {
+      headers: dashboardHeaders(adminCookie),
+    });
+    assert.equal(stillManages.status, 200);
+
+    // Khôi phục mặc định.
+    const reset = await http.request("/api/dashboard/rbac", {
+      method: "DELETE",
+      headers: dashboardHeaders(adminCookie),
+    });
+    assert.equal(reset.status, 200);
+    assert.notEqual((await staffPay()).status, 403);
+  } finally {
+    await RbacService.resetMatrix();
+  }
+});
+
+test("staff without record.view see appointments without health history", async () => {
+  const staff = await createDashboardUser("STAFF", "0900000011");
+  const appointment = await createStoredAppointment({
+    status: "CONFIRMED",
+    bookingCode: "RBAC-MASK",
+  });
+  await prisma.appointment.update({
+    where: { id: appointment.id },
+    data: { allergies: "Penicillin", medicalHistory: "Hen suyen", familyHistory: "Tim mach" },
+  });
+  const read = async (cookie: string) =>
+    (
+      await http.request(`/api/dashboard/appointments/${appointment.id}`, {
+        headers: dashboardHeaders(cookie),
+      })
+    ).body.data;
+
+  const asStaff = await read(await authCookie(staff.id, "STAFF"));
+  assert.equal(asStaff.patientName, "Stored Patient");
+  assert.equal(asStaff.allergies, null);
+  assert.equal(asStaff.medicalHistory, null);
+  assert.equal(asStaff.familyHistory, null);
+
+  const asDoctor = await read(await authCookie(fixture.doctorOneUser.id, "DOCTOR"));
+  assert.equal(asDoctor.allergies, "Penicillin");
+  assert.equal(asDoctor.medicalHistory, "Hen suyen");
+});
+
+const vietnamClock = (offsetMs: number) => {
+  const shifted = new Date(Date.now() + offsetMs + 7 * 60 * 60 * 1000).toISOString();
+  return { date: shifted.slice(0, 10), time: shifted.slice(11, 16) };
+};
+
+const moveAppointmentStart = async (appointmentId: string, offsetMs: number) => {
+  const { date, time } = vietnamClock(offsetMs);
+  await prisma.appointment.update({
+    where: { id: appointmentId },
+    data: { appointmentDate: dateOnly(date), startTime: time },
+  });
+};
+
+test("health data in a booking requires explicit consent and records which version", async () => {
+  const withoutConsent = await http.request("/api/appointments", {
+    method: "POST",
+    body: { ...bookingBody({ phone: "0955000001" }), allergies: "Penicillin" },
+  });
+  assert.equal(withoutConsent.status, 400);
+  assert.equal(withoutConsent.body.code, "HEALTH_CONSENT_REQUIRED");
+  assert.equal(await prisma.appointment.count({ where: { patientPhone: "0955000001" } }), 0);
+
+  const withConsent = await http.request("/api/appointments", {
+    method: "POST",
+    body: {
+      ...bookingBody({ phone: "0955000002" }),
+      allergies: "Penicillin",
+      healthConsent: true,
+    },
+  });
+  assert.equal(withConsent.status, 201);
+  const stored = await prisma.appointment.findUniqueOrThrow({
+    where: { id: withConsent.body.data.appointmentId },
+    select: { healthConsentAt: true, healthConsentVersion: true, allergies: true },
+  });
+  assert.ok(stored.healthConsentAt);
+  assert.equal(stored.healthConsentVersion, "2026-11");
+  assert.equal(stored.allergies, "Penicillin");
+
+  // Không khai báo sức khỏe thì không cần và không ghi đồng ý.
+  const plain = await http.request("/api/appointments", {
+    method: "POST",
+    body: bookingBody({ phone: "0955000003", timeSlotId: fixture.slotTwo.id }),
+  });
+  assert.equal(plain.status, 201);
+  const plainStored = await prisma.appointment.findUniqueOrThrow({
+    where: { id: plain.body.data.appointmentId },
+    select: { healthConsentAt: true },
+  });
+  assert.equal(plainStored.healthConsentAt, null);
+});
+
+test("policy parameters are bounded, admin-only to change and drive patient cancellation", async () => {
+  const staff = await createDashboardUser("STAFF", "0900000011");
+  const adminCookie = await authCookie(fixture.adminUser.id, "ADMIN");
+  const staffCookie = await authCookie(staff.id, "STAFF");
+  const call = (method: string, cookie: string, body?: unknown) =>
+    http.request("/api/dashboard/policy", { method, headers: dashboardHeaders(cookie), body });
+
+  try {
+    const defaults = await call("GET", staffCookie);
+    assert.equal(defaults.status, 200);
+    assert.equal(defaults.body.data.policy.patientCancelCutoffHours, 2);
+    assert.equal(defaults.body.data.policy.noShowGraceMinutes, 0);
+
+    assert.equal((await call("PUT", staffCookie, { noShowGraceMinutes: 30 })).status, 403);
+    const outOfRange = await call("PUT", adminCookie, { patientCancelCutoffHours: 500 });
+    assert.equal(outOfRange.status, 400);
+    assert.equal(outOfRange.body.code, "POLICY_OUT_OF_RANGE");
+    assert.equal((await call("PUT", adminCookie, { bookingHoldMinutes: 0 })).status, 400);
+
+    // Lịch bắt đầu sau 1 giờ nằm trong hạn chót 2 giờ: người khám không tự hủy được.
+    const soon = await createStoredAppointment({ status: "CONFIRMED", bookingCode: "POLICY-SOON" });
+    await moveAppointmentStart(soon.id, 60 * 60 * 1000);
+    await assert.rejects(
+      () => AppointmentService.cancelByPatient(soon.id, soon.patientId, "Bận việc"),
+      (error: { statusCode?: number; code?: string }) =>
+        error.statusCode === 409 && error.code === "PATIENT_CANCEL_CUTOFF",
+    );
+    assert.equal(
+      (await prisma.appointment.findUniqueOrThrow({ where: { id: soon.id } })).status,
+      "CONFIRMED",
+    );
+
+    // Hạ hạn chót về 0 thì hủy được.
+    assert.equal((await call("PUT", adminCookie, { patientCancelCutoffHours: 0 })).status, 200);
+    await AppointmentService.cancelByPatient(soon.id, soon.patientId, "Bận việc");
+    assert.equal(
+      (await prisma.appointment.findUniqueOrThrow({ where: { id: soon.id } })).status,
+      "CANCELLED_BY_PATIENT",
+    );
+
+    // Khôi phục mặc định.
+    const reset = await call("DELETE", adminCookie);
+    assert.equal(reset.status, 200);
+    assert.equal(reset.body.data.policy.patientCancelCutoffHours, 2);
+  } finally {
+    await PolicyService.reset();
+  }
+});
+
+test("auto no-show is off by default and honours the grace period when enabled", async () => {
+  const late = await createStoredAppointment({ status: "CONFIRMED", bookingCode: "NOSHOW-LATE" });
+  await moveAppointmentStart(late.id, -45 * 60 * 1000);
+  const inGrace = await createStoredAppointment({
+    status: "CONFIRMED",
+    bookingCode: "NOSHOW-GRACE",
+    phone: "0922222222",
+    timeSlotId: fixture.slotOne.id,
+  });
+  await moveAppointmentStart(inGrace.id, -10 * 60 * 1000);
+  const thirdSlot = await prisma.doctorTimeSlot.create({
     data: {
       doctorId: fixture.doctorOne.id,
       date: dateOnly(fixture.appointmentDate),
@@ -1556,77 +2162,437 @@ test("payment APIs enforce grant ownership and the mock capability gate", async 
       endTime: "11:30",
     },
   });
-  const expiringAppointment = await createStoredAppointment({
-    status: "COMPLETED",
-    bookingCode: "PHASE0-PAYMENT-EXPIRY",
-    phone: "0911111122",
-    timeSlotId: expirySlot.id,
+  const checkedIn = await createStoredAppointment({
+    status: "CHECKED_IN",
+    bookingCode: "NOSHOW-CHECKEDIN",
+    phone: "0933333333",
+    timeSlotId: thirdSlot.id,
   });
-  const expiringInvoice = await prisma.invoice.create({
-    data: {
-      invoiceCode: "PHASE0-INVOICE-EXPIRY",
-      barcode: "PHASE0-BARCODE-EXPIRY",
-      appointmentId: expiringAppointment.id,
-      patientId: expiringAppointment.patientId,
-      totalAmount: 200000,
-      finalAmount: 200000,
-    },
-  });
-  const expiryAuthorization = `Bearer ${
-    signLookupGrant({ patientId: expiringAppointment.patientId }).token
-  }`;
-  const expiringPayment = await http.request(
-    `/api/payments/invoices/${expiringInvoice.id}/create`,
-    {
-      method: "POST",
-      headers: {
-        authorization: expiryAuthorization,
-        "idempotency-key": "phase0-payment-expiry",
-      },
-      body: { provider: "MOCK" },
-    },
-  );
-  await prisma.paymentTransaction.update({
-    where: { id: expiringPayment.body.data.id },
-    data: { expiredAt: new Date(Date.now() - 1000) },
-  });
-  const expiredPayment = await http.request(
-    `/api/payments/${expiringPayment.body.data.id}`,
-    { headers: { authorization: expiryAuthorization } },
-  );
-  assert.equal(expiredPayment.status, 200);
-  assert.equal(expiredPayment.body.data.status, "EXPIRED");
-  assert.equal(
-    (
-      await prisma.paymentTransaction.findUniqueOrThrow({
-        where: { id: expiringPayment.body.data.id },
-        select: { activeKey: true },
-      })
-    ).activeKey,
-    null,
-  );
+  await moveAppointmentStart(checkedIn.id, -45 * 60 * 1000);
 
-  const originalMockFlag = process.env.PAYMENT_MOCK_ENABLED;
-  process.env.PAYMENT_MOCK_ENABLED = "false";
   try {
-    const disabledCapabilities = await http.request(
-      "/api/payments/capabilities",
-      { headers: { authorization } },
-    );
-    assert.deepEqual(disabledCapabilities.body.data.providers, []);
+    // Mặc định (0) là tắt: không lịch nào bị đụng tới.
+    assert.deepEqual(await AppointmentService.reconcileNoShows(), { scanned: 0, marked: 0, noop: 0 });
 
-    const disabledCreate = await http.request(
-      `/api/payments/invoices/${invoice.id}/create`,
-      {
-        method: "POST",
-        headers: { authorization },
-        body: { provider: "MOCK" },
-      },
-    );
-    assert.equal(disabledCreate.status, 404);
+    await PolicyService.update({ noShowGraceMinutes: 30 });
+    const result = await AppointmentService.reconcileNoShows();
+    assert.equal(result.marked, 1);
+
+    const status = async (id: string) =>
+      (await prisma.appointment.findUniqueOrThrow({ where: { id } })).status;
+    assert.equal(await status(late.id), "NO_SHOW");
+    assert.equal(await status(inGrace.id), "CONFIRMED");
+    assert.equal(await status(checkedIn.id), "CHECKED_IN");
+
+    const log = await prisma.appointmentLog.findFirstOrThrow({
+      where: { appointmentId: late.id, action: "NO_SHOW" },
+    });
+    assert.equal(log.createdById, null);
+    assert.match(log.note || "", /Tự động/);
+
+    // Chạy lại không đánh dấu thêm.
+    assert.equal((await AppointmentService.reconcileNoShows()).marked, 0);
   } finally {
-    process.env.PAYMENT_MOCK_ENABLED = originalMockFlag;
+    await PolicyService.reset();
   }
+});
+
+test("expired OTP codes are removed after a day while recent and live codes are kept", async () => {
+  const hours = (value: number) => new Date(Date.now() + value * 60 * 60 * 1000);
+  const create = (code: string, expiresAt: Date) =>
+    prisma.otpCode.create({
+      data: { phone: "0966000001", code, purpose: "BOOK_APPOINTMENT", expiresAt },
+    });
+  await create("old-1", hours(-72));
+  await create("old-2", hours(-30));
+  await create("recent", hours(-1));
+  await create("live", hours(1));
+
+  assert.deepEqual(await AuthOtpService.cleanupExpired(), { deleted: 2 });
+  const remaining = await prisma.otpCode.findMany({
+    where: { phone: "0966000001" },
+    select: { code: true },
+  });
+  assert.deepEqual(remaining.map((item) => item.code).sort(), ["live", "recent"]);
+  assert.deepEqual(await AuthOtpService.cleanupExpired(), { deleted: 0 });
+});
+
+const createMedicineViaApi = async (
+  cookie: string,
+  input: { code: string; name: string; unit?: string; minStock?: number },
+) => {
+  const response = await http.request("/api/dashboard/pharmacy/medicines", {
+    method: "POST",
+    headers: dashboardHeaders(cookie),
+    body: { unit: "viên", ...input },
+  });
+  assert.equal(response.status, 201);
+  return response.body.data as { id: string; code: string; stockQuantity: number };
+};
+
+const receiveViaApi = async (cookie: string, medicineId: string, quantity: number) => {
+  const response = await http.request(`/api/dashboard/pharmacy/medicines/${medicineId}/receipts`, {
+    method: "POST",
+    headers: dashboardHeaders(cookie),
+    body: { quantity, reason: "Nhập theo phiếu" },
+  });
+  assert.equal(response.status, 201);
+  return response.body.data as { stockQuantity: number };
+};
+
+const createIssuedPrescription = async (input: {
+  code: string;
+  phone: string;
+  timeSlotId: string;
+  items: { medicineName: string; quantity: number | null; medicineId?: string }[];
+}) => {
+  const appointment = await createStoredAppointment({
+    status: "COMPLETED",
+    bookingCode: `BK-${input.code}`,
+    phone: input.phone,
+    timeSlotId: input.timeSlotId,
+  });
+  const record = await prisma.medicalRecord.create({
+    data: {
+      recordCode: `REC-${input.code}`,
+      appointmentId: appointment.id,
+      patientId: appointment.patientId,
+      doctorId: appointment.doctorId,
+      status: "DRAFT",
+    },
+  });
+  const prescription = await prisma.prescription.create({
+    data: {
+      prescriptionCode: input.code,
+      medicalRecordId: record.id,
+      appointmentId: appointment.id,
+      patientId: appointment.patientId,
+      doctorId: appointment.doctorId,
+      status: "ISSUED",
+      issuedAt: new Date(),
+      items: {
+        create: input.items.map((item, index) => ({
+          medicineName: item.medicineName,
+          quantity: item.quantity,
+          medicineId: item.medicineId,
+          unit: "viên",
+          sortOrder: index,
+        })),
+      },
+    },
+    include: { items: { orderBy: { sortOrder: "asc" } } },
+  });
+  return { appointment, prescription };
+};
+
+test("pharmacy endpoints are limited to the pharmacist role", async () => {
+  const pharmacist = await createDashboardUser("PHARMACIST", "0900000012");
+  const staff = await createDashboardUser("STAFF", "0900000011");
+  const pharmacistCookie = await authCookie(pharmacist.id, "PHARMACIST");
+  const request = (path: string, cookie: string, method = "GET", body?: unknown) =>
+    http.request(`/api/dashboard/pharmacy${path}`, {
+      method,
+      headers: dashboardHeaders(cookie),
+      body,
+    });
+
+  for (const cookie of [
+    await authCookie(staff.id, "STAFF"),
+    await authCookie(fixture.doctorOneUser.id, "DOCTOR"),
+    await authCookie(fixture.adminUser.id, "ADMIN"),
+  ]) {
+    assert.equal((await request("/medicines", cookie)).status, 403);
+    assert.equal((await request("/prescriptions", cookie)).status, 403);
+    assert.equal(
+      (await request("/medicines", cookie, "POST", { code: "X1", name: "X", unit: "viên" })).status,
+      403,
+    );
+  }
+  assert.equal((await request("/medicines", pharmacistCookie)).status, 200);
+  assert.equal((await request("/prescriptions", pharmacistCookie)).status, 200);
+});
+
+test("stock changes only through the ledger and never goes negative", async () => {
+  const pharmacist = await createDashboardUser("PHARMACIST", "0900000012");
+  const cookie = await authCookie(pharmacist.id, "PHARMACIST");
+  const medicine = await createMedicineViaApi(cookie, { code: "para500", name: "Paracetamol 500mg", minStock: 20 });
+  assert.equal(medicine.code, "PARA500");
+  assert.equal(medicine.stockQuantity, 0);
+
+  const duplicate = await http.request("/api/dashboard/pharmacy/medicines", {
+    method: "POST",
+    headers: dashboardHeaders(cookie),
+    body: { code: "PARA500", name: "Trùng", unit: "viên" },
+  });
+  assert.equal(duplicate.status, 409);
+  assert.equal(duplicate.body.code, "MEDICINE_CODE_EXISTS");
+
+  // Sửa thuốc không đụng tới tồn.
+  const edited = await http.request(`/api/dashboard/pharmacy/medicines/${medicine.id}`, {
+    method: "PATCH",
+    headers: dashboardHeaders(cookie),
+    body: { name: "Paracetamol 500mg (hộp 100)", stockQuantity: 999 },
+  });
+  assert.equal(edited.status, 200);
+  assert.equal(edited.body.data.stockQuantity, 0);
+
+  assert.equal((await receiveViaApi(cookie, medicine.id, 50)).stockQuantity, 50);
+
+  const adjust = (delta: number, reason?: string) =>
+    http.request(`/api/dashboard/pharmacy/medicines/${medicine.id}/adjustments`, {
+      method: "POST",
+      headers: dashboardHeaders(cookie),
+      body: { delta, reason },
+    });
+  assert.equal((await adjust(-5)).status, 400);
+  assert.equal((await adjust(-5, "Kiểm kê thiếu")).body.data.stockQuantity, 45);
+  const tooMuch = await adjust(-100, "Hủy thuốc hết hạn");
+  assert.equal(tooMuch.status, 409);
+  assert.equal(tooMuch.body.code, "INSUFFICIENT_STOCK");
+  assert.equal((await adjust(0, "Không đổi")).status, 400);
+
+  const negativeReceipt = await http.request(
+    `/api/dashboard/pharmacy/medicines/${medicine.id}/receipts`,
+    { method: "POST", headers: dashboardHeaders(cookie), body: { quantity: -3 } },
+  );
+  assert.equal(negativeReceipt.status, 400);
+
+  // Tồn luôn bằng tổng sổ kho; sổ kho chỉ thêm, không sửa hay xóa.
+  const movements = await prisma.stockMovement.findMany({
+    where: { medicineId: medicine.id },
+    orderBy: { createdAt: "asc" },
+  });
+  assert.deepEqual(
+    movements.map((item) => [item.type, item.quantity, item.balanceAfter]),
+    [
+      ["RECEIPT", 50, 50],
+      ["ADJUSTMENT", -5, 45],
+    ],
+  );
+  await assert.rejects(() =>
+    prisma.stockMovement.update({ where: { id: movements[0].id }, data: { quantity: 999 } }),
+  );
+  await assert.rejects(() => prisma.stockMovement.delete({ where: { id: movements[0].id } }));
+
+  const low = await http.request("/api/dashboard/pharmacy/medicines?lowStock=true", {
+    headers: dashboardHeaders(cookie),
+  });
+  assert.equal(low.body.data.items.length, 0);
+  await adjust(-30, "Hủy thuốc hết hạn");
+  const lowAfter = await http.request("/api/dashboard/pharmacy/medicines?lowStock=true", {
+    headers: dashboardHeaders(cookie),
+  });
+  assert.deepEqual(lowAfter.body.data.items.map((item: { code: string }) => item.code), ["PARA500"]);
+
+  const history = await http.request(`/api/dashboard/pharmacy/medicines/${medicine.id}/movements`, {
+    headers: dashboardHeaders(cookie),
+  });
+  assert.equal(history.status, 200);
+  assert.equal(history.body.data.items.length, 3);
+});
+
+test("dispensing deducts stock for the whole prescription or not at all", async () => {
+  const pharmacist = await createDashboardUser("PHARMACIST", "0900000012");
+  const cookie = await authCookie(pharmacist.id, "PHARMACIST");
+  const medicineA = await createMedicineViaApi(cookie, { code: "MED-A", name: "Thuốc A" });
+  const medicineB = await createMedicineViaApi(cookie, { code: "MED-B", name: "Thuốc B" });
+  await receiveViaApi(cookie, medicineA.id, 10);
+  await receiveViaApi(cookie, medicineB.id, 3);
+
+  const { appointment, prescription } = await createIssuedPrescription({
+    code: "RX-DISPENSE",
+    phone: "0911111111",
+    timeSlotId: fixture.slotTwo.id,
+    items: [
+      { medicineName: "Thuốc A", quantity: 6, medicineId: medicineA.id },
+      { medicineName: "Thuốc B", quantity: 5, medicineId: medicineB.id },
+      { medicineName: "Thuốc mua ngoài", quantity: 2 },
+    ],
+  });
+  const dispense = (body: unknown) =>
+    http.request(`/api/dashboard/pharmacy/prescriptions/${prescription.id}/dispense`, {
+      method: "POST",
+      headers: dashboardHeaders(cookie),
+      body,
+    });
+  const stock = async (id: string) =>
+    (await prisma.medicine.findUniqueOrThrow({ where: { id } })).stockQuantity;
+
+  // Hàng đợi chỉ có đơn đã phát hành chưa cấp.
+  const queue = await http.request("/api/dashboard/pharmacy/prescriptions", {
+    headers: dashboardHeaders(cookie),
+  });
+  assert.deepEqual(
+    queue.body.data.items.map((item: { prescriptionCode: string }) => item.prescriptionCode),
+    ["RX-DISPENSE"],
+  );
+
+  // Chưa tick xác nhận kiểm tra: từ chối.
+  const unconfirmed = await dispense({ confirmed: false });
+  assert.equal(unconfirmed.status, 400);
+  assert.equal(unconfirmed.body.code, "DISPENSE_CONFIRMATION_REQUIRED");
+
+  // Thuốc B thiếu (cần 5, còn 3): cả đơn không được cấp, thuốc A cũng không bị trừ.
+  const short = await dispense({ confirmed: true });
+  assert.equal(short.status, 409);
+  assert.equal(short.body.code, "INSUFFICIENT_STOCK");
+  assert.equal(await stock(medicineA.id), 10);
+  assert.equal(await stock(medicineB.id), 3);
+  const untouched = await prisma.prescription.findUniqueOrThrow({ where: { id: prescription.id } });
+  assert.equal(untouched.dispenseStatus, "NOT_DISPENSED");
+  assert.equal(untouched.dispensedById, null);
+  assert.equal(
+    await prisma.stockMovement.count({ where: { type: "DISPENSE" } }),
+    0,
+  );
+
+  await receiveViaApi(cookie, medicineB.id, 5);
+  const ok = await dispense({ confirmed: true, note: "Đã đối chiếu dị ứng" });
+  assert.equal(ok.status, 200);
+  assert.equal(ok.body.data.dispenseStatus, "DISPENSED");
+  assert.equal(await stock(medicineA.id), 4);
+  assert.equal(await stock(medicineB.id), 3);
+
+  const dispensed = await prisma.prescription.findUniqueOrThrow({
+    where: { id: prescription.id },
+    include: { items: { orderBy: { sortOrder: "asc" } } },
+  });
+  assert.equal(dispensed.dispensedById, pharmacist.id);
+  assert.equal(dispensed.dispenseNote, "Đã đối chiếu dị ứng");
+  assert.deepEqual(
+    dispensed.items.map((item) => item.dispensedQuantity),
+    [6, 5, 0],
+  );
+  const movements = await prisma.stockMovement.findMany({
+    where: { type: "DISPENSE" },
+    orderBy: { quantity: "desc" },
+  });
+  assert.deepEqual(
+    movements.map((item) => [item.quantity, item.balanceAfter, item.actorId]),
+    [
+      [-5, 3, pharmacist.id],
+      [-6, 4, pharmacist.id],
+    ],
+  );
+
+  // Dấu vết lâm sàng và thông báo cho người khám.
+  assert.equal(
+    await prisma.appointmentLog.count({
+      where: { appointmentId: appointment.id, action: "PRESCRIPTION_DISPENSED" },
+    }),
+    1,
+  );
+  assert.equal(
+    await prisma.notification.count({
+      where: { userId: appointment.patientId, type: "PRESCRIPTION_DISPENSED" },
+    }),
+    1,
+  );
+
+  // Cấp lần hai bị chặn, đơn đã cấp không hủy được và rời hàng đợi.
+  const again = await dispense({ confirmed: true });
+  assert.equal(again.status, 409);
+  assert.equal(again.body.code, "ALREADY_DISPENSED");
+  assert.equal(await stock(medicineA.id), 4);
+  await assert.rejects(
+    () => PrescriptionService.cancel(prescription.id, { userId: fixture.adminUser.id, role: "ADMIN" }),
+    (error: { code?: string }) => error.code === "PRESCRIPTION_DISPENSED",
+  );
+  const emptyQueue = await http.request("/api/dashboard/pharmacy/prescriptions", {
+    headers: dashboardHeaders(cookie),
+  });
+  assert.equal(emptyQueue.body.data.items.length, 0);
+  const done = await http.request(
+    "/api/dashboard/pharmacy/prescriptions?dispenseStatus=DISPENSED",
+    { headers: dashboardHeaders(cookie) },
+  );
+  assert.equal(done.body.data.items.length, 1);
+});
+
+test("two pharmacists dispensing the same prescription deduct stock once", async () => {
+  const pharmacist = await createDashboardUser("PHARMACIST", "0900000012");
+  const cookie = await authCookie(pharmacist.id, "PHARMACIST");
+  const medicine = await createMedicineViaApi(cookie, { code: "MED-C", name: "Thuốc C" });
+  await receiveViaApi(cookie, medicine.id, 10);
+
+  // Dòng đơn chưa gắn thuốc kho: dược sĩ chọn thuốc khi cấp.
+  const { prescription } = await createIssuedPrescription({
+    code: "RX-RACE",
+    phone: "0922222222",
+    timeSlotId: fixture.slotOne.id,
+    items: [{ medicineName: "Thuốc C (gõ tay)", quantity: 4 }],
+  });
+  const body = {
+    confirmed: true,
+    lines: [{ itemId: prescription.items[0].id, medicineId: medicine.id }],
+  };
+  const responses = await Promise.all(
+    [1, 2].map(() =>
+      http.request(`/api/dashboard/pharmacy/prescriptions/${prescription.id}/dispense`, {
+        method: "POST",
+        headers: dashboardHeaders(cookie),
+        body,
+      }),
+    ),
+  );
+  responses.sort((left, right) => left.status - right.status);
+  assert.equal(responses[0].status, 200);
+  assert.equal(responses[1].status, 409);
+
+  assert.equal(
+    (await prisma.medicine.findUniqueOrThrow({ where: { id: medicine.id } })).stockQuantity,
+    6,
+  );
+  assert.equal(await prisma.stockMovement.count({ where: { type: "DISPENSE" } }), 1);
+  const item = await prisma.prescriptionItem.findUniqueOrThrow({
+    where: { id: prescription.items[0].id },
+  });
+  assert.equal(item.medicineId, medicine.id);
+  assert.equal(item.dispensedQuantity, 4);
+});
+
+test("patients review only their own completed appointments", async () => {
+  const completed = await createStoredAppointment({
+    status: "COMPLETED",
+    bookingCode: "PORTAL-REVIEW",
+  });
+  const ownerAuthorization = `Bearer ${(await loginPatient(completed.patientPhone)).accessToken}`;
+  const reviewPath = `/api/v1/me/appointments/${completed.id}/review`;
+  const body = { doctorRating: 5, serviceRating: 4, facilityRating: 3, comment: "Tốt" };
+
+  const anonymous = await http.request(reviewPath, { method: "POST", body });
+  assert.equal(anonymous.status, 401);
+
+  await prisma.user.create({
+    data: { fullName: "Review Patient B", phone: "0955555555", role: "PATIENT", isPhoneVerified: true },
+  });
+  const otherAuthorization = `Bearer ${(await loginPatient("0955555555")).accessToken}`;
+  const crossPatient = await http.request(reviewPath, {
+    method: "POST",
+    headers: { authorization: otherAuthorization },
+    body,
+  });
+  assert.equal(crossPatient.status, 404);
+
+  const created = await http.request(reviewPath, {
+    method: "POST",
+    headers: { authorization: ownerAuthorization },
+    body,
+  });
+  assert.equal(created.status, 201);
+  assert.equal(created.body.data.rating, 4);
+  assert.equal(created.body.data.isVisible, false);
+
+  const duplicate = await http.request(reviewPath, {
+    method: "POST",
+    headers: { authorization: ownerAuthorization },
+    body,
+  });
+  assert.equal(duplicate.status, 409);
+
+  const read = await http.request(reviewPath, { headers: { authorization: ownerAuthorization } });
+  assert.equal(read.status, 200);
+  assert.equal(read.body.data.id, created.body.data.id);
 });
 
 test("legacy API responses keep the success/message/data envelope", async () => {
@@ -1645,14 +2611,14 @@ test("the same OTP can be consumed by exactly one concurrent request", async () 
   const target = "0922222222";
   const sent = await AuthOtpService.sendOtp(
     target,
-    "LOOKUP_RESULT",
+    "PATIENT_PORTAL_LOGIN",
     "phase0-otp-concurrency",
   );
   assert.ok(sent.debugOtp);
 
   const attempts = await Promise.allSettled(
     Array.from({ length: 20 }, () =>
-      AuthOtpService.verifyOtp(target, sent.debugOtp!, "LOOKUP_RESULT"),
+      AuthOtpService.verifyOtp(target, sent.debugOtp!, "PATIENT_PORTAL_LOGIN"),
     ),
   );
 
@@ -1671,7 +2637,7 @@ test("the same OTP can be consumed by exactly one concurrent request", async () 
   const successfulAuditRecords = await prisma.otpVerifyAttempt.count({
     where: {
       target,
-      purpose: "LOOKUP_RESULT",
+      purpose: "PATIENT_PORTAL_LOGIN",
       success: true,
     },
   });
@@ -1867,7 +2833,7 @@ test("patient v1 auth scopes profile and resources to the authenticated owner", 
   assert.equal(paymentCapabilities.status, 200);
   assert.ok(
     paymentCapabilities.body.data.providers.some(
-      (provider: { provider: string }) => provider.provider === "MOCK",
+      (provider: { provider: string }) => provider.provider === "VNPAY",
     ),
   );
 
@@ -1879,11 +2845,11 @@ test("patient v1 auth scopes profile and resources to the authenticated owner", 
         authorization,
         "idempotency-key": "phase1-mobile-payment",
       },
-      body: { provider: "MOCK" },
+      body: { provider: "VNPAY" },
     },
   );
   assert.equal(patientPayment.status, 201);
-  assert.equal(patientPayment.body.data.provider, "MOCK");
+  assert.equal(patientPayment.body.data.provider, "VNPAY");
   assert.equal(patientPayment.body.data.activeKey, undefined);
   assert.equal(patientPayment.body.data.idempotencyKey, undefined);
   assert.equal(patientPayment.body.data.rawResponse, undefined);
@@ -2612,6 +3578,7 @@ test("dashboard hospital announcements reuse the patient inbox and support sched
 test("patient journey is consistent across public booking dashboard care and mobile reads", async () => {
   const phone = "0985656565";
   const dashboardCookie = await authCookie(fixture.adminUser.id, "ADMIN");
+  const doctorCookie = await authCookie(fixture.doctorOneUser.id, "DOCTOR");
 
   const booking = await http.request("/api/v1/appointments", {
     method: "POST",
@@ -2663,7 +3630,14 @@ test("patient journey is consistent across public booking dashboard care and mob
   ] as const) {
     const transition = await http.request(
       `/api/dashboard/appointments/${activeAppointmentId}/${action}`,
-      { method: "PATCH", headers: dashboardHeaders(dashboardCookie) },
+      {
+        method: "PATCH",
+        headers: dashboardHeaders(
+          action === "start"
+            ? await authCookie(fixture.doctorOneUser.id, "DOCTOR")
+            : dashboardCookie,
+        ),
+      },
     );
     assert.equal(transition.status, 200, action);
     assert.equal(transition.body.data.status, expectedStatus, action);
@@ -2677,7 +3651,7 @@ test("patient journey is consistent across public booking dashboard care and mob
     `/api/dashboard/medical-records/${record.id}`,
     {
       method: "PATCH",
-      headers: dashboardHeaders(dashboardCookie),
+      headers: dashboardHeaders(doctorCookie),
       body: {
         symptoms: "Đau đầu nhẹ",
         diagnosis: "Theo dõi đau đầu căng thẳng",
@@ -2692,7 +3666,7 @@ test("patient journey is consistent across public booking dashboard care and mob
     `/api/dashboard/medical-records/${record.id}/prescription`,
     {
       method: "POST",
-      headers: dashboardHeaders(dashboardCookie),
+      headers: dashboardHeaders(doctorCookie),
       body: {
         note: "Dùng thuốc sau ăn",
         items: [
@@ -2714,24 +3688,43 @@ test("patient journey is consistent across public booking dashboard care and mob
 
   const issuedPrescription = await http.request(
     `/api/dashboard/prescriptions/${prescriptionId}/issue`,
-    { method: "PATCH", headers: dashboardHeaders(dashboardCookie) },
+    { method: "PATCH", headers: dashboardHeaders(doctorCookie) },
   );
   assert.equal(issuedPrescription.status, 200);
   assert.equal(issuedPrescription.body.data.status, "ISSUED");
 
   const completed = await http.request(
     `/api/dashboard/appointments/${activeAppointmentId}/complete`,
-    { method: "PATCH", headers: dashboardHeaders(dashboardCookie) },
+    { method: "PATCH", headers: dashboardHeaders(doctorCookie) },
   );
   assert.equal(completed.status, 200);
   assert.equal(completed.body.data.status, "COMPLETED");
 
   const publishedRecord = await http.request(
     `/api/dashboard/medical-records/${record.id}/publish`,
-    { method: "PATCH", headers: dashboardHeaders(dashboardCookie) },
+    { method: "PATCH", headers: dashboardHeaders(doctorCookie) },
   );
   assert.equal(publishedRecord.status, 200);
   assert.equal(publishedRecord.body.data.status, "PUBLISHED");
+
+  // Mỗi thao tác lâm sàng để lại dấu vết ai-làm-gì, không chứa nội dung y tế.
+  const clinicalLogs = await prisma.appointmentLog.findMany({
+    where: {
+      appointmentId: activeAppointmentId,
+      action: {
+        in: ["MEDICAL_RESULT_UPDATED", "PRESCRIPTION_ISSUED", "MEDICAL_RESULT_PUBLISHED"],
+      },
+    },
+    select: { action: true, createdById: true, note: true },
+  });
+  assert.deepEqual(
+    clinicalLogs.map((item) => item.action).sort(),
+    ["MEDICAL_RESULT_PUBLISHED", "MEDICAL_RESULT_UPDATED", "PRESCRIPTION_ISSUED"],
+  );
+  assert.ok(clinicalLogs.every((item) => item.createdById === fixture.doctorOneUser.id));
+  assert.ok(
+    clinicalLogs.every((item) => !/Đau đầu|Paracetamol|Theo dõi đau đầu/.test(item.note || "")),
+  );
 
   const createdInvoice = await http.request(
     `/api/dashboard/invoices/appointments/${activeAppointmentId}`,
@@ -2968,7 +3961,7 @@ test("v1 capabilities reflect the payment providers enabled by configuration", a
   assert.equal(response.status, 200);
   assert.equal(response.body.data.payment.enabled, true);
   assert.equal(response.body.data.payment.reason, null);
-  assert.deepEqual(response.body.data.payment.supportedProviders, ["MOCK"]);
+  assert.deepEqual(response.body.data.payment.supportedProviders, ["VNPAY"]);
   assert.equal(response.body.data.notifications.inAppInbox, true);
   const expectedPushEnabled = isFirebaseAdminConfigured();
   assert.equal(

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Đánh giá người bệnh",
+  title: "Đánh giá người khám",
   description: "Theo dõi và kiểm duyệt đánh giá về bác sĩ, dịch vụ và cơ sở khám.",
 };
 

@@ -4,20 +4,22 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   CalendarDays,
   CheckCircle2,
+  ChevronRight,
+  ClipboardCheck,
   Clock,
   Copy,
   CreditCard,
-  Delete,
   Info,
   Loader2,
+  PackageCheck,
   Phone,
   Send,
   ShieldCheck,
-  UserRound,
-  X,
+  Stethoscope,
+  TimerReset,
 } from "lucide-react";
 import Link from "next/link";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/api";
 import {
   formatVietnamDate,
@@ -28,6 +30,7 @@ import {
 import {
   type PublicBookingDraft,
   type PublicBookingSelection,
+  initialBookingDraft,
   usePublicBookingStore,
 } from "@/lib/public-booking-store";
 import {
@@ -35,21 +38,25 @@ import {
   usePublicAvailableSlots,
 } from "@/lib/public-booking-query";
 import { queryKeys } from "@/lib/query-keys";
+import { usePublicCapabilities } from "@/lib/public-capabilities-query";
+import {
+  clearPublicPendingAppointment,
+  readPublicPendingAppointment,
+  type PublicPendingAppointment,
+  writePublicPendingAppointment,
+} from "@/lib/public-pending-booking";
 import type { Appointment } from "@/lib/types";
+import {
+  buildPatientBookingPrefill,
+} from "@/lib/public-booking-profile";
+import {
+  loadOptionalPatientSession,
+  patientSessionQueryKey,
+} from "@/lib/patient-session-client";
 import { DebugOtpBox } from "@/components/ui/debug-otp-box";
 import { VietnamDateInput } from "@/components/ui/vietnam-date-input";
 import type { PublicHomeData } from "./public-home-types";
 import { ScrollReveal } from "./scroll-reveal";
-
-type PendingAppointment = {
-  appointmentId: string;
-  bookingCode: string;
-  patientPhone: string;
-  otpDeliveryStatus?: "PENDING" | "SENT" | "FAILED";
-  debugOtp?: string;
-  expiresIn: number;
-  holdExpiresAt?: string | null;
-};
 
 type PublicBookingWidgetProps = {
   data: PublicHomeData;
@@ -83,13 +90,20 @@ const toDateInputValue = (value?: string | null) =>
 
 const buildBookingOtpMessage = (
   bookingCode: string,
-  status?: PendingAppointment["otpDeliveryStatus"],
+  status?: PublicPendingAppointment["otpDeliveryStatus"],
 ) => {
   if (status === "SENT") return `Đã gửi OTP xác nhận cho lịch ${bookingCode}.`;
   if (status === "FAILED")
     return `Chưa gửi được OTP xác nhận cho lịch ${bookingCode}. Vui lòng gửi lại OTP.`;
 
   return `Yêu cầu gửi OTP cho lịch ${bookingCode} đã được tiếp nhận. Vui lòng kiểm tra mã trong giây lát.`;
+};
+
+const formatCountdown = (seconds: number) => {
+  const safeSeconds = Math.max(0, seconds);
+  const minutes = Math.floor(safeSeconds / 60);
+  const remainder = safeSeconds % 60;
+  return `${String(minutes).padStart(2, "0")}:${String(remainder).padStart(2, "0")}`;
 };
 
 export function PublicBookingWidget({
@@ -103,17 +117,28 @@ export function PublicBookingWidget({
     (state) => state.setSelectionPatch,
   );
   const setDraftPatch = usePublicBookingStore((state) => state.setDraftPatch);
+  const profileOwnerId = usePublicBookingStore((state) => state.profileOwnerId);
+  const applyPatientProfile = usePublicBookingStore(
+    (state) => state.applyPatientProfile,
+  );
+  const clearPatientProfile = usePublicBookingStore(
+    (state) => state.clearPatientProfile,
+  );
   const setLookupDraft = usePublicBookingStore((state) => state.setLookupDraft);
   const [slots, setSlots] = useState<PublicSlot[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
-  const [pending, setPending] = useState<PendingAppointment | null>(null);
+  const [pending, setPending] = useState<PublicPendingAppointment | null>(null);
+  const [pendingHydrated, setPendingHydrated] = useState(false);
+  const [holdSeconds, setHoldSeconds] = useState(0);
+  const [resendCooldown, setResendCooldown] = useState(0);
   const [otp, setOtp] = useState("");
   const [verifiedAppointment, setVerifiedAppointment] =
     useState<Appointment | null>(null);
   const [showAdditionalInfo, setShowAdditionalInfo] = useState(false);
-  const [showPhonePad, setShowPhonePad] = useState(false);
+  const [flowStep, setFlowStep] = useState(0);
+  const profilePrefillAppliedRef = useRef<string | null>(null);
   const resultRef = useRef<HTMLDivElement | null>(null);
   const formErrorRef = useRef<HTMLDivElement | null>(null);
   const pendingOtpRef = useRef<HTMLDivElement | null>(null);
@@ -178,13 +203,11 @@ export function PublicBookingWidget({
     selectedPackage,
     selection.serviceMode,
   ]);
-  const activeBookingStep = pending
-    ? 3
-    : draft.patientName.trim() || draft.patientPhone.trim()
-      ? 2
-      : draft.timeSlotId
-        ? 1
-        : 0;
+  const activeBookingStep = pending || verifiedAppointment ? 3 : flowStep;
+  const supportHotline =
+    data.settings?.hotline?.trim() ||
+    data.settings?.emergencyHotline?.trim() ||
+    "";
 
   const slotsQuery = usePublicAvailableSlots({
     doctorId: selection.doctorId,
@@ -192,6 +215,147 @@ export function PublicBookingWidget({
   });
   const slotLoading =
     slotsQuery.isLoading || (slotsQuery.isFetching && !slots.length);
+  const otpChannels = usePublicCapabilities().data?.otp.channels ?? ["EMAIL"];
+  const patientProfileQuery = useQuery({
+    queryKey: patientSessionQueryKey,
+    queryFn: loadOptionalPatientSession,
+    retry: false,
+    staleTime: 0,
+  });
+
+  useEffect(() => {
+    const profile = patientProfileQuery.data;
+    if (!profile) {
+      if (patientProfileQuery.isSuccess && profileOwnerId) {
+        profilePrefillAppliedRef.current = null;
+        clearPatientProfile();
+      }
+      return;
+    }
+    if (profilePrefillAppliedRef.current === profile.id) return;
+
+    profilePrefillAppliedRef.current = profile.id;
+    const sourceDraft =
+      profileOwnerId && profileOwnerId !== profile.id
+        ? {
+            ...initialBookingDraft,
+            date: draft.date,
+            timeSlotId: draft.timeSlotId,
+          }
+        : draft;
+    const patch = buildPatientBookingPrefill(sourceDraft, profile);
+
+    applyPatientProfile(profile.id, patch);
+  }, [
+    applyPatientProfile,
+    clearPatientProfile,
+    draft,
+    patientProfileQuery.data,
+    patientProfileQuery.isSuccess,
+    profileOwnerId,
+  ]);
+  const profilePrefilled = Boolean(
+    patientProfileQuery.data &&
+      ((patientProfileQuery.data.fullName &&
+        draft.patientName === patientProfileQuery.data.fullName) ||
+        (patientProfileQuery.data.phone &&
+          draft.patientPhone === patientProfileQuery.data.phone)),
+  );
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      const restored = readPublicPendingAppointment();
+      if (!restored) {
+        setPendingHydrated(true);
+        return;
+      }
+
+      const holdExpiresAt = restored.holdExpiresAt
+        ? new Date(restored.holdExpiresAt).getTime()
+        : 0;
+      if (holdExpiresAt && holdExpiresAt <= Date.now()) {
+        clearPublicPendingAppointment();
+        setError(
+          "Phiên giữ khung giờ trước đó đã hết hạn. Vui lòng chọn lại khung giờ.",
+        );
+        setFlowStep(1);
+        setPendingHydrated(true);
+        return;
+      }
+
+      setPending(restored);
+      setLookupDraft({
+        bookingCode: restored.bookingCode,
+        phone: restored.patientPhone,
+      });
+      setFlowStep(3);
+      setResendCooldown(30);
+      setMessage(
+        `Đã khôi phục phiên xác thực cho lịch ${restored.bookingCode}.`,
+      );
+      setPendingHydrated(true);
+    }, 0);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [setLookupDraft]);
+
+  useEffect(() => {
+    if (!pendingHydrated) return;
+    if (pending) writePublicPendingAppointment(pending);
+    else clearPublicPendingAppointment();
+  }, [pending, pendingHydrated]);
+
+  useEffect(() => {
+    if (!pending?.holdExpiresAt) {
+      return;
+    }
+
+    const updateCountdown = () => {
+      const remaining = Math.max(
+        0,
+        Math.ceil(
+          (new Date(pending.holdExpiresAt || "").getTime() - Date.now()) /
+            1000,
+        ),
+      );
+      setHoldSeconds(remaining);
+
+      if (remaining === 0) {
+        clearPublicPendingAppointment();
+        setPending(null);
+        setOtp("");
+        setFlowStep(1);
+        setMessage("");
+        setError(
+          "Thời gian giữ khung giờ đã hết. Vui lòng chọn lại khung giờ để tiếp tục.",
+        );
+        void queryClient.invalidateQueries({
+          queryKey: queryKeys.publicAvailableSlots({
+            doctorId: selection.doctorId,
+            date: draft.date,
+          }),
+        });
+      }
+    };
+
+    updateCountdown();
+    const intervalId = window.setInterval(updateCountdown, 1000);
+    return () => window.clearInterval(intervalId);
+  }, [
+    draft.date,
+    pending?.holdExpiresAt,
+    queryClient,
+    selection.doctorId,
+  ]);
+
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+    const timeoutId = window.setTimeout(
+      () => setResendCooldown((current) => Math.max(0, current - 1)),
+      1000,
+    );
+    return () => window.clearTimeout(timeoutId);
+  }, [resendCooldown]);
 
   useEffect(() => {
     if (!selection.doctorId || !draft.date) {
@@ -257,13 +421,49 @@ export function PublicBookingWidget({
     setDraftPatch(patch);
   };
 
+  // Nếu kênh đang chọn không còn được backend hỗ trợ (vd. SMS chưa cấu hình),
+  // chuyển sang kênh khả dụng đầu tiên.
+  const otpChannelUnavailable = !otpChannels.includes(draft.otpChannel);
+  const firstOtpChannel = otpChannels[0];
+  useEffect(() => {
+    if (!otpChannelUnavailable || !firstOtpChannel) return;
+    const timeoutId = window.setTimeout(() => setDraftPatch({ otpChannel: firstOtpChannel }), 0);
+    return () => window.clearTimeout(timeoutId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [otpChannelUnavailable, firstOtpChannel]);
+
   const updatePatientPhone = (value: string) => {
     updateDraft({ patientPhone: sanitizePhoneInput(value) });
   };
 
-  const appendPhoneDigit = (digit: string) => {
-    updatePatientPhone(`${draft.patientPhone}${digit}`);
+  const showStepError = (message: string) => {
+    setError(message);
+    scrollToBox(formErrorRef);
   };
+
+  const continueFromService = () => {
+    if (!selection.departmentId) return showStepError("Vui lòng chọn chuyên khoa.");
+    if (!selection.serviceMode)
+      return showStepError("Vui lòng chọn khám theo bác sĩ hoặc một gói khám.");
+    if (selection.serviceMode === "PACKAGE" && !selection.packageId)
+      return showStepError("Vui lòng chọn gói khám phù hợp.");
+    if (!selection.doctorId) return showStepError("Vui lòng chọn bác sĩ.");
+    setError("");
+    setFlowStep(1);
+  };
+
+  const continueFromSchedule = () => {
+    if (!draft.date) return showStepError("Vui lòng chọn ngày khám.");
+    if (draft.date < getVietnamDateInput())
+      return showStepError("Ngày khám không được nhỏ hơn ngày hiện tại.");
+    if (!draft.timeSlotId) return showStepError("Vui lòng chọn khung giờ khám.");
+    setError("");
+    setFlowStep(2);
+  };
+
+  const hasHealthDeclaration = Boolean(
+    draft.allergies.trim() || draft.medicalHistory.trim() || draft.familyHistory.trim(),
+  );
 
   const validateDraft = () => {
     if (!selection.departmentId) return "Vui lòng chọn chuyên khoa.";
@@ -277,7 +477,7 @@ export function PublicBookingWidget({
       return "Ngày khám không được nhỏ hơn ngày hiện tại.";
     if (!draft.timeSlotId) return "Vui lòng chọn khung giờ khám.";
     if (draft.patientName.trim().length < 2)
-      return "Họ tên bệnh nhân tối thiểu 2 ký tự.";
+      return "Họ tên người khám tối thiểu 2 ký tự.";
     if (!phoneRegex.test(draft.patientPhone.trim()))
       return "Số điện thoại không hợp lệ.";
     if (
@@ -291,6 +491,8 @@ export function PublicBookingWidget({
       return "Ngày sinh phải nhỏ hơn ngày hiện tại.";
     if (draft.hasBHYT && !draft.healthInsuranceCode.trim())
       return "Vui lòng nhập mã thẻ BHYT.";
+    if (hasHealthDeclaration && !draft.healthConsent)
+      return "Vui lòng đồng ý cho bệnh viện lưu thông tin sức khỏe bạn đã khai báo, hoặc xóa phần dị ứng và tiền sử.";
 
     return "";
   };
@@ -309,7 +511,7 @@ export function PublicBookingWidget({
     setSubmitting(true);
 
     try {
-      const result = await apiRequest<PendingAppointment>("/appointments", {
+      const result = await apiRequest<PublicPendingAppointment>("/appointments", {
         method: "POST",
         body: {
           packageId: selection.packageId || null,
@@ -331,6 +533,7 @@ export function PublicBookingWidget({
           allergies: draft.allergies.trim() || null,
           medicalHistory: draft.medicalHistory.trim() || null,
           familyHistory: draft.familyHistory.trim() || null,
+          healthConsent: hasHealthDeclaration ? draft.healthConsent : undefined,
         },
       });
 
@@ -339,6 +542,8 @@ export function PublicBookingWidget({
         phone: result.patientPhone,
       });
       setPending(result);
+      setResendCooldown(30);
+      setFlowStep(3);
       setMessage(
         buildBookingOtpMessage(result.bookingCode, result.otpDeliveryStatus),
       );
@@ -383,6 +588,7 @@ export function PublicBookingWidget({
         phone: result.patientPhone,
       });
       setVerifiedAppointment(result);
+      clearPublicPendingAppointment();
       setPending(null);
       setMessage(
         "Xác thực OTP thành công. Lịch hẹn đang chờ bệnh viện xác nhận.",
@@ -411,7 +617,7 @@ export function PublicBookingWidget({
     try {
       const result = await apiRequest<{
         expiresIn: number;
-        otpDeliveryStatus?: PendingAppointment["otpDeliveryStatus"];
+        otpDeliveryStatus?: PublicPendingAppointment["otpDeliveryStatus"];
         debugOtp?: string;
         holdExpiresAt?: string | null;
       }>(`/appointments/${pending.appointmentId}/resend-otp`, {
@@ -432,9 +638,55 @@ export function PublicBookingWidget({
       setMessage(
         buildBookingOtpMessage(pending.bookingCode, result.otpDeliveryStatus),
       );
+      setResendCooldown(30);
       scrollToBox(pendingOtpRef);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Không gửi lại được OTP");
+      scrollToBox(pendingOtpRef);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const abandonPendingAppointment = async () => {
+    if (!pending || submitting) return;
+
+    setError("");
+    setMessage("");
+    setSubmitting(true);
+
+    try {
+      if (pending.holdReleaseToken) {
+        await apiRequest(`/appointments/${pending.appointmentId}/pending`, {
+          method: "DELETE",
+          body: { holdReleaseToken: pending.holdReleaseToken },
+        });
+      }
+
+      clearPublicPendingAppointment();
+      setPending(null);
+      setOtp("");
+      setHoldSeconds(0);
+      setResendCooldown(0);
+      setFlowStep(1);
+      setDraftPatch({ timeSlotId: "" });
+      setMessage(
+        pending.holdReleaseToken
+          ? "Đã trả khung giờ. Vui lòng chọn thời gian khác để tiếp tục."
+          : "Đã đóng phiên xác thực cũ. Vui lòng chọn lại khung giờ.",
+      );
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.publicAvailableSlots({
+          doctorId: selection.doctorId,
+          date: draft.date,
+        }),
+      });
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Không thể trả khung giờ lúc này. Vui lòng thử lại.",
+      );
       scrollToBox(pendingOtpRef);
     } finally {
       setSubmitting(false);
@@ -457,136 +709,172 @@ export function PublicBookingWidget({
   return (
     <section
       id="booking"
-      className="ui-container scroll-mt-24 py-12 sm:py-16"
+      className="ui-container scroll-mt-24 py-8 sm:py-10"
     >
       <ScrollReveal>
-        <div className="grid gap-6 rounded-3xl border border-[var(--public-border)] bg-gradient-to-b from-[var(--public-primary-soft)] via-white to-white p-3 shadow-[var(--public-shadow-soft)] sm:p-5 lg:grid-cols-[minmax(0,1fr)_360px] lg:p-6">
-          <div>
-            <div className="flex items-start gap-3 rounded-2xl border border-[var(--public-border)] bg-white/90 p-4 shadow-sm sm:p-5">
+        <div className="grid items-start gap-6 lg:grid-cols-12 lg:gap-8">
+          <div className="lg:col-span-8">
+            <div className="flex items-start gap-3 rounded-2xl border border-[var(--public-border)] bg-white p-4 shadow-sm sm:p-5">
               <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[var(--public-primary-soft)] text-[var(--public-primary)]">
                 <CalendarDays className="h-5 w-5" aria-hidden="true" />
               </span>
               <div>
-                <p className="text-sm font-semibold uppercase tracking-wide text-[var(--public-primary)]">
-                  Đặt lịch nhanh
+                <p className="text-xs font-bold uppercase tracking-[0.1em] text-[var(--public-primary)]">
+                  Phiếu đặt lịch trực tuyến
                 </p>
-                <h2 className="mt-1 text-2xl font-semibold text-[var(--public-ink)]">
-                  Chọn lịch khám và xác thực OTP
+                <h2 className="mt-1 text-xl font-bold text-[var(--public-ink)] sm:text-2xl">
+                  Hoàn tất từng bước để xác nhận lịch
                 </h2>
                 <p className="mt-2 text-sm leading-6 text-[var(--public-muted)]">
-                  Chọn chuyên khoa, bác sĩ và khung giờ phù hợp. Sau đó nhập
-                  thông tin để bệnh viện gửi OTP giữ lịch.
+                  Hệ thống chỉ hiển thị chuyên khoa, bác sĩ, gói khám và khung giờ đang có trong dữ liệu hiện tại.
                 </p>
               </div>
             </div>
 
-            <ol className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4" aria-label="Các bước đặt lịch">
-              {["Chọn dịch vụ", "Chọn thời gian", "Nhập thông tin", "Xác thực OTP"].map(
-                (label, index) => (
-                  <li
-                    key={label}
-                    aria-current={activeBookingStep === index ? "step" : undefined}
-                    className={`flex min-w-0 items-center gap-2 rounded-xl border px-3 py-2.5 text-xs font-semibold ${activeBookingStep === index ? "border-[var(--public-primary)] bg-[var(--public-primary-soft)] text-[var(--public-primary-dark)]" : index < activeBookingStep ? "border-[var(--public-border)] bg-white text-[var(--public-primary-dark)]" : "border-[var(--public-border)] bg-white text-[var(--public-text-soft)]"}`}
-                  >
-                    <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full ${index <= activeBookingStep ? "bg-[var(--public-primary)] text-white" : "bg-[var(--public-surface-muted)] text-[var(--public-muted)]"}`}>
+            <div className="relative mt-4 rounded-2xl border border-[var(--public-border)] bg-white px-2 py-4 shadow-sm sm:px-4">
+              <span className="pointer-events-none absolute left-[12.5%] right-[12.5%] top-[2.05rem] h-0.5 bg-[var(--public-border)]" aria-hidden="true">
+                <span className="block h-full bg-[var(--public-primary)] transition-[width] duration-300 motion-reduce:transition-none" style={{ width: `${Math.min(activeBookingStep, 3) / 3 * 100}%` }} />
+              </span>
+              <ol className="relative grid grid-cols-4" aria-label="Các bước đặt lịch">
+                {[
+                  ["Dịch vụ", "Chuyên khoa & bác sĩ"],
+                  ["Thời gian", "Ngày & khung giờ"],
+                  ["Thông tin", "Người khám & BHYT"],
+                  ["Xác thực", "Mã OTP 6 số"],
+                ].map(([label, description], index) => (
+                  <li key={label} aria-current={activeBookingStep === index ? "step" : undefined} className="relative z-10 flex min-w-0 flex-col items-center px-1 text-center">
+                    <span className={`flex h-9 w-9 items-center justify-center rounded-full border-2 text-xs font-bold shadow-sm ${index < activeBookingStep ? "border-[var(--public-primary)] bg-[var(--public-primary)] text-white" : activeBookingStep === index ? "border-[var(--public-primary)] bg-white text-[var(--public-primary)] ring-4 ring-[var(--public-primary-soft)]" : "border-[var(--public-border)] bg-[var(--public-surface-muted)] text-[var(--public-muted)]"}`}>
                       {index < activeBookingStep ? <CheckCircle2 className="h-4 w-4" aria-hidden="true" /> : index + 1}
                     </span>
-                    <span className="truncate">{label}</span>
+                    <span className={`mt-2 text-[11px] font-bold sm:text-xs ${index <= activeBookingStep ? "text-[var(--public-primary-dark)]" : "text-[var(--public-muted)]"}`}>{label}</span>
+                    <span className="mt-0.5 hidden text-[10px] leading-4 text-[var(--public-muted)] sm:block">{description}</span>
                   </li>
-                ),
-              )}
-            </ol>
+                ))}
+              </ol>
+            </div>
 
-            <div className="mt-4 rounded-2xl border border-[var(--public-border)] bg-white p-4 shadow-sm sm:p-5">
-              <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-[#172033]">
+            <div className={`${flowStep <= 1 ? "mt-4" : "hidden"} rounded-2xl border border-[var(--public-border)] bg-white p-4 shadow-sm sm:p-6`}>
+              <div className="mb-5 flex items-center gap-3 border-b border-[var(--public-divider)] pb-4 text-sm font-semibold text-[var(--public-ink)]">
                 <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-[var(--public-primary-soft)] text-[var(--public-primary)]">
-                  <CalendarDays className="h-4 w-4" aria-hidden="true" />
+                  <span className="text-xs font-bold tabular-nums">0{flowStep + 1}</span>
                 </span>
-                Lựa chọn lịch khám
+                {flowStep === 0 ? "Chọn chuyên khoa và dịch vụ" : "Chọn ngày và khung giờ khám"}
               </div>
-              <div className="grid gap-3 md:grid-cols-3">
-                <select
-                  aria-label="Chọn chuyên khoa"
-                  value={selection.departmentId}
-                  onChange={(event) => {
-                    updateSelection({
-                      departmentId: event.target.value,
-                      doctorId: "",
-                      packageId: "",
-                      serviceMode: "",
-                    });
-                    updateDraft({ timeSlotId: "" });
-                  }}
-                  className="ui-field px-3 py-2.5 text-base sm:text-sm"
-                  disabled={loading}
-                >
-                  <option value="">Chọn chuyên khoa</option>
-                  {data.departments.map((item) => (
-                    <option key={item.id} value={item.id}>
-                      {item.name}
-                    </option>
-                  ))}
-                </select>
-                <select
-                  aria-label="Hình thức khám"
-                  value={
-                    !selection.serviceMode
-                      ? "__UNDECIDED__"
-                      : selection.serviceMode === "DOCTOR_ONLY"
-                        ? ""
-                        : selection.packageId
-                  }
-                  onChange={(event) => {
-                    const packageId = event.target.value;
-                    updateSelection(
-                      packageId
-                        ? { packageId, serviceMode: "PACKAGE" }
-                        : { packageId: "", serviceMode: "DOCTOR_ONLY" },
-                    );
-                  }}
-                  className="ui-field px-3 py-2.5 text-base sm:text-sm"
-                  disabled={loading || !selection.departmentId}
-                >
-                  <option value="__UNDECIDED__" disabled>
-                    Chọn hình thức khám
-                  </option>
-                  <option value="">Khám theo bác sĩ (không chọn gói)</option>
-                  {filteredPackages.map((item) => (
-                    <option key={item.id} value={item.id}>
-                      Gói: {item.name}
-                    </option>
-                  ))}
-                </select>
-                <select
-                  aria-label="Chọn bác sĩ"
-                  value={selection.doctorId}
-                  onChange={(event) => {
-                    updateSelection({ doctorId: event.target.value });
-                    updateDraft({ timeSlotId: "" });
-                  }}
-                  className="ui-field px-3 py-2.5 text-base sm:text-sm"
-                  disabled={loading || !selection.departmentId || !selection.serviceMode}
-                >
-                  <option value="">Chọn bác sĩ</option>
-                  {filteredDoctors.map((item) => (
-                    <option key={item.id} value={item.id}>
-                      {doctorName(item)}
-                    </option>
-                  ))}
-                </select>
+              <div className={`${flowStep === 0 ? "block" : "hidden"}`}>
+                <label className="block">
+                  <span className="text-sm font-semibold text-[var(--public-ink)]">Chuyên khoa tiếp nhận <span className="text-[var(--public-danger)]">*</span></span>
+                  <select
+                    value={selection.departmentId}
+                    onChange={(event) => {
+                      updateSelection({
+                        departmentId: event.target.value,
+                        doctorId: "",
+                        packageId: "",
+                        serviceMode: "",
+                      });
+                      updateDraft({ timeSlotId: "" });
+                    }}
+                    className="ui-field mt-2 w-full px-3 py-3 text-base sm:text-sm"
+                    disabled={loading}
+                  >
+                    <option value="">Chọn chuyên khoa phù hợp</option>
+                    {data.departments.map((item) => (
+                      <option key={item.id} value={item.id}>{item.name}</option>
+                    ))}
+                  </select>
+                </label>
+
+                <fieldset className="mt-5" disabled={loading || !selection.departmentId}>
+                  <legend className="text-sm font-semibold text-[var(--public-ink)]">Phương thức chọn khám <span className="text-[var(--public-danger)]">*</span></legend>
+                  <div className="mt-2 grid gap-2 rounded-xl border border-[var(--public-border)] bg-[var(--public-surface-muted)] p-1.5 sm:grid-cols-2">
+                    <button
+                      type="button"
+                      onClick={() => updateSelection({ serviceMode: "DOCTOR_ONLY", packageId: "" })}
+                      aria-pressed={selection.serviceMode === "DOCTOR_ONLY"}
+                      className={`inline-flex min-h-12 items-center justify-center gap-2 rounded-lg px-3 text-sm font-bold transition ${selection.serviceMode === "DOCTOR_ONLY" ? "border border-[var(--public-border)] bg-white text-[var(--public-primary-dark)] shadow-sm" : "text-[var(--public-text-soft)] hover:bg-white/70 hover:text-[var(--public-primary)]"}`}
+                    >
+                      <Stethoscope className="h-4 w-4" aria-hidden="true" />
+                      Khám theo bác sĩ
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => updateSelection({ serviceMode: "PACKAGE", packageId: "" })}
+                      aria-pressed={selection.serviceMode === "PACKAGE"}
+                      className={`inline-flex min-h-12 items-center justify-center gap-2 rounded-lg px-3 text-sm font-bold transition ${selection.serviceMode === "PACKAGE" ? "border border-[var(--public-border)] bg-white text-[var(--public-primary-dark)] shadow-sm" : "text-[var(--public-text-soft)] hover:bg-white/70 hover:text-[var(--public-primary)]"}`}
+                    >
+                      <PackageCheck className="h-4 w-4" aria-hidden="true" />
+                      Chọn gói khám
+                    </button>
+                  </div>
+                </fieldset>
+
+                {selection.serviceMode ? (
+                  <div className="mt-5 grid gap-4 md:grid-cols-2">
+                    {selection.serviceMode === "PACKAGE" ? (
+                      <label className="block">
+                        <span className="text-sm font-semibold text-[var(--public-ink)]">Gói khám <span className="text-[var(--public-danger)]">*</span></span>
+                        <select
+                          value={selection.packageId}
+                          onChange={(event) => updateSelection({ packageId: event.target.value })}
+                          className="ui-field mt-2 w-full px-3 py-3 text-base sm:text-sm"
+                        >
+                          <option value="">Chọn gói khám</option>
+                          {filteredPackages.map((item) => (
+                            <option key={item.id} value={item.id}>{item.name} · {formatCurrency(item.finalPrice)}</option>
+                          ))}
+                        </select>
+                      </label>
+                    ) : (
+                      <div className="rounded-xl border border-[var(--public-border)] bg-[var(--public-primary-soft)] px-4 py-3 text-sm leading-6 text-[var(--public-primary-dark)]">
+                        Phí dự kiến sẽ được tính theo bác sĩ bạn chọn.
+                      </div>
+                    )}
+                    <label className="block">
+                      <span className="text-sm font-semibold text-[var(--public-ink)]">
+                        Bác sĩ tiếp nhận <span className="text-[var(--public-danger)]">*</span>
+                        {selection.serviceMode === "PACKAGE" ? (
+                          <span className="ml-1 font-normal text-[var(--public-muted)]">(không tính phí khám riêng)</span>
+                        ) : null}
+                      </span>
+                      <select
+                        value={selection.doctorId}
+                        onChange={(event) => {
+                          updateSelection({ doctorId: event.target.value });
+                          updateDraft({ timeSlotId: "" });
+                        }}
+                        className="ui-field mt-2 w-full px-3 py-3 text-base sm:text-sm"
+                        disabled={selection.serviceMode === "PACKAGE" && !selection.packageId}
+                      >
+                        <option value="">Chọn bác sĩ</option>
+                        {filteredDoctors.map((item) => (
+                          <option key={item.id} value={item.id}>
+                            {doctorName(item)}
+                            {selection.serviceMode === "DOCTOR_ONLY"
+                              ? ` · ${formatCurrency(item.consultationFee)}`
+                              : ""}
+                          </option>
+                        ))}
+                      </select>
+                      {selection.serviceMode === "PACKAGE" ? (
+                        <span className="mt-1.5 block text-xs leading-5 text-[var(--public-muted)]">
+                          Bác sĩ được chọn để tiếp nhận gói; tạm tính chỉ theo giá gói đang hiển thị.
+                        </span>
+                      ) : null}
+                    </label>
+                  </div>
+                ) : null}
               </div>
 
-              {selection.departmentId && !selection.serviceMode ? (
+              {flowStep === 0 && selection.departmentId && !selection.serviceMode ? (
                 <div className="mt-3 flex items-start gap-2 rounded-xl border border-[var(--public-border)] bg-[var(--public-primary-soft)] px-3 py-2.5 text-sm text-[var(--public-primary-dark)]">
                   <Info className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
                   <p>
-                    Bạn chưa chọn gói khám. Có thể tiếp tục theo phí khám của bác sĩ
-                    hoặc chọn gói để biết trước các hạng mục và chi phí.
+                    Chọn khám theo bác sĩ hoặc chọn một gói khám đang có trong hệ thống để tiếp tục.
                   </p>
                 </div>
               ) : null}
 
-              <div className="mt-4 grid gap-4 rounded-2xl border border-[var(--public-divider)] bg-[var(--public-surface-muted)] p-3 sm:p-4 md:grid-cols-[220px_minmax(0,1fr)]">
+              <div className={`${flowStep === 1 ? "grid" : "hidden"} gap-5 md:grid-cols-[220px_minmax(0,1fr)]`}>
                 <label className="block">
                   <span className="text-sm font-medium text-[#334155]">
                     Ngày khám
@@ -619,7 +907,7 @@ export function PublicBookingWidget({
                   <div className="mt-2 flex min-h-11 flex-wrap gap-2">
                     {!selection.doctorId ? (
                       <span className="rounded-md border border-dashed border-[#dce3ee] px-3 py-2 text-sm text-[#667892]">
-                        Chọn bác sĩ để xem slot.
+                        Chọn bác sĩ để xem khung giờ.
                       </span>
                     ) : slotLoading ? (
                       Array.from({ length: 4 }).map((_, index) => (
@@ -648,128 +936,102 @@ export function PublicBookingWidget({
                     ) : (
                       <span className="rounded-md border border-dashed border-[#dce3ee] px-3 py-2 text-sm text-[#667892]">
                         {draft.date === getVietnamDateInput()
-                          ? `Không còn khung giờ khả dụng hôm nay sau ${getVietnamTimeInput()}. Các slot đã qua giờ sẽ không hiển thị.`
+                          ? `Không còn khung giờ khả dụng hôm nay sau ${getVietnamTimeInput()}. Các giờ đã qua sẽ không hiển thị.`
                           : `Chưa có khung giờ trống trong ngày ${formatVietnamDate(draft.date)}.`}
                       </span>
                     )}
                   </div>
                 </div>
               </div>
+
+              <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-[var(--public-divider)] pt-4">
+                {flowStep === 1 ? (
+                  <button type="button" onClick={() => { setError(""); setFlowStep(0); }} className="public-button-secondary inline-flex min-h-11 items-center justify-center rounded-xl px-4 py-2.5 text-sm font-bold">
+                    Quay lại
+                  </button>
+                ) : <span />}
+                <button type="button" onClick={flowStep === 0 ? continueFromService : continueFromSchedule} className="public-button-primary ml-auto inline-flex min-h-11 items-center justify-center rounded-xl px-5 py-2.5 text-sm font-bold">
+                  Tiếp tục
+                  <ChevronRight className="ml-1.5 h-4 w-4" aria-hidden="true" />
+                </button>
+              </div>
             </div>
 
-            <div className="mt-4 rounded-2xl border border-[var(--public-border)] bg-white p-4 shadow-sm sm:p-5">
-              <div className="flex items-start gap-3">
-                <span className="mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-[#e7f0fb] text-[#0d4f8b]">
-                  <UserRound className="h-4 w-4" />
+            <div className={`${flowStep === 2 ? "mt-4" : "hidden"} rounded-2xl border border-[var(--public-border)] bg-white p-4 shadow-sm sm:p-6`}>
+              <div className="flex items-start gap-3 border-b border-[var(--public-divider)] pb-4">
+                <span className="mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[var(--public-primary-soft)] text-[var(--public-primary)]">
+                  <span className="text-xs font-bold tabular-nums">03</span>
                 </span>
                 <div>
-                  <p className="text-sm font-semibold text-[#172033]">
-                    Thông tin bắt buộc
+                  <p className="text-sm font-bold text-[var(--public-ink)]">
+                    Thông tin người khám
                   </p>
-                  <p className="mt-1 text-sm text-[#667892]">
-                    Chỉ cần đủ thông tin liên hệ để bệnh viện gửi OTP và xác
-                    nhận lịch.
+                  <p className="mt-1 text-sm leading-6 text-[var(--public-muted)]">
+                    Họ tên và số điện thoại là thông tin bắt buộc để tạo lịch và gửi OTP.
                   </p>
                 </div>
               </div>
 
-              <div className="mt-4 grid gap-3 md:grid-cols-2">
+              {profilePrefilled ? (
+                <div
+                  className="mt-4 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800"
+                  role="status"
+                >
+                  <span className="flex items-center gap-2 font-semibold">
+                    <CheckCircle2
+                      className="h-4 w-4 shrink-0"
+                      aria-hidden="true"
+                    />
+                    Đã tự điền thông tin từ hồ sơ tài khoản.
+                  </span>
+                  <Link
+                    href="/tai-khoan/ho-so"
+                    className="inline-flex min-h-8 items-center font-bold underline decoration-emerald-300 underline-offset-4 hover:text-emerald-950"
+                  >
+                    Kiểm tra hồ sơ
+                  </Link>
+                </div>
+              ) : null}
+
+              <div className="mt-5 grid gap-4 md:grid-cols-2">
                 <label className="block">
-                  <span className="text-sm font-medium text-[#334155]">
-                    Họ tên bệnh nhân
+                  <span className="text-sm font-semibold text-[var(--public-ink)]">
+                    Họ tên người khám <span className="text-[var(--public-danger)]">*</span>
                   </span>
                   <input
                     value={draft.patientName}
                     onChange={(event) =>
                       updateDraft({ patientName: event.target.value })
                     }
-                    className="ui-field mt-1 w-full px-3 py-2.5 text-sm"
+                    className="ui-field mt-2 w-full px-3 py-3 text-base sm:text-sm"
+                    autoComplete="name"
                     required
                   />
                 </label>
                 <label className="block">
-                  <span className="text-sm font-medium text-[#334155]">
-                    Số điện thoại
+                  <span className="text-sm font-semibold text-[var(--public-ink)]">
+                    Số điện thoại nhận OTP <span className="text-[var(--public-danger)]">*</span>
                   </span>
-                  <div className="relative mt-1">
-                    <Phone className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#667892]" />
+                  <div className="relative mt-2">
+                    <Phone className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--public-muted)]" aria-hidden="true" />
                     <input
                       value={draft.patientPhone}
                       onChange={(event) =>
                         updatePatientPhone(event.target.value)
                       }
-                      onFocus={() => setShowPhonePad(true)}
                       type="tel"
                       inputMode="tel"
                       autoComplete="tel"
                       pattern="(0|\+84)[0-9]{9,10}"
                       placeholder="0901234567"
-                      className="ui-field w-full px-3 py-2.5 pl-9 text-sm"
+                      className="ui-field w-full px-3 py-3 pl-9 text-base sm:text-sm"
                       required
                     />
                   </div>
-                  {showPhonePad ? (
-                    <div className="mt-2 rounded-md border border-[#d8e9ff] bg-[#f8fbff] p-3 shadow-sm">
-                      <div className="mb-2 flex items-center justify-between gap-3">
-                        <p className="text-xs font-semibold text-[#0d4f8b]">
-                          Nhập nhanh số điện thoại
-                        </p>
-                        <button
-                          type="button"
-                          onClick={() => setShowPhonePad(false)}
-                          className="inline-flex h-7 w-7 items-center justify-center rounded-md text-[#667892] hover:bg-white"
-                          aria-label="Đóng bàn phím số"
-                        >
-                          <X className="h-4 w-4" />
-                        </button>
-                      </div>
-                      <div className="grid grid-cols-3 gap-2">
-                        {["1", "2", "3", "4", "5", "6", "7", "8", "9"].map(
-                          (digit) => (
-                            <button
-                              key={digit}
-                              type="button"
-                              onClick={() => appendPhoneDigit(digit)}
-                              className="rounded-md border border-[#cfd8e6] bg-white py-2 text-sm font-semibold text-[#172033] hover:border-[#0d4f8b] hover:text-[#0d4f8b]"
-                            >
-                              {digit}
-                            </button>
-                          ),
-                        )}
-                        <button
-                          type="button"
-                          onClick={() => updatePatientPhone("+84")}
-                          className="rounded-md border border-[#cfd8e6] bg-white py-2 text-sm font-semibold text-[#0d4f8b] hover:border-[#0d4f8b]"
-                        >
-                          +84
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => appendPhoneDigit("0")}
-                          className="rounded-md border border-[#cfd8e6] bg-white py-2 text-sm font-semibold text-[#172033] hover:border-[#0d4f8b] hover:text-[#0d4f8b]"
-                        >
-                          0
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            updatePatientPhone(draft.patientPhone.slice(0, -1))
-                          }
-                          className="inline-flex items-center justify-center rounded-md border border-[#cfd8e6] bg-white py-2 text-[#42526b] hover:border-[#0d4f8b] hover:text-[#0d4f8b]"
-                          aria-label="Xóa một số"
-                        >
-                          <Delete className="h-4 w-4" />
-                        </button>
-                      </div>
-                      <p className="mt-2 text-xs leading-5 text-[#667892]">
-                        Dùng số bắt đầu bằng 0 hoặc +84 để nhận OTP xác nhận
-                        lịch hẹn.
-                      </p>
-                    </div>
-                  ) : null}
+                  <span className="mt-1.5 block text-xs leading-5 text-[var(--public-muted)]">Dùng số bắt đầu bằng 0 hoặc +84. Số này cũng dùng để đăng nhập xem lại lịch hẹn.</span>
                 </label>
                 <label className="block">
-                  <span className="text-sm font-medium text-[#334155]">
+                  <span className="text-sm font-semibold text-[var(--public-ink)]">
                     Kênh OTP
                   </span>
                   <select
@@ -780,14 +1042,14 @@ export function PublicBookingWidget({
                           .value as PublicBookingDraft["otpChannel"],
                       })
                     }
-                    className="mt-1 w-full rounded-md border border-[#cfd8e6] bg-[#fbfdff] px-3 py-2.5 text-sm outline-none transition focus:border-[#0d4f8b] focus:bg-white focus:ring-2 focus:ring-[#cfe4fa]"
+                    className="ui-field mt-2 w-full px-3 py-3 text-base sm:text-sm"
                   >
-                    <option value="SMS">SMS</option>
-                    <option value="EMAIL">Email</option>
+                    {otpChannels.includes("EMAIL") ? <option value="EMAIL">Email</option> : null}
+                    {otpChannels.includes("SMS") ? <option value="SMS">SMS</option> : null}
                   </select>
                 </label>
                 <label className="block">
-                  <span className="text-sm font-medium text-[#334155]">
+                  <span className="text-sm font-semibold text-[var(--public-ink)]">
                     Email{" "}
                     {draft.otpChannel === "EMAIL"
                       ? "(bắt buộc)"
@@ -799,11 +1061,13 @@ export function PublicBookingWidget({
                       updateDraft({ patientEmail: event.target.value })
                     }
                     placeholder="Nhập nếu xác thực qua email"
-                    className="mt-1 w-full rounded-md border border-[#cfd8e6] bg-[#fbfdff] px-3 py-2.5 text-sm outline-none transition focus:border-[#0d4f8b] focus:bg-white focus:ring-2 focus:ring-[#cfe4fa]"
+                    type="email"
+                    autoComplete="email"
+                    className="ui-field mt-2 w-full px-3 py-3 text-base sm:text-sm"
                   />
                 </label>
                 <label className="block md:col-span-2">
-                  <span className="text-sm font-medium text-[#334155]">
+                  <span className="text-sm font-semibold text-[var(--public-ink)]">
                     Lý do khám
                   </span>
                   <textarea
@@ -813,34 +1077,35 @@ export function PublicBookingWidget({
                     }
                     rows={3}
                     placeholder="Ví dụ: đau đầu, tái khám, tư vấn kết quả..."
-                    className="mt-1 w-full rounded-md border border-[#cfd8e6] bg-[#fbfdff] px-3 py-2.5 text-sm outline-none transition focus:border-[#0d4f8b] focus:bg-white focus:ring-2 focus:ring-[#cfe4fa]"
+                    className="ui-field mt-2 w-full px-3 py-3 text-base sm:text-sm"
                   />
                 </label>
               </div>
             </div>
 
-            <div className="mt-4 overflow-hidden rounded-md border border-[#d8e9ff] bg-white shadow-sm">
+            <div className={`${flowStep === 2 ? "mt-4" : "hidden"} overflow-hidden rounded-2xl border border-[var(--public-border)] bg-white shadow-sm`}>
               <button
                 type="button"
                 onClick={() => setShowAdditionalInfo((current) => !current)}
-                className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left"
+                className="flex min-h-16 w-full items-center justify-between gap-3 px-4 py-3 text-left transition hover:bg-[var(--public-surface-muted)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-inset focus-visible:ring-[var(--public-primary-soft)]"
+                aria-expanded={showAdditionalInfo}
               >
                 <span>
-                  <span className="block text-sm font-semibold text-[#172033]">
-                    Thông tin bổ sung
+                  <span className="block text-sm font-bold text-[var(--public-ink)]">
+                    Hồ sơ y tế và BHYT
                   </span>
-                  <span className="mt-1 block text-sm text-[#667892]">
+                  <span className="mt-1 block text-sm leading-6 text-[var(--public-muted)]">
                     Ngày sinh, BHYT và tiền sử bệnh. Có thể nhập để hồ sơ khám
                     đầy đủ hơn.
                   </span>
                 </span>
-                <span className="shrink-0 rounded-md border border-[#cfd8e6] px-3 py-1.5 text-xs font-semibold text-[#42526b]">
+                <span className="shrink-0 rounded-lg border border-[var(--public-border)] bg-white px-3 py-1.5 text-xs font-bold text-[var(--public-primary-dark)]">
                   {showAdditionalInfo ? "Ẩn bớt" : "Nhập thêm"}
                 </span>
               </button>
 
               {showAdditionalInfo ? (
-                <div className="grid gap-3 border-t border-[#e5ebf3] p-4 md:grid-cols-2">
+                <div className="grid gap-4 border-t border-[var(--public-divider)] bg-[var(--public-surface-muted)]/55 p-4 md:grid-cols-2">
                   <label className="block">
                     <span className="text-sm font-medium text-[#334155]">
                       Giới tính
@@ -853,7 +1118,7 @@ export function PublicBookingWidget({
                             .value as PublicBookingDraft["gender"],
                         })
                       }
-                      className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2.5 text-sm outline-none focus:border-[#0d4f8b]"
+                      className="ui-field mt-1 w-full px-3 py-2.5 text-sm"
                     >
                       <option value="">Chưa chọn</option>
                       <option value="MALE">Nam</option>
@@ -870,7 +1135,7 @@ export function PublicBookingWidget({
                       value={draft.dateOfBirth}
                       onChange={(value) => updateDraft({ dateOfBirth: value })}
                       ariaLabel="Ngày sinh"
-                      className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2.5 text-sm outline-none focus:border-[#0d4f8b]"
+                      className="ui-field mt-1 w-full px-3 py-2.5 text-sm"
                     />
                   </label>
                   <label className="block">
@@ -882,7 +1147,7 @@ export function PublicBookingWidget({
                       onChange={(event) =>
                         updateDraft({ cccd: event.target.value })
                       }
-                      className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2.5 text-sm outline-none focus:border-[#0d4f8b]"
+                      className="ui-field mt-1 w-full px-3 py-2.5 text-sm"
                     />
                   </label>
                   <label className="block">
@@ -894,7 +1159,7 @@ export function PublicBookingWidget({
                       onChange={(event) =>
                         updateDraft({ address: event.target.value })
                       }
-                      className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2.5 text-sm outline-none focus:border-[#0d4f8b]"
+                      className="ui-field mt-1 w-full px-3 py-2.5 text-sm"
                     />
                   </label>
                   <label className="flex items-center gap-2 rounded-md border border-[#dce3ee] px-3 py-2 text-sm text-[#42526b]">
@@ -909,26 +1174,22 @@ export function PublicBookingWidget({
                   </label>
                   {draft.hasBHYT ? (
                     <>
-                      <input
-                        value={draft.healthInsuranceCode}
-                        onChange={(event) =>
-                          updateDraft({
-                            healthInsuranceCode: event.target.value,
-                          })
-                        }
-                        placeholder="Mã thẻ BHYT"
-                        className="rounded-md border border-[#cfd8e6] px-3 py-2.5 text-sm outline-none focus:border-[#0d4f8b]"
-                      />
-                      <input
-                        value={draft.registeredHospital}
-                        onChange={(event) =>
-                          updateDraft({
-                            registeredHospital: event.target.value,
-                          })
-                        }
-                        placeholder="Nơi đăng ký khám chữa bệnh ban đầu"
-                        className="rounded-md border border-[#cfd8e6] px-3 py-2.5 text-sm outline-none focus:border-[#0d4f8b] md:col-span-2"
-                      />
+                      <label className="block">
+                        <span className="text-sm font-medium text-[var(--public-text-soft)]">Mã thẻ BHYT</span>
+                        <input
+                          value={draft.healthInsuranceCode}
+                          onChange={(event) => updateDraft({ healthInsuranceCode: event.target.value })}
+                          className="ui-field mt-1 w-full px-3 py-2.5 text-sm"
+                        />
+                      </label>
+                      <label className="block md:col-span-2">
+                        <span className="text-sm font-medium text-[var(--public-text-soft)]">Nơi đăng ký khám chữa bệnh ban đầu</span>
+                        <input
+                          value={draft.registeredHospital}
+                          onChange={(event) => updateDraft({ registeredHospital: event.target.value })}
+                          className="ui-field mt-1 w-full px-3 py-2.5 text-sm"
+                        />
+                      </label>
                     </>
                   ) : null}
                   <label className="block md:col-span-2">
@@ -942,7 +1203,7 @@ export function PublicBookingWidget({
                       }
                       rows={2}
                       placeholder="Thuốc, thức ăn hoặc tác nhân từng gây dị ứng"
-                      className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2.5 text-sm outline-none focus:border-[#0d4f8b]"
+                      className="ui-field mt-1 w-full px-3 py-2.5 text-sm"
                     />
                   </label>
                   <label className="block md:col-span-2">
@@ -956,7 +1217,7 @@ export function PublicBookingWidget({
                       }
                       rows={2}
                       placeholder="Bệnh nền, phẫu thuật, thuốc đang dùng..."
-                      className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2.5 text-sm outline-none focus:border-[#0d4f8b]"
+                      className="ui-field mt-1 w-full px-3 py-2.5 text-sm"
                     />
                   </label>
                   <label className="block md:col-span-2">
@@ -970,9 +1231,26 @@ export function PublicBookingWidget({
                       }
                       rows={2}
                       placeholder="Các bệnh di truyền hoặc bệnh thường gặp trong gia đình"
-                      className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2.5 text-sm outline-none focus:border-[#0d4f8b]"
+                      className="ui-field mt-1 w-full px-3 py-2.5 text-sm"
                     />
                   </label>
+                  {hasHealthDeclaration ? (
+                    <label className="flex items-start gap-2 md:col-span-2">
+                      <input
+                        type="checkbox"
+                        checked={draft.healthConsent}
+                        onChange={(event) =>
+                          updateDraft({ healthConsent: event.target.checked })
+                        }
+                        className="mt-1 h-4 w-4"
+                      />
+                      <span className="text-sm text-[#334155]">
+                        Tôi đồng ý cho bệnh viện lưu và sử dụng thông tin dị ứng, tiền sử
+                        sức khỏe trên để phục vụ khám bệnh. Thông tin chỉ nhân sự y tế
+                        có thẩm quyền được xem.
+                      </span>
+                    </label>
+                  ) : null}
                 </div>
               ) : null}
             </div>
@@ -989,25 +1267,32 @@ export function PublicBookingWidget({
               </div>
             ) : null}
 
-            <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center">
+            <div className={`${flowStep === 2 ? "mt-5 flex" : "hidden"} flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center`}>
+              <button
+                type="button"
+                onClick={() => { setError(""); setFlowStep(1); }}
+                className="public-button-secondary inline-flex min-h-12 shrink-0 items-center justify-center whitespace-nowrap rounded-xl px-4 py-3 text-sm font-semibold"
+              >
+                Quay lại
+              </button>
               <button
                 type="button"
                 onClick={() => void createAppointment()}
                 disabled={submitting || loading}
-                className="public-button-primary inline-flex items-center justify-center gap-2 rounded-xl px-5 py-3 text-sm font-semibold disabled:translate-y-0 disabled:opacity-60"
+                className="public-button-primary inline-flex min-h-12 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-xl px-4 py-3 text-sm font-semibold disabled:translate-y-0 disabled:opacity-60"
               >
                 {submitting ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (
                   <Send className="h-4 w-4" />
                 )}
-                Tạo lịch và gửi OTP
+                Giữ lịch và gửi OTP
               </button>
-              <span className="text-sm text-[#667892]">
-                Sau khi xác thực OTP, lịch sẽ chuyển sang trạng thái chờ xác
-                nhận.{" "}
+              <span className="min-w-0 basis-full text-sm leading-6 text-[#667892] lg:basis-auto lg:flex-1">
+                Sau khi gửi mã, hệ thống sẽ hiển thị thời gian giữ khung giờ.
+                Lịch chỉ chuyển sang chờ xác nhận sau khi OTP hợp lệ.{" "}
                 <Link
-                  href="/guide/booking"
+                  href="/huong-dan/dat-lich"
                   className="font-semibold text-[#0d4f8b]"
                 >
                   Cần hướng dẫn?
@@ -1020,12 +1305,19 @@ export function PublicBookingWidget({
             ref={resultRef}
             tabIndex={-1}
             aria-label="Tóm tắt và xác thực lịch hẹn"
-            className="scroll-mt-24 rounded-2xl border border-[var(--public-border)] bg-white p-4 shadow-sm lg:sticky lg:top-28 lg:self-start"
+            className="scroll-mt-36 space-y-4 lg:col-span-4 lg:sticky lg:top-36 lg:self-start"
           >
-            <div className="rounded-md border border-[#e5ebf3] bg-[#f8fbff] p-4">
-              <p className="text-sm font-semibold text-[#172033]">
-                Tóm tắt lịch hẹn
-              </p>
+            <div className="relative overflow-hidden rounded-2xl border-2 border-[var(--public-border)] bg-white p-4 shadow-[var(--public-shadow-soft)] sm:p-5">
+              <span className="absolute inset-x-0 top-0 h-1.5 bg-[var(--public-primary)]" aria-hidden="true" />
+              <div className="flex items-center justify-between gap-3 border-b border-[var(--public-divider)] pb-3 pt-1">
+                <p className="flex items-center gap-2 font-bold text-[var(--public-ink)]">
+                  <ClipboardCheck className="h-5 w-5 text-[var(--public-primary)]" aria-hidden="true" />
+                  Phiếu hẹn dự kiến
+                </p>
+                <span className={`rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.08em] ${verifiedAppointment ? "bg-[var(--public-success-soft)] text-[var(--public-success)]" : pending ? "bg-[var(--public-warning-soft)] text-[var(--public-warning)]" : "bg-[var(--public-primary-soft)] text-[var(--public-primary-dark)]"}`}>
+                  {verifiedAppointment ? "Đã xác thực" : pending ? "Chờ OTP" : "Đang lập phiếu"}
+                </span>
+              </div>
               <div className="mt-3 space-y-2 text-sm">
                 <SummaryLink
                   label="Chuyên khoa"
@@ -1038,8 +1330,8 @@ export function PublicBookingWidget({
                   href={
                     selectedDepartment
                       ? selectedDepartment.slug
-                        ? `/departments/${selectedDepartment.slug}`
-                        : `/departments`
+                        ? `/chuyen-khoa/${selectedDepartment.slug}`
+                        : `/chuyen-khoa`
                       : undefined
                   }
                 />
@@ -1067,7 +1359,7 @@ export function PublicBookingWidget({
                   }
                   href={
                     selectedPackage
-                      ? `/packages/${selectedPackage.slug || selectedPackage.id}`
+                      ? `/goi-kham/${selectedPackage.slug || selectedPackage.id}`
                       : undefined
                   }
                 />
@@ -1113,6 +1405,21 @@ export function PublicBookingWidget({
               </div>
             </div>
 
+            {supportHotline ? (
+              <div className="rounded-2xl bg-[var(--public-primary)] p-4 text-white shadow-sm">
+                <p className="text-xs font-bold uppercase tracking-[0.1em] text-white/75">Hỗ trợ đặt lịch</p>
+                <div className="mt-2 flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="truncate text-lg font-bold tabular-nums">{supportHotline}</p>
+                    <p className="mt-1 text-xs leading-5 text-white/75">Liên hệ khi cần hướng dẫn trong quá trình đặt lịch.</p>
+                  </div>
+                  <a href={`tel:${supportHotline}`} className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white text-[var(--public-primary)] shadow-sm transition hover:bg-[var(--public-primary-soft)]" aria-label={`Gọi hỗ trợ ${supportHotline}`}>
+                    <Phone className="h-5 w-5" aria-hidden="true" />
+                  </a>
+                </div>
+              </div>
+            ) : null}
+
             {message ? (
               <div className="ui-status-positive mt-4 flex items-start gap-2 rounded-xl border px-3 py-2 text-sm shadow-sm" role="status" aria-live="polite">
                 <CheckCircle2
@@ -1133,6 +1440,17 @@ export function PublicBookingWidget({
                   <ShieldCheck className="h-4 w-4" />
                   Xác thực OTP
                 </div>
+                {pending.holdExpiresAt ? (
+                  <div className="mt-3 flex items-center justify-between gap-3 rounded-xl border border-[var(--public-warning)]/30 bg-[var(--public-warning-soft)] px-3 py-2.5 text-sm">
+                    <span className="inline-flex items-center gap-2 font-medium text-[var(--public-text-soft)]">
+                      <TimerReset className="h-4 w-4 text-[var(--public-warning)]" aria-hidden="true" />
+                      Giữ khung giờ còn
+                    </span>
+                    <strong className="tabular-nums text-[var(--public-warning)]" aria-live="polite">
+                      {formatCountdown(holdSeconds)}
+                    </strong>
+                  </div>
+                ) : null}
                 <div className="mt-3 rounded-md border border-[#cfe4fa] bg-[#f3f8ff] p-3">
                   <p className="text-xs font-semibold uppercase tracking-wide text-[#667892]">
                     Mã đặt lịch cần lưu
@@ -1147,7 +1465,7 @@ export function PublicBookingWidget({
                       className="inline-flex shrink-0 items-center gap-1 rounded-md border border-[#cfd8e6] bg-white px-2 py-1.5 text-xs font-semibold text-[#42526b] hover:bg-[#f8fafc]"
                     >
                       <Copy className="h-3.5 w-3.5" />
-                      Copy
+                      Sao chép
                     </button>
                   </div>
                 </div>
@@ -1158,7 +1476,7 @@ export function PublicBookingWidget({
                   <p className="text-xs font-medium leading-5">
                     Nếu lỡ thoát màn hình này, hãy vào{" "}
                     <Link
-                      href={`/appointments/lookup?bookingCode=${pending.bookingCode}&phone=${pending.patientPhone}`}
+                      href={`/tai-khoan/dang-nhap?next=/tai-khoan/lich-hen&phone=${pending.patientPhone}`}
                       className="font-semibold underline underline-offset-2"
                     >
                       Tra cứu lịch hẹn
@@ -1171,15 +1489,17 @@ export function PublicBookingWidget({
                   onFill={setOtp}
                   className="mt-3"
                 />
-                <input
-                  value={otp}
-                  onChange={(event) =>
-                    setOtp(event.target.value.replace(/\D/g, "").slice(0, 6))
-                  }
-                  inputMode="numeric"
-                  placeholder="000000"
-                  className="mt-3 w-full rounded-md border border-[#cfd8e6] px-3 py-2.5 text-center text-xl font-semibold tracking-[0.25em] outline-none focus:border-[#0d4f8b]"
-                />
+                <label className="mt-3 block">
+                  <span className="text-xs font-semibold text-[var(--public-text-soft)]">Mã OTP gồm 6 chữ số</span>
+                  <input
+                    value={otp}
+                    onChange={(event) => setOtp(event.target.value.replace(/\D/g, "").slice(0, 6))}
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
+                    placeholder="000000"
+                    className="ui-field mt-1 w-full px-3 py-3 text-center text-xl font-semibold tracking-[0.25em]"
+                  />
+                </label>
                 <button
                   type="button"
                   onClick={() => void verifyOtp()}
@@ -1191,13 +1511,23 @@ export function PublicBookingWidget({
                 <button
                   type="button"
                   onClick={() => void resendOtp()}
-                  disabled={submitting}
+                  disabled={submitting || resendCooldown > 0}
                   className="mt-2 w-full rounded-md border border-[#cfd8e6] px-4 py-2.5 text-sm font-medium text-[#42526b] hover:bg-[#f6f8fb] disabled:opacity-60"
                 >
-                  Gửi lại OTP
+                  {resendCooldown > 0
+                    ? `Gửi lại sau ${resendCooldown} giây`
+                    : "Gửi lại OTP"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void abandonPendingAppointment()}
+                  disabled={submitting}
+                  className="mt-2 w-full rounded-md border border-[var(--public-danger)]/30 px-4 py-2.5 text-sm font-semibold text-[var(--public-danger)] hover:bg-[var(--public-danger-soft)] disabled:opacity-60"
+                >
+                  Đổi lịch và trả khung giờ đang giữ
                 </button>
                 <Link
-                  href={`/appointments/lookup?bookingCode=${pending.bookingCode}&phone=${pending.patientPhone}`}
+                  href={`/tai-khoan/dang-nhap?next=/tai-khoan/lich-hen&phone=${pending.patientPhone}`}
                   className="mt-2 inline-flex w-full items-center justify-center rounded-md border border-[#cfd8e6] px-4 py-2.5 text-sm font-semibold text-[#42526b] hover:bg-[#f8fafc]"
                 >
                   Xác thực lại qua tra cứu
@@ -1214,7 +1544,7 @@ export function PublicBookingWidget({
               >
                 <div className="flex items-center gap-2 text-sm font-semibold text-[#1f7a3a]">
                   <CheckCircle2 className="h-4 w-4" />
-                  Đặt lịch thành công
+                  Đã xác thực yêu cầu đặt lịch
                 </div>
                 <div className="mt-3 space-y-2 text-sm text-[#667892]">
                   <div className="rounded-md border border-[#bde5c8] bg-[#f0fff4] p-3">
@@ -1233,7 +1563,7 @@ export function PublicBookingWidget({
                         className="inline-flex shrink-0 items-center gap-1 rounded-md border border-[#bde5c8] bg-white px-2 py-1.5 text-xs font-semibold text-[#1f7a3a] hover:bg-[#f8fafc]"
                       >
                         <Copy className="h-3.5 w-3.5" />
-                        Copy
+                        Sao chép
                       </button>
                     </div>
                     <p className="mt-2 text-xs leading-5 text-[#667892]">
@@ -1244,7 +1574,9 @@ export function PublicBookingWidget({
                   <p>
                     Trạng thái:{" "}
                     <span className="font-semibold text-[#172033]">
-                      {verifiedAppointment.status}
+                      {verifiedAppointment.status === "PENDING_CONFIRM"
+                        ? "Chờ bệnh viện xác nhận"
+                        : verifiedAppointment.status}
                     </span>
                   </p>
                   <p>
@@ -1267,7 +1599,7 @@ export function PublicBookingWidget({
                   </p>
                 </div>
                 <Link
-                  href={`/appointments/lookup?bookingCode=${verifiedAppointment.bookingCode}&phone=${verifiedAppointment.patientPhone}`}
+                  href={`/tai-khoan/dang-nhap?next=/tai-khoan/lich-hen&phone=${verifiedAppointment.patientPhone}`}
                   className="mt-4 inline-flex w-full items-center justify-center rounded-md border border-[#cfd8e6] px-4 py-2.5 text-sm font-semibold text-[#42526b] hover:bg-[#f8fafc]"
                 >
                   Tra cứu lịch hẹn

@@ -1,11 +1,13 @@
 export const queryKeys = {
   publicHome: ["public", "home"] as const,
+  publicBooking: ["public", "booking"] as const,
   publicSiteSettings: ["public", "site-settings"] as const,
   publicBanners: (filters?: { position?: string }) =>
     ["public", "banners", filters || {}] as const,
   publicFAQs: (filters?: { category?: string }) =>
     ["public", "faqs", filters || {}] as const,
   dashboardSiteSettings: ["dashboard", "site-settings"] as const,
+  dashboardHomePageConfig: ["dashboard", "homepage-config"] as const,
   dashboardBanners: (filters?: { position?: string; isActive?: string }) =>
     ["dashboard", "banners", filters || {}] as const,
   dashboardFAQs: (filters?: { category?: string; isActive?: string }) =>
@@ -65,18 +67,6 @@ export const queryKeys = {
     ["dashboard", "statistics", filters || {}] as const,
   dashboardDoctorOverview: (filters?: { date?: string }) =>
     ["dashboard", "doctor-overview", filters || {}] as const,
-  dashboardConsultationRequests: [
-    "dashboard",
-    "consultation-requests",
-  ] as const,
-  dashboardConsultationRequestsList: (filters?: {
-    status?: string;
-    keyword?: string;
-    page?: number;
-    limit?: number;
-  }) => ["dashboard", "consultation-requests", filters || {}] as const,
-  dashboardConsultationRequest: (id?: string) =>
-    ["dashboard", "consultation-requests", id || ""] as const,
   dashboardMedicalRecords: (filters?: {
     status?: string;
     doctorId?: string;
@@ -129,12 +119,6 @@ export const queryKeys = {
     dateTo?: string;
   }) => ["dashboard", "chatbot", "overview", filters || {}] as const,
   dashboardChatbotSettings: ["dashboard", "chatbot", "settings"] as const,
-  dashboardChatbotFAQs: (filters?: {
-    search?: string;
-    isActive?: string;
-    page?: number;
-    limit?: number;
-  }) => ["dashboard", "chatbot", "faqs", filters || {}] as const,
   dashboardChatbotSessions: (filters?: {
     search?: string;
     guestPhone?: string;
@@ -160,17 +144,40 @@ export const queryKeys = {
   }) => ["dashboard", "chatbot", "logs", filters || {}] as const,
   publicDepartments: (filters?: { search?: string }) =>
     ["public", "departments", filters || {}] as const,
+  publicDepartmentCatalog: (filters?: {
+    search?: string;
+    available?: boolean;
+    sort?: "POPULAR_DESC" | "NAME_ASC";
+    page?: number;
+    limit?: number;
+  }) => ["public", "departments", "catalog", filters || {}] as const,
   publicDoctors: (filters?: {
     search?: string;
     departmentId?: string;
     departmentSlug?: string;
   }) => ["public", "doctors", filters || {}] as const,
+  publicDoctorCatalog: (filters?: {
+    search?: string;
+    departmentId?: string;
+    minExperience?: number;
+    availableToday?: boolean;
+    sort?: "NAME_ASC" | "EXPERIENCE_DESC";
+    page?: number;
+    limit?: number;
+  }) => ["public", "doctors", "catalog", filters || {}] as const,
   publicPackages: (filters?: { search?: string; isPopular?: boolean }) =>
     ["public", "packages", filters || {}] as const,
+  publicPackageCatalog: (filters?: {
+    search?: string;
+    departmentId?: string;
+    isPopular?: boolean;
+    isBHYTSupport?: boolean;
+    sort?: "POPULAR_DESC" | "PRICE_ASC" | "PRICE_DESC" | "NAME_ASC";
+    page?: number;
+    limit?: number;
+  }) => ["public", "packages", "catalog", filters || {}] as const,
   publicSearch: (filters?: { q?: string; type?: string; limit?: number }) =>
     ["public", "search", filters || {}] as const,
-  publicSearchSuggestions: (filters?: { limit?: number }) =>
-    ["public", "search", "suggestions", filters || {}] as const,
   publicAvailableSlots: (filters?: { doctorId?: string; date?: string }) =>
     ["public", "available-slots", filters || {}] as const,
   publicAppointmentLookup: (filters?: {

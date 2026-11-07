@@ -64,7 +64,11 @@ class _VerifyOtpScreenState extends ConsumerState<VerifyOtpScreen> {
                           ?.copyWith(fontWeight: FontWeight.w700),
                     ),
                     const SizedBox(height: 8),
-                    Text('Mã xác thực đã được gửi đến ${auth.phone ?? ''}.'),
+                    Text(
+                      'Mã xác thực đã được gửi đến '
+                      '${auth.challenge?.maskedTarget ?? auth.phone ?? ''}'
+                      '${auth.challenge?.channel == 'EMAIL' ? ' (email)' : ''}.',
+                    ),
                     const SizedBox(height: 24),
                     if (visibleError != null) ...[
                       AppErrorBanner(

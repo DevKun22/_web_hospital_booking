@@ -53,6 +53,7 @@ export const createPatientPaymentHandler = async (
       req.body,
       requirePatientId(req),
       idempotencyKey(req),
+      req.ip,
     );
     return res.status(201).json({
       success: true,

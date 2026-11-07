@@ -154,11 +154,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           StatefulShellBranch(
             routes: [
               GoRoute(
-                path: '/notifications',
-                builder: (_, _) => MainBranchBackScope(
-                  controller: mainNavigationHistory,
-                  child: const NotificationsScreen(
-                    embeddedInMainNavigation: true,
+                path: '/chatbot',
+                pageBuilder: (_, state) => NoTransitionPage<void>(
+                  key: ValueKey(state.uri.toString()),
+                  child: MainBranchBackScope(
+                    controller: mainNavigationHistory,
+                    child: ChatbotScreen(
+                      initialPrompt: state.uri.queryParameters['prompt'],
+                    ),
                   ),
                 ),
               ),
@@ -182,12 +185,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (_, _) => const NotificationPreferencesScreen(),
       ),
       GoRoute(
-        path: '/chatbot',
-        builder: (_, state) => AppRouteBackScope(
+        path: '/notifications',
+        builder: (_, _) => const AppRouteBackScope(
           fallbackLocation: '/home',
-          child: ChatbotScreen(
-            initialPrompt: state.uri.queryParameters['prompt'],
-          ),
+          child: NotificationsScreen(),
         ),
       ),
       GoRoute(

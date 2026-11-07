@@ -1,14 +1,9 @@
 import { Router } from "express";
-import {
-  getSearchSuggestionsHandler,
-  trackSearchAnalyticsHandler,
-} from "../controllers/searchAnalytics.controller.js";
 import { publicSearchHandler } from "../controllers/search.controller.js";
+import { searchLimiter } from "../middlewares/publicRateLimits.js";
 
 const router = Router();
 
-router.get("/", publicSearchHandler);
-router.get("/suggestions", getSearchSuggestionsHandler);
-router.post("/analytics", trackSearchAnalyticsHandler);
+router.get("/", searchLimiter, publicSearchHandler);
 
 export default router;

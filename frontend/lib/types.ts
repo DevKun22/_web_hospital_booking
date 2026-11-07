@@ -1,10 +1,4 @@
-export type DashboardRole = "ADMIN" | "STAFF" | "DOCTOR";
-
-export type ConsultationStatus =
-  | "NEW"
-  | "CONTACTED"
-  | "CANCELLED"
-  | "COMPLETED";
+export type DashboardRole = "ADMIN" | "STAFF" | "DOCTOR" | "PHARMACIST";
 
 export type DashboardUser = {
   id: string;
@@ -13,6 +7,8 @@ export type DashboardUser = {
   email: string | null;
   role: DashboardRole;
   avatar: string | null;
+  // Mã quyền hiện hành của vai trò (từ ma trận phân quyền); chỉ có ở /auth/dashboard/me.
+  permissions?: string[];
   isActive?: boolean;
   isPhoneVerified?: boolean;
   isEmailVerified?: boolean;
@@ -82,6 +78,17 @@ export type DoctorProfile = {
     averageServiceRating: number;
     averageFacilityRating: number;
   };
+  todayAvailableSlots?: {
+    id: string;
+    startTime: string;
+    endTime: string;
+  }[];
+  nextAvailableSlot?: {
+    id: string;
+    date: string;
+    startTime: string;
+    endTime: string;
+  } | null;
   publicReviews?: {
     id: string;
     rating: number;
@@ -119,6 +126,7 @@ export type MedicalPackage = {
   } | null;
   basePrice: number;
   serviceFee: number;
+  /** Tổng tiền của các hạng mục được bao gồm, không phải số lượng hạng mục. */
   includedItemsTotal?: number;
   finalPrice: number;
   summary: string | null;
@@ -319,10 +327,9 @@ export type PaymentMethod =
   | "CASH"
   | "CARD"
   | "BANK_TRANSFER"
-  | "MOMO"
   | "VNPAY"
   | "OTHER";
-export type PaymentProvider = "MOCK" | "VNPAY" | "MOMO" | "ZALOPAY";
+export type PaymentProvider = "VNPAY";
 export type PaymentTransactionStatus =
   | "PENDING"
   | "SUCCESS"
@@ -603,16 +610,6 @@ export type ChatbotSettings = {
   updatedAt: string;
 };
 
-export type ChatbotFAQ = {
-  id: string;
-  question: string;
-  answer: string;
-  keywords: string[];
-  isActive: boolean;
-  createdAt: string;
-  updatedAt: string;
-};
-
 export type ChatbotParticipant = {
   id: string;
   fullName: string;
@@ -789,23 +786,10 @@ export type DashboardStatisticsOverview = {
     cancelledAppointments: number;
     newPatients: number;
     unpaidInvoices: number;
-    consultationRequests: number;
-    pendingConsultationRequests: number;
     completedWithoutInvoiceAppointments: number;
     collectedAmount: number;
     refundedAmount: number;
     netAmount: number;
-  };
-  searchAnalytics: {
-    metrics: {
-      totalSearches: number;
-      emptySearches: number;
-      successRate: number;
-    };
-    topKeywords: { keyword: string; normalized: string; count: number }[];
-    emptyKeywords: { keyword: string; normalized: string; count: number }[];
-    byType: { type: string; count: number }[];
-    bySource: { source: string; count: number }[];
   };
   latestAppointments: StatisticsAppointmentSummary[];
 };
@@ -890,17 +874,6 @@ export type ListResult<T> = {
   pagination: Pagination;
 };
 
-export type ConsultationRequest = {
-  id: string;
-  phone: string;
-  fullName: string | null;
-  message: string | null;
-  status: ConsultationStatus;
-  note: string | null;
-  createdAt: string;
-  updatedAt: string;
-};
-
 export type MediaAsset = {
   id: string;
   url: string;
@@ -942,6 +915,37 @@ export type SiteSettingsRecord = {
   updatedAt: string;
 };
 
+export type HomePageSectionConfig = {
+  enabled: boolean;
+  eyebrow: string;
+  title: string;
+  description: string;
+  limit: number;
+};
+
+export type HomePageConfigValue = {
+  announcement: {
+    enabled: boolean;
+    label: string;
+    message: string;
+    ctaLabel: string;
+    ctaHref: string;
+    startAt: string | null;
+    endAt: string | null;
+  };
+  sections: {
+    serviceHub: { enabled: boolean };
+    departments: HomePageSectionConfig;
+    doctors: HomePageSectionConfig;
+    packages: HomePageSectionConfig;
+    partners: HomePageSectionConfig;
+  };
+};
+
+export type HomePageConfigRecord = Omit<SiteSettingsRecord, "value"> & {
+  value: HomePageConfigValue;
+};
+
 export type Banner = {
   id: string;
   title: string;
@@ -968,4 +972,11 @@ export type PublicFAQ = {
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
+};
+
+// Bản ghi FAQ trên dashboard: một nguồn cho trang Hỏi đáp và trợ lý ảo.
+export type DashboardFAQ = PublicFAQ & {
+  keywords: string[];
+  showOnWeb: boolean;
+  useInChatbot: boolean;
 };

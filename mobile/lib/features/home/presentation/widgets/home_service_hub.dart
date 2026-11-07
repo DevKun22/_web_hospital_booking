@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hospital_booking_mobile/app/router/route_guard.dart';
-import 'package:hospital_booking_mobile/app/theme/app_theme.dart';
+import 'package:hospital_booking_mobile/core/design/app_design_tokens.dart';
 
 /// Entry point for capabilities that already exist in the patient app.
 ///
@@ -29,20 +29,24 @@ class HomeServiceHub extends StatelessWidget {
           children: [
             Expanded(
               child: Text(
-                'Dịch vụ chăm sóc',
-                style: Theme.of(
-                  context,
-                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w900),
+                'Tiện ích khám chữa bệnh',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  color: AppPalette.publicInk,
+                  fontWeight: FontWeight.w900,
+                ),
               ),
             ),
             TextButton(
               key: const Key('home-all-services-button'),
               onPressed: () => _showAllServices(context),
+              style: TextButton.styleFrom(
+                foregroundColor: AppPalette.clinicalBlueDark,
+              ),
               child: const Text('Tất cả'),
             ),
           ],
         ),
-        const SizedBox(height: 4),
+        const SizedBox(height: 2),
         GridView.builder(
           shrinkWrap: true,
           primary: false,
@@ -50,10 +54,10 @@ class HomeServiceHub extends StatelessWidget {
           physics: const NeverScrollableScrollPhysics(),
           itemCount: visibleServices.length,
           gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 3,
-            mainAxisSpacing: 8,
-            crossAxisSpacing: 8,
-            mainAxisExtent: 110,
+            crossAxisCount: 4,
+            mainAxisSpacing: 6,
+            crossAxisSpacing: 6,
+            mainAxisExtent: 76,
           ),
           itemBuilder: (context, index) {
             final service = visibleServices[index];
@@ -227,7 +231,7 @@ class _ServiceSection extends StatelessWidget {
       DecoratedBox(
         decoration: BoxDecoration(
           color: Colors.white,
-          border: Border.all(color: AppTheme.softBorder),
+          border: Border.all(color: AppPalette.publicBorder),
           borderRadius: BorderRadius.circular(18),
         ),
         child: Column(
@@ -267,52 +271,88 @@ class _ServiceTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Material(
-    color: Colors.transparent,
-    borderRadius: BorderRadius.circular(16),
+    color: Colors.white,
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(16),
+      side: const BorderSide(color: AppPalette.publicBorder),
+    ),
     clipBehavior: Clip.antiAlias,
     child: InkWell(
       onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(4, 5, 4, 3),
-        child: Column(
-          children: [
-            Container(
-              width: 48,
-              height: 48,
-              decoration: BoxDecoration(
-                color: backgroundColor,
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Icon(icon, size: 24, color: foregroundColor),
-            ),
-            const SizedBox(height: 7),
-            Expanded(
-              child: Center(
-                child: Text(
-                  label,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
+      child: Stack(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(3, 5, 3, 3),
+            child: Column(
+              children: [
+                Container(
+                  width: 32,
+                  height: 32,
+                  decoration: BoxDecoration(
+                    color: backgroundColor,
+                    borderRadius: BorderRadius.circular(11),
+                  ),
+                  child: Icon(icon, size: 19, color: foregroundColor),
+                ),
+                const SizedBox(height: 3),
+                Expanded(
+                  child: Center(
+                    child: Text(
+                      label,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: AppPalette.publicInk,
+                        fontSize: 9.5,
+                        height: 1.08,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
                   ),
                 ),
-              ),
+              ],
             ),
-            if (statusLabel != null) ...[
-              const SizedBox(height: 1),
-              Text(
-                statusLabel!,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  fontSize: 10,
+          ),
+          if (statusLabel != null)
+            Positioned(
+              right: 5,
+              top: 5,
+              child: Container(
+                width: statusLabel == 'Cần mạng' ? null : 16,
+                height: 16,
+                padding: statusLabel == 'Cần mạng'
+                    ? const EdgeInsets.symmetric(horizontal: 4)
+                    : EdgeInsets.zero,
+                decoration: BoxDecoration(
+                  color: AppPalette.clinicalBlueContainer,
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.lock_outline_rounded,
+                      size: 9,
+                      color: AppPalette.clinicalBlueDark,
+                    ),
+                    if (statusLabel == 'Cần mạng') ...[
+                      const SizedBox(width: 2),
+                      Text(
+                        statusLabel!,
+                        style: const TextStyle(
+                          color: AppPalette.clinicalBlueDark,
+                          fontSize: 7.5,
+                          height: 1,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
               ),
-            ],
-          ],
-        ),
+            ),
+        ],
       ),
     ),
   );
@@ -337,14 +377,10 @@ class _ServiceListTile extends StatelessWidget {
       width: 40,
       height: 40,
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.primaryContainer,
+        color: AppPalette.clinicalBlueContainer,
         borderRadius: BorderRadius.circular(13),
       ),
-      child: Icon(
-        service.icon,
-        size: 21,
-        color: Theme.of(context).colorScheme.primary,
-      ),
+      child: Icon(service.icon, size: 21, color: AppPalette.clinicalBlue),
     ),
     title: Text(
       service.label,
@@ -499,7 +535,7 @@ const _notificationsService = _HomeService(
 const _profileService = _HomeService(
   shortLabel: 'Tài khoản',
   label: 'Tài khoản',
-  description: 'Quản lý thông tin bệnh nhân và phiên đăng nhập',
+  description: 'Quản lý thông tin người khám và phiên đăng nhập',
   icon: Icons.account_circle_outlined,
   location: '/profile',
   requiresAccount: true,
@@ -515,21 +551,23 @@ const _supportService = _HomeService(
 );
 
 const _primaryServices = <_HomeService>[
+  _bookingService,
+  _appointmentsService,
+  _healthHubService,
+  _prescriptionsService,
+  _invoicesService,
   _doctorsService,
   _departmentsService,
   _packagesService,
-  _appointmentsService,
-  _healthHubService,
-  _supportService,
 ];
 
 const _servicePalettes = <({Color background, Color foreground})>[
-  (background: Color(0xFFBFF3E8), foreground: Color(0xFF087A73)),
-  (background: Color(0xFFDCEEFF), foreground: Color(0xFF236A9B)),
-  (background: Color(0xFFDDF3EE), foreground: Color(0xFF087A73)),
-  (background: Color(0xFFFFE7C2), foreground: Color(0xFF9B5B00)),
-  (background: Color(0xFFE8EEF8), foreground: Color(0xFF334F70)),
-  (background: Color(0xFFFFDADB), foreground: Color(0xFF9F3039)),
+  (background: Color(0xFFE7F0FF), foreground: Color(0xFF2563EB)),
+  (background: Color(0xFFEEF2FF), foreground: Color(0xFF4F46E5)),
+  (background: Color(0xFFE8F7F2), foreground: Color(0xFF059669)),
+  (background: Color(0xFFFFF3DD), foreground: Color(0xFFD97706)),
+  (background: Color(0xFFFCEBED), foreground: Color(0xFFB64048)),
+  (background: Color(0xFFEFF6FF), foreground: Color(0xFF1D4ED8)),
 ];
 
 const _serviceSections = <_HomeServiceSection>[

@@ -11,6 +11,7 @@ node_modules/
 # env
 .env
 .env.*
+*.env
 !.env.example
 !.env.local.example
 production.example.env
@@ -38,12 +39,7 @@ frontend/out/
 
 # Graphify keeps the project graph at the repository root. Local AST caches
 # and per-package graphs are rebuildable intermediates and should stay local.
-**/graphify-out/cache/
-backend/graphify-out/
-frontend/graphify-out/
-mobile/graphify-out/
-graphify-out/.graphify*
-graphify-out/manifest.json
+**/graphify-out/
 
 # Archify exports the reusable source and HTML explainer. Delivery/finalization
 # metadata is local execution state and can be regenerated.
@@ -72,6 +68,10 @@ Thumbs.db
 
 # uploads/temp
 tmp/
+.archify/
+.codex/*
+!.codex/skills/
+!.codex/hooks.json
 temp/
 uploads/
 *.tmp
@@ -84,14 +84,19 @@ backend/secrets/
 
 # other
 docs/*
+!docs/ui-ux/
+!docs/ui-ux/MASTER.md
+!docs/nhat-ky-minh-chung-t11-t12.md
 !docs/phase-2-flutter-foundation.md
 !docs/bao-cao-nang-cap-backend-den-mobile.md
 !docs/nghien-cuu-uiux-vinmec-va-de-xuat-ap-dung.md
 !docs/van-hanh-thong-bao.md
 !docs/checklist-kiem-thu-production-thiet-bi-that.md
 !docs/docker-architecture.md
-!docs/docker-architecture-flow.html
 
 # Archify working candidates and browser-check evidence (final HTML stays in docs/)
 .archify/
 tools
+
+# Anh chup kiem thu thiet bi (khong commit)
+mobile/.qa-device/

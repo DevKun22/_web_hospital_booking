@@ -4,7 +4,7 @@ import 'package:hospital_booking_mobile/app/theme/app_theme.dart';
 class BookingJourneyIndicator extends StatelessWidget {
   const BookingJourneyIndicator({required this.currentStep, super.key});
 
-  /// 0: chọn lịch, 1: thông tin bệnh nhân, 2: xác thực OTP.
+  /// 0: chọn lịch, 1: thông tin người khám, 2: xác thực OTP.
   final int currentStep;
 
   static const _labels = ['Chọn lịch', 'Thông tin', 'Xác thực'];

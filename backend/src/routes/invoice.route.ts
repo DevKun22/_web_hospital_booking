@@ -8,7 +8,7 @@ import {
   refundInvoiceHandler,
   updateInvoiceHandler,
 } from "../controllers/invoice.controller.js";
-import { authDashboard, requireRole } from "../middlewares/auth.middleware.js";
+import { authDashboard, requirePermission } from "../middlewares/auth.middleware.js";
 import { validate } from "../middlewares/validate.middleware.js";
 import {
   createInvoiceSchema,
@@ -21,34 +21,34 @@ const router = Router();
 
 router.use(authDashboard);
 
-router.get("/", requireRole("ADMIN", "STAFF"), listInvoicesHandler);
+router.get("/", requirePermission("invoice.view"), listInvoicesHandler);
 router.post(
   "/appointments/:appointmentId",
-  requireRole("ADMIN", "STAFF"),
+  requirePermission("invoice.manage"),
   validate(createInvoiceSchema),
   createInvoiceForAppointmentHandler,
 );
-router.get("/:id", requireRole("ADMIN", "STAFF"), getInvoiceHandler);
+router.get("/:id", requirePermission("invoice.view"), getInvoiceHandler);
 router.patch(
   "/:id",
-  requireRole("ADMIN", "STAFF"),
+  requirePermission("invoice.manage"),
   validate(updateInvoiceSchema),
   updateInvoiceHandler,
 );
 router.patch(
   "/:id/pay",
-  requireRole("ADMIN", "STAFF"),
+  requirePermission("invoice.collect"),
   validate(payInvoiceSchema),
   payInvoiceHandler,
 );
 router.patch(
   "/:id/cancel",
-  requireRole("ADMIN", "STAFF"),
+  requirePermission("invoice.manage"),
   cancelInvoiceHandler,
 );
 router.patch(
   "/:id/refund",
-  requireRole("ADMIN"),
+  requirePermission("invoice.refund"),
   validate(refundInvoiceSchema),
   refundInvoiceHandler,
 );

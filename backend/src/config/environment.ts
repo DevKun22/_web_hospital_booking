@@ -7,9 +7,17 @@ const isEnabled = (value?: string) =>
 export const isProductionLike = (env: NodeJS.ProcessEnv = process.env) =>
   env.NODE_ENV === "production" || isEnabled(env.RENDER);
 
+// Giới hạn tần suất mặc định bật, trừ môi trường test (test tích hợp gọi API
+// hàng loạt từ một IP). Đặt RATE_LIMIT_ENABLED=true/false để ghi đè.
+export const isRateLimitEnabled = (env: NodeJS.ProcessEnv = process.env) => {
+  const configured = env.RATE_LIMIT_ENABLED?.trim();
+  if (configured) return isEnabled(configured);
+  return env.NODE_ENV !== "test";
+};
+
 const assertStrongSecret = (
   env: NodeJS.ProcessEnv,
-  name: "JWT_SECRET" | "OTP_SECRET" | "LOOKUP_GRANT_SECRET",
+  name: "JWT_SECRET" | "OTP_SECRET",
 ) => {
   const value = env[name]?.trim();
 
@@ -57,37 +65,15 @@ const validateProductionFrontendOrigins = (env: NodeJS.ProcessEnv) => {
   }
 };
 
-const validateProductionMomo = (env: NodeJS.ProcessEnv) => {
-  if (!isEnabled(env.PAYMENT_MOMO_ENABLED)) return;
-
-  for (const name of [
-    "MOMO_PARTNER_CODE",
-    "MOMO_ACCESS_KEY",
-    "MOMO_SECRET_KEY",
-    "MOMO_REDIRECT_URL",
-    "MOMO_IPN_URL",
-  ] as const) {
+const validateProductionVnpay = (env: NodeJS.ProcessEnv) => {
+  if (!isEnabled(env.PAYMENT_VNPAY_ENABLED)) return;
+  for (const name of ["VNPAY_TMN_CODE", "VNPAY_HASH_SECRET", "VNPAY_RETURN_URL"] as const) {
     if (!env[name]?.trim()) {
-      throw new Error(`${name} is required when MoMo payment is enabled.`);
+      throw new Error(`${name} is required when VNPAY payment is enabled.`);
     }
   }
-
-  for (const name of [
-    "MOMO_ENDPOINT",
-    "MOMO_REDIRECT_URL",
-    "MOMO_IPN_URL",
-  ] as const) {
-    const value = env[name]?.trim();
-    if (!value && name === "MOMO_ENDPOINT") continue;
-    let parsed: URL;
-    try {
-      parsed = new URL(value!);
-    } catch {
-      throw new Error(`${name} must be a valid HTTPS URL.`);
-    }
-    if (parsed.protocol !== "https:") {
-      throw new Error(`${name} must be a valid HTTPS URL.`);
-    }
+  if (!env.VNPAY_RETURN_URL!.trim().startsWith("https://")) {
+    throw new Error("VNPAY_RETURN_URL must be a valid HTTPS URL.");
   }
 };
 
@@ -98,14 +84,9 @@ export const validateRuntimeEnvironment = (
 
   assertStrongSecret(env, "JWT_SECRET");
   assertStrongSecret(env, "OTP_SECRET");
-  assertStrongSecret(env, "LOOKUP_GRANT_SECRET");
 
   if (isEnabled(env.OTP_DEBUG_ENABLED)) {
     throw new Error("OTP_DEBUG_ENABLED must be disabled in production.");
-  }
-
-  if (isEnabled(env.PAYMENT_MOCK_ENABLED)) {
-    throw new Error("PAYMENT_MOCK_ENABLED must be disabled in production.");
   }
 
   const databaseUrl = requireProductionValue(env, "DATABASE_URL");
@@ -114,7 +95,12 @@ export const validateRuntimeEnvironment = (
   }
 
   validateProductionFrontendOrigins(env);
-  validateProductionMomo(env);
+  validateProductionVnpay(env);
+  if (env.DEMO_OTP_PHONES?.trim()) {
+    console.warn(
+      "[DEMO_OTP] DEMO_OTP_PHONES is set: OTP for these phone numbers is shown on screen.",
+    );
+  }
 
   if (
     env.FIREBASE_SERVICE_ACCOUNT_BASE64?.trim() &&
@@ -150,22 +136,6 @@ export const resolveOtpSecret = (env: NodeJS.ProcessEnv = process.env) => {
 
   if (!secret) {
     throw new Error("OTP_SECRET is required in production.");
-  }
-
-  return secret;
-};
-
-export const resolveLookupGrantSecret = (
-  env: NodeJS.ProcessEnv = process.env,
-) => {
-  const secret =
-    env.LOOKUP_GRANT_SECRET?.trim() ||
-    (!isProductionLike(env)
-      ? env.OTP_SECRET?.trim() || env.JWT_SECRET?.trim() || "dev_lookup_secret"
-      : "");
-
-  if (!secret) {
-    throw new Error("LOOKUP_GRANT_SECRET is required in production.");
   }
 
   return secret;

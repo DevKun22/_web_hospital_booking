@@ -48,31 +48,6 @@ services:
     networks:
       - hospital_internal
 
-  elasticsearch:
-    image: docker.elastic.co/elasticsearch/elasticsearch:9.1.0
-    profiles: ["search"]
-    environment:
-      discovery.type: single-node
-      xpack.security.enabled: "false"
-      ES_JAVA_OPTS: -Xms512m -Xmx512m
-    ports:
-      - "${HOSPITAL_ELASTICSEARCH_PORT:-9200}:9200"
-    volumes:
-      - hospital_elasticsearch_data:/usr/share/elasticsearch/data
-    healthcheck:
-      test:
-        [
-          "CMD-SHELL",
-          "curl --fail --silent http://127.0.0.1:9200/_cluster/health || exit 1",
-        ]
-      interval: 10s
-      timeout: 5s
-      retries: 15
-      start_period: 30s
-    restart: unless-stopped
-    networks:
-      - hospital_internal
-
 networks:
   hospital_internal:
     name: hospital-booking-internal
@@ -80,4 +55,3 @@ networks:
 volumes:
   hospital_postgres_data:
   hospital_redis_data:
-  hospital_elasticsearch_data:

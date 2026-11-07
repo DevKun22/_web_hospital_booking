@@ -27,7 +27,7 @@ class ProfileScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Hồ sơ bệnh nhân'),
+        title: const Text('Hồ sơ người khám'),
         actions: [
           if (state.profile != null)
             IconButton(
@@ -65,7 +65,7 @@ class ProfileScreen extends ConsumerWidget {
                         icon: Icons.person_off_outlined,
                         title: 'Không tải được hồ sơ',
                         message:
-                            'Kiểm tra kết nối mạng rồi thử đồng bộ lại hồ sơ bệnh nhân.',
+                            'Kiểm tra kết nối mạng rồi thử đồng bộ lại hồ sơ người khám.',
                         action: FilledButton.icon(
                           onPressed: controller.refresh,
                           icon: const Icon(Icons.refresh_rounded),
@@ -157,7 +157,7 @@ class ProfileScreen extends ConsumerWidget {
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(
-        const SnackBar(content: Text('Đã cập nhật hồ sơ bệnh nhân.')),
+        const SnackBar(content: Text('Đã cập nhật hồ sơ người khám.')),
       );
   }
 
@@ -459,7 +459,7 @@ class _PatientShortcuts extends StatelessWidget {
           key: const Key('profile-mobile-tools'),
           leading: const Icon(Icons.phone_android_rounded),
           title: const Text('Thẻ số & bảo mật thiết bị'),
-          subtitle: const Text('QR bệnh nhân và khóa ứng dụng'),
+          subtitle: const Text('QR người khám và khóa ứng dụng'),
           trailing: const Icon(Icons.chevron_right_rounded),
           onTap: () => context.push('/mobile-tools'),
         ),

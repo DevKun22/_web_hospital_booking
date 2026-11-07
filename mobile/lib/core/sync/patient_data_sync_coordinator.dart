@@ -140,10 +140,7 @@ class DefaultPatientDataSyncCoordinator implements PatientDataSyncCoordinator {
         }
         await Future.wait(jobs);
         return;
-      case MainNavigationBranch.notifications:
-        await _ref
-            .read(notificationsControllerProvider.notifier)
-            .refreshIfStale(maxAge: _notificationsResumeMaxAge);
+      case MainNavigationBranch.assistant:
         return;
       case MainNavigationBranch.booking:
         return;

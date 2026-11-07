@@ -6,15 +6,15 @@ export default function robots(): MetadataRoute.Robots {
     rules: [
       {
         userAgent: "*",
-        allow: ["/", "/departments", "/bac-si", "/packages", "/faqs", "/guide/booking"],
+        allow: ["/", "/chuyen-khoa", "/bac-si", "/goi-kham", "/hoi-dap", "/huong-dan/dat-lich"],
         disallow: [
           "/dashboard",
           "/dashboard/",
           "/login",
-          "/appointments/lookup",
-          "/search",
-          "/payment",
-          "/payment/",
+          "/tai-khoan",
+          "/tim-kiem",
+          "/thanh-toan",
+          "/thanh-toan/",
         ],
       },
     ],

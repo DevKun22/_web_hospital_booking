@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:hospital_booking_mobile/app/navigation/booking_navigation.dart';
 import 'package:hospital_booking_mobile/app/theme/app_theme.dart';
 import 'package:hospital_booking_mobile/core/errors/api_exception.dart';
+import 'package:hospital_booking_mobile/core/formatters/display_formatters.dart';
 import 'package:hospital_booking_mobile/core/widgets/app_route_back_scope.dart';
 import 'package:hospital_booking_mobile/core/widgets/app_ui.dart';
 import 'package:hospital_booking_mobile/core/widgets/resized_network_image.dart';
@@ -62,7 +63,7 @@ class DoctorDetailScreen extends ConsumerWidget {
           error: (_, _) => null,
           data: (doctor) => AppStickyActionBar(
             eyebrow: 'Phí khám dự kiến',
-            value: _formatVnd(doctor.consultationFee),
+            value: formatVnd(doctor.consultationFee),
             secondaryLabel: 'Hỏi trợ lý',
             secondaryIcon: Icons.smart_toy_outlined,
             onSecondary: () => context.push(
@@ -89,16 +90,21 @@ class _DoctorDetailContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => ListView(
-    padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
+    padding: const EdgeInsets.fromLTRB(
+      AppSpacing.lg,
+      AppSpacing.xs,
+      AppSpacing.lg,
+      AppSpacing.xxl,
+    ),
     children: [
       Card(
-        color: const Color(0xFFF8FFFD),
+        color: AppPalette.successContainer,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(22),
+          borderRadius: BorderRadius.circular(AppRadius.xl),
           side: const BorderSide(color: AppTheme.softBorder),
         ),
         child: Padding(
-          padding: const EdgeInsets.all(18),
+          padding: const EdgeInsets.all(AppSpacing.lg),
           child: Column(
             children: [
               CircleAvatar(
@@ -143,7 +149,7 @@ class _DoctorDetailContent extends StatelessWidget {
                       icon: Icons.workspace_premium_outlined,
                     ),
                   AppStatusBadge(
-                    label: _formatVnd(doctor.consultationFee),
+                    label: formatVnd(doctor.consultationFee),
                     tone: AppStatusTone.success,
                     icon: Icons.payments_outlined,
                   ),
@@ -161,8 +167,7 @@ class _DoctorDetailContent extends StatelessWidget {
             'Bác sĩ đang công tác tại chuyên khoa ${doctor.departmentName}.',
         style: Theme.of(context).textTheme.bodyLarge?.copyWith(height: 1.5),
       ),
-      const SizedBox(height: 24),
-      const SizedBox(height: 10),
+      const SizedBox(height: AppSpacing.xl),
       OutlinedButton(
         onPressed: () => context.push(
           '/departments/${Uri.encodeComponent(doctor.departmentId)}',
@@ -171,16 +176,6 @@ class _DoctorDetailContent extends StatelessWidget {
       ),
     ],
   );
-}
-
-String _formatVnd(double value) {
-  final digits = value.round().toString();
-  final buffer = StringBuffer();
-  for (var index = 0; index < digits.length; index += 1) {
-    if (index > 0 && (digits.length - index) % 3 == 0) buffer.write('.');
-    buffer.write(digits[index]);
-  }
-  return '${buffer.toString()} đ';
 }
 
 String _bookingLocation(BookingDoctor doctor) => Uri(

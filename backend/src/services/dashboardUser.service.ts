@@ -1,13 +1,13 @@
+import { STAFF_ROLES, type StaffRole } from "../config/permissions.js";
 import { Prisma } from "../../generated/prisma/client.js";
 import type { Role } from "../../generated/prisma/enums.js";
 import { prisma } from "../config/prisma.js";
 import { hashPassword } from "../utils/password.js";
 import { AppError } from "../utils/appError.js";
 import MediaAssetService from "./mediaAsset.service.js";
-import SearchIndexer from "./search/search.indexer.js";
 import { invalidateDashboardAuthSnapshot } from "./dashboardAuthCache.service.js";
 
-type DashboardRole = Extract<Role, "ADMIN" | "STAFF" | "DOCTOR">;
+type DashboardRole = StaffRole;
 type Actor = { userId: string; role: Role };
 
 type CreateDashboardUserInput = {
@@ -31,7 +31,7 @@ type UpdateDashboardUserInput = {
   isActive?: boolean;
 };
 
-const DASHBOARD_ROLES: Role[] = ["ADMIN", "STAFF", "DOCTOR"];
+const DASHBOARD_ROLES: Role[] = [...STAFF_ROLES];
 
 const dashboardUserSelect = {
   id: true,
@@ -250,7 +250,6 @@ class DashboardUserService {
       select: { id: true },
     });
     if (doctorProfile) {
-      await SearchIndexer.syncDoctor(doctorProfile.id);
     }
 
     return user;
@@ -278,7 +277,6 @@ class DashboardUserService {
       select: { id: true },
     });
     if (doctorProfile) {
-      await SearchIndexer.syncDoctor(doctorProfile.id);
     }
 
     return user;

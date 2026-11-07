@@ -49,7 +49,7 @@ type AnnouncementAudience =
   | "DEPARTMENT_APPOINTMENTS";
 
 const audienceLabels: Record<AnnouncementAudience, string> = {
-  ALL_PATIENTS: "Tất cả bệnh nhân đang hoạt động",
+  ALL_PATIENTS: "Tất cả người khám đang hoạt động",
   UPCOMING_APPOINTMENTS: "Người bệnh có lịch khám sắp tới",
   DEPARTMENT_APPOINTMENTS: "Người bệnh có lịch sắp tới theo chuyên khoa",
 };
@@ -139,8 +139,8 @@ export default function DashboardNotificationsPage() {
       setMessage({
         tone: "success",
         text: result.publishedAt
-          ? `Đã tạo thông báo cho ${result.recipientCount} người bệnh.`
-          : `Đã lên lịch thông báo cho ${result.recipientCount} người bệnh.`,
+          ? `Đã tạo thông báo cho ${result.recipientCount} người khám.`
+          : `Đã lên lịch thông báo cho ${result.recipientCount} người khám.`,
       });
       await announcementsQuery.refetch();
     } catch (error) {
@@ -176,9 +176,9 @@ export default function DashboardNotificationsPage() {
   return (
     <div className="space-y-6">
       <DashboardPageHeader
-        eyebrow="Giao tiếp với người bệnh"
+        eyebrow="Giao tiếp với người khám"
         title="Thông báo ứng dụng"
-        description="Soạn một lần, hệ thống lưu vào hộp thư của người bệnh và chuyển phát thông báo đẩy theo lựa chọn của từng tài khoản."
+        description="Soạn một lần, hệ thống lưu vào hộp thư của người khám và chuyển phát thông báo đẩy theo lựa chọn của từng tài khoản."
         actions={
           <>
             {!composerOpen ? <button type="button" onClick={() => setComposerOpen(true)} className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-[var(--primary)] px-4 text-sm font-semibold text-white hover:opacity-90"><BellRing className="h-4 w-4" />Soạn thông báo</button> : null}
@@ -273,7 +273,7 @@ export default function DashboardNotificationsPage() {
                 maxLength={1000}
                 rows={7}
                 className={`${inputClass} resize-y leading-6`}
-                placeholder="Nội dung ngắn gọn, rõ hành động người bệnh cần thực hiện."
+                placeholder="Nội dung ngắn gọn, rõ hành động người khám cần thực hiện."
               />
               <span className="mt-1 block text-right text-xs text-[var(--text-muted)]">{body.length}/1000</span>
             </label>

@@ -13,7 +13,8 @@ export const createAppointmentSchema = z.object({
   patientName: z.string().trim().min(2, "Ho ten toi thieu 2 ky tu"),
   patientPhone: z.string().regex(phoneRegex, "So dien thoai khong hop le"),
   patientEmail: z.string().trim().email("Email khong hop le").nullable().optional(),
-  otpChannel: z.enum(["SMS", "EMAIL"]).default("SMS"),
+  // Không đặt mặc định: backend chọn EMAIL khi có email, ngược lại SMS.
+  otpChannel: z.enum(["SMS", "EMAIL"]).optional(),
   reason: z.string().trim().nullable().optional(),
 
   gender: z.enum(["MALE", "FEMALE", "OTHER"]).nullable().optional(),
@@ -27,12 +28,22 @@ export const createAppointmentSchema = z.object({
   allergies: z.string().trim().nullable().optional(),
   medicalHistory: z.string().trim().nullable().optional(),
   familyHistory: z.string().trim().nullable().optional(),
+  // Đồng ý cho bệnh viện lưu và xử lý thông tin sức khỏe; bắt buộc khi có khai báo
+  // dị ứng/tiền sử (kiểm tra ở AppointmentService).
+  healthConsent: z.boolean().optional(),
 }).superRefine((value, ctx) => {
   if (value.otpChannel === "EMAIL" && !value.patientEmail) {
     ctx.addIssue({
       code: "custom",
       path: ["patientEmail"],
       message: "Email la bat buoc khi chon xac thuc OTP qua email",
+    });
+  }
+  if (value.hasBHYT === true && !value.healthInsuranceCode?.trim()) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["healthInsuranceCode"],
+      message: "Ma the BHYT la bat buoc khi nguoi kham co BHYT",
     });
   }
 });
@@ -45,17 +56,6 @@ export const abandonPendingAppointmentSchema = z.object({
   holdReleaseToken: z.string().trim().min(32, "Quyen huy giu lich khong hop le"),
 });
 
-export const requestAppointmentLookupOtpSchema = z.object({
-  phone: z.string().regex(phoneRegex, "So dien thoai khong hop le"),
-  bookingCode: z.string().trim().min(1, "Ma lich hen khong hop le").optional(),
-});
-
-export const verifyAppointmentLookupOtpSchema = z.object({
-  phone: z.string().regex(phoneRegex, "So dien thoai khong hop le"),
-  bookingCode: z.string().trim().min(1, "Ma lich hen khong hop le").optional(),
-  otp: z.string().length(6, "OTP phai co 6 so").regex(/^[0-9]+$/, "OTP chi duoc chua so"),
-});
-
 export const cancelAppointmentSchema = z.object({
   reason: z.string().trim().min(2, "Ly do huy toi thieu 2 ky tu"),
 });
@@ -63,20 +63,6 @@ export const cancelAppointmentSchema = z.object({
 export const rescheduleAppointmentSchema = z.object({
   timeSlotId: z.string().uuid("Khung gio khong hop le"),
   reason: z.string().trim().min(2, "Ly do doi lich toi thieu 2 ky tu"),
-});
-
-export const requestPublicCancelAppointmentOtpSchema = z.object({
-  bookingCode: z.string().trim().min(1, "Ma lich hen la bat buoc"),
-  phone: z.string().regex(phoneRegex, "So dien thoai khong hop le"),
-  reason: z.string().trim().min(2, "Ly do huy toi thieu 2 ky tu"),
-});
-
-export const verifyPublicCancelAppointmentSchema = requestPublicCancelAppointmentOtpSchema.extend({
-  otp: z.string().length(6, "OTP phai co 6 so").regex(/^[0-9]+$/, "OTP chi duoc chua so"),
-});
-
-export const updateAppointmentStatusSchema = z.object({
-  status: z.enum(["CONFIRMED", "CHECKED_IN", "IN_PROGRESS", "COMPLETED", "NO_SHOW"]),
 });
 
 export const updateAppointmentPatientInfoSchema = z.object({
@@ -97,7 +83,7 @@ export const updateAppointmentPatientInfoSchema = z.object({
     ctx.addIssue({
       code: "custom",
       path: ["healthInsuranceCode"],
-      message: "Ma the BHYT la bat buoc khi benh nhan co BHYT",
+      message: "Ma the BHYT la bat buoc khi nguoi kham co BHYT",
     });
   }
 });

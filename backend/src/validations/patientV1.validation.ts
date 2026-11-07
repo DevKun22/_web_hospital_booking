@@ -8,9 +8,15 @@ const optionalDevice = {
   appVersion: z.string().trim().min(1).max(40).optional(),
 };
 
-export const patientRequestOtpSchema = z.object({
-  phone: z.string().trim().regex(phoneRegex, "Số điện thoại không hợp lệ"),
-});
+export const patientRequestOtpSchema = z
+  .object({
+    phone: z.string().trim().regex(phoneRegex, "Số điện thoại không hợp lệ").optional(),
+    email: z.string().trim().toLowerCase().email("Email không hợp lệ").optional(),
+  })
+  .refine((value) => Boolean(value.phone) !== Boolean(value.email), {
+    message: "Nhập số điện thoại hoặc email",
+    path: ["phone"],
+  });
 
 export const patientVerifyOtpSchema = z.object({
   challengeId: z.string().uuid("Challenge không hợp lệ"),

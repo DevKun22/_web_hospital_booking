@@ -9,13 +9,10 @@ x-backend-environment: &backend-environment
   APP_BASE_URL: http://localhost:4000
   JWT_SECRET: docker_local_jwt_secret_not_for_production_2026
   OTP_SECRET: docker_local_otp_secret_not_for_production_2026
-  LOOKUP_GRANT_SECRET: docker_local_lookup_secret_not_for_production_2026
   OTP_DEBUG_ENABLED: "true"
-  PAYMENT_MOCK_ENABLED: "true"
-  PAYMENT_MOMO_ENABLED: "false"
+  PAYMENT_VNPAY_ENABLED: "false"
   CLOUDINARY_URL: cloudinary://docker_local_key:docker_local_secret@docker_local_cloud
   FIREBASE_SERVICE_ACCOUNT_BASE64: ${FIREBASE_SERVICE_ACCOUNT_BASE64:-}
-  ELASTICSEARCH_ENABLED: "false"
   WORKER_LOG_NOOP: "false"
 
 x-backend-runtime: &backend-runtime

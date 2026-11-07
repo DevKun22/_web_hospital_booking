@@ -196,7 +196,7 @@ class PatientPortalService {
         },
       },
     });
-    if (!user) throw new AppError("Không tìm thấy hồ sơ bệnh nhân", 404);
+    if (!user) throw new AppError("Không tìm thấy hồ sơ người khám", 404);
     return user;
   }
 
@@ -249,7 +249,7 @@ class PatientPortalService {
           where: { id: patientId, role: "PATIENT", isActive: true },
           select: { id: true },
         });
-        if (!user) throw new AppError("Không tìm thấy hồ sơ bệnh nhân", 404);
+        if (!user) throw new AppError("Không tìm thấy hồ sơ người khám", 404);
 
         await tx.user.update({ where: { id: patientId }, data: userData });
         await tx.patientProfile.upsert({

@@ -1,21 +1,19 @@
 import { Router } from "express";
 import appointmentRouter from "./appointment.route.js";
-import authOtpRouter from "./authOtp.route.js";
 import { dashboardBannerRouter, publicBannerRouter } from "./banner.route.js";
 import chatbotRouter from "./chatbot.route.js";
-import {
-  dashboardConsultationRequestRouter,
-  publicConsultationRequestRouter,
-} from "./consultationRequest.route.js";
 import departmentRouter from "./department.route.js";
 import dashboardAppointmentRouter from "./dashboardAppointment.route.js";
 import dashboardAuthRouter from "./dashboardAuth.route.js";
 import dashboardChatbotRouter from "./dashboardChatbot.route.js";
-import dashboardChatbotFaqRouter from "./dashboardChatbotFaq.route.js";
 import dashboardStatisticsRouter from "./dashboardStatistics.route.js";
 import dashboardReviewRouter from "./dashboardReview.route.js";
 import dashboardUserRouter from "./dashboardUser.route.js";
+import rbacRouter from "./rbac.route.js";
+import policyRouter from "./policy.route.js";
+import pharmacyRouter from "./pharmacy.route.js";
 import hospitalAnnouncementRouter from "./hospitalAnnouncement.route.js";
+import homePageConfigRouter from "./homePageConfig.route.js";
 import doctorRouter from "./doctor.route.js";
 import doctorScheduleRouter from "./doctorSchedule.route.js";
 import doctorTimeSlotRouter from "./doctorTimeSlot.route.js";
@@ -42,20 +40,21 @@ const router = Router();
 
 router.use("/v1", v1Router);
 
-router.use("/otp", authOtpRouter);
 router.use("/chatbot", chatbotRouter);
 router.use("/auth/dashboard", dashboardAuthRouter);
 router.use("/appointments", appointmentRouter);
 router.use("/dashboard/appointments", dashboardAppointmentRouter);
 router.use("/dashboard/chatbot", dashboardChatbotRouter);
-router.use("/dashboard/chatbot/faqs", dashboardChatbotFaqRouter);
-router.use("/dashboard/consultation-requests", dashboardConsultationRequestRouter);
 router.use("/dashboard/banners", dashboardBannerRouter);
 router.use("/dashboard/faqs", dashboardFAQRouter);
 router.use("/dashboard/site-settings", dashboardSiteSettingsRouter);
+router.use("/dashboard/homepage-config", homePageConfigRouter);
 router.use("/dashboard/statistics", dashboardStatisticsRouter);
 router.use("/dashboard/reviews", dashboardReviewRouter);
 router.use("/dashboard/users", dashboardUserRouter);
+router.use("/dashboard/rbac", rbacRouter);
+router.use("/dashboard/policy", policyRouter);
+router.use("/dashboard/pharmacy", pharmacyRouter);
 router.use("/dashboard/notifications", hospitalAnnouncementRouter);
 router.use("/dashboard/departments", departmentRouter);
 router.use("/dashboard/doctors", doctorRouter);
@@ -73,7 +72,6 @@ router.use("/doctors", publicDoctorRouter);
 router.use("/faqs", publicFAQRouter);
 router.use("/packages", publicPackageRouter);
 router.use("/site-settings", publicSiteSettingsRouter);
-router.use("/consultation-requests", publicConsultationRequestRouter);
 router.use("/payments", paymentRouter);
 router.use("/uploads", uploadRouter);
 router.use("/search", searchRouter);

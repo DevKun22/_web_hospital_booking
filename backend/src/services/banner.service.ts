@@ -39,7 +39,7 @@ const bannerSelect = {
 const parseDate = (value?: string | null) => (value ? new Date(value) : value);
 
 class BannerService {
-  async listPublic(query: { position?: string }) {
+  async listPublic(query: { position?: string; limit?: number }) {
     const now = new Date();
 
     return prisma.banner.findMany({
@@ -51,6 +51,9 @@ class BannerService {
       },
       select: bannerSelect,
       orderBy: [{ order: "asc" }, { createdAt: "desc" }],
+      take: query.limit
+        ? Math.min(Math.max(Math.trunc(query.limit), 1), 10)
+        : undefined,
     });
   }
 

@@ -9,6 +9,23 @@ abstract final class AppPalette {
   static const brandDark = Color(0xFF075B58);
   static const careMint = Color(0xFF2E9F82);
   static const warmSignal = Color(0xFFF2B66D);
+  static const clinicalBlue = Color(0xFF2563EB);
+  static const clinicalBlueDark = Color(0xFF1D4ED8);
+  static const clinicalBlueContainer = Color(0xFFE7F0FF);
+
+  // Public experience palette shared with the current Web design system.
+  // Kept separate from the legacy brand palette so each mobile surface can
+  // migrate without changing business behaviour or producing a risky,
+  // application-wide visual switch in a single release.
+  static const publicInk = Color(0xFF172B4D);
+  static const publicTextSoft = Color(0xFF475569);
+  static const publicMuted = Color(0xFF64748B);
+  static const publicCanvas = Color(0xFFF7F9FC);
+  static const publicSurfaceMuted = Color(0xFFF1F5F9);
+  static const publicBorder = Color(0xFFDCE5F2);
+  static const publicDivider = Color(0xFFE8EDF5);
+  static const publicMint = Color(0xFF059669);
+  static const publicAmber = Color(0xFFD97706);
 
   static const ink = Color(0xFF173033);
   static const mutedInk = Color(0xFF647B7E);
@@ -88,5 +105,14 @@ abstract final class AppShadow {
 
   static const floating = <BoxShadow>[
     BoxShadow(color: Color(0x26075B58), blurRadius: 22, offset: Offset(0, 8)),
+  ];
+
+  static const publicSoft = <BoxShadow>[
+    BoxShadow(color: Color(0x0A172B4D), blurRadius: 3, offset: Offset(0, 1)),
+    BoxShadow(color: Color(0x12172B4D), blurRadius: 28, offset: Offset(0, 10)),
+  ];
+
+  static const publicFloating = <BoxShadow>[
+    BoxShadow(color: Color(0x26172B4D), blurRadius: 30, offset: Offset(0, 12)),
   ];
 }

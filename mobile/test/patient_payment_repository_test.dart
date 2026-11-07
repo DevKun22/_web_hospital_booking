@@ -5,11 +5,11 @@ import 'package:hospital_booking_mobile/features/invoices/domain/patient_payment
 
 Map<String, dynamic> _paymentJson({String status = 'PENDING'}) => {
   'id': 'payment-1',
-  'provider': 'MOMO',
+  'provider': 'VNPAY',
   'status': status,
   'amount': 260000,
   'transactionCode': 'PAY-1001',
-  'paymentUrl': 'https://test-payment.momo.vn/pay/PAY-1001',
+  'paymentUrl': 'https://sandbox.vnpayment.vn/paymentv2/vpcpay.html?vnp_TxnRef=PAY-1001',
   'expiredAt': '2030-01-02T10:15:00.000Z',
 };
 
@@ -26,12 +26,7 @@ void main() {
               'success': true,
               'data': {
                 'providers': [
-                  {
-                    'provider': 'MOCK',
-                    'label': 'Thanh toán mô phỏng',
-                    'isMock': true,
-                  },
-                  {'provider': 'MOMO', 'label': 'Ví MoMo', 'isMock': false},
+                  {'provider': 'VNPAY', 'label': 'VNPAY'},
                 ],
               },
             },
@@ -62,13 +57,13 @@ void main() {
     final capabilities = await repository.getCapabilities();
     final created = await repository.create(
       invoiceId: 'invoice-1',
-      provider: 'MOMO',
+      provider: 'VNPAY',
       idempotencyKey: 'mobile:invoice-1:request-1',
     );
     final refreshed = await repository.getById(created.id);
 
     expect(capabilities.providers, hasLength(1));
-    expect(capabilities.providers.single.code, 'MOMO');
+    expect(capabilities.providers.single.code, 'VNPAY');
     expect(created.status, PatientPaymentStatus.pending);
     expect(refreshed.status, PatientPaymentStatus.success);
     expect(
@@ -76,7 +71,7 @@ void main() {
       'mobile:invoice-1:request-1',
     );
     expect(Map<String, dynamic>.from(requests[1].data as Map), {
-      'provider': 'MOMO',
+      'provider': 'VNPAY',
     });
 
     dio.close(force: true);

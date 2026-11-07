@@ -3,7 +3,7 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/api";
 import { queryKeys } from "@/lib/query-keys";
-import type { Banner, PublicFAQ, SiteSettingsRecord } from "@/lib/types";
+import type { Banner, DashboardFAQ, HomePageConfigRecord, SiteSettingsRecord } from "@/lib/types";
 
 type ListResponse<T> = {
   items: T[];
@@ -22,6 +22,9 @@ export type DashboardFAQFilters = {
 export const fetchDashboardSiteSettings = () =>
   apiRequest<SiteSettingsRecord>("/dashboard/site-settings");
 
+export const fetchDashboardHomePageConfig = () =>
+  apiRequest<HomePageConfigRecord>("/dashboard/homepage-config");
+
 export const fetchDashboardBanners = async (
   filters: DashboardBannerFilters,
 ) => {
@@ -33,7 +36,7 @@ export const fetchDashboardBanners = async (
 };
 
 export const fetchDashboardFAQs = async (filters: DashboardFAQFilters) => {
-  const result = await apiRequest<ListResponse<PublicFAQ>>("/dashboard/faqs", {
+  const result = await apiRequest<ListResponse<DashboardFAQ>>("/dashboard/faqs", {
     query: filters,
   });
 
@@ -44,6 +47,17 @@ export function useDashboardSiteSettings(enabled: boolean) {
   return useQuery({
     queryKey: queryKeys.dashboardSiteSettings,
     queryFn: fetchDashboardSiteSettings,
+    enabled,
+    staleTime: 60_000,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
+  });
+}
+
+export function useDashboardHomePageConfig(enabled: boolean) {
+  return useQuery({
+    queryKey: queryKeys.dashboardHomePageConfig,
+    queryFn: fetchDashboardHomePageConfig,
     enabled,
     staleTime: 60_000,
     refetchOnWindowFocus: true,

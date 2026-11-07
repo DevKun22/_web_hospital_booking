@@ -12,6 +12,7 @@ import {
 } from "../queues/appointmentLifecycle.queue.js";
 import { getRedisConnectionOptions } from "../queues/redis.js";
 import AppointmentService from "../services/appointment.service.js";
+import AuthOtpService from "../services/authOtp.service.js";
 import ScheduleReconciliationService from "../services/scheduleReconciliation.service.js";
 
 validateRuntimeEnvironment();
@@ -43,10 +44,17 @@ const worker = new Worker<AppointmentLifecycleJobData>(
       return result;
     }
 
-    const [pendingOtp, pendingConfirm] = await Promise.all([
+    const [pendingOtp, pendingConfirm, noShows, otpCleanup] = await Promise.all([
       AppointmentService.reconcileExpiredPendingOtp(),
       AppointmentService.reconcilePastPendingConfirmations(),
+      AppointmentService.reconcileNoShows(),
+      AuthOtpService.cleanupExpired(),
     ]);
+    if (noShows.marked > 0 || otpCleanup.deleted > 0) {
+      console.log(
+        `[LIFECYCLE_MAINTENANCE] noShowMarked=${noShows.marked} otpDeleted=${otpCleanup.deleted}`,
+      );
+    }
     if (
       logNoop ||
       pendingOtp.scanned > 0 ||
@@ -58,7 +66,7 @@ const worker = new Worker<AppointmentLifecycleJobData>(
         `[APPOINTMENT_RECONCILIATION] pendingOtp(scanned=${pendingOtp.scanned}, expired=${pendingOtp.expired}, noop=${pendingOtp.noop}) pendingConfirm(scanned=${pendingConfirm.scanned}, expired=${pendingConfirm.expired}, noop=${pendingConfirm.noop})`,
       );
     }
-    return { pendingOtp, pendingConfirm };
+    return { pendingOtp, pendingConfirm, noShows, otpCleanup };
   },
   {
     connection: getRedisConnectionOptions(),

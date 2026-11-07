@@ -97,7 +97,7 @@ class HospitalAnnouncementService {
     });
     if (patients.length === 0) {
       throw new AppError(
-        "Chưa có bệnh nhân đang hoạt động để nhận thông báo",
+        "Chưa có người khám đang hoạt động để nhận thông báo",
         409,
         "NO_ANNOUNCEMENT_RECIPIENTS",
       );

@@ -1,5 +1,6 @@
 "use client";
 
+import { can } from "@/lib/permissions";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { BarChart3, MessageSquareText, RefreshCw, Star } from "lucide-react";
 import { DashboardFeedback } from "@/components/dashboard/dashboard-feedback";
@@ -63,7 +64,7 @@ export default function DashboardReviewsPage() {
     refetchOnReconnect: true,
   });
   const data = reviewsQuery.data;
-  const canModerate = user?.role === "ADMIN" || user?.role === "STAFF";
+  const canModerate = can(user, "review.moderate");
   const visibilityMutation = useMutation({
     mutationFn: (review: ReviewItem) =>
       apiRequest(`/dashboard/reviews/${review.id}/visibility`, {
@@ -85,7 +86,7 @@ export default function DashboardReviewsPage() {
       <DashboardPageHeader
         eyebrow="Chất lượng phục vụ"
         title="Đánh giá sau khám"
-        description="Tổng hợp phản hồi đã được người bệnh xác thực bằng mã dùng một lần."
+        description="Tổng hợp phản hồi đã được người khám xác thực bằng mã dùng một lần."
         actions={<button
           type="button"
           onClick={() => void reviewsQuery.refetch()}

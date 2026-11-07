@@ -1,8 +1,9 @@
 "use client";
 
+import { can } from "@/lib/permissions";
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { PanelRightOpen, Search } from "lucide-react";
+import { Search } from "lucide-react";
 import { DashboardFeedback } from "@/components/dashboard/dashboard-feedback";
 import { DashboardWorkspace } from "@/components/dashboard/dashboard-workspace";
 import {
@@ -14,7 +15,6 @@ import {
 import { apiRequest } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import {
-  useDashboardChatbotFAQs,
   useDashboardChatbotLogs,
   useDashboardChatbotOverview,
   useDashboardChatbotSession,
@@ -24,7 +24,6 @@ import {
 import { formatVietnamDateTime } from "@/lib/date";
 import { queryKeys } from "@/lib/query-keys";
 import type {
-  ChatbotFAQ,
   ChatbotLog,
   ChatbotRuntimeValue,
   ChatbotSession,
@@ -33,23 +32,9 @@ import type {
   Pagination,
 } from "@/lib/types";
 
-type TabKey = "overview" | "faqs" | "sessions" | "logs" | "settings";
-
-type FAQForm = {
-  question: string;
-  answer: string;
-  keywords: string;
-  isActive: boolean;
-};
+type TabKey = "overview" | "sessions" | "logs" | "settings";
 
 type SettingsForm = ChatbotRuntimeValue;
-
-const emptyFaqForm: FAQForm = {
-  question: "",
-  answer: "",
-  keywords: "",
-  isActive: true,
-};
 
 const emptyPagination: Pagination = {
   page: 1,
@@ -69,7 +54,6 @@ const defaultSettings: SettingsForm = {
 
 const tabs: { key: TabKey; label: string }[] = [
   { key: "overview", label: "Tổng quan" },
-  { key: "faqs", label: "Câu hỏi thường gặp" },
   { key: "sessions", label: "Phiên" },
   { key: "logs", label: "Nhật ký" },
   { key: "settings", label: "Cấu hình" },
@@ -83,16 +67,6 @@ const statusOptions = [
 
 const formatDateTime = (value?: string | null) =>
   value ? formatVietnamDateTime(value) : "-";
-
-const parseKeywords = (value: string) =>
-  Array.from(new Set(value.split(",").map((item) => item.trim()).filter(Boolean)));
-
-const toFaqForm = (item: ChatbotFAQ): FAQForm => ({
-  question: item.question,
-  answer: item.answer,
-  keywords: item.keywords.join(", "),
-  isActive: item.isActive,
-});
 
 const summarizeJson = (value: unknown) => {
   if (!value) return "-";
@@ -109,18 +83,11 @@ const displayParticipant = (item: ChatbotSession | ChatbotSessionDetail | Chatbo
 export default function ChatbotPage() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const canView = user?.role === "ADMIN" || user?.role === "STAFF";
-  const canAdmin = user?.role === "ADMIN";
+  const canView = can(user, "chatbot.view");
+  const canAdmin = can(user, "chatbot.config");
   const [activeTab, setActiveTab] = useState<TabKey>("overview");
   const [settingsActive, setSettingsActive] = useState(true);
   const [settingsForm, setSettingsForm] = useState<SettingsForm>(defaultSettings);
-  const [faqSearch, setFaqSearch] = useState("");
-  const [appliedFaqSearch, setAppliedFaqSearch] = useState("");
-  const [faqStatus, setFaqStatus] = useState("");
-  const [faqPage, setFaqPage] = useState(1);
-  const [faqForm, setFaqForm] = useState<FAQForm>(emptyFaqForm);
-  const [editingFaq, setEditingFaq] = useState<ChatbotFAQ | null>(null);
-  const [deleteFaq, setDeleteFaq] = useState<ChatbotFAQ | null>(null);
   const [sessionSearch, setSessionSearch] = useState("");
   const [appliedSessionSearch, setAppliedSessionSearch] = useState("");
   const [sessionStatus, setSessionStatus] = useState("");
@@ -134,22 +101,9 @@ export default function ChatbotPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
-  const [faqWorkspaceOpen, setFaqWorkspaceOpen] = useState(false);
   const [sessionWorkspaceOpen, setSessionWorkspaceOpen] = useState(false);
-  const formRef = useRef<HTMLElement | null>(null);
-  const faqListRef = useRef<HTMLElement | null>(null);
   const sessionDetailRef = useRef<HTMLElement | null>(null);
   const settingsFormInitializedRef = useRef(false);
-
-  const faqQuery = useMemo(
-    () => ({
-      search: appliedFaqSearch || undefined,
-      isActive: faqStatus || undefined,
-      page: faqPage,
-      limit: 20,
-    }),
-    [appliedFaqSearch, faqPage, faqStatus],
-  );
 
   const sessionQuery = useMemo(
     () => ({
@@ -173,14 +127,11 @@ export default function ChatbotPage() {
 
   const overviewQuery = useDashboardChatbotOverview({}, canView && activeTab === "overview");
   const settingsQuery = useDashboardChatbotSettings(canView && activeTab === "settings");
-  const faqsQuery = useDashboardChatbotFAQs(faqQuery, canView && activeTab === "faqs");
   const sessionsQuery = useDashboardChatbotSessions(sessionQuery, canView && activeTab === "sessions");
   const logsQuery = useDashboardChatbotLogs(logQuery, canView && activeTab === "logs");
   const selectedSessionQuery = useDashboardChatbotSession(selectedSessionSnapshot?.id);
   const overview = overviewQuery.data;
   const settings = settingsQuery.data;
-  const faqs = faqsQuery.data?.items ?? [];
-  const faqPagination = faqsQuery.data?.pagination ?? emptyPagination;
   const sessions = sessionsQuery.data?.items ?? [];
   const sessionPagination = sessionsQuery.data?.pagination ?? emptyPagination;
   const selectedSession = selectedSessionQuery.data ?? selectedSessionSnapshot;
@@ -190,11 +141,9 @@ export default function ChatbotPage() {
     ? overviewQuery
     : activeTab === "settings"
       ? settingsQuery
-      : activeTab === "faqs"
-        ? faqsQuery
-        : activeTab === "sessions"
-          ? sessionsQuery
-          : logsQuery;
+      : activeTab === "sessions"
+        ? sessionsQuery
+        : logsQuery;
   const loading = activeQuery.isLoading;
   const queryFailure = activeQuery.error || selectedSessionQuery.error;
   const queryError = queryFailure instanceof Error
@@ -202,13 +151,6 @@ export default function ChatbotPage() {
     : queryFailure
       ? "Không tải được dữ liệu trợ lý tư vấn"
       : "";
-
-  const invalidateChatbotFAQs = async () => {
-    await Promise.all([
-      queryClient.invalidateQueries({ queryKey: ["dashboard", "chatbot", "faqs"] }),
-      queryClient.invalidateQueries({ queryKey: ["dashboard", "chatbot", "overview"] }),
-    ]);
-  };
 
   useEffect(() => {
     if (!settingsQuery.data || settingsFormInitializedRef.current) return;
@@ -231,106 +173,6 @@ export default function ChatbotPage() {
 
   const scrollTo = (ref: React.RefObject<HTMLElement | null>) => {
     window.setTimeout(() => ref.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 0);
-  };
-
-  const startCreateFaq = () => {
-    setFaqWorkspaceOpen(true);
-    setEditingFaq(null);
-    setDeleteFaq(null);
-    setFaqForm(emptyFaqForm);
-    setActiveTab("faqs");
-    setError("");
-    setNotice("");
-    scrollTo(formRef);
-  };
-
-  const startEditFaq = (item: ChatbotFAQ) => {
-    setFaqWorkspaceOpen(true);
-    setEditingFaq(item);
-    setDeleteFaq(null);
-    setFaqForm(toFaqForm(item));
-    setActiveTab("faqs");
-    setError("");
-    setNotice("");
-    scrollTo(formRef);
-  };
-
-  const saveFaq = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    if (!canView) return;
-    const keywords = parseKeywords(faqForm.keywords);
-    if (keywords.length === 0) {
-      setError("Cần nhập ít nhất một từ khóa cho câu hỏi");
-      return;
-    }
-    setSaving(true);
-    setError("");
-    setNotice("");
-    try {
-      const body = {
-        question: faqForm.question.trim(),
-        answer: faqForm.answer.trim(),
-        keywords,
-        isActive: faqForm.isActive,
-      };
-      if (editingFaq) {
-        await apiRequest<ChatbotFAQ>(`/dashboard/chatbot/faqs/${editingFaq.id}`, {
-          method: "PATCH",
-          body,
-        });
-        setNotice("Đã cập nhật câu hỏi thường gặp");
-      } else {
-        await apiRequest<ChatbotFAQ>("/dashboard/chatbot/faqs", {
-          method: "POST",
-          body,
-        });
-        setNotice("Đã tạo câu hỏi thường gặp");
-      }
-      setEditingFaq(null);
-      setFaqForm(emptyFaqForm);
-      await invalidateChatbotFAQs();
-      scrollTo(faqListRef);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Không lưu được câu hỏi thường gặp");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const toggleFaqStatus = async (item: ChatbotFAQ) => {
-    if (!canView) return;
-    setError("");
-    setNotice("");
-    try {
-      await apiRequest<ChatbotFAQ>(`/dashboard/chatbot/faqs/${item.id}/status`, {
-        method: "PATCH",
-        body: { isActive: !item.isActive },
-      });
-      setNotice(item.isActive ? "Đã tắt câu hỏi thường gặp" : "Đã bật câu hỏi thường gặp");
-      await invalidateChatbotFAQs();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Không cập nhật được trạng thái câu hỏi");
-    }
-  };
-
-  const confirmDeleteFaq = async () => {
-    if (!deleteFaq || !canAdmin) return;
-    setSaving(true);
-    setError("");
-    setNotice("");
-    try {
-      await apiRequest<ChatbotFAQ>(`/dashboard/chatbot/faqs/${deleteFaq.id}`, {
-        method: "DELETE",
-      });
-      setDeleteFaq(null);
-      setNotice("Đã xoá câu hỏi thường gặp");
-      await invalidateChatbotFAQs();
-      scrollTo(faqListRef);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Không xoá được câu hỏi thường gặp");
-    } finally {
-      setSaving(false);
-    }
   };
 
   const saveSettings = async (event: FormEvent<HTMLFormElement>) => {
@@ -390,8 +232,7 @@ export default function ChatbotPage() {
       <DashboardPageHeader
         eyebrow="Tự động hóa"
         title="Trợ lý tư vấn"
-        description="Theo dõi hội thoại, cấu hình trí tuệ nhân tạo và quản lý bộ câu hỏi thường gặp."
-        actions={<><button onClick={startCreateFaq} className="min-h-11 rounded-lg bg-[var(--primary)] px-4 text-sm font-semibold text-white hover:opacity-90">Tạo câu hỏi</button>{activeTab === "faqs" && !faqWorkspaceOpen && (editingFaq || deleteFaq) ? <button onClick={() => setFaqWorkspaceOpen(true)} className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-[var(--border)] px-4 text-sm font-semibold"><PanelRightOpen className="h-4 w-4" />Mở lại biểu mẫu</button> : null}</>}
+        description="Theo dõi hội thoại và cấu hình trí tuệ nhân tạo. Câu hỏi thường gặp được quản lý chung tại Cấu hình website."
       />
       <DashboardSurface className="p-4">
         <div className="mt-5 flex flex-wrap gap-2">
@@ -459,84 +300,6 @@ export default function ChatbotPage() {
               ))}
             </div>
           </section>
-        </div>
-      ) : null}
-
-      {activeTab === "faqs" ? (
-        <div className={`grid gap-6 transition-[grid-template-columns] duration-300 ${faqWorkspaceOpen ? "xl:grid-cols-[minmax(0,1fr)_410px]" : "xl:grid-cols-1"}`}>
-          <section ref={faqListRef} className="min-w-0 scroll-mt-24 rounded-md border border-[#dce3ee] bg-white">
-            <form onSubmit={(event) => { event.preventDefault(); setAppliedFaqSearch(faqSearch.trim()); setFaqPage(1); }} className="grid gap-3 border-b border-[#e5ebf3] p-4 md:grid-cols-[1fr_180px_auto]">
-              <input value={faqSearch} onChange={(event) => setFaqSearch(event.target.value)} placeholder="Tìm câu hỏi, câu trả lời, từ khoá" className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" />
-              <select value={faqStatus} onChange={(event) => { setFaqStatus(event.target.value); setFaqPage(1); }} className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]">
-                {statusOptions.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
-              </select>
-              <button type="submit" className="inline-flex items-center justify-center gap-2 rounded-md border border-[var(--border)] px-3 py-2 text-sm font-semibold"><Search className="h-4 w-4" />Tìm</button>
-            </form>
-            <div className="divide-y divide-[#eef2f7]">
-              {faqs.length ? faqs.map((item) => (
-                <article key={item.id} className="p-4">
-                  <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-                    <div className="min-w-0">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <h3 className="font-semibold">{item.question}</h3>
-                        <DashboardStatusBadge tone={item.isActive ? "positive" : "neutral"}>{item.isActive ? "Đang bật" : "Đang tắt"}</DashboardStatusBadge>
-                      </div>
-                      <p className="mt-2 text-sm text-[#667892]">{item.answer}</p>
-                      <div className="mt-3 flex flex-wrap gap-2">
-                        {item.keywords.map((keyword) => <span key={keyword} className="rounded-md bg-[#f1f5f9] px-2 py-1 text-xs font-medium text-[#42526b]">{keyword}</span>)}
-                      </div>
-                      <p className="mt-3 text-xs text-[#8a98aa]">Cập nhật {formatDateTime(item.updatedAt)}</p>
-                    </div>
-                    <div className="flex flex-wrap gap-2 lg:justify-end">
-                      <button onClick={() => startEditFaq(item)} className="rounded-md border border-[#cfd8e6] px-3 py-1.5 text-xs font-medium text-[#42526b]">Sửa</button>
-                      <button onClick={() => void toggleFaqStatus(item)} className="rounded-md border border-[#cfd8e6] px-3 py-1.5 text-xs font-medium text-[#42526b]">{item.isActive ? "Tắt" : "Bật"}</button>
-                      {canAdmin ? <button onClick={() => { setDeleteFaq(item); setFaqWorkspaceOpen(true); scrollTo(formRef); }} className="rounded-md border border-[#f2b8b5] px-3 py-1.5 text-xs font-medium text-[#b3261e]">Xoá</button> : null}
-                    </div>
-                  </div>
-                </article>
-              )) : <p className="p-8 text-center text-sm text-[#667892]">Chưa có câu hỏi thường gặp phù hợp.</p>}
-            </div>
-            <div className="flex items-center justify-between border-t border-[#e5ebf3] px-4 py-3 text-sm text-[#667892]">
-              <span>{faqPagination.total} kết quả, trang {faqPagination.page}/{faqPagination.totalPages || 1}</span>
-              <div className="flex gap-2">
-                <button disabled={faqPage <= 1} onClick={() => setFaqPage((current) => Math.max(current - 1, 1))} className="rounded-md border border-[#cfd8e6] px-3 py-1.5 font-medium disabled:opacity-50">Trước</button>
-                <button disabled={faqPage >= faqPagination.totalPages} onClick={() => setFaqPage((current) => current + 1)} className="rounded-md border border-[#cfd8e6] px-3 py-1.5 font-medium disabled:opacity-50">Sau</button>
-              </div>
-            </div>
-          </section>
-
-          {faqWorkspaceOpen ? (
-          <aside ref={formRef} className="min-w-0 scroll-mt-24">
-            <DashboardWorkspace
-              open={faqWorkspaceOpen}
-              onOpenChange={setFaqWorkspaceOpen}
-              title={editingFaq ? "Cập nhật câu hỏi" : "Công cụ câu hỏi thường gặp"}
-              description="Quản lý câu trả lời mẫu và từ khóa giúp trợ lý phản hồi chính xác hơn."
-            >
-            {deleteFaq ? (
-              <div className="mb-5 rounded-md border border-[#f2b8b5] bg-[#fff3f2] p-4">
-                <h3 className="font-semibold text-[#b3261e]">Xác nhận xoá câu hỏi</h3>
-                <p className="mt-2 text-sm text-[#5f2630]">{deleteFaq.question}</p>
-                <div className="mt-3 flex gap-2">
-                  <button disabled={saving} onClick={() => void confirmDeleteFaq()} className="rounded-md bg-[#b3261e] px-3 py-2 text-sm font-semibold text-white disabled:opacity-60">Xoá</button>
-                  <button onClick={() => setDeleteFaq(null)} className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm font-medium text-[#42526b]">Huỷ</button>
-                </div>
-              </div>
-            ) : null}
-            <h3 className="text-lg font-semibold">{editingFaq ? "Cập nhật câu hỏi" : "Tạo câu hỏi thường gặp"}</h3>
-            <form className="mt-5 space-y-4" onSubmit={saveFaq}>
-              <label className="block"><span className="text-sm font-medium text-[#334155]">Câu hỏi</span><textarea value={faqForm.question} onChange={(event) => setFaqForm((current) => ({ ...current, question: event.target.value }))} rows={3} className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" required /></label>
-              <label className="block"><span className="text-sm font-medium text-[#334155]">Câu trả lời</span><textarea value={faqForm.answer} onChange={(event) => setFaqForm((current) => ({ ...current, answer: event.target.value }))} rows={5} className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" required /></label>
-              <label className="block"><span className="text-sm font-medium text-[#334155]">Từ khoá</span><input value={faqForm.keywords} onChange={(event) => setFaqForm((current) => ({ ...current, keywords: event.target.value }))} placeholder="đặt lịch, khám, bác sĩ" className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" required /><span className="mt-1 block text-xs text-[#667892]">Phân tách bằng dấu phẩy, tối đa 20 từ khoá.</span></label>
-              <label className="flex items-center justify-between rounded-md border border-[#e5ebf3] px-3 py-2"><span className="text-sm font-medium text-[#334155]">Đang bật</span><input type="checkbox" checked={faqForm.isActive} onChange={(event) => setFaqForm((current) => ({ ...current, isActive: event.target.checked }))} className="h-4 w-4 accent-[#0d4f8b]" /></label>
-              <div className="flex gap-2">
-                <button disabled={saving} className="flex-1 rounded-md bg-[#0d4f8b] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#083d6d] disabled:opacity-60">{saving ? "Đang lưu..." : editingFaq ? "Lưu thay đổi" : "Tạo câu hỏi"}</button>
-                {editingFaq ? <button type="button" onClick={startCreateFaq} className="rounded-md border border-[#cfd8e6] px-4 py-2.5 text-sm font-medium text-[#42526b]">Huỷ</button> : null}
-              </div>
-            </form>
-            </DashboardWorkspace>
-          </aside>
-          ) : null}
         </div>
       ) : null}
 

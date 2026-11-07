@@ -1,5 +1,4 @@
 import assert from "node:assert/strict";
-import crypto from "node:crypto";
 import { after, before, test } from "node:test";
 
 import { startHttpServer } from "../support/http.js";
@@ -10,8 +9,6 @@ process.env.DATABASE_URL =
 process.env.REDIS_URL = "";
 process.env.JWT_SECRET = "phase0_test_jwt_secret_at_least_32_chars";
 process.env.OTP_SECRET = "phase0_test_otp_secret_at_least_32_chars";
-process.env.LOOKUP_GRANT_SECRET =
-  "phase0_test_lookup_secret_at_least_32_chars";
 
 const { createApp } = await import("../../src/app.js");
 const {
@@ -41,12 +38,14 @@ const {
   notificationPreferenceKeyForType,
 } = await import("../../src/services/notificationPreference.service.js");
 const {
-  getMomoConfigurationStatus,
   getPaymentProviderCapabilities,
-  parseVerifiedMomoCallback,
+  getVnpayConfigurationStatus,
 } = await import("../../src/services/paymentProviders/index.js");
 const { assertSafeTestDatabase, buildIntegrationEnvironment } = await import(
   "../support/testDatabase.js"
+);
+const { updateHomePageConfigSchema } = await import(
+  "../../src/validations/siteConfig.validation.js"
 );
 
 let http: Awaited<ReturnType<typeof startHttpServer>>;
@@ -122,6 +121,35 @@ test("request validation preserves success, message and errors", async () => {
   }
 });
 
+test("home page configuration stays bounded and requires dashboard authentication", async () => {
+  assert.equal(
+    updateHomePageConfigSchema.safeParse({
+      sections: { doctors: { enabled: true, limit: 3 } },
+    }).success,
+    true,
+  );
+  assert.equal(
+    updateHomePageConfigSchema.safeParse({
+      sections: { doctors: { limit: 50 } },
+    }).success,
+    false,
+  );
+  assert.equal(
+    updateHomePageConfigSchema.safeParse({
+      announcement: { ctaHref: "", message: "" },
+    }).success,
+    false,
+  );
+
+  for (const method of ["GET", "PATCH"] as const) {
+    const response = await http.request("/api/dashboard/homepage-config", {
+      method,
+      ...(method === "PATCH" ? { body: {} } : {}),
+    });
+    assert.equal(response.status, 401);
+  }
+});
+
 test("production startup rejects missing, weak or debug OTP secrets", () => {
   assert.throws(
     () => validateRuntimeEnvironment({ NODE_ENV: "production" }),
@@ -142,7 +170,6 @@ test("production startup rejects missing, weak or debug OTP secrets", () => {
         NODE_ENV: "production",
         JWT_SECRET: "j".repeat(32),
         OTP_SECRET: "o".repeat(32),
-        LOOKUP_GRANT_SECRET: "l".repeat(32),
         OTP_DEBUG_ENABLED: "true",
       }),
     /OTP_DEBUG_ENABLED must be disabled/,
@@ -152,9 +179,7 @@ test("production startup rejects missing, weak or debug OTP secrets", () => {
       NODE_ENV: "production",
       JWT_SECRET: "j".repeat(32),
       OTP_SECRET: "o".repeat(32),
-      LOOKUP_GRANT_SECRET: "l".repeat(32),
       OTP_DEBUG_ENABLED: "false",
-      PAYMENT_MOCK_ENABLED: "false",
       DATABASE_URL: "postgresql://production.example.test/hospital",
       FRONTEND_URLS: "https://hospital.example.test",
     }),
@@ -166,21 +191,11 @@ test("production startup rejects unsafe data and browser configuration", () => {
     NODE_ENV: "production",
     JWT_SECRET: "j".repeat(32),
     OTP_SECRET: "o".repeat(32),
-    LOOKUP_GRANT_SECRET: "l".repeat(32),
     OTP_DEBUG_ENABLED: "false",
-    PAYMENT_MOCK_ENABLED: "false",
     DATABASE_URL: "postgresql://production.example.test/hospital",
     FRONTEND_URLS: "https://hospital.example.test",
   };
 
-  assert.throws(
-    () =>
-      validateRuntimeEnvironment({
-        ...validProduction,
-        PAYMENT_MOCK_ENABLED: "true",
-      }),
-    /PAYMENT_MOCK_ENABLED must be disabled/,
-  );
   assert.throws(
     () =>
       validateRuntimeEnvironment({
@@ -199,132 +214,77 @@ test("production startup rejects unsafe data and browser configuration", () => {
   );
 });
 
-test("production startup requires complete HTTPS MoMo configuration when enabled", () => {
+test("production startup requires complete HTTPS VNPay configuration when enabled", () => {
   const validProduction = {
     NODE_ENV: "production",
     JWT_SECRET: "j".repeat(32),
     OTP_SECRET: "o".repeat(32),
-    LOOKUP_GRANT_SECRET: "l".repeat(32),
     DATABASE_URL: "postgresql://production.example.test/hospital",
     FRONTEND_URLS: "https://hospital.example.test",
-    PAYMENT_MOCK_ENABLED: "false",
-    PAYMENT_MOMO_ENABLED: "true",
+    PAYMENT_VNPAY_ENABLED: "true",
   };
 
   assert.throws(
     () => validateRuntimeEnvironment(validProduction),
-    /MOMO_PARTNER_CODE is required/,
+    /VNPAY_TMN_CODE is required/,
   );
   assert.throws(
     () =>
       validateRuntimeEnvironment({
         ...validProduction,
-        MOMO_PARTNER_CODE: "partner",
-        MOMO_ACCESS_KEY: "access",
-        MOMO_SECRET_KEY: "secret",
-        MOMO_REDIRECT_URL: "http://hospital.example.test/payment-return",
-        MOMO_IPN_URL: "https://api.example.test/api/payments/momo/webhook",
+        VNPAY_TMN_CODE: "TESTTMN1",
+        VNPAY_HASH_SECRET: "s".repeat(32),
+        VNPAY_RETURN_URL: "http://api.example.test/api/payments/vnpay/return",
       }),
-    /MOMO_REDIRECT_URL must be a valid HTTPS URL/,
+    /VNPAY_RETURN_URL must be a valid HTTPS URL/,
   );
   assert.doesNotThrow(() =>
     validateRuntimeEnvironment({
       ...validProduction,
-      MOMO_PARTNER_CODE: "partner",
-      MOMO_ACCESS_KEY: "access",
-      MOMO_SECRET_KEY: "secret",
-      MOMO_REDIRECT_URL: "https://hospital.example.test/payment-return",
-      MOMO_IPN_URL: "https://api.example.test/api/payments/momo/webhook",
+      VNPAY_TMN_CODE: "TESTTMN1",
+      VNPAY_HASH_SECRET: "s".repeat(32),
+      VNPAY_RETURN_URL: "https://api.example.test/api/payments/vnpay/return",
     }),
   );
 });
 
-test("MoMo capability needs both feature flag and complete credentials", () => {
-  assert.deepEqual(getMomoConfigurationStatus({}), {
+test("VNPay capability needs both feature flag and complete credentials", () => {
+  assert.deepEqual(getVnpayConfigurationStatus({}), {
     enabled: false,
     configured: false,
-    missing: [
-      "MOMO_PARTNER_CODE",
-      "MOMO_ACCESS_KEY",
-      "MOMO_SECRET_KEY",
-      "MOMO_REDIRECT_URL",
-      "MOMO_IPN_URL",
-    ],
+    missing: ["VNPAY_TMN_CODE", "VNPAY_HASH_SECRET", "VNPAY_RETURN_URL"],
   });
 
-  const previous = { ...process.env };
+  const keys = [
+    "PAYMENT_VNPAY_ENABLED",
+    "VNPAY_TMN_CODE",
+    "VNPAY_HASH_SECRET",
+    "VNPAY_RETURN_URL",
+  ] as const;
+  const previous = Object.fromEntries(keys.map((key) => [key, process.env[key]]));
   try {
-    process.env.PAYMENT_MOMO_ENABLED = "true";
-    process.env.MOMO_PARTNER_CODE = "partner";
-    process.env.MOMO_ACCESS_KEY = "access";
-    process.env.MOMO_SECRET_KEY = "secret";
-    process.env.MOMO_REDIRECT_URL = "https://hospital.example.test/return";
-    process.env.MOMO_IPN_URL =
-      "https://api.example.test/api/payments/momo/webhook";
-    assert.ok(
-      getPaymentProviderCapabilities().providers.some(
-        (item) => item.provider === "MOMO",
-      ),
+    process.env.VNPAY_TMN_CODE = "TESTTMN1";
+    process.env.VNPAY_HASH_SECRET = "s".repeat(32);
+    process.env.VNPAY_RETURN_URL = "https://api.example.test/api/payments/vnpay/return";
+
+    // Credentials alone do not advertise the provider.
+    process.env.PAYMENT_VNPAY_ENABLED = "false";
+    assert.deepEqual(getPaymentProviderCapabilities().providers, []);
+
+    process.env.PAYMENT_VNPAY_ENABLED = "true";
+    assert.deepEqual(
+      getPaymentProviderCapabilities().providers.map((item) => item.provider),
+      ["VNPAY"],
     );
+
+    // The flag alone is not enough either.
+    delete process.env.VNPAY_HASH_SECRET;
+    assert.deepEqual(getPaymentProviderCapabilities().providers, []);
   } finally {
-    process.env = previous;
-  }
-});
-
-test("MoMo callback rejects tampering and parses a valid signed payload", () => {
-  const previousAccessKey = process.env.MOMO_ACCESS_KEY;
-  const previousSecretKey = process.env.MOMO_SECRET_KEY;
-  process.env.MOMO_ACCESS_KEY = "sandbox-access";
-  process.env.MOMO_SECRET_KEY = "sandbox-secret";
-  try {
-    const payload: Record<string, unknown> = {
-      partnerCode: "sandbox-partner",
-      orderId: "PAYMENT-001",
-      requestId: "PAYMENT-001",
-      amount: 250000,
-      orderInfo: "Thanh toán hóa đơn HD-001",
-      orderType: "momo_wallet",
-      transId: 123456789,
-      resultCode: 0,
-      message: "Successful.",
-      payType: "qr",
-      responseTime: 1721720619912,
-      extraData: "",
-    };
-    const raw = [
-      "accessKey=sandbox-access",
-      "amount=250000",
-      "extraData=",
-      "message=Successful.",
-      "orderId=PAYMENT-001",
-      "orderInfo=Thanh toán hóa đơn HD-001",
-      "orderType=momo_wallet",
-      "partnerCode=sandbox-partner",
-      "payType=qr",
-      "requestId=PAYMENT-001",
-      "responseTime=1721720619912",
-      "resultCode=0",
-      "transId=123456789",
-    ].join("&");
-    payload.signature = crypto
-      .createHmac("sha256", "sandbox-secret")
-      .update(raw)
-      .digest("hex");
-
-    const verified = parseVerifiedMomoCallback(payload);
-    assert.equal(verified.orderId, "PAYMENT-001");
-    assert.equal(verified.amount, 250000);
-    assert.equal(verified.resultCode, 0);
-
-    assert.throws(
-      () => parseVerifiedMomoCallback({ ...payload, amount: 250001 }),
-      /Chữ ký callback MoMo không hợp lệ/,
-    );
-  } finally {
-    if (previousAccessKey === undefined) delete process.env.MOMO_ACCESS_KEY;
-    else process.env.MOMO_ACCESS_KEY = previousAccessKey;
-    if (previousSecretKey === undefined) delete process.env.MOMO_SECRET_KEY;
-    else process.env.MOMO_SECRET_KEY = previousSecretKey;
+    for (const key of keys) {
+      if (previous[key] === undefined) delete process.env[key];
+      else process.env[key] = previous[key];
+    }
   }
 });
 
@@ -333,7 +293,6 @@ test("production notification worker requires one Firebase credential", () => {
     NODE_ENV: "production",
     JWT_SECRET: "j".repeat(32),
     OTP_SECRET: "o".repeat(32),
-    LOOKUP_GRANT_SECRET: "l".repeat(32),
     DATABASE_URL: "postgresql://production.example.test/hospital",
     FRONTEND_URLS: "https://hospital.example.test",
     FIREBASE_PROJECT_ID: "hospital-production",

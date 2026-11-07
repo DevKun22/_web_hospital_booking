@@ -7,7 +7,7 @@ import {
   listPublicFAQsHandler,
   updateDashboardFAQHandler,
 } from "../controllers/publicFAQ.controller.js";
-import { authDashboard, requireRole } from "../middlewares/auth.middleware.js";
+import { authDashboard, requirePermission } from "../middlewares/auth.middleware.js";
 import { validate } from "../middlewares/validate.middleware.js";
 import {
   createPublicFAQSchema,
@@ -21,28 +21,28 @@ export const dashboardFAQRouter = Router();
 dashboardFAQRouter.use(authDashboard);
 dashboardFAQRouter.get(
   "/",
-  requireRole("ADMIN", "STAFF"),
+  requirePermission("content.manage"),
   listDashboardFAQsHandler,
 );
 dashboardFAQRouter.get(
   "/:id",
-  requireRole("ADMIN", "STAFF"),
+  requirePermission("content.manage"),
   getDashboardFAQHandler,
 );
 dashboardFAQRouter.post(
   "/",
-  requireRole("ADMIN", "STAFF"),
+  requirePermission("content.manage"),
   validate(createPublicFAQSchema),
   createDashboardFAQHandler,
 );
 dashboardFAQRouter.patch(
   "/:id",
-  requireRole("ADMIN", "STAFF"),
+  requirePermission("content.manage"),
   validate(updatePublicFAQSchema),
   updateDashboardFAQHandler,
 );
 dashboardFAQRouter.delete(
   "/:id",
-  requireRole("ADMIN"),
+  requirePermission("content.delete"),
   deleteDashboardFAQHandler,
 );

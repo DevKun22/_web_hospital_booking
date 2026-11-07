@@ -222,6 +222,13 @@ export const listPublicPackageCatalogHandler = async (
           : undefined,
       isPopular: parseBooleanQuery(req.query.isPopular),
       isBhytSupport: parseBooleanQuery(req.query.isBHYTSupport),
+      sort:
+        req.query.sort === "PRICE_ASC" ||
+        req.query.sort === "PRICE_DESC" ||
+        req.query.sort === "NAME_ASC" ||
+        req.query.sort === "POPULAR_DESC"
+          ? req.query.sort
+          : undefined,
       page: parseNumberQuery(req.query.page),
       limit: parseNumberQuery(req.query.limit),
     });

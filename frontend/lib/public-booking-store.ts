@@ -30,6 +30,8 @@ export type PublicBookingDraft = {
   allergies: string;
   medicalHistory: string;
   familyHistory: string;
+  // Đồng ý cho bệnh viện lưu thông tin sức khỏe; bắt buộc khi có khai báo ở trên.
+  healthConsent: boolean;
 };
 
 export type PublicBookingPrefill = Partial<PublicBookingSelection> &
@@ -94,7 +96,7 @@ export const initialBookingDraft: PublicBookingDraft = {
   patientName: "",
   patientPhone: "",
   patientEmail: "",
-  otpChannel: "SMS",
+  otpChannel: "EMAIL",
   reason: "",
   gender: "",
   dateOfBirth: "",
@@ -106,17 +108,24 @@ export const initialBookingDraft: PublicBookingDraft = {
   allergies: "",
   medicalHistory: "",
   familyHistory: "",
+  healthConsent: false,
 };
 
 type PublicBookingStore = {
   selection: PublicBookingSelection;
   draft: PublicBookingDraft;
   lookupDraft: PublicLookupDraft | null;
+  profileOwnerId: string | null;
   hydratedFromUrl: boolean;
   setSelectionPatch: (patch: Partial<PublicBookingSelection>) => void;
   setDraftPatch: (patch: Partial<PublicBookingDraft>) => void;
   setLookupDraft: (draft: Omit<PublicLookupDraft, "savedAt">) => void;
   clearLookupDraft: () => void;
+  applyPatientProfile: (
+    ownerId: string,
+    patch: Partial<PublicBookingDraft>,
+  ) => void;
+  clearPatientProfile: () => void;
   hydrateFromUrl: (prefill: PublicBookingPrefill) => void;
 };
 
@@ -124,6 +133,7 @@ export const usePublicBookingStore = create<PublicBookingStore>((set) => ({
   selection: initialBookingSelection,
   draft: initialBookingDraft,
   lookupDraft: readLookupDraft(),
+  profileOwnerId: null,
   hydratedFromUrl: false,
   setSelectionPatch: (patch) =>
     set((state) => ({
@@ -148,6 +158,36 @@ export const usePublicBookingStore = create<PublicBookingStore>((set) => ({
     set(() => {
       writeLookupDraft(null);
       return { lookupDraft: null };
+    }),
+  applyPatientProfile: (ownerId, patch) =>
+    set((state) => {
+      const identityChanged = Boolean(
+        state.profileOwnerId && state.profileOwnerId !== ownerId,
+      );
+      const baseDraft = identityChanged
+        ? {
+            ...initialBookingDraft,
+            date: state.draft.date,
+            timeSlotId: state.draft.timeSlotId,
+          }
+        : state.draft;
+
+      return {
+        draft: { ...baseDraft, ...patch },
+        profileOwnerId: ownerId,
+      };
+    }),
+  clearPatientProfile: () =>
+    set((state) => {
+      if (!state.profileOwnerId) return state;
+      return {
+        draft: {
+          ...initialBookingDraft,
+          date: state.draft.date,
+          timeSlotId: state.draft.timeSlotId,
+        },
+        profileOwnerId: null,
+      };
     }),
   hydrateFromUrl: (prefill) =>
     set((state) => ({

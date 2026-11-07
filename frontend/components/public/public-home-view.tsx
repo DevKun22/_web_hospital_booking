@@ -1,7 +1,7 @@
 "use client";
 
 import {
-  ArrowRight,
+  Bot,
   CalendarDays,
   CheckCircle2,
   ChevronLeft,
@@ -9,29 +9,29 @@ import {
   Clock,
   HelpCircle,
   HeartPulse,
+  Megaphone,
   PackageCheck,
-  Phone,
+  Pause,
+  Play,
   Search,
   ShieldCheck,
   Sparkles,
   Star,
   Stethoscope,
+  UserRound,
 } from "lucide-react";
 import useEmblaCarousel from "embla-carousel-react";
 import Image from "next/image";
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { ReactNode, useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { BackToTopButton } from "@/components/public/back-to-top-button";
-import { PublicConsultationRequest } from "@/components/public/public-consultation-request";
-import { PublicGlobalSearch } from "@/components/public/public-global-search";
 import { PublicSiteFooter } from "@/components/public/public-site-footer";
 import { PublicSiteHeader } from "@/components/public/public-site-header";
-import { LazyMount } from "@/components/public/lazy-mount";
 import { ScrollReveal } from "@/components/public/scroll-reveal";
-import { usePublicSearchSuggestions } from "@/lib/public-search-query";
 import { getPublicDoctorPath } from "@/lib/public-routes";
-import type { Banner, DoctorProfile } from "@/lib/types";
+import { openPublicChatbot } from "@/lib/public-ui-events";
+import type { Banner, DoctorProfile, HomePageConfigValue, HomePageSectionConfig } from "@/lib/types";
 import type { PublicHomeData } from "./public-home-types";
 
 type PublicHomeViewProps = {
@@ -39,12 +39,6 @@ type PublicHomeViewProps = {
   loading: boolean;
   error: string;
 };
-
-const PublicBookingWidget = dynamic(() =>
-  import("@/components/public/public-booking-widget").then(
-    (module) => module.PublicBookingWidget,
-  ),
-);
 
 const PublicChatbotWidget = dynamic(
   () =>
@@ -61,57 +55,35 @@ const formatCurrency = (value: number) =>
     maximumFractionDigits: 0,
   }).format(value || 0);
 
+const formatShortAppointmentDate = (value: string) =>
+  new Intl.DateTimeFormat("vi-VN", {
+    weekday: "short",
+    day: "2-digit",
+    month: "2-digit",
+    timeZone: "UTC",
+  }).format(new Date(value));
+
 const doctorName = (doctor: DoctorProfile) =>
   [doctor.title, doctor.user.fullName].filter(Boolean).join(" ");
 
 const firstLetter = (value: string) =>
   value.trim().slice(0, 1).toUpperCase() || "H";
 
-const faqCategoryMeta = {
-  booking: {
-    label: "Đặt lịch",
-    description: "Chọn chuyên khoa, bác sĩ, ngày khám và xác thực OTP.",
-  },
-  payment: {
-    label: "Thanh toán",
-    description: "Chi phí khám, hóa đơn, trạng thái thanh toán và hoàn tiền.",
-  },
-  doctor: {
-    label: "Bác sĩ",
-    description: "Thông tin chuyên môn, lịch khám và cách chọn bác sĩ phù hợp.",
-  },
-  insurance: {
-    label: "BHYT",
-    description: "Bảo hiểm y tế và các thông tin cần chuẩn bị trước khi khám.",
-  },
-  general: {
-    label: "Chung",
-    description: "Thông tin chung khi sử dụng dịch vụ đặt lịch trực tuyến.",
-  },
-} as const;
-
-const faqCategoryOrder = [
-  "booking",
-  "payment",
-  "doctor",
-  "insurance",
-  "general",
-] as const;
+const safePublicHref = (value: string | null | undefined, fallback = "/") => {
+  const href = value?.trim();
+  if (!href) return fallback;
+  if (href.startsWith("/") && !href.startsWith("//")) return href;
+  try {
+    return new URL(href).protocol === "https:" ? href : fallback;
+  } catch {
+    return fallback;
+  }
+};
 
 export function PublicHomeView({ data, loading, error }: PublicHomeViewProps) {
   const hospitalName =
     data.settings?.hospitalName?.trim() || "Hospital Booking";
-  const hotline =
-    data.settings?.hotline?.trim() ||
-    data.settings?.emergencyHotline?.trim() ||
-    "1900 0000";
-  const promoBanner = data.promoBanners[0];
-  const popularPackages = data.packages
-    .filter((item) => item.isPopular)
-    .slice(0, 3);
-  const visiblePackages = (
-    popularPackages.length ? popularPackages : data.packages
-  ).slice(0, 3);
+  const homeConfig = data.homeConfig;
 
   return (
     <main id="main-content" tabIndex={-1} className="public-site min-h-screen bg-[var(--public-canvas)] text-[var(--public-ink)]">
@@ -120,8 +92,6 @@ export function PublicHomeView({ data, loading, error }: PublicHomeViewProps) {
       </a>
       <PublicSiteHeader settings={data.settings} />
       <div id="home-content" tabIndex={-1}>
-        <PublicSearchRail />
-
       {error ? (
         <section className="mx-auto mt-4 max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="rounded-md border border-[#f2b8b5] bg-[#fff3f2] px-4 py-3 text-sm text-[#b3261e]">
@@ -132,34 +102,23 @@ export function PublicHomeView({ data, loading, error }: PublicHomeViewProps) {
 
       <HeroSection
         hospitalName={hospitalName}
-        hotline={hotline}
         heroBanners={data.heroBanners}
-        promoBanner={promoBanner}
-        loading={loading}
-        counts={{
-          departments: data.departments.length,
-          doctors: data.doctors.length,
-          packages: data.packages.length,
-        }}
-      />
-      <PublicServiceHub />
-      <DepartmentSection
-        departments={data.departments.slice(0, 6)}
+        announcement={homeConfig?.announcement}
         loading={loading}
       />
-      <DoctorSection doctors={data.doctors.slice(0, 4)} loading={loading} />
-      <PackageSection packages={visiblePackages} loading={loading} />
-      <LazyMount
-        fallback={
-          <section id="booking" className="ui-container scroll-mt-24 py-12 sm:py-16">
-            <div className="skeleton-shimmer h-[420px] rounded-2xl border border-[var(--border)]" aria-label="Đang chuẩn bị form đặt lịch" />
-          </section>
-        }
-      >
-        <PublicBookingWidget data={data} loading={loading} />
-      </LazyMount>
-      <PublicConsultationRequest />
-      <FaqTopicSection faqs={data.faqs.slice(0, 5)} loading={loading} />
+      {homeConfig?.sections.serviceHub.enabled !== false ? <PublicServiceHub /> : null}
+      {homeConfig?.sections.departments.enabled !== false ? (
+        <DepartmentSection departments={data.departments} config={homeConfig?.sections.departments} loading={loading} />
+      ) : null}
+      {homeConfig?.sections.doctors.enabled !== false ? (
+        <DoctorSection doctors={data.doctors} config={homeConfig?.sections.doctors} loading={loading} />
+      ) : null}
+      {homeConfig?.sections.packages.enabled !== false ? (
+        <PackageSection packages={data.packages} config={homeConfig?.sections.packages} loading={loading} />
+      ) : null}
+      {homeConfig?.sections.partners.enabled !== false && data.partnerBanners.length ? (
+        <PartnerLogoSection banners={data.partnerBanners} config={homeConfig?.sections.partners} />
+      ) : null}
       </div>
       <PublicSiteFooter settings={data.settings} />
       <BackToTopButton />
@@ -168,117 +127,44 @@ export function PublicHomeView({ data, loading, error }: PublicHomeViewProps) {
   );
 }
 
-function PublicSearchRail() {
-  const defaultKeywords = [
-    "Tim mạch",
-    "Tổng quát",
-    "BHYT",
-    "Thanh toán",
-    "Quên mã lịch",
-  ];
-  const [suggestionsEnabled, setSuggestionsEnabled] = useState(false);
-
-  useEffect(() => {
-    const idleWindow = window as Window & {
-      requestIdleCallback?: (callback: () => void, options?: { timeout: number }) => number;
-      cancelIdleCallback?: (id: number) => void;
-    };
-    if (idleWindow.requestIdleCallback) {
-      const idleId = idleWindow.requestIdleCallback(
-        () => setSuggestionsEnabled(true),
-        { timeout: 3000 },
-      );
-      return () => idleWindow.cancelIdleCallback?.(idleId);
-    }
-    const timeoutId = window.setTimeout(() => setSuggestionsEnabled(true), 1800);
-    return () => window.clearTimeout(timeoutId);
-  }, []);
-
-  const suggestionsQuery = usePublicSearchSuggestions(5, suggestionsEnabled);
-  const quickSearchKeywords = suggestionsQuery.data?.items.length
-    ? suggestionsQuery.data.items
-    : defaultKeywords;
-
-  return (
-    <section className="relative z-30 border-b border-[var(--public-border)] bg-[linear-gradient(180deg,#f4fbf9_0%,#eef7f4_100%)]">
-      <div className="ui-container py-2.5 sm:py-3">
-        <div className="grid gap-3 rounded-lg border border-white/90 bg-white/92 p-2.5 shadow-sm backdrop-blur md:grid-cols-[minmax(0,1fr)_minmax(360px,0.9fr)] md:items-center md:p-3">
-          <div className="flex min-w-0 items-center gap-3">
-            <span className="relative hidden h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[var(--primary-soft)] text-[var(--primary)] sm:flex">
-              <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-[#30c47c]" />
-              <Sparkles className="h-4 w-4" />
-            </span>
-            <div className="min-w-0">
-              <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                <p className="text-sm font-semibold text-[var(--public-ink)]">Tìm nhanh</p>
-                <span className="hidden text-xs text-[var(--public-muted)] sm:inline">
-                  chuyên khoa, bác sĩ, gói khám và hướng dẫn tra cứu
-                </span>
-              </div>
-              <div className="ui-hide-scrollbar mt-1.5 flex max-w-full gap-1.5 overflow-x-auto pb-1 sm:flex-wrap sm:overflow-visible sm:pb-0">
-                {quickSearchKeywords.map((keyword) => (
-                  <Link
-                    key={keyword}
-                    href={`/search?q=${encodeURIComponent(keyword)}`}
-                    className="shrink-0 rounded-full border border-[var(--public-border)] bg-[var(--public-primary-soft)] px-2.5 py-1 text-xs font-semibold text-[var(--public-primary-dark)] transition hover:-translate-y-0.5 hover:bg-white hover:shadow-sm"
-                  >
-                    {keyword}
-                  </Link>
-                ))}
-              </div>
-            </div>
-          </div>
-          <PublicGlobalSearch compact />
-        </div>
-      </div>
-    </section>
-  );
-}
-
 function PublicServiceHub() {
-  const items = [
+  const primaryItems = [
     {
-      title: "Khám theo chuyên khoa",
-      description: "Tìm đúng nơi tiếp nhận theo nhu cầu khám.",
-      href: "/departments",
-      icon: <HeartPulse className="h-5 w-5" aria-hidden="true" />,
+      title: "Đặt lịch khám",
+      description: "Chọn chuyên khoa, bác sĩ và thời gian phù hợp.",
+      href: "/dat-lich",
+      icon: <CalendarDays className="h-6 w-6" aria-hidden="true" />,
     },
     {
-      title: "Chọn bác sĩ",
+      title: "Khám chuyên khoa",
+      description: "Tìm đúng nơi tiếp nhận theo nhu cầu khám.",
+      href: "/chuyen-khoa",
+      icon: <HeartPulse className="h-6 w-6" aria-hidden="true" />,
+    },
+    {
+      title: "Đội ngũ bác sĩ",
       description: "Xem chuyên môn, kinh nghiệm và phí khám.",
       href: "/bac-si",
-      icon: <Stethoscope className="h-5 w-5" aria-hidden="true" />,
+      icon: <Stethoscope className="h-6 w-6" aria-hidden="true" />,
     },
     {
-      title: "Gói khám sức khỏe",
+      title: "Gói khám & tầm soát",
       description: "So sánh hạng mục, BHYT và tổng chi phí.",
-      href: "/packages",
-      icon: <PackageCheck className="h-5 w-5" aria-hidden="true" />,
+      href: "/goi-kham",
+      icon: <PackageCheck className="h-6 w-6" aria-hidden="true" />,
     },
-    {
-      title: "Đặt lịch trực tuyến",
-      description: "Chọn ngày, giờ và xác thực OTP giữ lịch.",
-      href: "/#booking",
-      icon: <CalendarDays className="h-5 w-5" aria-hidden="true" />,
-    },
-    {
-      title: "Tra cứu lịch hẹn",
-      description: "Theo dõi trạng thái và thông tin sau khám.",
-      href: "/appointments/lookup",
-      icon: <ShieldCheck className="h-5 w-5" aria-hidden="true" />,
-    },
-    {
-      title: "Tìm kiếm dịch vụ",
-      description: "Tìm bác sĩ, chuyên khoa, gói khám và hướng dẫn.",
-      href: "/search",
-      icon: <Search className="h-5 w-5" aria-hidden="true" />,
-    },
+  ];
+
+  const utilityItems = [
+    { title: "Tra cứu lịch hẹn", href: "/tai-khoan/dang-nhap?next=/tai-khoan/lich-hen", icon: ShieldCheck },
+    { title: "Tìm kiếm dịch vụ", href: "/tim-kiem", icon: Search },
+    { title: "Hỏi đáp & hướng dẫn", href: "/ho-tro", icon: HelpCircle },
   ];
 
   return (
     <section aria-labelledby="service-hub-title" className="border-y border-[var(--public-divider)] bg-white">
-      <div className="ui-container py-8 sm:py-11">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+      <div className="ui-container py-8 sm:py-12">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <p className="text-sm font-bold uppercase tracking-[0.14em] text-[var(--public-primary)]">Dịch vụ nổi bật</p>
             <h2 id="service-hub-title" className="mt-2 text-2xl font-bold tracking-[-0.025em] text-[var(--public-ink)] sm:text-3xl">
@@ -289,25 +175,50 @@ function PublicServiceHub() {
             Mỗi lựa chọn dẫn tới một trang chuyên biệt để bạn xem đủ thông tin trước khi quyết định đặt lịch.
           </p>
         </div>
-        <div className="mt-6 grid grid-cols-3 gap-2 sm:grid-cols-2 sm:gap-3 lg:grid-cols-3">
-          {items.map((item) => (
+        <div className="mt-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
+          {primaryItems.map((item, index) => (
             <Link
               key={item.href}
               href={item.href}
-              className="group flex min-h-28 flex-col items-center gap-2 rounded-2xl border border-[var(--public-border)] bg-[var(--public-surface)] p-3 text-center shadow-sm transition hover:-translate-y-1 hover:border-[color-mix(in_srgb,var(--public-primary)_38%,var(--public-border))] hover:shadow-[var(--public-shadow-soft)] sm:flex-row sm:items-start sm:gap-4 sm:p-4 sm:text-left"
+              className={`group flex min-h-40 flex-col gap-3 rounded-2xl border p-4 shadow-sm transition hover:-translate-y-1 hover:shadow-[var(--public-shadow-soft)] sm:min-h-48 sm:gap-4 sm:p-5 ${
+                index === 0
+                  ? "border-[var(--public-primary)] bg-[var(--public-primary)] text-white"
+                  : "border-[var(--public-border)] bg-[var(--public-surface)] text-[var(--public-ink)] hover:border-[var(--public-primary)]"
+              }`}
             >
-              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[var(--public-primary-soft)] text-[var(--public-primary)] transition group-hover:bg-[var(--public-primary)] group-hover:text-white">
+              <span className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl transition ${
+                index === 0
+                  ? "bg-white/18 text-white ring-1 ring-white/25"
+                  : "bg-[var(--public-primary-soft)] text-[var(--public-primary)] group-hover:bg-[var(--public-primary)] group-hover:text-white"
+              }`}>
                 {item.icon}
               </span>
               <span className="min-w-0">
-                <span className="flex items-center justify-center gap-1 text-xs font-bold leading-4 text-[var(--public-ink)] sm:justify-start sm:gap-2 sm:text-base sm:leading-6">
+                <span className="flex items-center justify-between gap-2 text-base font-bold leading-6">
                   {item.title}
-                  <ChevronRight className="hidden h-4 w-4 text-[var(--public-primary)] transition group-hover:translate-x-1 sm:block" aria-hidden="true" />
+                  <ChevronRight className={`hidden h-4 w-4 transition group-hover:translate-x-1 sm:block ${index === 0 ? "text-white" : "text-[var(--public-primary)]"}`} aria-hidden="true" />
                 </span>
-                <span className="mt-1.5 hidden text-sm leading-6 text-[var(--public-muted)] sm:block">{item.description}</span>
+                <span className={`mt-2 block text-sm leading-6 ${index === 0 ? "text-white/82" : "text-[var(--public-muted)]"}`}>{item.description}</span>
               </span>
             </Link>
           ))}
+        </div>
+        <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {utilityItems.map((item) => {
+            const Icon = item.icon;
+            return (
+              <Link key={item.href} href={item.href} className="group flex min-h-14 items-center gap-3 rounded-xl border border-[var(--public-border)] bg-[var(--public-surface-muted)] px-4 py-3 text-sm font-bold text-[var(--public-ink)] transition hover:border-[var(--public-primary)] hover:bg-white">
+                <Icon className="h-5 w-5 shrink-0 text-[var(--public-primary)]" aria-hidden="true" />
+                <span className="min-w-0 flex-1">{item.title}</span>
+                <ChevronRight className="h-4 w-4 text-[var(--public-muted)] transition group-hover:translate-x-1 group-hover:text-[var(--public-primary)]" aria-hidden="true" />
+              </Link>
+            );
+          })}
+          <div aria-disabled="true" data-future-feature="patient-account" className="flex min-h-14 cursor-not-allowed items-center gap-3 rounded-xl border border-dashed border-[var(--public-border)] bg-white px-4 py-3 text-sm font-bold text-[var(--public-muted)]">
+            <UserRound className="h-5 w-5 shrink-0" aria-hidden="true" />
+            <span className="min-w-0 flex-1">Hồ sơ người khám</span>
+            <span className="rounded-full bg-[var(--public-primary-soft)] px-2 py-1 text-[10px] uppercase tracking-wide text-[var(--public-primary-dark)]">Sắp có</span>
+          </div>
         </div>
       </div>
     </section>
@@ -316,29 +227,31 @@ function PublicServiceHub() {
 
 function HeroSection({
   hospitalName,
-  hotline,
   heroBanners,
-  promoBanner,
+  announcement,
   loading,
-  counts,
 }: {
   hospitalName: string;
-  hotline: string;
   heroBanners: Banner[];
-  promoBanner?: Banner;
+  announcement?: HomePageConfigValue["announcement"];
   loading: boolean;
-  counts: { departments: number; doctors: number; packages: number };
 }) {
-  const [emblaRef, emblaApi] = useEmblaCarousel({ loop: true, align: "start" });
+  const [emblaRef, emblaApi] = useEmblaCarousel({
+    loop: true,
+    align: "start",
+    duration: 32,
+    dragFree: false,
+    skipSnaps: false,
+  });
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [carouselPaused, setCarouselPaused] = useState(false);
-  const heroSlides = useMemo(
-    () => (heroBanners.length ? heroBanners : promoBanner ? [promoBanner] : []),
-    [heroBanners, promoBanner],
-  );
+  const heroSlides = useMemo(() => heroBanners.slice(0, 5), [heroBanners]);
   const activeBanner = heroSlides[selectedIndex] || heroSlides[0];
-  const heroTitle = "Chăm sóc sức khỏe chủ động, đặt lịch thuận tiện";
+  const heroTitle =
+    activeBanner?.title?.trim() ||
+    "Chăm sóc sức khỏe chủ động, đặt lịch thuận tiện";
   const heroSubtitle =
+    activeBanner?.subtitle?.trim() ||
     "Tìm đúng chuyên khoa, chọn bác sĩ phù hợp và xem rõ chi phí trước khi xác nhận lịch khám.";
   const hasMultipleSlides = heroSlides.length > 1;
 
@@ -363,138 +276,65 @@ function HeroSection({
     if (!emblaApi || !hasMultipleSlides || carouselPaused) return;
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
 
-    const timer = window.setInterval(() => {
+    const timer = window.setTimeout(() => {
       if (document.visibilityState === "visible") emblaApi.scrollNext();
-    }, 5200);
+    }, 6200);
 
-    return () => window.clearInterval(timer);
-  }, [carouselPaused, emblaApi, hasMultipleSlides]);
-
-  useEffect(() => {
-    if (!emblaApi) return;
-    emblaApi.reInit();
-    emblaApi.scrollTo(0);
-  }, [emblaApi, heroSlides.length]);
+    return () => window.clearTimeout(timer);
+  }, [carouselPaused, emblaApi, hasMultipleSlides, selectedIndex]);
 
   return (
-    <section className="overflow-hidden bg-[radial-gradient(circle_at_12%_18%,rgba(46,159,130,0.14),transparent_28%),linear-gradient(180deg,#f4fbf9_0%,#ffffff_72%,#f7f9fc_100%)]">
-      <div className="ui-container grid items-center gap-7 py-8 sm:gap-8 sm:py-12 lg:min-h-[610px] lg:grid-cols-[minmax(0,1fr)_minmax(420px,0.96fr)] lg:gap-12 lg:py-14">
-        <ScrollReveal className="max-w-2xl" initialVisible>
-          <div className="inline-flex items-center gap-2 rounded-full border border-[var(--public-border)] bg-white px-3 py-1.5 text-xs font-bold text-[var(--public-primary-dark)] shadow-sm sm:text-sm">
-            <Sparkles className="h-4 w-4" />
-            Đồng hành trước, trong và sau buổi khám
-          </div>
-          {loading ? (
-            <div className="mt-5 space-y-3">
-              <Skeleton className="h-12 w-full max-w-xl" />
-              <Skeleton className="h-12 w-4/5 max-w-lg" />
-              <Skeleton className="mt-5 h-4 w-full max-w-xl" />
-              <Skeleton className="h-4 w-11/12 max-w-xl" />
-              <Skeleton className="h-4 w-2/3 max-w-md" />
-            </div>
-          ) : (
-            <h1 className="mt-5 text-[2rem] font-bold leading-[1.16] tracking-[-0.035em] text-[var(--public-ink)] sm:text-5xl lg:text-[3.45rem]">
-              {heroTitle}
-            </h1>
-          )}
-          <p
-            className={`mt-5 max-w-xl text-base leading-7 text-[var(--public-text-soft)] sm:text-lg sm:leading-8 ${loading ? "hidden" : ""}`}
-          >
-            {heroSubtitle} Đặt lịch tại {hospitalName} bằng quy trình rõ ràng và dễ tra cứu.
-          </p>
-          <div
-            className={`mt-5 hidden flex-wrap gap-2 text-xs font-semibold text-[var(--public-text-soft)] sm:flex ${loading ? "sm:hidden" : ""}`}
-          >
-            {[
-              "Xác thực OTP",
-              "Theo dõi trạng thái",
-              "Tra cứu hóa đơn",
-              "Hỗ trợ tư vấn",
-            ].map((item) => (
-              <span
-                key={item}
-                className="inline-flex items-center gap-1.5 rounded-full border border-[var(--public-border)] bg-white px-3 py-1.5 shadow-sm"
-              >
-                <CheckCircle2
-                  className="h-3.5 w-3.5 text-[var(--public-success)]"
-                  aria-hidden="true"
-                />
-                {item}
-              </span>
-            ))}
-          </div>
-          <div className="mt-6 flex flex-col gap-3 sm:flex-row">
-            <a
-              href="#booking"
-              className="public-button-primary inline-flex min-h-12 items-center justify-center gap-2 rounded-xl px-5 py-3 text-sm font-bold"
-            >
-              Đặt lịch ngay
-              <ArrowRight className="h-4 w-4" />
-            </a>
-            <a
-              href={`tel:${hotline}`}
-              className="public-button-secondary inline-flex min-h-12 items-center justify-center gap-2 rounded-xl px-5 py-3 text-sm font-bold"
-            >
-              <Phone className="h-4 w-4" />
-              Gọi {hotline}
-            </a>
-          </div>
-          <div className="mt-7 grid grid-cols-3 gap-2 sm:gap-3">
-            {[
-              ["Chuyên khoa", counts.departments],
-              ["Bác sĩ", counts.doctors],
-              ["Gói khám", counts.packages],
-            ].map(([label, value]) => (
-              <div
-                key={label}
-                className="rounded-xl border border-[var(--public-border)] bg-white p-3 shadow-sm sm:p-4"
-              >
-                {loading ? (
-                  <Skeleton className="h-8 w-14" />
-                ) : (
-                  <p className="text-xl font-bold text-[var(--public-primary)] sm:text-2xl">
-                    {value}
-                  </p>
-                )}
-                <p className="mt-1 truncate text-xs text-[var(--public-muted)] sm:text-sm">{label}</p>
-              </div>
-            ))}
-          </div>
-        </ScrollReveal>
-
+    <section className="overflow-hidden bg-[var(--public-canvas)] pb-6 sm:pb-8">
+      <div className="w-full">
         <ScrollReveal initialVisible>
           <div
-            className="ui-soft-glow relative aspect-[4/3] min-h-0 overflow-hidden rounded-3xl border border-[var(--public-border)] bg-[var(--public-primary-soft)] shadow-[var(--public-shadow-floating)] sm:aspect-[16/10] lg:min-h-[470px] lg:aspect-auto"
-            onMouseEnter={() => setCarouselPaused(true)}
-            onMouseLeave={() => setCarouselPaused(false)}
+            className="relative min-h-[500px] cursor-grab touch-pan-y select-none overflow-hidden border-b border-[var(--public-border)] bg-[var(--public-primary-soft)] shadow-[var(--public-shadow-floating)] active:cursor-grabbing sm:min-h-[520px] xl:min-h-[540px]"
             onFocusCapture={() => setCarouselPaused(true)}
             onBlurCapture={() => setCarouselPaused(false)}
           >
             {loading ? (
               <Skeleton className="absolute inset-0 h-full w-full rounded-none" />
             ) : heroSlides.length ? (
-              <div ref={emblaRef} className="absolute inset-0 overflow-hidden">
-                <div className="flex h-full touch-pan-y">
+              <div
+                ref={emblaRef}
+                className="public-hero-viewport absolute inset-0 cursor-grab overflow-hidden active:cursor-grabbing"
+                role="region"
+                aria-roledescription="carousel"
+                aria-label="Banner dịch vụ nổi bật - giữ chuột và kéo để chuyển banner"
+              >
+                <div className="flex h-full touch-pan-y will-change-transform">
                   {heroSlides.map((slide, index) => {
-                    const slideImage = slide.mobileImage || slide.image;
-
                     return (
-                      <div
-                        key={slide.id}
-                        className="relative min-w-0 flex-[0_0_100%]"
-                      >
-                        {slideImage ? (
-                          <Image
-                            src={slideImage}
+                      <div key={slide.id} className="public-hero-slide relative min-w-0 flex-[0_0_100%]">
+                        {slide.image ? (
+                          <>
+                            {slide.mobileImage ? (
+                              <Image
+                                src={slide.mobileImage}
+                                alt={slide.title || hospitalName}
+                                fill
+                                sizes="100vw"
+                                priority={index === 0}
+                                loading={index === 1 ? "eager" : undefined}
+                                quality={75}
+                                draggable={false}
+                                className="object-cover sm:hidden"
+                              />
+                            ) : null}
+                            <Image
+                            src={slide.image}
                             alt={slide.title || hospitalName}
                             fill
-                            sizes="(min-width: 1024px) 50vw, 100vw"
+                            sizes="(min-width: 1280px) 1280px, 100vw"
                             priority={index === 0}
-                            unoptimized
-                            className="object-cover"
+                            loading={index === 1 ? "eager" : undefined}
+                            quality={75}
+                            draggable={false}
+                            className={`object-cover ${slide.mobileImage ? "hidden sm:block" : ""}`}
                           />
+                          </>
                         ) : (
-                          <div className="h-full w-full bg-[linear-gradient(135deg,#ddf3ee_0%,#e9f3fa_55%,#fff3dd_100%)]" />
+                          <div className="h-full w-full bg-[linear-gradient(135deg,#dbeafe_0%,#e7f0ff_50%,#ffffff_100%)]" />
                         )}
                       </div>
                     );
@@ -502,113 +342,198 @@ function HeroSection({
                 </div>
               </div>
             ) : (
-              <div className="absolute inset-0 bg-[linear-gradient(135deg,#ddf3ee_0%,#e9f3fa_55%,#fff3dd_100%)]" />
+              <div className="absolute inset-0 bg-[linear-gradient(135deg,#dbeafe_0%,#e7f0ff_50%,#ffffff_100%)]" />
             )}
-            <div className="absolute inset-0 bg-gradient-to-t from-[#052f2d]/88 via-[#075b58]/20 to-white/5" />
-            <div className="absolute inset-x-0 top-0 h-28 bg-gradient-to-b from-white/35 to-transparent" />
-            {!loading && hasMultipleSlides ? (
-              <>
-                <div className="pointer-events-none absolute inset-y-0 left-3 right-3 z-10 flex items-center justify-between gap-3">
-                  <button
-                    type="button"
-                    onClick={() => emblaApi?.scrollPrev()}
-                    className="pointer-events-auto inline-flex h-11 w-11 items-center justify-center rounded-full bg-white/92 text-[#172033] shadow-lg ring-1 ring-white/70 backdrop-blur transition hover:scale-105 hover:bg-white"
-                    aria-label="Banner trước"
-                    title="Banner trước"
-                  >
-                    <ChevronLeft className="h-5 w-5" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => emblaApi?.scrollNext()}
-                    className="pointer-events-auto inline-flex h-11 w-11 items-center justify-center rounded-full bg-white/92 text-[#172033] shadow-lg ring-1 ring-white/70 backdrop-blur transition hover:scale-105 hover:bg-white"
-                    aria-label="Banner tiếp theo"
-                    title="Banner tiếp theo"
-                  >
-                    <ChevronRight className="h-5 w-5" />
-                  </button>
-                </div>
-              </>
-            ) : null}
-            <div className="absolute left-5 top-5 max-w-[78%] rounded-full border border-white/30 bg-white/18 px-3 py-1.5 text-xs font-semibold text-white shadow-lg backdrop-blur">
-              {hasMultipleSlides
-                ? `${selectedIndex + 1}/${heroSlides.length}`
-                : "Dịch vụ đặt lịch"}
+
+            <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(15,23,42,0.08)_0%,rgba(15,23,42,0.2)_35%,rgba(15,23,42,0.78)_100%)]" />
+            <div className="pointer-events-none absolute left-4 top-4 z-10 inline-flex max-w-[72%] items-center gap-2 rounded-full border border-white/40 bg-white/88 px-3 py-1.5 text-xs font-bold text-[var(--public-primary-dark)] shadow-lg backdrop-blur sm:left-6 sm:top-6">
+              <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
+              Thông tin chăm sóc sức khỏe nổi bật
             </div>
-            <div className="absolute bottom-0 left-0 right-0 hidden p-5 text-white sm:block sm:p-6">
-              {activeBanner?.title ? (
-                <div className="mb-4 max-w-xl">
-                  <p className="text-xs font-bold uppercase tracking-[0.14em] text-white/70">Thông tin nổi bật</p>
-                  <p className="mt-1 text-xl font-bold leading-tight">{activeBanner.title}</p>
-                  {activeBanner.subtitle ? <p className="mt-1 line-clamp-2 text-sm text-white/76">{activeBanner.subtitle}</p> : null}
+
+            {!loading && hasMultipleSlides ? (
+              <div className="pointer-events-none absolute inset-y-0 left-3 right-3 z-10 flex items-center justify-between">
+                <button
+                  type="button"
+                  onClick={() => emblaApi?.scrollPrev()}
+                  className="pointer-events-auto inline-flex h-11 w-11 items-center justify-center rounded-full bg-white/92 text-[var(--public-ink)] shadow-lg transition hover:bg-white"
+                  aria-label="Banner trước"
+                >
+                  <ChevronLeft className="h-5 w-5" aria-hidden="true" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => emblaApi?.scrollNext()}
+                  className="pointer-events-auto inline-flex h-11 w-11 items-center justify-center rounded-full bg-white/92 text-[var(--public-ink)] shadow-lg transition hover:bg-white"
+                  aria-label="Banner tiếp theo"
+                >
+                  <ChevronRight className="h-5 w-5" aria-hidden="true" />
+                </button>
+              </div>
+            ) : null}
+
+            <div className="absolute inset-x-4 bottom-5 z-20 mx-auto max-w-2xl rounded-2xl border border-[var(--public-border)] bg-[var(--public-surface)] p-4 text-center shadow-[var(--public-shadow-floating)] sm:inset-x-8 sm:bottom-8 sm:p-6 lg:p-7">
+              <p className="text-xs font-bold uppercase tracking-[0.16em] text-[var(--public-primary)]">
+                Đồng hành trước, trong và sau buổi khám
+              </p>
+              {loading ? (
+                <div className="mx-auto mt-3 max-w-lg space-y-3">
+                  <Skeleton className="h-9 w-full" />
+                  <Skeleton className="mx-auto h-4 w-4/5" />
                 </div>
-              ) : null}
-              <div className="grid gap-3 sm:grid-cols-2">
-                <HeroInfo
-                  icon={<CalendarDays className="h-4 w-4" />}
-                  title="Lịch hẹn"
-                  text="Chọn ngày, bác sĩ và slot khám phù hợp."
-                />
-                <HeroInfo
-                  icon={<ShieldCheck className="h-4 w-4" />}
-                  title="Minh bạch"
-                  text="Hiển thị phí khám, gói khám và trạng thái xử lý."
-                  tone="green"
-                />
+              ) : (
+                <h1 className="mt-2 text-2xl font-bold leading-tight tracking-[-0.025em] text-[var(--public-ink)] sm:text-3xl lg:text-4xl">
+                  {heroTitle}
+                </h1>
+              )}
+              <p className={`mx-auto mt-3 max-w-xl text-sm leading-6 text-[var(--public-text-soft)] sm:text-base ${loading ? "hidden" : ""}`}>
+                {heroSubtitle}
+              </p>
+              <div className="mt-5 flex flex-col justify-center gap-2.5 sm:flex-row">
+                <Link
+                  href={safePublicHref(activeBanner?.linkUrl, "/dat-lich")}
+                  target={activeBanner?.target === "_blank" ? "_blank" : undefined}
+                  rel={activeBanner?.target === "_blank" ? "noreferrer" : undefined}
+                  className="public-button-primary inline-flex min-h-11 items-center justify-center gap-2 rounded-lg px-5 py-2.5 text-sm font-bold"
+                >
+                  <CalendarDays className="h-4 w-4" aria-hidden="true" />
+                  Đặt lịch khám ngay
+                </Link>
+                <button type="button" onClick={openPublicChatbot} className="public-button-secondary inline-flex min-h-11 items-center justify-center gap-2 rounded-lg px-5 py-2.5 text-sm font-bold">
+                  <span className="relative flex h-2 w-2" aria-hidden="true">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[var(--public-success)] opacity-70 motion-reduce:hidden" />
+                    <span className="relative inline-flex h-2 w-2 rounded-full bg-[var(--public-success)]" />
+                  </span>
+                  <Bot className="h-4 w-4" aria-hidden="true" />
+                  Trợ lý AI
+                </button>
               </div>
             </div>
+
+            {hasMultipleSlides ? (
+              <div className="absolute bottom-4 right-4 z-30 hidden items-center gap-2 lg:flex">
+                <span className="rounded-full bg-slate-950/65 px-3 py-2 text-xs font-bold text-white backdrop-blur">
+                  {selectedIndex + 1}/{heroSlides.length}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setCarouselPaused((current) => !current)}
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-slate-950/65 text-white backdrop-blur transition hover:bg-slate-950/80"
+                  aria-label={carouselPaused ? "Tiếp tục trình chiếu" : "Tạm dừng trình chiếu"}
+                  aria-pressed={carouselPaused}
+                >
+                  {carouselPaused ? <Play className="h-4 w-4" aria-hidden="true" /> : <Pause className="h-4 w-4" aria-hidden="true" />}
+                </button>
+              </div>
+            ) : null}
           </div>
         </ScrollReveal>
+
+        <ProgramAnnouncementBar announcement={announcement} />
       </div>
     </section>
   );
 }
 
-function HeroInfo({
-  icon,
-  title,
-  text,
-  tone = "blue",
+function ProgramAnnouncementBar({
+  announcement,
 }: {
-  icon: ReactNode;
-  title: string;
-  text: string;
-  tone?: "blue" | "green";
+  announcement?: HomePageConfigValue["announcement"];
 }) {
+  const [paused, setPaused] = useState(false);
+  const [renderedAt] = useState(() => Date.now());
+  const content = announcement || {
+    enabled: true,
+    label: "Chương trình sức khỏe",
+    message: "Chủ động chọn bác sĩ, ngày khám và gói chăm sóc phù hợp cho bạn và gia đình.",
+    ctaLabel: "Khám phá",
+    ctaHref: "/goi-kham",
+    startAt: null,
+    endAt: null,
+  };
+  const isInDisplayWindow =
+    (!content.startAt || new Date(content.startAt).getTime() <= renderedAt) &&
+    (!content.endAt || new Date(content.endAt).getTime() >= renderedAt);
+
+  if (!content.enabled || !isInDisplayWindow) return null;
+
+  const tickerCopy = (duplicate = false) => (
+    <span className="public-program-ticker-copy" aria-hidden={duplicate || undefined}>
+      <strong>{content.label}</strong>
+      <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-white/60" aria-hidden="true" />
+      <span>{content.message}</span>
+    </span>
+  );
+
   return (
-    <div className="ui-lift-card rounded-md bg-white/95 p-4 text-[#172033] shadow-lg">
-      <div
-        className={`flex items-center gap-2 text-sm font-semibold ${tone === "green" ? "text-[#1f7a3a]" : "text-[#0d4f8b]"}`}
-      >
-        {icon}
-        {title}
+    <aside
+      aria-label={`${content.label}: ${content.message}`}
+      data-dashboard-slot="home-program-notice"
+      className="ui-container mt-4"
+    >
+      <div className="relative isolate grid min-h-20 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 overflow-hidden rounded-2xl border border-white/20 bg-[linear-gradient(105deg,var(--public-primary-dark)_0%,var(--public-primary)_52%,#0f766e_100%)] px-3 py-3 text-white shadow-[0_16px_36px_rgba(15,76,92,0.18)] sm:gap-4 sm:px-5">
+        <span className="pointer-events-none absolute -right-10 -top-16 -z-10 h-44 w-44 rounded-full border-[28px] border-white/8" aria-hidden="true" />
+        <span className="pointer-events-none absolute -bottom-20 left-1/3 -z-10 h-36 w-36 rounded-full bg-white/6 blur-2xl" aria-hidden="true" />
+
+        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white/14 text-white ring-1 ring-white/25">
+          <Megaphone className="h-5 w-5" aria-hidden="true" />
+        </span>
+
+        <div className="min-w-0 overflow-hidden [mask-image:linear-gradient(90deg,transparent,black_4%,black_96%,transparent)]">
+          <p className="sr-only">{content.label}: {content.message}</p>
+          <div className="public-program-ticker-track" data-paused={paused} aria-hidden="true">
+            {tickerCopy()}
+            {tickerCopy(true)}
+          </div>
+        </div>
+
+        <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
+          <button
+            type="button"
+            onClick={() => setPaused((current) => !current)}
+            aria-label={paused ? "Tiếp tục chạy thông báo" : "Tạm dừng thông báo"}
+            aria-pressed={paused}
+            className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-white/25 bg-white/10 text-white transition hover:bg-white/18 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-white/35 motion-reduce:hidden"
+          >
+            {paused ? <Play className="h-4 w-4" aria-hidden="true" /> : <Pause className="h-4 w-4" aria-hidden="true" />}
+          </button>
+          <Link
+            href={safePublicHref(content.ctaHref, "/goi-kham")}
+            className="inline-flex min-h-11 items-center gap-1 rounded-xl bg-white px-3 py-2 text-xs font-bold text-[var(--public-primary-dark)] shadow-sm transition hover:bg-[var(--public-primary-soft)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-white/35 sm:px-4 sm:text-sm"
+          >
+            <span className="hidden sm:inline">{content.ctaLabel}</span>
+            <ChevronRight className="h-4 w-4" aria-hidden="true" />
+          </Link>
+        </div>
       </div>
-      <p className="mt-2 text-sm text-[#667892]">{text}</p>
-    </div>
+    </aside>
   );
 }
 
 function DepartmentSection({
   departments,
+  config,
   loading,
 }: {
   departments: PublicHomeData["departments"];
+  config?: HomePageSectionConfig;
   loading: boolean;
 }) {
   return (
     <section
       id="departments"
-      className="ui-deferred-section mx-auto max-w-7xl scroll-mt-24 px-4 py-10 sm:px-6 lg:px-8"
+      className="ui-deferred-section mx-auto max-w-7xl scroll-mt-24 px-4 py-8 sm:px-6 sm:py-12 lg:px-8"
     >
       <SectionHeading
-        eyebrow="Chuyên khoa"
-        title="Chọn đúng nơi bắt đầu"
+        eyebrow={config?.eyebrow || "Chuyên khoa"}
+        title={config?.title || "Chọn đúng nơi bắt đầu"}
+        description={config?.description}
         action="Xem tất cả chuyên khoa"
-        actionHref="/departments"
+        actionHref="/chuyen-khoa"
       />
-      <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="mt-7 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
         {loading ? (
-          Array.from({ length: 6 }).map((_, index) => (
+          Array.from({ length: 4 }).map((_, index) => (
             <ScrollReveal key={index} delay={index * 70}>
               <DepartmentSkeletonCard />
             </ScrollReveal>
@@ -616,51 +541,43 @@ function DepartmentSection({
         ) : departments.length ? (
           departments.map((item, index) => (
             <ScrollReveal key={item.id} delay={index * 70}>
-              <article className="ui-lift-card flex h-full min-h-[328px] flex-col overflow-hidden rounded-2xl border border-[var(--public-border)] bg-white shadow-sm">
-                <div className="relative h-36 shrink-0 bg-[var(--public-primary-soft)]">
+              <Link
+                href={item.slug ? `/chuyen-khoa/${item.slug}` : `/bac-si?departmentId=${item.id}`}
+                className="ui-lift-card group flex h-full min-h-[232px] flex-col overflow-hidden rounded-2xl border border-[var(--public-border)] bg-white shadow-sm focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[var(--public-primary-soft)] sm:min-h-[292px]"
+              >
+                <span className="relative h-28 shrink-0 overflow-hidden bg-[var(--public-primary-soft)] sm:h-36">
                   {item.image ? (
                     <Image
                       src={item.image}
                       alt={item.name}
                       fill
-                      sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
-                      unoptimized
-                      className="object-cover"
+                      sizes="(min-width: 1024px) 25vw, (min-width: 640px) 50vw, 100vw"
+                      quality={75}
+                      className="object-cover transition duration-300 group-hover:scale-[1.025] motion-reduce:transition-none motion-reduce:group-hover:scale-100"
                     />
                   ) : (
                     <div className="flex h-full items-center justify-center text-[var(--public-primary)]">
-                      <HeartPulse className="h-10 w-10" />
+                      <HeartPulse className="h-10 w-10" aria-hidden="true" />
                     </div>
                   )}
-                </div>
-                <div className="flex flex-1 flex-col p-4">
-                  <h3 className="line-clamp-2 min-h-12 font-semibold leading-6">
+                </span>
+                <span className="flex flex-1 flex-col p-3 sm:p-4">
+                  <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-[var(--public-primary)] sm:text-xs">
+                    Khám chuyên khoa
+                  </span>
+                  <h3 className="mt-1.5 line-clamp-2 min-h-11 text-sm font-bold leading-[1.35rem] text-[var(--public-ink)] sm:min-h-12 sm:text-base sm:leading-6">
                     {item.name}
                   </h3>
-                  <p className="mt-2 line-clamp-3 min-h-[72px] text-sm leading-6 text-[var(--public-muted)]">
+                  <span className="mt-2 hidden line-clamp-2 min-h-11 text-sm leading-[1.375rem] text-[var(--public-muted)] sm:block">
                     {item.description ||
                       "Đội ngũ chuyên môn sẵn sàng tư vấn và tiếp nhận lịch khám."}
-                  </p>
-                  <div className="mt-auto grid grid-cols-2 gap-2 pt-4">
-                    <Link
-                      href={
-                        item.slug
-                          ? `/departments/${item.slug}`
-                          : `/bac-si?departmentId=${item.id}`
-                      }
-                      className="public-button-secondary rounded-xl px-3 py-2 text-center text-xs font-bold"
-                    >
-                      Chi tiết
-                    </Link>
-                    <Link
-                      href={`/?departmentId=${item.id}#booking`}
-                      className="public-button-primary rounded-xl px-3 py-2 text-center text-xs font-bold"
-                    >
-                      Đặt lịch
-                    </Link>
-                  </div>
-                </div>
-              </article>
+                  </span>
+                  <span className="mt-auto inline-flex min-h-11 items-center justify-between gap-2 pt-3 text-xs font-bold text-[var(--public-primary)] sm:text-sm">
+                    Xem chuyên khoa
+                    <ChevronRight className="h-4 w-4 transition group-hover:translate-x-1 motion-reduce:transition-none" aria-hidden="true" />
+                  </span>
+                </span>
+              </Link>
             </ScrollReveal>
           ))
         ) : (
@@ -679,23 +596,42 @@ function DepartmentSection({
 
 function DoctorSection({
   doctors,
+  config,
   loading,
 }: {
   doctors: DoctorProfile[];
+  config?: HomePageSectionConfig;
   loading: boolean;
 }) {
+  const getBookingPath = (doctor: DoctorProfile) =>
+    `/dat-lich?departmentId=${doctor.department.id}&doctorId=${doctor.id}`;
+
   return (
     <section id="doctors" className="ui-deferred-section border-y border-[var(--public-divider)] bg-white">
-      <div className="mx-auto max-w-7xl scroll-mt-24 px-4 py-10 sm:px-6 lg:px-8">
-        <SectionHeading
-          eyebrow="Bác sĩ"
-          title="Đội ngũ đang sẵn sàng tiếp nhận"
-          action="Xem tất cả bác sĩ"
-          actionHref="/bac-si"
-        />
-        <div className="mt-6 grid gap-4 lg:grid-cols-2">
+      <div className="mx-auto max-w-7xl scroll-mt-24 px-4 py-8 sm:px-6 sm:py-12 lg:px-8">
+        <ScrollReveal className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <p className="text-sm font-bold text-[var(--public-primary)]">{config?.eyebrow || "Chuyên gia đầu ngành"}</p>
+            <h2 className="mt-2 text-2xl font-bold tracking-[-0.025em] text-[var(--public-ink)] sm:text-3xl">
+              {config?.title || "Bác sĩ tiêu biểu đang tiếp nhận lịch khám"}
+            </h2>
+            <p className="mt-2 max-w-3xl text-sm leading-6 text-[var(--public-muted)]">
+              {config?.description || "Thông tin chuyên môn, đánh giá, chi phí và giờ khám được hiển thị trực tiếp từ dữ liệu hệ thống."}
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="inline-flex items-center gap-2 rounded-full bg-[var(--public-success-soft)] px-3 py-2 text-xs font-bold text-[var(--public-success)]">
+              <span className="h-2 w-2 rounded-full bg-current" aria-hidden="true" />
+              Có thể chọn ngày khám phù hợp
+            </span>
+            <Link href="/bac-si" className="inline-flex min-h-10 items-center gap-1.5 text-sm font-bold text-[var(--public-primary)]">
+              Xem tất cả <ChevronRight className="h-4 w-4" aria-hidden="true" />
+            </Link>
+          </div>
+        </ScrollReveal>
+        <div className="mt-7 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {loading ? (
-            Array.from({ length: 4 }).map((_, index) => (
+            Array.from({ length: 3 }).map((_, index) => (
               <ScrollReveal key={index} delay={index * 70}>
                 <DoctorSkeletonCard />
               </ScrollReveal>
@@ -703,60 +639,88 @@ function DoctorSection({
           ) : doctors.length ? (
             doctors.map((doctor, index) => (
               <ScrollReveal key={doctor.id} delay={index * 70}>
-                <article className="ui-lift-card flex h-full flex-col rounded-2xl border border-[var(--public-border)] bg-[var(--public-surface)] p-5 shadow-sm">
-                  <div className="flex items-start gap-4">
-                    {doctor.user.avatar ? (
-                      <Image
-                        src={doctor.user.avatar}
-                        alt={doctor.user.fullName}
-                        width={72}
-                        height={72}
-                        sizes="72px"
-                        unoptimized
-                        className="h-18 w-18 rounded-2xl object-cover ring-1 ring-[var(--public-border)]"
-                      />
-                    ) : (
-                      <div className="flex h-18 w-18 items-center justify-center rounded-2xl bg-[var(--public-primary-soft)] text-xl font-bold text-[var(--public-primary)]">
-                        {firstLetter(doctor.user.fullName)}
-                      </div>
-                    )}
-                    <div className="min-w-0">
-                      <h3 className="line-clamp-2 text-lg font-bold leading-6 text-[var(--public-ink)]">
-                        {doctorName(doctor)}
+                <article className="ui-lift-card flex h-full flex-col rounded-2xl border border-[var(--public-border)] bg-white p-4 shadow-sm sm:p-5">
+                  <div className="flex items-start gap-3">
+                    <Link href={getPublicDoctorPath(doctor)} className="relative shrink-0 rounded-xl focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[var(--public-primary-soft)]" aria-label={`Xem hồ sơ ${doctorName(doctor)}`}>
+                      {doctor.user.avatar ? (
+                        <Image
+                          src={doctor.user.avatar}
+                          alt={doctor.user.fullName}
+                          width={64}
+                          height={64}
+                          sizes="64px"
+                          quality={75}
+                          className="h-16 w-16 rounded-xl object-cover ring-1 ring-[var(--public-border)]"
+                        />
+                      ) : (
+                        <span className="flex h-16 w-16 items-center justify-center rounded-xl bg-[var(--public-primary-soft)] text-xl font-bold text-[var(--public-primary)] ring-1 ring-[var(--public-border)]">
+                          {firstLetter(doctor.user.fullName)}
+                        </span>
+                      )}
+                      <span className={`absolute -bottom-1 -right-1 h-4 w-4 rounded-full border-2 border-white ${doctor.isAvailable === false ? "bg-[var(--public-muted)]" : "bg-[var(--public-success)]"}`} aria-hidden="true" />
+                    </Link>
+                    <div className="min-w-0 flex-1">
+                      {doctor.reviewSummary?.count ? (
+                        <p className="flex items-center gap-1 text-xs font-bold text-[#d97706]">
+                          <Star className="h-3.5 w-3.5 fill-current" aria-hidden="true" />
+                          {doctor.reviewSummary.averageRating.toFixed(1)}
+                          <span className="font-medium text-[var(--public-muted)]">({doctor.reviewSummary.count} đánh giá)</span>
+                        </p>
+                      ) : (
+                        <p className="text-xs font-medium text-[var(--public-muted)]">Chưa có đánh giá công khai</p>
+                      )}
+                      <h3 className="mt-1 line-clamp-1 text-base font-bold leading-6 text-[var(--public-ink)] sm:text-lg">
+                        <Link href={getPublicDoctorPath(doctor)} className="transition hover:text-[var(--public-primary)]">{doctorName(doctor)}</Link>
                       </h3>
-                      <p className="mt-1 truncate text-sm font-medium text-[var(--public-primary)]">
-                        {doctor.department.name}
+                      <p className="truncate text-xs font-semibold text-[var(--public-primary)] sm:text-sm">{doctor.department.name}</p>
+                      <p className="mt-0.5 truncate text-xs text-[var(--public-muted)]">
+                        {doctor.experience ? `${doctor.experience} năm kinh nghiệm` : doctor.specialization || "Khám chuyên khoa"}
                       </p>
                     </div>
                   </div>
-                  <div className="mt-5 grid gap-2 rounded-xl bg-[var(--public-surface-muted)] p-3 text-sm text-[var(--public-muted)] sm:grid-cols-2">
-                    <p className="flex items-center gap-2">
-                      <Stethoscope className="h-4 w-4 text-[var(--public-primary)]" />
-                      {doctor.specialization || "Khám chuyên khoa"}
-                    </p>
-                    <p className="flex items-center gap-2">
-                      <Clock className="h-4 w-4 text-[var(--public-primary)]" />
-                      {doctor.experience || 0} năm kinh nghiệm
-                    </p>
+
+                  <div className="mt-4 rounded-xl border border-[#bfdbfe] bg-[var(--public-primary-soft)] px-3 py-3 text-xs text-[var(--public-primary-dark)]">
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="inline-flex min-w-0 items-center gap-2 font-semibold">
+                        <Clock className="h-4 w-4 shrink-0" aria-hidden="true" />
+                        {doctor.todayAvailableSlots?.length ? "Giờ trống hôm nay" : "Lịch khám gần nhất"}
+                      </span>
+                      <Link href={getBookingPath(doctor)} className="shrink-0 font-bold underline-offset-4 hover:underline">
+                        {doctor.todayAvailableSlots?.length ? "Xem thêm lịch" : "Xem ngày tiếp theo"}
+                      </Link>
+                    </div>
+                    {doctor.todayAvailableSlots?.length ? (
+                      <div className="mt-2 flex flex-wrap gap-2" aria-label="Các giờ khám còn trống hôm nay">
+                        {doctor.todayAvailableSlots.slice(0, 3).map((slot) => (
+                          <Link
+                            key={slot.id}
+                            href={getBookingPath(doctor)}
+                            className="inline-flex min-h-8 items-center rounded-lg border border-white/80 bg-white px-2.5 py-1 font-bold tabular-nums shadow-sm transition hover:border-[var(--public-primary)]"
+                          >
+                            {slot.startTime.slice(0, 5)}
+                          </Link>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="mt-2 leading-5 text-[var(--public-muted)]">
+                        {doctor.nextAvailableSlot
+                          ? `${formatShortAppointmentDate(doctor.nextAvailableSlot.date)}, ${doctor.nextAvailableSlot.startTime.slice(0, 5)}–${doctor.nextAvailableSlot.endTime.slice(0, 5)}`
+                          : "Chọn ngày phù hợp để xem toàn bộ giờ còn nhận lịch."}
+                      </p>
+                    )}
                   </div>
-                  <div className="mt-4 flex items-center justify-between gap-3">
-                    <span className="text-xs font-semibold uppercase tracking-wide text-[var(--public-muted)]">Phí khám</span>
-                    <p className="text-lg font-bold text-[var(--public-primary-dark)]">{formatCurrency(doctor.consultationFee)}</p>
+
+                  <div className="mt-3 flex items-center justify-between gap-3 border-t border-[var(--public-divider)] pt-3">
+                    <span className="text-xs font-medium text-[var(--public-muted)]">Phí khám chuyên khoa</span>
+                    <p className="text-base font-bold tabular-nums text-[var(--public-ink)]">{formatCurrency(doctor.consultationFee)}</p>
                   </div>
-                  <div className="mt-auto grid grid-cols-2 gap-2 pt-4">
-                    <Link
-                      href={getPublicDoctorPath(doctor)}
-                      className="public-button-secondary rounded-xl px-3 py-2.5 text-center text-xs font-bold"
-                    >
-                      Chi tiết
-                    </Link>
-                    <Link
-                      href={`/?departmentId=${doctor.department.id}&doctorId=${doctor.id}#booking`}
-                      className="public-button-primary rounded-xl px-3 py-2.5 text-center text-xs font-bold"
-                    >
-                      Đặt lịch
-                    </Link>
-                  </div>
+
+                  <Link
+                    href={getBookingPath(doctor)}
+                    className="public-button-primary mt-4 inline-flex min-h-11 items-center justify-center rounded-xl px-4 py-2.5 text-center text-sm font-bold"
+                  >
+                    {doctor.todayAvailableSlots?.length ? "Đặt lịch với bác sĩ" : "Chọn ngày khám phù hợp"}
+                  </Link>
                 </article>
               </ScrollReveal>
             ))
@@ -775,23 +739,29 @@ function DoctorSection({
 
 function PackageSection({
   packages,
+  config,
   loading,
 }: {
   packages: PublicHomeData["packages"];
+  config?: HomePageSectionConfig;
   loading: boolean;
 }) {
   return (
     <section
       id="packages"
-      className="ui-deferred-section mx-auto max-w-7xl scroll-mt-24 px-4 py-10 sm:px-6 lg:px-8"
+      className="ui-deferred-section scroll-mt-24 bg-[var(--public-canvas)] py-10 sm:py-14"
     >
-      <SectionHeading
-        eyebrow="Gói khám"
-        title="Chi phí rõ ràng trước khi đặt lịch"
-        action="Xem tất cả gói khám"
-        actionHref="/packages"
-      />
-      <div className="mt-6 grid gap-4 lg:grid-cols-3">
+      <div className="ui-container">
+        <ScrollReveal className="mx-auto max-w-3xl text-center">
+          <p className="text-sm font-bold text-[var(--public-primary)]">{config?.eyebrow || "Chủ động phòng ngừa bệnh"}</p>
+          <h2 className="mt-2 text-2xl font-bold tracking-[-0.025em] text-[var(--public-ink)] sm:text-3xl">
+            {config?.title || "Gói khám sức khỏe và tầm soát toàn diện"}
+          </h2>
+          <p className="mx-auto mt-3 max-w-2xl text-sm leading-6 text-[var(--public-muted)] sm:text-base">
+            {config?.description || "So sánh minh bạch chi phí, hạng mục thực hiện và chính sách hỗ trợ BHYT trước khi đăng ký."}
+          </p>
+        </ScrollReveal>
+        <div className="mt-12 grid items-stretch gap-5 lg:grid-cols-3 lg:gap-6">
         {loading ? (
           Array.from({ length: 3 }).map((_, index) => (
             <ScrollReveal key={index} delay={index * 80}>
@@ -799,64 +769,77 @@ function PackageSection({
             </ScrollReveal>
           ))
         ) : packages.length ? (
-          packages.map((item, index) => (
-            <ScrollReveal key={item.id} delay={index * 80}>
-              <article className="ui-lift-card flex h-full flex-col rounded-2xl border border-[var(--public-border)] bg-white p-5 shadow-sm">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <h3 className="text-lg font-semibold">{item.name}</h3>
-                    <p className="mt-1 text-sm text-[var(--public-muted)]">
-                      {item.department?.name || "Đa chuyên khoa"}
+          packages.map((item, index) => {
+            const includedItems = item.items.filter((packageItem) => packageItem.included);
+            const visibleItems = includedItems.slice(0, 4);
+
+            return (
+              <ScrollReveal key={item.id} delay={index * 80} className={item.isPopular ? "lg:-translate-y-3" : ""}>
+                <article className={`ui-lift-card relative flex h-full min-h-[420px] flex-col rounded-2xl border bg-white p-5 shadow-sm sm:p-6 ${
+                  item.isPopular
+                    ? "border-[var(--public-primary)] ring-2 ring-[var(--public-primary-soft)]"
+                    : "border-[var(--public-border)]"
+                }`}>
+                  {item.isPopular ? (
+                    <span className="absolute left-1/2 top-0 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap rounded-full bg-[var(--public-primary)] px-4 py-2 text-[10px] font-bold uppercase tracking-[0.08em] text-white shadow-md">
+                      Gói được đăng ký nhiều nhất
+                    </span>
+                  ) : null}
+
+                  <div className="flex min-h-7 flex-wrap items-center justify-between gap-2">
+                    {item.department?.name ? (
+                      <span className="rounded-full bg-[var(--public-primary-soft)] px-2.5 py-1 text-[10px] font-bold text-[var(--public-primary-dark)]">
+                        {item.department.name}
+                      </span>
+                    ) : <span />}
+                    {item.isBHYTSupport ? (
+                      <span className="inline-flex items-center gap-1 text-[10px] font-bold text-[var(--public-success)]">
+                        <ShieldCheck className="h-3.5 w-3.5" aria-hidden="true" />
+                        Hỗ trợ BHYT
+                      </span>
+                    ) : null}
+                  </div>
+
+                  <h3 className="mt-4 text-xl font-bold leading-7 text-[var(--public-ink)]">
+                    {item.slug ? <Link href={`/goi-kham/${item.slug}`} className="transition hover:text-[var(--public-primary)]">{item.name}</Link> : item.name}
+                  </h3>
+                  {item.summary || item.description ? (
+                    <p className="mt-2 line-clamp-3 min-h-[72px] text-sm leading-6 text-[var(--public-muted)]">
+                      {item.summary || item.description}
+                    </p>
+                  ) : <div className="min-h-[72px]" aria-hidden="true" />}
+
+                  <div className="mt-5 flex min-h-10 flex-wrap items-end gap-x-3 gap-y-1">
+                    <p className={`text-3xl font-bold tabular-nums ${item.isPopular ? "text-[var(--public-primary)]" : "text-[var(--public-ink)]"}`}>
+                      {formatCurrency(item.finalPrice)}
                     </p>
                   </div>
-                  {item.isPopular ? (
-                    <span className="inline-flex items-center gap-1 rounded-md bg-[#fff4d6] px-2 py-1 text-xs font-semibold text-[#8a5a00]">
-                      <Star className="h-3.5 w-3.5" />
-                      Phổ biến
-                    </span>
+
+                  {visibleItems.length ? (
+                    <div className="mt-5 border-t border-[var(--public-divider)] pt-4">
+                      <ul className="space-y-3">
+                        {visibleItems.map((packageItem) => (
+                          <li key={packageItem.id} className="flex items-start gap-2 text-sm leading-5 text-[var(--public-text-soft)]">
+                            <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-[var(--public-primary)]" aria-hidden="true" />
+                            <span>{packageItem.name}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
                   ) : null}
-                </div>
-                <p className="mt-4 line-clamp-3 text-sm leading-6 text-[var(--public-muted)]">
-                  {item.summary ||
-                    item.description ||
-                    "Gói khám được thiết kế để rút ngắn thời gian chuẩn bị và tối ưu chi phí."}
-                </p>
-                <p className="mt-5 text-2xl font-bold text-[var(--public-primary-dark)]">
-                  {formatCurrency(item.finalPrice)}
-                </p>
-                <div className="mt-4 flex flex-wrap gap-2">
-                  {item.isBHYTSupport ? (
-                    <span className="rounded-full bg-[var(--public-success-soft)] px-2.5 py-1 text-xs font-semibold text-[var(--public-success)]">
-                      Hỗ trợ BHYT
-                    </span>
-                  ) : null}
-                  <span className="rounded-full bg-[var(--public-surface-muted)] px-2.5 py-1 text-xs font-semibold text-[var(--public-text-soft)]">
-                    {item.items.length} hạng mục
-                  </span>
-                </div>
-                <div className="mt-auto grid grid-cols-2 gap-2 pt-5">
-                  {item.slug ? (
+
+                  <div className="mt-auto border-t border-[var(--public-divider)] pt-4">
                     <Link
-                      href={`/packages/${item.slug}`}
-                      className="public-button-secondary rounded-xl px-3 py-2.5 text-center text-xs font-bold"
+                      href={`/dat-lich?${new URLSearchParams({ ...(item.department?.id ? { departmentId: item.department.id } : {}), packageId: item.id }).toString()}`}
+                      className={`${item.isPopular ? "public-button-primary" : "public-button-secondary"} inline-flex min-h-11 w-full items-center justify-center rounded-xl px-4 py-2.5 text-center text-sm font-bold`}
                     >
-                      Chi tiết
+                      Đăng ký {item.name.toLocaleLowerCase("vi-VN")}
                     </Link>
-                  ) : (
-                    <span className="rounded-md border border-[#e5ebf3] px-3 py-2 text-center text-xs font-semibold text-[#94a3b8]">
-                      Chi tiết
-                    </span>
-                  )}
-                  <Link
-                    href={`/?${new URLSearchParams({ ...(item.department?.id ? { departmentId: item.department.id } : {}), packageId: item.id }).toString()}#booking`}
-                    className="public-button-primary rounded-xl px-3 py-2.5 text-center text-xs font-bold"
-                  >
-                    Chọn gói
-                  </Link>
-                </div>
-              </article>
-            </ScrollReveal>
-          ))
+                  </div>
+                </article>
+              </ScrollReveal>
+            );
+          })
         ) : (
           <EmptyState
             label={
@@ -864,179 +847,109 @@ function PackageSection({
             }
           />
         )}
-      </div>
-    </section>
-  );
-}
-
-function FaqTopicSection({
-  faqs,
-  loading,
-}: {
-  faqs: PublicHomeData["faqs"];
-  loading: boolean;
-}) {
-  const groupedFaqs = faqCategoryOrder
-    .map((category) => {
-      const item = faqs.find((faq) => faq.category === category);
-      return item ? { category, item, meta: faqCategoryMeta[category] } : null;
-    })
-    .filter(
-      (
-        item,
-      ): item is {
-        category: (typeof faqCategoryOrder)[number];
-        item: PublicHomeData["faqs"][number];
-        meta: (typeof faqCategoryMeta)[(typeof faqCategoryOrder)[number]];
-      } => Boolean(item),
-    );
-
-  const otherFaqs = faqs
-    .filter((faq) => !faq.category || !(faq.category in faqCategoryMeta))
-    .slice(0, Math.max(0, 5 - groupedFaqs.length));
-
-  return (
-    <section id="faq" className="ui-deferred-section bg-white">
-      <div className="mx-auto grid max-w-7xl scroll-mt-24 gap-8 px-4 py-10 sm:px-6 lg:grid-cols-[360px_minmax(0,1fr)] lg:px-8">
-        <ScrollReveal>
-          <div className="inline-flex items-center gap-2 rounded-xl bg-[var(--public-primary-soft)] px-3 py-2 text-sm font-semibold text-[var(--public-primary-dark)]">
-            <HelpCircle className="h-4 w-4" />
-            Hỏi đáp
-          </div>
-          <h2 className="mt-4 text-3xl font-semibold">
-            Câu hỏi theo từng chủ đề
-          </h2>
-          <p className="mt-3 text-sm leading-6 text-[var(--public-muted)]">
-            Các câu hỏi nổi bật được nhóm theo 5 chủ đề để người bệnh tìm đúng
-            thông tin nhanh hơn trước khi đặt lịch.
-          </p>
-          <div className="mt-5 flex flex-col gap-2 sm:flex-row lg:flex-col">
-            <Link
-              href="/faqs"
-              className="inline-flex items-center gap-2 text-sm font-semibold text-[var(--public-primary)]"
-            >
-              Xem tất cả câu hỏi
-              <ChevronRight className="h-4 w-4" />
-            </Link>
-            <Link
-              href="/guide/booking"
-              className="inline-flex items-center gap-2 text-sm font-semibold text-[var(--public-text-soft)]"
-            >
-              Hướng dẫn đặt lịch
-              <ChevronRight className="h-4 w-4" />
-            </Link>
-          </div>
-        </ScrollReveal>
-
-        <div className="grid gap-3 sm:grid-cols-2">
-          {loading ? (
-            <FaqTopicSkeletonList />
-          ) : groupedFaqs.length || otherFaqs.length ? (
-            <>
-              {groupedFaqs.map(({ category, item, meta }, index) => (
-                <ScrollReveal key={item.id} delay={index * 60}>
-                  <article className="ui-lift-card flex h-full flex-col rounded-2xl border border-[var(--public-border)] bg-[var(--public-surface-muted)] p-4 hover:bg-white">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="text-xs font-semibold uppercase tracking-wide text-[var(--public-primary)]">
-                          {meta.label}
-                        </p>
-                        <h3 className="mt-2 line-clamp-2 font-semibold leading-6">
-                          {item.question}
-                        </h3>
-                      </div>
-                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white text-sm font-semibold text-[var(--public-primary)]">
-                        {index + 1}
-                      </span>
-                    </div>
-                    <p className="mt-3 line-clamp-3 text-sm leading-6 text-[var(--public-muted)]">
-                      {item.answer}
-                    </p>
-                    <p className="mt-4 text-xs leading-5 text-[var(--public-muted)]">
-                      {meta.description}
-                    </p>
-                    <Link
-                      href={`/faqs?category=${category}`}
-                      className="mt-auto inline-flex pt-4 text-sm font-semibold text-[var(--public-primary)]"
-                    >
-                      Xem chủ đề <ChevronRight className="ml-1 h-4 w-4" />
-                    </Link>
-                  </article>
-                </ScrollReveal>
-              ))}
-              {otherFaqs.map((item, index) => (
-                <ScrollReveal
-                  key={item.id}
-                  delay={(groupedFaqs.length + index) * 60}
-                >
-                  <article className="ui-lift-card flex h-full flex-col rounded-2xl border border-[var(--public-border)] bg-[var(--public-surface-muted)] p-4 hover:bg-white">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-[var(--public-muted)]">
-                      Khác
-                    </p>
-                    <h3 className="mt-2 line-clamp-2 font-semibold leading-6">
-                      {item.question}
-                    </h3>
-                    <p className="mt-3 line-clamp-3 text-sm leading-6 text-[var(--public-muted)]">
-                      {item.answer}
-                    </p>
-                    <Link
-                      href="/faqs"
-                      className="mt-auto inline-flex pt-4 text-sm font-semibold text-[var(--public-primary)]"
-                    >
-                      Xem câu hỏi <ChevronRight className="ml-1 h-4 w-4" />
-                    </Link>
-                  </article>
-                </ScrollReveal>
-              ))}
-            </>
-          ) : (
-            <div className="sm:col-span-2">
-              <EmptyState
-                label={
-                  loading
-                    ? "Đang tải câu hỏi..."
-                    : "Chưa có câu hỏi thường gặp."
-                }
-              />
-            </div>
-          )}
         </div>
       </div>
     </section>
   );
 }
 
-function FaqTopicSkeletonList() {
+function PartnerLogoSection({ banners, config }: { banners: Banner[]; config?: HomePageSectionConfig }) {
+  const [paused, setPaused] = useState(false);
+  const verifiedPartners = banners;
+
   return (
-    <>
-      {Array.from({ length: 5 }).map((_, index) => (
-        <ScrollReveal key={index} delay={index * 50}>
-          <div className="rounded-2xl border border-[var(--public-border)] bg-[var(--public-surface-muted)] p-4">
-            <div className="flex items-start justify-between gap-3">
-              <div className="flex-1 space-y-3">
-                <Skeleton className="h-3 w-20" />
-                <Skeleton className="h-5 w-3/4" />
-              </div>
-              <Skeleton className="h-8 w-8 shrink-0" />
-            </div>
-            <Skeleton className="mt-4 h-4 w-full" />
-            <Skeleton className="mt-2 h-4 w-5/6" />
-            <Skeleton className="mt-5 h-4 w-24" />
+    <section
+      aria-labelledby="partner-heading"
+      className="ui-deferred-section overflow-hidden border-y border-[var(--public-divider)] bg-white py-10 sm:py-12"
+      data-dashboard-slot="home-partner-logos"
+    >
+      <div className="ui-container">
+        <ScrollReveal className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <p className="text-sm font-bold text-[var(--public-primary)]">{config?.eyebrow || "Mạng lưới đồng hành"}</p>
+            <h2 id="partner-heading" className="mt-2 text-2xl font-bold tracking-[-0.025em] text-[var(--public-ink)] sm:text-3xl">
+              {config?.title || "Kết nối hệ sinh thái chăm sóc sức khỏe"}
+            </h2>
+            <p className="mt-2 max-w-3xl text-sm leading-6 text-[var(--public-muted)]">
+              {config?.description || "Các đơn vị hợp tác đã được bệnh viện xác thực và công bố."}
+            </p>
           </div>
+          <button
+            type="button"
+            onClick={() => setPaused((current) => !current)}
+            aria-label={paused ? "Tiếp tục chạy danh sách đối tác" : "Tạm dừng danh sách đối tác"}
+            aria-pressed={paused}
+            className="hidden min-h-11 shrink-0 items-center gap-2 rounded-xl border border-[var(--public-border)] bg-white px-4 text-sm font-bold text-[var(--public-primary)] transition hover:bg-[var(--public-primary-soft)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[var(--public-primary-soft)] sm:inline-flex motion-reduce:hidden"
+          >
+            {paused ? <Play className="h-4 w-4" aria-hidden="true" /> : <Pause className="h-4 w-4" aria-hidden="true" />}
+            {paused ? "Tiếp tục" : "Tạm dừng"}
+          </button>
         </ScrollReveal>
-      ))}
-    </>
+      </div>
+
+      <div className="public-partner-logo-viewport mt-7" aria-label="Nhóm đối tác dự kiến hiển thị">
+        <div className="public-partner-logo-track" data-paused={paused}>
+          {[0, 1].map((copyIndex) => (
+            <div
+              key={copyIndex}
+              className="public-partner-logo-group"
+              aria-hidden={copyIndex === 1}
+            >
+              {verifiedPartners.map((partner) => {
+                    const content = (
+                      <>
+                        <span className="relative h-12 w-20 shrink-0 overflow-hidden rounded-xl bg-white ring-1 ring-[var(--public-border)]">
+                          <Image
+                            src={partner.image}
+                            alt=""
+                            fill
+                            sizes="80px"
+                            quality={75}
+                            className="object-contain p-2"
+                          />
+                        </span>
+                        <span className="line-clamp-2 text-sm font-bold leading-5 text-[var(--public-ink)]">{partner.title}</span>
+                      </>
+                    );
+
+                    const partnerHref = safePublicHref(partner.linkUrl, "");
+                    return partnerHref ? (
+                      <a
+                        key={`${copyIndex}-${partner.id}`}
+                        href={partnerHref}
+                        target={partner.target === "_blank" ? "_blank" : undefined}
+                        rel={partner.target === "_blank" ? "noreferrer" : undefined}
+                        className="flex h-24 w-64 shrink-0 items-center gap-4 rounded-2xl border border-[var(--public-border)] bg-[var(--public-surface-muted)] px-5 shadow-sm transition hover:border-[var(--public-primary)] hover:bg-white focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[var(--public-primary-soft)]"
+                      >
+                        {content}
+                      </a>
+                    ) : (
+                      <div
+                        key={`${copyIndex}-${partner.id}`}
+                        className="flex h-24 w-64 shrink-0 items-center gap-4 rounded-2xl border border-[var(--public-border)] bg-[var(--public-surface-muted)] px-5 shadow-sm"
+                      >
+                        {content}
+                      </div>
+                    );
+                  })}
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
   );
 }
 
 function SectionHeading({
   eyebrow,
   title,
+  description,
   action,
-  actionHref = "#booking",
+  actionHref = "/dat-lich",
 }: {
   eyebrow: string;
   title: string;
+  description?: string;
   action?: string;
   actionHref?: string;
 }) {
@@ -1047,6 +960,7 @@ function SectionHeading({
           {eyebrow}
         </p>
         <h2 className="mt-2 text-3xl font-bold tracking-[-0.025em] text-[var(--public-ink)]">{title}</h2>
+        {description ? <p className="mt-2 max-w-3xl text-sm leading-6 text-[var(--public-muted)]">{description}</p> : null}
       </div>
       {action ? (
         <Link

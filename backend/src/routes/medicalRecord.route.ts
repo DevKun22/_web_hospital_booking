@@ -10,7 +10,7 @@ import {
   updateMedicalRecordHandler,
 } from "../controllers/medicalRecord.controller.js";
 import { createPrescriptionHandler as createPrescriptionFromRecordHandler } from "../controllers/prescription.controller.js";
-import { authDashboard, requireRole } from "../middlewares/auth.middleware.js";
+import { authDashboard, requirePermission } from "../middlewares/auth.middleware.js";
 import { validate } from "../middlewares/validate.middleware.js";
 import {
   createLabResultSchema,
@@ -25,51 +25,51 @@ router.use(authDashboard);
 
 router.get(
   "/",
-  requireRole("ADMIN", "STAFF", "DOCTOR"),
+  requirePermission("record.view"),
   listMedicalRecordsHandler,
 );
 router.get(
   "/:id",
-  requireRole("ADMIN", "STAFF", "DOCTOR"),
+  requirePermission("record.view"),
   getMedicalRecordHandler,
 );
 router.patch(
   "/:id",
-  requireRole("ADMIN", "STAFF", "DOCTOR"),
+  requirePermission("record.edit"),
   validate(updateMedicalRecordSchema),
   updateMedicalRecordHandler,
 );
 router.patch(
   "/:id/publish",
-  requireRole("ADMIN", "STAFF", "DOCTOR"),
+  requirePermission("record.edit"),
   publishMedicalRecordHandler,
 );
 router.patch(
   "/:id/archive",
-  requireRole("ADMIN", "STAFF"),
+  requirePermission("record.archive"),
   archiveMedicalRecordHandler,
 );
 router.post(
   "/:id/prescription",
-  requireRole("ADMIN", "DOCTOR"),
+  requirePermission("prescription.write"),
   validate(createPrescriptionValidationSchema),
   createPrescriptionFromRecordHandler,
 );
 router.post(
   "/:id/lab-results",
-  requireRole("ADMIN", "STAFF", "DOCTOR"),
+  requirePermission("record.edit"),
   validate(createLabResultSchema),
   createLabResultHandler,
 );
 router.patch(
   "/:id/lab-results/:labResultId",
-  requireRole("ADMIN", "STAFF", "DOCTOR"),
+  requirePermission("record.edit"),
   validate(updateLabResultSchema),
   updateLabResultHandler,
 );
 router.delete(
   "/:id/lab-results/:labResultId",
-  requireRole("ADMIN", "STAFF", "DOCTOR"),
+  requirePermission("record.edit"),
   deleteLabResultHandler,
 );
 

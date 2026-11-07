@@ -2,6 +2,11 @@ import crypto from "node:crypto";
 import type { Prisma } from "../../generated/prisma/client.js";
 import type { SessionKind } from "../../generated/prisma/enums.js";
 import { prisma } from "../config/prisma.js";
+import {
+  getEffectivePatientExpiry,
+  isPatientWebPlatform,
+  patientSessionPolicy,
+} from "../config/patientSessionPolicy.js";
 import { AppError } from "../utils/appError.js";
 
 export type SessionMeta = {
@@ -107,6 +112,15 @@ class AuthSessionService {
 
     const now = new Date();
     const session = storedToken.session;
+    const lastUsedAt = session.lastUsedAt ?? session.createdAt;
+    const isPatientSession = input.kind === "PATIENT";
+    const effectiveExpiresAt = isPatientSession
+      ? getEffectivePatientExpiry({
+          platform: session.platform,
+          createdAt: session.createdAt,
+          storedExpiresAt: session.expiresAt,
+        })
+      : input.expiresAt;
     const isReuse = Boolean(
       storedToken.usedAt ||
         storedToken.replacedByTokenHash ||
@@ -124,10 +138,25 @@ class AuthSessionService {
 
     if (
       session.revokedAt ||
-      session.expiresAt <= now ||
+      effectiveExpiresAt <= now ||
       storedToken.expiresAt <= now
     ) {
+      if (!session.revokedAt) await this.revokeFamily(session.id, now);
       throw new AppError("Phiên đăng nhập đã hết hạn", 401, "SESSION_EXPIRED");
+    }
+
+    if (
+      isPatientSession &&
+      isPatientWebPlatform(session.platform) &&
+      now.getTime() - lastUsedAt.getTime() >=
+        patientSessionPolicy.webIdleMs
+    ) {
+      await this.revokeFamily(session.id, now);
+      throw new AppError(
+        "Phiên đã tự động kết thúc do không hoạt động",
+        401,
+        "SESSION_IDLE_TIMEOUT",
+      );
     }
 
     const nextRefreshToken = createOpaqueToken();
@@ -160,9 +189,12 @@ class AuthSessionService {
           },
           data: {
             refreshTokenHash: nextHash,
-            expiresAt: input.expiresAt,
+            expiresAt: effectiveExpiresAt,
             lastUsedAt: now,
             ...meta,
+            // Platform determines the patient-session security policy and is
+            // immutable after login, even if a refresh request is spoofed.
+            ...(isPatientSession ? { platform: session.platform } : {}),
           },
         });
 
@@ -173,7 +205,7 @@ class AuthSessionService {
             sessionId: session.id,
             userId: session.userId,
             tokenHash: nextHash,
-            expiresAt: input.expiresAt,
+            expiresAt: effectiveExpiresAt,
           },
         });
       });
@@ -192,7 +224,7 @@ class AuthSessionService {
       session: {
         id: session.id,
         tokenFamilyId: session.tokenFamilyId,
-        expiresAt: input.expiresAt,
+        expiresAt: effectiveExpiresAt,
       },
       user: session.user,
       refreshToken: nextRefreshToken,
@@ -298,7 +330,7 @@ class AuthSessionService {
         },
       });
 
-      // Nếu người bệnh bật push sau khi lịch đã được xác nhận, gắn phiên mới
+      // Nếu người khám bật push sau khi lịch đã được xác nhận, gắn phiên mới
       // vào các thông báo đã lên lịch để không bỏ lỡ lời nhắc sắp tới.
       const scheduledNotifications = await tx.notification.findMany({
         where: {
@@ -408,20 +440,27 @@ class AuthSessionService {
     sessionId: string;
     userId: string;
   }) {
+    const now = new Date();
     const session = await prisma.dashboardSession.findFirst({
       where: {
         id: input.sessionId,
         userId: input.userId,
         kind: "PATIENT",
         revokedAt: null,
-        expiresAt: { gt: new Date() },
+        expiresAt: { gt: now },
         user: {
           role: "PATIENT",
           isActive: true,
           isPhoneVerified: true,
         },
       },
-      select: { id: true },
+      select: {
+        id: true,
+        platform: true,
+        createdAt: true,
+        expiresAt: true,
+        lastUsedAt: true,
+      },
     });
 
     if (!session) {
@@ -430,6 +469,44 @@ class AuthSessionService {
         401,
         "SESSION_REVOKED",
       );
+    }
+
+    const effectiveExpiresAt = getEffectivePatientExpiry({
+      platform: session.platform,
+      createdAt: session.createdAt,
+      storedExpiresAt: session.expiresAt,
+    });
+    const lastUsedAt = session.lastUsedAt ?? session.createdAt;
+    if (effectiveExpiresAt <= now) {
+      await this.revokeFamily(session.id, now);
+      throw new AppError("Phiên đăng nhập đã hết hạn", 401, "SESSION_EXPIRED");
+    }
+
+    if (
+      isPatientWebPlatform(session.platform) &&
+      now.getTime() - lastUsedAt.getTime() >=
+        patientSessionPolicy.webIdleMs
+    ) {
+      await this.revokeFamily(session.id, now);
+      throw new AppError(
+        "Phiên đã tự động kết thúc do không hoạt động",
+        401,
+        "SESSION_IDLE_TIMEOUT",
+      );
+    }
+
+    const touchBefore = new Date(
+      now.getTime() - patientSessionPolicy.activityTouchMs,
+    );
+    if (lastUsedAt <= touchBefore) {
+      await prisma.dashboardSession.updateMany({
+        where: {
+          id: session.id,
+          revokedAt: null,
+          lastUsedAt: { lte: touchBefore },
+        },
+        data: { lastUsedAt: now },
+      });
     }
   }
 

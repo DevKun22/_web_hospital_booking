@@ -9,7 +9,7 @@ import {
   unlockDoctorTimeSlotHandler,
   updateDoctorTimeSlotStatusHandler,
 } from "../controllers/doctorTimeSlot.controller.js";
-import { authDashboard, requireRole } from "../middlewares/auth.middleware.js";
+import { authDashboard, requirePermission } from "../middlewares/auth.middleware.js";
 import { validate } from "../middlewares/validate.middleware.js";
 import {
   generateDoctorTimeSlotsSchema,
@@ -23,45 +23,45 @@ router.use(authDashboard);
 
 router.get(
   "/",
-  requireRole("ADMIN", "STAFF", "DOCTOR"),
+  requirePermission("schedule.view"),
   listDoctorTimeSlotsHandler,
 );
 router.post(
   "/generate",
-  requireRole("ADMIN", "STAFF"),
+  requirePermission("schedule.manage"),
   validate(generateDoctorTimeSlotsSchema),
   generateDoctorTimeSlotsHandler,
 );
 router.post(
   "/reconcile",
-  requireRole("ADMIN"),
+  requirePermission("schedule.reconcile"),
   reconcileDoctorTimeSlotsHandler,
 );
 router.get(
   "/:id",
-  requireRole("ADMIN", "STAFF", "DOCTOR"),
+  requirePermission("schedule.view"),
   getDoctorTimeSlotHandler,
 );
 router.patch(
   "/:id/status",
-  requireRole("ADMIN", "STAFF"),
+  requirePermission("schedule.manage"),
   validate(updateDoctorTimeSlotStatusSchema),
   updateDoctorTimeSlotStatusHandler,
 );
 router.patch(
   "/:id/lock",
-  requireRole("ADMIN", "STAFF", "DOCTOR"),
+  requirePermission("schedule.lock"),
   validate(lockDoctorTimeSlotSchema),
   lockDoctorTimeSlotHandler,
 );
 router.patch(
   "/:id/unlock",
-  requireRole("ADMIN", "STAFF", "DOCTOR"),
+  requirePermission("schedule.lock"),
   unlockDoctorTimeSlotHandler,
 );
 router.delete(
   "/:id",
-  requireRole("ADMIN", "STAFF"),
+  requirePermission("schedule.manage"),
   deleteDoctorTimeSlotHandler,
 );
 

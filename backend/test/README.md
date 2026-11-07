@@ -29,26 +29,16 @@ expiry, patient canonical-data protection, invoice, payment idempotency, and
 legacy response contracts. Never point `TEST_DATABASE_URL` at development or
 production data.
 
-Run all Phase 0 checks with:
+Run the whole quality gate (types, smoke, unit, integration) with:
 
 ```bash
-npm run test:phase0
-
-# Phase 0 + Phase 1 quality gate (recommended for the current branch)
-npm run test:phase1
+npm run test:all
 
 # One complete patient-care journey on TEST_DATABASE_URL
 npm run test:e2e
 ```
 
 ## Runtime checks
-
-Run the read-only preflight report against the intended deployment database
-before rollout:
-
-```bash
-npm run audit:phase0
-```
 
 Production must run `worker:otp`, `worker:appointments` and
 `worker:notifications`. The OTP and appointment workers require a valid

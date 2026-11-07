@@ -1,5 +1,6 @@
 "use client";
 
+import { can } from "@/lib/permissions";
 import { useQueryClient } from "@tanstack/react-query";
 import { type FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
@@ -117,7 +118,7 @@ export default function AppointmentsPage() {
   const listRef = useRef<HTMLElement | null>(null);
   const detailRef = useRef<HTMLElement | null>(null);
 
-  const canStaffActions = user?.role === "ADMIN" || user?.role === "STAFF";
+  const canStaffActions = can(user, "appointment.front_desk");
   const isDoctor = user?.role === "DOCTOR";
 
   const query = useMemo(
@@ -410,25 +411,6 @@ export default function AppointmentsPage() {
     setCancelReason("");
   };
 
-  const cleanupExpiredOtp = async () => {
-    if (!canStaffActions) return;
-    setBusy(true);
-    setError("");
-    setNotice("");
-    try {
-      const result = await apiRequest<{ expiredBefore: string; count: number }>(
-        "/dashboard/appointments/cleanup-expired-otp",
-        { method: "POST" },
-      );
-      setNotice(`Đã dọn ${result.count} lịch quá hạn xác thực`);
-      await invalidateAppointments();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Không dọn được lịch quá hạn xác thực");
-    } finally {
-      setBusy(false);
-    }
-  };
-
   const openDetail = (appointment: Appointment) => {
     setSelected(appointment);
     setWorkspaceOpen(true);
@@ -451,7 +433,7 @@ export default function AppointmentsPage() {
           <button onClick={() => void runAction(appointment, "/confirm", "Đã xác nhận lịch")} className="rounded-md border border-[#cfd8e6] px-3 py-1.5 text-xs font-medium text-[#42526b]">Xác nhận</button>
         ) : null}
         {canStaffActions && appointment.status === "CONFIRMED" ? (
-          <button onClick={() => void runAction(appointment, "/check-in", "Đã tiếp nhận bệnh nhân")} className="rounded-md border border-[#cfd8e6] px-3 py-1.5 text-xs font-medium text-[#42526b]">Tiếp nhận</button>
+          <button onClick={() => void runAction(appointment, "/check-in", "Đã tiếp nhận người khám")} className="rounded-md border border-[#cfd8e6] px-3 py-1.5 text-xs font-medium text-[#42526b]">Tiếp nhận</button>
         ) : null}
         {canStaffActions && appointment.status === "CONFIRMED" ? (
           <button onClick={() => startRescheduleAppointment(appointment)} className="rounded-md border border-[#cfe4fa] px-3 py-1.5 text-xs font-medium text-[#0d4f8b]">Đổi lịch</button>
@@ -474,7 +456,7 @@ export default function AppointmentsPage() {
           </Link>
         ) : null}
         {canStaffActions && ["CONFIRMED", "CHECKED_IN"].includes(appointment.status) ? (
-          <button onClick={() => void runAction(appointment, "/no-show", "Đã đánh dấu bệnh nhân vắng mặt")} className="rounded-md border border-[#cfd8e6] px-3 py-1.5 text-xs font-medium text-[#42526b]">Vắng mặt</button>
+          <button onClick={() => void runAction(appointment, "/no-show", "Đã đánh dấu người khám vắng mặt")} className="rounded-md border border-[#cfd8e6] px-3 py-1.5 text-xs font-medium text-[#42526b]">Vắng mặt</button>
         ) : null}
         {appointment.status !== "PENDING_OTP" && appointment.status !== "COMPLETED" ? (
           <button onClick={() => startCancelAppointment(appointment)} className="rounded-md border border-[#f2b8b5] px-3 py-1.5 text-xs font-medium text-[#b3261e]">Hủy</button>
@@ -509,7 +491,7 @@ export default function AppointmentsPage() {
           eyebrow={isDoctor ? "Khu làm việc bác sĩ" : "Vận hành khám bệnh"}
           title="Lịch hẹn"
           description={isDoctor
-            ? "Theo dõi hàng đợi hôm nay, tiếp nhận bệnh nhân và chuyển nhanh sang hồ sơ khám."
+            ? "Theo dõi hàng đợi hôm nay, tiếp nhận người khám và chuyển nhanh sang hồ sơ khám."
             : "Tìm kiếm, tiếp nhận và điều phối lịch hẹn theo một quy trình thống nhất."}
           actions={(
             <>
@@ -517,12 +499,6 @@ export default function AppointmentsPage() {
                 <Button variant="outline" size="lg" onClick={() => setWorkspaceOpen(true)}>
                   <PanelRightOpen />
                   Mở chi tiết
-                </Button>
-              ) : null}
-              {canStaffActions ? (
-                <Button disabled={busy} variant="outline" size="lg" onClick={() => void cleanupExpiredOtp()}>
-                  <RotateCcw />
-                  Dọn lịch quá hạn xác thực
                 </Button>
               ) : null}
             </>
@@ -648,7 +624,7 @@ export default function AppointmentsPage() {
                 <table className="w-full min-w-[980px] border-separate border-spacing-0 text-left text-sm">
                   <thead className="bg-muted/40 text-muted-foreground">
                     <tr>
-                      {['Mã lịch', 'Bệnh nhân', 'Thời gian', 'Bác sĩ / dịch vụ', 'Trạng thái'].map((label) => (
+                      {['Mã lịch', 'Người khám', 'Thời gian', 'Bác sĩ / dịch vụ', 'Trạng thái'].map((label) => (
                         <th key={label} className="border-b border-border px-4 py-3 font-semibold">{label}</th>
                       ))}
                       <th className="border-b border-border px-4 py-3 text-right font-semibold">Thao tác</th>
@@ -732,7 +708,7 @@ export default function AppointmentsPage() {
             open={workspaceOpen}
             onOpenChange={setWorkspaceOpen}
             title={selected ? `Lịch hẹn ${selected.bookingCode}` : "Chi tiết lịch hẹn"}
-            description="Thông tin bệnh nhân, dịch vụ và các thao tác phù hợp với trạng thái hiện tại."
+            description="Thông tin người khám, dịch vụ và các thao tác phù hợp với trạng thái hiện tại."
           >
         {selected ? (
           <div className="space-y-5">
@@ -742,7 +718,7 @@ export default function AppointmentsPage() {
               <AppointmentStatusBadge status={selected.status} className="mt-3" />
             </div>
             <div className="space-y-3 text-sm">
-              <div><p className="text-[#667892]">Bệnh nhân</p><p className="font-semibold">{selected.patientName}</p><p>{selected.patientPhone}</p><p>{selected.patientEmail || "-"}</p></div>
+              <div><p className="text-[#667892]">Người khám</p><p className="font-semibold">{selected.patientName}</p><p>{selected.patientPhone}</p><p>{selected.patientEmail || "-"}</p></div>
               <div><p className="text-[#667892]">Thời gian</p><p className="font-semibold">{formatDate(selected.appointmentDate)} - {selected.startTime} đến {selected.endTime}</p></div>
               <div><p className="text-[#667892]">Bác sĩ</p><p className="font-semibold">{doctorName(selected.doctor)}</p><p>{selected.department.name}</p></div>
               <div><p className="text-[#667892]">Dịch vụ</p><p className="font-semibold">{selected.package?.name || "Khám bác sĩ"}</p><p>{selected.reason || "Không có lý do khám"}</p></div>
@@ -760,11 +736,11 @@ export default function AppointmentsPage() {
               <form onSubmit={updatePatientInfo} className="rounded-md border border-[#dce3ee] bg-[#f8fafc] p-4">
                 <div>
                   <h4 className="font-semibold">Thông tin tiếp nhận</h4>
-                  <p className="mt-1 text-xs text-[#667892]">Dùng để xác minh thông tin bệnh nhân và BHYT trước khi phát hành hóa đơn.</p>
+                  <p className="mt-1 text-xs text-[#667892]">Dùng để xác minh thông tin người khám và BHYT trước khi phát hành hóa đơn.</p>
                 </div>
                 <div className="mt-4 grid gap-3 sm:grid-cols-2">
                   <label className="block sm:col-span-2">
-                    <span className="text-xs font-medium text-[#334155]">Họ tên bệnh nhân</span>
+                    <span className="text-xs font-medium text-[#334155]">Họ tên người khám</span>
                     <input value={patientInfoForm.patientName} onChange={(event) => updatePatientInfoField("patientName", event.target.value)} className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" required />
                   </label>
                   <label className="block">
@@ -782,7 +758,7 @@ export default function AppointmentsPage() {
                   </label>
                   <label className="block">
                     <span className="text-xs font-medium text-[#334155]">Ngày sinh</span>
-                    <VietnamDateInput value={patientInfoForm.dateOfBirth} max={getVietnamYesterdayDateInput()} onChange={(value) => updatePatientInfoField("dateOfBirth", value)} ariaLabel="Ngày sinh bệnh nhân" className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" />
+                    <VietnamDateInput value={patientInfoForm.dateOfBirth} max={getVietnamYesterdayDateInput()} onChange={(value) => updatePatientInfoField("dateOfBirth", value)} ariaLabel="Ngày sinh người khám" className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" />
                   </label>
                   <label className="block">
                         <span className="text-xs font-medium text-[#334155]">Căn cước công dân</span>
@@ -796,7 +772,7 @@ export default function AppointmentsPage() {
                 <div className="mt-4 rounded-md border border-[#e5ebf3] bg-white p-3">
                   <label className="flex items-center justify-between gap-3">
                     <span>
-                      <span className="block text-sm font-semibold text-[#1f2937]">Bệnh nhân có BHYT</span>
+                      <span className="block text-sm font-semibold text-[#1f2937]">Người khám có BHYT</span>
                       <span className="text-xs text-[#667892]">Tắt mục này sẽ đặt giảm trừ BHYT về 0.</span>
                     </span>
                     <input type="checkbox" checked={patientInfoForm.hasBHYT} onChange={(event) => updatePatientInfoField("hasBHYT", event.target.checked)} className="h-4 w-4 accent-[#0d4f8b]" />
@@ -839,7 +815,7 @@ export default function AppointmentsPage() {
                 <div>
                   <h4 className="font-semibold text-[#0d4f8b]">Đổi lịch hẹn</h4>
                   <p className="mt-1 text-xs leading-5 text-[#55708f]">
-                    Giữ nguyên bác sĩ và thông tin khám; hệ thống sẽ phát hành mã lịch mới, giải phóng khung giờ cũ và gửi thông báo cho bệnh nhân.
+                    Giữ nguyên bác sĩ và thông tin khám; hệ thống sẽ phát hành mã lịch mới, giải phóng khung giờ cũ và gửi thông báo cho người khám.
                   </p>
                 </div>
                 <label className="mt-3 block">
@@ -904,7 +880,7 @@ export default function AppointmentsPage() {
                     onChange={(event) => setCancelReason(event.target.value)}
                     rows={3}
                     className="mt-1 w-full rounded-md border border-[#f2b8b5] bg-white px-3 py-2 text-sm outline-none focus:border-[#b3261e] focus:ring-2 focus:ring-[#f7d0ce]"
-                    placeholder="Ví dụ: bệnh nhân yêu cầu hủy lịch"
+                    placeholder="Ví dụ: người khám yêu cầu hủy lịch"
                   />
                 </label>
                 <div className="mt-3 flex gap-2">
@@ -918,7 +894,7 @@ export default function AppointmentsPage() {
           <div>
             <p className="text-sm font-medium text-[#55708f]">Chi tiết lịch hẹn</p>
             <h3 className="mt-1 text-xl font-semibold">Chọn một lịch hẹn</h3>
-            <p className="mt-2 text-sm leading-6 text-[#667892]">Bấm vào mã lịch hoặc nút chi tiết để xem thông tin bệnh nhân, giá tiền và thao tác phù hợp.</p>
+            <p className="mt-2 text-sm leading-6 text-[#667892]">Bấm vào mã lịch hoặc nút chi tiết để xem thông tin người khám, giá tiền và thao tác phù hợp.</p>
           </div>
         )}
           </DashboardWorkspace>

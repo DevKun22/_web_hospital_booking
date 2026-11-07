@@ -6,6 +6,7 @@ import SecureMedicalFileService from "../services/secureMedicalFile.service.js";
 import { AppError } from "../utils/appError.js";
 import { parsePagination } from "../utils/pagination.js";
 import PaymentService from "../services/payment.service.js";
+import { getOtpCapabilities } from "../config/otpChannels.js";
 
 const appointmentStatuses = new Set<AppointmentStatus>([
   "PENDING_OTP", "PENDING_CONFIRM", "CONFIRMED", "CHECKED_IN",
@@ -149,6 +150,7 @@ export const patientCapabilitiesHandler = (_req: Request, res: Response) => {
             : "PAYMENT_PROVIDER_NOT_CONFIGURED",
         supportedProviders: paymentProviders.map((item) => item.provider),
       },
+      otp: getOtpCapabilities(),
       notifications: {
         inAppInbox: true,
         pushDelivery: pushDeliveryEnabled,

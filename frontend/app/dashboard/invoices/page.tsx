@@ -1,5 +1,6 @@
 "use client";
 
+import { can } from "@/lib/permissions";
 import { useQueryClient } from "@tanstack/react-query";
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { PanelRightOpen, Search } from "lucide-react";
@@ -37,12 +38,11 @@ const paymentOptions: { value: "" | PaymentMethod; label: string }[] = [
   { value: "CASH", label: "Tiền mặt" },
   { value: "CARD", label: "Thẻ" },
   { value: "BANK_TRANSFER", label: "Chuyển khoản" },
-  { value: "MOMO", label: "MoMo" },
   { value: "VNPAY", label: "VNPay" },
   { value: "OTHER", label: "Khác" },
 ];
 
-const manualPayments: { value: Exclude<PaymentMethod, "MOMO" | "VNPAY">; label: string }[] = [
+const manualPayments: { value: Exclude<PaymentMethod, "VNPAY">; label: string }[] = [
   { value: "CASH", label: "Tiền mặt" },
   { value: "CARD", label: "Thẻ" },
   { value: "BANK_TRANSFER", label: "Chuyển khoản" },
@@ -85,7 +85,6 @@ const paymentLabel: Partial<Record<PaymentMethod, string>> = {
   CASH: "Tiền mặt",
   CARD: "Thẻ",
   BANK_TRANSFER: "Chuyển khoản",
-  MOMO: "MoMo",
   VNPAY: "VNPay",
   OTHER: "Khác",
 };
@@ -183,7 +182,7 @@ export default function InvoicesPage() {
   const [appointmentLookupKey, setAppointmentLookupKey] = useState("");
   const [insuranceForm, setInsuranceForm] = useState<InsuranceForm>(defaultInsuranceForm);
   const [actionTarget, setActionTarget] = useState<{ type: InvoiceAction; invoice: Invoice } | null>(null);
-  const [payMethod, setPayMethod] = useState<Exclude<PaymentMethod, "MOMO" | "VNPAY">>("CASH");
+  const [payMethod, setPayMethod] = useState<Exclude<PaymentMethod, "VNPAY">>("CASH");
   const [paymentReference, setPaymentReference] = useState("");
   const [adjustInsuranceForm, setAdjustInsuranceForm] = useState<InsuranceForm>(defaultInsuranceForm);
   const [refundReason, setRefundReason] = useState("");
@@ -192,8 +191,8 @@ export default function InvoicesPage() {
   const createRef = useRef<HTMLElement | null>(null);
   const detailRef = useRef<HTMLElement | null>(null);
 
-  const canUse = user?.role === "ADMIN" || user?.role === "STAFF";
-  const canRefund = user?.role === "ADMIN";
+  const canUse = can(user, "invoice.view");
+  const canRefund = can(user, "invoice.refund");
   const createDiscount = calculateInsuranceDiscount(insuranceForm);
   const adjustedDiscount = calculateInsuranceDiscount(adjustInsuranceForm);
   const adjustedFinalAmount = actionTarget?.type === "adjust"
@@ -470,7 +469,7 @@ export default function InvoicesPage() {
       return;
     }
     if (
-      (actionTarget.invoice.paymentMethod === "MOMO" || actionTarget.invoice.paymentMethod === "VNPAY") &&
+      (actionTarget.invoice.paymentMethod === "VNPAY") &&
       refundReference.trim().length < 3
     ) {
       setError("Vui lòng nhập mã tham chiếu do cổng thanh toán trả về");
@@ -551,7 +550,7 @@ export default function InvoicesPage() {
               <thead>
                 <tr className="text-[#667892]">
                   <th className="border-b border-[#e5ebf3] px-4 py-3 font-semibold">Hóa đơn</th>
-                  <th className="border-b border-[#e5ebf3] px-4 py-3 font-semibold">Bệnh nhân</th>
+                  <th className="border-b border-[#e5ebf3] px-4 py-3 font-semibold">Người khám</th>
                   <th className="border-b border-[#e5ebf3] px-4 py-3 font-semibold">Lịch hẹn</th>
                   <th className="border-b border-[#e5ebf3] px-4 py-3 font-semibold">Số tiền</th>
                   <th className="border-b border-[#e5ebf3] px-4 py-3 font-semibold">Trạng thái</th>
@@ -606,7 +605,7 @@ export default function InvoicesPage() {
         <div className="space-y-4">
         <section ref={createRef} className="scroll-mt-24 rounded-md border border-[#dce3ee] bg-white p-5">
           <h3 className="text-lg font-semibold">Tạo hóa đơn</h3>
-          <p className="mt-2 text-sm leading-6 text-[#667892]">Nhập mã lịch đã hoàn thành khám để kiểm tra người bệnh, dịch vụ và quyền lợi BHYT trước khi phát hành.</p>
+          <p className="mt-2 text-sm leading-6 text-[#667892]">Nhập mã lịch đã hoàn thành khám để kiểm tra người khám, dịch vụ và quyền lợi BHYT trước khi phát hành.</p>
           <form className="mt-5 space-y-4" onSubmit={createInvoice}>
             <label className="block">
               <span className="text-sm font-medium text-[#334155]">Mã lịch hẹn</span>
@@ -702,7 +701,7 @@ export default function InvoicesPage() {
               </div>
               <div className="space-y-3 text-sm">
                 <div><p className="text-[#667892]">Mã vạch</p><p className="font-semibold">{selected.barcode}</p></div>
-                <div><p className="text-[#667892]">Bệnh nhân</p><p className="font-semibold">{selected.patient.fullName}</p><p>{selected.patient.phone || "-"}</p></div>
+                <div><p className="text-[#667892]">Người khám</p><p className="font-semibold">{selected.patient.fullName}</p><p>{selected.patient.phone || "-"}</p></div>
                 <div><p className="text-[#667892]">Lịch hẹn</p><p className="font-semibold">{selected.appointment.bookingCode}</p><p>{formatDate(selected.appointment.appointmentDate)} {selected.appointment.startTime} - {selected.appointment.endTime}</p></div>
                 <div><p className="text-[#667892]">Bác sĩ</p><p className="font-semibold">{doctorName(selected)}</p><p>{selected.appointment.department.name}</p></div>
                 <div><p className="text-[#667892]">Dịch vụ</p><p>{selected.appointment.package?.name || "Khám bác sĩ"}</p></div>
@@ -783,13 +782,13 @@ export default function InvoicesPage() {
                   {actionTarget.type === "pay" ? (
                     <>
                       <h4 className="font-semibold">Ghi nhận thu tại quầy</h4>
-                      <p className="mt-2 text-sm leading-6 text-[#667892]">Chỉ xác nhận sau khi nhân viên đã thực nhận tiền. MoMo/VNPay được hệ thống tự ghi nhận qua cổng thanh toán.</p>
+                      <p className="mt-2 text-sm leading-6 text-[#667892]">Chỉ xác nhận sau khi nhân viên đã thực nhận tiền. VNPay được hệ thống tự ghi nhận qua cổng thanh toán.</p>
                       {selected.paymentTransactions.some((transaction) => transaction.status === "PENDING") ? (
                         <p className="mt-3 rounded-md border border-[#f0cf7a] bg-[#fff8e6] p-3 text-sm text-[#73510d]">Có giao dịch trực tuyến đang chờ hoặc chưa đồng bộ hết hạn. Máy chủ sẽ kiểm tra lại và chặn thu tại quầy nếu giao dịch còn hiệu lực để tránh thu hai lần.</p>
                       ) : null}
                       <label className="mt-3 block">
                         <span className="text-sm font-medium text-[#334155]">Phương thức</span>
-                        <select value={payMethod} onChange={(e) => setPayMethod(e.target.value as Exclude<PaymentMethod, "MOMO" | "VNPAY">)} className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]">
+                        <select value={payMethod} onChange={(e) => setPayMethod(e.target.value as Exclude<PaymentMethod, "VNPAY">)} className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]">
                           {manualPayments.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
                         </select>
                       </label>
@@ -853,13 +852,13 @@ export default function InvoicesPage() {
                       <h4 className="font-semibold">Xác nhận hoàn tiền</h4>
                       <label className="mt-3 block">
                         <span className="text-sm font-medium text-[#334155]">Lý do hoàn tiền</span>
-                        <textarea value={refundReason} onChange={(e) => setRefundReason(e.target.value)} rows={3} placeholder="Ví dụ: bệnh nhân yêu cầu hoàn tiền" className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" />
+                        <textarea value={refundReason} onChange={(e) => setRefundReason(e.target.value)} rows={3} placeholder="Ví dụ: người khám yêu cầu hoàn tiền" className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" />
                       </label>
                       <label className="mt-3 block">
-                        <span className="text-sm font-medium text-[#334155]">Mã tham chiếu hoàn tiền {actionTarget.invoice.paymentMethod === "MOMO" || actionTarget.invoice.paymentMethod === "VNPAY" ? "*" : ""}</span>
+                        <span className="text-sm font-medium text-[#334155]">Mã tham chiếu hoàn tiền {actionTarget.invoice.paymentMethod === "VNPAY" ? "*" : ""}</span>
                         <input value={refundReference} onChange={(event) => setRefundReference(event.target.value)} maxLength={100} placeholder="Mã hoàn tiền từ quầy hoặc cổng thanh toán" className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" />
                       </label>
-                      {(actionTarget.invoice.paymentMethod === "MOMO" || actionTarget.invoice.paymentMethod === "VNPAY") ? <p className="mt-2 text-xs leading-5 text-[#8a5a00]">Hãy hoàn tiền trên cổng thanh toán trước, sau đó nhập mã tham chiếu để đồng bộ trạng thái hệ thống.</p> : null}
+                      {(actionTarget.invoice.paymentMethod === "VNPAY") ? <p className="mt-2 text-xs leading-5 text-[#8a5a00]">Hãy hoàn tiền trên cổng thanh toán trước, sau đó nhập mã tham chiếu để đồng bộ trạng thái hệ thống.</p> : null}
                       <div className="mt-3 flex gap-2"><button disabled={busy} onClick={() => void refundInvoice()} className="rounded-md bg-[#0d4f8b] px-3 py-2 text-sm font-semibold text-white disabled:opacity-60">Hoàn tiền</button><button type="button" onClick={() => { setActionTarget(null); setRefundReason(""); }} className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm font-medium text-[#42526b]">Hủy</button></div>
                     </>
                   ) : null}

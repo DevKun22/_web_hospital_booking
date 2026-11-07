@@ -175,7 +175,7 @@ void main() {
       await tester.tap(find.text('Gửi mã OTP'));
       await tester.pump();
 
-      expect(find.text('Đăng nhập bệnh nhân'), findsOneWidget);
+      expect(find.text('Đăng nhập người khám'), findsOneWidget);
       expect(find.text('Chăm sóc sức khỏe dễ dàng hơn'), findsNothing);
 
       final authController =
@@ -331,7 +331,7 @@ void main() {
     expect(find.text('Trợ lý đặt lịch'), findsOneWidget);
   });
 
-  testWidgets('health records and notifications are stable main branches', (
+  testWidgets('health records and AI assistant are stable main branches', (
     tester,
   ) async {
     await tester.binding.setSurfaceSize(const Size(430, 900));
@@ -380,13 +380,13 @@ void main() {
     );
     expect(find.text('Hồ sơ sức khỏe'), findsOneWidget);
 
-    await tester.tap(find.byTooltip('Thông báo'));
+    await tester.tap(find.byTooltip('Trợ lý AI'));
     await tester.pumpAndSettle();
     expect(
       container.read(appRouterProvider).routeInformationProvider.value.uri.path,
-      '/notifications',
+      '/chatbot',
     );
-    expect(find.text('Chưa có thông báo'), findsOneWidget);
+    expect(find.text('Trợ lý đặt lịch'), findsOneWidget);
 
     await tester.tap(find.byTooltip('Trang chủ'));
     await tester.pumpAndSettle();
@@ -432,7 +432,7 @@ void main() {
 
     container.read(appRouterProvider).go('/appointments');
     await tester.pumpAndSettle();
-    expect(find.text('Đăng nhập bệnh nhân'), findsOneWidget);
+    expect(find.text('Đăng nhập người khám'), findsOneWidget);
     expect(
       find.text('Vui lòng đăng nhập để xem và quản lý lịch khám của bạn.'),
       findsOneWidget,
@@ -452,7 +452,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Lịch khám của tôi'), findsWidgets);
-    expect(find.text('Đăng nhập bệnh nhân'), findsNothing);
+    expect(find.text('Đăng nhập người khám'), findsNothing);
     expect(find.byTooltip('Quay lại'), findsOneWidget);
   });
 

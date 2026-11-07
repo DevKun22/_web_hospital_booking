@@ -2,6 +2,7 @@
 
 /* eslint-disable @next/next/no-img-element */
 
+import { can } from "@/lib/permissions";
 import { useEffect, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { DashboardFeedback } from "@/components/dashboard/dashboard-feedback";
@@ -47,8 +48,8 @@ const formatDateTime = (value: string) => formatVietnamDateTime(value);
 export default function UploadsPage() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const canManage = user?.role === "ADMIN" || user?.role === "STAFF";
-  const canDelete = user?.role === "ADMIN";
+  const canManage = can(user, "content.manage");
+  const canDelete = can(user, "content.delete");
   const [isUsed, setIsUsed] = useState("false");
   const [folder, setFolder] = useState("");
   const [page, setPage] = useState(1);

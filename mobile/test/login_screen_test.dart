@@ -37,7 +37,7 @@ void main() {
     );
     router.push('/login');
     await tester.pumpAndSettle();
-    expect(find.text('Đăng nhập bệnh nhân'), findsOneWidget);
+    expect(find.text('Đăng nhập người khám'), findsOneWidget);
 
     await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();

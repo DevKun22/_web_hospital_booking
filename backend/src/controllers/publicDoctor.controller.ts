@@ -61,6 +61,12 @@ export const listPublicDoctorCatalogHandler = async (
         typeof req.query.departmentId === "string"
           ? req.query.departmentId
           : undefined,
+      minExperience: parseNumberQuery(req.query.minExperience),
+      availableToday: req.query.availableToday === "true",
+      sort:
+        req.query.sort === "EXPERIENCE_DESC" || req.query.sort === "NAME_ASC"
+          ? req.query.sort
+          : undefined,
       page: parseNumberQuery(req.query.page),
       limit: parseNumberQuery(req.query.limit),
     });

@@ -181,7 +181,7 @@ void main() {
     await tester.tap(find.text('Ở lại'));
     await tester.pumpAndSettle();
     expect(auth.logoutCalls, 0);
-    expect(find.text('Hồ sơ bệnh nhân'), findsOneWidget);
+    expect(find.text('Hồ sơ người khám'), findsOneWidget);
 
     await _scrollToLogout(tester);
     await tester.tap(find.text('Đăng xuất thiết bị này'));

@@ -7,6 +7,7 @@ import {
   isProductionLike,
   resolveOtpSecret,
 } from "../config/environment.js";
+import { canDeliverSms, shouldExposeDebugOtp } from "../config/otpChannels.js";
 
 type SendOtpOptions = {
   channel?: OtpChannel;
@@ -49,11 +50,6 @@ const timeout = (milliseconds: number) =>
     setTimeout(() => resolve({ status: "TIMEOUT" }), milliseconds);
   });
 
-const isOtpDebugEnabled = () =>
-  !isProductionLike() &&
-  ["true", "1", "yes", "on"].includes(
-    (process.env.OTP_DEBUG_ENABLED || "").toLowerCase(),
-  );
 
 const hashOtp = (otp: string) =>
   createHmac("sha256", OTP_SECRET).update(otp).digest("hex");
@@ -315,6 +311,14 @@ class AuthOtpService {
     const channel = options.channel || "SMS";
     const target = normalizeTarget(targetInput, channel);
 
+    if (channel === "SMS" && !canDeliverSms(target)) {
+      throw new AppError(
+        "Hệ thống hiện chỉ gửi mã xác thực qua email. Vui lòng dùng email.",
+        400,
+        "OTP_CHANNEL_UNAVAILABLE",
+      );
+    }
+
     await this.assertNotBlocked(target, channel, purpose, ipAddress);
 
     const lastOtp = await prisma.otpCode.findFirst({
@@ -468,7 +472,7 @@ class AuthOtpService {
       deliveryStatus,
       expiresAt: otpRecord.expiresAt,
       expiresIn: OTP_EXPIRES_SECONDS,
-      debugOtp: isOtpDebugEnabled() ? otp : undefined,
+      debugOtp: shouldExposeDebugOtp(channel, target) ? otp : undefined,
     };
   }
 
@@ -585,6 +589,23 @@ class AuthOtpService {
       purpose: otpRecord.purpose,
       verifiedAt: new Date(),
     };
+  }
+
+  // Mã OTP hết hạn không còn giá trị sử dụng nhưng vẫn nằm lại bảng; giữ 24 giờ cho
+  // điều tra rồi xóa theo lô để bảng không phình vô hạn.
+  async cleanupExpired(options: { now?: Date; batchSize?: number } = {}) {
+    const cutoff = new Date((options.now || new Date()).getTime() - 24 * 3_600_000);
+    const stale = await prisma.otpCode.findMany({
+      where: { expiresAt: { lt: cutoff } },
+      select: { id: true },
+      take: Math.max(options.batchSize || 1000, 1),
+    });
+    if (stale.length === 0) return { deleted: 0 };
+
+    const result = await prisma.otpCode.deleteMany({
+      where: { id: { in: stale.map((item) => item.id) } },
+    });
+    return { deleted: result.count };
   }
 }
 

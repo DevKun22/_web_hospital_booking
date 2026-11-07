@@ -45,7 +45,7 @@ class PatientProfile {
     final details = _map(json['patientProfile']);
     return PatientProfile(
       id: _string(json['id']),
-      fullName: _string(json['fullName'], fallback: 'Bệnh nhân'),
+      fullName: _string(json['fullName'], fallback: 'Người khám'),
       phone: _nullableString(json['phone']),
       email: _nullableString(json['email']),
       avatar: _nullableString(json['avatar']),

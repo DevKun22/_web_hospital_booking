@@ -33,6 +33,11 @@ import {
   getPatientPaymentHandler,
 } from "../controllers/patientPaymentV1.controller.js";
 import { createPaymentTransactionSchema } from "../validations/payment.validation.js";
+import {
+  createPatientAppointmentReviewHandler,
+  getPatientAppointmentReviewHandler,
+} from "../controllers/review.controller.js";
+import { createAppointmentReviewSchema } from "../validations/review.validation.js";
 
 const router = Router();
 router.use(authPatient);
@@ -54,6 +59,12 @@ router.delete("/dependents/:id", archivePatientDependentHandler);
 router.get("/appointments", listPatientAppointmentsHandler);
 router.get("/appointments/:id", getPatientAppointmentHandler);
 router.post("/appointments/:id/cancel", validate(patientCancelAppointmentSchema), cancelPatientAppointmentHandler);
+router.get("/appointments/:id/review", getPatientAppointmentReviewHandler);
+router.post(
+  "/appointments/:id/review",
+  validate(createAppointmentReviewSchema),
+  createPatientAppointmentReviewHandler,
+);
 router.get("/medical-records", listPatientMedicalRecordsHandler);
 router.get("/medical-records/:id", getPatientMedicalRecordHandler);
 router.get("/medical-records/:id/file", downloadPatientMedicalFileHandler);

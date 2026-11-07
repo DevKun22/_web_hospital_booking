@@ -1,22 +1,30 @@
 "use client";
 
-import { Loader2, Search, X } from "lucide-react";
+import {
+  Building2,
+  ChevronRight,
+  CircleHelp,
+  Loader2,
+  PackageCheck,
+  Search,
+  Stethoscope,
+  X,
+} from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { HighlightText } from "@/components/public/search-highlight";
 import {
   usePublicSearch,
   type PublicSearchItem,
 } from "@/lib/public-search-query";
-import { useSearchAnalytics } from "@/lib/use-search-analytics";
 import { useDebouncedValue } from "@/lib/use-debounced-value";
 
-const typeLabels: Record<PublicSearchItem["type"], string> = {
-  department: "Chuyên khoa",
-  doctor: "Bác sĩ",
-  package: "Gói khám",
-  faq: "FAQ",
-  chatbot_faq: "Trợ lý",
+const typeMeta: Record<PublicSearchItem["type"], { label: string; icon: LucideIcon }> = {
+  department: { label: "Chuyên khoa", icon: Building2 },
+  doctor: { label: "Bác sĩ", icon: Stethoscope },
+  package: { label: "Gói khám", icon: PackageCheck },
+  faq: { label: "Hỏi đáp", icon: CircleHelp },
 };
 
 const formatCurrency = (value?: number | null) =>
@@ -28,26 +36,26 @@ const formatCurrency = (value?: number | null) =>
       }).format(value)
     : "";
 
-export function PublicGlobalSearch({ compact = false }: { compact?: boolean }) {
+export function PublicGlobalSearch({
+  compact = false,
+}: {
+  compact?: boolean;
+}) {
   const [keyword, setKeyword] = useState("");
   const [open, setOpen] = useState(false);
   const debouncedKeyword = useDebouncedValue(keyword, 220);
   const wrapperRef = useRef<HTMLDivElement | null>(null);
+  const inputRef = useRef<HTMLInputElement | null>(null);
+  const inputId = useId();
   const searchQuery = usePublicSearch({
     q: debouncedKeyword.trim(),
     type: "all",
-    limit: 8,
+    limit: 12,
   });
-  const items = searchQuery.data?.items || [];
+  const items = searchQuery.isPlaceholderData ? [] : searchQuery.data?.items || [];
   const shouldShowDropdown = open && keyword.trim().length >= 2;
   const waitingDebounce = keyword.trim() !== debouncedKeyword.trim();
   const highlightQuery = debouncedKeyword.trim() || keyword.trim();
-  useSearchAnalytics({
-    keyword: debouncedKeyword,
-    type: "all",
-    data: searchQuery.data,
-    enabled: !waitingDebounce && !searchQuery.isFetching,
-  });
 
   useEffect(() => {
     const handlePointerDown = (event: PointerEvent) => {
@@ -55,14 +63,153 @@ export function PublicGlobalSearch({ compact = false }: { compact?: boolean }) {
         setOpen(false);
       }
     };
+    const handleKeyboard = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpen(false);
+    };
 
     window.addEventListener("pointerdown", handlePointerDown);
-    return () => window.removeEventListener("pointerdown", handlePointerDown);
+    window.addEventListener("keydown", handleKeyboard);
+
+    return () => {
+      window.removeEventListener("pointerdown", handlePointerDown);
+      window.removeEventListener("keydown", handleKeyboard);
+    };
   }, []);
 
   const clearKeyword = () => {
     setKeyword("");
     setOpen(false);
+    inputRef.current?.focus();
+  };
+
+  const closeSearch = () => {
+    setOpen(false);
+    setKeyword("");
+  };
+
+  const searchInput = () => (
+    <div className="relative">
+      <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--public-primary)]" aria-hidden="true" />
+      <input
+        ref={inputRef}
+        id={inputId}
+        value={keyword}
+        onChange={(event) => {
+          setKeyword(event.target.value);
+          setOpen(true);
+        }}
+        onFocus={() => setOpen(true)}
+        placeholder="Nhập tên bác sĩ, chuyên khoa hoặc gói khám..."
+        autoComplete="off"
+        enterKeyHint="search"
+        role="searchbox"
+        className="h-11 w-full rounded-xl border border-[var(--public-border)] bg-[var(--public-surface-muted)] pl-10 pr-11 text-sm text-[var(--public-ink)] outline-none transition placeholder:text-[var(--public-muted)] focus:border-[var(--public-primary)] focus:bg-white focus:ring-4 focus:ring-[var(--public-primary-soft)]"
+      />
+      {keyword ? (
+        <button
+          type="button"
+          onClick={clearKeyword}
+          className="absolute right-1.5 top-1/2 inline-flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-lg text-[var(--public-muted)] transition hover:bg-[var(--public-primary-soft)] hover:text-[var(--public-ink)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--public-primary)]"
+          aria-label="Xóa từ khóa tìm kiếm"
+        >
+          <X className="h-4 w-4" aria-hidden="true" />
+        </button>
+      ) : null}
+    </div>
+  );
+
+  const searchResults = () => {
+    if (keyword.trim().length < 2) {
+      return null;
+    }
+
+    return (
+      <div id={`${inputId}-results`} className="absolute left-0 right-0 top-[calc(100%+0.5rem)] z-[75] overflow-hidden rounded-2xl border border-[var(--public-border)] bg-white shadow-[0_20px_60px_rgba(15,23,42,0.18)]">
+        <div className="flex min-h-12 items-center justify-between gap-3 border-b border-[var(--public-divider)] bg-[var(--public-surface-muted)] px-4 py-2.5 text-xs font-medium text-[var(--public-muted)] sm:px-5">
+          {waitingDebounce || searchQuery.isFetching ? (
+            <span className="inline-flex items-center gap-2" role="status">
+              <Loader2 className="h-3.5 w-3.5 animate-spin motion-reduce:animate-none" aria-hidden="true" />
+              Đang tìm kiếm...
+            </span>
+          ) : items.length ? (
+            <span aria-live="polite">{items.length} kết quả phù hợp</span>
+          ) : (
+            <span aria-live="polite">Không tìm thấy kết quả phù hợp</span>
+          )}
+          <span className="hidden sm:inline">Nguồn dữ liệu hệ thống</span>
+        </div>
+
+        {searchQuery.isError ? (
+          <div className="px-5 py-8 text-center">
+            <p className="font-bold text-[var(--public-ink)]">Chưa thể tải kết quả</p>
+            <p className="mt-1 text-sm leading-6 text-[var(--public-muted)]">Vui lòng kiểm tra kết nối và thử lại.</p>
+            <button type="button" onClick={() => void searchQuery.refetch()} className="public-button-secondary mt-4 inline-flex min-h-11 items-center justify-center rounded-xl px-4 text-sm font-bold">
+              Thử lại
+            </button>
+          </div>
+        ) : null}
+
+        {!searchQuery.isError && !waitingDebounce && !searchQuery.isFetching && items.length === 0 ? (
+          <div className="px-5 py-10 text-center">
+            <Search className="mx-auto h-8 w-8 text-[var(--public-primary)]" aria-hidden="true" />
+            <p className="mt-3 font-bold text-[var(--public-ink)]">Chưa có kết quả cho “{debouncedKeyword.trim()}”</p>
+            <p className="mt-1 text-sm leading-6 text-[var(--public-muted)]">Thử tên ngắn hơn, bỏ học hàm/học vị hoặc dùng từ khóa tổng quát hơn.</p>
+          </div>
+        ) : null}
+
+        {!searchQuery.isError ? (
+          <div className="max-h-[min(420px,58vh)] overflow-y-auto p-2 sm:p-3">
+            {items.map((item) => {
+              const meta = typeMeta[item.type];
+              const ItemIcon = meta.icon;
+              return (
+                <Link
+                  key={`${item.type}-${item.id}`}
+                  href={item.url}
+                  onClick={closeSearch}
+                  className="group flex min-h-[5.5rem] items-start gap-3 rounded-xl px-3 py-3 transition hover:bg-[var(--public-surface-muted)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[var(--public-primary-soft)] sm:px-4"
+                >
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[var(--public-primary-soft)] text-[var(--public-primary)] transition group-hover:bg-white">
+                    <ItemIcon className="h-5 w-5" aria-hidden="true" />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                      <span className="text-[11px] font-bold uppercase tracking-[0.08em] text-[var(--public-primary)]">{meta.label}</span>
+                      {item.departmentName ? (
+                        <span className="text-xs text-[var(--public-muted)]"><HighlightText text={item.departmentName} query={highlightQuery} /></span>
+                      ) : null}
+                    </span>
+                    <span className="mt-1 block text-sm font-bold leading-5 text-[var(--public-ink)] sm:text-base">
+                      <HighlightText text={item.title} query={highlightQuery} />
+                    </span>
+                    {item.description ? (
+                      <span className="mt-1 line-clamp-2 block text-xs leading-5 text-[var(--public-muted)] sm:text-sm">
+                        <HighlightText text={item.description} query={highlightQuery} />
+                      </span>
+                    ) : null}
+                  </span>
+                  <span className="flex shrink-0 flex-col items-end gap-2">
+                    {item.price ? <span className="text-xs font-bold tabular-nums text-[var(--public-primary-dark)] sm:text-sm">{formatCurrency(item.price)}</span> : null}
+                    <ChevronRight className="h-4 w-4 text-[var(--public-muted)] transition group-hover:translate-x-0.5 group-hover:text-[var(--public-primary)] motion-reduce:transition-none" aria-hidden="true" />
+                  </span>
+                </Link>
+              );
+            })}
+          </div>
+        ) : null}
+
+        {!searchQuery.isError && !waitingDebounce && !searchQuery.isFetching && items.length ? (
+          <Link
+            href={`/tim-kiem?q=${encodeURIComponent(debouncedKeyword.trim())}`}
+            onClick={closeSearch}
+            className="flex min-h-12 items-center justify-center gap-2 border-t border-[var(--public-divider)] bg-[var(--public-primary-soft)] px-4 py-3 text-center text-sm font-bold text-[var(--public-primary-dark)] transition hover:bg-[#dbeafe] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-inset focus-visible:ring-[var(--public-primary)]"
+          >
+            Xem toàn bộ kết quả
+            <ChevronRight className="h-4 w-4" aria-hidden="true" />
+          </Link>
+        ) : null}
+      </div>
+    );
   };
 
   return (
@@ -70,116 +217,11 @@ export function PublicGlobalSearch({ compact = false }: { compact?: boolean }) {
       ref={wrapperRef}
       className={`relative ${compact ? "w-full" : "w-[280px] xl:w-[340px]"}`}
     >
-      <label
-        className="sr-only"
-        htmlFor={compact ? "mobile-public-search" : "public-search"}
-      >
+      <label className="sr-only" htmlFor={inputId}>
         Tìm kiếm trên website
       </label>
-      <div className="relative">
-        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#667892]" />
-        <input
-          id={compact ? "mobile-public-search" : "public-search"}
-          value={keyword}
-          onChange={(event) => {
-            setKeyword(event.target.value);
-            setOpen(true);
-          }}
-          onFocus={() => setOpen(true)}
-          placeholder="Tìm bác sĩ, khoa, gói khám..."
-          className="h-10 w-full rounded-md border border-[#cfd8e6] bg-white pl-9 pr-9 text-sm text-[#172033] outline-none transition placeholder:text-[#93a2b7] focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]"
-        />
-        {keyword ? (
-          <button
-            type="button"
-            onClick={clearKeyword}
-            className="absolute right-2 top-1/2 inline-flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-md text-[#667892] hover:bg-[#f1f5f9]"
-            aria-label="Xóa từ khóa tìm kiếm"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        ) : null}
-      </div>
-
-      {shouldShowDropdown ? (
-        <div className="absolute left-0 right-0 top-12 z-[75] overflow-hidden rounded-md border border-[#dce3ee] bg-white shadow-[0_18px_45px_rgba(15,23,42,0.14)]">
-          <div className="border-b border-[#eef2f7] px-3 py-2 text-xs font-medium text-[#667892]">
-            {waitingDebounce || searchQuery.isFetching ? (
-              <span className="inline-flex items-center gap-2">
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                Đang tìm kiếm...
-              </span>
-            ) : searchQuery.data?.source === "elasticsearch" ? (
-              "Kết quả từ Elasticsearch"
-            ) : searchQuery.data?.source === "postgres" ? (
-              "Kết quả dự phòng từ PostgreSQL"
-            ) : (
-              "Nhập ít nhất 2 ký tự để tìm kiếm"
-            )}
-          </div>
-
-          {!waitingDebounce && !searchQuery.isFetching && items.length === 0 ? (
-            <div className="px-4 py-5 text-center text-sm text-[#667892]">
-              Không tìm thấy kết quả phù hợp.
-            </div>
-          ) : null}
-
-          <div className="max-h-[min(360px,58vh)] overflow-y-auto py-1">
-            {items.map((item) => (
-              <Link
-                key={`${item.type}-${item.id}`}
-                href={item.url}
-                onClick={() => setOpen(false)}
-                className="block px-3 py-3 transition hover:bg-[#f8fafc]"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="rounded-md bg-[#e7f0fb] px-2 py-0.5 text-[11px] font-semibold text-[#0d4f8b]">
-                        {typeLabels[item.type]}
-                      </span>
-                      {item.departmentName ? (
-                        <span className="text-[11px] text-[#667892]">
-                          <HighlightText
-                            text={item.departmentName}
-                            query={highlightQuery}
-                          />
-                        </span>
-                      ) : null}
-                    </div>
-                    <p className="mt-1 truncate text-sm font-semibold text-[#172033]">
-                      <HighlightText text={item.title} query={highlightQuery} />
-                    </p>
-                    {item.description ? (
-                      <p className="mt-1 line-clamp-2 text-xs leading-5 text-[#667892]">
-                        <HighlightText
-                          text={item.description}
-                          query={highlightQuery}
-                        />
-                      </p>
-                    ) : null}
-                  </div>
-                  {item.price ? (
-                    <span className="shrink-0 text-xs font-semibold text-[#0d4f8b]">
-                      {formatCurrency(item.price)}
-                    </span>
-                  ) : null}
-                </div>
-              </Link>
-            ))}
-          </div>
-
-          {!waitingDebounce && !searchQuery.isFetching && items.length ? (
-            <Link
-              href={`/search?q=${encodeURIComponent(debouncedKeyword.trim())}`}
-              onClick={() => setOpen(false)}
-              className="block border-t border-[#eef2f7] bg-[#f8fbff] px-3 py-2.5 text-center text-sm font-semibold text-[#0d4f8b] transition hover:bg-[#eef7ff]"
-            >
-              Xem tất cả kết quả tìm kiếm
-            </Link>
-          ) : null}
-        </div>
-      ) : null}
+      {searchInput()}
+      {shouldShowDropdown ? searchResults() : null}
     </div>
   );
 }

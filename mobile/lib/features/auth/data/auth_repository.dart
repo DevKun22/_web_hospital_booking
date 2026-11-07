@@ -27,11 +27,15 @@ class AuthRepository {
   final SessionRefreshCoordinator _refreshCoordinator;
   final Duration _logoutRequestTimeout;
 
-  Future<OtpChallenge> requestOtp(String phone) async {
+  /// [identifier] là số điện thoại hoặc email đã dùng khi đặt lịch.
+  Future<OtpChallenge> requestOtp(String identifier) async {
+    final value = identifier.trim();
     try {
       final response = await _authDio.post<dynamic>(
         '/auth/patient/request-otp',
-        data: {'phone': phone.trim()},
+        data: value.contains('@')
+            ? {'email': value.toLowerCase()}
+            : {'phone': value},
       );
       return OtpChallenge.fromJson(requireDataMap(response.data));
     } on DioException catch (error) {

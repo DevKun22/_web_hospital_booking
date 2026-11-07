@@ -2,7 +2,6 @@ import { Prisma } from "../../generated/prisma/client.js";
 import { prisma } from "../config/prisma.js";
 import { AppError } from "../utils/appError.js";
 import { createSlug } from "../utils/slug.js";
-import SearchIndexer from "./search/search.indexer.js";
 
 type CreateDoctorProfileInput = {
   userId: string;
@@ -188,8 +187,6 @@ class DoctorService {
       select: doctorProfileSelect,
     });
 
-    await SearchIndexer.syncDoctor(doctor.id);
-
     return doctor;
   }
 
@@ -221,8 +218,6 @@ class DoctorService {
       select: doctorProfileSelect,
     });
 
-    await SearchIndexer.syncDoctor(doctor.id);
-
     return doctor;
   }
 
@@ -236,8 +231,6 @@ class DoctorService {
       },
       select: doctorProfileSelect,
     });
-
-    await SearchIndexer.syncDoctor(doctor.id);
 
     return doctor;
   }
@@ -259,8 +252,6 @@ class DoctorService {
     await prisma.doctorProfile.delete({
       where: { id },
     });
-
-    await SearchIndexer.remove("doctor", id);
 
     return doctor;
   }

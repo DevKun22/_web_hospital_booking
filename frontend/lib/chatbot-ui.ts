@@ -150,7 +150,7 @@ export const buildBookingHref = (
   });
 
   const query = params.toString();
-  return `/${query ? `?${query}` : ""}#booking`;
+  return `/dat-lich${query ? `?${query}` : ""}`;
 };
 
 export const formatChatbotDate = (value: string) => {

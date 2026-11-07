@@ -3,7 +3,7 @@ import {
   listDashboardReviewsHandler,
   updateDashboardReviewVisibilityHandler,
 } from "../controllers/dashboardReview.controller.js";
-import { authDashboard, requireRole } from "../middlewares/auth.middleware.js";
+import { authDashboard, requirePermission } from "../middlewares/auth.middleware.js";
 import { validate } from "../middlewares/validate.middleware.js";
 import { updateReviewVisibilitySchema } from "../validations/review.validation.js";
 
@@ -12,12 +12,12 @@ const router = Router();
 router.use(authDashboard);
 router.get(
   "/",
-  requireRole("ADMIN", "STAFF", "DOCTOR"),
+  requirePermission("review.view"),
   listDashboardReviewsHandler,
 );
 router.patch(
   "/:id/visibility",
-  requireRole("ADMIN", "STAFF"),
+  requirePermission("review.moderate"),
   validate(updateReviewVisibilitySchema),
   updateDashboardReviewVisibilityHandler,
 );

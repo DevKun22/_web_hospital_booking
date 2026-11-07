@@ -79,6 +79,28 @@ class PatientEventNotificationService {
     );
   }
 
+  createPrescriptionDispensed(
+    input: PrescriptionIssuedInput,
+    client: DatabaseClient,
+  ) {
+    return NotificationService.create(
+      {
+        userId: input.userId,
+        type: "PRESCRIPTION_DISPENSED",
+        title: "Đơn thuốc đã được cấp phát",
+        body: `Đơn ${input.prescriptionCode} của lịch ${input.bookingCode} đã được dược sĩ cấp thuốc.`,
+        entityType: "PRESCRIPTION",
+        entityId: input.prescriptionId,
+        payload: {
+          prescriptionCode: input.prescriptionCode,
+          bookingCode: input.bookingCode,
+        },
+        dedupeKey: `prescription:${input.prescriptionId}:dispensed`,
+      },
+      client,
+    );
+  }
+
   createInvoiceCreated(input: InvoiceEventInput, client: DatabaseClient) {
     return NotificationService.create(
       {

@@ -1,5 +1,6 @@
 "use client";
 
+import { can } from "@/lib/permissions";
 import { useQueryClient } from "@tanstack/react-query";
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
@@ -150,9 +151,9 @@ export default function MedicalRecordsPage() {
   const listRef = useRef<HTMLElement | null>(null);
   const detailRef = useRef<HTMLElement | null>(null);
 
-  const canArchive = user?.role === "ADMIN" || user?.role === "STAFF";
+  const canArchive = can(user, "record.archive");
   const isDoctor = user?.role === "DOCTOR";
-  const canCreatePrescription = user?.role === "ADMIN" || user?.role === "DOCTOR";
+  const canCreatePrescription = can(user, "prescription.write");
 
   const query = useMemo(
     () => ({
@@ -474,7 +475,7 @@ export default function MedicalRecordsPage() {
               <thead>
                 <tr className="text-[#667892]">
                   <th className="border-b border-[#e5ebf3] px-4 py-3 font-semibold">Hồ sơ</th>
-                  <th className="border-b border-[#e5ebf3] px-4 py-3 font-semibold">Bệnh nhân</th>
+                  <th className="border-b border-[#e5ebf3] px-4 py-3 font-semibold">Người khám</th>
                   <th className="border-b border-[#e5ebf3] px-4 py-3 font-semibold">Lịch hẹn</th>
                   <th className="border-b border-[#e5ebf3] px-4 py-3 font-semibold">Bác sĩ</th>
                   <th className="border-b border-[#e5ebf3] px-4 py-3 font-semibold">Kết quả</th>

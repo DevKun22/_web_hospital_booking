@@ -9,7 +9,7 @@ import {
   updatePrescriptionHandler,
   updatePrescriptionItemHandler,
 } from "../controllers/prescription.controller.js";
-import { authDashboard, requireRole } from "../middlewares/auth.middleware.js";
+import { authDashboard, requirePermission } from "../middlewares/auth.middleware.js";
 import { validate } from "../middlewares/validate.middleware.js";
 import {
   createPrescriptionItemSchema,
@@ -23,45 +23,45 @@ router.use(authDashboard);
 
 router.get(
   "/",
-  requireRole("ADMIN", "STAFF", "DOCTOR"),
+  requirePermission("prescription.view"),
   listPrescriptionsHandler,
 );
 router.get(
   "/:id",
-  requireRole("ADMIN", "STAFF", "DOCTOR"),
+  requirePermission("prescription.view"),
   getPrescriptionHandler,
 );
 router.patch(
   "/:id",
-  requireRole("ADMIN", "DOCTOR"),
+  requirePermission("prescription.write"),
   validate(updatePrescriptionSchema),
   updatePrescriptionHandler,
 );
 router.patch(
   "/:id/issue",
-  requireRole("ADMIN", "DOCTOR"),
+  requirePermission("prescription.write"),
   issuePrescriptionHandler,
 );
 router.patch(
   "/:id/cancel",
-  requireRole("ADMIN", "DOCTOR"),
+  requirePermission("prescription.write"),
   cancelPrescriptionHandler,
 );
 router.post(
   "/:id/items",
-  requireRole("ADMIN", "DOCTOR"),
+  requirePermission("prescription.write"),
   validate(createPrescriptionItemSchema),
   createPrescriptionItemHandler,
 );
 router.patch(
   "/:id/items/:itemId",
-  requireRole("ADMIN", "DOCTOR"),
+  requirePermission("prescription.write"),
   validate(updatePrescriptionItemSchema),
   updatePrescriptionItemHandler,
 );
 router.delete(
   "/:id/items/:itemId",
-  requireRole("ADMIN", "DOCTOR"),
+  requirePermission("prescription.write"),
   deletePrescriptionItemHandler,
 );
 

@@ -2,6 +2,7 @@
 
 /* eslint-disable @next/next/no-img-element */
 
+import { can } from "@/lib/permissions";
 import { useQueryClient } from "@tanstack/react-query";
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { Search } from "lucide-react";
@@ -12,14 +13,16 @@ import {
   DashboardStatusBadge,
   DashboardSurface,
 } from "@/components/dashboard/dashboard-ui";
+import { NumberStepper } from "@/components/ui/number-stepper";
 import { apiRequest, uploadImages } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
-import { useDashboardBanners, useDashboardFAQs, useDashboardSiteSettings } from "@/lib/dashboard-site-settings-query";
+import { useDashboardBanners, useDashboardFAQs, useDashboardHomePageConfig, useDashboardSiteSettings } from "@/lib/dashboard-site-settings-query";
 import { formatVietnamDateTime, fromVietnamDateTimeInput, toVietnamDateTimeInput } from "@/lib/date";
+import { publishPublicContentUpdated } from "@/lib/public-content-sync";
 import { queryKeys } from "@/lib/query-keys";
-import type { Banner, MediaAsset, PublicFAQ, SiteSettingsRecord, SiteSettingsValue } from "@/lib/types";
+import type { Banner, HomePageConfigRecord, HomePageConfigValue, HomePageSectionConfig, MediaAsset, DashboardFAQ, SiteSettingsRecord, SiteSettingsValue } from "@/lib/types";
 
-type TabKey = "settings" | "banners" | "faqs";
+type TabKey = "home" | "settings" | "banners" | "faqs";
 
 type SiteForm = SiteSettingsValue & {
   logoAssetId: string;
@@ -51,13 +54,46 @@ type FAQForm = {
   answer: string;
   category: string;
   order: string;
+  keywords: string;
+  showOnWeb: boolean;
+  useInChatbot: boolean;
   isActive: boolean;
 };
 
 const tabs: { key: TabKey; label: string }[] = [
+  { key: "home", label: "Bố cục trang chủ" },
   { key: "settings", label: "Thông tin trang người dùng" },
   { key: "banners", label: "Ảnh quảng bá" },
   { key: "faqs", label: "Câu hỏi thường gặp" },
+];
+
+const emptyHomePageForm: HomePageConfigValue = {
+  announcement: {
+    enabled: true,
+    label: "Chương trình sức khỏe",
+    message: "Chủ động chọn bác sĩ, ngày khám và gói chăm sóc phù hợp cho bạn và gia đình.",
+    ctaLabel: "Xem chương trình",
+    ctaHref: "/goi-kham",
+    startAt: null,
+    endAt: null,
+  },
+  sections: {
+    serviceHub: { enabled: true },
+    departments: { enabled: true, eyebrow: "Chuyên khoa mũi nhọn", title: "Trung tâm chẩn đoán và điều trị toàn diện", description: "Tìm đúng chuyên khoa theo nhu cầu khám.", limit: 4 },
+    doctors: { enabled: true, eyebrow: "Chuyên gia đầu ngành", title: "Bác sĩ tiêu biểu đang tiếp nhận lịch khám", description: "Xem chuyên môn, đánh giá, chi phí và các giờ khám gần nhất.", limit: 3 },
+    packages: { enabled: true, eyebrow: "Chủ động phòng ngừa bệnh", title: "Gói khám sức khỏe và tầm soát toàn diện", description: "So sánh minh bạch chi phí và hạng mục thực hiện.", limit: 3 },
+    partners: { enabled: true, eyebrow: "Mạng lưới đồng hành", title: "Kết nối hệ sinh thái chăm sóc sức khỏe", description: "Các đơn vị hợp tác đã được xác thực và công bố.", limit: 12 },
+  },
+};
+
+const configurableHomeSections: Array<{
+  key: "departments" | "doctors" | "packages" | "partners";
+  label: string;
+}> = [
+  { key: "departments", label: "Chuyên khoa" },
+  { key: "doctors", label: "Bác sĩ" },
+  { key: "packages", label: "Gói khám" },
+  { key: "partners", label: "Đối tác" },
 ];
 
 const emptySiteForm: SiteForm = {
@@ -100,10 +136,13 @@ const emptyFAQForm: FAQForm = {
   answer: "",
   category: "booking",
   order: "0",
+  keywords: "",
+  showOnWeb: true,
+  useInChatbot: true,
   isActive: true,
 };
 
-const positionOptions = ["HOME_HERO", "HOME_PROMO", "HOME_DEPARTMENT", "FOOTER"];
+const positionOptions = ["HOME_HERO", "HOME_PARTNER"];
 const faqCategories = ["booking", "payment", "doctor", "insurance", "general"];
 
 const toNullable = (value: string) => value.trim() || null;
@@ -148,20 +187,27 @@ const toBannerForm = (banner: Banner): BannerForm => ({
   endAt: toVietnamDateTimeInput(banner.endAt),
 });
 
-const toFAQForm = (faq: PublicFAQ): FAQForm => ({
+const toFAQForm = (faq: DashboardFAQ): FAQForm => ({
   question: faq.question,
   answer: faq.answer,
   category: faq.category || "",
   order: String(faq.order),
+  keywords: faq.keywords.join(", "),
+  showOnWeb: faq.showOnWeb,
+  useInChatbot: faq.useInChatbot,
   isActive: faq.isActive,
 });
+
+const parseKeywords = (value: string) =>
+  Array.from(new Set(value.split(",").map((item) => item.trim()).filter(Boolean)));
 
 export default function SiteSettingsPage() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const canWrite = user?.role === "ADMIN";
-  const canManage = user?.role === "ADMIN" || user?.role === "STAFF";
+  const canWrite = can(user, "settings.edit");
+  const canManage = can(user, "settings.view");
   const [activeTab, setActiveTab] = useState<TabKey>("settings");
+  const [homeForm, setHomeForm] = useState<HomePageConfigValue>(emptyHomePageForm);
   const [siteForm, setSiteForm] = useState<SiteForm>(emptySiteForm);
   const [bannerForm, setBannerForm] = useState<BannerForm>(emptyBannerForm);
   const [bannerWorkspaceOpen, setBannerWorkspaceOpen] = useState(false);
@@ -172,8 +218,8 @@ export default function SiteSettingsPage() {
   const [bannerActive, setBannerActive] = useState("");
   const [faqForm, setFAQForm] = useState<FAQForm>(emptyFAQForm);
   const [faqWorkspaceOpen, setFAQWorkspaceOpen] = useState(false);
-  const [editingFAQ, setEditingFAQ] = useState<PublicFAQ | null>(null);
-  const [deleteFAQ, setDeleteFAQ] = useState<PublicFAQ | null>(null);
+  const [editingFAQ, setEditingFAQ] = useState<DashboardFAQ | null>(null);
+  const [deleteFAQ, setDeleteFAQ] = useState<DashboardFAQ | null>(null);
   const [faqCategory, setFAQCategory] = useState("");
   const [appliedFAQCategory, setAppliedFAQCategory] = useState("");
   const [faqActive, setFAQActive] = useState("");
@@ -186,6 +232,7 @@ export default function SiteSettingsPage() {
   const faqListRef = useRef<HTMLElement | null>(null);
   const faqFormRef = useRef<HTMLDivElement | null>(null);
   const siteFormInitializedRef = useRef(false);
+  const homeFormInitializedRef = useRef(false);
 
   const bannerQuery = useMemo(
     () => ({
@@ -203,17 +250,20 @@ export default function SiteSettingsPage() {
     [appliedFAQCategory, faqActive],
   );
   const siteSettingsQuery = useDashboardSiteSettings(canManage && activeTab === "settings");
+  const homeConfigQuery = useDashboardHomePageConfig(canManage && activeTab === "home");
   const bannersQuery = useDashboardBanners(bannerQuery, canManage && activeTab === "banners");
   const faqsQuery = useDashboardFAQs(faqQuery, canManage && activeTab === "faqs");
   const siteRecord = siteSettingsQuery.data;
   const banners = bannersQuery.data ?? [];
   const faqs = faqsQuery.data ?? [];
-  const loading = activeTab === "settings"
-    ? siteSettingsQuery.isLoading
-    : activeTab === "banners"
+  const loading = activeTab === "home"
+    ? homeConfigQuery.isLoading
+    : activeTab === "settings"
+      ? siteSettingsQuery.isLoading
+      : activeTab === "banners"
       ? bannersQuery.isLoading
       : faqsQuery.isLoading;
-  const queryFailure = siteSettingsQuery.error || bannersQuery.error || faqsQuery.error;
+  const queryFailure = homeConfigQuery.error || siteSettingsQuery.error || bannersQuery.error || faqsQuery.error;
   const queryError = queryFailure instanceof Error
     ? queryFailure.message
     : queryFailure
@@ -230,6 +280,15 @@ export default function SiteSettingsPage() {
       queryClient.invalidateQueries({ queryKey: queryKeys.publicSiteSettings }),
       queryClient.invalidateQueries({ queryKey: queryKeys.publicHome }),
     ]);
+    publishPublicContentUpdated();
+  };
+
+  const invalidateHomePageConfig = async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: queryKeys.dashboardHomePageConfig }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.publicHome }),
+    ]);
+    publishPublicContentUpdated();
   };
 
   const invalidateBanners = async () => {
@@ -238,6 +297,7 @@ export default function SiteSettingsPage() {
       queryClient.invalidateQueries({ queryKey: ["public", "banners"] }),
       queryClient.invalidateQueries({ queryKey: queryKeys.publicHome }),
     ]);
+    publishPublicContentUpdated();
   };
 
   const invalidateFAQs = async () => {
@@ -246,6 +306,7 @@ export default function SiteSettingsPage() {
       queryClient.invalidateQueries({ queryKey: ["public", "faqs"] }),
       queryClient.invalidateQueries({ queryKey: queryKeys.publicHome }),
     ]);
+    publishPublicContentUpdated();
   };
 
   useEffect(() => {
@@ -257,6 +318,16 @@ export default function SiteSettingsPage() {
     }, 0);
     return () => window.clearTimeout(timeoutId);
   }, [siteSettingsQuery.data]);
+
+  useEffect(() => {
+    if (!homeConfigQuery.data || homeFormInitializedRef.current) return;
+    const timeoutId = window.setTimeout(() => {
+      if (!homeConfigQuery.data) return;
+      homeFormInitializedRef.current = true;
+      setHomeForm(homeConfigQuery.data.value);
+    }, 0);
+    return () => window.clearTimeout(timeoutId);
+  }, [homeConfigQuery.data]);
 
   useEffect(() => {
     if (!notice && !error) return;
@@ -286,6 +357,28 @@ export default function SiteSettingsPage() {
       setError(err instanceof Error ? err.message : "Không tải được ảnh lên");
     } finally {
       setUploading("");
+    }
+  };
+
+  const saveHomePageConfig = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!canWrite) return;
+    setSaving(true);
+    setError("");
+    setNotice("");
+    try {
+      const updated = await apiRequest<HomePageConfigRecord>(
+        "/dashboard/homepage-config",
+        { method: "PATCH", body: homeForm },
+      );
+      queryClient.setQueryData(queryKeys.dashboardHomePageConfig, updated);
+      setHomeForm(updated.value);
+      await invalidateHomePageConfig();
+      setNotice("Đã cập nhật bố cục và nội dung trang chủ");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Không lưu được cấu hình trang chủ");
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -441,7 +534,7 @@ export default function SiteSettingsPage() {
     scrollTo(faqFormRef);
   };
 
-  const startEditFAQ = (faq: PublicFAQ) => {
+  const startEditFAQ = (faq: DashboardFAQ) => {
     setFAQWorkspaceOpen(true);
     setEditingFAQ(faq);
     setDeleteFAQ(null);
@@ -462,16 +555,19 @@ export default function SiteSettingsPage() {
         answer: faqForm.answer.trim(),
         category: toNullable(faqForm.category),
         order: Number(faqForm.order || 0),
+        keywords: parseKeywords(faqForm.keywords),
+        showOnWeb: faqForm.showOnWeb,
+        useInChatbot: faqForm.useInChatbot,
         isActive: faqForm.isActive,
       };
       if (editingFAQ) {
-        await apiRequest<PublicFAQ>(`/dashboard/faqs/${editingFAQ.id}`, {
+        await apiRequest<DashboardFAQ>(`/dashboard/faqs/${editingFAQ.id}`, {
           method: "PATCH",
           body,
         });
         setNotice("Đã cập nhật câu hỏi thường gặp");
       } else {
-        await apiRequest<PublicFAQ>("/dashboard/faqs", {
+        await apiRequest<DashboardFAQ>("/dashboard/faqs", {
           method: "POST",
           body,
         });
@@ -488,12 +584,12 @@ export default function SiteSettingsPage() {
     }
   };
 
-  const toggleFAQ = async (faq: PublicFAQ) => {
+  const toggleFAQ = async (faq: DashboardFAQ) => {
     if (!canManage) return;
     setError("");
     setNotice("");
     try {
-      await apiRequest<PublicFAQ>(`/dashboard/faqs/${faq.id}`, {
+      await apiRequest<DashboardFAQ>(`/dashboard/faqs/${faq.id}`, {
         method: "PATCH",
         body: { isActive: !faq.isActive },
       });
@@ -510,7 +606,7 @@ export default function SiteSettingsPage() {
     setError("");
     setNotice("");
     try {
-      await apiRequest<PublicFAQ>(`/dashboard/faqs/${deleteFAQ.id}`, { method: "DELETE" });
+      await apiRequest<DashboardFAQ>(`/dashboard/faqs/${deleteFAQ.id}`, { method: "DELETE" });
       setDeleteFAQ(null);
       setNotice("Đã xoá câu hỏi thường gặp");
       await invalidateFAQs();
@@ -537,10 +633,11 @@ export default function SiteSettingsPage() {
         title="Cấu hình trang người dùng"
         description="Quản lý thông tin công khai, ảnh quảng bá và câu hỏi thường gặp trên hệ thống đặt lịch."
         actions={
-          <div className="flex flex-wrap gap-2">
-            <button type="button" onClick={startCreateBanner} className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm font-medium text-[#42526b]">Tạo ảnh quảng bá</button>
+          activeTab === "banners" ? (
+            <button type="button" onClick={startCreateBanner} className="rounded-md bg-[#0d4f8b] px-3 py-2 text-sm font-semibold text-white hover:bg-[#083d6d]">Tạo ảnh quảng bá</button>
+          ) : activeTab === "faqs" ? (
             <button type="button" onClick={startCreateFAQ} className="rounded-md bg-[#0d4f8b] px-3 py-2 text-sm font-semibold text-white hover:bg-[#083d6d]">Tạo câu hỏi</button>
-          </div>
+          ) : null
         }
       />
       <DashboardSurface className="p-4">
@@ -559,6 +656,76 @@ export default function SiteSettingsPage() {
       </DashboardSurface>
 
       {loading ? <section className="rounded-md border border-[#dce3ee] bg-white p-8 text-center text-sm text-[#667892]">Đang tải cấu hình trang người dùng...</section> : null}
+
+      {activeTab === "home" && !loading ? (
+        <form className="space-y-6" onSubmit={saveHomePageConfig}>
+          <DashboardSurface className="p-5">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <h3 className="text-lg font-semibold">Thanh chương trình dưới hero</h3>
+                <p className="mt-1 text-sm text-[#667892]">Nội dung công khai chạy trên trang chủ; không tạo thông báo đẩy tới tài khoản.</p>
+              </div>
+              <label className="inline-flex items-center gap-2 text-sm font-medium text-[#334155]">
+                <input type="checkbox" checked={homeForm.announcement.enabled} onChange={(event) => setHomeForm((current) => ({ ...current, announcement: { ...current.announcement, enabled: event.target.checked } }))} className="h-4 w-4 accent-[#0d4f8b]" />
+                Hiển thị
+              </label>
+            </div>
+            <div className="mt-5 grid gap-4 md:grid-cols-2">
+              <label className="block"><span className="text-sm font-medium text-[#334155]">Nhãn chương trình</span><input value={homeForm.announcement.label} onChange={(event) => setHomeForm((current) => ({ ...current, announcement: { ...current.announcement, label: event.target.value } }))} className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm" required /></label>
+              <label className="block"><span className="text-sm font-medium text-[#334155]">Nhãn nút</span><input value={homeForm.announcement.ctaLabel} onChange={(event) => setHomeForm((current) => ({ ...current, announcement: { ...current.announcement, ctaLabel: event.target.value } }))} className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm" required /></label>
+              <label className="block md:col-span-2"><span className="text-sm font-medium text-[#334155]">Nội dung chạy</span><textarea value={homeForm.announcement.message} onChange={(event) => setHomeForm((current) => ({ ...current, announcement: { ...current.announcement, message: event.target.value } }))} rows={2} className="mt-1 w-full resize-none rounded-md border border-[#cfd8e6] px-3 py-2 text-sm" required /></label>
+              <label className="block md:col-span-2"><span className="text-sm font-medium text-[#334155]">Đường dẫn nút</span><input value={homeForm.announcement.ctaHref} onChange={(event) => setHomeForm((current) => ({ ...current, announcement: { ...current.announcement, ctaHref: event.target.value } }))} placeholder="/goi-kham" className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm" required /></label>
+              <label className="block"><span className="text-sm font-medium text-[#334155]">Bắt đầu hiển thị</span><input type="datetime-local" value={toVietnamDateTimeInput(homeForm.announcement.startAt)} onChange={(event) => setHomeForm((current) => ({ ...current, announcement: { ...current.announcement, startAt: fromVietnamDateTimeInput(event.target.value) } }))} className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm" /></label>
+              <label className="block"><span className="text-sm font-medium text-[#334155]">Kết thúc hiển thị</span><input type="datetime-local" value={toVietnamDateTimeInput(homeForm.announcement.endAt)} onChange={(event) => setHomeForm((current) => ({ ...current, announcement: { ...current.announcement, endAt: fromVietnamDateTimeInput(event.target.value) } }))} className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm" /></label>
+            </div>
+          </DashboardSurface>
+
+          <div className="grid gap-5 xl:grid-cols-2">
+            {configurableHomeSections.map(({ key, label }) => {
+              const section = homeForm.sections[key];
+              const updateSection = (patch: Partial<HomePageSectionConfig>) => setHomeForm((current) => ({
+                ...current,
+                sections: { ...current.sections, [key]: { ...current.sections[key], ...patch } },
+              }));
+              return (
+                <DashboardSurface key={key} className="p-5">
+                  <div className="flex items-center justify-between gap-3">
+                    <h3 className="text-base font-semibold">Section {label}</h3>
+                    <label className="inline-flex items-center gap-2 text-sm font-medium"><input type="checkbox" checked={section.enabled} onChange={(event) => updateSection({ enabled: event.target.checked })} className="h-4 w-4 accent-[#0d4f8b]" />Hiển thị</label>
+                  </div>
+                  <div className="mt-4 space-y-3">
+                    <label className="block"><span className="text-sm font-medium text-[#334155]">Nhãn nhỏ</span><input value={section.eyebrow} onChange={(event) => updateSection({ eyebrow: event.target.value })} className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm" /></label>
+                    <label className="block"><span className="text-sm font-medium text-[#334155]">Tiêu đề</span><input value={section.title} onChange={(event) => updateSection({ title: event.target.value })} className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm" required /></label>
+                    <label className="block"><span className="text-sm font-medium text-[#334155]">Mô tả</span><textarea value={section.description} onChange={(event) => updateSection({ description: event.target.value })} rows={2} className="mt-1 w-full resize-none rounded-md border border-[#cfd8e6] px-3 py-2 text-sm" /></label>
+                    <div className="block">
+                      <span className="mb-1 block text-sm font-medium text-[#334155]">Số mục hiển thị</span>
+                      <NumberStepper
+                        label={`Số mục hiển thị của section ${label}`}
+                        value={section.limit}
+                        min={1}
+                        max={12}
+                        disabled={!canWrite || saving}
+                        onChange={(limit) => updateSection({ limit })}
+                      />
+                    </div>
+                  </div>
+                </DashboardSurface>
+              );
+            })}
+          </div>
+
+          <DashboardSurface className="p-5">
+            <h3 className="text-base font-semibold">Các vùng chức năng cố định</h3>
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              <label className="flex items-center justify-between rounded-md border border-[#dce3ee] px-4 py-3 text-sm font-medium"><span>Dịch vụ nhanh</span><input type="checkbox" checked={homeForm.sections.serviceHub.enabled} onChange={(event) => setHomeForm((current) => ({ ...current, sections: { ...current.sections, serviceHub: { enabled: event.target.checked } } }))} className="h-4 w-4 accent-[#0d4f8b]" /></label>
+            </div>
+          </DashboardSurface>
+
+          <div className="flex justify-end">
+            <button disabled={!canWrite || saving} className="rounded-md bg-[#0d4f8b] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#083d6d] disabled:opacity-60">{saving ? "Đang lưu..." : "Lưu cấu hình trang chủ"}</button>
+          </div>
+        </form>
+      ) : null}
 
       {activeTab === "settings" ? (
         <DashboardSurface className="p-5">
@@ -657,12 +824,12 @@ export default function SiteSettingsPage() {
           <section ref={faqListRef} className="min-w-0 scroll-mt-24 rounded-md border border-[#dce3ee] bg-white">
             <form onSubmit={(event) => { event.preventDefault(); setAppliedFAQCategory(faqCategory.trim()); }} className="grid gap-3 border-b border-[#e5ebf3] p-4 md:grid-cols-[1fr_180px_auto]"><input value={faqCategory} onChange={(e) => setFAQCategory(e.target.value)} placeholder="Lọc nhóm, ví dụ đặt lịch" list="faq-categories" className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" /><select value={faqActive} onChange={(e) => setFAQActive(e.target.value)} className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]"><option value="">Tất cả trạng thái</option><option value="true">Đang bật</option><option value="false">Đang tắt</option></select><button type="submit" className="inline-flex items-center justify-center gap-2 rounded-md border border-[var(--border)] px-3 py-2 text-sm font-semibold"><Search className="h-4 w-4" />Lọc</button></form>
             <datalist id="faq-categories">{faqCategories.map((category) => <option key={category} value={category} />)}</datalist>
-            <div className="divide-y divide-[#eef2f7]">{faqs.length ? faqs.map((faq) => <article key={faq.id} className={`p-4 transition-colors ${editingFAQ?.id === faq.id || deleteFAQ?.id === faq.id ? "bg-[var(--primary-soft)]" : "hover:bg-[var(--surface-soft)]"}`}><div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between"><div><div className="flex flex-wrap items-center gap-2"><h3 className="font-semibold">{faq.question}</h3><DashboardStatusBadge tone={faq.isActive ? "positive" : "neutral"}>{faq.isActive ? "Đang bật" : "Đang tắt"}</DashboardStatusBadge></div><p className="mt-2 text-sm text-[#667892]">{faq.answer}</p><p className="mt-2 text-xs text-[#8a98aa]">{faq.category || "chung"} - thứ tự {faq.order}</p></div><div className="flex flex-wrap gap-2 lg:justify-end"><button type="button" onClick={() => startEditFAQ(faq)} className="rounded-md border border-[#cfd8e6] px-3 py-1.5 text-xs font-medium text-[#42526b]">Sửa</button><button type="button" onClick={() => void toggleFAQ(faq)} className="rounded-md border border-[#cfd8e6] px-3 py-1.5 text-xs font-medium text-[#42526b]">{faq.isActive ? "Tắt" : "Bật"}</button>{canWrite ? <button type="button" onClick={() => { setFAQWorkspaceOpen(true); setDeleteFAQ(faq); scrollTo(faqFormRef); }} className="rounded-md border border-[#f2b8b5] px-3 py-1.5 text-xs font-medium text-[#b3261e]">Xoá</button> : null}</div></div></article>) : <p className="p-8 text-center text-sm text-[#667892]">Chưa có câu hỏi phù hợp.</p>}</div>
+            <div className="divide-y divide-[#eef2f7]">{faqs.length ? faqs.map((faq) => <article key={faq.id} className={`p-4 transition-colors ${editingFAQ?.id === faq.id || deleteFAQ?.id === faq.id ? "bg-[var(--primary-soft)]" : "hover:bg-[var(--surface-soft)]"}`}><div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between"><div><div className="flex flex-wrap items-center gap-2"><h3 className="font-semibold">{faq.question}</h3><DashboardStatusBadge tone={faq.isActive ? "positive" : "neutral"}>{faq.isActive ? "Đang bật" : "Đang tắt"}</DashboardStatusBadge></div><p className="mt-2 text-sm text-[#667892]">{faq.answer}</p><p className="mt-2 text-xs text-[#8a98aa]">{faq.category || "chung"} - thứ tự {faq.order}{faq.showOnWeb ? " - hiện trên web" : ""}{faq.useInChatbot ? " - dùng cho trợ lý" : ""}</p>{faq.keywords.length ? <div className="mt-2 flex flex-wrap gap-1.5">{faq.keywords.map((keyword) => <span key={keyword} className="rounded-md bg-[#f1f5f9] px-2 py-0.5 text-xs text-[#42526b]">{keyword}</span>)}</div> : null}</div><div className="flex flex-wrap gap-2 lg:justify-end"><button type="button" onClick={() => startEditFAQ(faq)} className="rounded-md border border-[#cfd8e6] px-3 py-1.5 text-xs font-medium text-[#42526b]">Sửa</button><button type="button" onClick={() => void toggleFAQ(faq)} className="rounded-md border border-[#cfd8e6] px-3 py-1.5 text-xs font-medium text-[#42526b]">{faq.isActive ? "Tắt" : "Bật"}</button>{canWrite ? <button type="button" onClick={() => { setFAQWorkspaceOpen(true); setDeleteFAQ(faq); scrollTo(faqFormRef); }} className="rounded-md border border-[#f2b8b5] px-3 py-1.5 text-xs font-medium text-[#b3261e]">Xoá</button> : null}</div></div></article>) : <p className="p-8 text-center text-sm text-[#667892]">Chưa có câu hỏi phù hợp.</p>}</div>
           </section>
           {faqWorkspaceOpen ? <div ref={faqFormRef} className="order-first scroll-mt-24 xl:order-none">
-          <DashboardWorkspace open={faqWorkspaceOpen} onOpenChange={setFAQWorkspaceOpen} title={deleteFAQ ? "Xoá câu hỏi" : editingFAQ ? "Cập nhật câu hỏi" : "Tạo câu hỏi"} description="Nội dung hỗ trợ người dùng tự tìm câu trả lời trước khi liên hệ bệnh viện.">
+          <DashboardWorkspace open={faqWorkspaceOpen} onOpenChange={setFAQWorkspaceOpen} title={deleteFAQ ? "Xoá câu hỏi" : editingFAQ ? "Cập nhật câu hỏi" : "Tạo câu hỏi"} description="Một nguồn câu hỏi cho trang Hỏi đáp và trợ lý ảo.">
             {deleteFAQ ? <div className="mb-5 rounded-md border border-[#f2b8b5] bg-[#fff3f2] p-4"><h3 className="font-semibold text-[#b3261e]">Xoá câu hỏi này?</h3><p className="mt-2 text-sm text-[#5f2630]">{deleteFAQ.question}</p><div className="mt-3 flex gap-2"><button type="button" disabled={saving} onClick={() => void confirmDeleteFAQ()} className="rounded-md bg-[#b3261e] px-3 py-2 text-sm font-semibold text-white disabled:opacity-60">Xoá</button><button type="button" onClick={() => setDeleteFAQ(null)} className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm font-medium text-[#42526b]">Huỷ</button></div></div> : null}
-            {!deleteFAQ ? <form className="space-y-4" onSubmit={saveFAQ}><label className="block"><span className="text-sm font-medium text-[#334155]">Câu hỏi</span><textarea value={faqForm.question} onChange={(e) => setFAQForm((current) => ({ ...current, question: e.target.value }))} rows={3} className="mt-1 w-full resize-none rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" required /></label><label className="block"><span className="text-sm font-medium text-[#334155]">Câu trả lời</span><textarea value={faqForm.answer} onChange={(e) => setFAQForm((current) => ({ ...current, answer: e.target.value }))} rows={5} className="mt-1 w-full resize-none rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" required /></label><div className="grid gap-3 sm:grid-cols-2"><label className="block"><span className="text-sm font-medium text-[#334155]">Nhóm nội dung</span><input value={faqForm.category} onChange={(e) => setFAQForm((current) => ({ ...current, category: e.target.value }))} list="faq-categories" className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" /></label><label className="block"><span className="text-sm font-medium text-[#334155]">Thứ tự</span><input value={faqForm.order} onChange={(e) => setFAQForm((current) => ({ ...current, order: e.target.value.replace(/\D/g, "") }))} inputMode="numeric" className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" /></label></div><label className="flex items-center justify-between rounded-md border border-[#e5ebf3] px-3 py-2"><span className="text-sm font-medium text-[#334155]">Đang bật</span><input type="checkbox" checked={faqForm.isActive} onChange={(e) => setFAQForm((current) => ({ ...current, isActive: e.target.checked }))} className="h-4 w-4 accent-[#0d4f8b]" /></label><div className="flex gap-2"><button disabled={saving} className="flex-1 rounded-md bg-[#0d4f8b] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#083d6d] disabled:opacity-60">{saving ? "Đang lưu..." : editingFAQ ? "Lưu thay đổi" : "Tạo câu hỏi"}</button>{editingFAQ ? <button type="button" onClick={startCreateFAQ} className="rounded-md border border-[#cfd8e6] px-4 py-2.5 text-sm font-medium text-[#42526b]">Huỷ</button> : null}</div></form> : null}
+            {!deleteFAQ ? <form className="space-y-4" onSubmit={saveFAQ}><label className="block"><span className="text-sm font-medium text-[#334155]">Câu hỏi</span><textarea value={faqForm.question} onChange={(e) => setFAQForm((current) => ({ ...current, question: e.target.value }))} rows={3} className="mt-1 w-full resize-none rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" required /></label><label className="block"><span className="text-sm font-medium text-[#334155]">Câu trả lời</span><textarea value={faqForm.answer} onChange={(e) => setFAQForm((current) => ({ ...current, answer: e.target.value }))} rows={5} className="mt-1 w-full resize-none rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" required /></label><div className="grid gap-3 sm:grid-cols-2"><label className="block"><span className="text-sm font-medium text-[#334155]">Nhóm nội dung</span><input value={faqForm.category} onChange={(e) => setFAQForm((current) => ({ ...current, category: e.target.value }))} list="faq-categories" className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" /></label><label className="block"><span className="text-sm font-medium text-[#334155]">Thứ tự</span><input value={faqForm.order} onChange={(e) => setFAQForm((current) => ({ ...current, order: e.target.value.replace(/\D/g, "") }))} inputMode="numeric" className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" /></label></div><label className="block"><span className="text-sm font-medium text-[#334155]">Từ khóa cho trợ lý</span><input value={faqForm.keywords} onChange={(e) => setFAQForm((current) => ({ ...current, keywords: e.target.value }))} placeholder="đặt lịch, khám, bác sĩ" className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" /><span className="mt-1 block text-xs text-[#667892]">Phân tách bằng dấu phẩy, tối đa 20 từ khóa.</span></label><label className="flex items-center justify-between rounded-md border border-[#e5ebf3] px-3 py-2"><span className="text-sm font-medium text-[#334155]">Hiện trên trang Hỏi đáp</span><input type="checkbox" checked={faqForm.showOnWeb} onChange={(e) => setFAQForm((current) => ({ ...current, showOnWeb: e.target.checked }))} className="h-4 w-4 accent-[#0d4f8b]" /></label><label className="flex items-center justify-between rounded-md border border-[#e5ebf3] px-3 py-2"><span className="text-sm font-medium text-[#334155]">Dùng cho trợ lý ảo</span><input type="checkbox" checked={faqForm.useInChatbot} onChange={(e) => setFAQForm((current) => ({ ...current, useInChatbot: e.target.checked }))} className="h-4 w-4 accent-[#0d4f8b]" /></label><label className="flex items-center justify-between rounded-md border border-[#e5ebf3] px-3 py-2"><span className="text-sm font-medium text-[#334155]">Đang bật</span><input type="checkbox" checked={faqForm.isActive} onChange={(e) => setFAQForm((current) => ({ ...current, isActive: e.target.checked }))} className="h-4 w-4 accent-[#0d4f8b]" /></label><div className="flex gap-2"><button disabled={saving} className="flex-1 rounded-md bg-[#0d4f8b] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#083d6d] disabled:opacity-60">{saving ? "Đang lưu..." : editingFAQ ? "Lưu thay đổi" : "Tạo câu hỏi"}</button>{editingFAQ ? <button type="button" onClick={startCreateFAQ} className="rounded-md border border-[#cfd8e6] px-4 py-2.5 text-sm font-medium text-[#42526b]">Huỷ</button> : null}</div></form> : null}
           </DashboardWorkspace>
           </div> : null}
         </div>

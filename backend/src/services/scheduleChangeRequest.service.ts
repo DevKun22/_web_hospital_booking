@@ -77,7 +77,7 @@ class ScheduleChangeRequestService {
   async create(input: CreateInput, actor: Actor) {
     if (actor.role !== "DOCTOR") throw new AppError("Chỉ bác sĩ mới có thể gửi yêu cầu đổi lịch", 403);
     validateTimeRange(input.startTime, input.endTime);
-    if (input.maxPatients !== 1) throw new AppError("Mỗi slot hiện chỉ hỗ trợ một bệnh nhân", 400);
+    if (input.maxPatients !== 1) throw new AppError("Mỗi khung giờ hiện chỉ hỗ trợ một người khám", 400);
 
     const effectiveFrom = parseDateOnly(input.effectiveFrom);
     const today = parseDateOnly(new Intl.DateTimeFormat("sv-SE", { timeZone: "Asia/Ho_Chi_Minh" }).format(new Date()));

@@ -1,5 +1,3 @@
-import { initializeApp, getApps, type FirebaseApp } from "firebase/app";
-import { getAI, getGenerativeModel, GoogleAIBackend } from "firebase/ai";
 import { AppError } from "../../../utils/appError.js";
 import type { AIAdapter, GenerateReplyInput } from "./ai.adapter.js";
 
@@ -21,60 +19,74 @@ const getAIRequestTimeoutMs = () => {
   );
 };
 
-const getFirebaseConfig = () => ({
-  apiKey: process.env.FIREBASE_API_KEY || process.env.API_KEY,
-  authDomain: process.env.FIREBASE_AUTH_DOMAIN || process.env.AUTH_DOMAIN,
-  projectId: process.env.FIREBASE_PROJECT_ID || process.env.PROJECT_ID,
-  storageBucket:
-    process.env.FIREBASE_STORAGE_BUCKET || process.env.STORAGE_BUCKET,
-  messagingSenderId:
-    process.env.FIREBASE_MESSAGING_SENDER_ID || process.env.MESSAGING_SENDER_ID,
-  appId: process.env.FIREBASE_APP_ID || process.env.APP_ID,
-  measurementId:
-    process.env.FIREBASE_MEASUREMENT_ID || process.env.MEASUREMENT_ID,
-});
-
-const getFirebaseApp = (): FirebaseApp => {
-  const config = getFirebaseConfig();
-
-  if (!config.apiKey) {
-    throw new AppError("Chưa cấu hình FIREBASE_API_KEY hoặc API_KEY", 500);
+// Gọi REST trực tiếp thay vì kéo cả Firebase client SDK vào backend.
+// - GEMINI_API_KEY: Gemini Developer API (generativelanguage.googleapis.com).
+// - Nếu không có, dùng proxy Firebase AI Logic với FIREBASE_API_KEY +
+//   FIREBASE_PROJECT_ID (cùng endpoint mà SDK firebase/ai đã dùng trước đây).
+const resolveEndpoint = (model: string) => {
+  const geminiKey = process.env.GEMINI_API_KEY?.trim();
+  if (geminiKey) {
+    return {
+      url: `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
+      apiKey: geminiKey,
+    };
   }
 
-  if (!config.projectId) {
+  const firebaseKey = (process.env.FIREBASE_API_KEY || process.env.API_KEY)?.trim();
+  const projectId = (process.env.FIREBASE_PROJECT_ID || process.env.PROJECT_ID)?.trim();
+  if (!firebaseKey || !projectId) {
     throw new AppError(
-      "Chưa cấu hình FIREBASE_PROJECT_ID hoặc PROJECT_ID",
+      "Chưa cấu hình GEMINI_API_KEY hoặc FIREBASE_API_KEY + FIREBASE_PROJECT_ID",
       500,
     );
   }
+  return {
+    url: `https://firebasevertexai.googleapis.com/v1beta/projects/${encodeURIComponent(projectId)}/models/${encodeURIComponent(model)}:generateContent`,
+    apiKey: firebaseKey,
+  };
+};
 
-  if (!config.appId) {
-    throw new AppError("Chưa cấu hình FIREBASE_APP_ID hoặc APP_ID", 500);
-  }
-
-  return getApps()[0] || initializeApp(config);
+type GenerateContentResponse = {
+  candidates?: { content?: { parts?: { text?: string }[] } }[];
+  error?: { message?: string };
 };
 
 export class GeminiAdapter implements AIAdapter {
   async generateReply(input: GenerateReplyInput) {
-    const firebaseApp = getFirebaseApp();
-    const ai = getAI(firebaseApp, { backend: new GoogleAIBackend() });
-    const model = getGenerativeModel(ai, {
-      model: getModel(input.model),
-      systemInstruction: input.systemPrompt,
-      generationConfig: {
-        temperature: 0.2,
-        topP: 0.8,
-        maxOutputTokens: 4096,
-        responseMimeType: "application/json",
-      },
-    });
+    const endpoint = resolveEndpoint(getModel(input.model));
 
     try {
-      const result = await model.generateContent(input.userPrompt, {
-        timeout: getAIRequestTimeoutMs(),
+      const response = await fetch(endpoint.url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-goog-api-key": endpoint.apiKey,
+        },
+        body: JSON.stringify({
+          systemInstruction: { role: "system", parts: [{ text: input.systemPrompt }] },
+          contents: [{ role: "user", parts: [{ text: input.userPrompt }] }],
+          generationConfig: {
+            temperature: 0.2,
+            topP: 0.8,
+            maxOutputTokens: 4096,
+            responseMimeType: "application/json",
+          },
+        }),
+        signal: AbortSignal.timeout(getAIRequestTimeoutMs()),
       });
-      const text = result.response.text().trim();
+
+      const payload = (await response.json().catch(() => ({}))) as GenerateContentResponse;
+      if (!response.ok) {
+        throw new AppError(
+          payload.error?.message || `Gemini trả về lỗi HTTP ${response.status}`,
+          502,
+        );
+      }
+
+      const text = (payload.candidates?.[0]?.content?.parts || [])
+        .map((part) => part.text || "")
+        .join("")
+        .trim();
 
       if (!text) {
         throw new AppError("Gemini không trả về nội dung", 502);

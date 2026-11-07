@@ -10,6 +10,7 @@ import { queryKeys } from "@/lib/query-keys";
 import type {
   Banner,
   DoctorProfile,
+  HomePageConfigValue,
   MedicalPackage,
   PublicFAQ,
   SiteSettingsValue,
@@ -17,24 +18,21 @@ import type {
 
 export const buildPublicHomeData = (
   settings: SiteSettingsValue,
+  homeConfig: HomePageConfigValue | null,
   banners: Banner[],
   departments: PublicHomeData["departments"],
   doctors: DoctorProfile[],
   packages: MedicalPackage[],
   faqs: PublicFAQ[],
 ): PublicHomeData => {
-  const heroPositions = new Set(["HOME_HERO", "HOME_PROMO", "HOME_DEPARTMENT"]);
-  const heroBanners = banners.filter((banner) =>
-    heroPositions.has(banner.position),
-  );
-  const promoBanners = banners.filter(
-    (banner) => banner.position === "HOME_PROMO",
-  );
+  const heroBanners = banners.filter((banner) => banner.position === "HOME_HERO");
 
   return {
     settings,
-    heroBanners: heroBanners.length ? heroBanners : banners,
-    promoBanners,
+    homeConfig,
+    heroBanners,
+    promoBanners: [],
+    partnerBanners: banners.filter((banner) => banner.position === "HOME_PARTNER"),
     departments,
     doctors,
     packages,
@@ -45,15 +43,17 @@ export const buildPublicHomeData = (
 export const fetchPublicHomeData = async () => {
   const bootstrap = await apiRequest<{
     siteSettings: SiteSettingsValue;
+    homeConfig: HomePageConfigValue | null;
     banners: Banner[];
     departments: PublicHomeData["departments"];
     doctors: DoctorProfile[];
     packages: MedicalPackage[];
     faqs: PublicFAQ[];
-  }>("/public/bootstrap", { query: { view: "full" } });
+  }>("/public/bootstrap", { query: { view: "featured" } });
 
   return buildPublicHomeData(
     bootstrap.siteSettings,
+    bootstrap.homeConfig,
     bootstrap.banners || [],
     bootstrap.departments,
     bootstrap.doctors,
@@ -68,6 +68,7 @@ export const fetchPublicSiteSettings = () =>
 export const hasPublicHomeData = (data: PublicHomeData) =>
   Boolean(
     data.settings ||
+    data.homeConfig ||
     data.heroBanners.length ||
     data.departments.length ||
     data.doctors.length ||
@@ -76,12 +77,18 @@ export const hasPublicHomeData = (data: PublicHomeData) =>
   );
 
 export function usePublicHomeData(initialData: PublicHomeData = emptyHomeData) {
+  const hasInitialData = hasPublicHomeData(initialData);
+
   return useQuery({
     queryKey: queryKeys.publicHome,
     queryFn: fetchPublicHomeData,
-    initialData: hasPublicHomeData(initialData) ? initialData : undefined,
-    staleTime: 5 * 60 * 1000,
-    refetchOnWindowFocus: false,
+    initialData: hasInitialData ? initialData : undefined,
+    // Dữ liệu SSR có thể đến từ cache của Next.js. Đánh dấu dữ liệu khởi tạo
+    // là cũ để trình duyệt kiểm tra lại đúng một lần sau khi hydrate.
+    initialDataUpdatedAt: hasInitialData ? 0 : undefined,
+    staleTime: 60 * 1000,
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
     refetchOnReconnect: true,
   });
 }

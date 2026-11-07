@@ -1,7 +1,9 @@
 "use client";
 
-import { FormEvent, useMemo, useState } from "react";
+import { can } from "@/lib/permissions";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { ArrowRight, RefreshCw } from "lucide-react";
 import {
   Area,
@@ -55,25 +57,8 @@ const paymentLabel: Record<PaymentMethod, string> = {
   CASH: "Tiền mặt",
   CARD: "Thẻ",
   BANK_TRANSFER: "Chuyển khoản",
-  MOMO: "MoMo",
   VNPAY: "VNPay",
   OTHER: "Khác",
-};
-
-const searchTypeLabel: Record<string, string> = {
-  all: "Tất cả",
-  department: "Chuyên khoa",
-  doctor: "Bác sĩ",
-  package: "Gói khám",
-  faq: "Câu hỏi",
-  chatbot_faq: "Trợ lý",
-};
-
-const searchSourceLabel: Record<string, string> = {
-  elasticsearch: "Elasticsearch",
-  postgres: "PostgreSQL",
-  empty: "Rỗng",
-  unknown: "Không rõ",
 };
 
 const slotLabel: Record<string, string> = {
@@ -185,44 +170,17 @@ function ActionRow({
   );
 }
 
-function SearchAnalyticsList({
-  title,
-  items,
-  empty,
-  tone = "blue",
-}: {
-  title: string;
-  items: { label: string; value: string }[];
-  empty: string;
-  tone?: "blue" | "amber";
-}) {
-  const badgeClass = tone === "amber"
-    ? "bg-[#fff8eb] text-[#946200]"
-    : "bg-[#e7f0fb] text-[#0d4f8b]";
-
-  return (
-    <div className="rounded-xl border border-border bg-muted/30 p-4">
-      <h4 className="text-sm font-semibold text-foreground">{title}</h4>
-      <div className="mt-3 space-y-2">
-        {items.length ? items.map((item, index) => (
-          <div key={`${item.label}-${index}`} className="flex items-center justify-between gap-3 rounded-lg bg-card px-3 py-2 text-sm">
-            <span className="min-w-0 truncate text-foreground/80">{item.label}</span>
-            <span className={`shrink-0 rounded-md px-2 py-1 text-xs font-semibold ${badgeClass}`}>{item.value}</span>
-          </div>
-        )) : (
-          <p className="rounded-lg border border-dashed border-border bg-card px-3 py-4 text-center text-xs text-muted-foreground">
-            {empty}
-          </p>
-        )}
-      </div>
-    </div>
-  );
-}
-
 function DashboardPage() {
   const { user } = useAuth();
-  const canViewStats = user?.role === "ADMIN" || user?.role === "STAFF";
+  const canViewStats = can(user, "stats.view");
   const isDoctorDashboard = user?.role === "DOCTOR";
+  // Dược sĩ không có số liệu vận hành; đưa thẳng tới hàng đợi cấp thuốc.
+  const router = useRouter();
+  const goesToPharmacy =
+    can(user, "pharmacy.view") && !canViewStats && !isDoctorDashboard;
+  useEffect(() => {
+    if (goesToPharmacy) router.replace("/dashboard/pharmacy");
+  }, [goesToPharmacy, router]);
   const monthRange = useMemo(() => getMonthRange(), []);
   const todayDate = useMemo(() => toDateInput(new Date()), []);
   const [from, setFrom] = useState(monthRange.from);
@@ -334,6 +292,8 @@ function DashboardPage() {
   const completedTodayCount = (doctorDashboard?.todayAppointments || []).filter((item) => item.status === "COMPLETED").length;
   const waitingTodayCount = (doctorDashboard?.todayAppointments || []).filter((item) => ["CONFIRMED", "CHECKED_IN"].includes(item.status)).length;
 
+  if (goesToPharmacy) return null;
+
   if (isDoctorDashboard) {
     return (
       <div className="space-y-6">
@@ -376,7 +336,7 @@ function DashboardPage() {
             <div className="flex items-start justify-between gap-3">
               <div>
                 <h3 className="font-semibold">Việc cần xử lý</h3>
-                <p className="mt-1 text-sm text-[#667892]">Ưu tiên ca đang khám, bệnh nhân đã check-in và hồ sơ còn nháp.</p>
+                <p className="mt-1 text-sm text-[#667892]">Ưu tiên ca đang khám, người khám đã tiếp nhận và hồ sơ còn nháp.</p>
               </div>
               <Link href="/dashboard/medical-records" className="rounded-md border border-[#cfd8e6] px-3 py-1.5 text-xs font-medium text-[#42526b]">Mở hồ sơ</Link>
             </div>
@@ -423,7 +383,7 @@ function DashboardPage() {
           <div className="flex items-start justify-between gap-3">
             <div>
               <h3 className="font-semibold">Lịch hẹn hôm nay</h3>
-              <p className="mt-1 text-sm text-[#667892]">Danh sách bệnh nhân trong ngày để bác sĩ bắt đầu hoặc tiếp tục quy trình khám.</p>
+              <p className="mt-1 text-sm text-[#667892]">Danh sách người khám trong ngày để bác sĩ bắt đầu hoặc tiếp tục quy trình khám.</p>
             </div>
             <Link href="/dashboard/appointments" className="rounded-md border border-[#cfd8e6] px-3 py-1.5 text-xs font-medium text-[#42526b]">Xem tất cả</Link>
           </div>
@@ -431,7 +391,7 @@ function DashboardPage() {
             <table className="w-full min-w-[760px] border-separate border-spacing-0 text-left text-sm">
               <thead>
                 <tr className="text-[#667892]">
-                  <th className="border-b border-[#e5ebf3] py-3 font-semibold">Bệnh nhân</th>
+                  <th className="border-b border-[#e5ebf3] py-3 font-semibold">Người khám</th>
                   <th className="border-b border-[#e5ebf3] py-3 font-semibold">Thời gian</th>
                   <th className="border-b border-[#e5ebf3] py-3 font-semibold">Lý do khám</th>
                   <th className="border-b border-[#e5ebf3] py-3 font-semibold">Trạng thái</th>
@@ -535,72 +495,12 @@ function DashboardPage() {
           </div>
           <div>
             <h3 className="text-sm font-semibold uppercase tracking-wide text-[#667892]">Tài chính và tăng trưởng</h3>
-            <div className="mt-3 grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
-              <MetricCard title="Bệnh nhân mới" value={formatNumber(overview.metrics.newPatients)} tone="blue" />
-              <MetricCard title="Tư vấn trong kỳ" value={formatNumber(overview.metrics.consultationRequests)} tone="blue" />
-              <MetricCard title="Tư vấn cần xử lý" value={formatNumber(overview.metrics.pendingConsultationRequests)} tone="amber" />
+            <div className="mt-3 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+              <MetricCard title="Người khám mới" value={formatNumber(overview.metrics.newPatients)} tone="blue" />
               <MetricCard title="Hóa đơn chưa TT" value={formatNumber(overview.metrics.unpaidInvoices)} tone="amber" />
               <MetricCard title="Đã thu" value={formatCurrency(overview.metrics.collectedAmount)} tone="green" />
               <MetricCard title="Doanh thu thuần" value={formatCurrency(overview.metrics.netAmount)} tone="green" caption={`Hoàn tiền ${formatCurrency(overview.metrics.refundedAmount)}`} />
             </div>
-          </div>
-        </section>
-      ) : null}
-
-      {overview ? (
-        <section className="rounded-md border border-[#dce3ee] bg-white p-5">
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-            <div>
-              <h3 className="font-semibold">Hành vi tìm kiếm</h3>
-              <p className="mt-1 text-sm text-[#667892]">
-                Theo dõi từ khóa người dùng tìm trên website để bổ sung nội dung, FAQ và dữ liệu chatbot.
-              </p>
-            </div>
-            <Link href="/search" className="w-fit rounded-md border border-[#cfd8e6] px-3 py-1.5 text-xs font-medium text-[#42526b] hover:bg-[#f8fafc]">
-              Mở trang tìm kiếm
-            </Link>
-          </div>
-
-          <div className="mt-4 grid gap-4 sm:grid-cols-3">
-            <MetricCard title="Lượt tìm kiếm" value={formatNumber(overview.searchAnalytics.metrics.totalSearches)} tone="blue" />
-            <MetricCard title="Không có kết quả" value={formatNumber(overview.searchAnalytics.metrics.emptySearches)} tone={overview.searchAnalytics.metrics.emptySearches ? "amber" : "green"} />
-            <MetricCard title="Tỷ lệ có kết quả" value={`${formatNumber(overview.searchAnalytics.metrics.successRate)}%`} tone="green" />
-          </div>
-
-          <div className="mt-5 grid gap-4 xl:grid-cols-4">
-            <SearchAnalyticsList
-              title="Top từ khóa"
-              empty="Chưa có lượt tìm kiếm."
-              items={overview.searchAnalytics.topKeywords.map((item) => ({
-                label: item.keyword,
-                value: formatNumber(item.count),
-              }))}
-            />
-            <SearchAnalyticsList
-              title="Cần bổ sung nội dung"
-              empty="Chưa có từ khóa rỗng."
-              tone="amber"
-              items={overview.searchAnalytics.emptyKeywords.map((item) => ({
-                label: item.keyword,
-                value: formatNumber(item.count),
-              }))}
-            />
-            <SearchAnalyticsList
-              title="Theo loại dữ liệu"
-              empty="Chưa có dữ liệu loại."
-              items={overview.searchAnalytics.byType.map((item) => ({
-                label: searchTypeLabel[item.type] || item.type,
-                value: formatNumber(item.count),
-              }))}
-            />
-            <SearchAnalyticsList
-              title="Theo nguồn"
-              empty="Chưa có dữ liệu nguồn."
-              items={overview.searchAnalytics.bySource.map((item) => ({
-                label: searchSourceLabel[item.source] || item.source,
-                value: formatNumber(item.count),
-              }))}
-            />
           </div>
         </section>
       ) : null}
@@ -643,7 +543,6 @@ function DashboardPage() {
             <p className="mt-1 text-sm text-[#667892]">Các điểm nên kiểm tra trước trong ca vận hành.</p>
             <div className="mt-4 space-y-3">
               <ActionRow title="Lịch chờ xác nhận" value={formatNumber(overview.metrics.pendingConfirmAppointments)} href="/dashboard/appointments" tone="amber" />
-              <ActionRow title="Tư vấn cần xử lý" value={formatNumber(overview.metrics.pendingConsultationRequests)} href="/dashboard/consultation-requests?status=NEW" tone="amber" />
               <ActionRow title="Hoàn tất chưa có hóa đơn" value={formatNumber(overview.metrics.completedWithoutInvoiceAppointments)} href="/dashboard/invoices" tone="amber" />
               <ActionRow title="Hóa đơn chưa thanh toán" value={formatNumber(overview.metrics.unpaidInvoices)} href="/dashboard/invoices" tone="amber" />
               <ActionRow title="Hủy / no-show trong kỳ" value={formatNumber(overview.metrics.cancelledAppointments)} href="/dashboard/appointments" tone="red" />
@@ -807,7 +706,7 @@ function DashboardPage() {
           </div>
           <div className="mt-4 overflow-x-auto">
             <table className="w-full min-w-[760px] border-separate border-spacing-0 text-left text-sm">
-              <thead><tr className="text-[#667892]"><th className="border-b border-[#e5ebf3] py-3 font-semibold">Mã lịch</th><th className="border-b border-[#e5ebf3] py-3 font-semibold">Bệnh nhân</th><th className="border-b border-[#e5ebf3] py-3 font-semibold">Bác sĩ</th><th className="border-b border-[#e5ebf3] py-3 font-semibold">Thời gian</th><th className="border-b border-[#e5ebf3] py-3 font-semibold">Trạng thái</th></tr></thead>
+              <thead><tr className="text-[#667892]"><th className="border-b border-[#e5ebf3] py-3 font-semibold">Mã lịch</th><th className="border-b border-[#e5ebf3] py-3 font-semibold">Người khám</th><th className="border-b border-[#e5ebf3] py-3 font-semibold">Bác sĩ</th><th className="border-b border-[#e5ebf3] py-3 font-semibold">Thời gian</th><th className="border-b border-[#e5ebf3] py-3 font-semibold">Trạng thái</th></tr></thead>
               <tbody>
                 {overview?.latestAppointments.length ? overview.latestAppointments.map((item) => (
                   <tr key={item.id}>

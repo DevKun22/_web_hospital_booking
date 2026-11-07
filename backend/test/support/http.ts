@@ -15,6 +15,12 @@ export type TestHttpResponse = {
   headers: Headers;
 };
 
+// Chỉ parse JSON khi server khai báo JSON (redirect 302 có body HTML).
+const parseBody = (response: Response, text: string): JsonRecord => {
+  if (!text || !(response.headers.get("content-type") || "").includes("json")) return {};
+  return JSON.parse(text) as JsonRecord;
+};
+
 export const startHttpServer = async (app: Express) => {
   const server = app.listen(0, "127.0.0.1");
   await once(server, "listening");
@@ -44,7 +50,7 @@ export const startHttpServer = async (app: Express) => {
 
     return {
       status: response.status,
-      body: responseText ? (JSON.parse(responseText) as JsonRecord) : {},
+      body: parseBody(response, responseText),
       headers: response.headers,
     };
   };

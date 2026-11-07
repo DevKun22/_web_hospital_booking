@@ -2,7 +2,7 @@ import { Prisma } from "../../generated/prisma/client.js";
 import { prisma } from "../config/prisma.js";
 import { AppError } from "../utils/appError.js";
 import { createSlug } from "../utils/slug.js";
-import SearchIndexer from "./search/search.indexer.js";
+import { publicCompletePackageWhere } from "./publicCatalogEligibility.js";
 
 type PackageItemInput = {
   name: string;
@@ -196,8 +196,6 @@ class PackageService {
       throw new AppError("Không tìm thấy gói khám", 404);
     }
 
-    await SearchIndexer.syncPackage(packageItem.id);
-
     return withFinalPrice(packageItem);
   }
 
@@ -234,8 +232,6 @@ class PackageService {
       },
       select: packageSelect,
     });
-
-    await SearchIndexer.syncPackage(packageItem.id);
 
     return withFinalPrice(packageItem);
   }
@@ -294,8 +290,6 @@ class PackageService {
       where: { id },
     });
 
-    await SearchIndexer.remove("package", id);
-
     return packageItem;
   }
 
@@ -312,8 +306,6 @@ class PackageService {
         order: input.order ?? 0,
       },
     });
-
-    await SearchIndexer.syncPackage(packageId);
 
     return item;
   }
@@ -337,8 +329,6 @@ class PackageService {
       },
     });
 
-    await SearchIndexer.syncPackage(packageId);
-
     return item;
   }
 
@@ -350,8 +340,6 @@ class PackageService {
       where: { id: itemId },
     });
 
-    await SearchIndexer.syncPackage(packageId);
-
     return item;
   }
 
@@ -359,6 +347,7 @@ class PackageService {
     search?: string;
     isPopular?: boolean;
     limit?: number;
+    featured?: boolean;
   }) {
     const where: Prisma.PackageWhereInput = {
       isActive: true,
@@ -373,10 +362,21 @@ class PackageService {
       ];
     }
 
+    if (query.featured) {
+      where.AND = [publicCompletePackageWhere];
+    }
+
     const packages = await prisma.package.findMany({
       where,
       select: publicPackageSelect,
-      orderBy: [{ isPopular: "desc" }, { basePrice: "asc" }],
+      orderBy: query.featured
+        ? [
+            { isPopular: "desc" },
+            { isBHYTSupport: "desc" },
+            { updatedAt: "desc" },
+            { basePrice: "asc" },
+          ]
+        : [{ isPopular: "desc" }, { basePrice: "asc" }],
       take: query.limit
         ? Math.min(Math.max(Math.trunc(query.limit), 1), 50)
         : undefined,
@@ -390,6 +390,7 @@ class PackageService {
     departmentId?: string;
     isPopular?: boolean;
     isBhytSupport?: boolean;
+    sort?: "POPULAR_DESC" | "PRICE_ASC" | "PRICE_DESC" | "NAME_ASC";
     page?: number;
     limit?: number;
   }) {
@@ -400,6 +401,7 @@ class PackageService {
       isPopular: query.isPopular,
       isBHYTSupport: query.isBhytSupport,
       departmentId: query.departmentId,
+      AND: [publicCompletePackageWhere],
     };
 
     if (query.search) {
@@ -407,28 +409,87 @@ class PackageService {
         { name: { contains: query.search, mode: "insensitive" } },
         { slug: { contains: query.search, mode: "insensitive" } },
         { summary: { contains: query.search, mode: "insensitive" } },
+        { description: { contains: query.search, mode: "insensitive" } },
+        { note: { contains: query.search, mode: "insensitive" } },
         { department: { name: { contains: query.search, mode: "insensitive" } } },
+        {
+          items: {
+            some: {
+              OR: [
+                { name: { contains: query.search, mode: "insensitive" } },
+                {
+                  description: {
+                    contains: query.search,
+                    mode: "insensitive",
+                  },
+                },
+              ],
+            },
+          },
+        },
       ];
     }
 
-    const [packages, total] = await prisma.$transaction([
+    const [matchingPackages, allPackages] = await prisma.$transaction([
       prisma.package.findMany({
         where,
         select: publicPackageSelect,
-        orderBy: [{ isPopular: "desc" }, { basePrice: "asc" }],
-        skip: (page - 1) * limit,
-        take: limit,
       }),
-      prisma.package.count({ where }),
+      prisma.package.findMany({
+        where: {
+          isActive: true,
+          AND: [publicCompletePackageWhere],
+        },
+        select: publicPackageSelect,
+        orderBy: [{ isPopular: "desc" }, { basePrice: "asc" }],
+      }),
     ]);
 
+    const normalizedPackages = matchingPackages.map(withFinalPrice);
+    const sort = query.sort || "POPULAR_DESC";
+    normalizedPackages.sort((left, right) => {
+      if (sort === "PRICE_ASC") return left.finalPrice - right.finalPrice;
+      if (sort === "PRICE_DESC") return right.finalPrice - left.finalPrice;
+      if (sort === "NAME_ASC") return left.name.localeCompare(right.name, "vi");
+
+      if (left.isPopular !== right.isPopular) {
+        return Number(right.isPopular) - Number(left.isPopular);
+      }
+
+      return left.finalPrice - right.finalPrice;
+    });
+
+    const total = normalizedPackages.length;
+    const catalogPackages = allPackages.map(withFinalPrice);
+    const prices = catalogPackages.map((item) => item.finalPrice);
+    const departments = Array.from(
+      new Map(
+        catalogPackages
+          .filter((item) => item.department)
+          .map((item) => [item.department!.id, item.department!]),
+      ).values(),
+    ).sort((left, right) => left.name.localeCompare(right.name, "vi"));
+    const items = normalizedPackages.slice((page - 1) * limit, page * limit);
+
     return {
-      items: packages.map(withFinalPrice),
+      items,
       pagination: {
         page,
         limit,
         total,
         totalPages: Math.ceil(total / limit),
+      },
+      summary: {
+        packageCount: catalogPackages.length,
+        popularCount: catalogPackages.filter((item) => item.isPopular).length,
+        bhytSupportCount: catalogPackages.filter((item) => item.isBHYTSupport)
+          .length,
+        departmentCount: departments.length,
+        minPrice: prices.length ? Math.min(...prices) : 0,
+        maxPrice: prices.length ? Math.max(...prices) : 0,
+      },
+      filters: {
+        departments,
       },
     };
   }

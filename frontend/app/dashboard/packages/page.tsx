@@ -1,5 +1,6 @@
 "use client";
 
+import { can } from "@/lib/permissions";
 import { useQueryClient } from "@tanstack/react-query";
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { PanelRightOpen, Plus, Search } from "lucide-react";
@@ -167,8 +168,8 @@ export default function PackagesPage() {
   const formPanelRef = useRef<HTMLElement | null>(null);
   const itemPanelRef = useRef<HTMLElement | null>(null);
 
-  const canWrite = user?.role === "ADMIN" || user?.role === "STAFF";
-  const canDelete = user?.role === "ADMIN";
+  const canWrite = can(user, "catalog.manage");
+  const canDelete = can(user, "catalog.delete");
 
   const query = useMemo(
     () => ({

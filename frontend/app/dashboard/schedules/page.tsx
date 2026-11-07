@@ -1,5 +1,6 @@
 "use client";
 
+import { can } from "@/lib/permissions";
 import { useQueryClient } from "@tanstack/react-query";
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { PanelRightOpen, Plus, ShieldCheck, Wrench, X } from "lucide-react";
@@ -191,8 +192,8 @@ export default function SchedulesPage() {
   const scheduleListRef = useRef<HTMLElement | null>(null);
   const slotListRef = useRef<HTMLElement | null>(null);
 
-  const canWrite = user?.role === "ADMIN" || user?.role === "STAFF";
-  const canReconcile = user?.role === "ADMIN";
+  const canWrite = can(user, "schedule.manage");
+  const canReconcile = can(user, "schedule.reconcile");
   const isDoctor = user?.role === "DOCTOR";
   const canManageSlots = canWrite || isDoctor;
 
@@ -759,7 +760,7 @@ export default function SchedulesPage() {
                   <input value={scheduleForm.slotDuration} onChange={(e) => setScheduleForm((current) => ({ ...current, slotDuration: e.target.value.replace(/\D/g, "") }))} inputMode="numeric" className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" required />
                 </label>
                 <label className="block">
-                  <span className="text-sm font-medium text-[#334155]">Số bệnh nhân tối đa</span>
+                  <span className="text-sm font-medium text-[#334155]">Số người khám tối đa</span>
                   <input value={scheduleForm.maxPatients} onChange={(e) => setScheduleForm((current) => ({ ...current, maxPatients: e.target.value.replace(/\D/g, "") }))} inputMode="numeric" className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" required />
                 </label>
               </div>

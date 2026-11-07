@@ -1,7 +1,13 @@
 import type { OtpChannel, OtpPurpose } from "../../generated/prisma/enums.js";
+import {
+  isDemoOtpPhone,
+  isLocalOtpDebugEnabled,
+  isSmsProviderConfigured,
+} from "../config/otpChannels.js";
 import { AppError } from "../utils/appError.js";
 import EmailService from "./email.service.js";
 import { buildOtpEmailTemplate } from "./emailTemplates/otpEmail.template.js";
+import { sendSms } from "./smsProviders.js";
 
 type SendOtpInput = {
   target: string;
@@ -11,13 +17,11 @@ type SendOtpInput = {
   expiresInSeconds: number;
 };
 
-const isProductionLike = () =>
-  process.env.NODE_ENV === "production" || Boolean(process.env.RENDER);
-const isSmsDebugEnabled = () =>
-  !isProductionLike() ||
-  ["true", "1", "yes", "on"].includes(
-    (process.env.OTP_DEBUG_ENABLED || "").toLowerCase(),
-  );
+// SMS không dấu để giữ 1 tin (160 ký tự) và tránh lỗi hiển thị.
+const buildOtpSms = (otp: string, expiresInSeconds: number) =>
+  `Ma xac thuc Hospital Booking cua ban la ${otp}. Het han sau ${Math.round(
+    expiresInSeconds / 60,
+  )} phut. Khong chia se ma nay cho bat ky ai.`;
 
 class OtpSenderService {
   async send(input: SendOtpInput) {
@@ -37,16 +41,23 @@ class OtpSenderService {
       return;
     }
 
-    if (isSmsDebugEnabled()) {
-      console.log("=================================");
-      console.log(`SMS OTP DEV: ${input.otp}`);
-      console.log(`Phone: ${input.target}`);
-      console.log(`Purpose: ${input.purpose}`);
-      console.log("=================================");
+    if (isSmsProviderConfigured() && !isDemoOtpPhone(input.target)) {
+      await sendSms(input.target, buildOtpSms(input.otp, input.expiresInSeconds));
       return;
     }
 
-    throw new AppError("Chưa cấu hình nhà cung cấp SMS để gửi OTP", 500);
+    if (isLocalOtpDebugEnabled() || isDemoOtpPhone(input.target)) {
+      console.log(
+        `[OTP_DEBUG_SMS] phone=${input.target} purpose=${input.purpose} otp=${input.otp}`,
+      );
+      return;
+    }
+
+    throw new AppError(
+      "Chưa cấu hình nhà cung cấp SMS để gửi OTP",
+      500,
+      "SMS_PROVIDER_UNAVAILABLE",
+    );
   }
 }
 

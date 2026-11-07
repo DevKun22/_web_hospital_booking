@@ -136,7 +136,7 @@ class DoctorScheduleService {
   async create(input: CreateDoctorScheduleInput) {
     validateTimeRange(input.startTime, input.endTime);
     if ((input.maxPatients ?? 1) !== 1) {
-      throw new AppError("Mỗi slot hiện chỉ hỗ trợ một bệnh nhân", 400);
+      throw new AppError("Mỗi khung giờ hiện chỉ hỗ trợ một người khám", 400);
     }
 
     const doctor = await prisma.doctorProfile.findUnique({
@@ -191,7 +191,7 @@ class DoctorScheduleService {
 
     validateTimeRange(next.startTime, next.endTime);
     if (next.maxPatients !== 1) {
-      throw new AppError("Mỗi slot hiện chỉ hỗ trợ một bệnh nhân", 400);
+      throw new AppError("Mỗi khung giờ hiện chỉ hỗ trợ một người khám", 400);
     }
     if (next.isActive) {
       await this.ensureNoOverlap({ ...next, excludeId: id });

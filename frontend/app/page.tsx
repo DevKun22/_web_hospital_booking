@@ -2,10 +2,10 @@ import { PublicHomeClient } from "@/components/public/public-home-client";
 import { emptyHomeData, type PublicHomeData } from "@/components/public/public-home-types";
 import { serverApiRequest } from "@/lib/server-api";
 import { absoluteUrl, buildOpenGraph, jsonLdString } from "@/lib/seo";
-import type { Banner, DoctorProfile, MedicalPackage, PublicFAQ, SiteSettingsValue } from "@/lib/types";
+import type { Banner, DoctorProfile, HomePageConfigValue, MedicalPackage, PublicFAQ, SiteSettingsValue } from "@/lib/types";
 import type { Metadata } from "next";
 
-export const revalidate = 300;
+export const revalidate = 60;
 
 export const metadata: Metadata = {
   ...buildOpenGraph({
@@ -23,6 +23,7 @@ export const metadata: Metadata = {
 
 type PublicBootstrapData = {
   siteSettings: SiteSettingsValue | null;
+  homeConfig: HomePageConfigValue | null;
   banners: Banner[];
   departments: PublicHomeData["departments"];
   doctors: DoctorProfile[];
@@ -34,18 +35,21 @@ async function getHomeData(): Promise<{ data: PublicHomeData; error: string }> {
   try {
     const bootstrap = await serverApiRequest<PublicBootstrapData>(
       "/public/bootstrap",
-      { query: { view: "full" } },
+      {
+        query: { view: "featured" },
+        next: { revalidate: 60 },
+      },
     );
     const publicBanners = bootstrap.banners || [];
-    const heroPositions = new Set(["HOME_HERO", "HOME_PROMO", "HOME_DEPARTMENT"]);
-    const heroBanners = publicBanners.filter((banner) => heroPositions.has(banner.position));
-    const promoBanners = publicBanners.filter((banner) => banner.position === "HOME_PROMO");
+    const heroBanners = publicBanners.filter((banner) => banner.position === "HOME_HERO");
 
     return {
       data: {
         settings: bootstrap.siteSettings,
-        heroBanners: heroBanners.length ? heroBanners : publicBanners,
-        promoBanners,
+        homeConfig: bootstrap.homeConfig,
+        heroBanners,
+        promoBanners: [],
+        partnerBanners: publicBanners.filter((banner) => banner.position === "HOME_PARTNER"),
         departments: bootstrap.departments,
         doctors: bootstrap.doctors,
         packages: bootstrap.packages,
@@ -103,27 +107,8 @@ function buildWebSiteJsonLd(data: PublicHomeData) {
   };
 }
 
-function buildHomeFAQJsonLd(data: PublicHomeData) {
-  const faqs = data.faqs.slice(0, 10);
-  if (!faqs.length) return null;
-
-  return {
-    "@context": "https://schema.org",
-    "@type": "FAQPage",
-    mainEntity: faqs.map((item) => ({
-      "@type": "Question",
-      name: item.question,
-      acceptedAnswer: {
-        "@type": "Answer",
-        text: item.answer,
-      },
-    })),
-  };
-}
-
 export default async function PublicHomePage() {
   const { data, error } = await getHomeData();
-  const faqJsonLd = buildHomeFAQJsonLd(data);
 
   return (
     <>
@@ -135,9 +120,6 @@ export default async function PublicHomePage() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: jsonLdString(buildWebSiteJsonLd(data)) }}
       />
-      {faqJsonLd ? (
-        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdString(faqJsonLd) }} />
-      ) : null}
       <PublicHomeClient data={data} error={error} />
     </>
   );

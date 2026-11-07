@@ -22,12 +22,12 @@ export function DashboardAuthLayout({
   }, [loading, router, user]);
 
   useEffect(() => {
-    if (!loading && user && !canAccessDashboardPath(user.role, pathname)) {
+    if (!loading && user && !canAccessDashboardPath(user, pathname)) {
       router.replace("/dashboard");
     }
   }, [loading, pathname, router, user]);
 
-  if (loading || !user || !canAccessDashboardPath(user.role, pathname)) {
+  if (loading || !user || !canAccessDashboardPath(user, pathname)) {
     return (
       <div
         className="flex min-h-screen items-center justify-center bg-[var(--background)] text-sm text-[var(--muted-foreground)]"

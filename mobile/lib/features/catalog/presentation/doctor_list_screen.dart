@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hospital_booking_mobile/core/widgets/app_error_banner.dart';
-import 'package:hospital_booking_mobile/core/widgets/app_route_back_scope.dart';
 import 'package:hospital_booking_mobile/core/widgets/app_ui.dart';
 import 'package:hospital_booking_mobile/features/catalog/application/doctor_catalog_controller.dart';
 import 'package:hospital_booking_mobile/features/catalog/presentation/widgets/doctor_catalog_card.dart';
@@ -69,129 +68,102 @@ class _DoctorListScreenState extends ConsumerState<DoctorListScreen> {
           loading: () => const [],
         );
     final controller = ref.read(doctorCatalogControllerProvider.notifier);
-    return AppRouteBackScope(
-      fallbackLocation: '/home',
-      child: Scaffold(
-        appBar: AppBar(
-          leading: const AppRouteBackButton(fallbackLocation: '/home'),
-          title: const Text('Đội ngũ bác sĩ'),
+    return AppCatalogScaffold(
+      title: 'Đội ngũ bác sĩ',
+      onRefresh: () => controller.load(),
+      onLoadMore: controller.loadMore,
+      pageStorageKey: const PageStorageKey('doctor-catalog-list'),
+      children: [
+        AppPageIntro(
+          title: 'Chọn bác sĩ phù hợp',
+          subtitle: 'Tìm theo tên, chuyên môn hoặc lọc theo chuyên khoa.',
+          badge: state.total > 0 ? '${state.total} bác sĩ' : null,
         ),
-        body: SafeArea(
-          child: RefreshIndicator(
-            onRefresh: () => controller.load(),
-            child: NotificationListener<ScrollNotification>(
-              onNotification: (notification) {
-                if (notification.metrics.extentAfter < 360) {
-                  controller.loadMore();
-                }
-                return false;
+        const SizedBox(height: 18),
+        AppSearchField(
+          key: const Key('doctor-catalog-search'),
+          controller: _searchController,
+          hintText: 'Tên bác sĩ hoặc chuyên môn',
+          onChanged: _search,
+          onClear: () {
+            _searchController.clear();
+            setState(() {});
+            controller.load(query: '');
+          },
+        ),
+        if (departments.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          SizedBox(
+            height: 42,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: departments.length + 1,
+              separatorBuilder: (_, _) => const SizedBox(width: 8),
+              itemBuilder: (context, index) {
+                final department = index == 0 ? null : departments[index - 1];
+                final selected =
+                    department?.id == state.departmentId ||
+                    (department == null && state.departmentId == null);
+                return ChoiceChip(
+                  label: Text(department?.name ?? 'Tất cả'),
+                  selected: selected,
+                  onSelected: (_) => controller.load(
+                    departmentId: department?.id,
+                    clearDepartment: department == null,
+                  ),
+                );
               },
-              child: ListView(
-                key: const PageStorageKey('doctor-catalog-list'),
-                physics: const AlwaysScrollableScrollPhysics(),
-                keyboardDismissBehavior:
-                    ScrollViewKeyboardDismissBehavior.onDrag,
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
-                children: [
-                  AppPageIntro(
-                    title: 'Chọn bác sĩ phù hợp',
-                    subtitle:
-                        'Tìm theo tên, chuyên môn hoặc lọc theo chuyên khoa.',
-                    badge: state.total > 0 ? '${state.total} bác sĩ' : null,
-                  ),
-                  const SizedBox(height: 18),
-                  AppSearchField(
-                    key: const Key('doctor-catalog-search'),
-                    controller: _searchController,
-                    hintText: 'Tên bác sĩ hoặc chuyên môn',
-                    onChanged: _search,
-                    onClear: () {
-                      _searchController.clear();
-                      setState(() {});
-                      controller.load(query: '');
-                    },
-                  ),
-                  if (departments.isNotEmpty) ...[
-                    const SizedBox(height: 12),
-                    SizedBox(
-                      height: 42,
-                      child: ListView.separated(
-                        scrollDirection: Axis.horizontal,
-                        itemCount: departments.length + 1,
-                        separatorBuilder: (_, _) => const SizedBox(width: 8),
-                        itemBuilder: (context, index) {
-                          final department = index == 0
-                              ? null
-                              : departments[index - 1];
-                          final selected =
-                              department?.id == state.departmentId ||
-                              (department == null &&
-                                  state.departmentId == null);
-                          return ChoiceChip(
-                            label: Text(department?.name ?? 'Tất cả'),
-                            selected: selected,
-                            onSelected: (_) => controller.load(
-                              departmentId: department?.id,
-                              clearDepartment: department == null,
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                  ],
-                  if (state.error != null) ...[
-                    const SizedBox(height: 14),
-                    AppErrorBanner(
-                      error: state.error!,
-                      onDismiss: controller.dismissError,
-                    ),
-                  ],
-                  if (state.isLoading && state.items.isNotEmpty) ...[
-                    const SizedBox(height: 12),
-                    const LinearProgressIndicator(minHeight: 2),
-                  ],
-                  const SizedBox(height: 18),
-                  if (state.isLoading && state.items.isEmpty)
-                    ...List.generate(
-                      3,
-                      (_) => const Padding(
-                        padding: EdgeInsets.only(bottom: 12),
-                        child: AppLoadingSkeleton(height: 230),
-                      ),
-                    )
-                  else if (state.items.isEmpty)
-                    AppEmptyState(
-                      icon: Icons.person_search_outlined,
-                      title: 'Chưa tìm thấy bác sĩ',
-                      message: 'Thử từ khóa khác hoặc chọn tất cả chuyên khoa.',
-                      action: OutlinedButton.icon(
-                        onPressed: () {
-                          _searchController.clear();
-                          setState(() {});
-                          controller.load(query: '', clearDepartment: true);
-                        },
-                        icon: const Icon(Icons.restart_alt_rounded),
-                        label: const Text('Đặt lại bộ lọc'),
-                      ),
-                    )
-                  else
-                    ...state.items.map(
-                      (doctor) => Padding(
-                        padding: const EdgeInsets.only(bottom: 12),
-                        child: DoctorCatalogCard(doctor: doctor),
-                      ),
-                    ),
-                  if (state.isLoadingMore)
-                    const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 18),
-                      child: Center(child: CircularProgressIndicator()),
-                    ),
-                ],
-              ),
             ),
           ),
-        ),
-      ),
+        ],
+        if (state.error != null) ...[
+          const SizedBox(height: 14),
+          AppErrorBanner(
+            error: state.error!,
+            onDismiss: controller.dismissError,
+          ),
+        ],
+        if (state.isLoading && state.items.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          const LinearProgressIndicator(minHeight: 2),
+        ],
+        const SizedBox(height: 18),
+        if (state.isLoading && state.items.isEmpty)
+          ...List.generate(
+            3,
+            (_) => const Padding(
+              padding: EdgeInsets.only(bottom: 12),
+              child: AppLoadingSkeleton(height: 230),
+            ),
+          )
+        else if (state.items.isEmpty)
+          AppEmptyState(
+            icon: Icons.person_search_outlined,
+            title: 'Chưa tìm thấy bác sĩ',
+            message: 'Thử từ khóa khác hoặc chọn tất cả chuyên khoa.',
+            action: OutlinedButton.icon(
+              onPressed: () {
+                _searchController.clear();
+                setState(() {});
+                controller.load(query: '', clearDepartment: true);
+              },
+              icon: const Icon(Icons.restart_alt_rounded),
+              label: const Text('Đặt lại bộ lọc'),
+            ),
+          )
+        else
+          ...state.items.map(
+            (doctor) => Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: DoctorCatalogCard(doctor: doctor),
+            ),
+          ),
+        if (state.isLoadingMore)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 18),
+            child: Center(child: CircularProgressIndicator()),
+          ),
+      ],
     );
   }
 }

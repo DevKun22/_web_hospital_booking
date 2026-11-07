@@ -10,7 +10,9 @@ final localAuthenticationGatewayProvider = Provider<LocalAuthenticationGateway>(
 final appLockControllerProvider =
     NotifierProvider<AppLockController, AppLockState>(AppLockController.new);
 
-const appLockBackgroundGracePeriod = Duration(seconds: 45);
+// Local device unlock protects the UI only. It must never extend the backend
+// refresh-session absolute lifetime.
+const appLockBackgroundGracePeriod = Duration(minutes: 5);
 
 abstract interface class LocalAuthenticationGateway {
   Future<bool> isSupported();

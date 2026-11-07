@@ -1,5 +1,6 @@
 "use client";
 
+import { can } from "@/lib/permissions";
 import { useQueryClient } from "@tanstack/react-query";
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { PanelRightOpen, Plus, Search } from "lucide-react";
@@ -107,8 +108,8 @@ export default function DoctorsPage() {
   const listPanelRef = useRef<HTMLElement | null>(null);
   const formPanelRef = useRef<HTMLElement | null>(null);
 
-  const canWrite = user?.role === "ADMIN" || user?.role === "STAFF";
-  const canDelete = user?.role === "ADMIN";
+  const canWrite = can(user, "catalog.manage");
+  const canDelete = can(user, "catalog.delete");
 
   const query = useMemo(
     () => ({
@@ -124,7 +125,7 @@ export default function DoctorsPage() {
   const doctorUsersQuery = useMemo(() => ({ role: "DOCTOR", isActive: "true", limit: 100 }), []);
   const doctorsQuery = useDashboardDoctors(query);
   const departmentsQuery = useDashboardDepartments(departmentQuery);
-  const doctorUsersResult = useDashboardDoctorUsers(doctorUsersQuery, user?.role === "ADMIN");
+  const doctorUsersResult = useDashboardDoctorUsers(doctorUsersQuery, can(user, "user.manage"));
   const loading = doctorsQuery.isLoading;
   const doctors = doctorsQuery.data?.items ?? [];
   const departments = departmentsQuery.data?.items ?? [];
@@ -402,7 +403,7 @@ export default function DoctorsPage() {
             <span className="text-sm font-medium text-[#334155]">Tài khoản bác sĩ</span>
             {editing ? (
               <input value={`${editing.user.fullName} (${editing.user.phone || editing.user.email || editing.user.id})`} disabled className="mt-1 w-full rounded-md border border-[#cfd8e6] bg-[#f6f8fb] px-3 py-2 text-sm text-[#667892]" />
-            ) : user?.role === "ADMIN" ? (
+            ) : can(user, "user.manage") ? (
               <select value={form.userId} onChange={(event) => setForm((current) => ({ ...current, userId: event.target.value }))} disabled={!canWrite} className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa] disabled:bg-[#f6f8fb]" required>
                 <option value="">Chọn tài khoản DOCTOR</option>
                 {doctorUserOptions.map((doctorUser) => <option key={doctorUser.id} value={doctorUser.id}>{doctorUser.fullName} - {doctorUser.phone || doctorUser.email || doctorUser.id}</option>)}

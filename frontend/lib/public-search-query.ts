@@ -9,8 +9,7 @@ export type PublicSearchType =
   | "department"
   | "doctor"
   | "package"
-  | "faq"
-  | "chatbot_faq";
+  | "faq";
 
 export type PublicSearchFilters = {
   q?: string;
@@ -28,17 +27,12 @@ export type PublicSearchItem = {
   departmentName?: string | null;
   price?: number | null;
   score?: number;
-  source: "elasticsearch" | "postgres";
+  source: "postgres";
 };
 
 export type PublicSearchResponse = {
   items: PublicSearchItem[];
-  source: "empty" | "elasticsearch" | "postgres";
-};
-
-export type PublicSearchSuggestionsResponse = {
-  items: string[];
-  source: "analytics" | "default";
+  source: "empty" | "postgres";
 };
 
 export const fetchPublicSearch = (filters: PublicSearchFilters) =>
@@ -48,27 +42,6 @@ export const fetchPublicSearch = (filters: PublicSearchFilters) =>
       type: filters.type || "all",
       limit: filters.limit,
     },
-  });
-
-export const trackPublicSearch = (input: {
-  keyword: string;
-  type?: PublicSearchType;
-  source?: PublicSearchResponse["source"];
-  resultCount?: number;
-}) =>
-  apiRequest<{ tracked: boolean }>("/search/analytics", {
-    method: "POST",
-    body: {
-      keyword: input.keyword,
-      type: input.type || "all",
-      source: input.source,
-      resultCount: input.resultCount || 0,
-    },
-  });
-
-export const fetchPublicSearchSuggestions = (limit = 5) =>
-  apiRequest<PublicSearchSuggestionsResponse>("/search/suggestions", {
-    query: { limit },
   });
 
 export function usePublicSearch(filters: PublicSearchFilters) {
@@ -85,16 +58,6 @@ export function usePublicSearch(filters: PublicSearchFilters) {
     staleTime: 60 * 1000,
     gcTime: 5 * 60 * 1000,
     placeholderData: (previousData) => previousData,
-    refetchOnWindowFocus: false,
-  });
-}
-
-export function usePublicSearchSuggestions(limit = 5, enabled = true) {
-  return useQuery({
-    queryKey: queryKeys.publicSearchSuggestions({ limit }),
-    queryFn: () => fetchPublicSearchSuggestions(limit),
-    enabled,
-    staleTime: 5 * 60 * 1000,
     refetchOnWindowFocus: false,
   });
 }

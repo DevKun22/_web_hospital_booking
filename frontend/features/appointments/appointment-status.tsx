@@ -17,7 +17,7 @@ export const appointmentStatusOptions: Array<{
   { value: "NO_SHOW", label: "Không đến" },
   { value: "CANCELLED_BY_ADMIN", label: "Quản trị hủy" },
   { value: "CANCELLED_BY_DOCTOR", label: "Bác sĩ hủy" },
-  { value: "CANCELLED_BY_PATIENT", label: "Bệnh nhân hủy" },
+  { value: "CANCELLED_BY_PATIENT", label: "Người khám hủy" },
 ];
 
 export const appointmentStatusLabel: Record<AppointmentStatus, string> = {
@@ -28,7 +28,7 @@ export const appointmentStatusLabel: Record<AppointmentStatus, string> = {
   IN_PROGRESS: "Đang khám",
   COMPLETED: "Hoàn thành",
   RESCHEDULED: "Đã đổi lịch",
-  CANCELLED_BY_PATIENT: "Bệnh nhân hủy",
+  CANCELLED_BY_PATIENT: "Người khám hủy",
   CANCELLED_BY_DOCTOR: "Bác sĩ hủy",
   CANCELLED_BY_ADMIN: "Quản trị hủy",
   NO_SHOW: "Không đến",

@@ -6,11 +6,9 @@ import {
   parseNumberQuery,
 } from "../shared/http/requestParsers.js";
 import { AppError } from "../utils/appError.js";
+import { getClientIp } from "../utils/clientIp.js";
 
-const getIpAddress = (req: Request) =>
-  req.headers["x-forwarded-for"]?.toString().split(",")[0]?.trim() ||
-  req.socket.remoteAddress ||
-  "unknown";
+const getIpAddress = getClientIp;
 
 const getActor = (req: Request) => {
   if (!req.user?.userId || !req.user.role) {
@@ -108,164 +106,6 @@ export const verifyAppointmentOtpHandler = async (
   }
 };
 
-export const getPublicAppointmentHandler = async (
-  req: Request,
-  res: Response,
-  next: NextFunction,
-) => {
-  try {
-    const appointment = await AppointmentService.getPublicById(
-      getParam(req.params.id),
-      typeof req.query.phone === "string" ? req.query.phone : "",
-    );
-
-    return res.json({
-      success: true,
-      data: appointment,
-    });
-  } catch (error) {
-    next(error);
-  }
-};
-
-export const lookupPublicAppointmentHandler = async (
-  req: Request,
-  res: Response,
-  next: NextFunction,
-) => {
-  try {
-    const appointment = await AppointmentService.lookupPublic({
-      bookingCode:
-        typeof req.query.bookingCode === "string"
-          ? req.query.bookingCode
-          : undefined,
-      phone: typeof req.query.phone === "string" ? req.query.phone : undefined,
-    });
-
-    return res.json({
-      success: true,
-      data: appointment,
-    });
-  } catch (error) {
-    next(error);
-  }
-};
-
-export const getPublicAppointmentResultHandler = async (
-  req: Request,
-  res: Response,
-  next: NextFunction,
-) => {
-  try {
-    const result = await AppointmentService.getPublicResult({
-      bookingCode:
-        typeof req.query.bookingCode === "string"
-          ? req.query.bookingCode
-          : undefined,
-      patientId: req.lookupGrant?.sub || "",
-    });
-
-    return res.json({
-      success: true,
-      data: result,
-    });
-  } catch (error) {
-    next(error);
-  }
-};
-
-export const requestPublicAppointmentLookupOtpHandler = async (
-  req: Request,
-  res: Response,
-  next: NextFunction,
-) => {
-  try {
-    const result = await AppointmentService.requestLookupOtp({
-      phone: req.body.phone,
-      bookingCode: req.body.bookingCode,
-      ipAddress: getIpAddress(req),
-    });
-
-    return res.json({
-      success: true,
-      message: "OTP tra cứu lịch hẹn đã được gửi",
-      data: result,
-    });
-  } catch (error) {
-    next(error);
-  }
-};
-
-export const verifyPublicAppointmentLookupOtpHandler = async (
-  req: Request,
-  res: Response,
-  next: NextFunction,
-) => {
-  try {
-    const result = await AppointmentService.verifyLookupOtp({
-      phone: req.body.phone,
-      bookingCode: req.body.bookingCode,
-      otp: req.body.otp,
-      ipAddress: getIpAddress(req),
-    });
-
-    return res.json({
-      success: true,
-      message: "Xác thực OTP tra cứu lịch hẹn thành công",
-      data: result,
-    });
-  } catch (error) {
-    next(error);
-  }
-};
-
-export const requestPublicAppointmentCancelOtpHandler = async (
-  req: Request,
-  res: Response,
-  next: NextFunction,
-) => {
-  try {
-    const result = await AppointmentService.requestPublicCancelOtp({
-      bookingCode: req.body.bookingCode,
-      phone: req.body.phone,
-      reason: req.body.reason,
-      ipAddress: getIpAddress(req),
-    });
-
-    return res.json({
-      success: true,
-      message: "OTP hủy lịch hẹn đã được gửi",
-      data: result,
-    });
-  } catch (error) {
-    next(error);
-  }
-};
-
-export const verifyPublicAppointmentCancelHandler = async (
-  req: Request,
-  res: Response,
-  next: NextFunction,
-) => {
-  try {
-    const appointment = await AppointmentService.verifyPublicCancel({
-      bookingCode: req.body.bookingCode,
-      phone: req.body.phone,
-      reason: req.body.reason,
-      otp: req.body.otp,
-      ipAddress: getIpAddress(req),
-    });
-
-    return res.json({
-      success: true,
-      message: "Hủy lịch hẹn thành công",
-      data: appointment,
-    });
-  } catch (error) {
-    next(error);
-  }
-};
-
 export const listDashboardAppointmentsHandler = async (
   req: Request,
   res: Response,
@@ -344,28 +184,6 @@ export const confirmDashboardAppointmentHandler = async (
   }
 };
 
-export const updateDashboardAppointmentStatusHandler = async (
-  req: Request,
-  res: Response,
-  next: NextFunction,
-) => {
-  try {
-    const appointment = await AppointmentService.updateStatus(
-      getParam(req.params.id),
-      req.body.status,
-      getActor(req),
-    );
-
-    return res.json({
-      success: true,
-      message: "Cập nhật trạng thái lịch hẹn thành công",
-      data: appointment,
-    });
-  } catch (error) {
-    next(error);
-  }
-};
-
 export const updateDashboardAppointmentPatientInfoHandler = async (
   req: Request,
   res: Response,
@@ -426,28 +244,6 @@ export const rescheduleDashboardAppointmentHandler = async (
       success: true,
       message: "Đổi lịch hẹn thành công",
       data: appointment,
-    });
-  } catch (error) {
-    next(error);
-  }
-};
-
-export const cleanupExpiredPendingOtpAppointmentsHandler = async (
-  req: Request,
-  res: Response,
-  next: NextFunction,
-) => {
-  try {
-    const expireMinutes = parseNumberQuery(req.query.expireMinutes);
-    const result = await AppointmentService.cleanupExpiredPendingOtp(
-      getActor(req),
-      expireMinutes,
-    );
-
-    return res.json({
-      success: true,
-      message: "Dọn lịch hẹn quá hạn OTP thành công",
-      data: result,
     });
   } catch (error) {
     next(error);
