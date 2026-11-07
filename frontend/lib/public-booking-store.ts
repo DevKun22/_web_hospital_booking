@@ -30,6 +30,8 @@ export type PublicBookingDraft = {
   allergies: string;
   medicalHistory: string;
   familyHistory: string;
+  // Đồng ý cho bệnh viện lưu thông tin sức khỏe; bắt buộc khi có khai báo ở trên.
+  healthConsent: boolean;
 };
 
 export type PublicBookingPrefill = Partial<PublicBookingSelection> &
@@ -106,6 +108,7 @@ export const initialBookingDraft: PublicBookingDraft = {
   allergies: "",
   medicalHistory: "",
   familyHistory: "",
+  healthConsent: false,
 };
 
 type PublicBookingStore = {

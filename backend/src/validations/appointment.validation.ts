@@ -28,6 +28,9 @@ export const createAppointmentSchema = z.object({
   allergies: z.string().trim().nullable().optional(),
   medicalHistory: z.string().trim().nullable().optional(),
   familyHistory: z.string().trim().nullable().optional(),
+  // Đồng ý cho bệnh viện lưu và xử lý thông tin sức khỏe; bắt buộc khi có khai báo
+  // dị ứng/tiền sử (kiểm tra ở AppointmentService).
+  healthConsent: z.boolean().optional(),
 }).superRefine((value, ctx) => {
   if (value.otpChannel === "EMAIL" && !value.patientEmail) {
     ctx.addIssue({

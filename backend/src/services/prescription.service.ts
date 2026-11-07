@@ -1,3 +1,4 @@
+import { logClinicalAction } from "./clinicalLog.service.js";
 import { Prisma } from "../../generated/prisma/client.js";
 import type { PrescriptionStatus, Role } from "../../generated/prisma/enums.js";
 import { prisma } from "../config/prisma.js";
@@ -249,6 +250,12 @@ class PrescriptionService {
         },
         select: prescriptionSelect,
       });
+      await logClinicalAction(tx, {
+        action: "PRESCRIPTION_ISSUED",
+        actorId: actor.userId,
+        prescriptionId: id,
+        note: "Phát hành đơn thuốc",
+      });
       const notification =
         await PatientEventNotificationService.createPrescriptionIssued(
           {
@@ -276,13 +283,22 @@ class PrescriptionService {
       throw new AppError("Đơn thuốc đã bị hủy", 400);
     }
 
-    return prisma.prescription.update({
-      where: { id },
-      data: {
-        status: "CANCELLED",
-        cancelledAt: new Date(),
-      },
-      select: prescriptionSelect,
+    return prisma.$transaction(async (tx) => {
+      const cancelled = await tx.prescription.update({
+        where: { id },
+        data: {
+          status: "CANCELLED",
+          cancelledAt: new Date(),
+        },
+        select: prescriptionSelect,
+      });
+      await logClinicalAction(tx, {
+        action: "PRESCRIPTION_CANCELLED",
+        actorId: actor.userId,
+        prescriptionId: id,
+        note: "Hủy đơn thuốc",
+      });
+      return cancelled;
     });
   }
 

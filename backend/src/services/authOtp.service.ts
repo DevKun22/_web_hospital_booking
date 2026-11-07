@@ -590,6 +590,23 @@ class AuthOtpService {
       verifiedAt: new Date(),
     };
   }
+
+  // Mã OTP hết hạn không còn giá trị sử dụng nhưng vẫn nằm lại bảng; giữ 24 giờ cho
+  // điều tra rồi xóa theo lô để bảng không phình vô hạn.
+  async cleanupExpired(options: { now?: Date; batchSize?: number } = {}) {
+    const cutoff = new Date((options.now || new Date()).getTime() - 24 * 3_600_000);
+    const stale = await prisma.otpCode.findMany({
+      where: { expiresAt: { lt: cutoff } },
+      select: { id: true },
+      take: Math.max(options.batchSize || 1000, 1),
+    });
+    if (stale.length === 0) return { deleted: 0 };
+
+    const result = await prisma.otpCode.deleteMany({
+      where: { id: { in: stale.map((item) => item.id) } },
+    });
+    return { deleted: result.count };
+  }
 }
 
 export default new AuthOtpService();

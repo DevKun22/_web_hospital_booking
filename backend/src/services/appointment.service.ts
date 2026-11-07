@@ -1,3 +1,4 @@
+import PolicyService from "./policy.service.js";
 import { roleHasAnyPermission } from "./rbac.service.js";
 import { Prisma } from "../../generated/prisma/client.js";
 import type {
@@ -11,7 +12,6 @@ import type {
 import { prisma } from "../config/prisma.js";
 import {
   getAppointmentReconciliationBatchSize,
-  getAppointmentReminderLeadMinutes,
   getBookingHoldMinutes,
 } from "../config/environment.js";
 import { enqueuePendingOtpExpiry } from "../queues/appointmentLifecycle.queue.js";
@@ -68,6 +68,7 @@ type CreateAppointmentInput = {
   allergies?: string | null;
   medicalHistory?: string | null;
   familyHistory?: string | null;
+  healthConsent?: boolean;
 };
 
 type PatientBookingActor = {
@@ -177,6 +178,9 @@ type UpdateAppointmentPatientInfoInput = {
   medicalHistory?: string | null;
   familyHistory?: string | null;
 };
+
+// Đổi giá trị khi nội dung đồng ý thay đổi để biết ai đã đồng ý phiên bản nào.
+export const HEALTH_CONSENT_VERSION = "2026-11";
 
 const getOtpLogNote = (label: string, status: OtpDeliveryStatus) => {
   if (status === "FAILED")
@@ -372,8 +376,21 @@ class AppointmentService {
     ipAddress: string,
     actor?: PatientBookingActor,
   ) {
+    // Chỉ tính dữ liệu sức khỏe do người đặt khai báo ở yêu cầu này; hồ sơ đã lưu của
+    // tài khoản/người thân được gộp vào sau đó và không đòi đồng ý lại mỗi lần đặt.
+    const hasHealthData = [input.allergies, input.medicalHistory, input.familyHistory].some(
+      (value) => normalizeOptionalString(value),
+    );
     const bookingIdentity = await resolveBookingIdentity(input, actor);
     input = bookingIdentity.input;
+    // Khai báo dị ứng/tiền sử là dữ liệu sức khỏe: chỉ lưu khi người đặt đồng ý rõ ràng.
+    if (hasHealthData && input.healthConsent !== true) {
+      throw new AppError(
+        "Cần đồng ý cho phép bệnh viện lưu thông tin sức khỏe trước khi đặt lịch",
+        400,
+        "HEALTH_CONSENT_REQUIRED",
+      );
+    }
     const doctor = await prisma.doctorProfile.findUnique({
       where: { id: input.doctorId },
       select: {
@@ -479,7 +496,7 @@ class AppointmentService {
     const otpChannel: OtpChannel =
       input.otpChannel || (normalizedPatientEmail ? "EMAIL" : "SMS");
     const holdExpiresAt = new Date(
-      Date.now() + getBookingHoldMinutes() * 60 * 1000,
+      Date.now() + (await PolicyService.get()).bookingHoldMinutes * 60 * 1000,
     );
 
     if (isSlotStartInPastVietnamTime(timeSlot.date, timeSlot.startTime)) {
@@ -602,6 +619,12 @@ class AppointmentService {
             registeredHospital: normalizeOptionalString(
               input.registeredHospital,
             ),
+            ...(hasHealthData
+              ? {
+                  healthConsentAt: new Date(),
+                  healthConsentVersion: HEALTH_CONSENT_VERSION,
+                }
+              : {}),
             allergies: normalizeOptionalString(input.allergies),
             medicalHistory: normalizeOptionalString(input.medicalHistory),
             familyHistory: normalizeOptionalString(input.familyHistory),
@@ -1007,11 +1030,34 @@ class AppointmentService {
   async cancelByPatient(id: string, patientId: string, reason: string) {
     const appointment = await prisma.appointment.findFirst({
       where: { id, patientId },
-      select: { id: true, status: true, timeSlotId: true },
+      select: {
+        id: true,
+        status: true,
+        timeSlotId: true,
+        appointmentDate: true,
+        startTime: true,
+      },
     });
 
     if (!appointment) {
       throw new AppError("Không tìm thấy lịch hẹn", 404);
+    }
+
+    const { patientCancelCutoffHours } = await PolicyService.get();
+    if (
+      patientCancelCutoffHours > 0 &&
+      Date.now() >
+        this.getAppointmentStartAt(
+          appointment.appointmentDate,
+          appointment.startTime,
+        ).getTime() -
+          patientCancelCutoffHours * 3_600_000
+    ) {
+      throw new AppError(
+        `Không thể tự hủy trong ${patientCancelCutoffHours} giờ trước giờ khám. Vui lòng liên hệ bệnh viện để được hỗ trợ.`,
+        409,
+        "PATIENT_CANCEL_CUTOFF",
+      );
     }
 
     const transition = await prisma.$transaction(async (tx) => {
@@ -1670,7 +1716,7 @@ class AppointmentService {
     return transition.appointment;
   }
 
-  async markNoShow(id: string, actor: Actor) {
+  async markNoShow(id: string, actor?: Actor, note = "Người khám không đến") {
     const transition = await prisma.$transaction(async (tx) => {
       await this.claimAppointmentTransition(tx, {
         id,
@@ -1686,7 +1732,7 @@ class AppointmentService {
         appointmentId: id,
         action: "NO_SHOW",
         actor,
-        note: "Người khám không đến",
+        note,
       });
       const notification = await this.createAppointmentNoShowNotification(
         tx,
@@ -1700,6 +1746,51 @@ class AppointmentService {
     return transition.appointment;
   }
 
+  // Lịch CONFIRMED chưa check-in sau giờ hẹn + noShowGraceMinutes thì tự chuyển NO_SHOW.
+  // Mặc định 0 = tắt. Mỗi lịch dùng cùng đường chuyển trạng thái như thao tác tay nên
+  // an toàn khi chạy song song với lễ tân.
+  async reconcileNoShows(options: { now?: Date; batchSize?: number } = {}) {
+    const { noShowGraceMinutes } = await PolicyService.get();
+    if (noShowGraceMinutes <= 0) return { scanned: 0, marked: 0, noop: 0 };
+
+    const now = options.now || new Date();
+    const candidates = await prisma.appointment.findMany({
+      where: {
+        status: "CONFIRMED",
+        appointmentDate: { lte: new Date(now.getTime() + 24 * 3_600_000) },
+      },
+      select: { id: true, appointmentDate: true, startTime: true },
+      orderBy: { appointmentDate: "asc" },
+      take: Math.max(options.batchSize || 200, 1),
+    });
+    const due = candidates.filter(
+      (item) =>
+        this.getAppointmentStartAt(item.appointmentDate, item.startTime).getTime() +
+          noShowGraceMinutes * 60_000 <=
+        now.getTime(),
+    );
+
+    let marked = 0;
+    let noop = 0;
+    for (const item of due) {
+      try {
+        await this.markNoShow(
+          item.id,
+          undefined,
+          `Tự động đánh dấu vắng mặt: quá ${noShowGraceMinutes} phút chưa check-in`,
+        );
+        marked += 1;
+      } catch (error) {
+        if (error instanceof AppError && error.code === "APPOINTMENT_STATE_CONFLICT") {
+          noop += 1;
+          continue;
+        }
+        throw error;
+      }
+    }
+    return { scanned: due.length, marked, noop };
+  }
+
   async expirePendingOtpAppointment(
     appointmentId: string,
     options: {
@@ -1710,7 +1801,8 @@ class AppointmentService {
   ) {
     const now = options.now || new Date();
     const fallbackExpireMinutes = Math.max(
-      options.fallbackExpireMinutes || getBookingHoldMinutes(),
+      options.fallbackExpireMinutes ||
+        (await PolicyService.get()).bookingHoldMinutes,
       1,
     );
     const expiredBefore = new Date(
@@ -1772,7 +1864,8 @@ class AppointmentService {
   ) {
     const now = options.now || new Date();
     const fallbackExpireMinutes = Math.max(
-      options.fallbackExpireMinutes || getBookingHoldMinutes(),
+      options.fallbackExpireMinutes ||
+        (await PolicyService.get()).bookingHoldMinutes,
       1,
     );
     const expiredBefore = new Date(
@@ -2138,7 +2231,7 @@ class AppointmentService {
       Math.max(
         now.getTime(),
         appointmentStart.getTime() -
-          getAppointmentReminderLeadMinutes() * 60_000,
+          (await PolicyService.get()).reminderLeadMinutes * 60_000,
       ),
     );
     const dateKey = appointment.appointmentDate.toISOString().slice(0, 10);

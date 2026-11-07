@@ -45,6 +45,7 @@ const [
   { default: PrescriptionService },
   { default: InvoiceService },
   { default: RbacService },
+  { default: PolicyService },
   { isFirebaseAdminConfigured },
 ] = await Promise.all([
   import("../../src/app.js"),
@@ -59,6 +60,7 @@ const [
   import("../../src/services/prescription.service.js"),
   import("../../src/services/invoice.service.js"),
   import("../../src/services/rbac.service.js"),
+  import("../../src/services/policy.service.js"),
   import("../../src/config/firebaseAdmin.js"),
 ]);
 
@@ -514,6 +516,7 @@ test("unverified booking input does not mutate an existing patient", async () =>
       patientEmail: "new-patient-email@example.com",
       address: "Unverified address",
       medicalHistory: "Unverified history",
+      healthConsent: true,
     },
   });
   assert.equal(booking.status, 201);
@@ -2040,6 +2043,180 @@ test("staff without record.view see appointments without health history", async 
   assert.equal(asDoctor.medicalHistory, "Hen suyen");
 });
 
+const vietnamClock = (offsetMs: number) => {
+  const shifted = new Date(Date.now() + offsetMs + 7 * 60 * 60 * 1000).toISOString();
+  return { date: shifted.slice(0, 10), time: shifted.slice(11, 16) };
+};
+
+const moveAppointmentStart = async (appointmentId: string, offsetMs: number) => {
+  const { date, time } = vietnamClock(offsetMs);
+  await prisma.appointment.update({
+    where: { id: appointmentId },
+    data: { appointmentDate: dateOnly(date), startTime: time },
+  });
+};
+
+test("health data in a booking requires explicit consent and records which version", async () => {
+  const withoutConsent = await http.request("/api/appointments", {
+    method: "POST",
+    body: { ...bookingBody({ phone: "0955000001" }), allergies: "Penicillin" },
+  });
+  assert.equal(withoutConsent.status, 400);
+  assert.equal(withoutConsent.body.code, "HEALTH_CONSENT_REQUIRED");
+  assert.equal(await prisma.appointment.count({ where: { patientPhone: "0955000001" } }), 0);
+
+  const withConsent = await http.request("/api/appointments", {
+    method: "POST",
+    body: {
+      ...bookingBody({ phone: "0955000002" }),
+      allergies: "Penicillin",
+      healthConsent: true,
+    },
+  });
+  assert.equal(withConsent.status, 201);
+  const stored = await prisma.appointment.findUniqueOrThrow({
+    where: { id: withConsent.body.data.appointmentId },
+    select: { healthConsentAt: true, healthConsentVersion: true, allergies: true },
+  });
+  assert.ok(stored.healthConsentAt);
+  assert.equal(stored.healthConsentVersion, "2026-11");
+  assert.equal(stored.allergies, "Penicillin");
+
+  // Không khai báo sức khỏe thì không cần và không ghi đồng ý.
+  const plain = await http.request("/api/appointments", {
+    method: "POST",
+    body: bookingBody({ phone: "0955000003", timeSlotId: fixture.slotTwo.id }),
+  });
+  assert.equal(plain.status, 201);
+  const plainStored = await prisma.appointment.findUniqueOrThrow({
+    where: { id: plain.body.data.appointmentId },
+    select: { healthConsentAt: true },
+  });
+  assert.equal(plainStored.healthConsentAt, null);
+});
+
+test("policy parameters are bounded, admin-only to change and drive patient cancellation", async () => {
+  const staff = await createDashboardUser("STAFF", "0900000011");
+  const adminCookie = await authCookie(fixture.adminUser.id, "ADMIN");
+  const staffCookie = await authCookie(staff.id, "STAFF");
+  const call = (method: string, cookie: string, body?: unknown) =>
+    http.request("/api/dashboard/policy", { method, headers: dashboardHeaders(cookie), body });
+
+  try {
+    const defaults = await call("GET", staffCookie);
+    assert.equal(defaults.status, 200);
+    assert.equal(defaults.body.data.policy.patientCancelCutoffHours, 2);
+    assert.equal(defaults.body.data.policy.noShowGraceMinutes, 0);
+
+    assert.equal((await call("PUT", staffCookie, { noShowGraceMinutes: 30 })).status, 403);
+    const outOfRange = await call("PUT", adminCookie, { patientCancelCutoffHours: 500 });
+    assert.equal(outOfRange.status, 400);
+    assert.equal(outOfRange.body.code, "POLICY_OUT_OF_RANGE");
+    assert.equal((await call("PUT", adminCookie, { bookingHoldMinutes: 0 })).status, 400);
+
+    // Lịch bắt đầu sau 1 giờ nằm trong hạn chót 2 giờ: người khám không tự hủy được.
+    const soon = await createStoredAppointment({ status: "CONFIRMED", bookingCode: "POLICY-SOON" });
+    await moveAppointmentStart(soon.id, 60 * 60 * 1000);
+    await assert.rejects(
+      () => AppointmentService.cancelByPatient(soon.id, soon.patientId, "Bận việc"),
+      (error: { statusCode?: number; code?: string }) =>
+        error.statusCode === 409 && error.code === "PATIENT_CANCEL_CUTOFF",
+    );
+    assert.equal(
+      (await prisma.appointment.findUniqueOrThrow({ where: { id: soon.id } })).status,
+      "CONFIRMED",
+    );
+
+    // Hạ hạn chót về 0 thì hủy được.
+    assert.equal((await call("PUT", adminCookie, { patientCancelCutoffHours: 0 })).status, 200);
+    await AppointmentService.cancelByPatient(soon.id, soon.patientId, "Bận việc");
+    assert.equal(
+      (await prisma.appointment.findUniqueOrThrow({ where: { id: soon.id } })).status,
+      "CANCELLED_BY_PATIENT",
+    );
+
+    // Khôi phục mặc định.
+    const reset = await call("DELETE", adminCookie);
+    assert.equal(reset.status, 200);
+    assert.equal(reset.body.data.policy.patientCancelCutoffHours, 2);
+  } finally {
+    await PolicyService.reset();
+  }
+});
+
+test("auto no-show is off by default and honours the grace period when enabled", async () => {
+  const late = await createStoredAppointment({ status: "CONFIRMED", bookingCode: "NOSHOW-LATE" });
+  await moveAppointmentStart(late.id, -45 * 60 * 1000);
+  const inGrace = await createStoredAppointment({
+    status: "CONFIRMED",
+    bookingCode: "NOSHOW-GRACE",
+    phone: "0922222222",
+    timeSlotId: fixture.slotOne.id,
+  });
+  await moveAppointmentStart(inGrace.id, -10 * 60 * 1000);
+  const thirdSlot = await prisma.doctorTimeSlot.create({
+    data: {
+      doctorId: fixture.doctorOne.id,
+      date: dateOnly(fixture.appointmentDate),
+      startTime: "11:00",
+      endTime: "11:30",
+    },
+  });
+  const checkedIn = await createStoredAppointment({
+    status: "CHECKED_IN",
+    bookingCode: "NOSHOW-CHECKEDIN",
+    phone: "0933333333",
+    timeSlotId: thirdSlot.id,
+  });
+  await moveAppointmentStart(checkedIn.id, -45 * 60 * 1000);
+
+  try {
+    // Mặc định (0) là tắt: không lịch nào bị đụng tới.
+    assert.deepEqual(await AppointmentService.reconcileNoShows(), { scanned: 0, marked: 0, noop: 0 });
+
+    await PolicyService.update({ noShowGraceMinutes: 30 });
+    const result = await AppointmentService.reconcileNoShows();
+    assert.equal(result.marked, 1);
+
+    const status = async (id: string) =>
+      (await prisma.appointment.findUniqueOrThrow({ where: { id } })).status;
+    assert.equal(await status(late.id), "NO_SHOW");
+    assert.equal(await status(inGrace.id), "CONFIRMED");
+    assert.equal(await status(checkedIn.id), "CHECKED_IN");
+
+    const log = await prisma.appointmentLog.findFirstOrThrow({
+      where: { appointmentId: late.id, action: "NO_SHOW" },
+    });
+    assert.equal(log.createdById, null);
+    assert.match(log.note || "", /Tự động/);
+
+    // Chạy lại không đánh dấu thêm.
+    assert.equal((await AppointmentService.reconcileNoShows()).marked, 0);
+  } finally {
+    await PolicyService.reset();
+  }
+});
+
+test("expired OTP codes are removed after a day while recent and live codes are kept", async () => {
+  const hours = (value: number) => new Date(Date.now() + value * 60 * 60 * 1000);
+  const create = (code: string, expiresAt: Date) =>
+    prisma.otpCode.create({
+      data: { phone: "0966000001", code, purpose: "BOOK_APPOINTMENT", expiresAt },
+    });
+  await create("old-1", hours(-72));
+  await create("old-2", hours(-30));
+  await create("recent", hours(-1));
+  await create("live", hours(1));
+
+  assert.deepEqual(await AuthOtpService.cleanupExpired(), { deleted: 2 });
+  const remaining = await prisma.otpCode.findMany({
+    where: { phone: "0966000001" },
+    select: { code: true },
+  });
+  assert.deepEqual(remaining.map((item) => item.code).sort(), ["live", "recent"]);
+  assert.deepEqual(await AuthOtpService.cleanupExpired(), { deleted: 0 });
+});
+
 test("patients review only their own completed appointments", async () => {
   const completed = await createStoredAppointment({
     status: "COMPLETED",
@@ -3195,6 +3372,25 @@ test("patient journey is consistent across public booking dashboard care and mob
   );
   assert.equal(publishedRecord.status, 200);
   assert.equal(publishedRecord.body.data.status, "PUBLISHED");
+
+  // Mỗi thao tác lâm sàng để lại dấu vết ai-làm-gì, không chứa nội dung y tế.
+  const clinicalLogs = await prisma.appointmentLog.findMany({
+    where: {
+      appointmentId: activeAppointmentId,
+      action: {
+        in: ["MEDICAL_RESULT_UPDATED", "PRESCRIPTION_ISSUED", "MEDICAL_RESULT_PUBLISHED"],
+      },
+    },
+    select: { action: true, createdById: true, note: true },
+  });
+  assert.deepEqual(
+    clinicalLogs.map((item) => item.action).sort(),
+    ["MEDICAL_RESULT_PUBLISHED", "MEDICAL_RESULT_UPDATED", "PRESCRIPTION_ISSUED"],
+  );
+  assert.ok(clinicalLogs.every((item) => item.createdById === fixture.doctorOneUser.id));
+  assert.ok(
+    clinicalLogs.every((item) => !/Đau đầu|Paracetamol|Theo dõi đau đầu/.test(item.note || "")),
+  );
 
   const createdInvoice = await http.request(
     `/api/dashboard/invoices/appointments/${activeAppointmentId}`,

@@ -1,3 +1,4 @@
+import { logClinicalAction } from "./clinicalLog.service.js";
 import { Prisma } from "../../generated/prisma/client.js";
 import type {
   MedicalResultStatus,
@@ -232,17 +233,26 @@ class MedicalRecordService {
   async update(id: string, input: UpdateMedicalRecordInput, actor: Actor) {
     await this.getById(id, actor);
 
-    return prisma.medicalRecord.update({
-      where: { id },
-      data: {
-        symptoms: normalizeOptionalString(input.symptoms),
-        diagnosis: normalizeOptionalString(input.diagnosis),
-        treatment: normalizeOptionalString(input.treatment),
-        prescription: normalizeOptionalString(input.prescription),
-        doctorNotes: normalizeOptionalString(input.doctorNotes),
-        resultPdfUrl: normalizeOptionalString(input.resultPdfUrl),
-      },
-      select: medicalRecordSelect,
+    return prisma.$transaction(async (tx) => {
+      const updated = await tx.medicalRecord.update({
+        where: { id },
+        data: {
+          symptoms: normalizeOptionalString(input.symptoms),
+          diagnosis: normalizeOptionalString(input.diagnosis),
+          treatment: normalizeOptionalString(input.treatment),
+          prescription: normalizeOptionalString(input.prescription),
+          doctorNotes: normalizeOptionalString(input.doctorNotes),
+          resultPdfUrl: normalizeOptionalString(input.resultPdfUrl),
+        },
+        select: medicalRecordSelect,
+      });
+      await logClinicalAction(tx, {
+        action: "MEDICAL_RESULT_UPDATED",
+        actorId: actor.userId,
+        medicalRecordId: id,
+        note: "Cập nhật hồ sơ khám",
+      });
+      return updated;
     });
   }
 
@@ -264,6 +274,12 @@ class MedicalRecordService {
           publishedAt: new Date(),
         },
         select: medicalRecordSelect,
+      });
+      await logClinicalAction(tx, {
+        action: "MEDICAL_RESULT_PUBLISHED",
+        actorId: actor.userId,
+        medicalRecordId: id,
+        note: "Công bố kết quả khám cho người bệnh",
       });
       const notification =
         await PatientEventNotificationService.createMedicalResultPublished(
@@ -288,28 +304,46 @@ class MedicalRecordService {
   async archive(id: string, actor: Actor) {
     await this.getById(id, actor);
 
-    return prisma.medicalRecord.update({
-      where: { id },
-      data: {
-        status: "ARCHIVED",
-      },
-      select: medicalRecordSelect,
+    return prisma.$transaction(async (tx) => {
+      const archived = await tx.medicalRecord.update({
+        where: { id },
+        data: {
+          status: "ARCHIVED",
+        },
+        select: medicalRecordSelect,
+      });
+      await logClinicalAction(tx, {
+        action: "MEDICAL_RESULT_UPDATED",
+        actorId: actor.userId,
+        medicalRecordId: id,
+        note: "Lưu trữ hồ sơ khám",
+      });
+      return archived;
     });
   }
 
   async createLabResult(recordId: string, input: LabResultInput, actor: Actor) {
     await this.getById(recordId, actor);
 
-    return prisma.labResult.create({
-      data: {
+    return prisma.$transaction(async (tx) => {
+      const created = await tx.labResult.create({
+        data: {
+          medicalRecordId: recordId,
+          testName: input.testName,
+          resultValue: normalizeOptionalString(input.resultValue),
+          unit: normalizeOptionalString(input.unit),
+          referenceRange: normalizeOptionalString(input.referenceRange),
+          conclusion: normalizeOptionalString(input.conclusion),
+          fileUrl: normalizeOptionalString(input.fileUrl),
+        },
+      });
+      await logClinicalAction(tx, {
+        action: "LAB_RESULT_CHANGED",
+        actorId: actor.userId,
         medicalRecordId: recordId,
-        testName: input.testName,
-        resultValue: normalizeOptionalString(input.resultValue),
-        unit: normalizeOptionalString(input.unit),
-        referenceRange: normalizeOptionalString(input.referenceRange),
-        conclusion: normalizeOptionalString(input.conclusion),
-        fileUrl: normalizeOptionalString(input.fileUrl),
-      },
+        note: "Thêm kết quả cận lâm sàng",
+      });
+      return created;
     });
   }
 
@@ -322,16 +356,25 @@ class MedicalRecordService {
     await this.getById(recordId, actor);
     await this.getLabResult(recordId, labResultId);
 
-    return prisma.labResult.update({
-      where: { id: labResultId },
-      data: {
-        testName: input.testName,
-        resultValue: normalizeOptionalString(input.resultValue),
-        unit: normalizeOptionalString(input.unit),
-        referenceRange: normalizeOptionalString(input.referenceRange),
-        conclusion: normalizeOptionalString(input.conclusion),
-        fileUrl: normalizeOptionalString(input.fileUrl),
-      },
+    return prisma.$transaction(async (tx) => {
+      const updated = await tx.labResult.update({
+        where: { id: labResultId },
+        data: {
+          testName: input.testName,
+          resultValue: normalizeOptionalString(input.resultValue),
+          unit: normalizeOptionalString(input.unit),
+          referenceRange: normalizeOptionalString(input.referenceRange),
+          conclusion: normalizeOptionalString(input.conclusion),
+          fileUrl: normalizeOptionalString(input.fileUrl),
+        },
+      });
+      await logClinicalAction(tx, {
+        action: "LAB_RESULT_CHANGED",
+        actorId: actor.userId,
+        medicalRecordId: recordId,
+        note: "Sửa kết quả cận lâm sàng",
+      });
+      return updated;
     });
   }
 
@@ -339,8 +382,16 @@ class MedicalRecordService {
     await this.getById(recordId, actor);
     const labResult = await this.getLabResult(recordId, labResultId);
 
-    await prisma.labResult.delete({
-      where: { id: labResultId },
+    await prisma.$transaction(async (tx) => {
+      await tx.labResult.delete({
+        where: { id: labResultId },
+      });
+      await logClinicalAction(tx, {
+        action: "LAB_RESULT_CHANGED",
+        actorId: actor.userId,
+        medicalRecordId: recordId,
+        note: "Xóa kết quả cận lâm sàng",
+      });
     });
 
     return labResult;

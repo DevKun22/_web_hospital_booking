@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { RefreshCw, RotateCcw, Save } from "lucide-react";
 import { DashboardFeedback } from "@/components/dashboard/dashboard-feedback";
+import { PolicyPanel } from "@/components/dashboard/policy-panel";
 import {
   DashboardPageHeader,
   DashboardSurface,
@@ -114,7 +115,7 @@ export default function DashboardPermissionsPage() {
       />
       <DashboardPageHeader
         eyebrow="Hệ thống"
-        title="Phân quyền"
+        title="Phân quyền và chính sách"
         description="Bật hoặc tắt quyền cho từng vai trò. Ô xám là quyền cố định hoặc vai trò không đủ điều kiện nhận quyền đó (ví dụ chỉ bác sĩ được kê đơn)."
         actions={
           <div className="flex flex-wrap gap-2">
@@ -206,6 +207,8 @@ export default function DashboardPermissionsPage() {
             </DashboardSurface>
           ))
         : null}
+
+      <PolicyPanel />
     </div>
   );
 }

@@ -146,6 +146,13 @@ Nếu chọn `EMAIL`, bệnh nhân phải nhập email và OTP được gửi qu
 - Quản trị chỉnh ma trận ở `/dashboard/permissions` (API `GET|PUT|DELETE /api/dashboard/rbac`); thay đổi có hiệu lực ngay trên instance vừa ghi, các instance khác trong tối đa 15 giây. Người dùng thiếu `record.view` thấy lịch hẹn nhưng không thấy dị ứng và tiền sử.
 - Phạm vi dữ liệu vẫn theo vai trò: bác sĩ chỉ thấy lịch, bệnh án, đơn thuốc của mình.
 
+### Chính Sách, Nhật Ký Lâm Sàng Và Đồng Ý Dữ Liệu Sức Khỏe
+
+- Tham số chính sách lưu ở SiteSetting khóa `policy`, sửa tại `/dashboard/permissions` (API `GET|PUT|DELETE /api/dashboard/policy`, ghi cần quyền `settings.edit`): `bookingHoldMinutes` (giữ chỗ chờ OTP), `reminderLeadMinutes` (nhắc lịch), `patientCancelCutoffHours` (mặc định 2: người khám không tự hủy trong 2 giờ trước giờ khám, trả 409 `PATIENT_CANCEL_CUTOFF`), `noShowGraceMinutes` (mặc định 0 = tắt; > 0 thì worker tự chuyển lịch CONFIRMED chưa check-in sang NO_SHOW). Chưa cấu hình thì dùng biến môi trường `BOOKING_HOLD_MINUTES`, `APPOINTMENT_REMINDER_LEAD_MINUTES`; giá trị ngoài khoảng cho phép bị từ chối khi lưu.
+- Thao tác lâm sàng (cập nhật/lưu trữ hồ sơ khám, công bố kết quả, thêm/sửa/xóa kết quả cận lâm sàng, phát hành/hủy đơn thuốc) ghi vào `AppointmentLog` cùng transaction: chỉ ai làm gì và lúc nào, không chứa nội dung y tế.
+- Đặt lịch có khai báo dị ứng/tiền sử bắt buộc `healthConsent: true` (web có ô đồng ý); thiếu thì trả 400 `HEALTH_CONSENT_REQUIRED`. Lịch lưu `healthConsentAt` và `healthConsentVersion`. Hồ sơ đã lưu của tài khoản/người thân được gộp tự động và không đòi đồng ý lại.
+- Worker vòng đời lịch hẹn xóa mã OTP đã hết hạn quá 24 giờ.
+
 ### 4. Khám Bệnh Và Hồ Sơ
 
 ```txt

@@ -461,6 +461,10 @@ export function PublicBookingWidget({
     setFlowStep(2);
   };
 
+  const hasHealthDeclaration = Boolean(
+    draft.allergies.trim() || draft.medicalHistory.trim() || draft.familyHistory.trim(),
+  );
+
   const validateDraft = () => {
     if (!selection.departmentId) return "Vui lòng chọn chuyên khoa.";
     if (!selection.serviceMode)
@@ -487,6 +491,8 @@ export function PublicBookingWidget({
       return "Ngày sinh phải nhỏ hơn ngày hiện tại.";
     if (draft.hasBHYT && !draft.healthInsuranceCode.trim())
       return "Vui lòng nhập mã thẻ BHYT.";
+    if (hasHealthDeclaration && !draft.healthConsent)
+      return "Vui lòng đồng ý cho bệnh viện lưu thông tin sức khỏe bạn đã khai báo, hoặc xóa phần dị ứng và tiền sử.";
 
     return "";
   };
@@ -527,6 +533,7 @@ export function PublicBookingWidget({
           allergies: draft.allergies.trim() || null,
           medicalHistory: draft.medicalHistory.trim() || null,
           familyHistory: draft.familyHistory.trim() || null,
+          healthConsent: hasHealthDeclaration ? draft.healthConsent : undefined,
         },
       });
 
@@ -1227,6 +1234,23 @@ export function PublicBookingWidget({
                       className="ui-field mt-1 w-full px-3 py-2.5 text-sm"
                     />
                   </label>
+                  {hasHealthDeclaration ? (
+                    <label className="flex items-start gap-2 md:col-span-2">
+                      <input
+                        type="checkbox"
+                        checked={draft.healthConsent}
+                        onChange={(event) =>
+                          updateDraft({ healthConsent: event.target.checked })
+                        }
+                        className="mt-1 h-4 w-4"
+                      />
+                      <span className="text-sm text-[#334155]">
+                        Tôi đồng ý cho bệnh viện lưu và sử dụng thông tin dị ứng, tiền sử
+                        sức khỏe trên để phục vụ khám bệnh. Thông tin chỉ nhân sự y tế
+                        có thẩm quyền được xem.
+                      </span>
+                    </label>
+                  ) : null}
                 </div>
               ) : null}
             </div>
