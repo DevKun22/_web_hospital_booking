@@ -73,9 +73,9 @@ jobs:
       - name: Validate Prisma schema
         working-directory: backend
         run: npx prisma validate
-      - name: Backend Phase 0 + Phase 1 tests
+      - name: Backend tests (types, smoke, unit, integration)
         working-directory: backend
-        run: npm run test:phase1
+        run: npm run test:all
       - name: Build backend
         working-directory: backend
         run: npm run build

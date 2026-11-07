@@ -140,7 +140,7 @@ async function upsertUser(data: {
   fullName: string;
   phone: string;
   email: string;
-  role: "ADMIN" | "STAFF" | "DOCTOR" | "PATIENT";
+  role: "ADMIN" | "STAFF" | "DOCTOR" | "PHARMACIST" | "PATIENT";
   password?: string;
   avatar?: string;
 }) {
@@ -1157,12 +1157,54 @@ async function seedNotifications() {
   return count;
 }
 
+// Thuốc mẫu cho màn hình dược sĩ. Chỉ tạo thuốc chưa có, kèm một phiếu nhập đầu kỳ,
+// nên chạy lại seed không làm tồn kho đã thay đổi bị ghi đè hay nhân đôi.
+const DEMO_MEDICINES = [
+  { code: "PARA500", name: "Paracetamol", strength: "500mg", dosageForm: "Viên nén", unit: "viên", stock: 500, minStock: 100 },
+  { code: "VITC500", name: "Vitamin C", strength: "500mg", dosageForm: "Viên nén", unit: "viên", stock: 300, minStock: 50 },
+  { code: "AMOX500", name: "Amoxicillin", strength: "500mg", dosageForm: "Viên nang", unit: "viên", stock: 200, minStock: 60 },
+  { code: "ORS", name: "Oresol", strength: null, dosageForm: "Gói bột", unit: "gói", stock: 80, minStock: 100 },
+];
+
+async function seedDemoMedicines(actorId: string) {
+  let created = 0;
+  for (const item of DEMO_MEDICINES) {
+    if (await prisma.medicine.findUnique({ where: { code: item.code }, select: { id: true } })) continue;
+    await prisma.$transaction(async (tx) => {
+      const medicine = await tx.medicine.create({
+        data: {
+          code: item.code,
+          name: item.name,
+          strength: item.strength,
+          dosageForm: item.dosageForm,
+          unit: item.unit,
+          minStock: item.minStock,
+          stockQuantity: item.stock,
+        },
+      });
+      await tx.stockMovement.create({
+        data: {
+          medicineId: medicine.id,
+          type: "RECEIPT",
+          quantity: item.stock,
+          balanceAfter: item.stock,
+          reason: "Nhập tồn đầu kỳ (dữ liệu demo)",
+          actorId,
+        },
+      });
+    });
+    created += 1;
+  }
+  return created;
+}
+
 async function seedDemoData() {
   await resetDatabase();
 
-  const [admin, staff, ...doctorUsers] = await Promise.all([
+  const [admin, staff, pharmacist, ...doctorUsers] = await Promise.all([
     upsertUser({ fullName: "Quản trị viên Demo", phone: "0352412318", email: "devkun22@gmail.com", role: "ADMIN", password: PASSWORD }),
     upsertUser({ fullName: "Nhân viên Tiếp nhận", phone: "0352147201", email: "staff.demo@hospital.test", role: "STAFF", password: PASSWORD }),
+    upsertUser({ fullName: "Dược sĩ Demo", phone: "0352147208", email: "pharmacist.demo@hospital.test", role: "PHARMACIST", password: PASSWORD }),
     upsertUser({ fullName: "Nguyễn Minh Hùng", phone: "0352147202", email: "doctor.nguyenminhhung@hospital.test", role: "DOCTOR", password: PASSWORD, avatar: "https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?auto=format&fit=crop&w=480&q=85" }),
     upsertUser({ fullName: "Trần Thị Mai", phone: "0352147203", email: "doctor.tranthimai@hospital.test", role: "DOCTOR", password: PASSWORD, avatar: "https://images.unsplash.com/photo-1559839734-2b71ea197ec2?auto=format&fit=crop&w=480&q=85" }),
     upsertUser({ fullName: "Lê Hoàng An", phone: "0352412319", email: "doctor.pediatric@hospital.test", role: "DOCTOR", password: PASSWORD, avatar: "https://images.unsplash.com/photo-1582750433449-648ed127bb54?auto=format&fit=crop&w=480&q=85" }),
@@ -1170,6 +1212,8 @@ async function seedDemoData() {
     upsertUser({ fullName: "Đỗ Quang Huy", phone: "0352147206", email: "doctor.derma@hospital.test", role: "DOCTOR", password: PASSWORD, avatar: "https://images.unsplash.com/photo-1622253692010-333f2da6031d?auto=format&fit=crop&w=480&q=85" }),
     upsertUser({ fullName: "Võ Thanh Tâm", phone: "0352147207", email: "doctor.ent@hospital.test", role: "DOCTOR", password: PASSWORD, avatar: "https://images.unsplash.com/photo-1651008376811-b90baee60c1f?auto=format&fit=crop&w=480&q=85" }),
   ]);
+
+  const medicinesCreated = await seedDemoMedicines(admin.id);
 
   const departments = await Promise.all([
     upsertDepartment({
@@ -1331,6 +1375,8 @@ async function seedDemoData() {
   console.table([
     { key: "adminPhone", value: admin.phone },
     { key: "staffPhone", value: staff.phone },
+    { key: "pharmacistPhone", value: pharmacist.phone },
+    { key: "medicinesCreated", value: medicinesCreated },
     { key: "password", value: PASSWORD },
     { key: "departments", value: departments.length },
     { key: "doctors", value: doctors.length },

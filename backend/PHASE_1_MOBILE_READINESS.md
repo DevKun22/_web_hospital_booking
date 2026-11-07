@@ -52,5 +52,5 @@ Thanh toán online chạy qua provider thật (MoMo, VNPay) với callback có c
 
 ## Verification
 
-- `npm run test:phase1` chạy Prisma generate, TypeScript test compile, smoke test và integration test trên `TEST_DATABASE_URL`.
-- Integration suite hiện có 22 contract, gồm backward compatibility Phase 0, patient ownership, refresh-token reuse, multi-session revoke và slot reconciliation.
+- `npm run test:all` chạy Prisma generate, TypeScript test compile, smoke test, unit test và integration test trên `TEST_DATABASE_URL`.
+- Integration suite hiện có hơn 60 contract (xem `test/integration`), gồm backward compatibility Phase 0, patient ownership, refresh-token reuse, multi-session revoke và slot reconciliation.

@@ -175,7 +175,7 @@ void main() {
       await tester.tap(find.text('Gửi mã OTP'));
       await tester.pump();
 
-      expect(find.text('Đăng nhập bệnh nhân'), findsOneWidget);
+      expect(find.text('Đăng nhập người khám'), findsOneWidget);
       expect(find.text('Chăm sóc sức khỏe dễ dàng hơn'), findsNothing);
 
       final authController =
@@ -432,7 +432,7 @@ void main() {
 
     container.read(appRouterProvider).go('/appointments');
     await tester.pumpAndSettle();
-    expect(find.text('Đăng nhập bệnh nhân'), findsOneWidget);
+    expect(find.text('Đăng nhập người khám'), findsOneWidget);
     expect(
       find.text('Vui lòng đăng nhập để xem và quản lý lịch khám của bạn.'),
       findsOneWidget,
@@ -452,7 +452,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Lịch khám của tôi'), findsWidgets);
-    expect(find.text('Đăng nhập bệnh nhân'), findsNothing);
+    expect(find.text('Đăng nhập người khám'), findsNothing);
     expect(find.byTooltip('Quay lại'), findsOneWidget);
   });
 
