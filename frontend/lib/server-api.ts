@@ -2,6 +2,8 @@ const API_BASE_URL = (
   process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api"
 ).replace(/\/$/, "");
 
+const SERVER_API_TIMEOUT_MS = 12000;
+
 type ApiEnvelope<T> = {
   success?: boolean;
   message?: string;
@@ -27,8 +29,12 @@ export async function serverApiRequest<T>(
     }
   });
 
+  // API chạy trên gói free có thể đang "ngủ" hoặc tạm thời sập. Không đặt giới
+  // hạn thì fetch treo quá 60 giây và làm hỏng bước dựng trang tĩnh khi build.
+  // Hết hạn sẽ ném lỗi để các nơi gọi dùng giá trị dự phòng.
   const response = await fetch(url.toString(), {
     ...options,
+    signal: options.signal ?? AbortSignal.timeout(SERVER_API_TIMEOUT_MS),
     headers: {
       Accept: "application/json",
       ...(options.headers || {}),
