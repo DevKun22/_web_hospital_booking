@@ -3,6 +3,7 @@ import cors, { type CorsOptions } from "cors";
 import morgan from "morgan";
 import helmet from "helmet";
 import cookieParser from "cookie-parser";
+import { isProductionLike } from "./config/environment.js";
 
 import routes from "./routes/index.js";
 import { notFound } from "./middlewares/notFound.middleware.js";
@@ -39,7 +40,7 @@ const getAllowedOrigins = (isProduction: boolean) => {
 
 export const createApp = (options: CreateAppOptions = {}) => {
   const app = express();
-  const isProduction = process.env.NODE_ENV === "production";
+  const isProduction = isProductionLike();
   const allowedOrigins = getAllowedOrigins(isProduction);
   const requestLogging = options.requestLogging ?? true;
   const slowRequestLogging = options.slowRequestLogging ?? true;

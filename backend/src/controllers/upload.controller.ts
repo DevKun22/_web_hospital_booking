@@ -1,3 +1,4 @@
+import { isProductionLike } from "../config/environment.js";
 import type { Request, Response, NextFunction } from "express";
 import MediaAssetService from "../services/mediaAsset.service.js";
 import { AppError } from "../utils/appError.js";
@@ -27,7 +28,7 @@ export const uploadImagesHandler = async (
         success: false,
         message: "Chưa chọn file upload",
         debug:
-          process.env.NODE_ENV === "production"
+          isProductionLike()
             ? undefined
             : {
                 contentType: req.headers["content-type"],
