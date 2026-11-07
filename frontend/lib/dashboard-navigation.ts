@@ -4,6 +4,7 @@ import {
   Building2,
   CalendarCheck,
   CalendarClock,
+  ClipboardList,
   FileText,
   Images,
   LayoutDashboard,
@@ -15,6 +16,7 @@ import {
   Star,
   Stethoscope,
   Users,
+  Warehouse,
   type LucideIcon,
 } from "lucide-react";
 import { can } from "@/lib/permissions";
@@ -24,6 +26,7 @@ export type DashboardNavGroupKey =
   | "overview"
   | "operations"
   | "clinical"
+  | "pharmacy"
   | "finance"
   | "catalog"
   | "engagement"
@@ -47,6 +50,7 @@ export const dashboardNavGroups: ReadonlyArray<{
   { key: "overview", label: "Tổng quan" },
   { key: "operations", label: "Vận hành khám" },
   { key: "clinical", label: "Lâm sàng" },
+  { key: "pharmacy", label: "Dược" },
   { key: "finance", label: "Tài chính" },
   { key: "catalog", label: "Danh mục" },
   { key: "engagement", label: "Tương tác" },
@@ -98,6 +102,24 @@ export const dashboardNavItems: readonly DashboardNavItem[] = [
     icon: Pill,
     permissions: ["prescription.view"],
     group: "clinical",
+  },
+  {
+    key: "pharmacy-queue",
+    href: "/dashboard/pharmacy",
+    label: "Cấp thuốc",
+    description: "Đơn chờ cấp theo kho",
+    icon: ClipboardList,
+    permissions: ["pharmacy.view"],
+    group: "pharmacy",
+  },
+  {
+    key: "medicines",
+    href: "/dashboard/medicines",
+    label: "Kho thuốc",
+    description: "Danh mục, tồn kho và sổ kho",
+    icon: Warehouse,
+    permissions: ["pharmacy.view"],
+    group: "pharmacy",
   },
   {
     key: "invoices",

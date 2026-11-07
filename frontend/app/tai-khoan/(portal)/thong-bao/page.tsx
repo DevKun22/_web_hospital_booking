@@ -42,6 +42,7 @@ const typeConfig: Record<string, { label: string; icon: typeof Bell; tone: strin
   APPOINTMENT_COMPLETED: { label: "Hoàn thành khám", icon: CalendarClock, tone: "bg-emerald-50 text-emerald-700" },
   MEDICAL_RESULT_PUBLISHED: { label: "Kết quả khám", icon: FileHeart, tone: "bg-emerald-50 text-emerald-700" },
   PRESCRIPTION_ISSUED: { label: "Đơn thuốc", icon: Pill, tone: "bg-violet-50 text-violet-700" },
+  PRESCRIPTION_DISPENSED: { label: "Đã cấp thuốc", icon: Pill, tone: "bg-emerald-50 text-emerald-700" },
   INVOICE_CREATED: { label: "Hóa đơn", icon: ReceiptText, tone: "bg-amber-50 text-amber-800" },
   PAYMENT_SUCCEEDED: { label: "Thanh toán", icon: WalletCards, tone: "bg-emerald-50 text-emerald-700" },
   PAYMENT_REFUNDED: { label: "Hoàn tiền", icon: WalletCards, tone: "bg-blue-50 text-blue-700" },
@@ -67,7 +68,7 @@ function notificationDestination(item: PatientNotification) {
   const entityType = item.entityType?.toUpperCase();
   if (entityType === "APPOINTMENT" && item.type.startsWith("APPOINTMENT_")) return `/tai-khoan/lich-hen/${id}`;
   if (entityType === "MEDICAL_RECORD" && item.type === "MEDICAL_RESULT_PUBLISHED") return `/tai-khoan/ho-so-suc-khoe/ket-qua/${id}`;
-  if (entityType === "PRESCRIPTION" && item.type === "PRESCRIPTION_ISSUED") return `/tai-khoan/ho-so-suc-khoe/don-thuoc/${id}`;
+  if (entityType === "PRESCRIPTION" && ["PRESCRIPTION_ISSUED", "PRESCRIPTION_DISPENSED"].includes(item.type)) return `/tai-khoan/ho-so-suc-khoe/don-thuoc/${id}`;
   if (entityType === "INVOICE" && ["INVOICE_CREATED", "PAYMENT_SUCCEEDED", "PAYMENT_REFUNDED"].includes(item.type)) return `/tai-khoan/hoa-don/${id}`;
   return null;
 }

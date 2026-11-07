@@ -1,8 +1,9 @@
 "use client";
 
 import { can } from "@/lib/permissions";
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { ArrowRight, RefreshCw } from "lucide-react";
 import {
   Area,
@@ -173,6 +174,13 @@ function DashboardPage() {
   const { user } = useAuth();
   const canViewStats = can(user, "stats.view");
   const isDoctorDashboard = user?.role === "DOCTOR";
+  // Dược sĩ không có số liệu vận hành; đưa thẳng tới hàng đợi cấp thuốc.
+  const router = useRouter();
+  const goesToPharmacy =
+    can(user, "pharmacy.view") && !canViewStats && !isDoctorDashboard;
+  useEffect(() => {
+    if (goesToPharmacy) router.replace("/dashboard/pharmacy");
+  }, [goesToPharmacy, router]);
   const monthRange = useMemo(() => getMonthRange(), []);
   const todayDate = useMemo(() => toDateInput(new Date()), []);
   const [from, setFrom] = useState(monthRange.from);
@@ -283,6 +291,8 @@ function DashboardPage() {
 
   const completedTodayCount = (doctorDashboard?.todayAppointments || []).filter((item) => item.status === "COMPLETED").length;
   const waitingTodayCount = (doctorDashboard?.todayAppointments || []).filter((item) => ["CONFIRMED", "CHECKED_IN"].includes(item.status)).length;
+
+  if (goesToPharmacy) return null;
 
   if (isDoctorDashboard) {
     return (
