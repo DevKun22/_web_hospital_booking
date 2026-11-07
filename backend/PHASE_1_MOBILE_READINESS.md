@@ -15,7 +15,7 @@
 - Profile: `GET /api/v1/me`, `PATCH /api/v1/me`.
 - Appointment: `GET /api/v1/me/appointments`, `GET /api/v1/me/appointments/:id`, `POST /api/v1/me/appointments/:id/cancel`.
 - Clinical: list/detail medical records and prescriptions dưới `/api/v1/me`; file kết quả dùng endpoint download có Bearer auth.
-- Billing: list/detail invoice dưới `/api/v1/me/invoices`; online payment không nằm trong MVP.
+- Billing: list/detail invoice dưới `/api/v1/me/invoices`; tạo giao dịch thanh toán online tại `POST /api/v1/me/invoices/:invoiceId/payments` (xem mục Payment decision).
 - Capability discovery: `GET /api/v1/capabilities`.
 
 ## Session policy
@@ -40,7 +40,7 @@
 
 ## Payment decision
 
-Online payment chính thức nằm ngoài Patient MVP. `/api/v1/capabilities` trả `payment.enabled=false` và không quảng bá mock/MoMo/VNPAY cho mobile. Chỉ bật lại sau khi có provider thật, verified webhook, idempotency và reconciliation.
+Thanh toán online chạy qua provider thật (MoMo, VNPay) với callback có chữ ký và chống xử lý trùng; kết quả cuối chỉ được xác nhận qua IPN. `/api/v1/capabilities` trả `payment.enabled` và `supportedProviders` theo provider đang được cấu hình đầy đủ, nên client tự ẩn tùy chọn khi chưa bật. Provider MOCK chỉ dùng cho kiểm thử, bị chặn ở môi trường production.
 
 ## Schedule reconciliation policy
 
