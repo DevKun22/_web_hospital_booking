@@ -53,6 +53,7 @@ export const createPatientPaymentHandler = async (
       req.body,
       requirePatientId(req),
       idempotencyKey(req),
+      req.ip,
     );
     return res.status(201).json({
       success: true,
@@ -72,6 +73,40 @@ export const getPatientPaymentHandler = async (
   try {
     const data = await PaymentService.getById(
       param(req, "paymentId"),
+      requirePatientId(req),
+    );
+    return res.json({ success: true, data: toPatientPayment(data) });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Công cụ giả lập chỉ hoạt động khi PAYMENT_MOCK_ENABLED bật ở môi trường
+// không phải production; service tự chặn khi cờ tắt.
+export const mockPatientPaymentSuccessHandler = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const data = await PaymentService.markMockSuccess(
+      param(req, "transactionCode"),
+      requirePatientId(req),
+    );
+    return res.json({ success: true, data: toPatientPayment(data) });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const mockPatientPaymentFailHandler = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const data = await PaymentService.markMockFailed(
+      param(req, "transactionCode"),
       requirePatientId(req),
     );
     return res.json({ success: true, data: toPatientPayment(data) });

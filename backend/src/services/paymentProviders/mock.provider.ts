@@ -1,20 +1,14 @@
 import type { PaymentProviderAdapter } from "./types.js";
 
-const getApiBaseUrl = () =>
-  process.env.APP_BASE_URL ||
-  process.env.API_BASE_URL ||
-  process.env.BACKEND_URL ||
-  "http://localhost:4000";
-
+// Provider giả lập cho kiểm thử: không có trang checkout. Kết quả được giả lập
+// qua POST /api/v1/me/payments/mock/:transactionCode/success|fail.
 export const mockPaymentProvider: PaymentProviderAdapter = {
   provider: "MOCK",
 
   async createPayment(input) {
-    const paymentUrl = `${getApiBaseUrl()}/api/payments/mock/checkout/${input.transactionCode}`;
-
     return {
       providerOrderId: input.transactionCode,
-      paymentUrl,
+      paymentUrl: null,
       rawRequest: {
         invoiceId: input.invoiceId,
         invoiceCode: input.invoiceCode,
@@ -22,11 +16,7 @@ export const mockPaymentProvider: PaymentProviderAdapter = {
         amount: input.amount,
         transactionCode: input.transactionCode,
       },
-      rawResponse: {
-        mode: "MOCK",
-        message: "Dùng mock success/fail để giả lập kết quả thanh toán.",
-        paymentUrl,
-      },
+      rawResponse: { mode: "MOCK" },
     };
   },
 };

@@ -6,11 +6,15 @@ import type { PaymentProviderAdapter } from "./types.js";
 import { isProductionLike } from "../../config/environment.js";
 import { AppError } from "../../utils/appError.js";
 import { getMomoConfigurationStatus } from "./momo.provider.js";
+import {
+  getVnpayConfigurationStatus,
+  vnpayPaymentProvider,
+} from "./vnpay.provider.js";
 
 const adapters = {
   MOCK: mockPaymentProvider,
   MOMO: momoPaymentProvider,
-  VNPAY: createUnsupportedProvider("VNPAY"),
+  VNPAY: vnpayPaymentProvider,
   ZALOPAY: createUnsupportedProvider("ZALOPAY"),
 } satisfies Record<PaymentProvider, PaymentProviderAdapter>;
 
@@ -25,6 +29,7 @@ export const isMockPaymentEnabled = () =>
 
 export const getPaymentProviderCapabilities = () => {
   const momo = getMomoConfigurationStatus();
+  const vnpay = getVnpayConfigurationStatus();
   return {
     providers: [
       ...(isMockPaymentEnabled()
@@ -45,6 +50,15 @@ export const getPaymentProviderCapabilities = () => {
             },
           ]
         : []),
+      ...(vnpay.enabled && vnpay.configured
+        ? [
+            {
+              provider: "VNPAY" as const,
+              label: "VNPAY (ATM, thẻ quốc tế, QR ngân hàng)",
+              isMock: false,
+            },
+          ]
+        : []),
     ],
   };
 };
@@ -53,6 +67,8 @@ export const assertPaymentProviderAvailable = (provider: PaymentProvider) => {
   if (provider === "MOCK" && isMockPaymentEnabled()) return;
   const momo = getMomoConfigurationStatus();
   if (provider === "MOMO" && momo.enabled && momo.configured) return;
+  const vnpay = getVnpayConfigurationStatus();
+  if (provider === "VNPAY" && vnpay.enabled && vnpay.configured) return;
 
   throw new AppError(
     provider === "MOCK"
@@ -85,3 +101,8 @@ export {
   verifyMomoSignature,
 } from "./momo.provider.js";
 export type { VerifiedMomoCallback } from "./momo.provider.js";
+export {
+  getVnpayConfigurationStatus,
+  parseVerifiedVnpayCallback,
+} from "./vnpay.provider.js";
+export type { VerifiedVnpayCallback } from "./vnpay.provider.js";

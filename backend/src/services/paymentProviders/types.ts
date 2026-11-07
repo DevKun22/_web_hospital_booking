@@ -9,11 +9,12 @@ export type CreateProviderPaymentInput = {
   amount: number;
   orderInfo: string;
   expiredAt: Date;
+  ipAddress?: string;
 };
 
 export type CreateProviderPaymentResult = {
   providerOrderId: string;
-  paymentUrl: string;
+  paymentUrl: string | null;
   rawRequest: Prisma.InputJsonObject;
   rawResponse: Prisma.InputJsonObject;
 };
