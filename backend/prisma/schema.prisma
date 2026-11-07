@@ -96,7 +96,6 @@ enum PaymentProvider {
   MOCK
   VNPAY
   MOMO
-  ZALOPAY
 }
 
 enum PaymentTransactionStatus {

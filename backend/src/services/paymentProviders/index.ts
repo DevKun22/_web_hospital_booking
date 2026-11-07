@@ -1,7 +1,6 @@
 import type { PaymentProvider } from "../../../generated/prisma/enums.js";
 import { mockPaymentProvider } from "./mock.provider.js";
 import { momoPaymentProvider } from "./momo.provider.js";
-import { createUnsupportedProvider } from "./unsupported.provider.js";
 import type { PaymentProviderAdapter } from "./types.js";
 import { isProductionLike } from "../../config/environment.js";
 import { AppError } from "../../utils/appError.js";
@@ -15,7 +14,6 @@ const adapters = {
   MOCK: mockPaymentProvider,
   MOMO: momoPaymentProvider,
   VNPAY: vnpayPaymentProvider,
-  ZALOPAY: createUnsupportedProvider("ZALOPAY"),
 } satisfies Record<PaymentProvider, PaymentProviderAdapter>;
 
 export const getPaymentProviderAdapter = (provider: PaymentProvider) =>

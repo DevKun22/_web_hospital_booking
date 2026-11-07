@@ -328,7 +328,7 @@ export type PaymentMethod =
   | "MOMO"
   | "VNPAY"
   | "OTHER";
-export type PaymentProvider = "MOCK" | "VNPAY" | "MOMO" | "ZALOPAY";
+export type PaymentProvider = "MOCK" | "VNPAY" | "MOMO";
 export type PaymentTransactionStatus =
   | "PENDING"
   | "SUCCESS"

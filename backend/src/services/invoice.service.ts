@@ -559,7 +559,7 @@ class InvoiceService {
             invoiceId: id,
             OR: [
               { status: "PENDING" },
-              { status: "EXPIRED", provider: { in: ["MOMO", "VNPAY", "ZALOPAY"] } },
+              { status: "EXPIRED", provider: { in: ["MOMO", "VNPAY"] } },
             ],
           },
         });
@@ -651,7 +651,7 @@ class InvoiceService {
           invoiceId: id,
           OR: [
             { status: "PENDING" },
-            { status: "EXPIRED", provider: { in: ["MOMO", "VNPAY", "ZALOPAY"] } },
+            { status: "EXPIRED", provider: { in: ["MOMO", "VNPAY"] } },
           ],
         },
         select: { provider: true, transactionCode: true, expiredAt: true },
@@ -741,7 +741,7 @@ class InvoiceService {
           invoiceId: id,
           OR: [
             { status: "PENDING" },
-            { status: "EXPIRED", provider: { in: ["MOMO", "VNPAY", "ZALOPAY"] } },
+            { status: "EXPIRED", provider: { in: ["MOMO", "VNPAY"] } },
           ],
         },
       });
