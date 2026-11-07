@@ -2,6 +2,7 @@
 
 /* eslint-disable @next/next/no-img-element */
 
+import { can } from "@/lib/permissions";
 import {
   Bell,
   ChevronDown,
@@ -257,7 +258,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   const [searchTerm, setSearchTerm] = useState("");
   const currentItem = getDashboardNavItem(pathname);
   const visibleItems = useMemo(
-    () => (user ? getVisibleDashboardItems(user.role) : []),
+    () => (user ? getVisibleDashboardItems(user) : []),
     [user],
   );
   const siteSettings = siteSettingsQuery.data || null;
@@ -467,7 +468,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
               <Search aria-hidden="true" />
             </Button>
 
-            {user && ["ADMIN", "STAFF"].includes(user.role) ? (
+            {user && can(user, "content.manage") ? (
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button variant="ghost" size="icon-lg" asChild>

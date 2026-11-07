@@ -138,6 +138,14 @@ Nếu chọn `EMAIL`, bệnh nhân phải nhập email và OTP được gửi qu
 - Lịch đã hoàn thành có thể được đánh giá một lần; đánh giá chỉ công khai khi ADMIN/STAFF duyệt.
 - URL cũ `/tra-cuu-lich-hen` tự chuyển sang trang đăng nhập cổng bệnh nhân.
 
+### Phân Quyền Dashboard (RBAC động)
+
+- Dashboard có 4 vai trò: ADMIN, STAFF, DOCTOR, PHARMACIST. Route kiểm tra **mã quyền** (`requirePermission("record.edit")`), không kiểm tra tên vai trò.
+- Mỗi mã quyền khai báo trong `backend/src/config/permissions.ts` với `eligibleRoles` (vai trò được phép nhận, cố định trong code), `fixedRoles` (không thể gỡ) và `defaultRoles`. Ma trận chỉnh được lưu ở `SiteSetting` khóa `rbac.matrix` và chỉ bật/tắt trong tập đủ điều kiện, nên dù cấu hình sai, quản trị vẫn không sửa được bệnh án/đơn thuốc và nhân viên không đọc được chúng.
+- ADMIN không có "mọi quyền": hoàn tiền, xóa danh mục, cấu hình hệ thống là quyền riêng; thu tiền (STAFF) tách khỏi hoàn tiền (ADMIN); chỉ DOCTOR ghi bệnh án và kê đơn; chỉ PHARMACIST có quyền kho thuốc.
+- Quản trị chỉnh ma trận ở `/dashboard/permissions` (API `GET|PUT|DELETE /api/dashboard/rbac`); thay đổi có hiệu lực ngay trên instance vừa ghi, các instance khác trong tối đa 15 giây. Người dùng thiếu `record.view` thấy lịch hẹn nhưng không thấy dị ứng và tiền sử.
+- Phạm vi dữ liệu vẫn theo vai trò: bác sĩ chỉ thấy lịch, bệnh án, đơn thuốc của mình.
+
 ### 4. Khám Bệnh Và Hồ Sơ
 
 ```txt

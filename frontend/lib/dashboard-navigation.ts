@@ -11,12 +11,14 @@ import {
   Pill,
   Receipt,
   Settings,
+  ShieldCheck,
   Star,
   Stethoscope,
   Users,
   type LucideIcon,
 } from "lucide-react";
-import type { DashboardRole } from "@/lib/types";
+import { can } from "@/lib/permissions";
+import type { DashboardRole, DashboardUser } from "@/lib/types";
 
 export type DashboardNavGroupKey =
   | "overview"
@@ -33,7 +35,8 @@ export type DashboardNavItem = {
   label: string;
   description: string;
   icon: LucideIcon;
-  roles: readonly DashboardRole[];
+  // Hiện khi vai trò có BẤT KỲ quyền nào trong danh sách; rỗng = mọi nhân sự.
+  permissions: readonly string[];
   group: DashboardNavGroupKey;
 };
 
@@ -57,7 +60,7 @@ export const dashboardNavItems: readonly DashboardNavItem[] = [
     label: "Tổng quan",
     description: "Tình hình vận hành trong ngày",
     icon: LayoutDashboard,
-    roles: ["ADMIN", "STAFF", "DOCTOR"],
+    permissions: [],
     group: "overview",
   },
   {
@@ -66,7 +69,7 @@ export const dashboardNavItems: readonly DashboardNavItem[] = [
     label: "Lịch hẹn",
     description: "Tiếp nhận và theo dõi lịch khám",
     icon: CalendarCheck,
-    roles: ["ADMIN", "STAFF", "DOCTOR"],
+    permissions: ["appointment.view"],
     group: "operations",
   },
   {
@@ -75,7 +78,7 @@ export const dashboardNavItems: readonly DashboardNavItem[] = [
     label: "Lịch bác sĩ",
     description: "Ca làm việc và khung giờ khám",
     icon: CalendarClock,
-    roles: ["ADMIN", "STAFF", "DOCTOR"],
+    permissions: ["schedule.view"],
     group: "operations",
   },
   {
@@ -84,7 +87,7 @@ export const dashboardNavItems: readonly DashboardNavItem[] = [
     label: "Hồ sơ khám",
     description: "Thông tin khám và kết quả điều trị",
     icon: FileText,
-    roles: ["ADMIN", "STAFF", "DOCTOR"],
+    permissions: ["record.view"],
     group: "clinical",
   },
   {
@@ -93,7 +96,7 @@ export const dashboardNavItems: readonly DashboardNavItem[] = [
     label: "Đơn thuốc",
     description: "Quản lý chỉ định thuốc",
     icon: Pill,
-    roles: ["ADMIN", "STAFF", "DOCTOR"],
+    permissions: ["prescription.view"],
     group: "clinical",
   },
   {
@@ -102,7 +105,7 @@ export const dashboardNavItems: readonly DashboardNavItem[] = [
     label: "Hóa đơn",
     description: "Thanh toán và đối soát",
     icon: Receipt,
-    roles: ["ADMIN", "STAFF"],
+    permissions: ["invoice.view"],
     group: "finance",
   },
   {
@@ -111,7 +114,7 @@ export const dashboardNavItems: readonly DashboardNavItem[] = [
     label: "Chuyên khoa",
     description: "Danh mục chuyên khoa",
     icon: Building2,
-    roles: ["ADMIN", "STAFF"],
+    permissions: ["catalog.manage"],
     group: "catalog",
   },
   {
@@ -120,7 +123,7 @@ export const dashboardNavItems: readonly DashboardNavItem[] = [
     label: "Bác sĩ",
     description: "Hồ sơ và phân công bác sĩ",
     icon: Stethoscope,
-    roles: ["ADMIN", "STAFF"],
+    permissions: ["catalog.manage"],
     group: "catalog",
   },
   {
@@ -129,7 +132,7 @@ export const dashboardNavItems: readonly DashboardNavItem[] = [
     label: "Gói khám",
     description: "Danh mục dịch vụ và giá",
     icon: Package,
-    roles: ["ADMIN", "STAFF"],
+    permissions: ["catalog.manage"],
     group: "catalog",
   },
   {
@@ -138,7 +141,7 @@ export const dashboardNavItems: readonly DashboardNavItem[] = [
     label: "Thông báo ứng dụng",
     description: "Chiến dịch và lịch sử gửi",
     icon: BellRing,
-    roles: ["ADMIN", "STAFF"],
+    permissions: ["content.manage"],
     group: "engagement",
   },
   {
@@ -147,7 +150,7 @@ export const dashboardNavItems: readonly DashboardNavItem[] = [
     label: "Đánh giá",
     description: "Phản hồi về bác sĩ và dịch vụ",
     icon: Star,
-    roles: ["ADMIN", "STAFF", "DOCTOR"],
+    permissions: ["review.view"],
     group: "engagement",
   },
   {
@@ -156,7 +159,7 @@ export const dashboardNavItems: readonly DashboardNavItem[] = [
     label: "Trợ lý tư vấn",
     description: "Cấu hình trợ lý và nội dung tư vấn",
     icon: Bot,
-    roles: ["ADMIN", "STAFF"],
+    permissions: ["chatbot.view"],
     group: "engagement",
   },
   {
@@ -165,7 +168,7 @@ export const dashboardNavItems: readonly DashboardNavItem[] = [
     label: "Nhân sự",
     description: "Tài khoản và phân quyền",
     icon: Users,
-    roles: ["ADMIN"],
+    permissions: ["user.manage"],
     group: "system",
   },
   {
@@ -174,7 +177,7 @@ export const dashboardNavItems: readonly DashboardNavItem[] = [
     label: "Cấu hình trang người dùng",
     description: "Nhận diện và nội dung công khai",
     icon: Settings,
-    roles: ["ADMIN", "STAFF"],
+    permissions: ["settings.view"],
     group: "system",
   },
   {
@@ -183,7 +186,16 @@ export const dashboardNavItems: readonly DashboardNavItem[] = [
     label: "Thư viện ảnh",
     description: "Quản lý tài nguyên truyền thông",
     icon: Images,
-    roles: ["ADMIN", "STAFF"],
+    permissions: ["content.manage"],
+    group: "system",
+  },
+  {
+    key: "permissions",
+    href: "/dashboard/permissions",
+    label: "Phân quyền",
+    description: "Quyền của từng vai trò",
+    icon: ShieldCheck,
+    permissions: ["rbac.manage"],
     group: "system",
   },
 ] as const;
@@ -192,6 +204,7 @@ export const dashboardRoleLabels: Record<DashboardRole, string> = {
   ADMIN: "Quản trị viên",
   STAFF: "Nhân viên tiếp nhận",
   DOCTOR: "Bác sĩ",
+  PHARMACIST: "Dược sĩ",
 };
 
 export function isDashboardItemActive(item: DashboardNavItem, pathname: string) {
@@ -200,12 +213,14 @@ export function isDashboardItemActive(item: DashboardNavItem, pathname: string) 
     : pathname === item.href || pathname.startsWith(`${item.href}/`);
 }
 
-export function getVisibleDashboardItems(role: DashboardRole) {
-  return dashboardNavItems.filter((item) => item.roles.includes(role));
+export function getVisibleDashboardItems(user: DashboardUser) {
+  return dashboardNavItems.filter(
+    (item) => item.permissions.length === 0 || can(user, ...item.permissions),
+  );
 }
 
-export function canAccessDashboardPath(role: DashboardRole, pathname: string) {
-  return getVisibleDashboardItems(role).some((item) =>
+export function canAccessDashboardPath(user: DashboardUser, pathname: string) {
+  return getVisibleDashboardItems(user).some((item) =>
     isDashboardItemActive(item, pathname),
   );
 }

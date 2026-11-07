@@ -1,5 +1,6 @@
 "use client";
 
+import { can } from "@/lib/permissions";
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Search } from "lucide-react";
@@ -82,8 +83,8 @@ const displayParticipant = (item: ChatbotSession | ChatbotSessionDetail | Chatbo
 export default function ChatbotPage() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const canView = user?.role === "ADMIN" || user?.role === "STAFF";
-  const canAdmin = user?.role === "ADMIN";
+  const canView = can(user, "chatbot.view");
+  const canAdmin = can(user, "chatbot.config");
   const [activeTab, setActiveTab] = useState<TabKey>("overview");
   const [settingsActive, setSettingsActive] = useState(true);
   const [settingsForm, setSettingsForm] = useState<SettingsForm>(defaultSettings);

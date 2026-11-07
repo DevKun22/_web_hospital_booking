@@ -1,5 +1,6 @@
 "use client";
 
+import { can } from "@/lib/permissions";
 import { useQueryClient } from "@tanstack/react-query";
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { PanelRightOpen, Search } from "lucide-react";
@@ -190,8 +191,8 @@ export default function InvoicesPage() {
   const createRef = useRef<HTMLElement | null>(null);
   const detailRef = useRef<HTMLElement | null>(null);
 
-  const canUse = user?.role === "ADMIN" || user?.role === "STAFF";
-  const canRefund = user?.role === "ADMIN";
+  const canUse = can(user, "invoice.view");
+  const canRefund = can(user, "invoice.refund");
   const createDiscount = calculateInsuranceDiscount(insuranceForm);
   const adjustedDiscount = calculateInsuranceDiscount(adjustInsuranceForm);
   const adjustedFinalAmount = actionTarget?.type === "adjust"

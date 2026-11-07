@@ -1,4 +1,4 @@
-export type DashboardRole = "ADMIN" | "STAFF" | "DOCTOR";
+export type DashboardRole = "ADMIN" | "STAFF" | "DOCTOR" | "PHARMACIST";
 
 export type DashboardUser = {
   id: string;
@@ -7,6 +7,8 @@ export type DashboardUser = {
   email: string | null;
   role: DashboardRole;
   avatar: string | null;
+  // Mã quyền hiện hành của vai trò (từ ma trận phân quyền); chỉ có ở /auth/dashboard/me.
+  permissions?: string[];
   isActive?: boolean;
   isPhoneVerified?: boolean;
   isEmailVerified?: boolean;

@@ -2,6 +2,7 @@
 
 /* eslint-disable @next/next/no-img-element */
 
+import { can } from "@/lib/permissions";
 import { useQueryClient } from "@tanstack/react-query";
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { Search } from "lucide-react";
@@ -203,8 +204,8 @@ const parseKeywords = (value: string) =>
 export default function SiteSettingsPage() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const canWrite = user?.role === "ADMIN";
-  const canManage = user?.role === "ADMIN" || user?.role === "STAFF";
+  const canWrite = can(user, "settings.edit");
+  const canManage = can(user, "settings.view");
   const [activeTab, setActiveTab] = useState<TabKey>("settings");
   const [homeForm, setHomeForm] = useState<HomePageConfigValue>(emptyHomePageForm);
   const [siteForm, setSiteForm] = useState<SiteForm>(emptySiteForm);

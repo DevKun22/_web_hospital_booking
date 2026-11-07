@@ -1,5 +1,6 @@
 "use client";
 
+import { can } from "@/lib/permissions";
 import { FormEvent, useMemo, useState } from "react";
 import Link from "next/link";
 import { ArrowRight, RefreshCw } from "lucide-react";
@@ -170,7 +171,7 @@ function ActionRow({
 
 function DashboardPage() {
   const { user } = useAuth();
-  const canViewStats = user?.role === "ADMIN" || user?.role === "STAFF";
+  const canViewStats = can(user, "stats.view");
   const isDoctorDashboard = user?.role === "DOCTOR";
   const monthRange = useMemo(() => getMonthRange(), []);
   const todayDate = useMemo(() => toDateInput(new Date()), []);

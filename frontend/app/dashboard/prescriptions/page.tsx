@@ -1,5 +1,6 @@
 "use client";
 
+import { can } from "@/lib/permissions";
 import { useQueryClient } from "@tanstack/react-query";
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
@@ -116,8 +117,8 @@ export default function PrescriptionsPage() {
   const listRef = useRef<HTMLElement | null>(null);
   const detailRef = useRef<HTMLElement | null>(null);
 
-  const canEdit = user?.role === "ADMIN" || user?.role === "DOCTOR";
-  const canCancel = user?.role === "ADMIN" || user?.role === "DOCTOR";
+  const canEdit = can(user, "prescription.write");
+  const canCancel = can(user, "prescription.write");
   const isDoctor = user?.role === "DOCTOR";
 
   const query = useMemo(

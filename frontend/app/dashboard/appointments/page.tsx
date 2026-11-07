@@ -1,5 +1,6 @@
 "use client";
 
+import { can } from "@/lib/permissions";
 import { useQueryClient } from "@tanstack/react-query";
 import { type FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
@@ -117,7 +118,7 @@ export default function AppointmentsPage() {
   const listRef = useRef<HTMLElement | null>(null);
   const detailRef = useRef<HTMLElement | null>(null);
 
-  const canStaffActions = user?.role === "ADMIN" || user?.role === "STAFF";
+  const canStaffActions = can(user, "appointment.front_desk");
   const isDoctor = user?.role === "DOCTOR";
 
   const query = useMemo(

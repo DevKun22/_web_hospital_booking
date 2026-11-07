@@ -1,5 +1,6 @@
 "use client";
 
+import { can } from "@/lib/permissions";
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Search } from "lucide-react";
@@ -44,6 +45,7 @@ const roleOptions: { value: "" | DashboardRole; label: string }[] = [
   { value: "ADMIN", label: "Quản trị" },
   { value: "STAFF", label: "Nhân viên" },
   { value: "DOCTOR", label: "Bác sĩ" },
+  { value: "PHARMACIST", label: "Dược sĩ" },
 ];
 
 const statusOptions = [
@@ -56,6 +58,7 @@ const roleLabel: Record<DashboardRole, string> = {
   ADMIN: "Quản trị",
   STAFF: "Nhân viên",
   DOCTOR: "Bác sĩ",
+  PHARMACIST: "Dược sĩ",
 };
 
 const toForm = (user: DashboardUser): UserForm => ({
@@ -111,7 +114,7 @@ export default function UsersPage() {
   const listRef = useRef<HTMLElement | null>(null);
   const formRef = useRef<HTMLDivElement | null>(null);
 
-  const canUse = user?.role === "ADMIN";
+  const canUse = can(user, "user.manage");
   const isEditingSelf = Boolean(editing && editing.id === user?.id);
 
   const query = useMemo(
@@ -451,7 +454,7 @@ export default function UsersPage() {
           <label className="block"><span className="text-sm font-medium text-[#334155]">Họ tên</span><input value={form.fullName} onChange={(e) => setForm((current) => ({ ...current, fullName: e.target.value }))} className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" required /></label>
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="block"><span className="text-sm font-medium text-[#334155]">Số điện thoại</span><input value={form.phone} onChange={(e) => setForm((current) => ({ ...current, phone: e.target.value }))} placeholder="0901234567" className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" required /></label>
-            <label className="block"><span className="text-sm font-medium text-[#334155]">Vai trò</span><select value={form.role} disabled={isEditingSelf} onChange={(e) => setForm((current) => ({ ...current, role: e.target.value as DashboardRole }))} className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa] disabled:cursor-not-allowed disabled:bg-[#f1f5f9] disabled:text-[#667892]"><option value="ADMIN">Quản trị</option><option value="STAFF">Nhân viên</option><option value="DOCTOR">Bác sĩ</option></select></label>
+            <label className="block"><span className="text-sm font-medium text-[#334155]">Vai trò</span><select value={form.role} disabled={isEditingSelf} onChange={(e) => setForm((current) => ({ ...current, role: e.target.value as DashboardRole }))} className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa] disabled:cursor-not-allowed disabled:bg-[#f1f5f9] disabled:text-[#667892]"><option value="ADMIN">Quản trị</option><option value="STAFF">Nhân viên</option><option value="DOCTOR">Bác sĩ</option><option value="PHARMACIST">Dược sĩ</option></select></label>
           </div>
           <label className="block"><span className="text-sm font-medium text-[#334155]">Email</span><input value={form.email} onChange={(e) => setForm((current) => ({ ...current, email: e.target.value }))} placeholder="email@example.com" className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" /></label>
           {!editing ? <label className="block"><span className="text-sm font-medium text-[#334155]">Mật khẩu</span><input type="password" value={form.password} onChange={(e) => setForm((current) => ({ ...current, password: e.target.value }))} className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" required /></label> : null}
