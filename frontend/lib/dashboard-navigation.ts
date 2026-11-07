@@ -7,7 +7,6 @@ import {
   FileText,
   Images,
   LayoutDashboard,
-  MessageSquareText,
   Package,
   Pill,
   Receipt,
@@ -77,15 +76,6 @@ export const dashboardNavItems: readonly DashboardNavItem[] = [
     description: "Ca làm việc và khung giờ khám",
     icon: CalendarClock,
     roles: ["ADMIN", "STAFF", "DOCTOR"],
-    group: "operations",
-  },
-  {
-    key: "consultation-requests",
-    href: "/dashboard/consultation-requests",
-    label: "Yêu cầu tư vấn",
-    description: "Theo dõi yêu cầu cần liên hệ",
-    icon: MessageSquareText,
-    roles: ["ADMIN", "STAFF"],
     group: "operations",
   },
   {

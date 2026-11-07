@@ -551,7 +551,7 @@ export default function InvoicesPage() {
               <thead>
                 <tr className="text-[#667892]">
                   <th className="border-b border-[#e5ebf3] px-4 py-3 font-semibold">Hóa đơn</th>
-                  <th className="border-b border-[#e5ebf3] px-4 py-3 font-semibold">Bệnh nhân</th>
+                  <th className="border-b border-[#e5ebf3] px-4 py-3 font-semibold">Người khám</th>
                   <th className="border-b border-[#e5ebf3] px-4 py-3 font-semibold">Lịch hẹn</th>
                   <th className="border-b border-[#e5ebf3] px-4 py-3 font-semibold">Số tiền</th>
                   <th className="border-b border-[#e5ebf3] px-4 py-3 font-semibold">Trạng thái</th>
@@ -606,7 +606,7 @@ export default function InvoicesPage() {
         <div className="space-y-4">
         <section ref={createRef} className="scroll-mt-24 rounded-md border border-[#dce3ee] bg-white p-5">
           <h3 className="text-lg font-semibold">Tạo hóa đơn</h3>
-          <p className="mt-2 text-sm leading-6 text-[#667892]">Nhập mã lịch đã hoàn thành khám để kiểm tra người bệnh, dịch vụ và quyền lợi BHYT trước khi phát hành.</p>
+          <p className="mt-2 text-sm leading-6 text-[#667892]">Nhập mã lịch đã hoàn thành khám để kiểm tra người khám, dịch vụ và quyền lợi BHYT trước khi phát hành.</p>
           <form className="mt-5 space-y-4" onSubmit={createInvoice}>
             <label className="block">
               <span className="text-sm font-medium text-[#334155]">Mã lịch hẹn</span>
@@ -702,7 +702,7 @@ export default function InvoicesPage() {
               </div>
               <div className="space-y-3 text-sm">
                 <div><p className="text-[#667892]">Mã vạch</p><p className="font-semibold">{selected.barcode}</p></div>
-                <div><p className="text-[#667892]">Bệnh nhân</p><p className="font-semibold">{selected.patient.fullName}</p><p>{selected.patient.phone || "-"}</p></div>
+                <div><p className="text-[#667892]">Người khám</p><p className="font-semibold">{selected.patient.fullName}</p><p>{selected.patient.phone || "-"}</p></div>
                 <div><p className="text-[#667892]">Lịch hẹn</p><p className="font-semibold">{selected.appointment.bookingCode}</p><p>{formatDate(selected.appointment.appointmentDate)} {selected.appointment.startTime} - {selected.appointment.endTime}</p></div>
                 <div><p className="text-[#667892]">Bác sĩ</p><p className="font-semibold">{doctorName(selected)}</p><p>{selected.appointment.department.name}</p></div>
                 <div><p className="text-[#667892]">Dịch vụ</p><p>{selected.appointment.package?.name || "Khám bác sĩ"}</p></div>
@@ -853,7 +853,7 @@ export default function InvoicesPage() {
                       <h4 className="font-semibold">Xác nhận hoàn tiền</h4>
                       <label className="mt-3 block">
                         <span className="text-sm font-medium text-[#334155]">Lý do hoàn tiền</span>
-                        <textarea value={refundReason} onChange={(e) => setRefundReason(e.target.value)} rows={3} placeholder="Ví dụ: bệnh nhân yêu cầu hoàn tiền" className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" />
+                        <textarea value={refundReason} onChange={(e) => setRefundReason(e.target.value)} rows={3} placeholder="Ví dụ: người khám yêu cầu hoàn tiền" className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" />
                       </label>
                       <label className="mt-3 block">
                         <span className="text-sm font-medium text-[#334155]">Mã tham chiếu hoàn tiền {actionTarget.invoice.paymentMethod === "MOMO" || actionTarget.invoice.paymentMethod === "VNPAY" ? "*" : ""}</span>

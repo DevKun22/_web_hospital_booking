@@ -474,7 +474,7 @@ export default function MedicalRecordsPage() {
               <thead>
                 <tr className="text-[#667892]">
                   <th className="border-b border-[#e5ebf3] px-4 py-3 font-semibold">Hồ sơ</th>
-                  <th className="border-b border-[#e5ebf3] px-4 py-3 font-semibold">Bệnh nhân</th>
+                  <th className="border-b border-[#e5ebf3] px-4 py-3 font-semibold">Người khám</th>
                   <th className="border-b border-[#e5ebf3] px-4 py-3 font-semibold">Lịch hẹn</th>
                   <th className="border-b border-[#e5ebf3] px-4 py-3 font-semibold">Bác sĩ</th>
                   <th className="border-b border-[#e5ebf3] px-4 py-3 font-semibold">Kết quả</th>

@@ -85,7 +85,7 @@ export default function DashboardReviewsPage() {
       <DashboardPageHeader
         eyebrow="Chất lượng phục vụ"
         title="Đánh giá sau khám"
-        description="Tổng hợp phản hồi đã được người bệnh xác thực bằng mã dùng một lần."
+        description="Tổng hợp phản hồi đã được người khám xác thực bằng mã dùng một lần."
         actions={<button
           type="button"
           onClick={() => void reviewsQuery.refetch()}

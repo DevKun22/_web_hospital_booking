@@ -4,7 +4,6 @@ import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/api";
 import { queryKeys } from "@/lib/query-keys";
 import type {
-  ChatbotFAQ,
   ChatbotLog,
   ChatbotOverview,
   ChatbotSession,
@@ -16,13 +15,6 @@ import type {
 export type DashboardChatbotOverviewFilters = {
   dateFrom?: string;
   dateTo?: string;
-};
-
-export type DashboardChatbotFAQFilters = {
-  search?: string;
-  isActive?: string;
-  page?: number;
-  limit?: number;
 };
 
 export type DashboardChatbotSessionFilters = {
@@ -57,13 +49,6 @@ export const fetchDashboardChatbotOverview = (
 
 export const fetchDashboardChatbotSettings = () =>
   apiRequest<ChatbotSettings>("/dashboard/chatbot/settings");
-
-export const fetchDashboardChatbotFAQs = (
-  filters: DashboardChatbotFAQFilters,
-) =>
-  apiRequest<ListResult<ChatbotFAQ>>("/dashboard/chatbot/faqs", {
-    query: filters,
-  });
 
 export const fetchDashboardChatbotSessions = (
   filters: DashboardChatbotSessionFilters,
@@ -102,21 +87,6 @@ export function useDashboardChatbotSettings(enabled = true) {
     queryFn: fetchDashboardChatbotSettings,
     enabled,
     staleTime: 60_000,
-    refetchOnWindowFocus: true,
-    refetchOnReconnect: true,
-  });
-}
-
-export function useDashboardChatbotFAQs(
-  filters: DashboardChatbotFAQFilters,
-  enabled = true,
-) {
-  return useQuery({
-    queryKey: queryKeys.dashboardChatbotFAQs(filters),
-    queryFn: () => fetchDashboardChatbotFAQs(filters),
-    enabled,
-    placeholderData: keepPreviousData,
-    staleTime: 30_000,
     refetchOnWindowFocus: true,
     refetchOnReconnect: true,
   });

@@ -348,7 +348,7 @@ export default function PrescriptionsPage() {
 
       <section ref={listRef} className="min-w-0 scroll-mt-24 space-y-4">
         <DashboardPageHeader eyebrow={isDoctor ? "Khu làm việc bác sĩ" : "Chuyên môn"} title="Đơn thuốc"
-          description={isDoctor ? "Hoàn thiện đơn nháp, kiểm tra thuốc và phát hành đơn cho bệnh nhân." : "Tạo đơn từ hồ sơ khám, quản lý thuốc và theo dõi trạng thái phát hành."}
+          description={isDoctor ? "Hoàn thiện đơn nháp, kiểm tra thuốc và phát hành đơn cho người khám." : "Tạo đơn từ hồ sơ khám, quản lý thuốc và theo dõi trạng thái phát hành."}
           actions={!workspaceOpen ? <Button variant="outline" size="lg" onClick={() => setWorkspaceOpen(true)}><PanelRightOpen />{canEdit ? "Mở công cụ đơn thuốc" : "Mở đơn đang chọn"}</Button> : undefined}
         />
 
@@ -372,7 +372,7 @@ export default function PrescriptionsPage() {
             <button type="button" onClick={() => setQuickFilter("ISSUED")} className="rounded-md border border-[#c7ead0] bg-[#f0fff4] p-4 text-left text-[#1f7a3a] transition hover:-translate-y-0.5 hover:shadow-sm">
               <p className="text-sm font-medium opacity-80">Đã phát hành</p>
               <p className="mt-2 text-2xl font-semibold">{doctorSummary.issued}</p>
-              <p className="mt-1 text-xs opacity-75">Sẵn sàng gửi cho bệnh nhân</p>
+              <p className="mt-1 text-xs opacity-75">Sẵn sàng gửi cho người khám</p>
             </button>
           </div>
         ) : null}
@@ -398,7 +398,7 @@ export default function PrescriptionsPage() {
               <thead>
                 <tr className="text-[#667892]">
                   <th className="border-b border-[#e5ebf3] px-4 py-3 font-semibold">Đơn thuốc</th>
-                  <th className="border-b border-[#e5ebf3] px-4 py-3 font-semibold">Bệnh nhân</th>
+                  <th className="border-b border-[#e5ebf3] px-4 py-3 font-semibold">Người khám</th>
                   <th className="border-b border-[#e5ebf3] px-4 py-3 font-semibold">Hồ sơ</th>
                   <th className="border-b border-[#e5ebf3] px-4 py-3 font-semibold">Bác sĩ</th>
                   <th className="border-b border-[#e5ebf3] px-4 py-3 font-semibold">Trạng thái</th>

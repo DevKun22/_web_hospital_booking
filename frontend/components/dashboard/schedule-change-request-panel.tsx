@@ -356,7 +356,7 @@ export function ScheduleChangeRequestPanel({
           </div>
           <label className="block">
             <span className="text-sm font-medium text-[#334155]">
-              {"Số bệnh nhân tối đa mỗi slot"}
+              {"Số người khám tối đa mỗi khung giờ"}
             </span>
             <input
               type="number"
