@@ -49,9 +49,6 @@ services:
       - hospital_internal
 
 networks:
-      - hospital_internal
-
-networks:
   hospital_internal:
     name: hospital-booking-internal
 
