@@ -1299,30 +1299,6 @@ class AppointmentService {
     return transition.appointment;
   }
 
-  async updateStatus(
-    id: string,
-    status: Extract<
-      AppointmentStatus,
-      "CONFIRMED" | "CHECKED_IN" | "IN_PROGRESS" | "COMPLETED" | "NO_SHOW"
-    >,
-    actor: Actor,
-  ) {
-    switch (status) {
-      case "CONFIRMED":
-        return this.confirm(id, actor);
-      case "CHECKED_IN":
-        return this.checkIn(id, actor);
-      case "IN_PROGRESS":
-        return this.start(id, actor);
-      case "COMPLETED":
-        return this.complete(id, actor);
-      case "NO_SHOW":
-        return this.markNoShow(id, actor);
-      default:
-        throw new AppError("Trạng thái lịch hẹn không hợp lệ", 400);
-    }
-  }
-
   async cancel(id: string, reason: string, actor: Actor) {
     const cancelStatus =
       actor.role === "DOCTOR" ? "CANCELLED_BY_DOCTOR" : "CANCELLED_BY_ADMIN";
@@ -1661,18 +1637,6 @@ class AppointmentService {
 
     await this.dispatchNotificationBestEffort(transition.notificationId);
     return transition.appointment;
-  }
-
-  async cleanupExpiredPendingOtp(
-    actor: Actor,
-    expireMinutes = getBookingHoldMinutes(),
-  ) {
-    const result = await this.reconcileExpiredPendingOtp({
-      actor,
-      fallbackExpireMinutes: expireMinutes,
-    });
-
-    return { expiredBefore: result.expiredBefore, count: result.expired };
   }
 
   async expirePendingOtpAppointment(

@@ -62,10 +62,6 @@ export const rescheduleAppointmentSchema = z.object({
   reason: z.string().trim().min(2, "Ly do doi lich toi thieu 2 ky tu"),
 });
 
-export const updateAppointmentStatusSchema = z.object({
-  status: z.enum(["CONFIRMED", "CHECKED_IN", "IN_PROGRESS", "COMPLETED", "NO_SHOW"]),
-});
-
 export const updateAppointmentPatientInfoSchema = z.object({
   patientName: z.string().trim().min(2, "Ho ten toi thieu 2 ky tu").optional(),
   patientEmail: z.string().trim().email("Email khong hop le").nullable().optional(),

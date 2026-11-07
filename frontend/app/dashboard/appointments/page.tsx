@@ -410,25 +410,6 @@ export default function AppointmentsPage() {
     setCancelReason("");
   };
 
-  const cleanupExpiredOtp = async () => {
-    if (!canStaffActions) return;
-    setBusy(true);
-    setError("");
-    setNotice("");
-    try {
-      const result = await apiRequest<{ expiredBefore: string; count: number }>(
-        "/dashboard/appointments/cleanup-expired-otp",
-        { method: "POST" },
-      );
-      setNotice(`Đã dọn ${result.count} lịch quá hạn xác thực`);
-      await invalidateAppointments();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Không dọn được lịch quá hạn xác thực");
-    } finally {
-      setBusy(false);
-    }
-  };
-
   const openDetail = (appointment: Appointment) => {
     setSelected(appointment);
     setWorkspaceOpen(true);
@@ -517,12 +498,6 @@ export default function AppointmentsPage() {
                 <Button variant="outline" size="lg" onClick={() => setWorkspaceOpen(true)}>
                   <PanelRightOpen />
                   Mở chi tiết
-                </Button>
-              ) : null}
-              {canStaffActions ? (
-                <Button disabled={busy} variant="outline" size="lg" onClick={() => void cleanupExpiredOtp()}>
-                  <RotateCcw />
-                  Dọn lịch quá hạn xác thực
                 </Button>
               ) : null}
             </>

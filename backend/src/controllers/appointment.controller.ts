@@ -186,28 +186,6 @@ export const confirmDashboardAppointmentHandler = async (
   }
 };
 
-export const updateDashboardAppointmentStatusHandler = async (
-  req: Request,
-  res: Response,
-  next: NextFunction,
-) => {
-  try {
-    const appointment = await AppointmentService.updateStatus(
-      getParam(req.params.id),
-      req.body.status,
-      getActor(req),
-    );
-
-    return res.json({
-      success: true,
-      message: "Cập nhật trạng thái lịch hẹn thành công",
-      data: appointment,
-    });
-  } catch (error) {
-    next(error);
-  }
-};
-
 export const updateDashboardAppointmentPatientInfoHandler = async (
   req: Request,
   res: Response,
@@ -268,28 +246,6 @@ export const rescheduleDashboardAppointmentHandler = async (
       success: true,
       message: "Đổi lịch hẹn thành công",
       data: appointment,
-    });
-  } catch (error) {
-    next(error);
-  }
-};
-
-export const cleanupExpiredPendingOtpAppointmentsHandler = async (
-  req: Request,
-  res: Response,
-  next: NextFunction,
-) => {
-  try {
-    const expireMinutes = parseNumberQuery(req.query.expireMinutes);
-    const result = await AppointmentService.cleanupExpiredPendingOtp(
-      getActor(req),
-      expireMinutes,
-    );
-
-    return res.json({
-      success: true,
-      message: "Dọn lịch hẹn quá hạn OTP thành công",
-      data: result,
     });
   } catch (error) {
     next(error);
