@@ -16,9 +16,9 @@ Dashboard: https://web-hospital-booking.vercel.app/dashboard
 ## Mục Tiêu
 
 - Giúp người bệnh xem chuyên khoa, bác sĩ, gói khám và đặt lịch khám trực tuyến.
-- Hỗ trợ tra cứu lịch hẹn, xác thực OTP, hủy lịch, xem hóa đơn và kết quả khám.
+- Cổng bệnh nhân (web + app) đăng nhập bằng OTP để xem lịch hẹn, hủy lịch, kết quả, đơn thuốc, hóa đơn và đánh giá.
 - Cung cấp dashboard cho quản trị viên, nhân viên và bác sĩ quản lý nghiệp vụ khám bệnh.
-- Tích hợp các thành phần triển khai thực tế như Redis queue, gửi email OTP, upload ảnh, tìm kiếm Elasticsearch và theo dõi hiệu năng trên Vercel.
+- Tích hợp các thành phần triển khai thực tế như Redis queue, gửi email OTP, upload ảnh, push FCM và theo dõi hiệu năng trên Vercel.
 
 ## Công Nghệ Sử Dụng
 
@@ -30,9 +30,9 @@ Dashboard: https://web-hospital-booking.vercel.app/dashboard
 | Backend | Node.js, Express, TypeScript |
 | Database | PostgreSQL, Prisma ORM |
 | Queue | Redis, BullMQ, ioredis |
-| Email OTP | Resend, Nodemailer fallback |
+| Email OTP | Resend |
 | Upload | Cloudinary, MediaAsset tracking |
-| Search | Elasticsearch, PostgreSQL fallback |
+| Search | PostgreSQL (ILIKE, cache ngắn hạn) |
 | Deploy | Vercel frontend, Render backend và worker |
 | Analytics | Vercel Analytics, Vercel Speed Insights |
 
@@ -49,12 +49,12 @@ Express Backend API
         |
         +--> PostgreSQL + Prisma
         +--> Redis + BullMQ OTP Worker
-        +--> Resend / Nodemailer
+        +--> Resend
         +--> Cloudinary
-        +--> Elasticsearch
+        +--> Gemini (chatbot), Firebase Cloud Messaging (push)
 ```
 
-PostgreSQL là nguồn dữ liệu chính. Elasticsearch chỉ là lớp tăng tốc và cải thiện trải nghiệm tìm kiếm public; nếu Elasticsearch lỗi, API search có thể fallback về PostgreSQL. OTP được tạo ở backend, lưu vào database và đưa vào hàng đợi Redis để worker gửi nền.
+PostgreSQL là nguồn dữ liệu chính, kể cả cho tìm kiếm public. OTP được tạo ở backend, lưu vào database và đưa vào hàng đợi Redis để worker gửi nền.
 
 ## Cấu Trúc Thư Mục
 
@@ -75,15 +75,12 @@ PostgreSQL là nguồn dữ liệu chính. Elasticsearch chỉ là lớp tăng t
 - Chọn chuyên khoa, bác sĩ, ngày khám, slot khám và gói khám.
 - Xác thực OTP khi đặt lịch.
 - Hiển thị mã đặt lịch, nút copy mã, box OTP test khi bật debug.
-- Giao diện tra cứu lịch hẹn bằng mã lịch và số điện thoại theo luồng xác thực OTP trước khi hiển thị chi tiết.
-- Quên mã lịch bằng OTP.
-- Hủy lịch public có xác thực OTP.
-- Đánh giá trải nghiệm khám sau khi lịch hoàn thành, xác thực OTP theo số điện thoại.
-- Xem hóa đơn, thanh toán online/mock payment.
+- Tra cứu lịch hẹn qua cổng bệnh nhân: đăng nhập bằng số điện thoại + OTP, không cần nhớ mã lịch.
+- Trong cổng bệnh nhân: xem/hủy lịch, đánh giá sau khám, xem hóa đơn và thanh toán online.
 - Xem kết quả khám, kết quả lâm sàng và đơn thuốc đã phát hành.
 - Chatbot hỗ trợ đặt lịch, tra cứu, FAQ và điều hướng nhanh.
-- Tìm kiếm public bằng Elasticsearch: chuyên khoa, bác sĩ, gói khám, FAQ, chatbot FAQ.
-- Social widgets, nút cuộn lên đầu, form tư vấn nổi.
+- Tìm kiếm public: chuyên khoa, bác sĩ, gói khám, FAQ.
+- Social widgets, nút cuộn lên đầu.
 
 ### Dashboard Quản Trị
 
@@ -97,10 +94,9 @@ PostgreSQL là nguồn dữ liệu chính. Elasticsearch chỉ là lớp tăng t
 - Tạo hồ sơ khám, kết quả lâm sàng, file kết quả, đơn thuốc.
 - Tạo hóa đơn từ lịch đã hoàn thành, thanh toán, hoàn tiền.
 - Quản lý media assets: ảnh chưa dùng, xóa ảnh, cleanup ảnh không dùng.
-- Quản lý cấu hình site: site settings, banner, FAQ.
+- Quản lý cấu hình site: site settings, banner, FAQ (một nguồn FAQ cho trang Hỏi đáp và chatbot).
 - Dashboard thống kê bằng card và chart.
-- Quản lý chatbot, FAQ chatbot, cấu hình bật/tắt AI.
-- Theo dõi Search Analytics.
+- Quản lý chatbot: phiên, nhật ký, cấu hình bật/tắt AI.
 - Duyệt/ẩn đánh giá của người bệnh; bác sĩ chỉ xem phản hồi ẩn danh thuộc phạm vi của mình.
 
 ## Luồng Nghiệp Vụ Chính
@@ -134,23 +130,15 @@ Nếu chọn `EMAIL`, bệnh nhân phải nhập email và OTP được gửi qu
 - Lịch đặt bằng SMS thì gửi lại SMS hoặc debug SMS.
 - Có kiểm tra cooldown và giới hạn gửi OTP.
 
-### 3. Tra Cứu, Quên Mã Và Đánh Giá
+### 3. Cổng Bệnh Nhân: Tra Cứu, Hủy Lịch Và Đánh Giá
 
-- Giao diện tra cứu bằng `bookingCode + phone` yêu cầu OTP trước khi hiển thị chi tiết lịch.
-- Nếu quên mã lịch, người bệnh nhập số điện thoại.
-- Backend tìm lịch gần nhất theo số điện thoại.
-- Nếu lịch gần nhất có email và dùng kênh email, OTP tra cứu sẽ gửi qua email.
-- Nếu không có email, hệ thống fallback về SMS/debug SMS.
-- Lịch đã hoàn thành có thể nhận đánh giá qua OTP; đánh giá chỉ công khai khi được ADMIN/STAFF duyệt hiển thị.
+- Người bệnh đăng nhập bằng số điện thoại + OTP (`/api/v1/auth/patient/*`); web lưu token trong cookie httpOnly qua BFF, app lưu trong secure storage.
+- Sau đăng nhập, mọi lịch hẹn của tài khoản (kể cả lịch đặt cho người thân) hiển thị trong `/tai-khoan/lich-hen`; không cần mã lịch.
+- Chỉ cho hủy lịch đang chờ xác nhận hoặc đã xác nhận; hủy thành công mở lại slot.
+- Lịch đã hoàn thành có thể được đánh giá một lần; đánh giá chỉ công khai khi ADMIN/STAFF duyệt.
+- URL cũ `/tra-cuu-lich-hen` tự chuyển sang trang đăng nhập cổng bệnh nhân.
 
-### 4. Hủy Lịch
-
-- Chỉ cho hủy các lịch đang chờ xác nhận hoặc đã xác nhận.
-- Người bệnh nhập mã lịch, số điện thoại và lý do hủy.
-- Backend gửi OTP theo kênh của lịch.
-- Xác thực OTP thành công thì cập nhật trạng thái `CANCELLED_BY_PATIENT` và mở lại slot.
-
-### 5. Khám Bệnh Và Hồ Sơ
+### 4. Khám Bệnh Và Hồ Sơ
 
 ```txt
 Lịch đã xác nhận
@@ -163,31 +151,21 @@ Lịch đã xác nhận
     -> Hoàn thành lịch khám
 ```
 
-### 6. Hóa Đơn Và Thanh Toán
+### 5. Hóa Đơn Và Thanh Toán
 
 - Hóa đơn được tạo từ lịch hẹn đã hoàn thành.
 - Có hỗ trợ giảm trừ BHYT theo thông tin bệnh nhân và thông tin hóa đơn.
 - Có thể hủy hóa đơn để tạo lại khi nhập sai.
-- Public site hiển thị hóa đơn và hỗ trợ tạo giao dịch thanh toán.
-- Mock payment hỗ trợ demo luồng thành công/thất bại.
+- Người bệnh xem hóa đơn và thanh toán MoMo trong cổng bệnh nhân (`/api/v1/me/invoices/:id/payments`); kết quả cuối cùng xác nhận qua IPN.
+- Provider MOCK chỉ dùng cho kiểm thử khi `PAYMENT_MOCK_ENABLED=true` ở môi trường không phải production.
 
-### 7. Tìm Kiếm
+### 6. Tìm Kiếm
 
 ```txt
-Next.js Search UI
-        |
-Debounce input
-        |
-Node.js Search API
-        |
-Elasticsearch nếu bật
-        |
-PostgreSQL fallback nếu Elasticsearch lỗi
-        |
-SearchAnalyticsLog ghi nhận từ khóa
+Next.js Search UI -> debounce -> GET /api/search -> PostgreSQL (cache 30 giây)
 ```
 
-Các loại dữ liệu được index: `department`, `doctor`, `package`, `faq`, `chatbot_faq`.
+Các loại dữ liệu: `department`, `doctor`, `package`, `faq`.
 
 ## API Chính
 
@@ -207,17 +185,25 @@ GET  /api/packages/:slug
 POST /api/appointments
 POST /api/appointments/:id/resend-otp
 POST /api/appointments/:id/verify-otp
-GET  /api/appointments/lookup/result
-POST /api/appointments/lookup/request-otp
-POST /api/appointments/lookup/verify-otp
-POST /api/appointments/lookup/cancel/request-otp
-POST /api/appointments/lookup/cancel/verify
-GET  /api/appointments/:id/review
-POST /api/appointments/:id/review/request-otp
-POST /api/appointments/:id/review
+DELETE /api/appointments/:id/pending
 GET  /api/search
-GET  /api/search/suggestions
-POST /api/search/analytics
+POST /api/payments/momo/webhook
+```
+
+### Patient API (web + mobile, Bearer token)
+
+```txt
+POST /api/v1/auth/patient/request-otp
+POST /api/v1/auth/patient/verify-otp
+POST /api/v1/auth/refresh | /api/v1/auth/logout
+GET/PATCH /api/v1/me
+GET/POST/PATCH/DELETE /api/v1/me/dependents
+GET  /api/v1/me/appointments[/:id]
+POST /api/v1/me/appointments/:id/cancel
+GET/POST /api/v1/me/appointments/:id/review
+GET  /api/v1/me/medical-records | prescriptions | invoices
+POST /api/v1/me/invoices/:invoiceId/payments
+GET  /api/v1/me/notifications
 ```
 
 ### Dashboard API
@@ -282,13 +268,6 @@ cd backend
 npm run worker:otp:dev
 ```
 
-Reindex Elasticsearch nếu có cấu hình:
-
-```bash
-cd backend
-npm run search:reindex
-```
-
 ### Frontend
 
 ```bash
@@ -328,11 +307,6 @@ REDIS_URL=
 OTP_WORKER_CONCURRENCY=5
 OTP_DEBUG_ENABLED=true
 OTP_ENQUEUE_TIMEOUT_MS=500
-
-ELASTICSEARCH_ENABLED=false
-ELASTICSEARCH_NODE=
-ELASTICSEARCH_API_KEY=
-ELASTICSEARCH_INDEX=hospital_public_search
 ```
 
 ### Frontend
@@ -427,7 +401,6 @@ npm run build
 - Render Free có độ trễ do cold start và giới hạn tài nguyên.
 - Thanh toán thật mới ở mức mô phỏng/mock hoặc cần cấu hình thêm provider.
 - Một số chính sách BHYT mới dừng ở mức hỗ trợ nhập và tính giảm trừ theo dữ liệu hệ thống, chưa thay thế quy trình giám định bảo hiểm thực tế.
-- Endpoint kết quả khám public hiện được UI gọi sau bước OTP; nên bổ sung lookup token ngắn hạn ở backend để buộc API thực thi cùng chính sách bảo mật.
 
 ## Hướng Phát Triển
 
@@ -436,6 +409,5 @@ npm run build
 - Bổ sung notification real-time cho dashboard.
 - Thêm audit log chi tiết hơn cho thao tác quản trị.
 - Nâng cấp chatbot theo hướng hiểu ngữ cảnh và truy vấn dữ liệu linh hoạt hơn.
-- Tối ưu Elasticsearch ranking và dashboard Search Analytics.
 - Bổ sung test tự động cho service nghiệp vụ quan trọng.
 - Call Video khám online trực tuyến với Bác sĩ
