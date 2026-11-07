@@ -44,6 +44,7 @@ const [
   { default: MedicalRecordService },
   { default: PrescriptionService },
   { default: InvoiceService },
+  { default: RbacService },
   { isFirebaseAdminConfigured },
 ] = await Promise.all([
   import("../../src/app.js"),
@@ -57,6 +58,7 @@ const [
   import("../../src/services/medicalRecord.service.js"),
   import("../../src/services/prescription.service.js"),
   import("../../src/services/invoice.service.js"),
+  import("../../src/services/rbac.service.js"),
   import("../../src/config/firebaseAdmin.js"),
 ]);
 
@@ -243,7 +245,10 @@ const createStoredAppointment = async (input: {
   });
 };
 
-const authCookie = async (userId: string, role: "ADMIN" | "DOCTOR") => {
+const authCookie = async (
+  userId: string,
+  role: "ADMIN" | "DOCTOR" | "STAFF" | "PHARMACIST",
+) => {
   const authSession = await AuthSessionService.create({
     userId,
     kind: "DASHBOARD",
@@ -1224,17 +1229,18 @@ test("competing transitions produce exactly one committed state", async () => {
     status: "CHECKED_IN",
     bookingCode: "PHASE0-TRANSITION-RACE",
   });
-  const cookie = await authCookie(fixture.adminUser.id, "ADMIN");
+  const doctorCookie = await authCookie(fixture.doctorOneUser.id, "DOCTOR");
+  const adminCookie = await authCookie(fixture.adminUser.id, "ADMIN");
   const endpoint = `/api/dashboard/appointments/${appointment.id}`;
 
   const [start, noShow] = await Promise.all([
     http.request(`${endpoint}/start`, {
       method: "PATCH",
-      headers: dashboardHeaders(cookie),
+      headers: dashboardHeaders(doctorCookie),
     }),
     http.request(`${endpoint}/no-show`, {
       method: "PATCH",
-      headers: dashboardHeaders(cookie),
+      headers: dashboardHeaders(adminCookie),
     }),
   ]);
 
@@ -1284,7 +1290,7 @@ test("starting the same appointment twice creates one medical record and log", a
     status: "CHECKED_IN",
     bookingCode: "PHASE0-START-RACE",
   });
-  const cookie = await authCookie(fixture.adminUser.id, "ADMIN");
+  const cookie = await authCookie(fixture.doctorOneUser.id, "DOCTOR");
   const endpoint = `/api/dashboard/appointments/${appointment.id}/start`;
 
   const responses = await Promise.all([
@@ -1899,6 +1905,139 @@ test("an expired VNPay transaction becomes EXPIRED but a genuine late success st
     (await prisma.invoice.findUniqueOrThrow({ where: { id: invoice.id } })).status,
     "PAID",
   );
+});
+
+const createDashboardUser = async (role: "STAFF" | "PHARMACIST", phone: string) =>
+  prisma.user.create({
+    data: {
+      fullName: `RBAC ${role}`,
+      phone,
+      role,
+      isPhoneVerified: true,
+    },
+  });
+
+test("dynamic permissions keep clinical data away from admin editing and staff", async () => {
+  const staff = await createDashboardUser("STAFF", "0900000011");
+  const pharmacist = await createDashboardUser("PHARMACIST", "0900000012");
+  const adminCookie = await authCookie(fixture.adminUser.id, "ADMIN");
+  const staffCookie = await authCookie(staff.id, "STAFF");
+  const pharmacistCookie = await authCookie(pharmacist.id, "PHARMACIST");
+  const doctorCookie = await authCookie(fixture.doctorOneUser.id, "DOCTOR");
+  const get = (path: string, cookie: string) =>
+    http.request(path, { headers: dashboardHeaders(cookie) });
+  const patch = (path: string, cookie: string, body: unknown = {}) =>
+    http.request(path, { method: "PATCH", headers: dashboardHeaders(cookie), body });
+
+  // Nhân viên không đọc bệnh án và đơn thuốc, nhưng vẫn làm việc tiếp đón.
+  assert.equal((await get("/api/dashboard/medical-records", staffCookie)).status, 403);
+  assert.equal((await get("/api/dashboard/prescriptions", staffCookie)).status, 403);
+  assert.equal((await get("/api/dashboard/appointments", staffCookie)).status, 200);
+  assert.equal((await get("/api/dashboard/invoices", staffCookie)).status, 200);
+
+  // Quản trị xem được nhưng không sửa; chỉ bác sĩ ghi bệnh án và kê đơn.
+  assert.equal((await get("/api/dashboard/medical-records", adminCookie)).status, 200);
+  assert.equal((await get("/api/dashboard/prescriptions", adminCookie)).status, 200);
+  assert.equal((await patch("/api/dashboard/prescriptions/any-id", adminCookie)).status, 403);
+  assert.equal((await patch("/api/dashboard/medical-records/any-id", adminCookie)).status, 403);
+  assert.equal((await get("/api/dashboard/medical-records", doctorCookie)).status, 200);
+
+  // Dược sĩ đăng nhập dashboard được và đọc đơn thuốc, nhưng không đụng bệnh án, hóa đơn.
+  assert.equal((await get("/api/dashboard/prescriptions", pharmacistCookie)).status, 200);
+  assert.equal((await get("/api/dashboard/medical-records", pharmacistCookie)).status, 403);
+  assert.equal((await get("/api/dashboard/invoices", pharmacistCookie)).status, 403);
+
+  // Hoàn tiền chỉ quản trị.
+  assert.equal((await patch("/api/dashboard/invoices/any-id/refund", staffCookie)).status, 403);
+
+  // Chỉ quản trị đọc ma trận.
+  assert.equal((await get("/api/dashboard/rbac", staffCookie)).status, 403);
+  assert.equal((await get("/api/dashboard/rbac", doctorCookie)).status, 403);
+  const matrix = await get("/api/dashboard/rbac", adminCookie);
+  assert.equal(matrix.status, 200);
+  const recordEdit = matrix.body.data.permissions.find(
+    (item: { code: string }) => item.code === "record.edit",
+  );
+  assert.deepEqual(recordEdit.roles, ["DOCTOR"]);
+  assert.deepEqual(recordEdit.eligibleRoles, ["DOCTOR"]);
+});
+
+test("the permission matrix is editable within eligibility and takes effect immediately", async () => {
+  const staff = await createDashboardUser("STAFF", "0900000011");
+  const adminCookie = await authCookie(fixture.adminUser.id, "ADMIN");
+  const staffCookie = await authCookie(staff.id, "STAFF");
+  const put = (grants: Record<string, string[]>) =>
+    http.request("/api/dashboard/rbac", {
+      method: "PUT",
+      headers: dashboardHeaders(adminCookie),
+      body: { grants },
+    });
+  const staffPay = () =>
+    http.request("/api/dashboard/invoices/any-id/pay", {
+      method: "PATCH",
+      headers: dashboardHeaders(staffCookie),
+      body: { paymentMethod: "CASH" },
+    });
+
+  try {
+    // Cấp quyền ngoài tập đủ điều kiện bị từ chối, nêu rõ lý do.
+    const notEligible = await put({ "record.edit": ["ADMIN"] });
+    assert.equal(notEligible.status, 400);
+    assert.equal(notEligible.body.code, "RBAC_ROLE_NOT_ELIGIBLE");
+    const unknown = await put({ "made.up": ["ADMIN"] });
+    assert.equal(unknown.status, 400);
+    assert.equal(unknown.body.code, "RBAC_UNKNOWN_PERMISSION");
+
+    // Gỡ quyền thu tiền của nhân viên: có hiệu lực ngay, không cần đăng nhập lại.
+    assert.notEqual((await staffPay()).status, 403);
+    assert.equal((await put({ "invoice.collect": ["ADMIN"] })).status, 200);
+    assert.equal((await staffPay()).status, 403);
+
+    // Quyền cố định không thể gỡ dù yêu cầu rỗng.
+    assert.equal((await put({ "rbac.manage": [] })).status, 200);
+    const stillManages = await http.request("/api/dashboard/rbac", {
+      headers: dashboardHeaders(adminCookie),
+    });
+    assert.equal(stillManages.status, 200);
+
+    // Khôi phục mặc định.
+    const reset = await http.request("/api/dashboard/rbac", {
+      method: "DELETE",
+      headers: dashboardHeaders(adminCookie),
+    });
+    assert.equal(reset.status, 200);
+    assert.notEqual((await staffPay()).status, 403);
+  } finally {
+    await RbacService.resetMatrix();
+  }
+});
+
+test("staff without record.view see appointments without health history", async () => {
+  const staff = await createDashboardUser("STAFF", "0900000011");
+  const appointment = await createStoredAppointment({
+    status: "CONFIRMED",
+    bookingCode: "RBAC-MASK",
+  });
+  await prisma.appointment.update({
+    where: { id: appointment.id },
+    data: { allergies: "Penicillin", medicalHistory: "Hen suyen", familyHistory: "Tim mach" },
+  });
+  const read = async (cookie: string) =>
+    (
+      await http.request(`/api/dashboard/appointments/${appointment.id}`, {
+        headers: dashboardHeaders(cookie),
+      })
+    ).body.data;
+
+  const asStaff = await read(await authCookie(staff.id, "STAFF"));
+  assert.equal(asStaff.patientName, "Stored Patient");
+  assert.equal(asStaff.allergies, null);
+  assert.equal(asStaff.medicalHistory, null);
+  assert.equal(asStaff.familyHistory, null);
+
+  const asDoctor = await read(await authCookie(fixture.doctorOneUser.id, "DOCTOR"));
+  assert.equal(asDoctor.allergies, "Penicillin");
+  assert.equal(asDoctor.medicalHistory, "Hen suyen");
 });
 
 test("patients review only their own completed appointments", async () => {
@@ -2928,6 +3067,7 @@ test("dashboard hospital announcements reuse the patient inbox and support sched
 test("patient journey is consistent across public booking dashboard care and mobile reads", async () => {
   const phone = "0985656565";
   const dashboardCookie = await authCookie(fixture.adminUser.id, "ADMIN");
+  const doctorCookie = await authCookie(fixture.doctorOneUser.id, "DOCTOR");
 
   const booking = await http.request("/api/v1/appointments", {
     method: "POST",
@@ -2979,7 +3119,14 @@ test("patient journey is consistent across public booking dashboard care and mob
   ] as const) {
     const transition = await http.request(
       `/api/dashboard/appointments/${activeAppointmentId}/${action}`,
-      { method: "PATCH", headers: dashboardHeaders(dashboardCookie) },
+      {
+        method: "PATCH",
+        headers: dashboardHeaders(
+          action === "start"
+            ? await authCookie(fixture.doctorOneUser.id, "DOCTOR")
+            : dashboardCookie,
+        ),
+      },
     );
     assert.equal(transition.status, 200, action);
     assert.equal(transition.body.data.status, expectedStatus, action);
@@ -2993,7 +3140,7 @@ test("patient journey is consistent across public booking dashboard care and mob
     `/api/dashboard/medical-records/${record.id}`,
     {
       method: "PATCH",
-      headers: dashboardHeaders(dashboardCookie),
+      headers: dashboardHeaders(doctorCookie),
       body: {
         symptoms: "Đau đầu nhẹ",
         diagnosis: "Theo dõi đau đầu căng thẳng",
@@ -3008,7 +3155,7 @@ test("patient journey is consistent across public booking dashboard care and mob
     `/api/dashboard/medical-records/${record.id}/prescription`,
     {
       method: "POST",
-      headers: dashboardHeaders(dashboardCookie),
+      headers: dashboardHeaders(doctorCookie),
       body: {
         note: "Dùng thuốc sau ăn",
         items: [
@@ -3030,21 +3177,21 @@ test("patient journey is consistent across public booking dashboard care and mob
 
   const issuedPrescription = await http.request(
     `/api/dashboard/prescriptions/${prescriptionId}/issue`,
-    { method: "PATCH", headers: dashboardHeaders(dashboardCookie) },
+    { method: "PATCH", headers: dashboardHeaders(doctorCookie) },
   );
   assert.equal(issuedPrescription.status, 200);
   assert.equal(issuedPrescription.body.data.status, "ISSUED");
 
   const completed = await http.request(
     `/api/dashboard/appointments/${activeAppointmentId}/complete`,
-    { method: "PATCH", headers: dashboardHeaders(dashboardCookie) },
+    { method: "PATCH", headers: dashboardHeaders(doctorCookie) },
   );
   assert.equal(completed.status, 200);
   assert.equal(completed.body.data.status, "COMPLETED");
 
   const publishedRecord = await http.request(
     `/api/dashboard/medical-records/${record.id}/publish`,
-    { method: "PATCH", headers: dashboardHeaders(dashboardCookie) },
+    { method: "PATCH", headers: dashboardHeaders(doctorCookie) },
   );
   assert.equal(publishedRecord.status, 200);
   assert.equal(publishedRecord.body.data.status, "PUBLISHED");

@@ -7,7 +7,7 @@ import {
   updateDoctorAvailabilityHandler,
   updateDoctorHandler,
 } from "../controllers/doctor.controller.js";
-import { authDashboard, requireRole } from "../middlewares/auth.middleware.js";
+import { authDashboard, requirePermission } from "../middlewares/auth.middleware.js";
 import { validate } from "../middlewares/validate.middleware.js";
 import {
   createDoctorProfileSchema,
@@ -19,26 +19,26 @@ const router = Router();
 
 router.use(authDashboard);
 
-router.get("/", requireRole("ADMIN", "STAFF", "DOCTOR"), listDoctorsHandler);
-router.get("/:id", requireRole("ADMIN", "STAFF", "DOCTOR"), getDoctorHandler);
+router.get("/", requirePermission("catalog.view"), listDoctorsHandler);
+router.get("/:id", requirePermission("catalog.view"), getDoctorHandler);
 router.post(
   "/",
-  requireRole("ADMIN", "STAFF"),
+  requirePermission("catalog.manage"),
   validate(createDoctorProfileSchema),
   createDoctorHandler,
 );
 router.patch(
   "/:id",
-  requireRole("ADMIN", "STAFF"),
+  requirePermission("catalog.manage"),
   validate(updateDoctorProfileSchema),
   updateDoctorHandler,
 );
 router.patch(
   "/:id/availability",
-  requireRole("ADMIN", "STAFF"),
+  requirePermission("catalog.manage"),
   validate(updateDoctorAvailabilitySchema),
   updateDoctorAvailabilityHandler,
 );
-router.delete("/:id", requireRole("ADMIN"), deleteDoctorHandler);
+router.delete("/:id", requirePermission("catalog.delete"), deleteDoctorHandler);
 
 export default router;

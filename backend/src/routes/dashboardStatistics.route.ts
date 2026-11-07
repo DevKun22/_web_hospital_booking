@@ -8,17 +8,17 @@ import {
   getDashboardStatisticsWorkspaceHandler,
   getDoctorWorkspaceHandler,
 } from "../controllers/dashboardStatistics.controller.js";
-import { authDashboard, requireRole } from "../middlewares/auth.middleware.js";
+import { authDashboard, requirePermission } from "../middlewares/auth.middleware.js";
 
 const router = Router();
 
 router.use(authDashboard);
 router.get(
   "/doctor-workspace",
-  requireRole("DOCTOR"),
+  requirePermission("stats.doctor"),
   getDoctorWorkspaceHandler,
 );
-router.use(requireRole("ADMIN", "STAFF"));
+router.use(requirePermission("stats.view"));
 
 router.get("/overview", getDashboardStatisticsOverviewHandler);
 router.get("/workspace", getDashboardStatisticsWorkspaceHandler);

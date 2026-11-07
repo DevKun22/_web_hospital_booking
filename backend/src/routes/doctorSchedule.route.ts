@@ -6,7 +6,7 @@ import {
   listDoctorSchedulesHandler,
   updateDoctorScheduleHandler,
 } from "../controllers/doctorSchedule.controller.js";
-import { authDashboard, requireRole } from "../middlewares/auth.middleware.js";
+import { authDashboard, requirePermission } from "../middlewares/auth.middleware.js";
 import { validate } from "../middlewares/validate.middleware.js";
 import {
   createDoctorScheduleSchema,
@@ -19,29 +19,29 @@ router.use(authDashboard);
 
 router.get(
   "/",
-  requireRole("ADMIN", "STAFF", "DOCTOR"),
+  requirePermission("schedule.view"),
   listDoctorSchedulesHandler,
 );
 router.get(
   "/:id",
-  requireRole("ADMIN", "STAFF", "DOCTOR"),
+  requirePermission("schedule.view"),
   getDoctorScheduleHandler,
 );
 router.post(
   "/",
-  requireRole("ADMIN", "STAFF"),
+  requirePermission("schedule.manage"),
   validate(createDoctorScheduleSchema),
   createDoctorScheduleHandler,
 );
 router.patch(
   "/:id",
-  requireRole("ADMIN", "STAFF"),
+  requirePermission("schedule.manage"),
   validate(updateDoctorScheduleSchema),
   updateDoctorScheduleHandler,
 );
 router.delete(
   "/:id",
-  requireRole("ADMIN", "STAFF"),
+  requirePermission("schedule.manage"),
   deleteDoctorScheduleHandler,
 );
 

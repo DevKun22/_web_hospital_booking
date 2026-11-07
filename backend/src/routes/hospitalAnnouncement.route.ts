@@ -4,13 +4,13 @@ import {
   createHospitalAnnouncementHandler,
   listHospitalAnnouncementsHandler,
 } from "../controllers/hospitalAnnouncement.controller.js";
-import { authDashboard, requireRole } from "../middlewares/auth.middleware.js";
+import { authDashboard, requirePermission } from "../middlewares/auth.middleware.js";
 import { validate } from "../middlewares/validate.middleware.js";
 import { createHospitalAnnouncementSchema } from "../validations/hospitalAnnouncement.validation.js";
 
 const router = Router();
 
-router.use(authDashboard, requireRole("ADMIN", "STAFF"));
+router.use(authDashboard, requirePermission("content.manage"));
 router.get("/", listHospitalAnnouncementsHandler);
 router.post(
   "/",

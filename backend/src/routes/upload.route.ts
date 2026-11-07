@@ -5,7 +5,7 @@ import {
   listMediaAssetsHandler,
   uploadImagesHandler,
 } from "../controllers/upload.controller.js";
-import { authDashboard, requireRole } from "../middlewares/auth.middleware.js";
+import { authDashboard, requirePermission } from "../middlewares/auth.middleware.js";
 import { uploadImages } from "../middlewares/upload.middleware.js";
 import { validate } from "../middlewares/validate.middleware.js";
 import { cleanupUnusedMediaAssetsSchema } from "../validations/mediaAsset.validation.js";
@@ -15,14 +15,14 @@ const router = Router();
 router.get(
   "/images",
   authDashboard,
-  requireRole("ADMIN", "STAFF"),
+  requirePermission("content.manage"),
   listMediaAssetsHandler,
 );
 
 router.post(
   "/images",
   authDashboard,
-  requireRole("ADMIN", "STAFF"),
+  requirePermission("content.manage"),
   uploadImages,
   uploadImagesHandler,
 );
@@ -30,7 +30,7 @@ router.post(
 router.post(
   "/images/cleanup-unused",
   authDashboard,
-  requireRole("ADMIN"),
+  requirePermission("content.delete"),
   validate(cleanupUnusedMediaAssetsSchema),
   cleanupUnusedMediaAssetsHandler,
 );
@@ -38,7 +38,7 @@ router.post(
 router.delete(
   "/images/:id",
   authDashboard,
-  requireRole("ADMIN"),
+  requirePermission("content.delete"),
   deleteUnusedMediaAssetHandler,
 );
 

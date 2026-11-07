@@ -7,7 +7,7 @@ import {
   listPublicBannersHandler,
   updateDashboardBannerHandler,
 } from "../controllers/banner.controller.js";
-import { authDashboard, requireRole } from "../middlewares/auth.middleware.js";
+import { authDashboard, requirePermission } from "../middlewares/auth.middleware.js";
 import { validate } from "../middlewares/validate.middleware.js";
 import {
   createBannerSchema,
@@ -21,28 +21,28 @@ export const dashboardBannerRouter = Router();
 dashboardBannerRouter.use(authDashboard);
 dashboardBannerRouter.get(
   "/",
-  requireRole("ADMIN", "STAFF"),
+  requirePermission("content.manage"),
   listDashboardBannersHandler,
 );
 dashboardBannerRouter.get(
   "/:id",
-  requireRole("ADMIN", "STAFF"),
+  requirePermission("content.manage"),
   getDashboardBannerHandler,
 );
 dashboardBannerRouter.post(
   "/",
-  requireRole("ADMIN", "STAFF"),
+  requirePermission("content.manage"),
   validate(createBannerSchema),
   createDashboardBannerHandler,
 );
 dashboardBannerRouter.patch(
   "/:id",
-  requireRole("ADMIN", "STAFF"),
+  requirePermission("content.manage"),
   validate(updateBannerSchema),
   updateDashboardBannerHandler,
 );
 dashboardBannerRouter.delete(
   "/:id",
-  requireRole("ADMIN"),
+  requirePermission("content.delete"),
   deleteDashboardBannerHandler,
 );

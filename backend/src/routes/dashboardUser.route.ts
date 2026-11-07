@@ -7,7 +7,7 @@ import {
   updateDashboardUserPasswordHandler,
   updateDashboardUserStatusHandler,
 } from "../controllers/dashboardUser.controller.js";
-import { authDashboard, requireRole } from "../middlewares/auth.middleware.js";
+import { authDashboard, requirePermission } from "../middlewares/auth.middleware.js";
 import { validate } from "../middlewares/validate.middleware.js";
 import {
   createDashboardUserSchema,
@@ -18,7 +18,7 @@ import {
 
 const router = Router();
 
-router.use(authDashboard, requireRole("ADMIN"));
+router.use(authDashboard, requirePermission("user.manage"));
 
 router.get("/", listDashboardUsersHandler);
 router.post(

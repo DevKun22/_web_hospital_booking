@@ -1,3 +1,4 @@
+import { roleHasAnyPermission } from "./rbac.service.js";
 import { Prisma } from "../../generated/prisma/client.js";
 import type {
   AppointmentLogAction,
@@ -359,6 +360,11 @@ const normalizeOptionalString = (value?: string | null) =>
 
 const parseOptionalDate = (value?: string | null) =>
   value ? parseDateOnly(value) : null;
+
+// Tiền sử và dị ứng là dữ liệu y tế: người không có quyền record.view chỉ thấy phần tiếp đón.
+const maskClinicalFields = <T extends { allergies?: unknown; medicalHistory?: unknown; familyHistory?: unknown }>(
+  appointment: T,
+): T => ({ ...appointment, allergies: null, medicalHistory: null, familyHistory: null });
 
 class AppointmentService {
   async create(
@@ -1100,8 +1106,10 @@ class AppointmentService {
       prisma.appointment.count({ where }),
     ]);
 
+    const canViewClinical = await roleHasAnyPermission(actor.role, ["record.view"]);
+
     return {
-      items,
+      items: items.map((item) => (canViewClinical ? item : maskClinicalFields(item))),
       pagination: {
         page,
         limit,
@@ -1127,7 +1135,9 @@ class AppointmentService {
       throw new AppError("Không tìm thấy lịch hẹn", 404);
     }
 
-    return appointment;
+    return (await roleHasAnyPermission(actor.role, ["record.view"]))
+      ? appointment
+      : maskClinicalFields(appointment);
   }
 
   async updatePatientInfo(

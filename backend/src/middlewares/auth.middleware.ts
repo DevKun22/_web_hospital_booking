@@ -8,7 +8,10 @@ import {
 } from "../services/dashboardAuthCache.service.js";
 import AuthSessionService from "../services/authSession.service.js";
 
-const DASHBOARD_ROLES: Role[] = ["ADMIN", "DOCTOR", "STAFF"];
+import { STAFF_ROLES, type PermissionCode } from "../config/permissions.js";
+import { roleHasAnyPermission } from "../services/rbac.service.js";
+
+const DASHBOARD_ROLES: Role[] = [...STAFF_ROLES];
 
 export const authDashboard = async (
   req: Request,
@@ -82,17 +85,20 @@ export const authDashboard = async (
   }
 };
 
-export const requireRole =
-  (...roles: Role[]) =>
-  (req: Request, res: Response, next: NextFunction) => {
-    const userRole = req.user?.role;
-
-    if (!userRole || !roles.includes(userRole as Role)) {
-      return res.status(403).json({
-        success: false,
-        message: "Không có quyền truy cập",
-      });
+// Cho qua khi vai trò của người dùng được cấp BẤT KỲ mã quyền nào trong danh sách.
+// Quyền do ma trận `rbac.matrix` quyết định; ràng buộc cứng nằm ở config/permissions.ts.
+export const requirePermission =
+  (...codes: PermissionCode[]) =>
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      if (!(await roleHasAnyPermission(req.user?.role, codes))) {
+        return res.status(403).json({
+          success: false,
+          message: "Không có quyền truy cập",
+        });
+      }
+      next();
+    } catch (error) {
+      next(error);
     }
-
-    next();
   };

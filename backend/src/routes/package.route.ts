@@ -9,7 +9,7 @@ import {
   updatePackageHandler,
   updatePackageItemHandler,
 } from "../controllers/package.controller.js";
-import { authDashboard, requireRole } from "../middlewares/auth.middleware.js";
+import { authDashboard, requirePermission } from "../middlewares/auth.middleware.js";
 import { validate } from "../middlewares/validate.middleware.js";
 import {
   createPackageItemSchema,
@@ -22,36 +22,36 @@ const router = Router();
 
 router.use(authDashboard);
 
-router.get("/", requireRole("ADMIN", "STAFF", "DOCTOR"), listPackagesHandler);
-router.get("/:id", requireRole("ADMIN", "STAFF", "DOCTOR"), getPackageHandler);
+router.get("/", requirePermission("catalog.view"), listPackagesHandler);
+router.get("/:id", requirePermission("catalog.view"), getPackageHandler);
 router.post(
   "/",
-  requireRole("ADMIN", "STAFF"),
+  requirePermission("catalog.manage"),
   validate(createPackageSchema),
   createPackageHandler,
 );
 router.patch(
   "/:id",
-  requireRole("ADMIN", "STAFF"),
+  requirePermission("catalog.manage"),
   validate(updatePackageSchema),
   updatePackageHandler,
 );
-router.delete("/:id", requireRole("ADMIN"), deletePackageHandler);
+router.delete("/:id", requirePermission("catalog.delete"), deletePackageHandler);
 router.post(
   "/:id/items",
-  requireRole("ADMIN", "STAFF"),
+  requirePermission("catalog.manage"),
   validate(createPackageItemSchema),
   createPackageItemHandler,
 );
 router.patch(
   "/:id/items/:itemId",
-  requireRole("ADMIN", "STAFF"),
+  requirePermission("catalog.manage"),
   validate(updatePackageItemSchema),
   updatePackageItemHandler,
 );
 router.delete(
   "/:id/items/:itemId",
-  requireRole("ADMIN", "STAFF"),
+  requirePermission("catalog.manage"),
   deletePackageItemHandler,
 );
 

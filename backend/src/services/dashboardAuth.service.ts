@@ -9,8 +9,10 @@ import AuthSessionService, {
   type SessionMeta,
 } from "./authSession.service.js";
 import DashboardLoginSecurityService from "./dashboardLoginSecurity.service.js";
+import { STAFF_ROLES, type StaffRole } from "../config/permissions.js";
+import { getRolePermissions } from "./rbac.service.js";
 
-const DASHBOARD_ROLES: Role[] = ["ADMIN", "DOCTOR", "STAFF"];
+const DASHBOARD_ROLES: Role[] = [...STAFF_ROLES];
 const MAX_CHALLENGE_ATTEMPTS = 5;
 const CHALLENGE_EXPIRES_SECONDS = 5 * 60;
 const ACCESS_TOKEN_EXPIRES_IN = (process.env
@@ -30,27 +32,21 @@ const DUMMY_PASSWORD_HASH = bcrypt.hashSync(
   10,
 );
 
-const dashboardPurposeByRole: Record<
-  Extract<Role, "ADMIN" | "DOCTOR" | "STAFF">,
-  OtpPurpose
-> = {
+const dashboardPurposeByRole: Record<StaffRole, OtpPurpose> = {
   ADMIN: "ADMIN_LOGIN",
   DOCTOR: "DOCTOR_LOGIN",
   STAFF: "STAFF_LOGIN",
+  PHARMACIST: "PHARMACIST_LOGIN",
 };
 
-const redirectPathByRole: Record<
-  Extract<Role, "ADMIN" | "DOCTOR" | "STAFF">,
-  string
-> = {
+const redirectPathByRole: Record<StaffRole, string> = {
   ADMIN: "/admin/dashboard",
   DOCTOR: "/doctor/dashboard",
   STAFF: "/staff/dashboard",
+  PHARMACIST: "/pharmacist/dashboard",
 };
 
-const isDashboardRole = (
-  role: Role,
-): role is Extract<Role, "ADMIN" | "DOCTOR" | "STAFF"> =>
+const isDashboardRole = (role: Role): role is StaffRole =>
   DASHBOARD_ROLES.includes(role);
 
 const toSafeDashboardUser = (user: {
@@ -325,7 +321,10 @@ class DashboardAuthService {
       throw new AppError("Không có quyền truy cập dashboard", 403);
     }
 
-    return toSafeDashboardUser(user);
+    return {
+      ...toSafeDashboardUser(user),
+      permissions: await getRolePermissions(user.role),
+    };
   }
 }
 

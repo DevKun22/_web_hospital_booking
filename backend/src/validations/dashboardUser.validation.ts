@@ -2,7 +2,7 @@ import { z } from "zod";
 
 const phoneRegex = /^(0|\+84)[0-9]{9,10}$/;
 
-const dashboardRoleSchema = z.enum(["ADMIN", "STAFF", "DOCTOR"]);
+const dashboardRoleSchema = z.enum(["ADMIN", "STAFF", "DOCTOR", "PHARMACIST"]);
 
 export const createDashboardUserSchema = z.object({
   fullName: z.string().trim().min(2, "Ho ten toi thieu 2 ky tu"),

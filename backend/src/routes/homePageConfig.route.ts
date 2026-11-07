@@ -3,7 +3,7 @@ import {
   getDashboardHomePageConfigHandler,
   updateDashboardHomePageConfigHandler,
 } from "../controllers/homePageConfig.controller.js";
-import { authDashboard, requireRole } from "../middlewares/auth.middleware.js";
+import { authDashboard, requirePermission } from "../middlewares/auth.middleware.js";
 import { validate } from "../middlewares/validate.middleware.js";
 import { updateHomePageConfigSchema } from "../validations/siteConfig.validation.js";
 
@@ -12,12 +12,12 @@ const router = Router();
 router.use(authDashboard);
 router.get(
   "/",
-  requireRole("ADMIN", "STAFF"),
+  requirePermission("settings.view"),
   getDashboardHomePageConfigHandler,
 );
 router.patch(
   "/",
-  requireRole("ADMIN"),
+  requirePermission("settings.edit"),
   validate(updateHomePageConfigSchema),
   updateDashboardHomePageConfigHandler,
 );

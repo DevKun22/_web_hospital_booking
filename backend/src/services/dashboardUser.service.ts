@@ -1,3 +1,4 @@
+import { STAFF_ROLES, type StaffRole } from "../config/permissions.js";
 import { Prisma } from "../../generated/prisma/client.js";
 import type { Role } from "../../generated/prisma/enums.js";
 import { prisma } from "../config/prisma.js";
@@ -6,7 +7,7 @@ import { AppError } from "../utils/appError.js";
 import MediaAssetService from "./mediaAsset.service.js";
 import { invalidateDashboardAuthSnapshot } from "./dashboardAuthCache.service.js";
 
-type DashboardRole = Extract<Role, "ADMIN" | "STAFF" | "DOCTOR">;
+type DashboardRole = StaffRole;
 type Actor = { userId: string; role: Role };
 
 type CreateDashboardUserInput = {
@@ -30,7 +31,7 @@ type UpdateDashboardUserInput = {
   isActive?: boolean;
 };
 
-const DASHBOARD_ROLES: Role[] = ["ADMIN", "STAFF", "DOCTOR"];
+const DASHBOARD_ROLES: Role[] = [...STAFF_ROLES];
 
 const dashboardUserSelect = {
   id: true,

@@ -5,7 +5,7 @@ import {
   listScheduleChangeRequestsHandler,
   reviewScheduleChangeRequestHandler,
 } from "../controllers/scheduleChangeRequest.controller.js";
-import { authDashboard, requireRole } from "../middlewares/auth.middleware.js";
+import { authDashboard, requirePermission } from "../middlewares/auth.middleware.js";
 import { validate } from "../middlewares/validate.middleware.js";
 import {
   createScheduleChangeRequestSchema,
@@ -16,24 +16,24 @@ const router = Router();
 router.use(authDashboard);
 router.get(
   "/",
-  requireRole("ADMIN", "STAFF", "DOCTOR"),
+  requirePermission("schedule.view"),
   listScheduleChangeRequestsHandler,
 );
 router.post(
   "/",
-  requireRole("DOCTOR"),
+  requirePermission("schedule.request"),
   validate(createScheduleChangeRequestSchema),
   createScheduleChangeRequestHandler,
 );
 router.patch(
   "/:id/review",
-  requireRole("ADMIN", "STAFF"),
+  requirePermission("schedule.review"),
   validate(reviewScheduleChangeRequestSchema),
   reviewScheduleChangeRequestHandler,
 );
 router.patch(
   "/:id/cancel",
-  requireRole("DOCTOR"),
+  requirePermission("schedule.request"),
   cancelScheduleChangeRequestHandler,
 );
 

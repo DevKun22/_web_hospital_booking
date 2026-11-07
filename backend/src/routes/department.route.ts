@@ -6,7 +6,7 @@ import {
   listDepartmentsHandler,
   updateDepartmentHandler,
 } from "../controllers/department.controller.js";
-import { authDashboard, requireRole } from "../middlewares/auth.middleware.js";
+import { authDashboard, requirePermission } from "../middlewares/auth.middleware.js";
 import { validate } from "../middlewares/validate.middleware.js";
 import {
   createDepartmentSchema,
@@ -19,26 +19,26 @@ router.use(authDashboard);
 
 router.get(
   "/",
-  requireRole("ADMIN", "STAFF", "DOCTOR"),
+  requirePermission("catalog.view"),
   listDepartmentsHandler,
 );
 router.get(
   "/:id",
-  requireRole("ADMIN", "STAFF", "DOCTOR"),
+  requirePermission("catalog.view"),
   getDepartmentHandler,
 );
 router.post(
   "/",
-  requireRole("ADMIN", "STAFF"),
+  requirePermission("catalog.manage"),
   validate(createDepartmentSchema),
   createDepartmentHandler,
 );
 router.patch(
   "/:id",
-  requireRole("ADMIN", "STAFF"),
+  requirePermission("catalog.manage"),
   validate(updateDepartmentSchema),
   updateDepartmentHandler,
 );
-router.delete("/:id", requireRole("ADMIN"), deleteDepartmentHandler);
+router.delete("/:id", requirePermission("catalog.delete"), deleteDepartmentHandler);
 
 export default router;

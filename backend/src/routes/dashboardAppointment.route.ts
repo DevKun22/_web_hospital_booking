@@ -11,7 +11,7 @@ import {
   startDashboardAppointmentHandler,
   updateDashboardAppointmentPatientInfoHandler,
 } from "../controllers/appointment.controller.js";
-import { authDashboard, requireRole } from "../middlewares/auth.middleware.js";
+import { authDashboard, requirePermission } from "../middlewares/auth.middleware.js";
 import { validate } from "../middlewares/validate.middleware.js";
 import {
   cancelAppointmentSchema,
@@ -25,54 +25,54 @@ router.use(authDashboard);
 
 router.get(
   "/",
-  requireRole("ADMIN", "STAFF", "DOCTOR"),
+  requirePermission("appointment.view"),
   listDashboardAppointmentsHandler,
 );
 router.get(
   "/:id",
-  requireRole("ADMIN", "STAFF", "DOCTOR"),
+  requirePermission("appointment.view"),
   getDashboardAppointmentHandler,
 );
 router.patch(
   "/:id/confirm",
-  requireRole("ADMIN", "STAFF"),
+  requirePermission("appointment.front_desk"),
   confirmDashboardAppointmentHandler,
 );
 router.patch(
   "/:id/check-in",
-  requireRole("ADMIN", "STAFF"),
+  requirePermission("appointment.front_desk"),
   checkInDashboardAppointmentHandler,
 );
 router.patch(
   "/:id/start",
-  requireRole("ADMIN", "STAFF", "DOCTOR"),
+  requirePermission("appointment.exam"),
   startDashboardAppointmentHandler,
 );
 router.patch(
   "/:id/complete",
-  requireRole("ADMIN", "STAFF", "DOCTOR"),
+  requirePermission("appointment.exam"),
   completeDashboardAppointmentHandler,
 );
 router.patch(
   "/:id/no-show",
-  requireRole("ADMIN", "STAFF"),
+  requirePermission("appointment.front_desk"),
   noShowDashboardAppointmentHandler,
 );
 router.patch(
   "/:id/reschedule",
-  requireRole("ADMIN", "STAFF"),
+  requirePermission("appointment.front_desk"),
   validate(rescheduleAppointmentSchema),
   rescheduleDashboardAppointmentHandler,
 );
 router.patch(
   "/:id/patient-info",
-  requireRole("ADMIN", "STAFF"),
+  requirePermission("appointment.front_desk"),
   validate(updateAppointmentPatientInfoSchema),
   updateDashboardAppointmentPatientInfoHandler,
 );
 router.patch(
   "/:id/cancel",
-  requireRole("ADMIN", "STAFF", "DOCTOR"),
+  requirePermission("appointment.cancel"),
   validate(cancelAppointmentSchema),
   cancelDashboardAppointmentHandler,
 );
