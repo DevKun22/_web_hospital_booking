@@ -90,6 +90,11 @@ async function resetDatabase() {
   }
 
   await prisma.$transaction([
+    // Sổ kho chỉ thêm dòng (trigger chặn DELETE), nên dọn kho bằng TRUNCATE.
+    // CASCADE kéo theo PrescriptionItem; mọi dữ liệu đơn thuốc đều bị xóa ở dưới.
+    prisma.$executeRawUnsafe(
+      'TRUNCATE TABLE "StockMovement", "Medicine" CASCADE',
+    ),
     prisma.paymentTransaction.deleteMany(),
     prisma.invoiceItem.deleteMany(),
     prisma.invoice.deleteMany(),

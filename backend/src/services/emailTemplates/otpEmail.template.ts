@@ -12,6 +12,7 @@ const purposeLabel: Record<OtpPurpose, string> = {
   ADMIN_LOGIN: "đăng nhập dashboard admin",
   DOCTOR_LOGIN: "đăng nhập dashboard bác sĩ",
   STAFF_LOGIN: "đăng nhập dashboard nhân viên",
+  PHARMACIST_LOGIN: "đăng nhập dashboard dược sĩ",
 };
 
 const escapeHtml = (value: string) =>

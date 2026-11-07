@@ -76,6 +76,8 @@ const resetDatabase = async () => {
     "DashboardLoginFailure",
     "OtpSecurityBlock",
     "OtpVerifyAttempt",
+    "StockMovement",
+    "Medicine",
     "User",
     "Department",
   ]
@@ -858,6 +860,136 @@ test("public booking is rate limited per phone with a Retry-After header", async
   } finally {
     delete process.env.RATE_LIMIT_ENABLED;
   }
+});
+
+test("pharmacy schema enforces non-negative stock and consistent ledger rows", async () => {
+  const pharmacist = await prisma.user.create({
+    data: {
+      fullName: "Phase Pharmacist",
+      phone: "0900000009",
+      role: "PHARMACIST",
+      isPhoneVerified: true,
+    },
+  });
+  const medicine = await prisma.medicine.create({
+    data: { code: "PARA500", name: "Paracetamol 500mg", unit: "viên", stockQuantity: 10 },
+  });
+  const movement = (data: Record<string, unknown>) =>
+    prisma.stockMovement.create({
+      data: {
+        medicineId: medicine.id,
+        actorId: pharmacist.id,
+        type: "RECEIPT",
+        quantity: 5,
+        balanceAfter: 15,
+        ...data,
+      } as never,
+    });
+
+  // Stock can never go negative, even through a direct write.
+  await assert.rejects(
+    prisma.medicine.update({ where: { id: medicine.id }, data: { stockQuantity: -1 } }),
+    /Medicine_stockQuantity_nonnegative|check constraint/i,
+  );
+  // Medicine codes are unique.
+  await assert.rejects(
+    prisma.medicine.create({ data: { code: "PARA500", name: "Duplicate", unit: "viên" } }),
+    /Unique constraint|PARA500|code/i,
+  );
+
+  // Ledger rows must match their type.
+  await assert.rejects(movement({ quantity: 0 }), /quantity_nonzero|check constraint/i);
+  await assert.rejects(movement({ type: "RECEIPT", quantity: -5 }), /sign_matches_type|check constraint/i);
+  await assert.rejects(
+    movement({ type: "DISPENSE", quantity: -3, balanceAfter: 7, prescriptionItemId: null }),
+    /dispense_has_item|check constraint/i,
+  );
+  await assert.rejects(
+    movement({ type: "ADJUSTMENT", quantity: -2, balanceAfter: 8, reason: "   " }),
+    /adjustment_has_reason|check constraint/i,
+  );
+
+  const receipt = await movement({});
+  assert.equal(receipt.quantity, 5);
+
+  // The ledger is append-only.
+  await assert.rejects(
+    prisma.stockMovement.update({ where: { id: receipt.id }, data: { reason: "edited" } }),
+    /append-only|chỉ thêm dòng/i,
+  );
+  await assert.rejects(
+    prisma.stockMovement.delete({ where: { id: receipt.id } }),
+    /append-only|chỉ thêm dòng/i,
+  );
+
+  // Referenced medicines and actors cannot be deleted.
+  await assert.rejects(prisma.medicine.delete({ where: { id: medicine.id } }));
+  await assert.rejects(prisma.user.delete({ where: { id: pharmacist.id } }));
+});
+
+test("new log actions and prescription dispense defaults are available", async () => {
+  const appointment = await createStoredAppointment({ status: "COMPLETED" });
+
+  for (const action of [
+    "MEDICAL_RESULT_UPDATED",
+    "MEDICAL_RESULT_PUBLISHED",
+    "LAB_RESULT_CHANGED",
+    "PRESCRIPTION_ISSUED",
+    "PRESCRIPTION_CANCELLED",
+    "PRESCRIPTION_DISPENSED",
+  ] as const) {
+    await prisma.appointmentLog.create({
+      data: { appointmentId: appointment.id, action, note: "schema check" },
+    });
+  }
+  assert.equal(
+    await prisma.appointmentLog.count({ where: { appointmentId: appointment.id } }),
+    6,
+  );
+
+  const record = await prisma.medicalRecord.create({
+    data: {
+      recordCode: "REC-SCHEMA-1",
+      appointmentId: appointment.id,
+      patientId: appointment.patientId,
+      doctorId: fixture.doctorOne.id,
+    },
+  });
+  const prescription = await prisma.prescription.create({
+    data: {
+      prescriptionCode: "RX-SCHEMA-1",
+      medicalRecordId: record.id,
+      appointmentId: appointment.id,
+      patientId: appointment.patientId,
+      doctorId: fixture.doctorOne.id,
+      items: { create: [{ medicineName: "Thuốc mua ngoài", quantity: 2 }] },
+    },
+    include: { items: true },
+  });
+
+  assert.equal(prescription.dispenseStatus, "NOT_DISPENSED");
+  assert.equal(prescription.dispensedAt, null);
+  assert.equal(prescription.items[0].medicineId, null);
+  assert.equal(prescription.items[0].dispensedQuantity, 0);
+});
+
+test("health consent columns are optional on appointments", async () => {
+  const appointment = await createStoredAppointment({ status: "PENDING_CONFIRM" });
+  const stored = await prisma.appointment.findUniqueOrThrow({
+    where: { id: appointment.id },
+    select: { healthConsentAt: true, healthConsentVersion: true },
+  });
+  assert.equal(stored.healthConsentAt, null);
+  assert.equal(stored.healthConsentVersion, null);
+
+  const consentAt = new Date();
+  const updated = await prisma.appointment.update({
+    where: { id: appointment.id },
+    data: { healthConsentAt: consentAt, healthConsentVersion: "v1" },
+    select: { healthConsentAt: true, healthConsentVersion: true },
+  });
+  assert.equal(updated.healthConsentVersion, "v1");
+  assert.equal(updated.healthConsentAt?.toISOString(), consentAt.toISOString());
 });
 
 test("pending OTP expiry is idempotent and releases only its own slot", async () => {
