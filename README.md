@@ -156,8 +156,7 @@ Lịch đã xác nhận
 - Hóa đơn được tạo từ lịch hẹn đã hoàn thành.
 - Có hỗ trợ giảm trừ BHYT theo thông tin bệnh nhân và thông tin hóa đơn.
 - Có thể hủy hóa đơn để tạo lại khi nhập sai.
-- Người bệnh xem hóa đơn và thanh toán online bằng VNPay (sandbox) trong cổng bệnh nhân (`/api/v1/me/invoices/:id/payments`); kết quả cuối cùng xác nhận qua IPN. MoMo vẫn còn adapter trong code nhưng tắt mặc định và không dùng trong triển khai hiện tại.
-- Provider MOCK chỉ dùng cho kiểm thử khi `PAYMENT_MOCK_ENABLED=true` ở môi trường không phải production.
+- Người bệnh xem hóa đơn và thanh toán online bằng VNPay (sandbox) trong cổng bệnh nhân (`/api/v1/me/invoices/:id/payments`); kết quả được ghi nhận khi trình duyệt quay về Return URL và/hoặc khi VNPay gọi IPN (cả hai đều xác thực chữ ký và idempotent). VNPay là cổng online duy nhất; không còn MoMo hay thanh toán mô phỏng.
 
 ### 6. Tìm Kiếm
 
@@ -189,7 +188,6 @@ DELETE /api/appointments/:id/pending
 GET  /api/search
 GET  /api/payments/vnpay/return
 GET  /api/payments/vnpay/ipn
-POST /api/payments/momo/webhook   # chỉ khi bật MoMo
 ```
 
 ### Patient API (web + mobile, Bearer token)
