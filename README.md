@@ -156,7 +156,7 @@ Lịch đã xác nhận
 - Hóa đơn được tạo từ lịch hẹn đã hoàn thành.
 - Có hỗ trợ giảm trừ BHYT theo thông tin bệnh nhân và thông tin hóa đơn.
 - Có thể hủy hóa đơn để tạo lại khi nhập sai.
-- Người bệnh xem hóa đơn và thanh toán MoMo trong cổng bệnh nhân (`/api/v1/me/invoices/:id/payments`); kết quả cuối cùng xác nhận qua IPN.
+- Người bệnh xem hóa đơn và thanh toán online bằng VNPay (sandbox) trong cổng bệnh nhân (`/api/v1/me/invoices/:id/payments`); kết quả cuối cùng xác nhận qua IPN. MoMo vẫn còn adapter trong code nhưng tắt mặc định và không dùng trong triển khai hiện tại.
 - Provider MOCK chỉ dùng cho kiểm thử khi `PAYMENT_MOCK_ENABLED=true` ở môi trường không phải production.
 
 ### 6. Tìm Kiếm
@@ -187,7 +187,9 @@ POST /api/appointments/:id/resend-otp
 POST /api/appointments/:id/verify-otp
 DELETE /api/appointments/:id/pending
 GET  /api/search
-POST /api/payments/momo/webhook
+GET  /api/payments/vnpay/return
+GET  /api/payments/vnpay/ipn
+POST /api/payments/momo/webhook   # chỉ khi bật MoMo
 ```
 
 ### Patient API (web + mobile, Bearer token)
@@ -405,13 +407,13 @@ npm run build
 - SMS thật chưa được tích hợp, hiện dùng debug OTP hoặc email OTP. Vì vậy số điện thoại chưa được xác minh độc lập: người đến trước có thể gắn email của mình vào một số điện thoại chưa có tài khoản, và chủ thật của số đó phải liên hệ bệnh viện để xử lý. Sẽ được giải quyết khi có SMS provider thật.
 - Bản ghi OTP hết hạn trong bảng `OtpCode` chưa được dọn tự động.
 - Render Free có độ trễ do cold start và giới hạn tài nguyên.
-- Thanh toán thật mới ở mức mô phỏng/mock hoặc cần cấu hình thêm provider.
+- Thanh toán online mới chạy trên VNPay sandbox; chưa có merchant production.
 - Một số chính sách BHYT mới dừng ở mức hỗ trợ nhập và tính giảm trừ theo dữ liệu hệ thống, chưa thay thế quy trình giám định bảo hiểm thực tế.
 
 ## Hướng Phát Triển
 
 - Tích hợp SMS provider thật.
-- Hoàn thiện thanh toán thật qua MoMo/VNPAY/ZaloPay.
+- Chuyển VNPay từ sandbox sang production khi có merchant thật.
 - Bổ sung notification real-time cho dashboard.
 - Thêm audit log chi tiết hơn cho thao tác quản trị.
 - Nâng cấp chatbot theo hướng hiểu ngữ cảnh và truy vấn dữ liệu linh hoạt hơn.
