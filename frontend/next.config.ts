@@ -8,6 +8,24 @@ const nextConfig: NextConfig = {
       { protocol: "https", hostname: "res.cloudinary.com" },
     ],
   },
+  // Header bảo mật cho toàn bộ trang. Chưa đặt Content-Security-Policy vì Next
+  // cần nonce cho script nội tuyến; thêm riêng khi có kế hoạch kiểm thử CSP.
+  async headers() {
+    return [
+      {
+        source: "/:path*",
+        headers: [
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+          { key: "X-Frame-Options", value: "SAMEORIGIN" },
+          {
+            key: "Permissions-Policy",
+            value: "camera=(), microphone=(), geolocation=(), payment=()",
+          },
+        ],
+      },
+    ];
+  },
   async redirects() {
     return [
       {
