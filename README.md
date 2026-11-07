@@ -291,31 +291,34 @@ PORT=4000
 NODE_ENV=production
 DATABASE_URL=
 
-FRONTEND_URL=
-FRONTEND_URLS=
+# Origin HTTPS của web, không kèm path.
+FRONTEND_URLS=https://hospital.ngoloi.dev
+# Web và API cùng site ngoloi.dev nên dùng lax.
+DASHBOARD_COOKIE_SAME_SITE=lax
 
+# Mỗi secret tối thiểu 32 ký tự.
 JWT_SECRET=
 OTP_SECRET=
-DASHBOARD_COOKIE_SAME_SITE=none
+# Production bắt buộc false; backend từ chối khởi động nếu bật.
+OTP_DEBUG_ENABLED=false
 
-CLOUDINARY_URL=
-
+# OTP: email là kênh chính, SMS là kênh phụ (tắt khi chưa có nhà cung cấp).
 RESEND_API_KEY=
-RESEND_FROM="Hospital Booking <onboarding@resend.dev>"
+RESEND_FROM="Hospital Booking <no-reply@mail.ngoloi.dev>"
 
 REDIS_URL=
-OTP_WORKER_CONCURRENCY=5
-OTP_DEBUG_ENABLED=true
-OTP_ENQUEUE_TIMEOUT_MS=500
+CLOUDINARY_URL=
 ```
+
+Danh sách đầy đủ, giải thích từng biến và các biến tinh chỉnh (đã có mặc định) nằm trong [`backend/.env.example`](backend/.env.example). Khi `NODE_ENV=production` backend kiểm tra cấu hình ngay lúc khởi động.
 
 ### Frontend
 
 Tên biến có thể thay đổi theo cấu hình trong `frontend/lib`, nhưng cần tối thiểu:
 
 ```env
-NEXT_PUBLIC_API_URL=https://your-backend.onrender.com/api
-NEXT_PUBLIC_SITE_URL=https://your-frontend.vercel.app
+NEXT_PUBLIC_API_URL=https://hospital-api.ngoloi.dev/api
+NEXT_PUBLIC_SITE_URL=https://hospital.ngoloi.dev
 ```
 
 ## Deploy
@@ -369,7 +372,7 @@ Script demo có thể reset database và sinh chuyên khoa, bác sĩ, gói khám
 - Khách đặt lịch bằng email OTP chỉ chứng minh được email, không chứng minh được số điện thoại. Nếu số điện thoại đã có tài khoản thuộc người khác (email khác hoặc đã xác thực bằng SMS), backend trả `409 ACCOUNT_LOGIN_REQUIRED` và yêu cầu đăng nhập cổng bệnh nhân; dữ liệu xác thực chỉ được ghi vào tài khoản chưa có chủ hoặc cùng email.
 - Endpoint công khai tốn tài nguyên (đặt lịch, tìm kiếm, chatbot) có giới hạn tần suất theo IP và số điện thoại, trả `429 RATE_LIMITED` kèm `Retry-After`. Đếm bằng Redis nếu có, không thì trong bộ nhớ; tắt bằng `RATE_LIMIT_ENABLED=false`. IP lấy từ `req.ip` (một lớp proxy tin cậy), không đọc trực tiếp `X-Forwarded-For`.
 - OTP gửi nền qua BullMQ để giảm thời gian phản hồi của API đặt lịch.
-- Nếu chưa có SMS provider thật, bật `OTP_DEBUG_ENABLED=true` để demo bằng OTP test.
+- OTP gửi qua email (kênh chính). Chạy local có thể bật `OTP_DEBUG_ENABLED=true` để API trả mã OTP; production bắt buộc tắt. Demo trước hội đồng khi chưa có SMS thật dùng `DEMO_OTP_PHONES` để hiện OTP của riêng các số demo.
 - Media upload đánh dấu `isUsed` để dọn ảnh không còn được sử dụng.
 - Site settings điều khiển logo, favicon, banner, FAQ và một số nội dung public.
 - TanStack Query được dùng để cache/refetch dữ liệu frontend.
