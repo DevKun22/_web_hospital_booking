@@ -153,6 +153,13 @@ Nếu chọn `EMAIL`, bệnh nhân phải nhập email và OTP được gửi qu
 - Đặt lịch có khai báo dị ứng/tiền sử bắt buộc `healthConsent: true` (web có ô đồng ý); thiếu thì trả 400 `HEALTH_CONSENT_REQUIRED`. Lịch lưu `healthConsentAt` và `healthConsentVersion`. Hồ sơ đã lưu của tài khoản/người thân được gộp tự động và không đòi đồng ý lại.
 - Worker vòng đời lịch hẹn xóa mã OTP đã hết hạn quá 24 giờ.
 
+### Kho Thuốc Và Cấp Thuốc (Dược sĩ)
+
+- Quy trình gọn: bác sĩ kê và phát hành đơn → dược sĩ thấy đơn ở `/dashboard/pharmacy` (kèm dị ứng đã khai báo) → chọn thuốc trong kho cho từng dòng (dòng không chọn là thuốc mua ngoài, không trừ kho) → tick hộp "đã kiểm tra đơn" → cấp **nguyên đơn** → người khám nhận thông báo `PRESCRIPTION_DISPENSED`. Không lô/hạn dùng, không cấp từng phần, không bước duyệt riêng.
+- Cấp thuốc chạy trong một transaction: giành quyền cấp đơn (hai dược sĩ cùng bấm thì một bên nhận 409 `ALREADY_DISPENSED`), trừ kho có điều kiện không âm cho từng thuốc, ghi sổ kho, ghi `AppointmentLog` và thông báo. Thiếu một thuốc thì cả đơn không được cấp (409 `INSUFFICIENT_STOCK`), kho giữ nguyên. Đơn đã cấp không hủy được.
+- Hai bảng: `Medicine` (danh mục, tồn, mức tối thiểu) và `StockMovement` (sổ kho nhập/cấp/điều chỉnh, chỉ thêm dòng). Tồn không sửa trực tiếp mà chỉ đổi qua sổ kho; DB có CHECK (tồn ≥ 0, dấu số lượng theo loại, điều chỉnh bắt buộc lý do) và trigger chặn sửa/xóa sổ kho.
+- API `/api/dashboard/pharmacy`: `GET /prescriptions`, `GET /prescriptions/:id`, `POST /prescriptions/:id/dispense`, `GET|POST /medicines`, `GET|PATCH /medicines/:id`, `GET /medicines/:id/movements`, `POST /medicines/:id/receipts`, `POST /medicines/:id/adjustments`. Chỉ vai trò PHARMACIST có quyền `pharmacy.*`. Màn hình web: `/dashboard/pharmacy` (cấp thuốc) và `/dashboard/medicines` (kho thuốc).
+
 ### 4. Khám Bệnh Và Hồ Sơ
 
 ```txt

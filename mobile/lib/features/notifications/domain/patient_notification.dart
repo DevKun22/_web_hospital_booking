@@ -12,6 +12,7 @@ enum PatientNotificationType {
   appointmentCompleted('APPOINTMENT_COMPLETED'),
   medicalResultPublished('MEDICAL_RESULT_PUBLISHED'),
   prescriptionIssued('PRESCRIPTION_ISSUED'),
+  prescriptionDispensed('PRESCRIPTION_DISPENSED'),
   invoiceCreated('INVOICE_CREATED'),
   paymentSucceeded('PAYMENT_SUCCEEDED'),
   paymentRefunded('PAYMENT_REFUNDED'),
@@ -43,6 +44,8 @@ enum PatientNotificationType {
     PatientNotificationType.medicalResultPublished =>
       Icons.assignment_turned_in_outlined,
     PatientNotificationType.prescriptionIssued => Icons.medication_outlined,
+    PatientNotificationType.prescriptionDispensed =>
+      Icons.local_pharmacy_outlined,
     PatientNotificationType.invoiceCreated => Icons.receipt_long_outlined,
     PatientNotificationType.paymentSucceeded => Icons.payments_outlined,
     PatientNotificationType.paymentRefunded => Icons.currency_exchange_rounded,
@@ -61,6 +64,7 @@ enum PatientNotificationType {
     PatientNotificationType.appointmentCompleted => const Color(0xFF237A57),
     PatientNotificationType.medicalResultPublished => const Color(0xFF237A57),
     PatientNotificationType.prescriptionIssued => const Color(0xFF6556A5),
+    PatientNotificationType.prescriptionDispensed => const Color(0xFF237A57),
     PatientNotificationType.invoiceCreated => const Color(0xFFA4660D),
     PatientNotificationType.paymentSucceeded => const Color(0xFF237A57),
     PatientNotificationType.paymentRefunded => const Color(0xFF2B6F9E),
@@ -79,6 +83,7 @@ enum PatientNotificationType {
     PatientNotificationType.appointmentCompleted => const Color(0xFFE4F5EF),
     PatientNotificationType.medicalResultPublished => const Color(0xFFE4F5EF),
     PatientNotificationType.prescriptionIssued => const Color(0xFFF0ECFA),
+    PatientNotificationType.prescriptionDispensed => const Color(0xFFE4F5EF),
     PatientNotificationType.invoiceCreated => const Color(0xFFFFF3DD),
     PatientNotificationType.paymentSucceeded => const Color(0xFFE4F5EF),
     PatientNotificationType.paymentRefunded => const Color(0xFFE9F3FA),
@@ -178,7 +183,8 @@ class PatientNotification {
       return '/medical-records/$encodedEntityId';
     }
     if (normalizedEntityType == 'PRESCRIPTION' &&
-        type == PatientNotificationType.prescriptionIssued) {
+        (type == PatientNotificationType.prescriptionIssued ||
+            type == PatientNotificationType.prescriptionDispensed)) {
       return '/prescriptions/$encodedEntityId';
     }
     if (normalizedEntityType == 'INVOICE' && isInvoiceNotification) {
