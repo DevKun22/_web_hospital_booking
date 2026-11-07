@@ -891,8 +891,8 @@ async function seedClinicalFlow() {
         insuranceRouteType: insurance.routeType,
         insuranceNote: insurance.note,
         status: index === 0 ? "PAID" : index === 1 ? "UNPAID" : "REFUNDED",
-        paymentMethod: index === 1 ? null : "MOMO",
-        paymentReference: index === 1 ? null : `MOCK-DEMO-${invoiceCode}`,
+        paymentMethod: index === 1 ? null : "VNPAY",
+        paymentReference: index === 1 ? null : `VNPAY-DEMO-${invoiceCode}`,
         paidAt: index === 1 ? null : new Date(),
         refundReason: index > 1 ? "Hoàn tiền demo theo yêu cầu kiểm thử." : null,
         refundedAt: index > 1 ? new Date() : null,
@@ -914,8 +914,8 @@ async function seedClinicalFlow() {
         insuranceRouteType: insurance.routeType,
         insuranceNote: insurance.note,
         status: index === 0 ? "PAID" : index === 1 ? "UNPAID" : "REFUNDED",
-        paymentMethod: index === 1 ? null : "MOMO",
-        paymentReference: index === 1 ? null : `MOCK-DEMO-${invoiceCode}`,
+        paymentMethod: index === 1 ? null : "VNPAY",
+        paymentReference: index === 1 ? null : `VNPAY-DEMO-${invoiceCode}`,
         paidAt: index === 1 ? null : new Date(),
         refundReason: index > 1 ? "Hoàn tiền demo theo yêu cầu kiểm thử." : null,
         refundedAt: index > 1 ? new Date() : null,
@@ -957,15 +957,15 @@ async function seedClinicalFlow() {
       await prisma.paymentTransaction.create({
         data: {
           invoiceId: invoice.id,
-          provider: "MOCK",
+          provider: "VNPAY",
           status: "SUCCESS",
           amount: invoice.finalAmount,
           transactionCode: `PAYDEMO${String(index + 1).padStart(4, "0")}`,
           activeKey: `demo-active-${invoice.id}`,
           idempotencyKey: `demo-payment-${invoice.id}`,
-          providerOrderId: `MOCK-ORDER-${invoiceCode}`,
+          providerOrderId: `VNPAY-DEMO-${invoiceCode}`,
           rawRequest: { source: "seed-demo", invoiceCode },
-          rawResponse: { resultCode: 0, message: "Thanh toán mock thành công" },
+          rawResponse: { provider: "VNPAY", responseCode: "00", transactionStatus: "00", source: "seed-demo" },
           paidAt: new Date(),
           expiredAt: addDays(new Date(), 1),
         },
@@ -1007,7 +1007,7 @@ async function seedClinicalFlow() {
         { appointmentId: appointment.id, action: "MEDICAL_RESULT_CREATED", note: `Đã phát hành hồ sơ ${record.recordCode}.` },
         { appointmentId: appointment.id, action: "INVOICE_CREATED", note: `Đã tạo hóa đơn ${invoice.invoiceCode}.` },
         ...(index !== 1
-          ? [{ appointmentId: appointment.id, action: "PAYMENT_RECORDED" as const, note: "Đã ghi nhận thanh toán mock." }]
+          ? [{ appointmentId: appointment.id, action: "PAYMENT_RECORDED" as const, note: "Đã ghi nhận thanh toán VNPay (dữ liệu demo)." }]
           : []),
         ...(index > 1
           ? [{ appointmentId: appointment.id, action: "PAYMENT_REFUNDED" as const, note: "Đã ghi nhận hoàn tiền demo." }]

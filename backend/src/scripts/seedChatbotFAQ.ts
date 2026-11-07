@@ -59,12 +59,11 @@ const faqs = [
     question: "Bệnh viện hỗ trợ thanh toán như thế nào?",
     legacyQuestions: ["Benh vien ho tro thanh toan nhu the nao?"],
     answer:
-      "Hệ thống hỗ trợ ghi nhận thanh toán tại quầy và sẵn sàng tích hợp thanh toán online như MOMO hoặc VNPAY khi cấu hình được kích hoạt.",
+      "Hệ thống hỗ trợ ghi nhận thanh toán tại quầy và thanh toán online qua VNPay.",
     keywords: [
       "thanh toan",
       "hoa don",
       "vien phi",
-      "momo",
       "vnpay",
       "chuyen khoan",
       "thanh toán",

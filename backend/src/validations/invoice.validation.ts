@@ -60,7 +60,7 @@ export const payInvoiceSchema = z.object({
         ),
       {
         message:
-          "Phuong thuc thanh toan thu cong khong hop le. Gia tri hop le: CASH, CARD, BANK_TRANSFER, OTHER. MOMO/VNPAY phai di qua API /api/payments.",
+          "Phuong thuc thanh toan thu cong khong hop le. Gia tri hop le: CASH, CARD, BANK_TRANSFER, OTHER. VNPAY phai di qua API /api/v1/me/invoices/:id/payments.",
       },
     ),
   paymentReference: z

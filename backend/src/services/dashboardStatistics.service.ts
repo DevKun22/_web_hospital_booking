@@ -364,7 +364,6 @@ class DashboardStatisticsService {
       "CASH",
       "CARD",
       "BANK_TRANSFER",
-      "MOMO",
       "VNPAY",
       "OTHER",
     ] as const satisfies readonly PaymentMethod[];

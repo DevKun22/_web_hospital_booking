@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-const providers = ["MOCK", "VNPAY", "MOMO"] as const;
+const providers = ["VNPAY"] as const;
 
 export const createPaymentTransactionSchema = z.object({
   provider: z
@@ -11,7 +11,7 @@ export const createPaymentTransactionSchema = z.object({
       (value) => providers.includes(value as (typeof providers)[number]),
       {
         message:
-          "Nha cung cap thanh toan khong hop le. Gia tri hop le: MOCK, VNPAY, MOMO",
+          "Nha cung cap thanh toan khong hop le. Gia tri hop le: VNPAY",
       },
     ),
 });

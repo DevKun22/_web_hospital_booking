@@ -89,15 +89,13 @@ enum PaymentMethod {
   CASH
   CARD
   BANK_TRANSFER
-  MOMO
   VNPAY
   OTHER
 }
 
+// Cổng thanh toán online duy nhất: VNPay (sandbox hoặc production theo cấu hình).
 enum PaymentProvider {
-  MOCK
   VNPAY
-  MOMO
 }
 
 enum PaymentTransactionStatus {

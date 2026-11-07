@@ -7,19 +7,14 @@ import { prisma } from "../config/prisma.js";
 import { AppError } from "../utils/appError.js";
 import { generatePaymentTransactionCode } from "../utils/paymentCode.js";
 import {
-  assertMockPaymentEnabled,
   assertPaymentProviderAvailable,
   getPaymentProviderAdapter,
   getPaymentProviderCapabilities,
-  parseVerifiedMomoCallback,
   parseVerifiedVnpayCallback,
 } from "./paymentProviders/index.js";
-import type { VerifiedMomoCallback } from "./paymentProviders/index.js";
 import PatientEventNotificationService from "./patientEventNotification.service.js";
 
 const PAYMENT_EXPIRES_MINUTES = 15;
-const MOMO_PENDING_RESULT_CODES = new Set([1000, 7000, 7002]);
-const MOMO_SUCCESS_RESULT_CODES = new Set([0, 9000]);
 
 type CreatePaymentTransactionInput = {
   provider: PaymentProvider;
@@ -85,14 +80,6 @@ const providerTransactionSelect = {
     },
   },
 } satisfies Prisma.PaymentTransactionSelect;
-
-const mapProviderToPaymentMethod = (
-  provider: PaymentProvider,
-): PaymentMethod => {
-  if (provider === "MOMO") return "MOMO";
-  if (provider === "VNPAY") return "VNPAY";
-  return "OTHER";
-};
 
 class PaymentService {
   async createForInvoice(
@@ -296,46 +283,6 @@ class PaymentService {
 
   getCapabilities() {
     return getPaymentProviderCapabilities();
-  }
-
-  async handleMomoWebhook(payload: Record<string, unknown>) {
-    const callback = parseVerifiedMomoCallback(payload);
-    const configuredPartnerCode = process.env.MOMO_PARTNER_CODE?.trim();
-    if (!configuredPartnerCode || callback.partnerCode !== configuredPartnerCode) {
-      throw new AppError(
-        "Callback không thuộc đối tác MoMo đã cấu hình",
-        400,
-        "MOMO_PARTNER_MISMATCH",
-      );
-    }
-
-    const transaction = await prisma.paymentTransaction.findFirst({
-      where: { transactionCode: callback.orderId, provider: "MOMO" },
-      select: providerTransactionSelect,
-    });
-    if (!transaction) {
-      throw new AppError(
-        "Không tìm thấy giao dịch MoMo",
-        404,
-        "MOMO_TRANSACTION_NOT_FOUND",
-      );
-    }
-    this.assertMomoCallbackMatchesTransaction(callback, transaction);
-
-    const outcome = MOMO_PENDING_RESULT_CODES.has(callback.resultCode)
-      ? "PENDING"
-      : MOMO_SUCCESS_RESULT_CODES.has(callback.resultCode)
-        ? "SUCCESS"
-        : "FAILED";
-    return this.applyProviderOutcome({
-      transaction,
-      outcome,
-      amount: callback.amount,
-      providerReference: callback.transId ?? callback.orderId,
-      paymentMethod: "MOMO",
-      providerLabel: "MoMo",
-      safeResponse: this.safeMomoCallback(callback),
-    });
   }
 
   // Dùng chung cho Return URL và IPN của VNPAY. Chữ ký đã được xác thực
@@ -548,264 +495,6 @@ class PaymentService {
     }
 
     return transaction;
-  }
-
-  async markMockSuccess(transactionCode: string, patientId: string) {
-    assertMockPaymentEnabled();
-
-    const transaction = await prisma.paymentTransaction.findFirst({
-      where: { transactionCode, invoice: { patientId } },
-      select: {
-        id: true,
-        invoiceId: true,
-        transactionCode: true,
-        provider: true,
-        status: true,
-        amount: true,
-        expiredAt: true,
-        invoice: {
-          select: {
-            id: true,
-            invoiceCode: true,
-            status: true,
-            finalAmount: true,
-            appointment: {
-              select: {
-                id: true,
-                bookingCode: true,
-              },
-            },
-          },
-        },
-      },
-    });
-
-    if (!transaction) {
-      throw new AppError("Không tìm thấy giao dịch thanh toán", 404);
-    }
-
-    if (transaction.status === "SUCCESS") {
-      return this.getById(transaction.id, patientId);
-    }
-
-    this.ensurePendingTransaction(transaction.status, transaction.expiredAt);
-
-    if (transaction.invoice.status !== "UNPAID") {
-      throw new AppError("Hóa đơn không còn ở trạng thái chờ thanh toán", 400);
-    }
-
-    if (transaction.amount !== transaction.invoice.finalAmount) {
-      throw new AppError("Số tiền giao dịch không khớp với hóa đơn", 400);
-    }
-
-    const paidAt = new Date();
-
-    const transition = await prisma.$transaction(async (tx) => {
-      await tx.$queryRaw(
-        Prisma.sql`SELECT "id" FROM "Invoice" WHERE "id" = ${transaction.invoiceId} FOR UPDATE`,
-      );
-      const claimed = await tx.paymentTransaction.updateMany({
-        where: {
-          id: transaction.id,
-          status: "PENDING",
-          expiredAt: { gt: paidAt },
-        },
-        data: {
-          status: "SUCCESS",
-          activeKey: null,
-          paidAt,
-          rawResponse: {
-            mode: "MOCK",
-            result: "SUCCESS",
-            paidAt: paidAt.toISOString(),
-          },
-        },
-      });
-
-      if (claimed.count !== 1) {
-        const current = await tx.paymentTransaction.findUniqueOrThrow({
-          where: { id: transaction.id },
-          select: { status: true },
-        });
-        if (current.status !== "SUCCESS") {
-          throw new AppError(
-            "Trạng thái giao dịch đã thay đổi",
-            409,
-            "PAYMENT_STATE_CONFLICT",
-          );
-        }
-
-        const payment = await tx.paymentTransaction.findUniqueOrThrow({
-          where: { id: transaction.id },
-          select: paymentTransactionSelect,
-        });
-        return { payment, notificationId: null };
-      }
-
-      const invoiceUpdate = await tx.invoice.updateMany({
-        where: {
-          id: transaction.invoiceId,
-          status: "UNPAID",
-          finalAmount: transaction.amount,
-        },
-        data: {
-          status: "PAID",
-          paymentMethod: mapProviderToPaymentMethod(transaction.provider),
-          paymentReference: transaction.transactionCode,
-          paidAt,
-        },
-      });
-
-      if (invoiceUpdate.count !== 1 && transaction.invoice.status === "UNPAID") {
-        throw new AppError(
-          "Trạng thái hóa đơn đã thay đổi",
-          409,
-          "INVOICE_STATE_CONFLICT",
-        );
-      }
-
-      if (invoiceUpdate.count === 1) {
-        await tx.appointmentLog.create({
-          data: {
-            appointmentId: transaction.invoice.appointment.id,
-            action: "PAYMENT_RECORDED",
-            note: `Thanh toán ${transaction.provider} được xác nhận · ${transaction.transactionCode}`,
-          },
-        });
-      }
-
-      const notification =
-        await PatientEventNotificationService.createPaymentSucceeded(
-          {
-            userId: patientId,
-            invoiceId: transaction.invoice.id,
-            invoiceCode: transaction.invoice.invoiceCode,
-            bookingCode: transaction.invoice.appointment.bookingCode,
-            finalAmount: transaction.invoice.finalAmount,
-          },
-          tx,
-        );
-      const payment = await tx.paymentTransaction.findUniqueOrThrow({
-        where: {
-          id: transaction.id,
-        },
-        select: paymentTransactionSelect,
-      });
-      return { payment, notificationId: notification.id };
-    });
-
-    if (transition.notificationId) {
-      await PatientEventNotificationService.dispatchBestEffort(
-        transition.notificationId,
-      );
-    }
-    return transition.payment;
-  }
-
-  async markMockFailed(transactionCode: string, patientId: string) {
-    assertMockPaymentEnabled();
-
-    const transaction = await prisma.paymentTransaction.findFirst({
-      where: { transactionCode, invoice: { patientId } },
-      select: {
-        id: true,
-        status: true,
-        expiredAt: true,
-      },
-    });
-
-    if (!transaction) {
-      throw new AppError("Không tìm thấy giao dịch thanh toán", 404);
-    }
-
-    if (transaction.status === "FAILED") {
-      return this.getById(transaction.id, patientId);
-    }
-
-    this.ensurePendingTransaction(transaction.status, transaction.expiredAt);
-
-    const failed = await prisma.paymentTransaction.updateMany({
-      where: {
-        id: transaction.id,
-        status: "PENDING",
-      },
-      data: {
-        status: "FAILED",
-        activeKey: null,
-        rawResponse: {
-          mode: "MOCK",
-          result: "FAILED",
-          failedAt: new Date().toISOString(),
-        },
-      },
-    });
-    if (failed.count !== 1) {
-      throw new AppError(
-        "Trạng thái giao dịch đã thay đổi",
-        409,
-        "PAYMENT_STATE_CONFLICT",
-      );
-    }
-    return this.getById(transaction.id, patientId);
-  }
-
-  private ensurePendingTransaction(status: string, expiredAt: Date) {
-    if (status !== "PENDING") {
-      throw new AppError(
-        "Giao dịch không còn ở trạng thái chờ thanh toán",
-        400,
-      );
-    }
-
-    if (expiredAt.getTime() <= Date.now()) {
-      throw new AppError("Giao dịch thanh toán đã hết hạn", 400);
-    }
-  }
-
-  private assertMomoCallbackMatchesTransaction(
-    callback: VerifiedMomoCallback,
-    transaction: {
-      transactionCode: string;
-      amount: number;
-      invoice: { finalAmount: number };
-    },
-  ) {
-    if (
-      callback.orderId !== transaction.transactionCode ||
-      callback.requestId !== transaction.transactionCode
-    ) {
-      throw new AppError(
-        "Mã giao dịch trong callback MoMo không khớp",
-        400,
-        "MOMO_TRANSACTION_MISMATCH",
-      );
-    }
-    if (
-      callback.amount !== transaction.amount ||
-      callback.amount !== transaction.invoice.finalAmount
-    ) {
-      throw new AppError(
-        "Số tiền trong callback MoMo không khớp hóa đơn",
-        400,
-        "MOMO_AMOUNT_MISMATCH",
-      );
-    }
-  }
-
-  private safeMomoCallback(
-    callback: VerifiedMomoCallback,
-  ): Prisma.InputJsonObject {
-    return {
-      provider: "MOMO",
-      partnerCode: callback.partnerCode,
-      orderId: callback.orderId,
-      requestId: callback.requestId,
-      amount: callback.amount,
-      resultCode: callback.resultCode,
-      message: callback.message,
-      transId: callback.transId,
-      responseTime: callback.responseTime,
-    };
   }
 
   private async generateUniqueTransactionCode(tx: Prisma.TransactionClient) {

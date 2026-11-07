@@ -65,40 +65,6 @@ const validateProductionFrontendOrigins = (env: NodeJS.ProcessEnv) => {
   }
 };
 
-const validateProductionMomo = (env: NodeJS.ProcessEnv) => {
-  if (!isEnabled(env.PAYMENT_MOMO_ENABLED)) return;
-
-  for (const name of [
-    "MOMO_PARTNER_CODE",
-    "MOMO_ACCESS_KEY",
-    "MOMO_SECRET_KEY",
-    "MOMO_REDIRECT_URL",
-    "MOMO_IPN_URL",
-  ] as const) {
-    if (!env[name]?.trim()) {
-      throw new Error(`${name} is required when MoMo payment is enabled.`);
-    }
-  }
-
-  for (const name of [
-    "MOMO_ENDPOINT",
-    "MOMO_REDIRECT_URL",
-    "MOMO_IPN_URL",
-  ] as const) {
-    const value = env[name]?.trim();
-    if (!value && name === "MOMO_ENDPOINT") continue;
-    let parsed: URL;
-    try {
-      parsed = new URL(value!);
-    } catch {
-      throw new Error(`${name} must be a valid HTTPS URL.`);
-    }
-    if (parsed.protocol !== "https:") {
-      throw new Error(`${name} must be a valid HTTPS URL.`);
-    }
-  }
-};
-
 const validateProductionVnpay = (env: NodeJS.ProcessEnv) => {
   if (!isEnabled(env.PAYMENT_VNPAY_ENABLED)) return;
   for (const name of ["VNPAY_TMN_CODE", "VNPAY_HASH_SECRET", "VNPAY_RETURN_URL"] as const) {
@@ -123,17 +89,12 @@ export const validateRuntimeEnvironment = (
     throw new Error("OTP_DEBUG_ENABLED must be disabled in production.");
   }
 
-  if (isEnabled(env.PAYMENT_MOCK_ENABLED)) {
-    throw new Error("PAYMENT_MOCK_ENABLED must be disabled in production.");
-  }
-
   const databaseUrl = requireProductionValue(env, "DATABASE_URL");
   if (env.TEST_DATABASE_URL?.trim() === databaseUrl) {
     throw new Error("TEST_DATABASE_URL must not equal DATABASE_URL.");
   }
 
   validateProductionFrontendOrigins(env);
-  validateProductionMomo(env);
   validateProductionVnpay(env);
   if (env.DEMO_OTP_PHONES?.trim()) {
     console.warn(

@@ -559,7 +559,7 @@ class InvoiceService {
             invoiceId: id,
             OR: [
               { status: "PENDING" },
-              { status: "EXPIRED", provider: { in: ["MOMO", "VNPAY"] } },
+              { status: "EXPIRED", provider: "VNPAY" },
             ],
           },
         });
@@ -611,9 +611,9 @@ class InvoiceService {
   }
 
   async pay(id: string, input: PayInvoiceInput, actorId?: string) {
-    if (["MOMO", "VNPAY"].includes(input.paymentMethod)) {
+    if (input.paymentMethod === "VNPAY") {
       throw new AppError(
-        "MOMO/VNPAY phải thanh toán qua API online payment",
+        "VNPAY phải thanh toán qua API online payment",
         400,
       );
     }
@@ -651,7 +651,7 @@ class InvoiceService {
           invoiceId: id,
           OR: [
             { status: "PENDING" },
-            { status: "EXPIRED", provider: { in: ["MOMO", "VNPAY"] } },
+            { status: "EXPIRED", provider: "VNPAY" },
           ],
         },
         select: { provider: true, transactionCode: true, expiredAt: true },
@@ -741,7 +741,7 @@ class InvoiceService {
           invoiceId: id,
           OR: [
             { status: "PENDING" },
-            { status: "EXPIRED", provider: { in: ["MOMO", "VNPAY"] } },
+            { status: "EXPIRED", provider: "VNPAY" },
           ],
         },
       });
@@ -791,7 +791,7 @@ class InvoiceService {
       }
       if (invoice.finalAmount <= 0) throw new AppError("Hóa đơn không có số tiền để hoàn", 400);
       const refundReference = normalizeOptionalString(input.refundReference);
-      if (["MOMO", "VNPAY"].includes(invoice.paymentMethod || "") && !refundReference) {
+      if (invoice.paymentMethod === "VNPAY" && !refundReference) {
         throw new AppError(
           "Cần mã tham chiếu từ cổng thanh toán trước khi ghi nhận hoàn tiền",
           400,

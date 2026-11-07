@@ -5,6 +5,7 @@ import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 
 import { getCookie, startHttpServer } from "../support/http.js";
+import { buildVnpayCallbackQuery } from "../support/vnpay.js";
 
 if (process.env.NODE_ENV !== "test") {
   throw new Error("Integration tests require NODE_ENV=test.");
@@ -1566,7 +1567,7 @@ test("manual collection is blocked while an online payment is pending", async ()
   await prisma.paymentTransaction.create({
     data: {
       invoiceId: invoice.id,
-      provider: "MOCK",
+      provider: "VNPAY",
       amount: invoice.finalAmount,
       transactionCode: "PHASE0-PENDING-ONLINE",
       activeKey: `invoice:${invoice.id}`,
@@ -1586,26 +1587,57 @@ test("manual collection is blocked while an online payment is pending", async ()
   assert.equal(stored.status, "UNPAID");
 });
 
-test("patient payment APIs enforce ownership and the mock capability gate", async () => {
+const createPayableInvoice = async (input: {
+  bookingCode: string;
+  phone?: string;
+  timeSlotId?: string;
+  amount?: number;
+}) => {
+  const amount = input.amount ?? 300000;
   const appointment = await createStoredAppointment({
     status: "COMPLETED",
-    bookingCode: "PHASE0-PAYMENT",
+    bookingCode: input.bookingCode,
+    phone: input.phone,
+    timeSlotId: input.timeSlotId,
   });
   const invoice = await prisma.invoice.create({
     data: {
-      invoiceCode: "PHASE0-INVOICE",
-      barcode: "PHASE0-BARCODE",
+      invoiceCode: `INV-${input.bookingCode}`,
+      barcode: `BAR-${input.bookingCode}`,
       appointmentId: appointment.id,
       patientId: appointment.patientId,
-      totalAmount: 300000,
-      finalAmount: 300000,
+      totalAmount: amount,
+      finalAmount: amount,
     },
   });
   const authorization = `Bearer ${(await loginPatient(appointment.patientPhone)).accessToken}`;
+  return { appointment, invoice, authorization };
+};
+
+const createVnpayPayment = async (
+  invoiceId: string,
+  authorization: string,
+  idempotencyKey: string,
+) => {
+  const response = await http.request(`/api/v1/me/invoices/${invoiceId}/payments`, {
+    method: "POST",
+    headers: { authorization, "idempotency-key": idempotencyKey },
+    body: { provider: "VNPAY" },
+  });
+  assert.equal(response.status, 201);
+  return response.body.data as { id: string; transactionCode: string; paymentUrl: string };
+};
+
+const vnpayIpn = (query: string) => http.request(`/api/payments/vnpay/ipn?${query}`);
+
+test("patient payment APIs enforce ownership, idempotency and the capability gate", async () => {
+  const { invoice, authorization } = await createPayableInvoice({
+    bookingCode: "PHASE0-PAYMENT",
+  });
 
   const missingSession = await http.request(
     `/api/v1/me/invoices/${invoice.id}/payments`,
-    { method: "POST", body: { provider: "MOCK" } },
+    { method: "POST", body: { provider: "VNPAY" } },
   );
   assert.equal(missingSession.status, 401);
 
@@ -1614,31 +1646,35 @@ test("patient payment APIs enforce ownership and the mock capability gate", asyn
   });
   assert.equal(capabilities.status, 200);
   assert.deepEqual(
-    capabilities.body.data.providers.map(
-      (item: { provider: string }) => item.provider,
-    ),
-    ["MOCK"],
+    capabilities.body.data.providers.map((item: { provider: string }) => item.provider),
+    ["VNPAY"],
   );
+  assert.equal(capabilities.body.data.providers[0].isMock, undefined);
+
+  // Providers that were removed are rejected by validation, not routed anywhere.
+  for (const provider of ["MOCK", "MOMO"]) {
+    const rejected = await http.request(`/api/v1/me/invoices/${invoice.id}/payments`, {
+      method: "POST",
+      headers: { authorization },
+      body: { provider },
+    });
+    assert.equal(rejected.status, 400);
+  }
 
   const createResponses = await Promise.all(
     Array.from({ length: 10 }, () =>
       http.request(`/api/v1/me/invoices/${invoice.id}/payments`, {
         method: "POST",
-        headers: {
-          authorization,
-          "idempotency-key": "phase0-payment-create-retry",
-        },
-        body: { provider: "MOCK" },
+        headers: { authorization, "idempotency-key": "phase0-payment-create-retry" },
+        body: { provider: "VNPAY" },
       }),
     ),
   );
   assert.ok(createResponses.every((response) => response.status === 201));
   const [created] = createResponses;
-  assert.equal(created.body.data.provider, "MOCK");
-  assert.equal(
-    new Set(createResponses.map((response) => response.body.data.id)).size,
-    1,
-  );
+  assert.equal(created.body.data.provider, "VNPAY");
+  assert.match(created.body.data.paymentUrl, /^https:\/\/sandbox\.vnpayment\.vn\//);
+  assert.equal(new Set(createResponses.map((response) => response.body.data.id)).size, 1);
   assert.equal(
     await prisma.paymentTransaction.count({
       where: { invoiceId: invoice.id, status: "PENDING" },
@@ -1646,21 +1682,15 @@ test("patient payment APIs enforce ownership and the mock capability gate", asyn
     1,
   );
 
-  const idempotentRetry = await http.request(
-    `/api/v1/me/invoices/${invoice.id}/payments`,
-    {
-      method: "POST",
-      headers: {
-        authorization,
-        "idempotency-key": "phase0-payment-create-retry",
-      },
-      body: { provider: "MOCK" },
-    },
-  );
+  const idempotentRetry = await http.request(`/api/v1/me/invoices/${invoice.id}/payments`, {
+    method: "POST",
+    headers: { authorization, "idempotency-key": "phase0-payment-create-retry" },
+    body: { provider: "VNPAY" },
+  });
   assert.equal(idempotentRetry.status, 201);
   assert.equal(idempotentRetry.body.data.id, created.body.data.id);
 
-  const patientB = await prisma.user.create({
+  await prisma.user.create({
     data: {
       fullName: "Payment Patient B",
       phone: "0944444444",
@@ -1669,145 +1699,206 @@ test("patient payment APIs enforce ownership and the mock capability gate", asyn
     },
   });
   const patientBAuthorization = `Bearer ${(await loginPatient("0944444444")).accessToken}`;
-
-  const crossPatientRead = await http.request(
-    `/api/v1/me/payments/${created.body.data.id}`,
-    { headers: { authorization: patientBAuthorization } },
-  );
+  const crossPatientRead = await http.request(`/api/v1/me/payments/${created.body.data.id}`, {
+    headers: { authorization: patientBAuthorization },
+  });
   assert.equal(crossPatientRead.status, 404);
 
-  const crossPatientSettlement = await http.request(
+  // The simulated-settlement endpoints and the generic webhook no longer exist.
+  const removedMock = await http.request(
     `/api/v1/me/payments/mock/${created.body.data.transactionCode}/success`,
-    {
-      method: "POST",
-      headers: { authorization: patientBAuthorization },
-    },
+    { method: "POST", headers: { authorization } },
   );
-  assert.equal(crossPatientSettlement.status, 404);
-
-  const settlementWithoutSession = await http.request(
-    `/api/v1/me/payments/mock/${created.body.data.transactionCode}/success`,
-    { method: "POST" },
-  );
-  assert.equal(settlementWithoutSession.status, 401);
-
-  const settlements = await Promise.all([
-    http.request(
-      `/api/v1/me/payments/mock/${created.body.data.transactionCode}/success`,
-      { method: "POST", headers: { authorization } },
-    ),
-    http.request(
-      `/api/v1/me/payments/mock/${created.body.data.transactionCode}/success`,
-      { method: "POST", headers: { authorization } },
-    ),
-  ]);
-  assert.ok(settlements.every((response) => response.status === 200));
-  assert.ok(
-    settlements.every((response) => response.body.data.status === "SUCCESS"),
-  );
-
-  const paidInvoice = await prisma.invoice.findUniqueOrThrow({
-    where: { id: invoice.id },
-    select: { status: true },
+  assert.equal(removedMock.status, 404);
+  const removedWebhook = await http.request("/api/payments/momo/webhook", {
+    method: "POST",
+    body: {},
   });
-  assert.equal(paidInvoice.status, "PAID");
+  assert.equal(removedWebhook.status, 404);
 
-  const dashboardInvoice = await http.request(
-    `/api/dashboard/invoices/${invoice.id}`,
-    {
-      headers: dashboardHeaders(
-        await authCookie(fixture.adminUser.id, "ADMIN"),
-      ),
-    },
-  );
+  const dashboardInvoice = await http.request(`/api/dashboard/invoices/${invoice.id}`, {
+    headers: dashboardHeaders(await authCookie(fixture.adminUser.id, "ADMIN")),
+  });
   assert.equal(dashboardInvoice.status, 200);
   assert.equal(dashboardInvoice.body.data.paymentTransactions.length, 1);
+  assert.equal(dashboardInvoice.body.data.paymentTransactions[0].rawResponse, undefined);
+
+  const originalFlag = process.env.PAYMENT_VNPAY_ENABLED;
+  process.env.PAYMENT_VNPAY_ENABLED = "false";
+  try {
+    const disabledCapabilities = await http.request("/api/v1/me/payment-capabilities", {
+      headers: { authorization },
+    });
+    assert.deepEqual(disabledCapabilities.body.data.providers, []);
+
+    const disabledCreate = await http.request(`/api/v1/me/invoices/${invoice.id}/payments`, {
+      method: "POST",
+      headers: { authorization },
+      body: { provider: "VNPAY" },
+    });
+    assert.equal(disabledCreate.status, 404);
+    assert.equal(disabledCreate.body.code, "PAYMENT_PROVIDER_UNAVAILABLE");
+  } finally {
+    process.env.PAYMENT_VNPAY_ENABLED = originalFlag;
+  }
+});
+
+test("VNPay IPN rejects forged callbacks and settles a payment exactly once", async () => {
+  const { appointment, invoice, authorization } = await createPayableInvoice({
+    bookingCode: "VNPAY-SETTLE",
+  });
+  const payment = await createVnpayPayment(invoice.id, authorization, "vnpay-settle");
+  const expectUnpaid = async () =>
+    assert.equal(
+      (await prisma.invoice.findUniqueOrThrow({ where: { id: invoice.id } })).status,
+      "UNPAID",
+    );
+
+  // Tampered amount after signing, wrong secret, wrong merchant, unknown reference.
+  const signed = buildVnpayCallbackQuery({ transactionCode: payment.transactionCode, amount: 300000 });
+  assert.equal((await vnpayIpn(signed.replace("vnp_Amount=30000000", "vnp_Amount=100"))).body.RspCode, "97");
   assert.equal(
-    dashboardInvoice.body.data.paymentTransactions[0].status,
+    (await vnpayIpn(buildVnpayCallbackQuery({ transactionCode: payment.transactionCode, amount: 300000, secret: "WRONGSECRETWRONGSECRETWRONGSEC12" }))).body.RspCode,
+    "97",
+  );
+  assert.equal((await vnpayIpn("vnp_ResponseCode=00")).body.RspCode, "97");
+  assert.equal(
+    (await vnpayIpn(buildVnpayCallbackQuery({ transactionCode: payment.transactionCode, amount: 300000, tmnCode: "OTHERTMN" }))).body.RspCode,
+    "99",
+  );
+  assert.equal(
+    (await vnpayIpn(buildVnpayCallbackQuery({ transactionCode: "NO-SUCH-TXN", amount: 300000 }))).body.RspCode,
+    "01",
+  );
+  // Correctly signed but for a different amount than the invoice.
+  assert.equal(
+    (await vnpayIpn(buildVnpayCallbackQuery({ transactionCode: payment.transactionCode, amount: 100000 }))).body.RspCode,
+    "04",
+  );
+  await expectUnpaid();
+  assert.equal(
+    (await prisma.paymentTransaction.findUniqueOrThrow({ where: { id: payment.id } })).status,
+    "PENDING",
+  );
+
+  // Two identical valid IPNs in parallel, then a replay: one settlement only.
+  const results = await Promise.all([vnpayIpn(signed), vnpayIpn(signed)]);
+  assert.ok(results.every((response) => response.status === 200 && response.body.RspCode === "00"));
+  assert.equal((await vnpayIpn(signed)).body.RspCode, "00");
+
+  const paid = await prisma.invoice.findUniqueOrThrow({ where: { id: invoice.id } });
+  assert.equal(paid.status, "PAID");
+  assert.equal(paid.paymentMethod, "VNPAY");
+  assert.equal(paid.paymentReference, "14000001");
+  assert.equal(
+    (await prisma.paymentTransaction.findUniqueOrThrow({ where: { id: payment.id } })).status,
     "SUCCESS",
   );
   assert.equal(
-    dashboardInvoice.body.data.paymentTransactions[0].rawResponse,
-    undefined,
+    await prisma.appointmentLog.count({
+      where: { appointmentId: appointment.id, action: "PAYMENT_RECORDED" },
+    }),
+    1,
+  );
+  assert.equal(
+    await prisma.notification.count({
+      where: { userId: appointment.patientId, type: "PAYMENT_SUCCEEDED" },
+    }),
+    1,
+  );
+});
+
+test("VNPay return URL records the result and redirects to the web result page", async () => {
+  const { invoice, authorization } = await createPayableInvoice({
+    bookingCode: "VNPAY-RETURN",
+  });
+  const payment = await createVnpayPayment(invoice.id, authorization, "vnpay-return");
+
+  const success = await http.request(
+    `/api/payments/vnpay/return?${buildVnpayCallbackQuery({ transactionCode: payment.transactionCode, amount: 300000 })}`,
+    { redirect: "manual" },
+  );
+  assert.equal(success.status, 302);
+  const location = new URL(success.headers.get("location") || "");
+  assert.equal(location.origin + location.pathname, "https://web.example.test/thanh-toan/ket-qua");
+  assert.equal(location.searchParams.get("status"), "success");
+  assert.equal(location.searchParams.get("orderId"), payment.transactionCode);
+  assert.equal(
+    (await prisma.invoice.findUniqueOrThrow({ where: { id: invoice.id } })).status,
+    "PAID",
   );
 
-  const expirySlot = await prisma.doctorTimeSlot.create({
-    data: {
-      doctorId: fixture.doctorOne.id,
-      date: dateOnly(fixture.appointmentDate),
-      startTime: "11:00",
-      endTime: "11:30",
-    },
-  });
-  const expiringAppointment = await createStoredAppointment({
-    status: "COMPLETED",
-    bookingCode: "PHASE0-PAYMENT-EXPIRY",
-    phone: "0911111122",
-    timeSlotId: expirySlot.id,
-  });
-  const expiringInvoice = await prisma.invoice.create({
-    data: {
-      invoiceCode: "PHASE0-INVOICE-EXPIRY",
-      barcode: "PHASE0-BARCODE-EXPIRY",
-      appointmentId: expiringAppointment.id,
-      patientId: expiringAppointment.patientId,
-      totalAmount: 200000,
-      finalAmount: 200000,
-    },
-  });
-  const expiryAuthorization = `Bearer ${(await loginPatient(expiringAppointment.patientPhone)).accessToken}`;
-  const expiringPayment = await http.request(
-    `/api/v1/me/invoices/${expiringInvoice.id}/payments`,
-    {
-      method: "POST",
-      headers: {
-        authorization: expiryAuthorization,
-        "idempotency-key": "phase0-payment-expiry",
-      },
-      body: { provider: "MOCK" },
-    },
+  const forged = await http.request(
+    `/api/payments/vnpay/return?${buildVnpayCallbackQuery({ transactionCode: payment.transactionCode, amount: 300000, secret: "WRONGSECRETWRONGSECRETWRONGSEC12" })}`,
+    { redirect: "manual" },
   );
+  assert.equal(forged.status, 302);
+  assert.equal(new URL(forged.headers.get("location") || "").searchParams.get("status"), "error");
+});
+
+test("a failed VNPay payment frees the invoice and a late success is not applied", async () => {
+  const { invoice, authorization } = await createPayableInvoice({
+    bookingCode: "VNPAY-FAILED",
+  });
+  const first = await createVnpayPayment(invoice.id, authorization, "vnpay-failed-1");
+
+  // Customer cancelled on the VNPay page (code 24): a valid callback, not a payment.
+  const cancelled = await vnpayIpn(
+    buildVnpayCallbackQuery({ transactionCode: first.transactionCode, amount: 300000, responseCode: "24" }),
+  );
+  assert.equal(cancelled.body.RspCode, "00");
+  const failed = await prisma.paymentTransaction.findUniqueOrThrow({ where: { id: first.id } });
+  assert.equal(failed.status, "FAILED");
+  assert.equal(failed.activeKey, null);
+  assert.equal(
+    (await prisma.invoice.findUniqueOrThrow({ where: { id: invoice.id } })).status,
+    "UNPAID",
+  );
+
+  // A success that arrives for an already-failed transaction conflicts (code 02).
+  const late = await vnpayIpn(
+    buildVnpayCallbackQuery({ transactionCode: first.transactionCode, amount: 300000 }),
+  );
+  assert.equal(late.body.RspCode, "02");
+  assert.equal(
+    (await prisma.invoice.findUniqueOrThrow({ where: { id: invoice.id } })).status,
+    "UNPAID",
+  );
+
+  // The patient can start a fresh payment afterwards.
+  const second = await createVnpayPayment(invoice.id, authorization, "vnpay-failed-2");
+  assert.notEqual(second.id, first.id);
+});
+
+test("an expired VNPay transaction becomes EXPIRED but a genuine late success still pays", async () => {
+  const { invoice, authorization } = await createPayableInvoice({
+    bookingCode: "VNPAY-EXPIRY",
+  });
+  const payment = await createVnpayPayment(invoice.id, authorization, "vnpay-expiry");
   await prisma.paymentTransaction.update({
-    where: { id: expiringPayment.body.data.id },
+    where: { id: payment.id },
     data: { expiredAt: new Date(Date.now() - 1000) },
   });
-  const expiredPayment = await http.request(
-    `/api/v1/me/payments/${expiringPayment.body.data.id}`,
-    { headers: { authorization: expiryAuthorization } },
-  );
-  assert.equal(expiredPayment.status, 200);
-  assert.equal(expiredPayment.body.data.status, "EXPIRED");
+
+  const expired = await http.request(`/api/v1/me/payments/${payment.id}`, {
+    headers: { authorization },
+  });
+  assert.equal(expired.status, 200);
+  assert.equal(expired.body.data.status, "EXPIRED");
   assert.equal(
-    (
-      await prisma.paymentTransaction.findUniqueOrThrow({
-        where: { id: expiringPayment.body.data.id },
-        select: { activeKey: true },
-      })
-    ).activeKey,
+    (await prisma.paymentTransaction.findUniqueOrThrow({ where: { id: payment.id } })).activeKey,
     null,
   );
 
-  const originalMockFlag = process.env.PAYMENT_MOCK_ENABLED;
-  process.env.PAYMENT_MOCK_ENABLED = "false";
-  try {
-    const disabledCapabilities = await http.request(
-      "/api/v1/me/payment-capabilities",
-      { headers: { authorization } },
-    );
-    assert.deepEqual(disabledCapabilities.body.data.providers, []);
-
-    const disabledCreate = await http.request(
-      `/api/v1/me/invoices/${invoice.id}/payments`,
-      {
-        method: "POST",
-        headers: { authorization },
-        body: { provider: "MOCK" },
-      },
-    );
-    assert.equal(disabledCreate.status, 404);
-  } finally {
-    process.env.PAYMENT_MOCK_ENABLED = originalMockFlag;
-  }
+  // The gateway can still confirm money that was actually taken after our timeout.
+  const late = await vnpayIpn(
+    buildVnpayCallbackQuery({ transactionCode: payment.transactionCode, amount: 300000 }),
+  );
+  assert.equal(late.body.RspCode, "00");
+  assert.equal(
+    (await prisma.invoice.findUniqueOrThrow({ where: { id: invoice.id } })).status,
+    "PAID",
+  );
 });
 
 test("patients review only their own completed appointments", async () => {
@@ -2092,7 +2183,7 @@ test("patient v1 auth scopes profile and resources to the authenticated owner", 
   assert.equal(paymentCapabilities.status, 200);
   assert.ok(
     paymentCapabilities.body.data.providers.some(
-      (provider: { provider: string }) => provider.provider === "MOCK",
+      (provider: { provider: string }) => provider.provider === "VNPAY",
     ),
   );
 
@@ -2104,11 +2195,11 @@ test("patient v1 auth scopes profile and resources to the authenticated owner", 
         authorization,
         "idempotency-key": "phase1-mobile-payment",
       },
-      body: { provider: "MOCK" },
+      body: { provider: "VNPAY" },
     },
   );
   assert.equal(patientPayment.status, 201);
-  assert.equal(patientPayment.body.data.provider, "MOCK");
+  assert.equal(patientPayment.body.data.provider, "VNPAY");
   assert.equal(patientPayment.body.data.activeKey, undefined);
   assert.equal(patientPayment.body.data.idempotencyKey, undefined);
   assert.equal(patientPayment.body.data.rawResponse, undefined);
@@ -3193,7 +3284,7 @@ test("v1 capabilities reflect the payment providers enabled by configuration", a
   assert.equal(response.status, 200);
   assert.equal(response.body.data.payment.enabled, true);
   assert.equal(response.body.data.payment.reason, null);
-  assert.deepEqual(response.body.data.payment.supportedProviders, ["MOCK"]);
+  assert.deepEqual(response.body.data.payment.supportedProviders, ["VNPAY"]);
   assert.equal(response.body.data.notifications.inAppInbox, true);
   const expectedPushEnabled = isFirebaseAdminConfigured();
   assert.equal(

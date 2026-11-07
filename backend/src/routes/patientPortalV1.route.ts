@@ -31,8 +31,6 @@ import {
   createPatientPaymentHandler,
   getPatientPaymentCapabilitiesHandler,
   getPatientPaymentHandler,
-  mockPatientPaymentFailHandler,
-  mockPatientPaymentSuccessHandler,
 } from "../controllers/patientPaymentV1.controller.js";
 import { createPaymentTransactionSchema } from "../validations/payment.validation.js";
 import {
@@ -82,7 +80,5 @@ router.post(
   createPatientPaymentHandler,
 );
 router.get("/payments/:paymentId", getPatientPaymentHandler);
-router.post("/payments/mock/:transactionCode/success", mockPatientPaymentSuccessHandler);
-router.post("/payments/mock/:transactionCode/fail", mockPatientPaymentFailHandler);
 
 export default router;

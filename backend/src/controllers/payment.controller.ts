@@ -1,65 +1,6 @@
-import type { Request, Response, NextFunction } from "express";
+import type { Request, Response } from "express";
 import PaymentService from "../services/payment.service.js";
 import { AppError } from "../utils/appError.js";
-
-const getParam = (value: string | string[] | undefined, name = "id") => {
-  const param = Array.isArray(value) ? value[0] : value;
-
-  if (!param) {
-    throw new AppError(`Thiếu ${name}`, 400);
-  }
-
-  return param;
-};
-
-export const paymentProviderWebhookHandler = async (
-  req: Request,
-  res: Response,
-  next: NextFunction,
-) => {
-  try {
-    const provider = getParam(req.params.provider, "provider").toUpperCase();
-    if (provider !== "MOMO") {
-      throw new AppError(
-        "Nhà cung cấp chưa hỗ trợ webhook",
-        404,
-        "PAYMENT_PROVIDER_UNAVAILABLE",
-      );
-    }
-    const payload =
-      req.body && typeof req.body === "object" && !Array.isArray(req.body)
-        ? (req.body as Record<string, unknown>)
-        : {};
-    await PaymentService.handleMomoWebhook(payload);
-
-    // MoMo expects an HTTP 200 acknowledgement. Do not expose the internal
-    // transaction or patient data on this public provider callback.
-    return res.status(200).json({
-      partnerCode: process.env.MOMO_PARTNER_CODE,
-      requestId: payload.requestId ?? "",
-      orderId: payload.orderId ?? "",
-      resultCode: 0,
-      message: "Callback received successfully",
-    });
-  } catch (error) {
-    next(error);
-  }
-};
-
-export const paymentProviderReturnHandler = async (
-  req: Request,
-  res: Response,
-) => {
-  return res.status(200).json({
-    success: true,
-    message:
-      "Đã quay lại từ cổng thanh toán. Vui lòng kiểm tra trạng thái giao dịch trong ứng dụng; kết quả cuối cùng được xác nhận qua IPN.",
-    data: {
-      provider: getParam(req.params.provider, "provider").toUpperCase(),
-      orderId: typeof req.query.orderId === "string" ? req.query.orderId : null,
-    },
-  });
-};
 
 const getPaymentResultUrl = () =>
   process.env.PAYMENT_RESULT_URL?.trim() ||
