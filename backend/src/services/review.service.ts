@@ -1,21 +1,14 @@
-import type { OtpChannel, Role } from "../../generated/prisma/enums.js";
+import type { Role } from "../../generated/prisma/enums.js";
 import { prisma } from "../config/prisma.js";
-import AuthOtpService from "./authOtp.service.js";
 import { AppError } from "../utils/appError.js";
 
-type AppointmentIdentity = {
+type CreateReviewInput = {
   appointmentId: string;
-  bookingCode?: string;
-  phone?: string;
-};
-
-type CreateReviewInput = AppointmentIdentity & {
-  otp?: string;
+  patientId: string;
   doctorRating: number;
   serviceRating: number;
   facilityRating: number;
   comment?: string | null;
-  ipAddress: string;
 };
 
 type DashboardReviewFilters = {
@@ -43,80 +36,32 @@ const reviewSelect = {
 
 const reviewableAppointmentSelect = {
   id: true,
-  bookingCode: true,
   status: true,
-  patientPhone: true,
-  patientEmail: true,
-  otpChannel: true,
   doctorId: true,
   review: { select: reviewSelect },
 } as const;
 
-const resolveOtpTarget = (appointment: {
-  patientPhone: string;
-  patientEmail: string | null;
-  otpChannel: OtpChannel;
-}) => {
-  const channel: OtpChannel =
-    appointment.otpChannel === "EMAIL" && appointment.patientEmail
-      ? "EMAIL"
-      : "SMS";
-  return {
-    channel,
-    target:
-      channel === "EMAIL"
-        ? appointment.patientEmail || ""
-        : appointment.patientPhone,
-  };
-};
-
 class ReviewService {
-  private async findOwnedAppointment(input: AppointmentIdentity) {
-    const bookingCode = input.bookingCode?.trim().toUpperCase();
-    const phone = input.phone?.trim();
-    if (!bookingCode || !phone)
-      throw new AppError("Thiếu mã lịch hẹn hoặc số điện thoại", 400);
-
+  // Chỉ chủ tài khoản đã đăng nhập mới đánh giá được lịch của mình
+  // (kể cả lịch đặt cho người thân). Không tiết lộ lịch của người khác: trả 404.
+  private async findOwnedAppointment(appointmentId: string, patientId: string) {
     const appointment = await prisma.appointment.findFirst({
-      where: { id: input.appointmentId, bookingCode, patientPhone: phone },
+      where: { id: appointmentId, patientId },
       select: reviewableAppointmentSelect,
     });
     if (!appointment) throw new AppError("Không tìm thấy lịch hẹn", 404);
     return appointment;
   }
 
-  async getPublicReview(input: AppointmentIdentity) {
-    return (await this.findOwnedAppointment(input)).review;
-  }
-
-  async requestOtp(input: AppointmentIdentity & { ipAddress: string }) {
-    const appointment = await this.findOwnedAppointment(input);
-    if (appointment.status !== "COMPLETED")
-      throw new AppError(
-        "Chỉ có thể đánh giá sau khi lịch khám đã hoàn tất",
-        409,
-      );
-    if (appointment.review)
-      throw new AppError("Lịch hẹn này đã được đánh giá", 409);
-
-    const otpTarget = resolveOtpTarget(appointment);
-    const otp = await AuthOtpService.sendOtp(
-      otpTarget.target,
-      "REVIEW_APPOINTMENT",
-      input.ipAddress,
-      { channel: otpTarget.channel },
-    );
-    return {
-      bookingCode: appointment.bookingCode,
-      channel: otp.channel,
-      deliveryStatus: otp.deliveryStatus,
-      expiresIn: otp.expiresIn,
-      debugOtp: otp.debugOtp,
-    };
+  async getForPatient(appointmentId: string, patientId: string) {
+    return (await this.findOwnedAppointment(appointmentId, patientId)).review;
   }
 
   async create(input: CreateReviewInput) {
-    const appointment = await this.findOwnedAppointment(input);
+    const appointment = await this.findOwnedAppointment(
+      input.appointmentId,
+      input.patientId,
+    );
     if (appointment.status !== "COMPLETED")
       throw new AppError(
         "Chỉ có thể đánh giá sau khi lịch khám đã hoàn tất",
@@ -124,15 +69,7 @@ class ReviewService {
       );
     if (appointment.review)
       throw new AppError("Lịch hẹn này đã được đánh giá", 409);
-    if (!input.otp) throw new AppError("Thiếu mã OTP", 400);
 
-    const otpTarget = resolveOtpTarget(appointment);
-    await AuthOtpService.verifyOtp(
-      otpTarget.target,
-      input.otp,
-      "REVIEW_APPOINTMENT",
-      { channel: otpTarget.channel, ipAddress: input.ipAddress },
-    );
     const rating = Number(
       (
         (input.doctorRating + input.serviceRating + input.facilityRating) /

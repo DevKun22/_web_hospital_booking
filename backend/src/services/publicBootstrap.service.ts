@@ -2,8 +2,9 @@ import BannerService from "./banner.service.js";
 import PackageService from "./package.service.js";
 import PublicDepartmentService from "./publicDepartment.service.js";
 import PublicDoctorService from "./publicDoctor.service.js";
-import PublicFAQService from "./publicFAQ.service.js";
+import PublicFAQService from "./faq.service.js";
 import SiteSettingsService from "./siteSettings.service.js";
+import HomePageConfigService from "./homePageConfig.service.js";
 
 export type PublicBootstrapView = "full" | "featured" | "catalog";
 
@@ -11,6 +12,9 @@ type PublicBootstrapData = {
   view: PublicBootstrapView;
   siteSettings:
     | Awaited<ReturnType<typeof SiteSettingsService.get>>["value"]
+    | null;
+  homeConfig:
+    | Awaited<ReturnType<typeof HomePageConfigService.get>>["value"]
     | null;
   banners: Awaited<ReturnType<typeof BannerService.listPublic>>;
   departments: Awaited<ReturnType<typeof PublicDepartmentService.list>>;
@@ -76,31 +80,63 @@ class PublicBootstrapService {
     const isCatalog = view === "catalog";
     const isFeatured = view === "featured";
 
-    const [settings, banners, departments, doctors, packages, faqs] =
+    const [settings, homePageSetting] = await Promise.all([
+      isCatalog ? Promise.resolve(null) : SiteSettingsService.get(),
+      isCatalog ? Promise.resolve(null) : HomePageConfigService.get(),
+    ]);
+    const homeConfig = homePageSetting?.value ?? null;
+    const departmentLimit = isFeatured
+      ? homeConfig?.sections.departments.limit ?? 4
+      : undefined;
+    const doctorLimit = isFeatured
+      ? homeConfig?.sections.doctors.limit ?? 3
+      : undefined;
+    const packageLimit = isFeatured
+      ? homeConfig?.sections.packages.limit ?? 3
+      : undefined;
+    const partnerLimit = isFeatured
+      ? homeConfig?.sections.partners.limit ?? 12
+      : 12;
+
+    const [banners, departments, doctors, packages, faqs] =
       await Promise.all([
-        isCatalog ? Promise.resolve(null) : SiteSettingsService.get(),
         isCatalog
           ? Promise.resolve([])
-          : BannerService.listPublic({
-              position: isFeatured ? "HOME_HERO" : undefined,
-            }),
-        PublicDepartmentService.list({}),
+          : isFeatured
+            ? Promise.all([
+                BannerService.listPublic({ position: "HOME_HERO", limit: 5 }),
+                BannerService.listPublic({ position: "HOME_PARTNER", limit: partnerLimit }),
+              ]).then(([heroBanners, partnerBanners]) => [
+                ...heroBanners,
+                ...partnerBanners,
+              ])
+            : BannerService.listPublic({}),
+        PublicDepartmentService.list({
+          limit: departmentLimit,
+          featured: isFeatured,
+        }),
         PublicDoctorService.list({
           includeHighlights: isFeatured,
-          limit: isFeatured ? 4 : undefined,
+          limit: doctorLimit,
         }),
-        PackageService.publicList({ limit: isFeatured ? 5 : undefined }),
-        isCatalog ? Promise.resolve([]) : PublicFAQService.listPublic({}),
+        PackageService.publicList({
+          limit: packageLimit,
+          featured: isFeatured,
+        }),
+        isCatalog || isFeatured
+          ? Promise.resolve([])
+          : PublicFAQService.listPublic({}),
       ]);
 
     return {
       view,
       siteSettings: settings?.value ?? null,
+      homeConfig,
       banners,
-      departments: isFeatured ? departments.slice(0, 6) : departments,
+      departments,
       doctors,
       packages,
-      faqs: isFeatured ? faqs.slice(0, 5) : faqs,
+      faqs,
     };
   }
 }

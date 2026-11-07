@@ -59,7 +59,6 @@ export const buildIntegrationEnvironment = () => {
     OTP_DEBUG_ENABLED: "true",
     JWT_SECRET: "phase0_test_jwt_secret_at_least_32_chars",
     OTP_SECRET: "phase0_test_otp_secret_at_least_32_chars",
-    LOOKUP_GRANT_SECRET: "phase0_test_lookup_secret_at_least_32_chars",
     PAYMENT_MOCK_ENABLED: "true",
     DASHBOARD_COOKIE_SAME_SITE: "lax",
   };

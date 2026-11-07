@@ -37,7 +37,6 @@ const [
   { generateDashboardAccessToken, generatePatientAccessToken },
   { default: AuthOtpService },
   { default: AppointmentService },
-  { signLookupGrant },
   { default: ScheduleReconciliationService },
   { default: AuthSessionService },
   { default: NotificationService },
@@ -51,7 +50,6 @@ const [
   import("../../src/utils/jwt.js"),
   import("../../src/services/authOtp.service.js"),
   import("../../src/services/appointment.service.js"),
-  import("../../src/utils/lookupGrant.js"),
   import("../../src/services/scheduleReconciliation.service.js"),
   import("../../src/services/authSession.service.js"),
   import("../../src/services/notification.service.js"),
@@ -1079,170 +1077,6 @@ test("dashboard login limits repeated password failures by account and IP", asyn
   assert.equal(limited.body.code, "LOGIN_RATE_LIMITED");
 });
 
-test("lookup OTP returns the existing appointment list", async () => {
-  const phone = "0911111111";
-  const appointment = await createStoredAppointment({
-    status: "CONFIRMED",
-    phone,
-    bookingCode: "PHASE0-LOOKUP",
-  });
-
-  const requestOtp = await http.request(
-    "/api/appointments/lookup/request-otp",
-    {
-      method: "POST",
-      body: { phone, bookingCode: appointment.bookingCode },
-    },
-  );
-  assert.equal(requestOtp.status, 200);
-
-  const verifyOtp = await http.request(
-    "/api/appointments/lookup/verify-otp",
-    {
-      method: "POST",
-      body: {
-        phone,
-        bookingCode: appointment.bookingCode,
-        otp: requestOtp.body.data.debugOtp,
-      },
-    },
-  );
-
-  assert.equal(verifyOtp.status, 200);
-  assert.equal(verifyOtp.body.success, true);
-  assert.equal(verifyOtp.body.data.items.length, 1);
-  assert.equal(verifyOtp.body.data.items[0].id, appointment.id);
-  assert.equal(verifyOtp.body.data.grant.tokenType, "Bearer");
-  assert.equal(typeof verifyOtp.body.data.grant.token, "string");
-});
-
-test("medical results require a valid scoped grant for the same patient", async () => {
-  const phone = "0911111111";
-  const appointment = await createStoredAppointment({
-    status: "COMPLETED",
-    phone,
-    bookingCode: "PHASE0-RESULT-A",
-  });
-  await prisma.medicalRecord.create({
-    data: {
-      recordCode: "PHASE0-RECORD-A",
-      appointmentId: appointment.id,
-      patientId: appointment.patientId,
-      doctorId: fixture.doctorOne.id,
-      status: "PUBLISHED",
-      diagnosis: "Protected diagnosis A",
-      publishedAt: new Date(),
-    },
-  });
-
-  const requestOtp = await http.request(
-    "/api/appointments/lookup/request-otp",
-    {
-      method: "POST",
-      body: { phone, bookingCode: appointment.bookingCode },
-    },
-  );
-  const verifyOtp = await http.request(
-    "/api/appointments/lookup/verify-otp",
-    {
-      method: "POST",
-      body: {
-        phone,
-        bookingCode: appointment.bookingCode,
-        otp: requestOtp.body.data.debugOtp,
-      },
-    },
-  );
-  const lookupToken = verifyOtp.body.data.grant.token as string;
-  const resultPath = `/api/appointments/lookup/result?bookingCode=${appointment.bookingCode}`;
-
-  const missingGrant = await http.request(resultPath);
-  assert.equal(missingGrant.status, 401);
-
-  const authorized = await http.request(resultPath, {
-    headers: { authorization: `Bearer ${lookupToken}` },
-  });
-  assert.equal(authorized.status, 200);
-  assert.equal(
-    authorized.body.data.medicalRecord.diagnosis,
-    "Protected diagnosis A",
-  );
-
-  const patientB = await prisma.user.create({
-    data: {
-      fullName: "Patient B",
-      phone: "0933333333",
-      role: "PATIENT",
-      isPhoneVerified: true,
-    },
-  });
-  const appointmentB = await prisma.appointment.create({
-    data: {
-      bookingCode: "PHASE0-RESULT-B",
-      appointmentDate: dateOnly(fixture.appointmentDate),
-      startTime: "11:00",
-      endTime: "11:30",
-      status: "COMPLETED",
-      patientName: patientB.fullName,
-      patientPhone: patientB.phone!,
-      patientId: patientB.id,
-      doctorId: fixture.doctorOne.id,
-      departmentId: fixture.department.id,
-    },
-  });
-
-  const crossPatient = await http.request(
-    `/api/appointments/lookup/result?bookingCode=${appointmentB.bookingCode}`,
-    { headers: { authorization: `Bearer ${lookupToken}` } },
-  );
-  assert.equal(crossPatient.status, 404);
-
-  const restrictedGrant = signLookupGrant({
-    patientId: appointment.patientId,
-    scopes: ["appointments:read"],
-  });
-  const wrongScope = await http.request(resultPath, {
-    headers: { authorization: `Bearer ${restrictedGrant.token}` },
-  });
-  assert.equal(wrongScope.status, 403);
-
-  const wrongAudienceToken = jwt.sign(
-    {
-      scopes: ["results:read"],
-      purpose: "LOOKUP_RESULT",
-      verifiedAt: new Date().toISOString(),
-    },
-    process.env.LOOKUP_GRANT_SECRET!,
-    {
-      audience: "wrong-audience",
-      subject: appointment.patientId,
-      expiresIn: "5m",
-    },
-  );
-  const wrongAudience = await http.request(resultPath, {
-    headers: { authorization: `Bearer ${wrongAudienceToken}` },
-  });
-  assert.equal(wrongAudience.status, 401);
-
-  const expiredToken = jwt.sign(
-    {
-      scopes: ["results:read"],
-      purpose: "LOOKUP_RESULT",
-      verifiedAt: new Date(Date.now() - 60_000).toISOString(),
-    },
-    process.env.LOOKUP_GRANT_SECRET!,
-    {
-      audience: "patient-lookup",
-      subject: appointment.patientId,
-      expiresIn: -1,
-    },
-  );
-  const expired = await http.request(resultPath, {
-    headers: { authorization: `Bearer ${expiredToken}` },
-  });
-  assert.equal(expired.status, 401);
-});
-
 test("invoice creation is rejected until the appointment is COMPLETED", async () => {
   const appointment = await createStoredAppointment({ status: "CONFIRMED" });
   const cookie = await authCookie(fixture.adminUser.id, "ADMIN");
@@ -1401,7 +1235,7 @@ test("manual collection is blocked while an online payment is pending", async ()
   assert.equal(stored.status, "UNPAID");
 });
 
-test("payment APIs enforce grant ownership and the mock capability gate", async () => {
+test("patient payment APIs enforce ownership and the mock capability gate", async () => {
   const appointment = await createStoredAppointment({
     status: "COMPLETED",
     bookingCode: "PHASE0-PAYMENT",
@@ -1416,16 +1250,15 @@ test("payment APIs enforce grant ownership and the mock capability gate", async 
       finalAmount: 300000,
     },
   });
-  const patientGrant = signLookupGrant({ patientId: appointment.patientId });
-  const authorization = `Bearer ${patientGrant.token}`;
+  const authorization = `Bearer ${(await loginPatient(appointment.patientPhone)).accessToken}`;
 
-  const missingGrant = await http.request(
-    `/api/payments/invoices/${invoice.id}/create`,
+  const missingSession = await http.request(
+    `/api/v1/me/invoices/${invoice.id}/payments`,
     { method: "POST", body: { provider: "MOCK" } },
   );
-  assert.equal(missingGrant.status, 401);
+  assert.equal(missingSession.status, 401);
 
-  const capabilities = await http.request("/api/payments/capabilities", {
+  const capabilities = await http.request("/api/v1/me/payment-capabilities", {
     headers: { authorization },
   });
   assert.equal(capabilities.status, 200);
@@ -1438,7 +1271,7 @@ test("payment APIs enforce grant ownership and the mock capability gate", async 
 
   const createResponses = await Promise.all(
     Array.from({ length: 10 }, () =>
-      http.request(`/api/payments/invoices/${invoice.id}/create`, {
+      http.request(`/api/v1/me/invoices/${invoice.id}/payments`, {
         method: "POST",
         headers: {
           authorization,
@@ -1463,7 +1296,7 @@ test("payment APIs enforce grant ownership and the mock capability gate", async 
   );
 
   const idempotentRetry = await http.request(
-    `/api/payments/invoices/${invoice.id}/create`,
+    `/api/v1/me/invoices/${invoice.id}/payments`,
     {
       method: "POST",
       headers: {
@@ -1484,17 +1317,16 @@ test("payment APIs enforce grant ownership and the mock capability gate", async 
       isPhoneVerified: true,
     },
   });
-  const patientBGrant = signLookupGrant({ patientId: patientB.id });
-  const patientBAuthorization = `Bearer ${patientBGrant.token}`;
+  const patientBAuthorization = `Bearer ${(await loginPatient("0944444444")).accessToken}`;
 
   const crossPatientRead = await http.request(
-    `/api/payments/${created.body.data.id}`,
+    `/api/v1/me/payments/${created.body.data.id}`,
     { headers: { authorization: patientBAuthorization } },
   );
   assert.equal(crossPatientRead.status, 404);
 
   const crossPatientSettlement = await http.request(
-    `/api/payments/mock/${created.body.data.transactionCode}/success`,
+    `/api/v1/me/payments/mock/${created.body.data.transactionCode}/success`,
     {
       method: "POST",
       headers: { authorization: patientBAuthorization },
@@ -1502,19 +1334,19 @@ test("payment APIs enforce grant ownership and the mock capability gate", async 
   );
   assert.equal(crossPatientSettlement.status, 404);
 
-  const settlementWithoutGrant = await http.request(
-    `/api/payments/mock/${created.body.data.transactionCode}/success`,
+  const settlementWithoutSession = await http.request(
+    `/api/v1/me/payments/mock/${created.body.data.transactionCode}/success`,
     { method: "POST" },
   );
-  assert.equal(settlementWithoutGrant.status, 401);
+  assert.equal(settlementWithoutSession.status, 401);
 
   const settlements = await Promise.all([
     http.request(
-      `/api/payments/mock/${created.body.data.transactionCode}/success`,
+      `/api/v1/me/payments/mock/${created.body.data.transactionCode}/success`,
       { method: "POST", headers: { authorization } },
     ),
     http.request(
-      `/api/payments/mock/${created.body.data.transactionCode}/success`,
+      `/api/v1/me/payments/mock/${created.body.data.transactionCode}/success`,
       { method: "POST", headers: { authorization } },
     ),
   ]);
@@ -1572,11 +1404,9 @@ test("payment APIs enforce grant ownership and the mock capability gate", async 
       finalAmount: 200000,
     },
   });
-  const expiryAuthorization = `Bearer ${
-    signLookupGrant({ patientId: expiringAppointment.patientId }).token
-  }`;
+  const expiryAuthorization = `Bearer ${(await loginPatient(expiringAppointment.patientPhone)).accessToken}`;
   const expiringPayment = await http.request(
-    `/api/payments/invoices/${expiringInvoice.id}/create`,
+    `/api/v1/me/invoices/${expiringInvoice.id}/payments`,
     {
       method: "POST",
       headers: {
@@ -1591,7 +1421,7 @@ test("payment APIs enforce grant ownership and the mock capability gate", async 
     data: { expiredAt: new Date(Date.now() - 1000) },
   });
   const expiredPayment = await http.request(
-    `/api/payments/${expiringPayment.body.data.id}`,
+    `/api/v1/me/payments/${expiringPayment.body.data.id}`,
     { headers: { authorization: expiryAuthorization } },
   );
   assert.equal(expiredPayment.status, 200);
@@ -1610,13 +1440,13 @@ test("payment APIs enforce grant ownership and the mock capability gate", async 
   process.env.PAYMENT_MOCK_ENABLED = "false";
   try {
     const disabledCapabilities = await http.request(
-      "/api/payments/capabilities",
+      "/api/v1/me/payment-capabilities",
       { headers: { authorization } },
     );
     assert.deepEqual(disabledCapabilities.body.data.providers, []);
 
     const disabledCreate = await http.request(
-      `/api/payments/invoices/${invoice.id}/create`,
+      `/api/v1/me/invoices/${invoice.id}/payments`,
       {
         method: "POST",
         headers: { authorization },
@@ -1627,6 +1457,50 @@ test("payment APIs enforce grant ownership and the mock capability gate", async 
   } finally {
     process.env.PAYMENT_MOCK_ENABLED = originalMockFlag;
   }
+});
+
+test("patients review only their own completed appointments", async () => {
+  const completed = await createStoredAppointment({
+    status: "COMPLETED",
+    bookingCode: "PORTAL-REVIEW",
+  });
+  const ownerAuthorization = `Bearer ${(await loginPatient(completed.patientPhone)).accessToken}`;
+  const reviewPath = `/api/v1/me/appointments/${completed.id}/review`;
+  const body = { doctorRating: 5, serviceRating: 4, facilityRating: 3, comment: "Tốt" };
+
+  const anonymous = await http.request(reviewPath, { method: "POST", body });
+  assert.equal(anonymous.status, 401);
+
+  await prisma.user.create({
+    data: { fullName: "Review Patient B", phone: "0955555555", role: "PATIENT", isPhoneVerified: true },
+  });
+  const otherAuthorization = `Bearer ${(await loginPatient("0955555555")).accessToken}`;
+  const crossPatient = await http.request(reviewPath, {
+    method: "POST",
+    headers: { authorization: otherAuthorization },
+    body,
+  });
+  assert.equal(crossPatient.status, 404);
+
+  const created = await http.request(reviewPath, {
+    method: "POST",
+    headers: { authorization: ownerAuthorization },
+    body,
+  });
+  assert.equal(created.status, 201);
+  assert.equal(created.body.data.rating, 4);
+  assert.equal(created.body.data.isVisible, false);
+
+  const duplicate = await http.request(reviewPath, {
+    method: "POST",
+    headers: { authorization: ownerAuthorization },
+    body,
+  });
+  assert.equal(duplicate.status, 409);
+
+  const read = await http.request(reviewPath, { headers: { authorization: ownerAuthorization } });
+  assert.equal(read.status, 200);
+  assert.equal(read.body.data.id, created.body.data.id);
 });
 
 test("legacy API responses keep the success/message/data envelope", async () => {
@@ -1645,14 +1519,14 @@ test("the same OTP can be consumed by exactly one concurrent request", async () 
   const target = "0922222222";
   const sent = await AuthOtpService.sendOtp(
     target,
-    "LOOKUP_RESULT",
+    "PATIENT_PORTAL_LOGIN",
     "phase0-otp-concurrency",
   );
   assert.ok(sent.debugOtp);
 
   const attempts = await Promise.allSettled(
     Array.from({ length: 20 }, () =>
-      AuthOtpService.verifyOtp(target, sent.debugOtp!, "LOOKUP_RESULT"),
+      AuthOtpService.verifyOtp(target, sent.debugOtp!, "PATIENT_PORTAL_LOGIN"),
     ),
   );
 
@@ -1671,7 +1545,7 @@ test("the same OTP can be consumed by exactly one concurrent request", async () 
   const successfulAuditRecords = await prisma.otpVerifyAttempt.count({
     where: {
       target,
-      purpose: "LOOKUP_RESULT",
+      purpose: "PATIENT_PORTAL_LOGIN",
       success: true,
     },
   });

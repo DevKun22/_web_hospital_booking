@@ -1,11 +1,8 @@
-// Prisma schema - Website quản lý đặt lịch khám bệnh tích hợp chatbot
-// Flow chính:
-// - Bệnh nhân không cần đăng ký tài khoản
-// - Đặt lịch bằng số điện thoại + OTP
-// - Email khuyến khích nhập để nhận phiếu hẹn/kết quả
-// - Tra cứu lịch hẹn bằng số điện thoại
-// - Tra cứu kết quả bằng số điện thoại + OTP hoặc mã vạch hóa đơn
-// - Admin/Staff/Doctor có tài khoản đăng nhập
+// Prisma schema - Hệ thống đặt lịch khám bệnh tích hợp chatbot (web + mobile)
+// - Khách vãng lai đặt lịch bằng SĐT/email + OTP; hệ thống tạo tài khoản PATIENT.
+// - Mọi thao tác sau đặt lịch (xem lịch, hủy, kết quả, hóa đơn, đánh giá)
+//   đi qua cổng bệnh nhân sau khi đăng nhập bằng OTP.
+// - Admin/Staff/Doctor đăng nhập dashboard bằng mật khẩu + OTP.
 
 generator client {
   provider = "prisma-client"
@@ -55,11 +52,7 @@ enum AppointmentStatus {
 
 enum OtpPurpose {
   BOOK_APPOINTMENT
-  LOOKUP_APPOINTMENT
   PATIENT_PORTAL_LOGIN
-  CANCEL_APPOINTMENT
-  REVIEW_APPOINTMENT
-  LOOKUP_RESULT
   ADMIN_LOGIN
   DOCTOR_LOGIN
   STAFF_LOGIN
@@ -120,13 +113,6 @@ enum InsuranceRouteType {
   REFERRAL
   EMERGENCY
   SERVICE
-}
-
-enum ConsultationStatus {
-  NEW
-  CONTACTED
-  CANCELLED
-  COMPLETED
 }
 
 enum MedicalResultStatus {
@@ -708,7 +694,7 @@ model DoctorSchedule {
   @@index([dayOfWeek])
 }
 
-// Y?u c?u do b?c s? g?i ?? Staff/Admin duy?t tr??c khi thay ??i l?ch m?u.
+// Yêu cầu do bác sĩ gửi để Staff/Admin duyệt trước khi thay đổi lịch mẫu.
 model ScheduleChangeRequest {
   id String @id @default(uuid())
 
@@ -1249,18 +1235,6 @@ model ChatbotSession {
   @@index([expiresAt])
 }
 
-model ChatbotFAQ {
-  id String @id @default(uuid())
-
-  question String
-  answer   String
-  keywords String[]
-  isActive Boolean  @default(true)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
 model ChatbotSetting {
   id String @id @default(uuid())
 
@@ -1274,6 +1248,28 @@ model ChatbotSetting {
   updatedAt DateTime @updatedAt
 
   @@index([isActive])
+}
+
+// Một nguồn FAQ duy nhất cho trang Hỏi đáp và trợ lý ảo.
+model FAQ {
+  id String @id @default(uuid())
+
+  question String
+  answer   String
+  category String?
+  keywords String[] @default([])
+  order    Int      @default(0)
+
+  showOnWeb    Boolean @default(true)
+  useInChatbot Boolean @default(true)
+  isActive     Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([isActive, showOnWeb, order])
+  @@index([isActive, useInChatbot])
+  @@index([category])
 }
 
 // ===================== PUBLIC WEB CONFIG =====================
@@ -1316,61 +1312,6 @@ model Banner {
   @@index([position])
   @@index([isActive])
   @@index([order])
-}
-
-model PublicFAQ {
-  id String @id @default(uuid())
-
-  question String
-  answer   String
-  category String?
-
-  order    Int     @default(0)
-  isActive Boolean @default(true)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([category])
-  @@index([isActive])
-  @@index([order])
-}
-
-model SearchAnalyticsLog {
-  id String @id @default(uuid())
-
-  keyword     String
-  normalized  String
-  type        String @default("all")
-  source      String?
-  resultCount Int    @default(0)
-  hasResults  Boolean @default(false)
-
-  createdAt DateTime @default(now())
-
-  @@index([normalized])
-  @@index([type])
-  @@index([hasResults])
-  @@index([createdAt])
-}
-
-// ===================== CONSULTATION REQUEST =====================
-
-model ConsultationRequest {
-  id String @id @default(uuid())
-
-  phone    String
-  fullName String?
-  message  String?
-
-  status ConsultationStatus @default(NEW)
-  note   String?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([phone])
-  @@index([status])
 }
 
 // ===================== REVIEW =====================

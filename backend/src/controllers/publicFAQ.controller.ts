@@ -1,5 +1,5 @@
 import type { Request, Response, NextFunction } from "express";
-import PublicFAQService from "../services/publicFAQ.service.js";
+import PublicFAQService from "../services/faq.service.js";
 import { AppError } from "../utils/appError.js";
 import PublicBootstrapService from "../services/publicBootstrap.service.js";
 

@@ -43,13 +43,6 @@ npm run test:e2e
 
 ## Runtime checks
 
-Run the read-only preflight report against the intended deployment database
-before rollout:
-
-```bash
-npm run audit:phase0
-```
-
 Production must run `worker:otp`, `worker:appointments` and
 `worker:notifications`. The OTP and appointment workers require a valid
 `QUEUE_REDIS_URL` (or legacy `REDIS_URL`). The notification worker reads pending

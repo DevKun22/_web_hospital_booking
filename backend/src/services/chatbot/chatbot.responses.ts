@@ -51,7 +51,7 @@ export const chatbotReplies = {
       : "Bác sĩ đã được ghi nhận. Hiện chưa có lịch trống phù hợp, bạn có thể chọn ngày khác hoặc đổi bác sĩ.",
 
   slotSelected:
-    "Khung giờ này đã được chọn. Bạn có thể bấm đặt lịch ngay để nhập thông tin bệnh nhân và xác thực OTP.",
+    "Khung giờ này đã được chọn. Bạn có thể bấm đặt lịch ngay để nhập thông tin người khám và xác thực OTP.",
 
   doctorChange: (hasDoctors: boolean) =>
     hasDoctors
@@ -103,7 +103,7 @@ export const chatbotReplies = {
       : "Hiện chưa có gói khám phù hợp với thông tin đã chọn. Bạn có thể chọn chuyên khoa hoặc liên hệ nhân viên để được tư vấn.",
 
   readyToBook:
-    "Hệ thống đã có đủ bác sĩ và khung giờ. Bạn có thể bấm đặt lịch ngay để sang form thông tin bệnh nhân và xác thực OTP.",
+    "Hệ thống đã có đủ bác sĩ và khung giờ. Bạn có thể bấm đặt lịch ngay để sang form thông tin người khám và xác thực OTP.",
 
   slotLookupAfterDateMiss: (dateLabel: string, nearestDateLabel: string) =>
     `Ngày ${dateLabel} chưa có lịch trống phù hợp. Hệ thống tìm thấy lịch gần nhất vào ${nearestDateLabel}, bạn chọn khung giờ phù hợp để tiếp tục đặt lịch.`,

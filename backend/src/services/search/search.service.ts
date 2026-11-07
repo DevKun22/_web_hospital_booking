@@ -1,13 +1,7 @@
-import {
-  elasticClient,
-  elasticsearchIndex,
-  isElasticsearchEnabled,
-} from "../../config/elasticsearch.js";
 import { prisma } from "../../config/prisma.js";
 import type {
   PublicSearchQuery,
   PublicSearchResult,
-  SearchDocument,
   SearchDocumentType,
 } from "./search.types.js";
 import { SEARCH_DOCUMENT_TYPES } from "./search.types.js";
@@ -24,29 +18,12 @@ const normalizeType = (type?: string): SearchDocumentType | "all" =>
     ? (type as SearchDocumentType)
     : "all";
 
-const toResult = (
-  document: SearchDocument,
-  source: PublicSearchResult["source"],
-  score?: number,
-): PublicSearchResult => ({
-  id: document.id,
-  type: document.type,
-  title: document.title,
-  description: document.description,
-  url: document.url,
-  image: document.image,
-  departmentName: document.departmentName,
-  price: document.price ?? undefined,
-  score,
-  source,
-});
-
 const includesText = (value: string | null | undefined, query: string) =>
   value?.toLowerCase().includes(query.toLowerCase()) || false;
 
 type SearchResponse = {
   items: PublicSearchResult[];
-  source: "empty" | "elasticsearch" | "postgres";
+  source: "empty" | "postgres";
 };
 
 const rawSearchCacheTtl = Number(process.env.PUBLIC_SEARCH_CACHE_TTL_MS || 30000);
@@ -94,52 +71,6 @@ const writeSearchCache = (key: string, data: SearchResponse) => {
   });
 };
 
-const rawElasticsearchQueryTimeout = Number(
-  process.env.PUBLIC_SEARCH_ES_QUERY_TIMEOUT_MS || 450,
-);
-const elasticsearchQueryTimeoutMs = Number.isFinite(rawElasticsearchQueryTimeout)
-  ? Math.min(Math.max(rawElasticsearchQueryTimeout, 200), 3000)
-  : 450;
-
-const searchSourceFields: Array<keyof SearchDocument> = [
-  "id",
-  "type",
-  "title",
-  "description",
-  "url",
-  "image",
-  "departmentName",
-  "price",
-];
-
-const rawElasticsearchCooldown = Number(
-  process.env.PUBLIC_SEARCH_ES_COOLDOWN_MS || 30000,
-);
-const elasticsearchCooldownMs = Number.isFinite(rawElasticsearchCooldown)
-  ? Math.min(Math.max(rawElasticsearchCooldown, 0), 5 * 60 * 1000)
-  : 30000;
-
-let elasticsearchUnavailableUntil = 0;
-
-const canUseElasticsearch = () => Date.now() >= elasticsearchUnavailableUntil;
-
-const markElasticsearchUnavailable = () => {
-  if (!elasticsearchCooldownMs) return;
-  elasticsearchUnavailableUntil = Date.now() + elasticsearchCooldownMs;
-};
-
-const withElasticsearchDeadline = <T>(task: Promise<T>) =>
-  new Promise<T>((resolve, reject) => {
-    const timeoutId = setTimeout(() => {
-      reject(new Error(`Elasticsearch search exceeded ${elasticsearchQueryTimeoutMs}ms`));
-    }, elasticsearchQueryTimeoutMs);
-
-    task
-      .then(resolve)
-      .catch(reject)
-      .finally(() => clearTimeout(timeoutId));
-  });
-
 class PublicSearchService {
   async search(query: PublicSearchQuery): Promise<SearchResponse> {
     const q = normalizeQuery(query.q);
@@ -157,109 +88,12 @@ class PublicSearchService {
     const cached = readSearchCache(cacheKey);
     if (cached) return cached;
 
-    if (isElasticsearchEnabled && elasticClient && canUseElasticsearch()) {
-      try {
-        const result: SearchResponse = {
-          items: await withElasticsearchDeadline(this.searchElasticsearch({ q, type, limit })),
-          source: "elasticsearch" as const,
-        };
-        writeSearchCache(cacheKey, result);
-        return result;
-      } catch (error) {
-        markElasticsearchUnavailable();
-        console.warn(
-          "[ELASTICSEARCH] Search failed, using PostgreSQL cooldown fallback",
-          error,
-        );
-      }
-    }
-
     const result: SearchResponse = {
       items: await this.searchPostgres({ q, type, limit }),
       source: "postgres" as const,
     };
     writeSearchCache(cacheKey, result);
     return result;
-  }
-
-  private async searchElasticsearch(input: {
-    q: string;
-    type: SearchDocumentType | "all";
-    limit: number;
-  }) {
-    const filters: Record<string, unknown>[] = [{ term: { isActive: true } }];
-
-    if (input.type !== "all") {
-      filters.push({ term: { type: input.type } });
-    }
-
-    const response = await elasticClient!.search<SearchDocument>({
-      index: elasticsearchIndex,
-      size: input.limit,
-      _source: searchSourceFields,
-      track_total_hits: false,
-      timeout: `${elasticsearchQueryTimeoutMs}ms`,
-      query: {
-        bool: {
-          filter: filters,
-          should: [
-            {
-              match_phrase: {
-                title: {
-                  query: input.q,
-                  boost: 7,
-                },
-              },
-            },
-            {
-              match_phrase: {
-                departmentName: {
-                  query: input.q,
-                  boost: 4,
-                },
-              },
-            },
-            {
-              multi_match: {
-                query: input.q,
-                type: "phrase_prefix",
-                fields: ["title^5", "departmentName^3", "keywords^2"],
-                max_expansions: 20,
-                boost: 2,
-              },
-            },
-            {
-              multi_match: {
-                query: input.q,
-                fields: [
-                  "title^4",
-                  "departmentName^2.5",
-                  "keywords^2",
-                  "description",
-                ],
-                fuzziness: "AUTO",
-                prefix_length: 2,
-                max_expansions: 20,
-              },
-            },
-          ],
-          minimum_should_match: 1,
-        },
-      },
-      sort: [
-        { _score: "desc" },
-        { priority: { order: "desc", missing: "_last" } },
-        { updatedAt: { order: "desc", missing: "_last" } },
-      ] as any,
-    });
-
-    return response.hits.hits
-      .map((hit) =>
-        hit._source
-          ? toResult(hit._source, "elasticsearch", hit._score ?? undefined)
-          : null,
-      )
-      .filter(Boolean) as PublicSearchResult[];
   }
 
   private async searchPostgres(input: {
@@ -285,10 +119,6 @@ class PublicSearchService {
 
     if (input.type === "all" || input.type === "faq") {
       tasks.push(this.searchFAQs(search, take));
-    }
-
-    if (input.type === "all" || input.type === "chatbot_faq") {
-      tasks.push(this.searchChatbotFAQs(search, take));
     }
 
     const groups = await Promise.all(tasks);
@@ -345,7 +175,7 @@ class PublicSearchService {
         type: "department",
         title: item.name,
         description: item.triageDescription || item.description,
-        url: item.slug ? `/departments/${item.slug}` : "/departments",
+        url: item.slug ? `/chuyen-khoa/${item.slug}` : "/chuyen-khoa",
         image: item.image,
         score: includesText(item.name, search) ? 30 : 15,
         source: "postgres",
@@ -443,7 +273,7 @@ class PublicSearchService {
         type: "package",
         title: item.name,
         description: item.summary || item.description,
-        url: item.slug ? `/packages/${item.slug}` : "/packages",
+        url: item.slug ? `/goi-kham/${item.slug}` : "/goi-kham",
         departmentName: item.department?.name,
         price: finalPrice,
         score:
@@ -455,13 +285,15 @@ class PublicSearchService {
   }
 
   private async searchFAQs(search: string, take: number) {
-    const items = await prisma.publicFAQ.findMany({
+    const items = await prisma.fAQ.findMany({
       where: {
         isActive: true,
+        showOnWeb: true,
         OR: [
           { question: { contains: search, mode: "insensitive" } },
           { answer: { contains: search, mode: "insensitive" } },
           { category: { contains: search, mode: "insensitive" } },
+          { keywords: { has: search } },
         ],
       },
       select: {
@@ -481,11 +313,11 @@ class PublicSearchService {
         title: item.question,
         description: item.answer,
         url: item.category
-          ? `/faqs?category=${encodeURIComponent(item.category)}`
+          ? `/hoi-dap?category=${encodeURIComponent(item.category)}`
           : resolveSupportSearchUrl({
               title: item.question,
               description: item.answer,
-              fallback: "/faqs",
+              fallback: "/hoi-dap",
             }),
         score: includesText(item.question, search) ? 20 : 10,
         source: "postgres",
@@ -493,42 +325,6 @@ class PublicSearchService {
     );
   }
 
-  private async searchChatbotFAQs(search: string, take: number) {
-    const items = await prisma.chatbotFAQ.findMany({
-      where: {
-        isActive: true,
-        OR: [
-          { question: { contains: search, mode: "insensitive" } },
-          { answer: { contains: search, mode: "insensitive" } },
-          { keywords: { has: search } },
-        ],
-      },
-      select: {
-        id: true,
-        question: true,
-        answer: true,
-        keywords: true,
-      },
-      take,
-      orderBy: { updatedAt: "desc" },
-    });
-
-    return items.map(
-      (item): PublicSearchResult => ({
-        id: item.id,
-        type: "chatbot_faq",
-        title: item.question,
-        description: item.answer,
-        url: resolveSupportSearchUrl({
-          title: item.question,
-          description: item.answer,
-          keywords: item.keywords,
-        }),
-        score: includesText(item.question, search) ? 18 : 8,
-        source: "postgres",
-      }),
-    );
-  }
 }
 
 export default new PublicSearchService();

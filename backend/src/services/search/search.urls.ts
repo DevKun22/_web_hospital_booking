@@ -35,7 +35,7 @@ export const resolveSupportSearchUrl = (input: {
       "otp lai",
     ])
   ) {
-    return "/appointments/lookup";
+    return "/tra-cuu-lich-hen";
   }
 
   if (
@@ -48,11 +48,11 @@ export const resolveSupportSearchUrl = (input: {
       "refund",
     ])
   ) {
-    return "/faqs?category=payment";
+    return "/hoi-dap?category=payment";
   }
 
   if (hasAny(haystack, ["bhyt", "bao hiem", "insurance"])) {
-    return "/faqs?category=insurance";
+    return "/hoi-dap?category=insurance";
   }
 
   if (

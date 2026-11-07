@@ -10,8 +10,6 @@ process.env.DATABASE_URL =
 process.env.REDIS_URL = "";
 process.env.JWT_SECRET = "phase0_test_jwt_secret_at_least_32_chars";
 process.env.OTP_SECRET = "phase0_test_otp_secret_at_least_32_chars";
-process.env.LOOKUP_GRANT_SECRET =
-  "phase0_test_lookup_secret_at_least_32_chars";
 
 const { createApp } = await import("../../src/app.js");
 const {
@@ -47,6 +45,9 @@ const {
 } = await import("../../src/services/paymentProviders/index.js");
 const { assertSafeTestDatabase, buildIntegrationEnvironment } = await import(
   "../support/testDatabase.js"
+);
+const { updateHomePageConfigSchema } = await import(
+  "../../src/validations/siteConfig.validation.js"
 );
 
 let http: Awaited<ReturnType<typeof startHttpServer>>;
@@ -122,6 +123,35 @@ test("request validation preserves success, message and errors", async () => {
   }
 });
 
+test("home page configuration stays bounded and requires dashboard authentication", async () => {
+  assert.equal(
+    updateHomePageConfigSchema.safeParse({
+      sections: { doctors: { enabled: true, limit: 3 } },
+    }).success,
+    true,
+  );
+  assert.equal(
+    updateHomePageConfigSchema.safeParse({
+      sections: { doctors: { limit: 50 } },
+    }).success,
+    false,
+  );
+  assert.equal(
+    updateHomePageConfigSchema.safeParse({
+      announcement: { ctaHref: "", message: "" },
+    }).success,
+    false,
+  );
+
+  for (const method of ["GET", "PATCH"] as const) {
+    const response = await http.request("/api/dashboard/homepage-config", {
+      method,
+      ...(method === "PATCH" ? { body: {} } : {}),
+    });
+    assert.equal(response.status, 401);
+  }
+});
+
 test("production startup rejects missing, weak or debug OTP secrets", () => {
   assert.throws(
     () => validateRuntimeEnvironment({ NODE_ENV: "production" }),
@@ -142,7 +172,6 @@ test("production startup rejects missing, weak or debug OTP secrets", () => {
         NODE_ENV: "production",
         JWT_SECRET: "j".repeat(32),
         OTP_SECRET: "o".repeat(32),
-        LOOKUP_GRANT_SECRET: "l".repeat(32),
         OTP_DEBUG_ENABLED: "true",
       }),
     /OTP_DEBUG_ENABLED must be disabled/,
@@ -152,7 +181,6 @@ test("production startup rejects missing, weak or debug OTP secrets", () => {
       NODE_ENV: "production",
       JWT_SECRET: "j".repeat(32),
       OTP_SECRET: "o".repeat(32),
-      LOOKUP_GRANT_SECRET: "l".repeat(32),
       OTP_DEBUG_ENABLED: "false",
       PAYMENT_MOCK_ENABLED: "false",
       DATABASE_URL: "postgresql://production.example.test/hospital",
@@ -166,7 +194,6 @@ test("production startup rejects unsafe data and browser configuration", () => {
     NODE_ENV: "production",
     JWT_SECRET: "j".repeat(32),
     OTP_SECRET: "o".repeat(32),
-    LOOKUP_GRANT_SECRET: "l".repeat(32),
     OTP_DEBUG_ENABLED: "false",
     PAYMENT_MOCK_ENABLED: "false",
     DATABASE_URL: "postgresql://production.example.test/hospital",
@@ -204,7 +231,6 @@ test("production startup requires complete HTTPS MoMo configuration when enabled
     NODE_ENV: "production",
     JWT_SECRET: "j".repeat(32),
     OTP_SECRET: "o".repeat(32),
-    LOOKUP_GRANT_SECRET: "l".repeat(32),
     DATABASE_URL: "postgresql://production.example.test/hospital",
     FRONTEND_URLS: "https://hospital.example.test",
     PAYMENT_MOCK_ENABLED: "false",
@@ -333,7 +359,6 @@ test("production notification worker requires one Firebase credential", () => {
     NODE_ENV: "production",
     JWT_SECRET: "j".repeat(32),
     OTP_SECRET: "o".repeat(32),
-    LOOKUP_GRANT_SECRET: "l".repeat(32),
     DATABASE_URL: "postgresql://production.example.test/hospital",
     FRONTEND_URLS: "https://hospital.example.test",
     FIREBASE_PROJECT_ID: "hospital-production",

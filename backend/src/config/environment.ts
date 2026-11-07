@@ -9,7 +9,7 @@ export const isProductionLike = (env: NodeJS.ProcessEnv = process.env) =>
 
 const assertStrongSecret = (
   env: NodeJS.ProcessEnv,
-  name: "JWT_SECRET" | "OTP_SECRET" | "LOOKUP_GRANT_SECRET",
+  name: "JWT_SECRET" | "OTP_SECRET",
 ) => {
   const value = env[name]?.trim();
 
@@ -91,6 +91,18 @@ const validateProductionMomo = (env: NodeJS.ProcessEnv) => {
   }
 };
 
+const validateProductionVnpay = (env: NodeJS.ProcessEnv) => {
+  if (!isEnabled(env.PAYMENT_VNPAY_ENABLED)) return;
+  for (const name of ["VNPAY_TMN_CODE", "VNPAY_HASH_SECRET", "VNPAY_RETURN_URL"] as const) {
+    if (!env[name]?.trim()) {
+      throw new Error(`${name} is required when VNPAY payment is enabled.`);
+    }
+  }
+  if (!env.VNPAY_RETURN_URL!.trim().startsWith("https://")) {
+    throw new Error("VNPAY_RETURN_URL must be a valid HTTPS URL.");
+  }
+};
+
 export const validateRuntimeEnvironment = (
   env: NodeJS.ProcessEnv = process.env,
 ) => {
@@ -98,7 +110,6 @@ export const validateRuntimeEnvironment = (
 
   assertStrongSecret(env, "JWT_SECRET");
   assertStrongSecret(env, "OTP_SECRET");
-  assertStrongSecret(env, "LOOKUP_GRANT_SECRET");
 
   if (isEnabled(env.OTP_DEBUG_ENABLED)) {
     throw new Error("OTP_DEBUG_ENABLED must be disabled in production.");
@@ -115,6 +126,12 @@ export const validateRuntimeEnvironment = (
 
   validateProductionFrontendOrigins(env);
   validateProductionMomo(env);
+  validateProductionVnpay(env);
+  if (env.DEMO_OTP_PHONES?.trim()) {
+    console.warn(
+      "[DEMO_OTP] DEMO_OTP_PHONES is set: OTP for these phone numbers is shown on screen.",
+    );
+  }
 
   if (
     env.FIREBASE_SERVICE_ACCOUNT_BASE64?.trim() &&
@@ -150,22 +167,6 @@ export const resolveOtpSecret = (env: NodeJS.ProcessEnv = process.env) => {
 
   if (!secret) {
     throw new Error("OTP_SECRET is required in production.");
-  }
-
-  return secret;
-};
-
-export const resolveLookupGrantSecret = (
-  env: NodeJS.ProcessEnv = process.env,
-) => {
-  const secret =
-    env.LOOKUP_GRANT_SECRET?.trim() ||
-    (!isProductionLike(env)
-      ? env.OTP_SECRET?.trim() || env.JWT_SECRET?.trim() || "dev_lookup_secret"
-      : "");
-
-  if (!secret) {
-    throw new Error("LOOKUP_GRANT_SECRET is required in production.");
   }
 
   return secret;

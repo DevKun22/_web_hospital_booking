@@ -4,7 +4,6 @@ import { prisma } from "../config/prisma.js";
 import { hashPassword } from "../utils/password.js";
 import { AppError } from "../utils/appError.js";
 import MediaAssetService from "./mediaAsset.service.js";
-import SearchIndexer from "./search/search.indexer.js";
 import { invalidateDashboardAuthSnapshot } from "./dashboardAuthCache.service.js";
 
 type DashboardRole = Extract<Role, "ADMIN" | "STAFF" | "DOCTOR">;
@@ -250,7 +249,6 @@ class DashboardUserService {
       select: { id: true },
     });
     if (doctorProfile) {
-      await SearchIndexer.syncDoctor(doctorProfile.id);
     }
 
     return user;
@@ -278,7 +276,6 @@ class DashboardUserService {
       select: { id: true },
     });
     if (doctorProfile) {
-      await SearchIndexer.syncDoctor(doctorProfile.id);
     }
 
     return user;

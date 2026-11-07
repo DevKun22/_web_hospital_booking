@@ -1,5 +1,4 @@
-import { prisma } from "../../../config/prisma.js";
-import PublicSearchService from "../../search/search.service.js";
+import FAQService from "../../faq.service.js";
 import type { ChatIntent } from "../chatbot.types.js";
 import { foldVietnamese, hasPhrase } from "../rules/text-normalizer.js";
 
@@ -99,38 +98,13 @@ class ChatbotFAQRepository {
     message: string,
     detectedIntent: ChatIntent,
   ): Promise<ChatbotFAQMatch | null> {
-    const result = await PublicSearchService.search({
-      q: message,
-      type: "chatbot_faq",
-      limit: 3,
-    });
-
-    const searchIds = result.items.map((item) => item.id);
-    const useSearchCandidates =
-      result.source === "elasticsearch" && searchIds.length > 0;
-
-    const faqs = await prisma.chatbotFAQ.findMany({
-      where: {
-        isActive: true,
-        ...(useSearchCandidates ? { id: { in: searchIds } } : {}),
-      },
-      select: {
-        id: true,
-        question: true,
-        answer: true,
-        keywords: true,
-      },
-      // FAQ is a curated, relatively small knowledge base. This fallback lets
-      // PostgreSQL use keyword scoring even when no exact text match is found.
-      take: useSearchCandidates ? undefined : 100,
-    });
+    const faqs = await FAQService.listForChatbot();
 
     const best = faqs
       .map((faq) => {
-        const searchItem = result.items.find((item) => item.id === faq.id);
         return {
           faq,
-          ...scoreCandidate(message, faq, searchItem?.score),
+          ...scoreCandidate(message, faq),
         };
       })
       .filter((candidate) => candidate.relevant)
