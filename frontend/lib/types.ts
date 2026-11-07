@@ -325,10 +325,9 @@ export type PaymentMethod =
   | "CASH"
   | "CARD"
   | "BANK_TRANSFER"
-  | "MOMO"
   | "VNPAY"
   | "OTHER";
-export type PaymentProvider = "MOCK" | "VNPAY" | "MOMO";
+export type PaymentProvider = "VNPAY";
 export type PaymentTransactionStatus =
   | "PENDING"
   | "SUCCESS"

@@ -37,12 +37,11 @@ const paymentOptions: { value: "" | PaymentMethod; label: string }[] = [
   { value: "CASH", label: "Tiền mặt" },
   { value: "CARD", label: "Thẻ" },
   { value: "BANK_TRANSFER", label: "Chuyển khoản" },
-  { value: "MOMO", label: "MoMo" },
   { value: "VNPAY", label: "VNPay" },
   { value: "OTHER", label: "Khác" },
 ];
 
-const manualPayments: { value: Exclude<PaymentMethod, "MOMO" | "VNPAY">; label: string }[] = [
+const manualPayments: { value: Exclude<PaymentMethod, "VNPAY">; label: string }[] = [
   { value: "CASH", label: "Tiền mặt" },
   { value: "CARD", label: "Thẻ" },
   { value: "BANK_TRANSFER", label: "Chuyển khoản" },
@@ -85,7 +84,6 @@ const paymentLabel: Partial<Record<PaymentMethod, string>> = {
   CASH: "Tiền mặt",
   CARD: "Thẻ",
   BANK_TRANSFER: "Chuyển khoản",
-  MOMO: "MoMo",
   VNPAY: "VNPay",
   OTHER: "Khác",
 };
@@ -183,7 +181,7 @@ export default function InvoicesPage() {
   const [appointmentLookupKey, setAppointmentLookupKey] = useState("");
   const [insuranceForm, setInsuranceForm] = useState<InsuranceForm>(defaultInsuranceForm);
   const [actionTarget, setActionTarget] = useState<{ type: InvoiceAction; invoice: Invoice } | null>(null);
-  const [payMethod, setPayMethod] = useState<Exclude<PaymentMethod, "MOMO" | "VNPAY">>("CASH");
+  const [payMethod, setPayMethod] = useState<Exclude<PaymentMethod, "VNPAY">>("CASH");
   const [paymentReference, setPaymentReference] = useState("");
   const [adjustInsuranceForm, setAdjustInsuranceForm] = useState<InsuranceForm>(defaultInsuranceForm);
   const [refundReason, setRefundReason] = useState("");
@@ -470,7 +468,7 @@ export default function InvoicesPage() {
       return;
     }
     if (
-      (actionTarget.invoice.paymentMethod === "MOMO" || actionTarget.invoice.paymentMethod === "VNPAY") &&
+      (actionTarget.invoice.paymentMethod === "VNPAY") &&
       refundReference.trim().length < 3
     ) {
       setError("Vui lòng nhập mã tham chiếu do cổng thanh toán trả về");
@@ -783,13 +781,13 @@ export default function InvoicesPage() {
                   {actionTarget.type === "pay" ? (
                     <>
                       <h4 className="font-semibold">Ghi nhận thu tại quầy</h4>
-                      <p className="mt-2 text-sm leading-6 text-[#667892]">Chỉ xác nhận sau khi nhân viên đã thực nhận tiền. MoMo/VNPay được hệ thống tự ghi nhận qua cổng thanh toán.</p>
+                      <p className="mt-2 text-sm leading-6 text-[#667892]">Chỉ xác nhận sau khi nhân viên đã thực nhận tiền. VNPay được hệ thống tự ghi nhận qua cổng thanh toán.</p>
                       {selected.paymentTransactions.some((transaction) => transaction.status === "PENDING") ? (
                         <p className="mt-3 rounded-md border border-[#f0cf7a] bg-[#fff8e6] p-3 text-sm text-[#73510d]">Có giao dịch trực tuyến đang chờ hoặc chưa đồng bộ hết hạn. Máy chủ sẽ kiểm tra lại và chặn thu tại quầy nếu giao dịch còn hiệu lực để tránh thu hai lần.</p>
                       ) : null}
                       <label className="mt-3 block">
                         <span className="text-sm font-medium text-[#334155]">Phương thức</span>
-                        <select value={payMethod} onChange={(e) => setPayMethod(e.target.value as Exclude<PaymentMethod, "MOMO" | "VNPAY">)} className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]">
+                        <select value={payMethod} onChange={(e) => setPayMethod(e.target.value as Exclude<PaymentMethod, "VNPAY">)} className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]">
                           {manualPayments.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
                         </select>
                       </label>
@@ -856,10 +854,10 @@ export default function InvoicesPage() {
                         <textarea value={refundReason} onChange={(e) => setRefundReason(e.target.value)} rows={3} placeholder="Ví dụ: người khám yêu cầu hoàn tiền" className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" />
                       </label>
                       <label className="mt-3 block">
-                        <span className="text-sm font-medium text-[#334155]">Mã tham chiếu hoàn tiền {actionTarget.invoice.paymentMethod === "MOMO" || actionTarget.invoice.paymentMethod === "VNPAY" ? "*" : ""}</span>
+                        <span className="text-sm font-medium text-[#334155]">Mã tham chiếu hoàn tiền {actionTarget.invoice.paymentMethod === "VNPAY" ? "*" : ""}</span>
                         <input value={refundReference} onChange={(event) => setRefundReference(event.target.value)} maxLength={100} placeholder="Mã hoàn tiền từ quầy hoặc cổng thanh toán" className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" />
                       </label>
-                      {(actionTarget.invoice.paymentMethod === "MOMO" || actionTarget.invoice.paymentMethod === "VNPAY") ? <p className="mt-2 text-xs leading-5 text-[#8a5a00]">Hãy hoàn tiền trên cổng thanh toán trước, sau đó nhập mã tham chiếu để đồng bộ trạng thái hệ thống.</p> : null}
+                      {(actionTarget.invoice.paymentMethod === "VNPAY") ? <p className="mt-2 text-xs leading-5 text-[#8a5a00]">Hãy hoàn tiền trên cổng thanh toán trước, sau đó nhập mã tham chiếu để đồng bộ trạng thái hệ thống.</p> : null}
                       <div className="mt-3 flex gap-2"><button disabled={busy} onClick={() => void refundInvoice()} className="rounded-md bg-[#0d4f8b] px-3 py-2 text-sm font-semibold text-white disabled:opacity-60">Hoàn tiền</button><button type="button" onClick={() => { setActionTarget(null); setRefundReason(""); }} className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm font-medium text-[#42526b]">Hủy</button></div>
                     </>
                   ) : null}

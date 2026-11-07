@@ -55,7 +55,6 @@ const paymentLabel: Record<PaymentMethod, string> = {
   CASH: "Tiền mặt",
   CARD: "Thẻ",
   BANK_TRANSFER: "Chuyển khoản",
-  MOMO: "MoMo",
   VNPAY: "VNPay",
   OTHER: "Khác",
 };

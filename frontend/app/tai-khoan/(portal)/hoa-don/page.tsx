@@ -8,7 +8,7 @@ import { PatientEmptyState, PatientPageError, PatientPageHeader, PatientPageLoad
 import { patientPortalRequest } from "@/lib/patient-portal-api";
 import type { PatientInvoice } from "@/lib/patient-portal-types";
 
-type Provider = { provider: string; label: string; isMock: boolean };
+type Provider = { provider: string; label: string };
 type Payment = { id: string; paymentUrl?: string | null; status: string; transactionCode: string };
 const formatMoney = (value?: number) => `${new Intl.NumberFormat("vi-VN").format(value || 0)} đ`;
 const formatDate = (value?: string | null) => value ? new Intl.DateTimeFormat("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric" }).format(new Date(value)) : "—";
@@ -17,7 +17,7 @@ const statuses: Record<string, { label: string; style: string }> = { UNPAID: { l
 export default function PatientInvoicesPage() {
   const client = useQueryClient();
   const [selected, setSelected] = useState<{ invoiceId: string; provider: string } | null>(null);
-  const query = useQuery({ queryKey: ["patient-invoices"], queryFn: async () => { const [invoices, capabilities] = await Promise.all([patientPortalRequest<PatientInvoice[]>("/hoa-don?page=1&limit=50"), patientPortalRequest<{ providers: Provider[] }>("/kha-nang-thanh-toan")]); return { invoices: invoices.data, providers: capabilities.data.providers.filter((item) => !item.isMock) }; }, staleTime: 30_000 });
+  const query = useQuery({ queryKey: ["patient-invoices"], queryFn: async () => { const [invoices, capabilities] = await Promise.all([patientPortalRequest<PatientInvoice[]>("/hoa-don?page=1&limit=50"), patientPortalRequest<{ providers: Provider[] }>("/kha-nang-thanh-toan")]); return { invoices: invoices.data, providers: capabilities.data.providers }; }, staleTime: 30_000 });
   const payment = useMutation({ mutationFn: ({ invoiceId, provider }: { invoiceId: string; provider: string }) => patientPortalRequest<Payment>(`/hoa-don/${invoiceId}/thanh-toan`, { method: "POST", headers: { "Idempotency-Key": `web-${invoiceId}-${provider}-${Date.now()}` }, body: JSON.stringify({ provider }) }), onSuccess: async (result) => { if (result.data.paymentUrl) { window.location.assign(result.data.paymentUrl); return; } setSelected(null); await client.invalidateQueries({ queryKey: ["patient-invoices"] }); } });
   return <div className="space-y-6">
     <PatientPageHeader eyebrow="Tài chính" title="Hóa đơn và thanh toán" description="Theo dõi số tiền, giảm trừ BHYT và trạng thái thanh toán theo từng lần khám." />

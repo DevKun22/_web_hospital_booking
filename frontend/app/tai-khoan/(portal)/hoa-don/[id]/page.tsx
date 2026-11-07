@@ -9,7 +9,7 @@ import { PatientPageError, PatientPageLoading } from "@/components/patient/patie
 import { patientPortalRequest } from "@/lib/patient-portal-api";
 import type { PatientInvoice } from "@/lib/patient-portal-types";
 
-type Provider = { provider: string; label: string; isMock: boolean };
+type Provider = { provider: string; label: string };
 type Payment = { id: string; paymentUrl?: string | null; status: string; transactionCode: string };
 const money = (value?: number) => `${new Intl.NumberFormat("vi-VN").format(value || 0)} đ`;
 const date = (value?: string | null) => value ? new Intl.DateTimeFormat("vi-VN", { dateStyle: "long" }).format(new Date(value)) : "—";
@@ -17,7 +17,7 @@ const date = (value?: string | null) => value ? new Intl.DateTimeFormat("vi-VN",
 export default function InvoiceDetailPage() {
   const id = String(useParams<{ id: string }>().id || "");
   const [selected, setSelected] = useState<string | null>(null);
-  const query = useQuery({ queryKey: ["patient-invoice", id], queryFn: async () => { const [invoice, capabilities] = await Promise.all([patientPortalRequest<PatientInvoice>(`/hoa-don/${id}`), patientPortalRequest<{ providers: Provider[] }>("/kha-nang-thanh-toan")]); return { invoice: invoice.data, providers: capabilities.data.providers.filter((provider) => !provider.isMock) }; }, enabled: Boolean(id), staleTime: 20_000 });
+  const query = useQuery({ queryKey: ["patient-invoice", id], queryFn: async () => { const [invoice, capabilities] = await Promise.all([patientPortalRequest<PatientInvoice>(`/hoa-don/${id}`), patientPortalRequest<{ providers: Provider[] }>("/kha-nang-thanh-toan")]); return { invoice: invoice.data, providers: capabilities.data.providers }; }, enabled: Boolean(id), staleTime: 20_000 });
   const payment = useMutation({ mutationFn: (provider: string) => patientPortalRequest<Payment>(`/hoa-don/${id}/thanh-toan`, { method: "POST", headers: { "Idempotency-Key": `web-detail-${id}-${provider}-${Date.now()}` }, body: JSON.stringify({ provider }) }), onSuccess: (result) => { if (result.data.paymentUrl) window.location.assign(result.data.paymentUrl); else query.refetch(); } });
   if (query.isLoading) return <PatientPageLoading label="Đang tải hóa đơn..." />;
   if (query.isError || !query.data) return <PatientPageError message={query.error instanceof Error ? query.error.message : "Không tìm thấy hóa đơn."} onRetry={() => query.refetch()} />;
