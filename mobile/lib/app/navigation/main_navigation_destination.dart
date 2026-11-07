@@ -2,7 +2,7 @@ enum MainNavigationBranch {
   home(path: '/home'),
   records(path: '/records'),
   booking(path: '/booking'),
-  notifications(path: '/notifications'),
+  assistant(path: '/chatbot'),
   profile(path: '/profile');
 
   const MainNavigationBranch({required this.path});

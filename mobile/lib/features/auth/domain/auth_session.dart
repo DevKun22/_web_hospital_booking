@@ -29,6 +29,8 @@ class OtpChallenge {
     required this.expiresAt,
     this.deliveryStatus,
     this.debugOtp,
+    this.channel,
+    this.maskedTarget,
   });
 
   factory OtpChallenge.fromJson(Map<String, dynamic> json) => OtpChallenge(
@@ -38,10 +40,18 @@ class OtpChallenge {
         DateTime.now().add(const Duration(minutes: 5)),
     deliveryStatus: json['deliveryStatus']?.toString(),
     debugOtp: json['debugOtp']?.toString(),
+    channel: json['channel']?.toString(),
+    maskedTarget: json['maskedTarget']?.toString(),
   );
 
   final String challengeId;
   final DateTime expiresAt;
   final String? deliveryStatus;
   final String? debugOtp;
+
+  /// `EMAIL` hoặc `SMS`: kênh backend thực sự đã dùng để gửi mã.
+  final String? channel;
+
+  /// Địa chỉ nhận mã đã che bớt, ví dụ `ng***@gmail.com`.
+  final String? maskedTarget;
 }

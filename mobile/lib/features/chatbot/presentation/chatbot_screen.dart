@@ -5,7 +5,6 @@ import 'package:hospital_booking_mobile/app/navigation/booking_navigation.dart';
 import 'package:hospital_booking_mobile/app/theme/app_theme.dart';
 import 'package:hospital_booking_mobile/core/formatters/display_formatters.dart';
 import 'package:hospital_booking_mobile/core/widgets/app_error_banner.dart';
-import 'package:hospital_booking_mobile/core/widgets/app_route_back_scope.dart';
 import 'package:hospital_booking_mobile/features/chatbot/application/chatbot_controller.dart';
 import 'package:hospital_booking_mobile/features/chatbot/domain/chatbot_models.dart';
 
@@ -53,7 +52,7 @@ class _ChatbotScreenState extends ConsumerState<ChatbotScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        leading: const AppRouteBackButton(fallbackLocation: '/home'),
+        automaticallyImplyLeading: false,
         title: const Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [

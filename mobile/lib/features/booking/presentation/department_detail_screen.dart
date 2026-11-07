@@ -99,9 +99,9 @@ class DepartmentDetailScreen extends ConsumerWidget {
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(
-                    colors: [AppTheme.primary, Color(0xFF0A9290)],
+                    colors: [AppTheme.primaryDark, AppPalette.careMint],
                   ),
-                  borderRadius: BorderRadius.circular(22),
+                  borderRadius: BorderRadius.circular(AppRadius.xl),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -205,7 +205,7 @@ class _DepartmentDoctorCard extends StatelessWidget {
   Widget build(BuildContext context) => Card(
     child: InkWell(
       onTap: () => context.push('/doctors/${Uri.encodeComponent(doctor.id)}'),
-      borderRadius: BorderRadius.circular(18),
+      borderRadius: BorderRadius.circular(AppRadius.card),
       child: Padding(
         padding: const EdgeInsets.all(14),
         child: Row(

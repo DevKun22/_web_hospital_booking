@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hospital_booking_mobile/app/theme/app_theme.dart';
+import 'package:hospital_booking_mobile/core/formatters/display_formatters.dart';
 import 'package:hospital_booking_mobile/core/widgets/app_error_banner.dart';
 import 'package:hospital_booking_mobile/core/widgets/app_ui.dart';
 import 'package:hospital_booking_mobile/core/widgets/resized_network_image.dart';
@@ -486,7 +487,7 @@ class _PackageChoiceCard extends StatelessWidget {
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               Text(
-                _formatVnd(packageItem.finalPrice),
+                formatVnd(packageItem.finalPrice),
                 style: const TextStyle(
                   color: AppTheme.primaryDark,
                   fontWeight: FontWeight.w800,
@@ -561,7 +562,7 @@ class _SelectedPackageCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    _formatVnd(packageItem.finalPrice),
+                    formatVnd(packageItem.finalPrice),
                     style: const TextStyle(
                       color: AppTheme.primaryDark,
                       fontWeight: FontWeight.w800,
@@ -781,7 +782,7 @@ class _DoctorChoiceCard extends StatelessWidget {
                       if (doctor.experience != null)
                         Text('${doctor.experience} năm kinh nghiệm'),
                       Text(
-                        _formatVnd(doctor.consultationFee),
+                        formatVnd(doctor.consultationFee),
                         style: const TextStyle(
                           color: AppTheme.primaryDark,
                           fontWeight: FontWeight.w700,
@@ -952,8 +953,8 @@ class _BookingStickySummary extends StatelessWidget {
                 const Spacer(),
                 Text(
                   packageItem == null
-                      ? _formatVnd(price)
-                      : 'Giá gói: ${_formatVnd(price)}',
+                      ? formatVnd(price)
+                      : 'Giá gói: ${formatVnd(price)}',
                   style: Theme.of(context).textTheme.titleSmall?.copyWith(
                     color: AppPalette.brandDark,
                     fontWeight: FontWeight.w800,
@@ -1084,14 +1085,4 @@ String _shortTime(String value) =>
 String _displayDate(String value) {
   final parts = value.split('-');
   return parts.length == 3 ? '${parts[2]}/${parts[1]}/${parts[0]}' : value;
-}
-
-String _formatVnd(double value) {
-  final digits = value.round().toString();
-  final buffer = StringBuffer();
-  for (var index = 0; index < digits.length; index += 1) {
-    if (index > 0 && (digits.length - index) % 3 == 0) buffer.write('.');
-    buffer.write(digits[index]);
-  }
-  return '${buffer.toString()} đ';
 }

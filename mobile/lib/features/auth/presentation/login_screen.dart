@@ -61,7 +61,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       const Center(child: AppBrandMark(size: 64)),
                       const SizedBox(height: 24),
                       Text(
-                        'Đăng nhập bệnh nhân',
+                        'Đăng nhập người khám',
                         textAlign: TextAlign.center,
                         style: Theme.of(context).textTheme.headlineSmall
                             ?.copyWith(fontWeight: FontWeight.w700),
@@ -123,20 +123,27 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       ],
                       TextFormField(
                         controller: _phoneController,
-                        keyboardType: TextInputType.phone,
+                        keyboardType: TextInputType.emailAddress,
                         textInputAction: TextInputAction.done,
-                        autofillHints: const [AutofillHints.telephoneNumber],
+                        autofillHints: const [
+                          AutofillHints.telephoneNumber,
+                          AutofillHints.email,
+                        ],
                         decoration: const InputDecoration(
-                          labelText: 'Số điện thoại',
-                          hintText: '09xxxxxxxx',
-                          prefixIcon: Icon(Icons.phone_outlined),
+                          labelText: 'Số điện thoại hoặc email',
+                          hintText: '09xxxxxxxx hoặc ban@email.com',
+                          prefixIcon: Icon(Icons.person_outline),
                         ),
                         validator: (value) {
-                          final phone = value?.trim() ?? '';
-                          if (!RegExp(
+                          final input = value?.trim() ?? '';
+                          final isPhone = RegExp(
                             r'^(0|\+84)[0-9]{9,10}$',
-                          ).hasMatch(phone)) {
-                            return 'Số điện thoại không hợp lệ';
+                          ).hasMatch(input);
+                          final isEmail = RegExp(
+                            r'^[^\s@]+@[^\s@]+\.[^\s@]+$',
+                          ).hasMatch(input);
+                          if (!isPhone && !isEmail) {
+                            return 'Nhập số điện thoại hoặc email hợp lệ';
                           }
                           return null;
                         },
@@ -150,7 +157,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       ),
                       const SizedBox(height: 18),
                       Text(
-                        'Bằng việc tiếp tục, bạn đồng ý sử dụng số điện thoại để xác thực tài khoản bệnh nhân.',
+                        'Bằng việc tiếp tục, bạn đồng ý sử dụng số điện thoại để xác thực tài khoản người khám.',
                         textAlign: TextAlign.center,
                         style: Theme.of(context).textTheme.bodySmall,
                       ),
@@ -203,7 +210,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       return 'Vui lòng đăng nhập để xem và quản lý lịch khám của bạn.';
     }
     if (returnTo.startsWith('/profile')) {
-      return 'Vui lòng đăng nhập để xem và cập nhật hồ sơ bệnh nhân.';
+      return 'Vui lòng đăng nhập để xem và cập nhật hồ sơ người khám.';
     }
     if (returnTo.startsWith('/medical-records')) {
       return 'Vui lòng đăng nhập để xem hồ sơ khám bệnh.';

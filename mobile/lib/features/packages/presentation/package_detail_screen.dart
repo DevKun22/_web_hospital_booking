@@ -81,11 +81,11 @@ class _PackageDetailBody extends StatelessWidget {
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
             gradient: const LinearGradient(
-              colors: [AppTheme.primary, Color(0xFF087D7C)],
+              colors: [AppTheme.primaryDark, AppPalette.careMint],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
-            borderRadius: BorderRadius.circular(24),
+            borderRadius: BorderRadius.circular(AppRadius.hero),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -170,16 +170,16 @@ class _PackageDetailBody extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(15),
             decoration: BoxDecoration(
-              color: const Color(0xFFFFF5DD),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: const Color(0xFFF2D998)),
+              color: AppPalette.warningContainer,
+              borderRadius: BorderRadius.circular(AppRadius.md),
+              border: Border.all(color: AppPalette.warmSignal),
             ),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Icon(
                   Icons.info_outline_rounded,
-                  color: Color(0xFF8A6212),
+                  color: AppPalette.warning,
                 ),
                 const SizedBox(width: 10),
                 Expanded(child: Text(packageItem.note!)),
@@ -283,7 +283,7 @@ class _PackageItemRow extends StatelessWidget {
     padding: const EdgeInsets.all(14),
     decoration: BoxDecoration(
       color: Theme.of(context).colorScheme.surfaceContainerLowest,
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: BorderRadius.circular(AppRadius.md),
       border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
     ),
     child: Row(
@@ -293,7 +293,7 @@ class _PackageItemRow extends StatelessWidget {
           item.included
               ? Icons.check_circle_rounded
               : Icons.add_circle_outline_rounded,
-          color: item.included ? AppTheme.primary : const Color(0xFF9B6A13),
+          color: item.included ? AppTheme.primary : AppPalette.warning,
         ),
         const SizedBox(width: 10),
         Expanded(
@@ -314,7 +314,7 @@ class _PackageItemRow extends StatelessWidget {
                   style: Theme.of(context).textTheme.labelMedium?.copyWith(
                     color: item.included
                         ? AppTheme.primaryDark
-                        : const Color(0xFF8A6212),
+                        : AppPalette.warning,
                   ),
                 ),
               ],

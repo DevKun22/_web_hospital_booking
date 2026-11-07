@@ -46,6 +46,10 @@ Future<ProviderContainer> _container() async {
 }
 
 void main() {
+  test('app lock grace period follows the five-minute security policy', () {
+    expect(appLockBackgroundGracePeriod, const Duration(minutes: 5));
+  });
+
   test('brief background transition stays unlocked', () async {
     final container = await _container();
     addTearDown(container.dispose);

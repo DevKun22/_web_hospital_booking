@@ -4,10 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hospital_booking_mobile/app/navigation/main_navigation_destination.dart';
-import 'package:hospital_booking_mobile/app/theme/app_theme.dart';
 import 'package:hospital_booking_mobile/core/design/app_design_tokens.dart';
 import 'package:hospital_booking_mobile/core/sync/patient_data_sync_coordinator.dart';
-import 'package:hospital_booking_mobile/features/notifications/application/notifications_controller.dart';
 
 class MainNavigationHistoryController extends ChangeNotifier {
   static const _homeIndex = 0;
@@ -151,35 +149,14 @@ class MainNavigationShell extends ConsumerStatefulWidget {
 }
 
 class _MainNavigationShellState extends ConsumerState<MainNavigationShell> {
-  bool _homeScrolledAway = false;
-
   @override
   Widget build(BuildContext context) {
     widget.historyController.attach(widget.navigationShell);
-    final unreadNotificationCount = ref.watch(
-      notificationsControllerProvider.select((state) => state.unreadCount),
-    );
-    final currentBranch = MainNavigationBranch.fromIndex(
-      widget.navigationShell.currentIndex,
-    );
-    final keyboardVisible = MediaQuery.viewInsetsOf(context).bottom > 0;
-    final showChatbot =
-        currentBranch != MainNavigationBranch.booking &&
-        !keyboardVisible &&
-        (currentBranch != MainNavigationBranch.home || _homeScrolledAway);
 
     return Scaffold(
-      body: NotificationListener<ScrollNotification>(
-        onNotification: _handleScrollNotification,
-        child: widget.navigationShell,
-      ),
-      floatingActionButton: showChatbot
-          ? _ChatbotFloatingButton(onPressed: () => context.push('/chatbot'))
-          : null,
-      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
+      body: widget.navigationShell,
       bottomNavigationBar: _MainBottomNavigationBar(
         currentIndex: widget.navigationShell.currentIndex,
-        unreadNotificationCount: unreadNotificationCount,
         onDestinationSelected: (index) {
           widget.historyController.selectBranch(index);
           unawaited(
@@ -191,31 +168,15 @@ class _MainNavigationShellState extends ConsumerState<MainNavigationShell> {
       ),
     );
   }
-
-  bool _handleScrollNotification(ScrollNotification notification) {
-    if (widget.navigationShell.currentIndex !=
-            MainNavigationBranch.home.index ||
-        notification.metrics.axis != Axis.vertical ||
-        notification.depth != 0) {
-      return false;
-    }
-    final homeScrolledAway = notification.metrics.extentBefore > 56;
-    if (homeScrolledAway != _homeScrolledAway) {
-      setState(() => _homeScrolledAway = homeScrolledAway);
-    }
-    return false;
-  }
 }
 
 class _MainBottomNavigationBar extends StatelessWidget {
   const _MainBottomNavigationBar({
     required this.currentIndex,
-    required this.unreadNotificationCount,
     required this.onDestinationSelected,
   });
 
   final int currentIndex;
-  final int unreadNotificationCount;
   final ValueChanged<int> onDestinationSelected;
 
   static const _destinations = <_NavigationDestination>[
@@ -236,9 +197,9 @@ class _MainBottomNavigationBar extends StatelessWidget {
       isPrimaryAction: true,
     ),
     _NavigationDestination(
-      label: 'Thông báo',
-      icon: Icons.notifications_none_rounded,
-      selectedIcon: Icons.notifications_rounded,
+      label: 'Trợ lý AI',
+      icon: Icons.smart_toy_outlined,
+      selectedIcon: Icons.smart_toy_rounded,
     ),
     _NavigationDestination(
       label: 'Tài khoản',
@@ -251,7 +212,7 @@ class _MainBottomNavigationBar extends StatelessWidget {
   Widget build(BuildContext context) => DecoratedBox(
     decoration: const BoxDecoration(
       color: Colors.white,
-      boxShadow: AppShadow.floating,
+      boxShadow: AppShadow.publicFloating,
     ),
     child: Material(
       color: Colors.transparent,
@@ -272,7 +233,9 @@ class _MainBottomNavigationBar extends StatelessWidget {
                 top: 8,
                 child: DecoratedBox(
                   decoration: const BoxDecoration(
-                    border: Border(top: BorderSide(color: AppTheme.softBorder)),
+                    border: Border(
+                      top: BorderSide(color: AppPalette.publicBorder),
+                    ),
                   ),
                   child: Row(
                     children: List.generate(_destinations.length, (index) {
@@ -285,10 +248,7 @@ class _MainBottomNavigationBar extends StatelessWidget {
                           key: ValueKey('main-navigation-item-$index'),
                           destination: destination,
                           selected: currentIndex == index,
-                          badgeCount:
-                              index == MainNavigationBranch.notifications.index
-                              ? unreadNotificationCount
-                              : 0,
+                          badgeCount: 0,
                           onTap: () => onDestinationSelected(index),
                         ),
                       );
@@ -331,8 +291,8 @@ class _NavigationItem extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final foreground = selected
-        ? colorScheme.primary
-        : colorScheme.onSurfaceVariant;
+        ? AppPalette.clinicalBlue
+        : AppPalette.publicMuted;
     final animationDuration = AppMotion.responsive(context, AppMotion.fast);
 
     return Semantics(
@@ -360,7 +320,7 @@ class _NavigationItem extends StatelessWidget {
                     height: 30,
                     decoration: BoxDecoration(
                       color: selected
-                          ? colorScheme.primaryContainer
+                          ? AppPalette.clinicalBlueContainer
                           : Colors.transparent,
                       borderRadius: BorderRadius.circular(AppRadius.sm),
                     ),
@@ -383,8 +343,8 @@ class _NavigationItem extends StatelessWidget {
                   softWrap: false,
                   style: Theme.of(context).textTheme.labelSmall?.copyWith(
                     color: selected
-                        ? colorScheme.primary
-                        : colorScheme.onSurfaceVariant,
+                        ? AppPalette.clinicalBlue
+                        : AppPalette.publicMuted,
                     fontSize: 11.5,
                     height: 1.15,
                     fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
@@ -413,7 +373,6 @@ class _PrimaryNavigationItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
     final animationDuration = AppMotion.responsive(context, AppMotion.fast);
     return Semantics(
       button: true,
@@ -438,14 +397,14 @@ class _PrimaryNavigationItem extends StatelessWidget {
                     width: 56,
                     height: 56,
                     decoration: BoxDecoration(
-                      color: colorScheme.primary,
+                      color: AppPalette.clinicalBlue,
                       shape: BoxShape.circle,
                       border: Border.all(color: Colors.white, width: 4),
-                      boxShadow: AppShadow.floating,
+                      boxShadow: AppShadow.publicFloating,
                     ),
                     child: Icon(
                       destination.selectedIcon,
-                      color: colorScheme.onPrimary,
+                      color: Colors.white,
                       size: 28,
                     ),
                   ),
@@ -455,7 +414,7 @@ class _PrimaryNavigationItem extends StatelessWidget {
                   destination.label,
                   maxLines: 1,
                   style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: colorScheme.primary,
+                    color: AppPalette.clinicalBlue,
                     fontSize: 11.5,
                     height: 1,
                     fontWeight: FontWeight.w800,
@@ -468,64 +427,6 @@ class _PrimaryNavigationItem extends StatelessWidget {
       ),
     );
   }
-}
-
-class _ChatbotFloatingButton extends StatelessWidget {
-  const _ChatbotFloatingButton({required this.onPressed});
-
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) => Transform.translate(
-    offset: const Offset(0, 10),
-    child: Semantics(
-      button: true,
-      label: 'Mở trợ lý đặt lịch',
-      child: Tooltip(
-        message: 'Trợ lý đặt lịch',
-        child: FloatingActionButton(
-          // This button belongs to the persistent shell and is already visible
-          // behind root-level detail routes. A Hero transition would therefore
-          // discover the same FAB in more than one active route while popping.
-          heroTag: null,
-          mini: true,
-          onPressed: onPressed,
-          backgroundColor: AppTheme.primaryDark,
-          foregroundColor: Colors.white,
-          elevation: 6,
-          child: Stack(
-            clipBehavior: Clip.none,
-            children: [
-              const Center(child: Icon(Icons.smart_toy_rounded, size: 23)),
-              Positioned(
-                right: -7,
-                top: -7,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 5,
-                    vertical: 2,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppTheme.warmSignal,
-                    borderRadius: BorderRadius.circular(AppRadius.sm),
-                    border: Border.all(color: Colors.white, width: 1.5),
-                  ),
-                  child: const Text(
-                    'AI',
-                    style: TextStyle(
-                      color: AppTheme.clinicalInk,
-                      fontSize: 9,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    ),
-  );
 }
 
 class _NavigationDestination {

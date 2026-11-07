@@ -3,6 +3,7 @@ import 'package:hospital_booking_mobile/app/theme/app_theme.dart';
 import 'package:hospital_booking_mobile/core/design/app_design_tokens.dart';
 
 export 'app_brand_mark.dart';
+export 'app_catalog_scaffold.dart';
 export 'package:hospital_booking_mobile/core/design/app_design_tokens.dart';
 
 /// Keeps the final interactive content clear of the floating chatbot button

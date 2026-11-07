@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hospital_booking_mobile/app/navigation/booking_navigation.dart';
 import 'package:hospital_booking_mobile/app/theme/app_theme.dart';
+import 'package:hospital_booking_mobile/core/formatters/display_formatters.dart';
 import 'package:hospital_booking_mobile/core/widgets/app_ui.dart';
 import 'package:hospital_booking_mobile/features/packages/domain/medical_package.dart';
 
@@ -15,7 +16,7 @@ class PackageCatalogCard extends StatelessWidget {
     margin: EdgeInsets.zero,
     clipBehavior: Clip.antiAlias,
     shape: RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(18),
+      borderRadius: BorderRadius.circular(AppRadius.card),
       side: const BorderSide(color: AppTheme.softBorder),
     ),
     child: InkWell(
@@ -35,9 +36,9 @@ class PackageCatalogCard extends StatelessWidget {
                   height: 48,
                   decoration: BoxDecoration(
                     gradient: const LinearGradient(
-                      colors: [AppTheme.primary, Color(0xFF18A5A2)],
+                      colors: [AppTheme.primary, AppPalette.careMint],
                     ),
-                    borderRadius: BorderRadius.circular(15),
+                    borderRadius: BorderRadius.circular(AppRadius.md),
                   ),
                   child: const Icon(
                     Icons.health_and_safety_outlined,
@@ -121,7 +122,7 @@ class PackageCatalogCard extends StatelessWidget {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        _formatVnd(item.finalPrice),
+                        formatVnd(item.finalPrice),
                         style: Theme.of(context).textTheme.titleLarge?.copyWith(
                           color: AppTheme.primaryDark,
                           fontWeight: FontWeight.w800,
@@ -153,14 +154,4 @@ class PackageCatalogCard extends StatelessWidget {
       ),
     ),
   );
-}
-
-String _formatVnd(double value) {
-  final digits = value.round().toString();
-  final buffer = StringBuffer();
-  for (var index = 0; index < digits.length; index++) {
-    if (index > 0 && (digits.length - index) % 3 == 0) buffer.write('.');
-    buffer.write(digits[index]);
-  }
-  return '$bufferđ';
 }

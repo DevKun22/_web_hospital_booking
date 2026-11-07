@@ -10,7 +10,7 @@ class PatientUser {
 
   factory PatientUser.fromJson(Map<String, dynamic> json) => PatientUser(
     id: json['id']?.toString() ?? '',
-    fullName: json['fullName']?.toString() ?? 'Bệnh nhân',
+    fullName: json['fullName']?.toString() ?? 'Người khám',
     phone: json['phone']?.toString(),
     email: json['email']?.toString(),
     avatar: json['avatar']?.toString(),

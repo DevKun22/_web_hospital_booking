@@ -105,6 +105,7 @@ class _LoadedHomeContentController extends HomeContentController {
           todayAvailableSlots: [
             HomeDoctorSlot(startTime: '14:30', endTime: '15:00'),
             HomeDoctorSlot(startTime: '15:00', endTime: '15:30'),
+            HomeDoctorSlot(startTime: '15:30', endTime: '16:00'),
           ],
         ),
       ],
@@ -173,8 +174,10 @@ void main() {
     expect(find.text('4.9 (120)'), findsOneWidget);
     expect(find.text('14:30'), findsOneWidget);
     expect(find.text('15:00'), findsOneWidget);
+    expect(find.text('15:30'), findsNothing);
+    expect(find.text('Xem thêm +1'), findsOneWidget);
     expect(find.text('Khám tổng quát'), findsOneWidget);
-    expect(find.text('Dịch vụ chăm sóc'), findsOneWidget);
+    expect(find.text('Tiện ích khám chữa bệnh'), findsOneWidget);
     expect(find.text('Trợ lý đặt lịch 24/7'), findsNothing);
     expect(find.text('Tất cả'), findsOneWidget);
 

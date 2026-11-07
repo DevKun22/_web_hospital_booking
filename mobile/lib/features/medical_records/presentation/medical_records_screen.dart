@@ -50,7 +50,7 @@ class MedicalRecordsScreen extends ConsumerWidget {
                             title: '${state.total} hồ sơ đã công bố',
                             subtitle: state.items.length < state.total
                                 ? 'Đang hiển thị ${state.items.length} kết quả gần nhất'
-                                : 'Dữ liệu được bảo vệ theo tài khoản bệnh nhân',
+                                : 'Dữ liệu được bảo vệ theo tài khoản người khám',
                           ),
                           if (state.error != null) ...[
                             const SizedBox(height: 14),

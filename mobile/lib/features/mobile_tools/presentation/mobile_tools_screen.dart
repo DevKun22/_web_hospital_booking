@@ -27,7 +27,7 @@ class MobileToolsScreen extends ConsumerWidget {
             const AppPageIntro(
               title: 'Nhanh hơn nhưng vẫn an toàn',
               subtitle:
-                  'Dùng thẻ bệnh nhân số và khóa cục bộ để hạn chế lộ dữ liệu khi người khác cầm điện thoại.',
+                  'Dùng thẻ người khám số và khóa cục bộ để hạn chế lộ dữ liệu khi người khác cầm điện thoại.',
               badge: 'Chỉ trên mobile',
             ),
             const SizedBox(height: 18),
@@ -46,7 +46,7 @@ class MobileToolsScreen extends ConsumerWidget {
               AppEmptyState(
                 icon: Icons.badge_outlined,
                 title: 'Chưa tải được hồ sơ',
-                message: 'Kết nối mạng và thử đồng bộ lại hồ sơ bệnh nhân.',
+                message: 'Kết nối mạng và thử đồng bộ lại hồ sơ người khám.',
                 action: FilledButton.icon(
                   onPressed: ref
                       .read(patientProfileControllerProvider.notifier)
@@ -153,7 +153,7 @@ class _DigitalPatientCard extends StatelessWidget {
                 data: 'HB-PATIENT:${profile.id}',
                 size: 82,
                 padding: EdgeInsets.zero,
-                semanticsLabel: 'QR thẻ bệnh nhân số',
+                semanticsLabel: 'QR thẻ người khám số',
               ),
             ),
           ],

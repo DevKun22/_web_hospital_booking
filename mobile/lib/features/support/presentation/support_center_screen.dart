@@ -273,7 +273,7 @@ class _EmergencySupportCard extends StatelessWidget {
         ),
         const SizedBox(height: 12),
         const Text(
-          'Nếu người bệnh khó thở, bất tỉnh hoặc có dấu hiệu nguy hiểm, hãy liên hệ cấp cứu ngay.',
+          'Nếu người khám khó thở, bất tỉnh hoặc có dấu hiệu nguy hiểm, hãy liên hệ cấp cứu ngay.',
         ),
         const SizedBox(height: 14),
         FilledButton.icon(

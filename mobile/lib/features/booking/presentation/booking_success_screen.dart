@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hospital_booking_mobile/app/theme/app_theme.dart';
+import 'package:hospital_booking_mobile/core/formatters/display_formatters.dart';
 import 'package:hospital_booking_mobile/core/sync/patient_data_sync_coordinator.dart';
 import 'package:hospital_booking_mobile/core/widgets/app_ui.dart';
 import 'package:hospital_booking_mobile/features/booking/application/booking_flow_controller.dart';
@@ -110,7 +111,7 @@ class BookingSuccessScreen extends ConsumerWidget {
                       const Divider(height: 26),
                       _DetailRow(
                         icon: Icons.person_outline_rounded,
-                        label: 'Bệnh nhân',
+                        label: 'Người khám',
                         value: appointment.patientName,
                       ),
                       const Divider(height: 26),
@@ -138,7 +139,7 @@ class BookingSuccessScreen extends ConsumerWidget {
                       _DetailRow(
                         icon: Icons.payments_outlined,
                         label: 'Chi phí dự kiến',
-                        value: _formatVnd(appointment.finalAmount),
+                        value: formatVnd(appointment.finalAmount),
                       ),
                     ],
                   ),
@@ -227,14 +228,4 @@ String _shortTime(String value) =>
 String _displayDate(String value) {
   final parts = value.split('-');
   return parts.length == 3 ? '${parts[2]}/${parts[1]}/${parts[0]}' : value;
-}
-
-String _formatVnd(double value) {
-  final digits = value.round().toString();
-  final buffer = StringBuffer();
-  for (var index = 0; index < digits.length; index += 1) {
-    if (index > 0 && (digits.length - index) % 3 == 0) buffer.write('.');
-    buffer.write(digits[index]);
-  }
-  return '${buffer.toString()} đ';
 }

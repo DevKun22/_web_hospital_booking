@@ -7,6 +7,7 @@ import 'package:hospital_booking_mobile/core/widgets/app_error_banner.dart';
 import 'package:hospital_booking_mobile/core/widgets/app_ui.dart';
 import 'package:hospital_booking_mobile/features/auth/application/auth_controller.dart';
 import 'package:hospital_booking_mobile/features/booking/application/booking_flow_controller.dart';
+import 'package:hospital_booking_mobile/features/booking/application/otp_channels_provider.dart';
 import 'package:hospital_booking_mobile/features/booking/application/booking_patient_prefill.dart';
 import 'package:hospital_booking_mobile/features/booking/application/booking_submission_controller.dart';
 import 'package:hospital_booking_mobile/features/booking/domain/booking_submission.dart';
@@ -47,7 +48,7 @@ class _BookingPatientScreenState extends ConsumerState<BookingPatientScreen> {
   final _addressController = TextEditingController();
   final _insuranceCodeController = TextEditingController();
   final _registeredHospitalController = TextEditingController();
-  BookingOtpChannel _otpChannel = BookingOtpChannel.sms;
+  BookingOtpChannel _otpChannel = BookingOtpChannel.email;
   String? _gender;
   bool _hasBhyt = false;
   bool _prefilled = false;
@@ -106,8 +107,17 @@ class _BookingPatientScreenState extends ConsumerState<BookingPatientScreen> {
     super.dispose();
   }
 
+  /// Kênh thực gửi: nếu kênh đang chọn không còn được hỗ trợ thì dùng kênh đầu tiên.
+  BookingOtpChannel _effectiveOtpChannel() {
+    final available =
+        ref.read(otpChannelsProvider).value ?? const [BookingOtpChannel.email];
+    return available.contains(_otpChannel) ? _otpChannel : available.first;
+  }
+
   @override
   Widget build(BuildContext context) {
+    final availableOtpChannels =
+        ref.watch(otpChannelsProvider).value ?? const [BookingOtpChannel.email];
     final booking = ref.watch(bookingFlowControllerProvider);
     final submission = ref.watch(bookingSubmissionControllerProvider);
     final profileState = ref.watch(patientProfileControllerProvider);
@@ -146,7 +156,7 @@ class _BookingPatientScreenState extends ConsumerState<BookingPatientScreen> {
         selectedDoctor == null ||
         selectedSlot == null) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Thông tin bệnh nhân')),
+        appBar: AppBar(title: const Text('Thông tin người khám')),
         body: AppEmptyState(
           icon: Icons.event_busy_outlined,
           title: 'Chưa chọn đủ lịch khám',
@@ -161,14 +171,14 @@ class _BookingPatientScreenState extends ConsumerState<BookingPatientScreen> {
 
     if (submission.status == BookingSubmissionStatus.restoring) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Thông tin bệnh nhân')),
+        appBar: AppBar(title: const Text('Thông tin người khám')),
         body: const Center(child: CircularProgressIndicator()),
       );
     }
 
     if (submission.pending != null) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Thông tin bệnh nhân')),
+        appBar: AppBar(title: const Text('Thông tin người khám')),
         body: AppEmptyState(
           icon: Icons.mark_email_unread_outlined,
           title: 'Đã có lịch chờ xác thực',
@@ -186,7 +196,7 @@ class _BookingPatientScreenState extends ConsumerState<BookingPatientScreen> {
         submission.status == BookingSubmissionStatus.submitting;
     final isBusy = isSubmitting || _isRevalidatingSlot;
     return Scaffold(
-      appBar: AppBar(title: const Text('Thông tin bệnh nhân')),
+      appBar: AppBar(title: const Text('Thông tin người khám')),
       body: SafeArea(
         child: Form(
           key: _formKey,
@@ -328,19 +338,25 @@ class _BookingPatientScreenState extends ConsumerState<BookingPatientScreen> {
               ),
               const SizedBox(height: 8),
               SegmentedButton<BookingOtpChannel>(
-                segments: const [
-                  ButtonSegment(
-                    value: BookingOtpChannel.sms,
-                    icon: Icon(Icons.sms_outlined),
-                    label: Text('SMS'),
-                  ),
-                  ButtonSegment(
-                    value: BookingOtpChannel.email,
-                    icon: Icon(Icons.email_outlined),
-                    label: Text('Email'),
-                  ),
+                segments: [
+                  for (final channel in availableOtpChannels)
+                    ButtonSegment(
+                      value: channel,
+                      icon: Icon(
+                        channel == BookingOtpChannel.sms
+                            ? Icons.sms_outlined
+                            : Icons.email_outlined,
+                      ),
+                      label: Text(
+                        channel == BookingOtpChannel.sms ? 'SMS' : 'Email',
+                      ),
+                    ),
                 ],
-                selected: {_otpChannel},
+                selected: {
+                  availableOtpChannels.contains(_otpChannel)
+                      ? _otpChannel
+                      : availableOtpChannels.first,
+                },
                 onSelectionChanged: isSubmitting
                     ? null
                     : (value) => setState(() => _otpChannel = value.first),
@@ -795,7 +811,7 @@ class _BookingPatientScreenState extends ConsumerState<BookingPatientScreen> {
             patientName: _nameController.text,
             patientPhone: _phoneController.text,
             patientEmail: _emailController.text,
-            otpChannel: _otpChannel,
+            otpChannel: _effectiveOtpChannel(),
             reason: _reasonController.text,
             gender: _gender,
             dateOfBirth: _dateOfBirthController.text,
