@@ -15,6 +15,11 @@ import {
 } from "../config/environment.js";
 import { enqueuePendingOtpExpiry } from "../queues/appointmentLifecycle.queue.js";
 import AuthOtpService from "./authOtp.service.js";
+import {
+  ACCOUNT_LOGIN_REQUIRED_CODE,
+  ACCOUNT_LOGIN_REQUIRED_MESSAGE,
+  decideGuestBookingIdentity,
+} from "./bookingIdentity.js";
 import { canDeliverSms } from "../config/otpChannels.js";
 import { AppError } from "../utils/appError.js";
 import { generateBookingCode } from "../utils/bookingCode.js";
@@ -498,11 +503,29 @@ class AppointmentService {
     }
     const existingUser = await prisma.user.findUnique({
       where: { phone: input.patientPhone },
-      select: { id: true, role: true },
+      select: { id: true, role: true, email: true, isPhoneVerified: true },
     });
 
     if (existingUser && existingUser.role !== "PATIENT") {
       throw new AppError("Số điện thoại đã thuộc tài khoản nội bộ", 409);
+    }
+
+    // Khách chưa đăng nhập: xác thực email không chứng minh sở hữu số điện
+    // thoại, nên không được gắn lịch (và dữ liệu xác thực) vào tài khoản đã có
+    // chủ khác. Người đã đăng nhập luôn đặt trên chính tài khoản của mình.
+    if (
+      !bookingIdentity.patientId &&
+      decideGuestBookingIdentity({
+        channel: otpChannel,
+        existing: existingUser,
+        bookingEmail: normalizedPatientEmail,
+      }) === "LOGIN_REQUIRED"
+    ) {
+      throw new AppError(
+        ACCOUNT_LOGIN_REQUIRED_MESSAGE,
+        409,
+        ACCOUNT_LOGIN_REQUIRED_CODE,
+      );
     }
 
     let appointmentId = "";
@@ -857,6 +880,28 @@ class AppointmentService {
         throw new AppError("Email đã được sử dụng cho tài khoản khác", 409);
       }
 
+      // Kiểm tra lại trong transaction: tài khoản có thể đã được người khác
+      // nhận (gắn email) sau khi lịch này được tạo nhưng trước khi xác thực.
+      if (appointment.otpChannel === "EMAIL") {
+        const account = await tx.user.findUniqueOrThrow({
+          where: { id: appointment.patientId },
+          select: { email: true, isPhoneVerified: true },
+        });
+        if (
+          decideGuestBookingIdentity({
+            channel: "EMAIL",
+            existing: account,
+            bookingEmail: appointment.patientEmail,
+          }) === "LOGIN_REQUIRED"
+        ) {
+          throw new AppError(
+            ACCOUNT_LOGIN_REQUIRED_MESSAGE,
+            409,
+            ACCOUNT_LOGIN_REQUIRED_CODE,
+          );
+        }
+      }
+
       const cccdOwner = appointment.patientCccd
         ? await tx.patientProfile.findUnique({
             where: { cccd: appointment.patientCccd },
@@ -878,7 +923,13 @@ class AppointmentService {
           ...(appointment.patientEmail
             ? { email: appointment.patientEmail }
             : {}),
+          // isPhoneVerified giữ nghĩa "tài khoản đã xác thực bằng OTP" vì phiên
+          // đăng nhập bệnh nhân đang kiểm tra cờ này; kênh email còn đánh dấu
+          // riêng isEmailVerified để biết đúng thứ đã được chứng minh.
           isPhoneVerified: true,
+          ...(appointment.otpChannel === "EMAIL" && appointment.patientEmail
+            ? { isEmailVerified: true }
+            : {}),
         },
       });
 
