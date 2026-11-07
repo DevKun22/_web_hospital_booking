@@ -1,3 +1,4 @@
+import { isProductionLike } from "../config/environment.js";
 import { Request, Response, NextFunction } from "express";
 import { getSafeRequestPath } from "../observability/requestPerformance.js";
 
@@ -12,7 +13,7 @@ export const errorMiddleware = (
     (err.statusCode ? err.code : undefined) ||
     (statusCode >= 500 ? "INTERNAL_ERROR" : "REQUEST_FAILED");
   const message =
-    statusCode >= 500 && process.env.NODE_ENV === "production"
+    statusCode >= 500 && isProductionLike()
       ? "Internal server error"
       : err.message || "Internal server error";
 

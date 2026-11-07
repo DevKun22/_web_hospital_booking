@@ -1,3 +1,4 @@
+import { isProductionLike } from "../config/environment.js";
 import { Request, Response, NextFunction } from "express";
 import DashboardAuthService from "../services/dashboardAuth.service.js";
 import { getClientIp } from "../utils/clientIp.js";
@@ -11,12 +12,12 @@ const readSameSite = (): CookieSameSite => {
     return value as CookieSameSite;
   }
 
-  return process.env.NODE_ENV === "production" ? "none" : "lax";
+  return isProductionLike() ? "none" : "lax";
 };
 
 const dashboardCookieOptions = {
   httpOnly: true,
-  secure: process.env.NODE_ENV === "production",
+  secure: isProductionLike(),
   sameSite: readSameSite(),
   path: "/",
 };
