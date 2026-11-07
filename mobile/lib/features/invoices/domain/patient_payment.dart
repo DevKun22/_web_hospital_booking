@@ -24,19 +24,16 @@ class PatientPaymentProvider {
   const PatientPaymentProvider({
     required this.code,
     required this.label,
-    required this.isMock,
   });
 
   factory PatientPaymentProvider.fromJson(Map<String, dynamic> json) =>
       PatientPaymentProvider(
         code: json['provider']?.toString() ?? '',
         label: json['label']?.toString() ?? '',
-        isMock: json['isMock'] == true,
       );
 
   final String code;
   final String label;
-  final bool isMock;
 }
 
 class PatientPaymentCapabilities {
@@ -53,9 +50,6 @@ class PatientPaymentCapabilities {
                     Map<String, dynamic>.from(item),
                   ),
                 )
-                // Mock payment remains a backend integration-test tool. The
-                // patient app only presents real external payment providers.
-                .where((provider) => !provider.isMock)
                 .toList(growable: false)
           : const [],
     );

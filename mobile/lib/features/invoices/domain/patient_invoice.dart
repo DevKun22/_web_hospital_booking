@@ -68,7 +68,6 @@ enum PatientPaymentMethod {
   cash('CASH', 'Tiền mặt'),
   card('CARD', 'Thẻ'),
   bankTransfer('BANK_TRANSFER', 'Chuyển khoản'),
-  momo('MOMO', 'MoMo'),
   vnpay('VNPAY', 'VNPay'),
   other('OTHER', 'Khác');
 
