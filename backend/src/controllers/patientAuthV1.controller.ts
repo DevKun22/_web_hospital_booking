@@ -29,7 +29,7 @@ export const requestPatientOtpHandler = async (
 ) => {
   try {
     const data = await PatientAuthService.requestOtp(
-      req.body.phone,
+      { phone: req.body.phone, email: req.body.email },
       getIpAddress(req),
     );
     return res.json({ success: true, data });

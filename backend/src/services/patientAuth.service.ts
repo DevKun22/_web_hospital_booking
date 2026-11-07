@@ -1,8 +1,15 @@
 import type { SignOptions } from "jsonwebtoken";
 import { prisma } from "../config/prisma.js";
+import { getPatientAbsoluteExpiry } from "../config/patientSessionPolicy.js";
 import { AppError } from "../utils/appError.js";
 import { generatePatientAccessToken } from "../utils/jwt.js";
 import AuthOtpService from "./authOtp.service.js";
+import type { OtpChannel } from "../../generated/prisma/enums.js";
+import {
+  canDeliverSms,
+  maskEmail,
+  maskPhone,
+} from "../config/otpChannels.js";
 import AuthSessionService, {
   type SessionMeta,
 } from "./authSession.service.js";
@@ -11,15 +18,6 @@ const MAX_CHALLENGE_ATTEMPTS = 5;
 const CHALLENGE_EXPIRES_SECONDS = 5 * 60;
 const ACCESS_TOKEN_EXPIRES_IN = (process.env
   .PATIENT_ACCESS_TOKEN_EXPIRES_IN || "15m") as SignOptions["expiresIn"];
-
-const readRefreshTokenDays = () => {
-  const value = process.env.PATIENT_REFRESH_TOKEN_DAYS || "30";
-  const match = value.match(/^(\d+)\s*d?$/i);
-  return match ? Number(match[1]) : 30;
-};
-
-const getRefreshExpiresAt = () =>
-  new Date(Date.now() + readRefreshTokenDays() * 24 * 60 * 60 * 1000);
 
 const toPatientUser = (user: {
   id: string;
@@ -44,41 +42,80 @@ const createAccessToken = (userId: string, sessionId: string) =>
   );
 
 class PatientAuthService {
-  async requestOtp(phone: string, ipAddress: string) {
-    const existing = await prisma.user.findUnique({
-      where: { phone },
-      select: { id: true, role: true, isActive: true },
-    });
+  // Đăng nhập bằng SĐT hoặc email. Kênh gửi OTP được chọn theo khả năng hệ
+  // thống: SMS nếu có nhà cung cấp (hoặc số demo), không thì gửi về email đã
+  // xác minh của tài khoản. Tài khoản chỉ được tạo mới khi gửi được OTP.
+  async requestOtp(
+    identifier: { phone?: string; email?: string },
+    ipAddress: string,
+  ) {
+    const email = identifier.email?.trim().toLowerCase();
+    const phone = identifier.phone?.trim();
+
+    const existing = email
+      ? await prisma.user.findUnique({
+          where: { email },
+          select: { id: true, role: true, isActive: true, email: true, phone: true },
+        })
+      : await prisma.user.findUnique({
+          where: { phone: phone! },
+          select: { id: true, role: true, isActive: true, email: true, phone: true },
+        });
 
     if (existing && existing.role !== "PATIENT") {
       throw new AppError(
-        "Số điện thoại không thể dùng cho cổng bệnh nhân",
+        "Tài khoản này không dùng được cho cổng người khám",
         409,
         "PHONE_RESERVED",
       );
     }
-
     if (existing && !existing.isActive) {
       throw new AppError("Tài khoản đã bị khóa", 403, "ACCOUNT_DISABLED");
     }
 
-    const user = existing
-      ? existing
-      : await prisma.user.upsert({
-          where: { phone },
-          update: {},
-          create: {
-            fullName: "Bệnh nhân",
-            phone,
-            role: "PATIENT",
-            isPhoneVerified: false,
-          },
-          select: { id: true, role: true, isActive: true },
-        });
+    let channel: OtpChannel;
+    let target: string;
+    if (email) {
+      if (!existing) {
+        throw new AppError(
+          "Email chưa gắn với tài khoản nào. Vui lòng đăng nhập bằng số điện thoại đã đặt lịch.",
+          404,
+          "PATIENT_EMAIL_NOT_FOUND",
+        );
+      }
+      channel = "EMAIL";
+      target = email;
+    } else if (canDeliverSms(phone)) {
+      channel = "SMS";
+      target = phone!;
+    } else if (existing?.email) {
+      channel = "EMAIL";
+      target = existing.email;
+    } else {
+      throw new AppError(
+        "Hệ thống hiện chỉ gửi mã qua email nhưng số điện thoại này chưa có email. Hãy đặt lịch kèm email hoặc liên hệ bệnh viện.",
+        400,
+        "OTP_CHANNEL_UNAVAILABLE",
+      );
+    }
+
+    const user =
+      existing ??
+      (await prisma.user.upsert({
+        where: { phone: phone! },
+        update: {},
+        create: {
+          fullName: "Người khám",
+          phone: phone!,
+          role: "PATIENT",
+          isPhoneVerified: false,
+        },
+        select: { id: true, role: true, isActive: true, email: true, phone: true },
+      }));
 
     if (user.role !== "PATIENT") {
       throw new AppError(
-        "Số điện thoại không thể dùng cho cổng bệnh nhân",
+        "Tài khoản này không dùng được cho cổng người khám",
         409,
         "PHONE_RESERVED",
       );
@@ -96,14 +133,16 @@ class PatientAuthService {
 
     try {
       const otp = await AuthOtpService.sendOtp(
-        phone,
+        target,
         "PATIENT_PORTAL_LOGIN",
         ipAddress,
-        { channel: "SMS", challengeId: challenge.id, userId: user.id },
+        { channel, challengeId: challenge.id, userId: user.id },
       );
 
       return {
         challengeId: challenge.id,
+        channel,
+        maskedTarget: channel === "EMAIL" ? maskEmail(target) : maskPhone(target),
         deliveryStatus: otp.deliveryStatus,
         expiresAt: challenge.expiresAt,
         expiresIn: CHALLENGE_EXPIRES_SECONDS,
@@ -144,16 +183,17 @@ class PatientAuthService {
     }
 
     if (challenge.user.role !== "PATIENT" || !challenge.user.isActive) {
-      throw new AppError("Tài khoản bệnh nhân không hợp lệ", 403);
+      throw new AppError("Tài khoản người khám không hợp lệ", 403);
     }
 
+    const otpChannel = challenge.otpCodes[0]?.channel || "SMS";
     try {
       await AuthOtpService.verifyOtp(
         challenge.otpCodes[0]?.target || challenge.user.phone || "",
         input.otp,
         "PATIENT_PORTAL_LOGIN",
         {
-          channel: "SMS",
+          channel: otpChannel,
           challengeId: challenge.id,
           ipAddress: challenge.ipAddress || undefined,
         },
@@ -177,9 +217,10 @@ class PatientAuthService {
 
     const user = await prisma.user.update({
       where: { id: challenge.userId },
-      data: { isPhoneVerified: true },
+      data:
+        otpChannel === "EMAIL" ? { isEmailVerified: true } : { isPhoneVerified: true },
     });
-    const refreshExpiresAt = getRefreshExpiresAt();
+    const refreshExpiresAt = getPatientAbsoluteExpiry(input.meta?.platform);
     const authSession = await AuthSessionService.create({
       userId: user.id,
       kind: "PATIENT",
@@ -197,11 +238,12 @@ class PatientAuthService {
   }
 
   async refresh(refreshToken: string, meta?: SessionMeta) {
-    const refreshExpiresAt = getRefreshExpiresAt();
     const rotated = await AuthSessionService.rotate({
       refreshToken,
       kind: "PATIENT",
-      expiresAt: refreshExpiresAt,
+      // AuthSessionService keeps the original absolute patient-session expiry.
+      // This value is only used by non-patient session kinds.
+      expiresAt: getPatientAbsoluteExpiry(meta?.platform),
       meta,
     });
 
@@ -214,14 +256,14 @@ class PatientAuthService {
         rotated.refreshToken,
         "PATIENT",
       );
-      throw new AppError("Tài khoản bệnh nhân không hợp lệ", 403);
+      throw new AppError("Tài khoản người khám không hợp lệ", 403);
     }
 
     return {
       tokenType: "Bearer" as const,
       accessToken: createAccessToken(rotated.user.id, rotated.session.id),
       refreshToken: rotated.refreshToken,
-      refreshExpiresAt,
+      refreshExpiresAt: rotated.session.expiresAt,
       user: toPatientUser(rotated.user),
     };
   }
