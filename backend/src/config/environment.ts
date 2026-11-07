@@ -7,6 +7,14 @@ const isEnabled = (value?: string) =>
 export const isProductionLike = (env: NodeJS.ProcessEnv = process.env) =>
   env.NODE_ENV === "production" || isEnabled(env.RENDER);
 
+// Giới hạn tần suất mặc định bật, trừ môi trường test (test tích hợp gọi API
+// hàng loạt từ một IP). Đặt RATE_LIMIT_ENABLED=true/false để ghi đè.
+export const isRateLimitEnabled = (env: NodeJS.ProcessEnv = process.env) => {
+  const configured = env.RATE_LIMIT_ENABLED?.trim();
+  if (configured) return isEnabled(configured);
+  return env.NODE_ENV !== "test";
+};
+
 const assertStrongSecret = (
   env: NodeJS.ProcessEnv,
   name: "JWT_SECRET" | "OTP_SECRET",

@@ -6,11 +6,9 @@ import {
   parseNumberQuery,
 } from "../shared/http/requestParsers.js";
 import { AppError } from "../utils/appError.js";
+import { getClientIp } from "../utils/clientIp.js";
 
-const getIpAddress = (req: Request) =>
-  req.headers["x-forwarded-for"]?.toString().split(",")[0]?.trim() ||
-  req.socket.remoteAddress ||
-  "unknown";
+const getIpAddress = getClientIp;
 
 const getActor = (req: Request) => {
   if (!req.user?.userId || !req.user.role) {

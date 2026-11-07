@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import DashboardAuthService from "../services/dashboardAuth.service.js";
+import { getClientIp } from "../utils/clientIp.js";
 
 type CookieSameSite = "strict" | "lax" | "none";
 
@@ -32,10 +33,7 @@ const ACCESS_COOKIE_MAX_AGE =
 const REFRESH_COOKIE_MAX_AGE = readRefreshCookieDays() * 24 * 60 * 60 * 1000;
 
 const getRequestMeta = (req: Request) => ({
-  ipAddress:
-    req.headers["x-forwarded-for"]?.toString().split(",")[0]?.trim() ||
-    req.socket.remoteAddress ||
-    "unknown",
+  ipAddress: getClientIp(req),
   userAgent: req.headers["user-agent"],
 });
 

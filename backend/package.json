@@ -20,8 +20,8 @@
     "test:integration": "tsx test/runIntegrationTests.ts",
     "test:e2e": "tsx test/runIntegrationTests.ts patient journey",
     "test:types": "tsc --noEmit -p tsconfig.test.json",
-    "test:phase0": "prisma generate && tsc --noEmit -p tsconfig.test.json && tsx --test test/smoke/app.test.ts && tsx test/runIntegrationTests.ts",
-    "test:phase1": "prisma generate && tsc --noEmit -p tsconfig.test.json && tsx --test test/smoke/app.test.ts && tsx test/runIntegrationTests.ts",
+    "test:phase0": "prisma generate && tsc --noEmit -p tsconfig.test.json && tsx --test test/smoke/app.test.ts && npm run test:unit && tsx test/runIntegrationTests.ts",
+    "test:phase1": "prisma generate && tsc --noEmit -p tsconfig.test.json && tsx --test test/smoke/app.test.ts && npm run test:unit && tsx test/runIntegrationTests.ts",
     "seed:demo-full": "tsx src/scripts/seedDemoData.ts",
     "seed:chatbot-faq": "tsx src/scripts/seedChatbotFAQ.ts",
     "check:queue-redis": "tsx src/scripts/checkQueueRedis.ts",
@@ -30,7 +30,7 @@
     "prisma:migrate:deploy": "prisma migrate deploy",
     "prisma:reset": "prisma migrate reset",
     "render:build": "npm run prisma:migrate:deploy && npm run build",
-    "test:unit": "tsx --test test/unit/patientSessionPolicy.test.ts test/unit/requestParsers.test.ts test/unit/vnpayProvider.test.ts"
+    "test:unit": "tsx --test test/unit/patientSessionPolicy.test.ts test/unit/requestParsers.test.ts test/unit/vnpayProvider.test.ts test/unit/bookingIdentity.test.ts test/unit/rateLimit.test.ts"
   },
   "keywords": [],
   "author": "",

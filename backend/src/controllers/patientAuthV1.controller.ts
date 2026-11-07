@@ -2,11 +2,9 @@ import type { NextFunction, Request, Response } from "express";
 import AuthSessionService from "../services/authSession.service.js";
 import PatientAuthService from "../services/patientAuth.service.js";
 import { AppError } from "../utils/appError.js";
+import { getClientIp } from "../utils/clientIp.js";
 
-const getIpAddress = (req: Request) =>
-  req.headers["x-forwarded-for"]?.toString().split(",")[0]?.trim() ||
-  req.socket.remoteAddress ||
-  "unknown";
+const getIpAddress = getClientIp;
 
 const getSessionMeta = (req: Request) => ({
   ipAddress: getIpAddress(req),

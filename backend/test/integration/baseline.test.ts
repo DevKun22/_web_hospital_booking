@@ -318,23 +318,27 @@ test("v1 public content aliases preserve the legacy response contracts", async (
 });
 
 test("public catalogs paginate and filter without changing legacy arrays", async () => {
-  await prisma.package.createMany({
-    data: [
-      {
-        name: "Gói tim mạch phổ biến",
-        slug: "goi-tim-mach-pho-bien",
-        departmentId: fixture.department.id,
-        basePrice: 1200000,
-        isPopular: true,
-        isBHYTSupport: true,
-      },
-      {
-        name: "Gói kiểm tra cơ bản",
-        slug: "goi-kiem-tra-co-ban",
-        departmentId: fixture.department.id,
-        basePrice: 600000,
-      },
-    ],
+  // Gói công khai phải có ít nhất một hạng mục đã bao gồm (publicCompletePackageWhere).
+  const includedItem = { create: [{ name: "Khám lâm sàng", included: true }] };
+  await prisma.package.create({
+    data: {
+      name: "Gói tim mạch phổ biến",
+      slug: "goi-tim-mach-pho-bien",
+      departmentId: fixture.department.id,
+      basePrice: 1200000,
+      isPopular: true,
+      isBHYTSupport: true,
+      items: includedItem,
+    },
+  });
+  await prisma.package.create({
+    data: {
+      name: "Gói kiểm tra cơ bản",
+      slug: "goi-kiem-tra-co-ban",
+      departmentId: fixture.department.id,
+      basePrice: 600000,
+      items: includedItem,
+    },
   });
 
   const doctors = await http.request(
@@ -639,6 +643,221 @@ test("canonical ownership conflicts do not transition the appointment", async ()
     select: { status: true },
   });
   assert.equal(pending.status, "PENDING_OTP");
+});
+
+const emailBookingBody = (input: {
+  phone: string;
+  email: string;
+  timeSlotId?: string;
+}) => ({
+  ...bookingBody({ phone: input.phone, timeSlotId: input.timeSlotId }),
+  otpChannel: "EMAIL",
+  patientEmail: input.email,
+});
+
+test("an email OTP cannot attach a booking to a phone account owned by another email", async () => {
+  const victim = await prisma.user.create({
+    data: {
+      fullName: "Victim Patient",
+      phone: "0944444441",
+      email: "victim-owner@example.com",
+      role: "PATIENT",
+      isPhoneVerified: true,
+      isEmailVerified: true,
+      patientProfile: { create: { address: "Victim address" } },
+    },
+  });
+
+  const attempt = await http.request("/api/appointments", {
+    method: "POST",
+    body: {
+      ...emailBookingBody({
+        phone: victim.phone!,
+        email: "attacker@example.com",
+      }),
+      patientName: "Attacker Name",
+      address: "Attacker address",
+    },
+  });
+  assert.equal(attempt.status, 409);
+  assert.equal(attempt.body.code, "ACCOUNT_LOGIN_REQUIRED");
+
+  assert.equal(
+    await prisma.appointment.count({ where: { patientPhone: victim.phone! } }),
+    0,
+  );
+  assert.equal(
+    (await prisma.doctorTimeSlot.findUniqueOrThrow({
+      where: { id: fixture.slotOne.id },
+      select: { status: true },
+    })).status,
+    "AVAILABLE",
+  );
+
+  const stored = await prisma.user.findUniqueOrThrow({
+    where: { id: victim.id },
+    include: { patientProfile: true },
+  });
+  assert.equal(stored.email, "victim-owner@example.com");
+  assert.equal(stored.fullName, "Victim Patient");
+  assert.equal(stored.patientProfile?.address, "Victim address");
+});
+
+test("a phone-verified account without an email cannot be claimed by an email OTP", async () => {
+  const account = await prisma.user.create({
+    data: {
+      fullName: "Phone Only Patient",
+      phone: "0944444442",
+      role: "PATIENT",
+      isPhoneVerified: true,
+    },
+  });
+
+  const attempt = await http.request("/api/appointments", {
+    method: "POST",
+    body: emailBookingBody({
+      phone: account.phone!,
+      email: "claimer@example.com",
+    }),
+  });
+  assert.equal(attempt.status, 409);
+  assert.equal(attempt.body.code, "ACCOUNT_LOGIN_REQUIRED");
+
+  const stored = await prisma.user.findUniqueOrThrow({
+    where: { id: account.id },
+  });
+  assert.equal(stored.email, null);
+});
+
+test("the owner of the registered email can still book as a guest", async () => {
+  const owner = await prisma.user.create({
+    data: {
+      fullName: "Registered Owner",
+      phone: "0944444443",
+      email: "registered-owner@example.com",
+      role: "PATIENT",
+      isPhoneVerified: true,
+    },
+  });
+
+  const booking = await http.request("/api/appointments", {
+    method: "POST",
+    body: emailBookingBody({
+      phone: owner.phone!,
+      email: "Registered-Owner@Example.com",
+    }),
+  });
+  assert.equal(booking.status, 201);
+  assert.equal(typeof booking.body.data.debugOtp, "string");
+
+  const verification = await http.request(
+    `/api/appointments/${booking.body.data.appointmentId}/verify-otp`,
+    { method: "POST", body: { otp: booking.body.data.debugOtp } },
+  );
+  assert.equal(verification.status, 200);
+  assert.equal(verification.body.data.status, "PENDING_CONFIRM");
+
+  const appointment = await prisma.appointment.findUniqueOrThrow({
+    where: { id: booking.body.data.appointmentId },
+    select: { patientId: true },
+  });
+  assert.equal(appointment.patientId, owner.id);
+});
+
+test("a brand new phone is claimed by the first verified email and marks it verified", async () => {
+  const booking = await http.request("/api/appointments", {
+    method: "POST",
+    body: emailBookingBody({
+      phone: "0944444444",
+      email: "first-claim@example.com",
+    }),
+  });
+  assert.equal(booking.status, 201);
+
+  const verification = await http.request(
+    `/api/appointments/${booking.body.data.appointmentId}/verify-otp`,
+    { method: "POST", body: { otp: booking.body.data.debugOtp } },
+  );
+  assert.equal(verification.status, 200);
+
+  const claimed = await prisma.user.findUniqueOrThrow({
+    where: { phone: "0944444444" },
+  });
+  assert.equal(claimed.email, "first-claim@example.com");
+  assert.equal(claimed.isEmailVerified, true);
+});
+
+test("an account claimed between booking and verification blocks the second claimer", async () => {
+  // Two guests book the same unverified phone with different emails.
+  const first = await http.request("/api/appointments", {
+    method: "POST",
+    body: emailBookingBody({
+      phone: "0944444445",
+      email: "claim-one@example.com",
+      timeSlotId: fixture.slotOne.id,
+    }),
+  });
+  const second = await http.request("/api/appointments", {
+    method: "POST",
+    body: emailBookingBody({
+      phone: "0944444445",
+      email: "claim-two@example.com",
+      timeSlotId: fixture.slotTwo.id,
+    }),
+  });
+  assert.equal(first.status, 201);
+  assert.equal(second.status, 201);
+
+  const firstVerified = await http.request(
+    `/api/appointments/${first.body.data.appointmentId}/verify-otp`,
+    { method: "POST", body: { otp: first.body.data.debugOtp } },
+  );
+  assert.equal(firstVerified.status, 200);
+
+  const secondVerified = await http.request(
+    `/api/appointments/${second.body.data.appointmentId}/verify-otp`,
+    { method: "POST", body: { otp: second.body.data.debugOtp } },
+  );
+  assert.equal(secondVerified.status, 409);
+  assert.equal(secondVerified.body.code, "ACCOUNT_LOGIN_REQUIRED");
+
+  const owner = await prisma.user.findUniqueOrThrow({
+    where: { phone: "0944444445" },
+  });
+  assert.equal(owner.email, "claim-one@example.com");
+  assert.equal(
+    (await prisma.appointment.findUniqueOrThrow({
+      where: { id: second.body.data.appointmentId },
+      select: { status: true },
+    })).status,
+    "PENDING_OTP",
+  );
+});
+
+test("public booking is rate limited per phone with a Retry-After header", async () => {
+  // The limiter is off in the test environment so the suite can call the API in
+  // bulk; this test turns it on for its own requests only.
+  process.env.RATE_LIMIT_ENABLED = "true";
+  try {
+    const responses = [];
+    for (let attempt = 0; attempt < 6; attempt += 1) {
+      responses.push(
+        await http.request("/api/appointments", {
+          method: "POST",
+          body: bookingBody({ phone: "0933333333" }),
+        }),
+      );
+    }
+
+    assert.ok(responses.slice(0, 5).every((item) => item.status !== 429));
+
+    const limited = responses[5];
+    assert.equal(limited.status, 429);
+    assert.equal(limited.body.code, "RATE_LIMITED");
+    assert.ok(Number(limited.headers.get("retry-after")) > 0);
+  } finally {
+    delete process.env.RATE_LIMIT_ENABLED;
+  }
 });
 
 test("pending OTP expiry is idempotent and releases only its own slot", async () => {

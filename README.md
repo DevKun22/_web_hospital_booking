@@ -366,6 +366,8 @@ Script demo có thể reset database và sinh chuyên khoa, bác sĩ, gói khám
 - `@default(uuid())` của Prisma sinh UUID v4.
 - Dashboard dùng access token và refresh token qua httpOnly cookie.
 - OTP không lưu plaintext trong database, chỉ lưu hash HMAC.
+- Khách đặt lịch bằng email OTP chỉ chứng minh được email, không chứng minh được số điện thoại. Nếu số điện thoại đã có tài khoản thuộc người khác (email khác hoặc đã xác thực bằng SMS), backend trả `409 ACCOUNT_LOGIN_REQUIRED` và yêu cầu đăng nhập cổng bệnh nhân; dữ liệu xác thực chỉ được ghi vào tài khoản chưa có chủ hoặc cùng email.
+- Endpoint công khai tốn tài nguyên (đặt lịch, tìm kiếm, chatbot) có giới hạn tần suất theo IP và số điện thoại, trả `429 RATE_LIMITED` kèm `Retry-After`. Đếm bằng Redis nếu có, không thì trong bộ nhớ; tắt bằng `RATE_LIMIT_ENABLED=false`. IP lấy từ `req.ip` (một lớp proxy tin cậy), không đọc trực tiếp `X-Forwarded-For`.
 - OTP gửi nền qua BullMQ để giảm thời gian phản hồi của API đặt lịch.
 - Nếu chưa có SMS provider thật, bật `OTP_DEBUG_ENABLED=true` để demo bằng OTP test.
 - Media upload đánh dấu `isUsed` để dọn ảnh không còn được sử dụng.
@@ -397,7 +399,8 @@ npm run build
 
 ## Hạn Chế Hiện Tại
 
-- SMS thật chưa được tích hợp, hiện dùng debug OTP hoặc email OTP.
+- SMS thật chưa được tích hợp, hiện dùng debug OTP hoặc email OTP. Vì vậy số điện thoại chưa được xác minh độc lập: người đến trước có thể gắn email của mình vào một số điện thoại chưa có tài khoản, và chủ thật của số đó phải liên hệ bệnh viện để xử lý. Sẽ được giải quyết khi có SMS provider thật.
+- Bản ghi OTP hết hạn trong bảng `OtpCode` chưa được dọn tự động.
 - Render Free có độ trễ do cold start và giới hạn tài nguyên.
 - Thanh toán thật mới ở mức mô phỏng/mock hoặc cần cấu hình thêm provider.
 - Một số chính sách BHYT mới dừng ở mức hỗ trợ nhập và tính giảm trừ theo dữ liệu hệ thống, chưa thay thế quy trình giám định bảo hiểm thực tế.
