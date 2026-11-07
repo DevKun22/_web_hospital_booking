@@ -57,3 +57,14 @@ test("payment URL carries a signature that VNPAY-style verification accepts", as
     /Chữ ký VNPAY không hợp lệ/,
   );
 });
+
+test("client IP is normalized to IPv4 for VNPAY", async () => {
+  const { normalizeVnpayIp } = await import(
+    "../../src/services/paymentProviders/vnpay.provider.js"
+  );
+  assert.equal(normalizeVnpayIp("::ffff:203.0.113.7"), "203.0.113.7");
+  assert.equal(normalizeVnpayIp("203.0.113.7"), "203.0.113.7");
+  assert.equal(normalizeVnpayIp("2001:db8::1"), "127.0.0.1");
+  assert.equal(normalizeVnpayIp("999.1.1.1"), "127.0.0.1");
+  assert.equal(normalizeVnpayIp(undefined), "127.0.0.1");
+});

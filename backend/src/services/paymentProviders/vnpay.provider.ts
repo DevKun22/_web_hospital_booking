@@ -75,6 +75,16 @@ const toAsciiOrderInfo = (value: string) =>
     .trim()
     .slice(0, 255);
 
+// VNPAY chỉ nhận IPv4. Express có thể trả "::ffff:1.2.3.4" hoặc IPv6 thuần;
+// bỏ tiền tố ánh xạ IPv4, còn lại không hợp lệ thì dùng địa chỉ mặc định.
+export const normalizeVnpayIp = (value?: string) => {
+  const ip = (value || "").trim().replace(/^::ffff:/i, "");
+  return /^(\d{1,3})(\.\d{1,3}){3}$/.test(ip) &&
+    ip.split(".").every((part) => Number(part) <= 255)
+    ? ip
+    : "127.0.0.1";
+};
+
 export const vnpayPaymentProvider: PaymentProviderAdapter = {
   provider: "VNPAY",
 
@@ -95,7 +105,7 @@ export const vnpayPaymentProvider: PaymentProviderAdapter = {
       vnp_OrderType: "other",
       vnp_Locale: "vn",
       vnp_ReturnUrl: returnUrl,
-      vnp_IpAddr: input.ipAddress || "127.0.0.1",
+      vnp_IpAddr: normalizeVnpayIp(input.ipAddress),
       vnp_CreateDate: formatVnpayDate(new Date()),
       vnp_ExpireDate: formatVnpayDate(input.expiredAt),
     };
