@@ -2217,6 +2217,340 @@ test("expired OTP codes are removed after a day while recent and live codes are 
   assert.deepEqual(await AuthOtpService.cleanupExpired(), { deleted: 0 });
 });
 
+const createMedicineViaApi = async (
+  cookie: string,
+  input: { code: string; name: string; unit?: string; minStock?: number },
+) => {
+  const response = await http.request("/api/dashboard/pharmacy/medicines", {
+    method: "POST",
+    headers: dashboardHeaders(cookie),
+    body: { unit: "viên", ...input },
+  });
+  assert.equal(response.status, 201);
+  return response.body.data as { id: string; code: string; stockQuantity: number };
+};
+
+const receiveViaApi = async (cookie: string, medicineId: string, quantity: number) => {
+  const response = await http.request(`/api/dashboard/pharmacy/medicines/${medicineId}/receipts`, {
+    method: "POST",
+    headers: dashboardHeaders(cookie),
+    body: { quantity, reason: "Nhập theo phiếu" },
+  });
+  assert.equal(response.status, 201);
+  return response.body.data as { stockQuantity: number };
+};
+
+const createIssuedPrescription = async (input: {
+  code: string;
+  phone: string;
+  timeSlotId: string;
+  items: { medicineName: string; quantity: number | null; medicineId?: string }[];
+}) => {
+  const appointment = await createStoredAppointment({
+    status: "COMPLETED",
+    bookingCode: `BK-${input.code}`,
+    phone: input.phone,
+    timeSlotId: input.timeSlotId,
+  });
+  const record = await prisma.medicalRecord.create({
+    data: {
+      recordCode: `REC-${input.code}`,
+      appointmentId: appointment.id,
+      patientId: appointment.patientId,
+      doctorId: appointment.doctorId,
+      status: "DRAFT",
+    },
+  });
+  const prescription = await prisma.prescription.create({
+    data: {
+      prescriptionCode: input.code,
+      medicalRecordId: record.id,
+      appointmentId: appointment.id,
+      patientId: appointment.patientId,
+      doctorId: appointment.doctorId,
+      status: "ISSUED",
+      issuedAt: new Date(),
+      items: {
+        create: input.items.map((item, index) => ({
+          medicineName: item.medicineName,
+          quantity: item.quantity,
+          medicineId: item.medicineId,
+          unit: "viên",
+          sortOrder: index,
+        })),
+      },
+    },
+    include: { items: { orderBy: { sortOrder: "asc" } } },
+  });
+  return { appointment, prescription };
+};
+
+test("pharmacy endpoints are limited to the pharmacist role", async () => {
+  const pharmacist = await createDashboardUser("PHARMACIST", "0900000012");
+  const staff = await createDashboardUser("STAFF", "0900000011");
+  const pharmacistCookie = await authCookie(pharmacist.id, "PHARMACIST");
+  const request = (path: string, cookie: string, method = "GET", body?: unknown) =>
+    http.request(`/api/dashboard/pharmacy${path}`, {
+      method,
+      headers: dashboardHeaders(cookie),
+      body,
+    });
+
+  for (const cookie of [
+    await authCookie(staff.id, "STAFF"),
+    await authCookie(fixture.doctorOneUser.id, "DOCTOR"),
+    await authCookie(fixture.adminUser.id, "ADMIN"),
+  ]) {
+    assert.equal((await request("/medicines", cookie)).status, 403);
+    assert.equal((await request("/prescriptions", cookie)).status, 403);
+    assert.equal(
+      (await request("/medicines", cookie, "POST", { code: "X1", name: "X", unit: "viên" })).status,
+      403,
+    );
+  }
+  assert.equal((await request("/medicines", pharmacistCookie)).status, 200);
+  assert.equal((await request("/prescriptions", pharmacistCookie)).status, 200);
+});
+
+test("stock changes only through the ledger and never goes negative", async () => {
+  const pharmacist = await createDashboardUser("PHARMACIST", "0900000012");
+  const cookie = await authCookie(pharmacist.id, "PHARMACIST");
+  const medicine = await createMedicineViaApi(cookie, { code: "para500", name: "Paracetamol 500mg", minStock: 20 });
+  assert.equal(medicine.code, "PARA500");
+  assert.equal(medicine.stockQuantity, 0);
+
+  const duplicate = await http.request("/api/dashboard/pharmacy/medicines", {
+    method: "POST",
+    headers: dashboardHeaders(cookie),
+    body: { code: "PARA500", name: "Trùng", unit: "viên" },
+  });
+  assert.equal(duplicate.status, 409);
+  assert.equal(duplicate.body.code, "MEDICINE_CODE_EXISTS");
+
+  // Sửa thuốc không đụng tới tồn.
+  const edited = await http.request(`/api/dashboard/pharmacy/medicines/${medicine.id}`, {
+    method: "PATCH",
+    headers: dashboardHeaders(cookie),
+    body: { name: "Paracetamol 500mg (hộp 100)", stockQuantity: 999 },
+  });
+  assert.equal(edited.status, 200);
+  assert.equal(edited.body.data.stockQuantity, 0);
+
+  assert.equal((await receiveViaApi(cookie, medicine.id, 50)).stockQuantity, 50);
+
+  const adjust = (delta: number, reason?: string) =>
+    http.request(`/api/dashboard/pharmacy/medicines/${medicine.id}/adjustments`, {
+      method: "POST",
+      headers: dashboardHeaders(cookie),
+      body: { delta, reason },
+    });
+  assert.equal((await adjust(-5)).status, 400);
+  assert.equal((await adjust(-5, "Kiểm kê thiếu")).body.data.stockQuantity, 45);
+  const tooMuch = await adjust(-100, "Hủy thuốc hết hạn");
+  assert.equal(tooMuch.status, 409);
+  assert.equal(tooMuch.body.code, "INSUFFICIENT_STOCK");
+  assert.equal((await adjust(0, "Không đổi")).status, 400);
+
+  const negativeReceipt = await http.request(
+    `/api/dashboard/pharmacy/medicines/${medicine.id}/receipts`,
+    { method: "POST", headers: dashboardHeaders(cookie), body: { quantity: -3 } },
+  );
+  assert.equal(negativeReceipt.status, 400);
+
+  // Tồn luôn bằng tổng sổ kho; sổ kho chỉ thêm, không sửa hay xóa.
+  const movements = await prisma.stockMovement.findMany({
+    where: { medicineId: medicine.id },
+    orderBy: { createdAt: "asc" },
+  });
+  assert.deepEqual(
+    movements.map((item) => [item.type, item.quantity, item.balanceAfter]),
+    [
+      ["RECEIPT", 50, 50],
+      ["ADJUSTMENT", -5, 45],
+    ],
+  );
+  await assert.rejects(() =>
+    prisma.stockMovement.update({ where: { id: movements[0].id }, data: { quantity: 999 } }),
+  );
+  await assert.rejects(() => prisma.stockMovement.delete({ where: { id: movements[0].id } }));
+
+  const low = await http.request("/api/dashboard/pharmacy/medicines?lowStock=true", {
+    headers: dashboardHeaders(cookie),
+  });
+  assert.equal(low.body.data.items.length, 0);
+  await adjust(-30, "Hủy thuốc hết hạn");
+  const lowAfter = await http.request("/api/dashboard/pharmacy/medicines?lowStock=true", {
+    headers: dashboardHeaders(cookie),
+  });
+  assert.deepEqual(lowAfter.body.data.items.map((item: { code: string }) => item.code), ["PARA500"]);
+
+  const history = await http.request(`/api/dashboard/pharmacy/medicines/${medicine.id}/movements`, {
+    headers: dashboardHeaders(cookie),
+  });
+  assert.equal(history.status, 200);
+  assert.equal(history.body.data.items.length, 3);
+});
+
+test("dispensing deducts stock for the whole prescription or not at all", async () => {
+  const pharmacist = await createDashboardUser("PHARMACIST", "0900000012");
+  const cookie = await authCookie(pharmacist.id, "PHARMACIST");
+  const medicineA = await createMedicineViaApi(cookie, { code: "MED-A", name: "Thuốc A" });
+  const medicineB = await createMedicineViaApi(cookie, { code: "MED-B", name: "Thuốc B" });
+  await receiveViaApi(cookie, medicineA.id, 10);
+  await receiveViaApi(cookie, medicineB.id, 3);
+
+  const { appointment, prescription } = await createIssuedPrescription({
+    code: "RX-DISPENSE",
+    phone: "0911111111",
+    timeSlotId: fixture.slotTwo.id,
+    items: [
+      { medicineName: "Thuốc A", quantity: 6, medicineId: medicineA.id },
+      { medicineName: "Thuốc B", quantity: 5, medicineId: medicineB.id },
+      { medicineName: "Thuốc mua ngoài", quantity: 2 },
+    ],
+  });
+  const dispense = (body: unknown) =>
+    http.request(`/api/dashboard/pharmacy/prescriptions/${prescription.id}/dispense`, {
+      method: "POST",
+      headers: dashboardHeaders(cookie),
+      body,
+    });
+  const stock = async (id: string) =>
+    (await prisma.medicine.findUniqueOrThrow({ where: { id } })).stockQuantity;
+
+  // Hàng đợi chỉ có đơn đã phát hành chưa cấp.
+  const queue = await http.request("/api/dashboard/pharmacy/prescriptions", {
+    headers: dashboardHeaders(cookie),
+  });
+  assert.deepEqual(
+    queue.body.data.items.map((item: { prescriptionCode: string }) => item.prescriptionCode),
+    ["RX-DISPENSE"],
+  );
+
+  // Chưa tick xác nhận kiểm tra: từ chối.
+  const unconfirmed = await dispense({ confirmed: false });
+  assert.equal(unconfirmed.status, 400);
+  assert.equal(unconfirmed.body.code, "DISPENSE_CONFIRMATION_REQUIRED");
+
+  // Thuốc B thiếu (cần 5, còn 3): cả đơn không được cấp, thuốc A cũng không bị trừ.
+  const short = await dispense({ confirmed: true });
+  assert.equal(short.status, 409);
+  assert.equal(short.body.code, "INSUFFICIENT_STOCK");
+  assert.equal(await stock(medicineA.id), 10);
+  assert.equal(await stock(medicineB.id), 3);
+  const untouched = await prisma.prescription.findUniqueOrThrow({ where: { id: prescription.id } });
+  assert.equal(untouched.dispenseStatus, "NOT_DISPENSED");
+  assert.equal(untouched.dispensedById, null);
+  assert.equal(
+    await prisma.stockMovement.count({ where: { type: "DISPENSE" } }),
+    0,
+  );
+
+  await receiveViaApi(cookie, medicineB.id, 5);
+  const ok = await dispense({ confirmed: true, note: "Đã đối chiếu dị ứng" });
+  assert.equal(ok.status, 200);
+  assert.equal(ok.body.data.dispenseStatus, "DISPENSED");
+  assert.equal(await stock(medicineA.id), 4);
+  assert.equal(await stock(medicineB.id), 3);
+
+  const dispensed = await prisma.prescription.findUniqueOrThrow({
+    where: { id: prescription.id },
+    include: { items: { orderBy: { sortOrder: "asc" } } },
+  });
+  assert.equal(dispensed.dispensedById, pharmacist.id);
+  assert.equal(dispensed.dispenseNote, "Đã đối chiếu dị ứng");
+  assert.deepEqual(
+    dispensed.items.map((item) => item.dispensedQuantity),
+    [6, 5, 0],
+  );
+  const movements = await prisma.stockMovement.findMany({
+    where: { type: "DISPENSE" },
+    orderBy: { quantity: "desc" },
+  });
+  assert.deepEqual(
+    movements.map((item) => [item.quantity, item.balanceAfter, item.actorId]),
+    [
+      [-5, 3, pharmacist.id],
+      [-6, 4, pharmacist.id],
+    ],
+  );
+
+  // Dấu vết lâm sàng và thông báo cho người khám.
+  assert.equal(
+    await prisma.appointmentLog.count({
+      where: { appointmentId: appointment.id, action: "PRESCRIPTION_DISPENSED" },
+    }),
+    1,
+  );
+  assert.equal(
+    await prisma.notification.count({
+      where: { userId: appointment.patientId, type: "PRESCRIPTION_DISPENSED" },
+    }),
+    1,
+  );
+
+  // Cấp lần hai bị chặn, đơn đã cấp không hủy được và rời hàng đợi.
+  const again = await dispense({ confirmed: true });
+  assert.equal(again.status, 409);
+  assert.equal(again.body.code, "ALREADY_DISPENSED");
+  assert.equal(await stock(medicineA.id), 4);
+  await assert.rejects(
+    () => PrescriptionService.cancel(prescription.id, { userId: fixture.adminUser.id, role: "ADMIN" }),
+    (error: { code?: string }) => error.code === "PRESCRIPTION_DISPENSED",
+  );
+  const emptyQueue = await http.request("/api/dashboard/pharmacy/prescriptions", {
+    headers: dashboardHeaders(cookie),
+  });
+  assert.equal(emptyQueue.body.data.items.length, 0);
+  const done = await http.request(
+    "/api/dashboard/pharmacy/prescriptions?dispenseStatus=DISPENSED",
+    { headers: dashboardHeaders(cookie) },
+  );
+  assert.equal(done.body.data.items.length, 1);
+});
+
+test("two pharmacists dispensing the same prescription deduct stock once", async () => {
+  const pharmacist = await createDashboardUser("PHARMACIST", "0900000012");
+  const cookie = await authCookie(pharmacist.id, "PHARMACIST");
+  const medicine = await createMedicineViaApi(cookie, { code: "MED-C", name: "Thuốc C" });
+  await receiveViaApi(cookie, medicine.id, 10);
+
+  // Dòng đơn chưa gắn thuốc kho: dược sĩ chọn thuốc khi cấp.
+  const { prescription } = await createIssuedPrescription({
+    code: "RX-RACE",
+    phone: "0922222222",
+    timeSlotId: fixture.slotOne.id,
+    items: [{ medicineName: "Thuốc C (gõ tay)", quantity: 4 }],
+  });
+  const body = {
+    confirmed: true,
+    lines: [{ itemId: prescription.items[0].id, medicineId: medicine.id }],
+  };
+  const responses = await Promise.all(
+    [1, 2].map(() =>
+      http.request(`/api/dashboard/pharmacy/prescriptions/${prescription.id}/dispense`, {
+        method: "POST",
+        headers: dashboardHeaders(cookie),
+        body,
+      }),
+    ),
+  );
+  responses.sort((left, right) => left.status - right.status);
+  assert.equal(responses[0].status, 200);
+  assert.equal(responses[1].status, 409);
+
+  assert.equal(
+    (await prisma.medicine.findUniqueOrThrow({ where: { id: medicine.id } })).stockQuantity,
+    6,
+  );
+  assert.equal(await prisma.stockMovement.count({ where: { type: "DISPENSE" } }), 1);
+  const item = await prisma.prescriptionItem.findUniqueOrThrow({
+    where: { id: prescription.items[0].id },
+  });
+  assert.equal(item.medicineId, medicine.id);
+  assert.equal(item.dispensedQuantity, 4);
+});
+
 test("patients review only their own completed appointments", async () => {
   const completed = await createStoredAppointment({
     status: "COMPLETED",

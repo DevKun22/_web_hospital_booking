@@ -283,6 +283,15 @@ class PrescriptionService {
       throw new AppError("Đơn thuốc đã bị hủy", 400);
     }
 
+    // Thuốc đã xuất kho thì không hủy đơn được nữa, tránh lệch giữa đơn và sổ kho.
+    const dispensed = await prisma.prescription.findUnique({
+      where: { id },
+      select: { dispenseStatus: true },
+    });
+    if (dispensed?.dispenseStatus === "DISPENSED") {
+      throw new AppError("Đơn thuốc đã được cấp phát, không thể hủy", 409, "PRESCRIPTION_DISPENSED");
+    }
+
     return prisma.$transaction(async (tx) => {
       const cancelled = await tx.prescription.update({
         where: { id },
