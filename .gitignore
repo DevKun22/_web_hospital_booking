@@ -83,21 +83,8 @@ uploads/
 backend/secrets/
 
 # other
-docs/*
-!docs/ui-ux/
-!docs/ui-ux/MASTER.md
-!docs/nhat-ky-minh-chung-t11-t12.md
-!docs/phase-2-flutter-foundation.md
-!docs/bao-cao-nang-cap-backend-den-mobile.md
-!docs/nghien-cuu-uiux-vinmec-va-de-xuat-ap-dung.md
-!docs/van-hanh-thong-bao.md
-!docs/checklist-kiem-thu-production-thiet-bi-that.md
-!docs/docker-architecture.md
-!docs/van-hanh-thanh-toan-vnpay.md
-!docs/phan-quyen-va-kiem-soat-du-lieu-nhay-cam.md
-!docs/kien-truc-he-thong-hien-tai.md
-!docs/bao-cao-truoc-sau-nang-cap-2026-11.md
-!docs/danh-gia-kien-truc-logic-mobile-2026-11.md
+# Tài liệu, báo cáo và nhật ký chỉ giữ trên máy, không đưa lên Git
+docs/
 
 # Archify working candidates and browser-check evidence (final HTML stays in docs/)
 .archify/

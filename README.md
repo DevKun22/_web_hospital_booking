@@ -43,8 +43,6 @@ Web công khai / Dashboard (Next.js) ─┐
 - Hộp thư thông báo lưu trong PostgreSQL là dữ liệu chính, push chỉ là kênh chuyển phát.
 - Các việc nền (gửi OTP, nhắc lịch, hết hạn giữ chỗ, đối soát thanh toán) chạy qua hàng đợi hoặc worker, có thể chạy ngay trong tiến trình API (`INLINE_WORKERS`).
 
-Mô tả đầy đủ: [docs/kien-truc-he-thong-hien-tai.md](docs/kien-truc-he-thong-hien-tai.md).
-
 ## Công nghệ
 
 | Phần | Công nghệ |
@@ -63,7 +61,6 @@ Mô tả đầy đủ: [docs/kien-truc-he-thong-hien-tai.md](docs/kien-truc-he-t
 backend/    API Express, schema và migration Prisma, worker, kiểm thử
 frontend/   Website công khai, cổng bệnh nhân và dashboard (Next.js)
 mobile/     Ứng dụng Flutter cho bệnh nhân
-docs/       Tài liệu kiến trúc, vận hành, phân quyền, đánh giá
 docker/ compose*.yaml   Hạ tầng phát triển bằng Docker
 .github/    Quy trình kiểm tra chất lượng (CI)
 ```
@@ -82,7 +79,7 @@ docker compose up -d
 docker compose -f compose.yaml -f compose.backend.yaml up -d --build
 ```
 
-Chi tiết cổng, cơ sở dữ liệu test và worker thông báo: [docs/docker-architecture.md](docs/docker-architecture.md).
+Cổng trên máy: PostgreSQL `5433`, Redis `6380`, API `4000`. Docker tạo sẵn hai cơ sở dữ liệu `hospital_booking_dev` (chạy ứng dụng) và `hospital_booking_test` (chỉ cho kiểm thử tích hợp, có xóa dữ liệu). Bật worker thông báo bằng `--profile notifications`.
 
 ### Cách 2: chạy trực tiếp
 
@@ -157,7 +154,9 @@ Gói miễn phí của Render chỉ có một Web Service, nên các worker ch�
 
 ## Thanh toán VNPay
 
-VNPay là cổng thanh toán trực tuyến duy nhất. Return URL và IPN dùng chung một xử lý không ghi nhận hai lần; có đối soát giao dịch bị lỡ bằng API `querydr` (worker và khi người dùng mở lại giao dịch) và hoàn tiền toàn phần qua API cho quản trị. Hiện chạy ở môi trường sandbox; đối soát và hoàn tiền mới được kiểm thử bằng phản hồi giả ký đúng đặc tả, chưa thử với sandbox thật. Cấu hình và vận hành: [docs/van-hanh-thanh-toan-vnpay.md](docs/van-hanh-thanh-toan-vnpay.md).
+VNPay là cổng thanh toán trực tuyến duy nhất. Return URL và IPN dùng chung một xử lý không ghi nhận hai lần; có đối soát giao dịch bị lỡ bằng API `querydr` (worker và khi người dùng mở lại giao dịch) và hoàn tiền toàn phần qua API cho quản trị. Hiện chạy ở môi trường sandbox; đối soát và hoàn tiền mới được kiểm thử bằng phản hồi giả ký đúng đặc tả, chưa thử với sandbox thật.
+
+Cấu hình (chỉ ở backend, biến mẫu trong `backend/.env.example`): `PAYMENT_VNPAY_ENABLED`, `VNPAY_TMN_CODE`, `VNPAY_HASH_SECRET`, `VNPAY_PAYMENT_URL`, `VNPAY_RETURN_URL` (HTTPS, trỏ về `/api/payments/vnpay/return`), `PAYMENT_RESULT_URL`. Địa chỉ IPN `/api/payments/vnpay/ipn` được đăng ký trong cổng quản trị merchant của VNPay. Thiếu khóa thì VNPay tự ẩn khỏi ứng dụng.
 
 ## Phân quyền và bảo vệ dữ liệu y tế
 
@@ -166,22 +165,6 @@ VNPay là cổng thanh toán trực tuyến duy nhất. Return URL và IPN dùng
 - **Tách người làm và người xác nhận:** bác sĩ kết thúc buổi khám, nhân viên thu tiền, quản trị hoàn tiền, dược sĩ cấp thuốc.
 - **Nhật ký truy cập** chỉ thêm dòng (cơ sở dữ liệu chặn sửa, xóa); quản trị đặt lại mật khẩu thì người dùng phải tự đổi; cần ghi nhận đồng ý khi lưu thông tin sức khỏe.
 - **Bảo vệ khác:** giới hạn tần suất endpoint công khai, OTP chỉ lưu dạng băm, token phiên xoay vòng và phát hiện dùng lại, access token mobile chỉ giữ trong bộ nhớ.
-
-Chi tiết: [docs/phan-quyen-va-kiem-soat-du-lieu-nhay-cam.md](docs/phan-quyen-va-kiem-soat-du-lieu-nhay-cam.md).
-
-## Tài liệu
-
-| Tài liệu | Nội dung |
-| --- | --- |
-| [docs/kien-truc-he-thong-hien-tai.md](docs/kien-truc-he-thong-hien-tai.md) | Kiến trúc kỹ thuật hiện tại |
-| [docs/phan-quyen-va-kiem-soat-du-lieu-nhay-cam.md](docs/phan-quyen-va-kiem-soat-du-lieu-nhay-cam.md) | Phân quyền, nhật ký truy cập, dữ liệu nhạy cảm |
-| [docs/van-hanh-thanh-toan-vnpay.md](docs/van-hanh-thanh-toan-vnpay.md) | Vận hành VNPay, đối soát, hoàn tiền |
-| [docs/van-hanh-thong-bao.md](docs/van-hanh-thong-bao.md) | Thông báo và push |
-| [docs/docker-architecture.md](docs/docker-architecture.md) | Hạ tầng Docker cục bộ |
-| [docs/danh-gia-kien-truc-logic-mobile-2026-11.md](docs/danh-gia-kien-truc-logic-mobile-2026-11.md) | Đánh giá kiến trúc mobile |
-| [docs/bao-cao-truoc-sau-nang-cap-2026-11.md](docs/bao-cao-truoc-sau-nang-cap-2026-11.md) | Báo cáo trước và sau đợt nâng cấp |
-| [docs/checklist-kiem-thu-production-thiet-bi-that.md](docs/checklist-kiem-thu-production-thiet-bi-that.md) | Checklist kiểm thử trên môi trường thật |
-| [docs/nhat-ky-minh-chung-t11-t12.md](docs/nhat-ky-minh-chung-t11-t12.md) | Nhật ký minh chứng tháng 11 và 12 |
 
 ## Hạn chế và hướng phát triển
 
