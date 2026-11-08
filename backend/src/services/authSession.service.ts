@@ -277,6 +277,37 @@ class AuthSessionService {
     });
   }
 
+  // Thu hồi mọi phiên của một người dùng (trừ phiên được giữ lại), ví dụ khi đổi hoặc đặt lại
+  // mật khẩu: bắt buộc đăng nhập lại bằng mật khẩu mới.
+  async revokeAllForUser(input: {
+    userId: string;
+    kind: SessionKind;
+    exceptSessionId?: string;
+  }) {
+    const now = new Date();
+    const sessions = await prisma.dashboardSession.findMany({
+      where: {
+        userId: input.userId,
+        kind: input.kind,
+        revokedAt: null,
+        ...(input.exceptSessionId ? { id: { not: input.exceptSessionId } } : {}),
+      },
+      select: { id: true },
+    });
+    if (sessions.length === 0) return 0;
+
+    const ids = sessions.map((session) => session.id);
+    await prisma.dashboardSession.updateMany({
+      where: { id: { in: ids } },
+      data: { revokedAt: now, pushToken: null, pushDisabledAt: now },
+    });
+    await prisma.authRefreshToken.updateMany({
+      where: { sessionId: { in: ids }, revokedAt: null },
+      data: { revokedAt: now },
+    });
+    return ids.length;
+  }
+
   async registerPushToken(input: PushTokenRegistration) {
     const now = new Date();
     const pushToken = input.pushToken.trim();

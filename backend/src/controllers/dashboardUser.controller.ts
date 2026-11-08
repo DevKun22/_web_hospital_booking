@@ -2,6 +2,7 @@ import type { Request, Response, NextFunction } from "express";
 import type { Role } from "../../generated/prisma/enums.js";
 import DashboardUserService from "../services/dashboardUser.service.js";
 import { AppError } from "../utils/appError.js";
+import { getClientIp } from "../utils/clientIp.js";
 
 const parseBooleanQuery = (value: unknown) => {
   if (value === "true") return true;
@@ -85,7 +86,11 @@ export const createDashboardUserHandler = async (
   next: NextFunction,
 ) => {
   try {
-    const user = await DashboardUserService.create(req.body);
+    const user = await DashboardUserService.create(
+      req.body,
+      getActor(req),
+      getClientIp(req),
+    );
 
     return res.status(201).json({
       success: true,
@@ -104,7 +109,12 @@ export const updateDashboardUserHandler = async (
 ) => {
   try {
     const id = getParam(req.params.id);
-    const user = await DashboardUserService.update(id, req.body, getActor(req));
+    const user = await DashboardUserService.update(
+      id,
+      req.body,
+      getActor(req),
+      getClientIp(req),
+    );
 
     return res.json({
       success: true,
@@ -127,6 +137,7 @@ export const updateDashboardUserStatusHandler = async (
       id,
       req.body.isActive,
       getActor(req),
+      getClientIp(req),
     );
 
     return res.json({
@@ -149,6 +160,8 @@ export const updateDashboardUserPasswordHandler = async (
     const user = await DashboardUserService.updatePassword(
       id,
       req.body.password,
+      getActor(req),
+      getClientIp(req),
     );
 
     return res.json({

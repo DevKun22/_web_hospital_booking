@@ -45,12 +45,12 @@ router.patch(
 );
 router.patch(
   "/:id/start",
-  requirePermission("appointment.exam"),
+  requirePermission("appointment.exam_start"),
   startDashboardAppointmentHandler,
 );
 router.patch(
   "/:id/complete",
-  requirePermission("appointment.exam"),
+  requirePermission("appointment.exam_finish"),
   completeDashboardAppointmentHandler,
 );
 router.patch(

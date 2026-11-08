@@ -408,7 +408,7 @@ export default function UsersPage() {
           }
         }}
         title={passwordTarget ? "Đổi mật khẩu" : editing ? "Cập nhật nhân sự" : "Tạo tài khoản"}
-        description={passwordTarget ? `Thiết lập mật khẩu mới cho ${passwordTarget.fullName}.` : "Cập nhật thông tin, vai trò và trạng thái truy cập của tài khoản."}
+        description={passwordTarget ? `Thiết lập mật khẩu tạm cho ${passwordTarget.fullName}. Người này phải tự đổi mật khẩu khi đăng nhập lại, mọi phiên đang mở sẽ bị đăng xuất và thao tác được ghi vào nhật ký.` : "Cập nhật thông tin, vai trò và trạng thái truy cập của tài khoản."}
       >
         {passwordTarget ? (
           <form className="rounded-md border border-[#e5ebf3] bg-[#f8fafc] p-4" onSubmit={updatePassword}>

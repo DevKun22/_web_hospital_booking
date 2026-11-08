@@ -1,6 +1,7 @@
 import type { Request, Response, NextFunction } from "express";
 import type { PrescriptionStatus, Role } from "../../generated/prisma/enums.js";
 import PrescriptionService from "../services/prescription.service.js";
+import { auditClinicalView } from "../utils/auditClinicalView.js";
 import { AppError } from "../utils/appError.js";
 
 const parseNumberQuery = (value: unknown) => {
@@ -85,6 +86,8 @@ export const getPrescriptionHandler = async (
       getParam(req.params.id),
       getActor(req),
     );
+
+    await auditClinicalView(req, "PRESCRIPTION_VIEWED", "PRESCRIPTION", prescription.id);
 
     return res.json({ success: true, data: prescription });
   } catch (error) {

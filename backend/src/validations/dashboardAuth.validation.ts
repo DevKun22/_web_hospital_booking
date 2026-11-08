@@ -14,3 +14,11 @@ export const dashboardVerifyOtpSchema = z.object({
     .length(6, "OTP phai co 6 so")
     .regex(/^[0-9]+$/, "OTP chi duoc chua so"),
 });
+
+export const dashboardChangePasswordSchema = z.object({
+  currentPassword: z.string().min(1, "Vui lòng nhập mật khẩu hiện tại"),
+  newPassword: z
+    .string()
+    .min(8, "Mật khẩu mới tối thiểu 8 ký tự")
+    .max(72, "Mật khẩu mới tối đa 72 ký tự"),
+});

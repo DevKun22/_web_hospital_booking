@@ -6,6 +6,8 @@ import { hashPassword } from "../utils/password.js";
 import { AppError } from "../utils/appError.js";
 import MediaAssetService from "./mediaAsset.service.js";
 import { invalidateDashboardAuthSnapshot } from "./dashboardAuthCache.service.js";
+import AuditLogService from "./auditLog.service.js";
+import AuthSessionService from "./authSession.service.js";
 
 type DashboardRole = StaffRole;
 type Actor = { userId: string; role: Role };
@@ -127,7 +129,7 @@ class DashboardUserService {
     return user;
   }
 
-  async create(input: CreateDashboardUserInput) {
+  async create(input: CreateDashboardUserInput, actor?: Actor, ipAddress?: string) {
     ensureDashboardRole(input.role);
     const avatarAsset = input.avatarAssetId
       ? await MediaAssetService.getUsableAsset(input.avatarAssetId)
@@ -159,6 +161,8 @@ class DashboardUserService {
         avatar: avatarAsset?.url || input.avatar,
         isActive: input.isActive ?? true,
         isPhoneVerified: true,
+        // Quản trị biết mật khẩu ban đầu nên người dùng phải tự đổi ở lần đăng nhập đầu.
+        mustChangePassword: true,
       },
       select: dashboardUserSelect,
     });
@@ -171,10 +175,24 @@ class DashboardUserService {
       );
     }
 
+    await AuditLogService.record({
+      actor,
+      action: "USER_CREATED",
+      targetType: "USER",
+      targetId: user.id,
+      ipAddress,
+      meta: { role: user.role },
+    });
+
     return user;
   }
 
-  async update(id: string, input: UpdateDashboardUserInput, actor: Actor) {
+  async update(
+    id: string,
+    input: UpdateDashboardUserInput,
+    actor: Actor,
+    ipAddress?: string,
+  ) {
     const currentUser = await this.getById(id);
     this.assertSelfAdministration(id, input, actor);
     await this.assertActiveAdminContinuity(currentUser, input);
@@ -245,17 +263,31 @@ class DashboardUserService {
 
     invalidateDashboardAuthSnapshot(id);
 
-    const doctorProfile = await prisma.doctorProfile.findUnique({
-      where: { userId: id },
-      select: { id: true },
+    // Đổi vai trò, email hoặc số điện thoại đăng nhập của người khác là thao tác nhạy cảm
+    // (số điện thoại và email quyết định ai nhận mã OTP đăng nhập), nên luôn để lại dấu vết.
+    await AuditLogService.record({
+      actor,
+      action: "USER_UPDATED",
+      targetType: "USER",
+      targetId: id,
+      ipAddress,
+      meta: {
+        ...(input.role && input.role !== currentUser.role
+          ? { roleFrom: currentUser.role, roleTo: input.role }
+          : {}),
+        ...(input.email !== undefined && input.email !== currentUser.email
+          ? { emailChanged: true }
+          : {}),
+        ...(input.phone !== undefined && input.phone !== currentUser.phone
+          ? { phoneChanged: true }
+          : {}),
+      },
     });
-    if (doctorProfile) {
-    }
 
     return user;
   }
 
-  async updateStatus(id: string, isActive: boolean, actor: Actor) {
+  async updateStatus(id: string, isActive: boolean, actor: Actor, ipAddress?: string) {
     const currentUser = await this.getById(id);
     this.assertSelfAdministration(id, { isActive }, actor);
     await this.assertActiveAdminContinuity(currentUser, { isActive });
@@ -272,28 +304,46 @@ class DashboardUserService {
 
     invalidateDashboardAuthSnapshot(id);
 
-    const doctorProfile = await prisma.doctorProfile.findUnique({
-      where: { userId: id },
-      select: { id: true },
+    await AuditLogService.record({
+      actor,
+      action: "USER_STATUS_CHANGED",
+      targetType: "USER",
+      targetId: id,
+      ipAddress,
+      meta: { isActive },
     });
-    if (doctorProfile) {
-    }
 
     return user;
   }
 
-  async updatePassword(id: string, password: string) {
+  // Quản trị đặt lại mật khẩu thay người khác: người đó phải tự đổi ở lần đăng nhập kế tiếp,
+  // mọi phiên đang mở bị thu hồi, và thao tác luôn được ghi nhật ký.
+  async updatePassword(id: string, password: string, actor: Actor, ipAddress?: string) {
     await this.getById(id);
+    const forceChange = actor.userId !== id;
 
-    return prisma.user.update({
+    const user = await prisma.user.update({
       where: {
         id,
       },
       data: {
         password: await hashPassword(password),
+        mustChangePassword: forceChange,
       },
       select: dashboardUserSelect,
     });
+
+    await AuthSessionService.revokeAllForUser({ userId: id, kind: "DASHBOARD" });
+    invalidateDashboardAuthSnapshot(id);
+    await AuditLogService.record({
+      actor,
+      action: "USER_PASSWORD_RESET",
+      targetType: "USER",
+      targetId: id,
+      ipAddress,
+    });
+
+    return user;
   }
 
   private assertSelfAdministration(

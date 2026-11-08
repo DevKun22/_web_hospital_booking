@@ -86,6 +86,7 @@ const resetDatabase = async () => {
     "OtpSecurityBlock",
     "OtpVerifyAttempt",
     "StockMovement",
+    "AuditLog",
     "Medicine",
     "User",
     "Department",
@@ -1942,9 +1943,9 @@ test("dynamic permissions keep clinical data away from admin editing and staff",
   assert.equal((await get("/api/dashboard/appointments", staffCookie)).status, 200);
   assert.equal((await get("/api/dashboard/invoices", staffCookie)).status, 200);
 
-  // Quản trị xem được nhưng không sửa; chỉ bác sĩ ghi bệnh án và kê đơn.
-  assert.equal((await get("/api/dashboard/medical-records", adminCookie)).status, 200);
-  assert.equal((await get("/api/dashboard/prescriptions", adminCookie)).status, 200);
+  // Quản trị mặc định không đọc nội dung y tế và không bao giờ sửa; chỉ bác sĩ ghi bệnh án và kê đơn.
+  assert.equal((await get("/api/dashboard/medical-records", adminCookie)).status, 403);
+  assert.equal((await get("/api/dashboard/prescriptions", adminCookie)).status, 403);
   assert.equal((await patch("/api/dashboard/prescriptions/any-id", adminCookie)).status, 403);
   assert.equal((await patch("/api/dashboard/medical-records/any-id", adminCookie)).status, 403);
   assert.equal((await get("/api/dashboard/medical-records", doctorCookie)).status, 200);
@@ -4608,4 +4609,193 @@ test("VNPay refund API refuses non-VNPAY invoices and users without invoice.refu
   assert.equal((await callVnpayRefund(cash.invoice.id, adminCookie)).status, 409);
   assert.equal((await callVnpayRefund(cash.invoice.id, staffCookie)).status, 403);
   assert.equal((await callVnpayRefund(cash.invoice.id, adminCookie, "ab")).status, 400);
+});
+
+// ---- Nhật ký truy cập, buộc đổi mật khẩu, tách quyền nhạy cảm -----------------
+const dashboardCall = (
+  method: string,
+  path: string,
+  cookie: string,
+  body?: unknown,
+) => http.request(path, { method, headers: dashboardHeaders(cookie), body });
+
+test("password reset by an admin forces a change, revokes sessions and is audited", async () => {
+  const adminCookie = await authCookie(fixture.adminUser.id, "ADMIN");
+  const target = await createDashboardUser("STAFF", "0900000101");
+  const targetCookie = await authCookie(target.id, "STAFF");
+  assert.equal((await dashboardCall("GET", "/api/dashboard/invoices", targetCookie)).status, 200);
+
+  const reset = await dashboardCall(
+    "PATCH",
+    `/api/dashboard/users/${target.id}/password`,
+    adminCookie,
+    { password: "TempPass123" },
+  );
+  assert.equal(reset.status, 200);
+  assert.equal(
+    (await prisma.user.findUniqueOrThrow({ where: { id: target.id } })).mustChangePassword,
+    true,
+  );
+  // Phiên cũ của người bị đặt lại mật khẩu không còn dùng được.
+  assert.equal((await dashboardCall("GET", "/api/dashboard/invoices", targetCookie)).status, 401);
+
+  const audit = await prisma.auditLog.findFirstOrThrow({
+    where: { action: "USER_PASSWORD_RESET", targetId: target.id },
+  });
+  assert.equal(audit.actorId, fixture.adminUser.id);
+  assert.equal(audit.actorRole, "ADMIN");
+
+  // Đăng nhập lại: chỉ đổi mật khẩu được cho tới khi tự đặt mật khẩu mới.
+  const freshCookie = await authCookie(target.id, "STAFF");
+  const blocked = await dashboardCall("GET", "/api/dashboard/invoices", freshCookie);
+  assert.equal(blocked.status, 403);
+  assert.equal(blocked.body.code, "PASSWORD_CHANGE_REQUIRED");
+  const me = await dashboardCall("GET", "/api/auth/dashboard/me", freshCookie);
+  assert.equal(me.status, 200);
+  assert.equal(me.body.data.mustChangePassword, true);
+
+  const wrongCurrent = await dashboardCall("POST", "/api/auth/dashboard/change-password", freshCookie, {
+    currentPassword: "khong-dung",
+    newPassword: "BrandNewPass1",
+  });
+  assert.equal(wrongCurrent.status, 400);
+  const changed = await dashboardCall("POST", "/api/auth/dashboard/change-password", freshCookie, {
+    currentPassword: "TempPass123",
+    newPassword: "BrandNewPass1",
+  });
+  assert.equal(changed.status, 200, JSON.stringify(changed.body));
+  assert.equal((await dashboardCall("GET", "/api/dashboard/invoices", freshCookie)).status, 200);
+  assert.equal(
+    await prisma.auditLog.count({ where: { action: "PASSWORD_CHANGED", actorId: target.id } }),
+    1,
+  );
+});
+
+test("the audit log is append-only and only readable by users with audit.view", async () => {
+  const adminCookie = await authCookie(fixture.adminUser.id, "ADMIN");
+  const staff = await createDashboardUser("STAFF", "0900000102");
+  const staffCookie = await authCookie(staff.id, "STAFF");
+  await prisma.auditLog.create({ data: { action: "USER_UPDATED", actorId: fixture.adminUser.id } });
+
+  const listed = await dashboardCall("GET", "/api/dashboard/audit-logs?limit=5", adminCookie);
+  assert.equal(listed.status, 200);
+  assert.ok(listed.body.data.items.length >= 1);
+  assert.equal((await dashboardCall("GET", "/api/dashboard/audit-logs", staffCookie)).status, 403);
+
+  const row = await prisma.auditLog.findFirstOrThrow();
+  await assert.rejects(
+    prisma.auditLog.update({ where: { id: row.id }, data: { action: "TAMPERED" } }),
+    /chỉ thêm dòng/,
+  );
+  await assert.rejects(prisma.auditLog.delete({ where: { id: row.id } }), /chỉ thêm dòng/);
+});
+
+test("admin reads clinical data only after being granted, and every detail view is audited", async () => {
+  const appointment = await createStoredAppointment({
+    status: "COMPLETED",
+    bookingCode: "AUDIT-VIEW",
+  });
+  const record = await prisma.medicalRecord.create({
+    data: {
+      recordCode: "AUDIT-VIEW-REC",
+      appointmentId: appointment.id,
+      patientId: appointment.patientId,
+      doctorId: appointment.doctorId,
+      status: "DRAFT",
+    },
+  });
+  const adminCookie = await authCookie(fixture.adminUser.id, "ADMIN");
+  const doctorCookie = await authCookie(fixture.doctorOneUser.id, "DOCTOR");
+  const detail = (cookie: string) =>
+    dashboardCall("GET", `/api/dashboard/medical-records/${record.id}`, cookie);
+
+  assert.equal((await detail(adminCookie)).status, 403);
+
+  try {
+    const granted = await dashboardCall("PUT", "/api/dashboard/rbac", adminCookie, {
+      grants: { "record.view": ["ADMIN", "DOCTOR"] },
+    });
+    assert.equal(granted.status, 200, JSON.stringify(granted.body));
+    const matrixAudit = await prisma.auditLog.findFirstOrThrow({
+      where: { action: "RBAC_MATRIX_UPDATED" },
+    });
+    assert.deepEqual(
+      Object.keys((matrixAudit.meta as { changes: Record<string, unknown> }).changes),
+      ["record.view"],
+    );
+
+    assert.equal((await detail(adminCookie)).status, 200);
+    const viewed = await prisma.auditLog.findMany({
+      where: { action: "MEDICAL_RECORD_VIEWED", targetId: record.id },
+    });
+    assert.equal(viewed.length, 1);
+    assert.equal(viewed[0].actorRole, "ADMIN");
+
+    // Bác sĩ điều trị xem hồ sơ của mình là việc hằng ngày: không ghi.
+    assert.equal((await detail(doctorCookie)).status, 200);
+    assert.equal(
+      await prisma.auditLog.count({ where: { action: "MEDICAL_RECORD_VIEWED" } }),
+      1,
+    );
+  } finally {
+    await RbacService.resetMatrix();
+  }
+});
+
+test("only a doctor finishes an exam by default, and invoice adjustments are audited", async () => {
+  const staff = await createDashboardUser("STAFF", "0900000103");
+  const staffCookie = await authCookie(staff.id, "STAFF");
+  const adminCookie = await authCookie(fixture.adminUser.id, "ADMIN");
+
+  // Quyền được kiểm trước khi chạm vào lịch hẹn nên không cần dữ liệu thật.
+  assert.equal(
+    (await dashboardCall("PATCH", "/api/dashboard/appointments/any-id/complete", staffCookie, {})).status,
+    403,
+  );
+  assert.notEqual(
+    (await dashboardCall("PATCH", "/api/dashboard/appointments/any-id/start", staffCookie, {})).status,
+    403,
+  );
+
+  const { invoice, appointment: adjustAppointment } = await createPayableInvoice({
+    bookingCode: "AUDIT-ADJUST",
+  });
+  await prisma.appointment.update({
+    where: { id: adjustAppointment.id },
+    data: { hasBHYT: true },
+  });
+  const adjusted = await dashboardCall(
+    "PATCH",
+    `/api/dashboard/invoices/${invoice.id}`,
+    staffCookie,
+    { bhytDiscount: 50000 },
+  );
+  assert.equal(adjusted.status, 200, JSON.stringify(adjusted.body));
+  const adjustAudit = await prisma.auditLog.findFirstOrThrow({
+    where: { action: "INVOICE_ADJUSTED", targetId: invoice.id },
+  });
+  assert.equal(adjustAudit.actorId, staff.id);
+  assert.deepEqual((adjustAudit.meta as { before: unknown }).before, {
+    discount: 0,
+    finalAmount: 300000,
+  });
+  assert.deepEqual((adjustAudit.meta as { after: unknown }).after, {
+    discount: 50000,
+    finalAmount: 250000,
+  });
+
+  // Hoàn tiền thủ công cũng để lại dấu vết (dùng lại hóa đơn trên sau khi thu tiền mặt).
+  const paid = { invoice };
+  await InvoiceService.pay(paid.invoice.id, { paymentMethod: "CASH" }, fixture.adminUser.id);
+  const refunded = await dashboardCall(
+    "PATCH",
+    `/api/dashboard/invoices/${paid.invoice.id}/refund`,
+    adminCookie,
+    { refundReason: "Benh nhan huy dich vu" },
+  );
+  assert.equal(refunded.status, 200);
+  const refundAudit = await prisma.auditLog.findFirstOrThrow({
+    where: { action: "INVOICE_REFUNDED", targetId: paid.invoice.id },
+  });
+  assert.equal((refundAudit.meta as { via: string }).via, "MANUAL");
 });

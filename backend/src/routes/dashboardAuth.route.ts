@@ -8,14 +8,16 @@ import {
   meHandler,
   refreshHandler,
   logoutHandler,
+  changePasswordHandler,
 } from "../controllers/dashboardAuth.controller.js";
 
 import {
   dashboardLoginSchema,
   dashboardVerifyOtpSchema,
+  dashboardChangePasswordSchema,
 } from "../validations/dashboardAuth.validation.js";
 
-import { authDashboard } from "../middlewares/auth.middleware.js";
+import { authDashboardAllowPasswordChange } from "../middlewares/auth.middleware.js";
 
 const router = Router();
 
@@ -29,7 +31,14 @@ router.post(
 
 router.post("/refresh", refreshHandler);
 
-router.get("/me", authDashboard, meHandler);
+router.get("/me", authDashboardAllowPasswordChange, meHandler);
+
+router.post(
+  "/change-password",
+  authDashboardAllowPasswordChange,
+  validate(dashboardChangePasswordSchema),
+  changePasswordHandler,
+);
 
 router.post("/logout", logoutHandler);
 

@@ -30,13 +30,18 @@ export const PERMISSIONS = {
   "appointment.view": { group: "Lịch hẹn", label: "Xem lịch hẹn", eligibleRoles: [A, S, D], fixedRoles: [], defaultRoles: [A, S, D] },
   "appointment.front_desk": { group: "Lịch hẹn", label: "Tiếp đón: xác nhận, check-in, vắng mặt, đổi lịch, sửa thông tin", eligibleRoles: [A, S], fixedRoles: [], defaultRoles: [A, S] },
   "appointment.cancel": { group: "Lịch hẹn", label: "Hủy lịch hẹn", eligibleRoles: [A, S, D], fixedRoles: [], defaultRoles: [A, S, D] },
-  "appointment.exam": { group: "Lịch hẹn", label: "Bắt đầu và kết thúc buổi khám", eligibleRoles: [S, D], fixedRoles: [D], defaultRoles: [S, D] },
+  "appointment.exam_start": { group: "Lịch hẹn", label: "Bắt đầu buổi khám", eligibleRoles: [S, D], fixedRoles: [D], defaultRoles: [S, D] },
+  // Kết thúc buổi khám đánh dấu lịch COMPLETED và mở khâu hóa đơn, nên mặc định chỉ bác sĩ.
+  // Nhân viên chỉ làm thay khi quản trị chủ động cấp quyền này.
+  "appointment.exam_finish": { group: "Lịch hẹn", label: "Kết thúc buổi khám (hoàn tất lịch, mở khâu hóa đơn)", eligibleRoles: [S, D], fixedRoles: [D], defaultRoles: [D] },
 
-  // Bệnh án và đơn thuốc: dữ liệu y tế, chỉ vai trò lâm sàng
-  "record.view": { group: "Hồ sơ bệnh án", label: "Xem hồ sơ bệnh án", eligibleRoles: [A, D], fixedRoles: [D], defaultRoles: [A, D] },
+  // Bệnh án và đơn thuốc: dữ liệu y tế, chỉ vai trò lâm sàng. Quản trị đủ điều kiện để được
+  // cấp quyền xem khi cần (ví dụ xử lý khiếu nại) nhưng mặc định không có, và mỗi lần xem
+  // chi tiết đều được ghi vào nhật ký truy cập.
+  "record.view": { group: "Hồ sơ bệnh án", label: "Xem hồ sơ bệnh án", eligibleRoles: [A, D], fixedRoles: [D], defaultRoles: [D] },
   "record.edit": { group: "Hồ sơ bệnh án", label: "Ghi, sửa, công bố bệnh án và kết quả xét nghiệm", eligibleRoles: [D], fixedRoles: [D], defaultRoles: [D] },
   "record.archive": { group: "Hồ sơ bệnh án", label: "Lưu trữ bệnh án", eligibleRoles: [A, D], fixedRoles: [], defaultRoles: [D] },
-  "prescription.view": { group: "Đơn thuốc", label: "Xem đơn thuốc", eligibleRoles: [A, D, P], fixedRoles: [D, P], defaultRoles: [A, D, P] },
+  "prescription.view": { group: "Đơn thuốc", label: "Xem đơn thuốc", eligibleRoles: [A, D, P], fixedRoles: [D, P], defaultRoles: [D, P] },
   "prescription.write": { group: "Đơn thuốc", label: "Kê, sửa, phát hành, hủy đơn thuốc", eligibleRoles: [D], fixedRoles: [D], defaultRoles: [D] },
 
   // Hóa đơn: thu tiền (nhân viên) khác hoàn tiền (quản trị)
@@ -67,11 +72,12 @@ export const PERMISSIONS = {
   // Hệ thống
   "settings.view": { group: "Hệ thống", label: "Xem cấu hình website", eligibleRoles: [A, S], fixedRoles: [], defaultRoles: [A, S] },
   "settings.edit": { group: "Hệ thống", label: "Sửa cấu hình website và trang chủ", eligibleRoles: [A], fixedRoles: [A], defaultRoles: [A] },
-  "chatbot.view": { group: "Hệ thống", label: "Xem hội thoại chatbot", eligibleRoles: [A, S], fixedRoles: [], defaultRoles: [A, S] },
+  "chatbot.view": { group: "Hệ thống", label: "Xem hội thoại chatbot (có thể chứa triệu chứng người dùng gõ vào)", eligibleRoles: [A, S], fixedRoles: [], defaultRoles: [A] },
   "chatbot.config": { group: "Hệ thống", label: "Cấu hình chatbot", eligibleRoles: [A], fixedRoles: [A], defaultRoles: [A] },
   "stats.view": { group: "Hệ thống", label: "Xem thống kê vận hành", eligibleRoles: [A, S], fixedRoles: [], defaultRoles: [A, S] },
   "stats.doctor": { group: "Hệ thống", label: "Xem bảng làm việc của bác sĩ", eligibleRoles: [D], fixedRoles: [D], defaultRoles: [D] },
   "user.manage": { group: "Hệ thống", label: "Quản lý tài khoản nhân sự", eligibleRoles: [A], fixedRoles: [A], defaultRoles: [A] },
+  "audit.view": { group: "Hệ thống", label: "Xem nhật ký truy cập và thao tác nhạy cảm", eligibleRoles: [A], fixedRoles: [A], defaultRoles: [A] },
   "rbac.manage": { group: "Hệ thống", label: "Quản lý phân quyền", eligibleRoles: [A], fixedRoles: [A], defaultRoles: [A] },
 
   // Kho thuốc: chỉ dược sĩ

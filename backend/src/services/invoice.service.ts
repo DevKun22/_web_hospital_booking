@@ -12,6 +12,7 @@ import {
   generateInvoiceCode,
 } from "../utils/invoiceCode.js";
 import { refundVnpayTransaction } from "./paymentProviders/index.js";
+import AuditLogService from "./auditLog.service.js";
 import PatientEventNotificationService from "./patientEventNotification.service.js";
 
 type CreateInvoiceInput = {
@@ -502,7 +503,12 @@ class InvoiceService {
     return transition.createdInvoice;
   }
 
-  async updateFinancials(id: string, input: UpdateInvoiceInput) {
+  async updateFinancials(
+    id: string,
+    input: UpdateInvoiceInput,
+    actor?: { userId: string; role: string },
+    ipAddress?: string,
+  ) {
     const invoice = await prisma.invoice.findUnique({
       where: { id },
       select: {
@@ -510,6 +516,7 @@ class InvoiceService {
         status: true,
         totalAmount: true,
         bhytDiscount: true,
+        finalAmount: true,
         appointment: {
           select: {
             id: true,
@@ -608,6 +615,23 @@ class InvoiceService {
       if (updated.count !== 1) {
         throw new AppError("Trạng thái hóa đơn đã thay đổi", 409, "INVOICE_STATE_CONFLICT");
       }
+      // Người chỉnh giảm cũng có thể là người thu tiền, nên mọi lần đổi số tiền phải lưu giá
+      // trị trước và sau để đối chiếu.
+      await AuditLogService.record(
+        {
+          actor,
+          action: "INVOICE_ADJUSTED",
+          targetType: "INVOICE",
+          targetId: id,
+          ipAddress,
+          meta: {
+            reopened: currentInvoice.status === "CANCELLED",
+            before: { discount: invoice.bhytDiscount, finalAmount: invoice.finalAmount },
+            after: { discount: insurance.bhytDiscount, finalAmount: insurance.finalAmount },
+          },
+        },
+        tx,
+      );
       return tx.invoice.findUniqueOrThrow({ where: { id }, select: invoiceSelect });
     });
   }
@@ -781,6 +805,7 @@ class InvoiceService {
     input: { refundReason: string },
     actorId?: string,
     ipAddress?: string,
+    role?: string,
   ) {
     const reason = input.refundReason.trim();
     const attempt = await prisma.$transaction(async (tx) => {
@@ -853,16 +878,29 @@ class InvoiceService {
 
     // Kết quả không xác minh được thì refundVnpayTransaction ném lỗi: mã yêu cầu được giữ
     // nguyên và không tự thử lại.
-    const result = await refundVnpayTransaction({
-      requestId: attempt.requestId,
-      txnRef: attempt.txnRef,
-      amount: attempt.amount,
-      transactionNo: attempt.transactionNo,
-      transactionDate: attempt.transactionDate,
-      createBy: actorId ?? "system",
-      reason,
-      ipAddress,
-    });
+    let result;
+    try {
+      result = await refundVnpayTransaction({
+        requestId: attempt.requestId,
+        txnRef: attempt.txnRef,
+        amount: attempt.amount,
+        transactionNo: attempt.transactionNo,
+        transactionDate: attempt.transactionDate,
+        createBy: actorId ?? "system",
+        reason,
+        ipAddress,
+      });
+    } catch (error) {
+      await AuditLogService.record({
+        actor: actorId ? { userId: actorId, role: role ?? "ADMIN" } : null,
+        action: "INVOICE_REFUND_UNVERIFIED",
+        targetType: "INVOICE",
+        targetId: id,
+        ipAddress,
+        meta: { requestId: attempt.requestId },
+      });
+      throw error;
+    }
 
     if (result.outcome === "REJECTED") {
       await prisma.invoice.updateMany({
@@ -883,10 +921,16 @@ class InvoiceService {
         refundReference: result.refundTransactionNo ?? attempt.requestId,
       },
       actorId,
+      { via: "VNPAY_API", role, ipAddress },
     );
   }
 
-  async refund(id: string, input: RefundInvoiceInput, actorId?: string) {
+  async refund(
+    id: string,
+    input: RefundInvoiceInput,
+    actorId?: string,
+    context: { via?: "MANUAL" | "VNPAY_API"; role?: string; ipAddress?: string } = {},
+  ) {
     const transition = await prisma.$transaction(async (tx) => {
       await tx.$queryRaw(Prisma.sql`SELECT "id" FROM "Invoice" WHERE "id" = ${id} FOR UPDATE`);
       const invoice = await tx.invoice.findUnique({
@@ -926,6 +970,17 @@ class InvoiceService {
         },
       });
       if (claimed.count !== 1) throw new AppError("Trạng thái hóa đơn đã thay đổi", 409, "INVOICE_STATE_CONFLICT");
+      await AuditLogService.record(
+        {
+          actor: actorId ? { userId: actorId, role: context.role ?? "ADMIN" } : null,
+          action: "INVOICE_REFUNDED",
+          targetType: "INVOICE",
+          targetId: id,
+          ipAddress: context.ipAddress,
+          meta: { via: context.via ?? "MANUAL", amount: invoice.finalAmount },
+        },
+        tx,
+      );
       await tx.appointmentLog.create({
         data: {
           appointmentId: invoice.appointmentId,

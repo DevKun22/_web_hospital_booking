@@ -12,6 +12,7 @@ import {
   Pill,
   Receipt,
   Settings,
+  ScrollText,
   ShieldCheck,
   Star,
   Stethoscope,
@@ -218,6 +219,15 @@ export const dashboardNavItems: readonly DashboardNavItem[] = [
     description: "Quyền của từng vai trò",
     icon: ShieldCheck,
     permissions: ["rbac.manage"],
+    group: "system",
+  },
+  {
+    key: "audit-logs",
+    href: "/dashboard/audit-logs",
+    label: "Nhật ký truy cập",
+    description: "Thao tác nhạy cảm và lượt xem dữ liệu y tế",
+    icon: ScrollText,
+    permissions: ["audit.view"],
     group: "system",
   },
 ] as const;

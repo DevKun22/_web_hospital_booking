@@ -185,3 +185,26 @@ export const logoutHandler = async (req: Request, res: Response) => {
     message: "Đăng xuất thành công",
   });
 };
+
+export const changePasswordHandler = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    if (!req.user?.userId) {
+      return res.status(401).json({ success: false, message: "Chưa đăng nhập" });
+    }
+    await DashboardAuthService.changePassword({
+      userId: req.user.userId,
+      sessionId: req.user.sessionId,
+      role: req.user.role,
+      currentPassword: req.body.currentPassword,
+      newPassword: req.body.newPassword,
+      ipAddress: getClientIp(req),
+    });
+    return res.json({ success: true, message: "Đã đổi mật khẩu" });
+  } catch (error) {
+    next(error);
+  }
+};
