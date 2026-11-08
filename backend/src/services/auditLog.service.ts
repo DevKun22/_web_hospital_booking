@@ -17,6 +17,7 @@ export const AUDIT_ACTIONS = [
   "INVOICE_ADJUSTED",
   "INVOICE_REFUNDED",
   "INVOICE_REFUND_UNVERIFIED",
+  "DATA_EXPORTED",
 ] as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
 

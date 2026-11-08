@@ -6,6 +6,7 @@ import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { PanelRightOpen, Search } from "lucide-react";
 import { DashboardFeedback } from "@/components/dashboard/dashboard-feedback";
 import { DashboardPageHeader, DashboardStatusBadge, DashboardSurface } from "@/components/dashboard/dashboard-ui";
+import { ExportCsvButton } from "@/components/dashboard/export-csv-button";
 import { DashboardWorkspace } from "@/components/dashboard/dashboard-workspace";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -559,7 +560,12 @@ export default function InvoicesPage() {
           eyebrow="Tài chính"
           title="Hóa đơn"
           description="Tạo hóa đơn từ lịch hẹn hoàn thành, áp dụng BHYT và kiểm soát thanh toán, hủy hoặc hoàn tiền."
-          actions={!workspaceOpen ? <Button variant="outline" size="lg" onClick={() => setWorkspaceOpen(true)}><PanelRightOpen />Mở công cụ hóa đơn</Button> : undefined}
+          actions={
+            <div className="flex flex-wrap items-start gap-3">
+              <ExportCsvButton path="/dashboard/invoices/export" fallbackName="hoa-don.csv" params={{ status: status || undefined }} />
+              {!workspaceOpen ? <Button variant="outline" size="lg" onClick={() => setWorkspaceOpen(true)}><PanelRightOpen />Mở công cụ hóa đơn</Button> : null}
+            </div>
+          }
         />
 
         <DashboardSurface>

@@ -8,6 +8,7 @@ import {
   getDashboardStatisticsWorkspaceHandler,
   getDoctorWorkspaceHandler,
 } from "../controllers/dashboardStatistics.controller.js";
+import { exportRevenueHandler } from "../controllers/dataExport.controller.js";
 import { authDashboard, requirePermission } from "../middlewares/auth.middleware.js";
 
 const router = Router();
@@ -24,6 +25,7 @@ router.get("/overview", getDashboardStatisticsOverviewHandler);
 router.get("/workspace", getDashboardStatisticsWorkspaceHandler);
 router.get("/appointments", getDashboardAppointmentStatisticsHandler);
 router.get("/revenue", getDashboardRevenueStatisticsHandler);
+router.get("/revenue/export", exportRevenueHandler);
 router.get("/doctors", getDashboardDoctorStatisticsHandler);
 router.get("/departments", getDashboardDepartmentStatisticsHandler);
 

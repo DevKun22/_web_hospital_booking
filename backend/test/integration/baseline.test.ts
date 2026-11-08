@@ -5188,3 +5188,93 @@ test("doctors upload private result files; content, size and role are enforced e
     globalThis.fetch = originalFetch;
   }
 });
+
+// ---- Xuất báo cáo CSV ------------------------------------------------------------------
+test("CSV exports are permission-gated, audited, free of patient identity and safe in Excel", async () => {
+  const adminCookie = await authCookie(fixture.adminUser.id, "ADMIN");
+  const doctorCookie = await authCookie(fixture.doctorOneUser.id, "DOCTOR");
+  const staff = await createDashboardUser("STAFF", "0900000401");
+  const staffCookie = await authCookie(staff.id, "STAFF");
+  const pharmacist = await createDashboardUser("PHARMACIST", "0900000402");
+  const pharmacistCookie = await authCookie(pharmacist.id, "PHARMACIST");
+
+  const get = async (path: string, cookie: string) => {
+    const response = await fetch(`${http.baseUrl}${path}`, { headers: dashboardHeaders(cookie) });
+    // fetch().text() tự cắt BOM; giải mã thủ công để kiểm tra BOM thật sự có trong tệp.
+    const bytes = new Uint8Array(await response.arrayBuffer());
+    const text = new TextDecoder("utf-8", { ignoreBOM: true }).decode(bytes);
+    return { status: response.status, text, headers: response.headers };
+  };
+
+  // Một hóa đơn đã thu tiền mặt.
+  const { invoice, appointment } = await createPayableInvoice({ bookingCode: "EXPORT-INV" });
+  await InvoiceService.pay(invoice.id, { paymentMethod: "CASH" }, fixture.adminUser.id);
+
+  // Hóa đơn: quản trị và nhân viên xuất được; bác sĩ và dược sĩ thì không.
+  const invoices = await get("/api/dashboard/invoices/export?status=PAID", adminCookie);
+  assert.equal(invoices.status, 200, invoices.text);
+  assert.match(invoices.headers.get("content-type") ?? "", /text\/csv/);
+  assert.match(invoices.headers.get("content-disposition") ?? "", /attachment; filename="hoa-don-\d{4}-\d{2}-\d{2}\.csv"/);
+  assert.equal(invoices.headers.get("cache-control"), "private, no-store, max-age=0");
+  assert.ok(invoices.text.startsWith("﻿Mã hóa đơn,"));
+  assert.ok(invoices.text.includes(invoice.invoiceCode));
+  assert.ok(invoices.text.includes("EXPORT-INV"));
+  assert.ok(invoices.text.includes("Tiền mặt"));
+  // Không đưa danh tính bệnh nhân vào tệp xuất.
+  assert.ok(!invoices.text.includes(appointment.patientPhone));
+  assert.ok(!invoices.text.includes(appointment.patientName));
+  assert.equal((await get("/api/dashboard/invoices/export", staffCookie)).status, 200);
+  assert.equal((await get("/api/dashboard/invoices/export", doctorCookie)).status, 403);
+  assert.equal((await get("/api/dashboard/invoices/export", pharmacistCookie)).status, 403);
+
+  // Bộ lọc và khoảng ngày sai bị từ chối; lọc theo trạng thái khác thì không có dòng nào.
+  assert.equal((await get("/api/dashboard/invoices/export?status=BOGUS", adminCookie)).status, 400);
+  assert.equal((await get("/api/dashboard/invoices/export?from=01-01-2026", adminCookie)).status, 400);
+  assert.equal(
+    (await get("/api/dashboard/invoices/export?from=2020-01-01&to=2026-01-01", adminCookie)).status,
+    400,
+  );
+  const refunded = await get("/api/dashboard/invoices/export?status=REFUNDED", adminCookie);
+  assert.equal(refunded.text.trim().split(/\r?\n/).length, 1); // chỉ có dòng tiêu đề
+
+  // Doanh thu theo ngày có dòng tổng; chỉ người có stats.view.
+  const revenue = await get("/api/dashboard/statistics/revenue/export", adminCookie);
+  assert.equal(revenue.status, 200, revenue.text);
+  assert.ok(revenue.text.includes("Tổng,"));
+  assert.equal((await get("/api/dashboard/statistics/revenue/export", doctorCookie)).status, 403);
+
+  // Kho thuốc: chỉ dược sĩ; tên thuốc dạng công thức bị chặn.
+  await prisma.medicine.create({
+    data: { code: "EXP-001", name: '=HYPERLINK("http://evil.example","Bam vao")', unit: "vien", stockQuantity: 3, minStock: 10 },
+  });
+  const inventory = await get("/api/dashboard/pharmacy/medicines/export", pharmacistCookie);
+  assert.equal(inventory.status, 200, inventory.text);
+  assert.ok(inventory.text.includes("EXP-001"));
+  assert.ok(inventory.text.includes(`'=HYPERLINK`));
+  assert.ok(!/(^|,)=HYPERLINK/m.test(inventory.text));
+  assert.ok(inventory.text.includes("Có")); // dưới mức tối thiểu (3 < 10)
+  assert.equal((await get("/api/dashboard/pharmacy/medicines/export", adminCookie)).status, 403);
+  assert.equal((await get("/api/dashboard/pharmacy/movements/export", pharmacistCookie)).status, 200);
+  assert.equal(
+    (await get("/api/dashboard/pharmacy/movements/export?medicineId=khong-hop-le", pharmacistCookie)).status,
+    400,
+  );
+
+  // Nhật ký truy cập: chỉ quản trị; mọi lần xuất đều để lại dấu vết (không ghi nội dung).
+  assert.equal((await get("/api/dashboard/audit-logs/export", staffCookie)).status, 403);
+  const audit = await get("/api/dashboard/audit-logs/export", adminCookie);
+  assert.equal(audit.status, 200, audit.text);
+  assert.ok(audit.text.includes("DATA_EXPORTED"));
+
+  const exported = await prisma.auditLog.findMany({
+    where: { action: "DATA_EXPORTED" },
+    orderBy: { createdAt: "asc" },
+  });
+  // Giữ lần xuất đầu tiên của mỗi loại (hóa đơn được xuất nhiều lần với bộ lọc khác nhau).
+  const byTarget: Record<string, (typeof exported)[number]> = {};
+  for (const row of exported) byTarget[row.targetType ?? ""] ??= row;
+  assert.ok(byTarget.INVOICES && byTarget.REVENUE_REPORT && byTarget.MEDICINE_INVENTORY && byTarget.AUDIT_LOGS);
+  assert.equal((byTarget.INVOICES.meta as { rows: number }).rows, 1);
+  assert.equal(byTarget.INVOICES.actorRole, "ADMIN");
+  assert.ok(!JSON.stringify(exported.map((row) => row.meta)).includes(appointment.patientPhone));
+});

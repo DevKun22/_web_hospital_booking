@@ -209,3 +209,34 @@ export async function uploadMedicalFile(file: File) {
   }
   return payload.data.item;
 }
+
+// Tải một báo cáo CSV từ backend (cookie dashboard đi kèm) rồi lưu thành tệp trên máy.
+export async function downloadCsv(
+  path: string,
+  query: Record<string, string | undefined>,
+  fallbackName: string,
+) {
+  const response = await fetch(buildUrl(path, query), {
+    credentials: "include",
+    headers: { Accept: "text/csv", [DASHBOARD_REQUEST_HEADER]: "1" },
+  });
+
+  if (!response.ok) {
+    const payload = (await response.json().catch(() => null)) as { message?: string } | null;
+    if (response.status === 401 && isDashboardRoute()) {
+      notifyAuthExpired();
+    }
+    throw new ApiError(payload?.message || "Không xuất được báo cáo", response.status);
+  }
+
+  const disposition = response.headers.get("content-disposition") || "";
+  const fileName = disposition.match(/filename="?([^";]+)/i)?.[1] || fallbackName;
+  const url = URL.createObjectURL(await response.blob());
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = fileName;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
