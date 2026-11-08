@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:hospital_booking_mobile/core/errors/swallowed_error.dart';
 import 'package:hospital_booking_mobile/core/formatters/display_formatters.dart';
 import 'package:hospital_booking_mobile/core/widgets/app_ui.dart';
 import 'package:hospital_booking_mobile/features/home/data/home_search_history_store.dart';
@@ -121,7 +122,8 @@ class _HomeSearchSheetState extends State<_HomeSearchSheet> {
     try {
       final items = await widget.historyStore.read();
       if (mounted) setState(() => _recent = items);
-    } catch (_) {
+    } catch (error) {
+      logSwallowedError('home_search_sheet', error);
       // Search remains fully usable when local preferences are unavailable.
     }
   }
@@ -129,7 +131,8 @@ class _HomeSearchSheetState extends State<_HomeSearchSheet> {
   Future<void> _select(_HomeSearchResult item) async {
     try {
       await widget.historyStore.remember(item.toHistoryEntry());
-    } catch (_) {
+    } catch (error) {
+      logSwallowedError('home_search_sheet', error);
       // Local history is optional and must never block navigation.
     }
     if (mounted) widget.onSelected(item.location);
@@ -138,7 +141,8 @@ class _HomeSearchSheetState extends State<_HomeSearchSheet> {
   Future<void> _clearRecent() async {
     try {
       await widget.historyStore.clear();
-    } catch (_) {
+    } catch (error) {
+      logSwallowedError('home_search_sheet', error);
       // Still clear the in-memory view for the current search session.
     }
     if (mounted) setState(() => _recent = const []);

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hospital_booking_mobile/core/errors/api_exception.dart';
+import 'package:hospital_booking_mobile/core/errors/swallowed_error.dart';
 import 'package:hospital_booking_mobile/core/providers/app_providers.dart';
 import 'package:hospital_booking_mobile/features/home/data/home_content_cache.dart';
 import 'package:hospital_booking_mobile/features/home/data/home_repository.dart';
@@ -56,7 +57,8 @@ class HomeContentController extends Notifier<HomeContentState> {
     HomeContent? cached;
     try {
       cached = await repository.readCached();
-    } catch (_) {
+    } catch (error) {
+      logSwallowedError('home_content_controller', error);
       // A damaged or unavailable local cache must never block fresh content.
     }
     if (requestVersion != _requestVersion) return;

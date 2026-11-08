@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:hospital_booking_mobile/core/errors/swallowed_error.dart';
 import 'package:hospital_booking_mobile/features/appointments/application/appointment_preparation_controller.dart';
 import 'package:hospital_booking_mobile/features/appointments/domain/appointment_preparation.dart';
 import 'package:hospital_booking_mobile/features/appointments/domain/patient_appointment.dart';
@@ -66,7 +67,8 @@ class _AppointmentPreparationCardState
         _completed = values.intersection(allowedIds);
         _isLoading = false;
       });
-    } catch (_) {
+    } catch (error) {
+      logSwallowedError('appointment_preparation_card', error);
       if (!mounted) return;
       setState(() => _isLoading = false);
     }
@@ -92,7 +94,8 @@ class _AppointmentPreparationCardState
             completedItemIds: _completed,
           );
       if (mounted) setState(() => _isSaving = false);
-    } catch (_) {
+    } catch (error) {
+      logSwallowedError('appointment_preparation_card', error);
       if (!mounted) return;
       setState(() {
         _completed = previous;

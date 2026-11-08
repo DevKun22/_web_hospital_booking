@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hospital_booking_mobile/core/errors/api_exception.dart';
+import 'package:hospital_booking_mobile/core/errors/swallowed_error.dart';
 import 'package:hospital_booking_mobile/core/providers/app_providers.dart';
 import 'package:hospital_booking_mobile/features/booking/data/booking_catalog_repository.dart';
 import 'package:hospital_booking_mobile/features/booking/data/booking_selection_store.dart';
@@ -103,7 +104,8 @@ class BookingFlowController extends Notifier<BookingFlowState> {
     BookingSelection stored = const BookingSelection();
     try {
       stored = await ref.read(bookingSelectionStoreProvider).read() ?? stored;
-    } catch (_) {
+    } catch (error) {
+      logSwallowedError('booking_flow_controller', error);
       // Local persistence must not prevent loading the live catalog.
     }
 
@@ -386,7 +388,8 @@ class BookingFlowController extends Notifier<BookingFlowState> {
     );
     try {
       await ref.read(bookingSelectionStoreProvider).clear();
-    } catch (_) {
+    } catch (error) {
+      logSwallowedError('booking_flow_controller', error);
       // The in-memory reset remains authoritative for the current session.
     }
   }
@@ -500,7 +503,8 @@ class BookingFlowController extends Notifier<BookingFlowState> {
   Future<void> _persist(BookingSelection selection) async {
     try {
       await ref.read(bookingSelectionStoreProvider).write(selection);
-    } catch (_) {
+    } catch (error) {
+      logSwallowedError('booking_flow_controller', error);
       // A storage failure does not invalidate a live, server-verified choice.
     }
   }

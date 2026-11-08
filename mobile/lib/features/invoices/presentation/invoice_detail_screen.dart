@@ -2,8 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:hospital_booking_mobile/features/invoices/presentation/invoice_status_visuals.dart';
 import 'package:hospital_booking_mobile/core/errors/api_exception.dart';
+import 'package:hospital_booking_mobile/core/errors/swallowed_error.dart';
 import 'package:hospital_booking_mobile/core/formatters/display_formatters.dart';
 import 'package:hospital_booking_mobile/core/widgets/app_error_banner.dart';
 import 'package:hospital_booking_mobile/core/widgets/app_ui.dart';
@@ -11,6 +11,7 @@ import 'package:hospital_booking_mobile/features/invoices/application/invoices_c
 import 'package:hospital_booking_mobile/features/invoices/application/patient_payment_controller.dart';
 import 'package:hospital_booking_mobile/features/invoices/domain/patient_invoice.dart';
 import 'package:hospital_booking_mobile/features/invoices/domain/patient_payment.dart';
+import 'package:hospital_booking_mobile/features/invoices/presentation/invoice_status_visuals.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:uuid/uuid.dart';
 
@@ -426,7 +427,8 @@ class _OnlinePaymentCardState extends ConsumerState<_OnlinePaymentCard>
     } on ApiException catch (error) {
       if (!mounted) return;
       setState(() => _errorMessage = error.message);
-    } catch (_) {
+    } catch (error) {
+      logSwallowedError('invoice_detail_screen', error);
       if (!mounted) return;
       setState(
         () => _errorMessage =

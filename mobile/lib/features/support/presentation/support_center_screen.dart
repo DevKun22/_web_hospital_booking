@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hospital_booking_mobile/app/navigation/booking_navigation.dart';
+import 'package:hospital_booking_mobile/core/errors/swallowed_error.dart';
 import 'package:hospital_booking_mobile/core/theme/app_theme.dart';
 import 'package:hospital_booking_mobile/core/widgets/app_error_banner.dart';
 import 'package:hospital_booking_mobile/core/widgets/app_ui.dart';
@@ -98,7 +99,8 @@ class SupportCenterScreen extends ConsumerWidget {
       opened = await ref
           .read(hospitalLocationLauncherProvider)
           .openLocation(mapUrl: mapUrl, address: address);
-    } catch (_) {
+    } catch (error) {
+      logSwallowedError('support_center_screen', error);
       opened = false;
     }
     if (!context.mounted || opened) return;
@@ -149,7 +151,8 @@ class SupportCenterScreen extends ConsumerWidget {
       opened = await ref
           .read(supportActionLauncherProvider)
           .openPhoneDialer(phoneNumber);
-    } catch (_) {
+    } catch (error) {
+      logSwallowedError('support_center_screen', error);
       opened = false;
     }
     if (!context.mounted || opened) return;
