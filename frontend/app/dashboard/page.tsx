@@ -22,6 +22,7 @@ import {
 } from "recharts";
 import { VietnamDateInput } from "@/components/ui/vietnam-date-input";
 import { DashboardPageHeader, DashboardSurface } from "@/components/dashboard/dashboard-ui";
+import { ExportCsvButton } from "@/components/dashboard/export-csv-button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -554,8 +555,13 @@ function DashboardPage() {
 
       <section className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_420px]">
         <div className="rounded-md border border-[#dce3ee] bg-white p-5">
-          <h3 className="font-semibold">Doanh thu theo ngày</h3>
-          <p className="mt-1 text-sm text-[#667892]">Đã thu, hoàn tiền và doanh thu thuần.</p>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h3 className="font-semibold">Doanh thu theo ngày</h3>
+              <p className="mt-1 text-sm text-[#667892]">Đã thu, hoàn tiền và doanh thu thuần.</p>
+            </div>
+            {canViewStats ? <ExportCsvButton path="/dashboard/statistics/revenue/export" fallbackName="doanh-thu.csv" /> : null}
+          </div>
           <div className="mt-4 h-72">
             {hasRevenueTrend ? (
               <ResponsiveContainer

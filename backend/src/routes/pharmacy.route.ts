@@ -11,6 +11,10 @@ import {
   receiveStockHandler,
   updateMedicineHandler,
 } from "../controllers/pharmacy.controller.js";
+import {
+  exportInventoryHandler,
+  exportMovementsHandler,
+} from "../controllers/dataExport.controller.js";
 import { authDashboard, requirePermission } from "../middlewares/auth.middleware.js";
 import { validate } from "../middlewares/validate.middleware.js";
 import {
@@ -37,6 +41,9 @@ router.post(
 
 // Danh mục thuốc
 router.get("/medicines", requirePermission("pharmacy.view"), listMedicinesHandler);
+// Xuất báo cáo: đứng trước "/medicines/:id".
+router.get("/medicines/export", requirePermission("pharmacy.view"), exportInventoryHandler);
+router.get("/movements/export", requirePermission("pharmacy.view"), exportMovementsHandler);
 router.post(
   "/medicines",
   requirePermission("pharmacy.catalog"),

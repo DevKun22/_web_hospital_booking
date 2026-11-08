@@ -9,6 +9,7 @@ import {
   refundInvoiceViaVnpayHandler,
   updateInvoiceHandler,
 } from "../controllers/invoice.controller.js";
+import { exportInvoicesHandler } from "../controllers/dataExport.controller.js";
 import { authDashboard, requirePermission } from "../middlewares/auth.middleware.js";
 import { validate } from "../middlewares/validate.middleware.js";
 import {
@@ -24,6 +25,8 @@ const router = Router();
 router.use(authDashboard);
 
 router.get("/", requirePermission("invoice.view"), listInvoicesHandler);
+// Phải đứng trước "/:id" để "export" không bị hiểu là mã hóa đơn.
+router.get("/export", requirePermission("invoice.view"), exportInvoicesHandler);
 router.post(
   "/appointments/:appointmentId",
   requirePermission("invoice.manage"),

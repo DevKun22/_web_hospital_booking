@@ -9,6 +9,7 @@ import {
   DashboardPageHeader,
   DashboardSurface,
 } from "@/components/dashboard/dashboard-ui";
+import { ExportCsvButton } from "@/components/dashboard/export-csv-button";
 import { apiRequest } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { formatVietnamDateTime } from "@/lib/date";
@@ -140,14 +141,18 @@ export default function MedicinesPage() {
         title="Kho thuốc"
         description="Danh mục và tồn kho. Tồn chỉ thay đổi qua phiếu nhập, cấp thuốc theo đơn hoặc điều chỉnh có lý do; sổ kho không sửa hay xóa."
         actions={
-          <button
-            type="button"
-            onClick={() => void listQuery.refetch()}
-            className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-4 text-sm font-semibold hover:bg-[var(--surface-soft)]"
-          >
-            <RefreshCw className={`h-4 w-4 ${listQuery.isFetching ? "animate-spin" : ""}`} />
-            Làm mới
-          </button>
+          <div className="flex flex-wrap items-start gap-3">
+            <ExportCsvButton path="/dashboard/pharmacy/medicines/export" fallbackName="ton-kho-thuoc.csv" ranged={false} label="Xuất tồn kho" />
+            <ExportCsvButton path="/dashboard/pharmacy/movements/export" fallbackName="so-kho-thuoc.csv" label="Xuất sổ kho" />
+            <button
+              type="button"
+              onClick={() => void listQuery.refetch()}
+              className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-4 text-sm font-semibold hover:bg-[var(--surface-soft)]"
+            >
+              <RefreshCw className={`h-4 w-4 ${listQuery.isFetching ? "animate-spin" : ""}`} />
+              Làm mới
+            </button>
+          </div>
         }
       />
 

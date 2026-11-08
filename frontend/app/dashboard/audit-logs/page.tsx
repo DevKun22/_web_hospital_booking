@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { RefreshCw } from "lucide-react";
 import { DashboardPageHeader, DashboardSurface } from "@/components/dashboard/dashboard-ui";
+import { ExportCsvButton } from "@/components/dashboard/export-csv-button";
 import { Button } from "@/components/ui/button";
 import { apiRequest } from "@/lib/api";
 import type { Pagination } from "@/lib/types";
@@ -35,6 +36,7 @@ const actionLabels: Record<string, string> = {
   INVOICE_ADJUSTED: "Chỉnh số tiền hóa đơn",
   INVOICE_REFUNDED: "Hoàn tiền hóa đơn",
   INVOICE_REFUND_UNVERIFIED: "Hoàn tiền VNPay chưa xác nhận kết quả",
+  DATA_EXPORTED: "Xuất báo cáo CSV",
 };
 
 const formatTime = (value: string) =>
@@ -66,10 +68,17 @@ export default function AuditLogsPage() {
         title="Nhật ký truy cập"
         description="Ghi lại ai làm gì với dữ liệu nhạy cảm: đổi quyền, quản lý tài khoản, xem bệnh án và đơn thuốc, chỉnh giảm và hoàn tiền hóa đơn. Nhật ký chỉ thêm dòng, không sửa hay xóa được, và không chứa nội dung y tế."
         actions={
-          <Button variant="outline" onClick={() => void query.refetch()} disabled={query.isFetching}>
-            <RefreshCw className="size-4" aria-hidden="true" />
-            Tải lại
-          </Button>
+          <div className="flex flex-wrap items-start gap-3">
+            <ExportCsvButton
+              path="/dashboard/audit-logs/export"
+              fallbackName="nhat-ky-truy-cap.csv"
+              params={{ action: action || undefined }}
+            />
+            <Button variant="outline" onClick={() => void query.refetch()} disabled={query.isFetching}>
+              <RefreshCw className="size-4" aria-hidden="true" />
+              Tải lại
+            </Button>
+          </div>
         }
       />
 

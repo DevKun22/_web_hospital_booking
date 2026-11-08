@@ -1,6 +1,7 @@
 import { Router } from "express";
 import type { NextFunction, Request, Response } from "express";
 import { authDashboard, requirePermission } from "../middlewares/auth.middleware.js";
+import { exportAuditLogsHandler } from "../controllers/dataExport.controller.js";
 import AuditLogService from "../services/auditLog.service.js";
 
 const router = Router();
@@ -12,6 +13,8 @@ const date = (value: unknown) => {
   const parsed = typeof value === "string" ? new Date(value) : undefined;
   return parsed && !Number.isNaN(parsed.getTime()) ? parsed : undefined;
 };
+
+router.get("/export", exportAuditLogsHandler);
 
 router.get("/", async (req: Request, res: Response, next: NextFunction) => {
   try {
