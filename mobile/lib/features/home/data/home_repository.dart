@@ -1,7 +1,8 @@
 import 'package:dio/dio.dart';
-import 'package:hospital_booking_mobile/features/catalog/domain/catalog_entities.dart';
 import 'package:hospital_booking_mobile/core/errors/api_exception.dart';
+import 'package:hospital_booking_mobile/core/errors/swallowed_error.dart';
 import 'package:hospital_booking_mobile/core/network/api_contract.dart';
+import 'package:hospital_booking_mobile/features/catalog/domain/catalog_entities.dart';
 import 'package:hospital_booking_mobile/features/home/data/home_content_cache.dart';
 import 'package:hospital_booking_mobile/features/home/domain/home_content.dart';
 
@@ -42,7 +43,8 @@ class HomeRepository {
 
       try {
         await _cache.write(content);
-      } catch (_) {
+      } catch (error) {
+        logSwallowedError('home_repository', error);
         // Fresh server data remains usable even when device storage is full or
         // temporarily unavailable.
       }
@@ -51,7 +53,8 @@ class HomeRepository {
       return _fallbackOrThrow(ApiException.fromDio(error), fallback);
     } on ApiException catch (error) {
       return _fallbackOrThrow(error, fallback);
-    } catch (_) {
+    } catch (error) {
+      logSwallowedError('home_repository', error);
       return _fallbackOrThrow(
         const ApiException(
           kind: ApiErrorKind.unknown,

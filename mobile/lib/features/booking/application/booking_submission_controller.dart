@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hospital_booking_mobile/core/errors/api_exception.dart';
+import 'package:hospital_booking_mobile/core/errors/swallowed_error.dart';
 import 'package:hospital_booking_mobile/core/providers/app_providers.dart';
 import 'package:hospital_booking_mobile/features/booking/data/booking_submission_repository.dart';
 import 'package:hospital_booking_mobile/features/booking/data/pending_booking_store.dart';
@@ -256,7 +257,8 @@ class BookingSubmissionController extends Notifier<BookingSubmissionState> {
           pending: pending,
         );
       }
-    } catch (_) {
+    } catch (error) {
+      logSwallowedError('booking_submission_controller', error);
       state = const BookingSubmissionState.idle();
     } finally {
       final completer = _restoreCompleter;
@@ -267,7 +269,8 @@ class BookingSubmissionController extends Notifier<BookingSubmissionState> {
   Future<void> _savePendingSafely(PendingBooking pending) async {
     try {
       await ref.read(pendingBookingStoreProvider).write(pending);
-    } catch (_) {
+    } catch (error) {
+      logSwallowedError('booking_submission_controller', error);
       // The server result remains authoritative for the active app session.
     }
   }
@@ -275,7 +278,8 @@ class BookingSubmissionController extends Notifier<BookingSubmissionState> {
   Future<void> _clearPendingSafely() async {
     try {
       await ref.read(pendingBookingStoreProvider).clear();
-    } catch (_) {
+    } catch (error) {
+      logSwallowedError('booking_submission_controller', error);
       // The in-memory state must still advance after a storage failure.
     }
   }

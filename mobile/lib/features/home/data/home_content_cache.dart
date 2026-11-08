@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:hospital_booking_mobile/core/errors/swallowed_error.dart';
 import 'package:hospital_booking_mobile/features/home/domain/home_content.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -25,7 +26,8 @@ class SharedHomeContentCache implements HomeContentCache {
       return json is Map
           ? HomeContent.fromJson(Map<String, dynamic>.from(json))
           : null;
-    } catch (_) {
+    } catch (error) {
+      logSwallowedError('home_content_cache', error);
       return null;
     }
   }

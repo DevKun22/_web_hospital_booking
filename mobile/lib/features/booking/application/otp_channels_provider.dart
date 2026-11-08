@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:hospital_booking_mobile/core/errors/swallowed_error.dart';
 import 'package:hospital_booking_mobile/core/network/api_contract.dart';
 import 'package:hospital_booking_mobile/core/providers/app_providers.dart';
 import 'package:hospital_booking_mobile/features/booking/domain/booking_submission.dart';
@@ -20,7 +21,8 @@ final otpChannelsProvider = FutureProvider<List<BookingOtpChannel>>((
       if (channels.contains('SMS')) BookingOtpChannel.sms,
     ];
     return result.isEmpty ? const [BookingOtpChannel.email] : result;
-  } catch (_) {
+  } catch (error) {
+    logSwallowedError('otp_channels_provider', error);
     return const [BookingOtpChannel.email];
   }
 });

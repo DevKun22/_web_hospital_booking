@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:hospital_booking_mobile/core/errors/swallowed_error.dart';
 import 'package:hospital_booking_mobile/features/booking/domain/booking_catalog.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -25,7 +26,8 @@ class SharedBookingSelectionStore implements BookingSelectionStore {
       return json is Map
           ? BookingSelection.fromJson(Map<String, dynamic>.from(json))
           : null;
-    } catch (_) {
+    } catch (error) {
+      logSwallowedError('booking_selection_store', error);
       return null;
     }
   }

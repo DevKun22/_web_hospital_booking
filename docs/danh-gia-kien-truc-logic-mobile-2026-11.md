@@ -22,9 +22,9 @@ Kiến trúc nền tảng đúng hướng (Riverpod, phân lớp theo tính năn
 | 1 | Yêu cầu gọi lại sau khi làm mới phiên mà thất bại (404, 409, 422...) **treo vĩnh viễn** | Cao | Thí nghiệm: hết thời gian sau 5 giây | **Đã sửa** |
 | 2 | N yêu cầu cùng bị 401 gây **N lần làm mới** (mỗi lần xoay refresh token) | Trung bình | Thí nghiệm: 3 yêu cầu thành 3 lần làm mới | **Đã sửa** |
 | 3 | Lỗi thật của lần gọi lại bị **thay bằng 401 cũ** (`catch (_)`) | Trung bình | Đọc mã; test sau sửa đòi lỗi 404 gốc | **Đã sửa** |
-| 4 | Không có bắt lỗi toàn cục và không báo cáo sự cố; 40 chỗ `catch (_)` nuốt lỗi | Trung bình | Tìm kiếm mã: không có `FlutterError.onError` hay `PlatformDispatcher` | **Đã làm bộ bắt lỗi toàn cục tối thiểu**; còn rà `catch (_)` |
+| 4 | Không có bắt lỗi toàn cục và không báo cáo sự cố; 40 chỗ `catch (_)` nuốt lỗi | Trung bình | Tìm kiếm mã: không có `FlutterError.onError` hay `PlatformDispatcher` | **Đã làm bộ bắt lỗi toàn cục tối thiểu** và rà 38 chỗ `catch (_)`: giữ hành vi, thêm `logSwallowedError` (chỉ chế độ phát triển, chỉ ghi nơi phát sinh và loại lỗi) |
 | 5 | `core/` phụ thuộc ngược vào `features/` (3 tệp) | Trung bình | `session_refresh_coordinator`, `app_providers`, `patient_data_sync_coordinator` | **Đã sửa** |
-| 6 | Tệp trình bày quá lớn: 9 tệp trên 600 dòng, lớn nhất 2.010; trình bày chiếm 59% mã | Trung bình (bảo trì) | Đếm dòng | **Đã sửa một phần**: `home_screen` 2.010 → 259 dòng, `booking_start_screen` 1.088 → 331 dòng; CI cảnh báo tệp trên 800 dòng (còn `booking_patient_screen`, `appointment_detail_screen`) |
+| 6 | Tệp trình bày quá lớn: 9 tệp trên 600 dòng, lớn nhất 2.010; trình bày chiếm 59% mã | Trung bình (bảo trì) | Đếm dòng | **Đã sửa một phần**: `home_screen` 2.010 → 259 dòng, `booking_start_screen` 1.088 → 331 dòng; CI cảnh báo tệp trên 800 dòng ; `appointment_detail_screen` 865 → 189, `booking_patient_screen` 887 → 786, hiện không còn tệp nào trên 800 dòng |
 | 7 | Lớp `domain` phụ thuộc Flutter (`material.dart`) ở 4 tệp | Thấp | Tìm kiếm mã | **Đã sửa** |
 | 8 | Màn hình gọi thẳng lớp `data` (3 chỗ), bỏ qua `application` | Thấp | Tìm kiếm mã | **Đã sửa** phần tham chiếu kiểu (`PushPermissionStatus` sang domain); còn lại chỉ là kiểu dữ liệu, chấp nhận |
 | 9 | URL thanh toán chỉ kiểm tra `https`, không kiểm tra tên miền | Thấp | `invoice_detail_screen.dart` | Chấp nhận |
@@ -50,7 +50,7 @@ Lỗi bất đồng bộ không bắt được (ví dụ `unawaited(handleAppRes
 
 - **Đã làm:** `installGlobalErrorHandlers` (`mobile/lib/core/errors/global_error_handler.dart`, gắn ở `bootstrap`) chặn `FlutterError.onError` và `PlatformDispatcher.instance.onError`; chỉ ghi loại lỗi và nơi phát sinh, không ghi thông điệp lỗi nên không lộ dữ liệu cá nhân; lỗi bất đồng bộ không còn làm thoát ứng dụng ở bản phát hành. Có 2 test, trong đó kiểm tra thông điệp chứa số điện thoại không xuất hiện trong nhật ký.
 - **Phản biện về Crashlytics:** dự án đã có `firebase_core`, nên thêm báo cáo sự cố là dễ, nhưng đây là ứng dụng y tế: stack trace và thông điệp lỗi có thể chứa dữ liệu cá nhân. Nếu thêm phải tắt mặc định, lọc nội dung, và nêu trong chính sách quyền riêng tư. Với đồ án, bản nhật ký cục bộ là đủ; Crashlytics để sau.
-- **Rà `catch (_)`:** giữ những chỗ chủ ý (đăng xuất khi mất mạng), còn lại ít nhất ghi nhật ký lỗi ở chế độ phát triển.
+- **Rà `catch (_)`:** đã rà toàn bộ. Tất cả đều là bỏ qua có chủ ý (lưu cục bộ hỏng, nền tảng không hỗ trợ, tác vụ phụ như đánh dấu đã đọc), nên giữ nguyên hành vi và chỉ thêm `logSwallowedError` (`core/errors/swallowed_error.dart`) để lỗi bị nuốt còn dấu vết khi gỡ lỗi. Còn đúng một chỗ không ghi: nhánh làm mới phiên thất bại trong `dio_factory`, vì lỗi đó đã được `SessionRefreshCoordinator` xử lý và trả 401 gốc.
 
 ### 3.3 Phụ thuộc ngược (phát hiện 5): đã sửa
 
@@ -86,7 +86,7 @@ Phản biện: đây là refactor thuần, không đổi hành vi; rủi ro th�
 | 1 | Bộ chặn 401 và test | Xong | PR riêng |
 | 2 | Bắt lỗi toàn cục tối thiểu | Xong | Không thêm thư viện |
 | 3 | Gỡ phụ thuộc ngược `core` sang `features` | Xong | Có test ranh giới |
-| 4 | Cảnh báo tệp lớn trong CI, tách `home_screen` dần | Đã làm `home_screen`, `booking_start_screen`, cảnh báo CI | Còn 2 tệp trên 800 dòng |
+| 4 | Cảnh báo tệp lớn trong CI, tách `home_screen` dần | Xong: không còn tệp trên 800 dòng, CI cảnh báo khi vượt | Màn hình 600 đến 800 dòng tách dần khi đụng tới |
 | 5 | Làm mới token chủ động trước khi hết hạn | Nhỏ | Chỉ khi đo thấy vòng 401 gây chậm |
 
 ## 5. Tái phân bổ cấu trúc (đợt 2)

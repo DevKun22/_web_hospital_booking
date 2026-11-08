@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:hospital_booking_mobile/core/config/app_config.dart';
+import 'package:hospital_booking_mobile/core/errors/swallowed_error.dart';
 import 'package:hospital_booking_mobile/core/network/access_token_store.dart';
 import 'package:hospital_booking_mobile/core/network/session_refresh_coordinator.dart';
 
@@ -99,7 +100,8 @@ Dio createAuthenticatedDio({
         } on DioException catch (retryError) {
           // Giữ nguyên lỗi thật của lần gọi lại (404, 409, 422, ...), không che bằng 401 cũ.
           handler.reject(retryError);
-        } catch (_) {
+        } catch (retryError) {
+          logSwallowedError('dio_retry', retryError);
           handler.next(error);
         }
       },

@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:hospital_booking_mobile/core/errors/swallowed_error.dart';
 import 'package:hospital_booking_mobile/core/providers/app_providers.dart';
 import 'package:hospital_booking_mobile/features/auth/application/auth_controller.dart';
 import 'package:local_auth/local_auth.dart';
@@ -87,7 +88,8 @@ class AppLockController extends Notifier<AppLockState> {
     var enabled = false;
     try {
       enabled = await ref.read(appPreferencesProvider).isAppLockEnabled();
-    } catch (_) {
+    } catch (error) {
+      logSwallowedError('app_lock_controller', error);
       // Unit/widget tests and unsupported embedders may not register the
       // SharedPreferences platform. The secure default is app-lock disabled.
     }
@@ -99,7 +101,8 @@ class AppLockController extends Notifier<AppLockState> {
         supported = await ref
             .read(localAuthenticationGatewayProvider)
             .isSupported();
-      } catch (_) {
+      } catch (error) {
+        logSwallowedError('app_lock_controller', error);
         supported = false;
       }
     }
@@ -122,7 +125,8 @@ class AppLockController extends Notifier<AppLockState> {
         supported = await ref
             .read(localAuthenticationGatewayProvider)
             .isSupported();
-      } catch (_) {
+      } catch (error) {
+        logSwallowedError('app_lock_controller', error);
         supported = false;
       }
       if (!supported) {
@@ -192,7 +196,8 @@ class AppLockController extends Notifier<AppLockState> {
   Future<bool> _authenticate() async {
     try {
       return await ref.read(localAuthenticationGatewayProvider).authenticate();
-    } catch (_) {
+    } catch (error) {
+      logSwallowedError('app_lock_controller', error);
       return false;
     }
   }

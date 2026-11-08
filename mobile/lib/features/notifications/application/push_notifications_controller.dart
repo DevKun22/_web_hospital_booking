@@ -2,14 +2,15 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:hospital_booking_mobile/features/notifications/domain/push_permission_status.dart';
-import 'package:hospital_booking_mobile/core/providers/app_providers.dart';
 import 'package:hospital_booking_mobile/app/sync/patient_data_sync_coordinator.dart';
+import 'package:hospital_booking_mobile/core/errors/swallowed_error.dart';
+import 'package:hospital_booking_mobile/core/providers/app_providers.dart';
 import 'package:hospital_booking_mobile/features/auth/application/auth_controller.dart';
 import 'package:hospital_booking_mobile/features/notifications/application/notifications_controller.dart';
 import 'package:hospital_booking_mobile/features/notifications/data/push_messaging_gateway.dart';
 import 'package:hospital_booking_mobile/features/notifications/data/push_registration_repository.dart';
 import 'package:hospital_booking_mobile/features/notifications/domain/push_message.dart';
+import 'package:hospital_booking_mobile/features/notifications/domain/push_permission_status.dart';
 
 final pushRegistrationRepositoryProvider = Provider<PushRegistrationRepository>(
   (ref) => PushRegistrationRepository(ref.watch(authenticatedDioProvider)),
@@ -128,7 +129,8 @@ class PushNotificationsController extends Notifier<PushNotificationsState> {
       if (generation != _generation || initialMessage == null) return;
       unawaited(_synchronizeMessage(initialMessage));
       _openMessage(initialMessage);
-    } catch (_) {
+    } catch (error) {
+      logSwallowedError('push_notifications_controller', error);
       if (generation != _generation) return;
       state = state.copyWith(
         isCheckingPermission: false,
@@ -186,7 +188,8 @@ class PushNotificationsController extends Notifier<PushNotificationsState> {
       if (!state.isAllowed) return false;
       await _registerCurrentToken(generation);
       return state.isTokenRegistered;
-    } catch (_) {
+    } catch (error) {
+      logSwallowedError('push_notifications_controller', error);
       if (generation != _generation) return false;
       state = state.copyWith(
         isRequestingPermission: false,
@@ -212,7 +215,8 @@ class PushNotificationsController extends Notifier<PushNotificationsState> {
       if (_patientId != null && state.isAllowed && !state.isTokenRegistered) {
         await _registerCurrentToken(generation);
       }
-    } catch (_) {
+    } catch (error) {
+      logSwallowedError('push_notifications_controller', error);
       if (generation != _generation) return;
       state = state.copyWith(
         isCheckingPermission: false,
@@ -263,7 +267,8 @@ class PushNotificationsController extends Notifier<PushNotificationsState> {
         return;
       }
       await _registerToken(token, generation);
-    } catch (_) {
+    } catch (error) {
+      logSwallowedError('push_notifications_controller', error);
       if (generation != _generation) return;
       state = state.copyWith(
         isRegisteringToken: false,
@@ -287,7 +292,8 @@ class PushNotificationsController extends Notifier<PushNotificationsState> {
         isTokenRegistered: true,
         clearError: true,
       );
-    } catch (_) {
+    } catch (error) {
+      logSwallowedError('push_notifications_controller', error);
       if (generation != _generation) return;
       state = state.copyWith(
         isRegisteringToken: false,
@@ -322,7 +328,8 @@ class PushNotificationsController extends Notifier<PushNotificationsState> {
     try {
       await ref.read(notificationsRepositoryProvider).markRead(notificationId);
       await ref.read(notificationsControllerProvider.notifier).refresh();
-    } catch (_) {
+    } catch (error) {
+      logSwallowedError('push_notifications_controller', error);
       // Đánh dấu đã đọc là best-effort; không được chặn điều hướng từ push.
     }
   }

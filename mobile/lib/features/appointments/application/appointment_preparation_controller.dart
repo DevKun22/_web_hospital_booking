@@ -1,11 +1,13 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:hospital_booking_mobile/core/errors/swallowed_error.dart';
 import 'package:hospital_booking_mobile/features/appointments/data/appointment_preparation_store.dart';
 
 final appointmentPreparationStoreProvider =
     Provider<AppointmentPreparationStore>((ref) {
       try {
         return SharedAppointmentPreparationStore();
-      } catch (_) {
+      } catch (error) {
+        logSwallowedError('appointment_preparation_controller', error);
         return MemoryAppointmentPreparationStore();
       }
     });

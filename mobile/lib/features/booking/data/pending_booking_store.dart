@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:hospital_booking_mobile/core/errors/swallowed_error.dart';
 import 'package:hospital_booking_mobile/features/booking/domain/booking_submission.dart';
 
 abstract interface class PendingBookingStore {
@@ -25,7 +26,8 @@ class SecurePendingBookingStore implements PendingBookingStore {
       return json is Map
           ? PendingBooking.fromJson(Map<String, dynamic>.from(json))
           : null;
-    } catch (_) {
+    } catch (error) {
+      logSwallowedError('pending_booking_store', error);
       return null;
     }
   }

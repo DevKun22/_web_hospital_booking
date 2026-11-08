@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hospital_booking_mobile/core/errors/api_exception.dart';
+import 'package:hospital_booking_mobile/core/errors/swallowed_error.dart';
 import 'package:hospital_booking_mobile/core/providers/app_providers.dart';
 import 'package:hospital_booking_mobile/features/auth/application/auth_providers.dart';
 import 'package:hospital_booking_mobile/features/auth/application/auth_state.dart';
@@ -131,7 +132,8 @@ class AuthController extends Notifier<AuthState> {
       await ref.read(authRepositoryProvider).logout();
       try {
         await ref.read(pushMessagingGatewayProvider).deleteToken();
-      } catch (_) {
+      } catch (error) {
+        logSwallowedError('auth_controller', error);
         // Logout remains successful when Firebase is temporarily unavailable.
       }
       state = const AuthState.loggedOut();

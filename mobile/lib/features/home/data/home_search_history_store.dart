@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:hospital_booking_mobile/core/errors/swallowed_error.dart';
 import 'package:hospital_booking_mobile/features/home/domain/home_search_history_entry.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -50,7 +51,8 @@ class SharedHomeSearchHistoryStore implements HomeSearchHistoryStore {
       final json = jsonDecode(value);
       if (json is! Map) return null;
       return HomeSearchHistoryEntry.fromJson(Map<String, dynamic>.from(json));
-    } catch (_) {
+    } catch (error) {
+      logSwallowedError('home_search_history_store', error);
       return null;
     }
   }
