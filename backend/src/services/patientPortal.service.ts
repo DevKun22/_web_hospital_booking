@@ -5,7 +5,7 @@ import { AppError } from "../utils/appError.js";
 import { paginationMeta } from "../utils/pagination.js";
 import { parseDateOnly } from "../utils/time.js";
 import PatientAppointmentReadRepository from "../repositories/patientAppointmentRead.repository.js";
-import AppointmentService from "./appointment.service.js";
+import AppointmentService, { HEALTH_CONSENT_VERSION } from "./appointment.service.js";
 
 const medicalRecordSelect = {
   id: true,
@@ -192,6 +192,8 @@ class PatientPortalService {
             medicalHistory: true,
             familyHistory: true,
             bloodPressure: true,
+            healthConsentAt: true,
+            healthConsentVersion: true,
           },
         },
       },
@@ -243,6 +245,12 @@ class PatientPortalService {
       bloodPressure: input.bloodPressure as string | null | undefined,
     };
 
+    // Dị ứng, tiền sử bệnh và tiền sử gia đình là dữ liệu sức khỏe: nội dung MỚI hoặc THAY ĐỔI
+    // chỉ được lưu khi người dùng đồng ý rõ ràng. Giữ nguyên nội dung đã có (app cũ gửi lại cả
+    // hồ sơ mỗi lần lưu), xóa nội dung, hoặc hồ sơ đã có bản ghi đồng ý đúng phiên bản hiện hành
+    // thì không đòi lại.
+    const healthFields = ["allergies", "medicalHistory", "familyHistory"] as const;
+
     try {
       await prisma.$transaction(async (tx) => {
         const user = await tx.user.findFirst({
@@ -251,11 +259,41 @@ class PatientPortalService {
         });
         if (!user) throw new AppError("Không tìm thấy hồ sơ người khám", 404);
 
+        const existing = await tx.patientProfile.findUnique({
+          where: { userId: patientId },
+          select: {
+            allergies: true,
+            medicalHistory: true,
+            familyHistory: true,
+            healthConsentVersion: true,
+          },
+        });
+        const sentText = (field: (typeof healthFields)[number]) => {
+          const value = input[field];
+          return typeof value === "string" ? value.trim() : "";
+        };
+        const sendsHealthData = healthFields.some((field) => sentText(field) !== "");
+        const changesHealthData = healthFields.some(
+          (field) => sentText(field) !== "" && sentText(field) !== (existing?.[field] ?? "").trim(),
+        );
+        const consentedBefore = existing?.healthConsentVersion === HEALTH_CONSENT_VERSION;
+        if (changesHealthData && input.healthConsent !== true && !consentedBefore) {
+          throw new AppError(
+            "Cần đồng ý cho phép bệnh viện lưu thông tin sức khỏe trước khi cập nhật hồ sơ",
+            400,
+            "HEALTH_CONSENT_REQUIRED",
+          );
+        }
+        const consentData =
+          sendsHealthData && input.healthConsent === true
+            ? { healthConsentAt: new Date(), healthConsentVersion: HEALTH_CONSENT_VERSION }
+            : undefined;
+
         await tx.user.update({ where: { id: patientId }, data: userData });
         await tx.patientProfile.upsert({
           where: { userId: patientId },
-          update: profileData,
-          create: { userId: patientId, ...profileData },
+          update: { ...profileData, ...consentData },
+          create: { userId: patientId, ...profileData, ...consentData },
         });
       });
     } catch (error) {

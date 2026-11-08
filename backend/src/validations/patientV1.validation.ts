@@ -57,6 +57,8 @@ export const patientProfileUpdateSchema = z
     medicalHistory: z.string().trim().max(5000).nullable().optional(),
     familyHistory: z.string().trim().max(5000).nullable().optional(),
     bloodPressure: z.string().trim().max(40).nullable().optional(),
+    // Cần true khi gửi nội dung dị ứng, tiền sử bệnh hoặc tiền sử gia đình lần đầu.
+    healthConsent: z.boolean().optional(),
   })
   .refine((value) => Object.keys(value).length > 0, {
     message: "Cần ít nhất một trường để cập nhật",
