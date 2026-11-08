@@ -188,3 +188,26 @@ export const refundInvoiceHandler = async (
     next(error);
   }
 };
+
+export const refundInvoiceViaVnpayHandler = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const invoice = await InvoiceService.refundViaVnpay(
+      getParam(req.params.id),
+      req.body,
+      getActorId(req),
+      req.ip,
+    );
+
+    return res.json({
+      success: true,
+      message: "Đã gửi yêu cầu hoàn tiền tới VNPAY và ghi nhận vào hóa đơn",
+      data: invoice,
+    });
+  } catch (error) {
+    next(error);
+  }
+};

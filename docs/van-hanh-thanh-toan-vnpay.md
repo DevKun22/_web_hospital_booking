@@ -64,7 +64,20 @@ Khi cả Return URL và IPN đều lỡ (ví dụ máy chủ đang ngủ), hệ 
 - **Cấu hình:** `VNPAY_QUERY_URL` (mặc định sandbox `https://sandbox.vnpayment.vn/merchant_webapi/api/transaction`, production dùng địa chỉ do VNPay cấp). Trên Render cần thêm `payments` vào `INLINE_WORKERS`.
 - **An toàn:** lỗi mạng hoặc chữ ký phản hồi sai không làm đổi dữ liệu và không làm hỏng việc xem giao dịch; log chỉ ghi mã lỗi, không ghi khóa hay chữ ký.
 
+## Hoàn tiền qua API VNPay
+
+`POST /api/dashboard/invoices/:id/refund/vnpay` (quyền `invoice.refund`, body `{ refundReason }`) gửi yêu cầu hoàn toàn phần (`vnp_TransactionType=02`) tới VNPay rồi ghi nhận vào hóa đơn qua cùng hàm với hoàn tiền thủ công (`REFUNDED`, nhật ký, thông báo cho người khám). Trong dashboard là nút "Hoàn tự động qua VNPay" ở hộp thoại hoàn tiền của hóa đơn VNPay.
+
+Hoàn tiền không đảo ngược nên luồng được thiết kế để không bao giờ hoàn hai lần:
+
+- Mã yêu cầu (`Invoice.refundRequestId`, cũng là `vnp_RequestId`) được lưu và commit **trước** khi gọi VNPay, dưới khóa hàng của hóa đơn. Hóa đơn đã có mã này thì lần gọi sau bị chặn (`409 REFUND_PENDING_VERIFICATION`).
+- **VNPay từ chối rõ ràng** (phản hồi ký hợp lệ với mã 02, 03, 91, 94, 95, 97 hoặc trạng thái 09): mã yêu cầu được xóa, báo `422 VNPAY_REFUND_REJECTED`, có thể thử lại.
+- **Không xác minh được kết quả** (mất mạng, HTTP lỗi, phản hồi sai chữ ký, sai giao dịch, mã lạ như 99): giữ nguyên mã yêu cầu, báo `502 VNPAY_REFUND_UNVERIFIED`, tuyệt đối không tự thử lại vì tiền có thể đã được hoàn. Người vận hành kiểm tra trên cổng quản trị VNPay; nếu đã hoàn thì ghi nhận bằng hoàn tiền thủ công (`PATCH /:id/refund` kèm mã tham chiếu).
+- Yêu cầu dùng mã giao dịch VNPay (`vnp_TransactionNo`) và ngày tạo giao dịch gốc đã lưu lúc thanh toán; thiếu hoặc số tiền không khớp thì từ chối (`REFUND_NOT_AUTOMATABLE`).
+- Phản hồi hợp lệ (`00`) nghĩa là VNPay đã nhận yêu cầu; việc chuyển tiền về ngân hàng của khách do VNPay xử lý bất đồng bộ (trạng thái 05 đang xử lý, 06 đã gửi ngân hàng). Hệ thống coi hóa đơn đã hoàn từ lúc VNPay nhận yêu cầu, giống luồng thủ công trước đây.
+- Cùng endpoint và biến `VNPAY_QUERY_URL` với querydr; production dùng địa chỉ do VNPay cấp. Migration `20261108140000_add_invoice_vnpay_refund_attempt` chỉ thêm hai cột nullable.
+
 ## Giới hạn hiện tại
 
-- Chưa tích hợp API hoàn tiền của VNPay: hoàn tiền (`invoice.refund`) chỉ đánh dấu trong hệ thống và phải xử lý phía VNPay.
+- Hoàn tiền tự động chỉ hỗ trợ hoàn toàn phần, không hỗ trợ hoàn một phần.
 - Máy chủ gói free của Render ngủ sau 15 phút không có yêu cầu; lần gọi đầu có thể mất khoảng 50 giây, nên IPN đầu tiên có thể chậm.

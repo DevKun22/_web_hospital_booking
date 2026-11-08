@@ -1,3 +1,4 @@
+import { randomBytes } from "node:crypto";
 import { Prisma } from "../../generated/prisma/client.js";
 import type {
   InsuranceRouteType,
@@ -10,6 +11,7 @@ import {
   generateInvoiceBarcode,
   generateInvoiceCode,
 } from "../utils/invoiceCode.js";
+import { refundVnpayTransaction } from "./paymentProviders/index.js";
 import PatientEventNotificationService from "./patientEventNotification.service.js";
 
 type CreateInvoiceInput = {
@@ -767,6 +769,121 @@ class InvoiceService {
       });
       return tx.invoice.findUniqueOrThrow({ where: { id }, select: invoiceSelect });
     });
+  }
+
+  // Hoàn tiền toàn phần qua API VNPAY rồi ghi nhận vào hóa đơn. Hoàn tiền không đảo ngược
+  // được nên: (1) mã yêu cầu được lưu và commit TRƯỚC khi gọi VNPAY để một hóa đơn không
+  // bao giờ gửi hai yêu cầu; (2) chỉ xóa mã đó khi VNPAY từ chối rõ ràng bằng phản hồi đã
+  // xác thực chữ ký; (3) kết quả chưa xác nhận được giữ nguyên mã để người vận hành kiểm
+  // tra trên cổng VNPAY rồi ghi nhận thủ công bằng PATCH /:id/refund.
+  async refundViaVnpay(
+    id: string,
+    input: { refundReason: string },
+    actorId?: string,
+    ipAddress?: string,
+  ) {
+    const reason = input.refundReason.trim();
+    const attempt = await prisma.$transaction(async (tx) => {
+      await tx.$queryRaw(Prisma.sql`SELECT "id" FROM "Invoice" WHERE "id" = ${id} FOR UPDATE`);
+      const invoice = await tx.invoice.findUnique({
+        where: { id },
+        select: {
+          id: true,
+          status: true,
+          finalAmount: true,
+          paymentMethod: true,
+          refundRequestId: true,
+          paymentTransactions: {
+            where: { provider: "VNPAY", status: "SUCCESS" },
+            orderBy: { paidAt: "desc" },
+            take: 1,
+            select: {
+              transactionCode: true,
+              amount: true,
+              providerOrderId: true,
+              rawRequest: true,
+            },
+          },
+        },
+      });
+      if (!invoice) throw new AppError("Không tìm thấy hóa đơn", 404);
+      if (invoice.status !== "PAID" || invoice.paymentMethod !== "VNPAY") {
+        throw new AppError(
+          "Chỉ hoàn tiền qua VNPAY cho hóa đơn đã thanh toán bằng VNPAY",
+          409,
+          "INVOICE_STATE_CONFLICT",
+        );
+      }
+      if (invoice.refundRequestId) {
+        throw new AppError(
+          "Hóa đơn đã có yêu cầu hoàn tiền chưa xác nhận kết quả. Hãy kiểm tra trên cổng VNPAY rồi ghi nhận thủ công.",
+          409,
+          "REFUND_PENDING_VERIFICATION",
+        );
+      }
+      const payment = invoice.paymentTransactions[0];
+      const request = payment?.rawRequest as Record<string, unknown> | null | undefined;
+      const transactionDate =
+        typeof request?.vnp_CreateDate === "string" ? request.vnp_CreateDate : null;
+      if (
+        !payment?.providerOrderId ||
+        !transactionDate ||
+        payment.amount !== invoice.finalAmount ||
+        invoice.finalAmount <= 0
+      ) {
+        throw new AppError(
+          "Không đủ thông tin giao dịch VNPAY để hoàn tiền tự động",
+          409,
+          "REFUND_NOT_AUTOMATABLE",
+        );
+      }
+      const requestId = randomBytes(16).toString("hex");
+      await tx.invoice.update({
+        where: { id },
+        data: { refundRequestId: requestId, refundAttemptedAt: new Date() },
+      });
+      return {
+        requestId,
+        txnRef: payment.transactionCode,
+        amount: invoice.finalAmount,
+        transactionNo: payment.providerOrderId,
+        transactionDate,
+      };
+    });
+
+    // Kết quả không xác minh được thì refundVnpayTransaction ném lỗi: mã yêu cầu được giữ
+    // nguyên và không tự thử lại.
+    const result = await refundVnpayTransaction({
+      requestId: attempt.requestId,
+      txnRef: attempt.txnRef,
+      amount: attempt.amount,
+      transactionNo: attempt.transactionNo,
+      transactionDate: attempt.transactionDate,
+      createBy: actorId ?? "system",
+      reason,
+      ipAddress,
+    });
+
+    if (result.outcome === "REJECTED") {
+      await prisma.invoice.updateMany({
+        where: { id, refundRequestId: attempt.requestId },
+        data: { refundRequestId: null, refundAttemptedAt: null },
+      });
+      throw new AppError(
+        `${result.message} (mã ${result.responseCode})`,
+        422,
+        "VNPAY_REFUND_REJECTED",
+      );
+    }
+
+    return this.refund(
+      id,
+      {
+        refundReason: reason,
+        refundReference: result.refundTransactionNo ?? attempt.requestId,
+      },
+      actorId,
+    );
   }
 
   async refund(id: string, input: RefundInvoiceInput, actorId?: string) {

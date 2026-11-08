@@ -6,6 +6,7 @@ import {
   listInvoicesHandler,
   payInvoiceHandler,
   refundInvoiceHandler,
+  refundInvoiceViaVnpayHandler,
   updateInvoiceHandler,
 } from "../controllers/invoice.controller.js";
 import { authDashboard, requirePermission } from "../middlewares/auth.middleware.js";
@@ -14,6 +15,7 @@ import {
   createInvoiceSchema,
   payInvoiceSchema,
   refundInvoiceSchema,
+  refundInvoiceViaVnpaySchema,
   updateInvoiceSchema,
 } from "../validations/invoice.validation.js";
 
@@ -51,6 +53,13 @@ router.patch(
   requirePermission("invoice.refund"),
   validate(refundInvoiceSchema),
   refundInvoiceHandler,
+);
+
+router.post(
+  "/:id/refund/vnpay",
+  requirePermission("invoice.refund"),
+  validate(refundInvoiceViaVnpaySchema),
+  refundInvoiceViaVnpayHandler,
 );
 
 export default router;

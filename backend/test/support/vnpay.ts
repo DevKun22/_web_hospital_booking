@@ -105,3 +105,49 @@ export const buildVnpayQueryResponse = (input: {
     .digest("hex");
   return { ...data, vnp_SecureHash };
 };
+
+// Phản hồi API refund, ký đúng đặc tả; viết độc lập với provider.
+export const buildVnpayRefundResponse = (input: {
+  transactionCode: string;
+  amount: number;
+  responseCode?: string;
+  transactionStatus?: string;
+  secret?: string;
+}) => {
+  const data: Record<string, string> = {
+    vnp_ResponseId: "resp-refund",
+    vnp_Command: "refund",
+    vnp_ResponseCode: input.responseCode ?? "00",
+    vnp_Message: "Refund",
+    vnp_TmnCode: VNPAY_TEST_TMN_CODE,
+    vnp_TxnRef: input.transactionCode,
+    vnp_Amount: String(input.amount * 100),
+    vnp_BankCode: "NCB",
+    vnp_PayDate: "20261108130000",
+    vnp_TransactionNo: "16000001",
+    vnp_TransactionType: "02",
+    vnp_TransactionStatus: input.transactionStatus ?? "05",
+    vnp_OrderInfo: "Hoan tien",
+  };
+  const vnp_SecureHash = crypto
+    .createHmac("sha512", input.secret ?? VNPAY_TEST_HASH_SECRET)
+    .update(
+      [
+        data.vnp_ResponseId,
+        data.vnp_Command,
+        data.vnp_ResponseCode,
+        data.vnp_Message,
+        data.vnp_TmnCode,
+        data.vnp_TxnRef,
+        data.vnp_Amount,
+        data.vnp_BankCode,
+        data.vnp_PayDate,
+        data.vnp_TransactionNo,
+        data.vnp_TransactionType,
+        data.vnp_TransactionStatus,
+        data.vnp_OrderInfo,
+      ].join("|"),
+    )
+    .digest("hex");
+  return { ...data, vnp_SecureHash };
+};
