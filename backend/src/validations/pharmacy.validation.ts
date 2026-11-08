@@ -49,3 +49,8 @@ export const dispenseSchema = z.object({
     .max(100)
     .optional(),
 });
+
+export const importCsvSchema = z.object({
+  csv: z.string().min(1, "Tệp CSV trống").max(900_000, "Tệp CSV quá lớn"),
+  apply: z.boolean().optional(),
+});

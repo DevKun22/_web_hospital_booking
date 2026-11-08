@@ -1,5 +1,7 @@
 import type { NextFunction, Request, Response } from "express";
 import PharmacyService from "../services/pharmacy.service.js";
+import PharmacyImportService, { type ImportKind } from "../services/pharmacyImport.service.js";
+import { getClientIp } from "../utils/clientIp.js";
 import { AppError } from "../utils/appError.js";
 
 const param = (value: string | string[] | undefined) => {
@@ -126,3 +128,17 @@ export const dispensePrescriptionHandler = wrap(async (req, res) =>
     data: await PharmacyService.dispense(param(req.params.id), req.body, actorOf(req)),
   }),
 );
+
+const importHandler = (kind: ImportKind) =>
+  wrap(async (req, res) => {
+    const apply = req.body.apply === true;
+    const data = await PharmacyImportService.run(kind, req.body.csv, apply, actorOf(req), getClientIp(req));
+    return res.json({
+      success: true,
+      message: data.applied ? "Đã nhập dữ liệu" : "Đã kiểm tra tệp",
+      data,
+    });
+  });
+
+export const importCatalogHandler = importHandler("catalog");
+export const importReceiptsHandler = importHandler("receipts");

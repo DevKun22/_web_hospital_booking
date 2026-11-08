@@ -5,6 +5,8 @@ import {
   dispensePrescriptionHandler,
   getMedicineHandler,
   getPrescriptionHandler,
+  importCatalogHandler,
+  importReceiptsHandler,
   listMedicinesHandler,
   listMovementsHandler,
   listPrescriptionsHandler,
@@ -21,6 +23,7 @@ import {
   adjustStockSchema,
   createMedicineSchema,
   dispenseSchema,
+  importCsvSchema,
   receiveStockSchema,
   updateMedicineSchema,
 } from "../validations/pharmacy.validation.js";
@@ -56,6 +59,20 @@ router.patch(
   requirePermission("pharmacy.catalog"),
   validate(updateMedicineSchema),
   updateMedicineHandler,
+);
+
+// Nhập CSV: xem trước (apply=false) hoặc áp dụng (apply=true), hoặc đủ hoặc không.
+router.post(
+  "/import/catalog",
+  requirePermission("pharmacy.catalog"),
+  validate(importCsvSchema),
+  importCatalogHandler,
+);
+router.post(
+  "/import/receipts",
+  requirePermission("pharmacy.receive"),
+  validate(importCsvSchema),
+  importReceiptsHandler,
 );
 
 // Sổ kho

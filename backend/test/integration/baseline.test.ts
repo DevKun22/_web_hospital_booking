@@ -5278,3 +5278,84 @@ test("CSV exports are permission-gated, audited, free of patient identity and sa
   assert.equal(byTarget.INVOICES.actorRole, "ADMIN");
   assert.ok(!JSON.stringify(exported.map((row) => row.meta)).includes(appointment.patientPhone));
 });
+
+// ---- Nhập CSV kho thuốc ------------------------------------------------------------------
+test("pharmacy CSV import previews first, applies all-or-nothing and never overwrites stock", async () => {
+  const pharmacist = await createDashboardUser("PHARMACIST", "0900000411");
+  const cookie = await authCookie(pharmacist.id, "PHARMACIST");
+  const staff = await createDashboardUser("STAFF", "0900000412");
+  const staffCookie = await authCookie(staff.id, "STAFF");
+
+  const send = (kind: "catalog" | "receipts", csv: string, apply: boolean, who = cookie) =>
+    http.request(`/api/dashboard/pharmacy/import/${kind}`, {
+      method: "POST",
+      headers: dashboardHeaders(who),
+      body: { csv, apply },
+    });
+
+  await prisma.medicine.create({
+    data: { code: "IMP-OLD", name: "Thuốc cũ", unit: "viên", stockQuantity: 7, minStock: 2 },
+  });
+
+  // Danh mục: xem trước không ghi gì; có dòng lỗi thì không áp dụng dù apply=true.
+  const catalogCsv =
+    "\uFEFFMã thuốc,Tên thuốc,Đơn vị,Hàm lượng,Mức tối thiểu\r\n" +
+    "imp-new,Thuốc mới,viên,500mg,20\r\n" +
+    "IMP-OLD,Thuốc cũ đổi tên,,,\r\n";
+  const preview = await send("catalog", catalogCsv, false);
+  assert.equal(preview.status, 200, JSON.stringify(preview.body));
+  assert.equal(preview.body.data.applied, false);
+  assert.deepEqual(
+    [preview.body.data.summary.create, preview.body.data.summary.update, preview.body.data.summary.errors],
+    [1, 1, 0],
+  );
+  assert.equal(await prisma.medicine.count({ where: { code: "IMP-NEW" } }), 0);
+
+  const bad = await send("catalog", catalogCsv + "IMP-BAD,,,,abc\r\nimp-new,Lặp,viên,,\r\n", true);
+  assert.equal(bad.status, 200);
+  assert.equal(bad.body.data.applied, false);
+  assert.equal(bad.body.data.summary.errors, 2);
+  assert.equal(await prisma.medicine.count({ where: { code: "IMP-NEW" } }), 0);
+
+  const applied = await send("catalog", catalogCsv, true);
+  assert.equal(applied.body.data.applied, true);
+  const created = await prisma.medicine.findUniqueOrThrow({ where: { code: "IMP-NEW" } });
+  assert.equal(created.name, "Thuốc mới");
+  assert.equal(created.minStock, 20);
+  assert.equal(created.stockQuantity, 0);
+  const updated = await prisma.medicine.findUniqueOrThrow({ where: { code: "IMP-OLD" } });
+  assert.equal(updated.name, "Thuốc cũ đổi tên");
+  assert.equal(updated.minStock, 2); // ô trống giữ nguyên
+  assert.equal(updated.stockQuantity, 7); // tệp danh mục không bao giờ đổi tồn
+
+  // Nhập kho: đi qua sổ kho; một dòng sai thì không dòng nào được nhập.
+  const failing = await send("receipts", "Mã thuốc,Số lượng\nIMP-OLD,10\nKHONG-CO,5\n", true);
+  assert.equal(failing.body.data.applied, false);
+  assert.equal(failing.body.data.rows[1].errors.length, 1);
+  assert.equal((await prisma.medicine.findUniqueOrThrow({ where: { code: "IMP-OLD" } })).stockQuantity, 7);
+
+  const receipts = await send("receipts", "Mã thuốc;Số lượng;Lý do\nIMP-OLD;10;Phiếu 01\nIMP-NEW;4;\n", true);
+  assert.equal(receipts.status, 200, JSON.stringify(receipts.body));
+  assert.equal(receipts.body.data.applied, true);
+  assert.equal(receipts.body.data.summary.totalQuantity, 14);
+  assert.equal((await prisma.medicine.findUniqueOrThrow({ where: { code: "IMP-OLD" } })).stockQuantity, 17);
+  const movement = await prisma.stockMovement.findFirstOrThrow({
+    where: { medicine: { code: "IMP-OLD" }, type: "RECEIPT" },
+  });
+  assert.equal(movement.quantity, 10);
+  assert.equal(movement.balanceAfter, 17);
+  assert.equal(movement.reason, "Phiếu 01");
+
+  // Số âm, số thập phân và thuốc lặp trong tệp bị từ chối.
+  const invalid = await send("receipts", "Mã thuốc,Số lượng\nIMP-OLD,-3\nIMP-OLD,1.5\n", false);
+  assert.equal(invalid.body.data.summary.errors, 2);
+
+  // Phân quyền và dấu vết kiểm toán (không ghi nội dung tệp).
+  assert.equal((await send("catalog", catalogCsv, false, staffCookie)).status, 403);
+  assert.equal((await send("receipts", "Mã thuốc,Số lượng\nIMP-OLD,1\n", true, staffCookie)).status, 403);
+  assert.equal((await send("catalog", "Tên thuốc\nX\n", false)).status, 400);
+
+  const audits = await prisma.auditLog.findMany({ where: { action: "DATA_IMPORTED" }, orderBy: { createdAt: "asc" } });
+  assert.deepEqual(audits.map((row) => row.targetType), ["MEDICINE_CATALOG", "STOCK_RECEIPTS"]);
+  assert.equal((audits[1].meta as { totalQuantity: number }).totalQuantity, 14);
+});

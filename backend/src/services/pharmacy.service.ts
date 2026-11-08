@@ -250,7 +250,19 @@ class PharmacyService {
 
   // Cập nhật tồn có điều kiện (không bao giờ âm) rồi ghi một dòng sổ trong cùng
   // transaction; hai yêu cầu đồng thời không thể làm tồn lệch với sổ.
-  private async moveStock(
+  private moveStock(
+    medicineId: string,
+    delta: number,
+    type: "RECEIPT" | "ADJUSTMENT",
+    reason: string | null,
+    actor: Actor,
+  ) {
+    return prisma.$transaction((tx) => this.moveStockIn(tx, medicineId, delta, type, reason, actor));
+  }
+
+  // Dùng được trong transaction của nơi gọi (ví dụ nhập kho hàng loạt từ CSV: hoặc đủ hoặc không).
+  async moveStockIn(
+    tx: Prisma.TransactionClient,
     medicineId: string,
     delta: number,
     type: "RECEIPT" | "ADJUSTMENT",
@@ -264,47 +276,45 @@ class PharmacyService {
       throw new AppError("Số lượng nhập kho phải lớn hơn 0", 400, "INVALID_QUANTITY");
     }
 
-    return prisma.$transaction(async (tx) => {
-      const claimed = await tx.medicine.updateMany({
-        where: {
-          id: medicineId,
-          ...(delta < 0 ? { stockQuantity: { gte: -delta } } : {}),
-        },
-        data: { stockQuantity: { increment: delta } },
-      });
+    const claimed = await tx.medicine.updateMany({
+      where: {
+        id: medicineId,
+        ...(delta < 0 ? { stockQuantity: { gte: -delta } } : {}),
+      },
+      data: { stockQuantity: { increment: delta } },
+    });
 
-      if (claimed.count !== 1) {
-        const exists = await tx.medicine.findUnique({
-          where: { id: medicineId },
-          select: { stockQuantity: true },
-        });
-        if (!exists) throw new AppError("Không tìm thấy thuốc", 404);
-        throw new AppError(
-          `Tồn kho hiện là ${exists.stockQuantity}, không thể giảm ${-delta}`,
-          409,
-          "INSUFFICIENT_STOCK",
-        );
-      }
-
-      const { stockQuantity } = await tx.medicine.findUniqueOrThrow({
+    if (claimed.count !== 1) {
+      const exists = await tx.medicine.findUnique({
         where: { id: medicineId },
         select: { stockQuantity: true },
       });
-      await tx.stockMovement.create({
-        data: {
-          medicineId,
-          type,
-          quantity: delta,
-          balanceAfter: stockQuantity,
-          reason,
-          actorId: actor.userId,
-        },
-      });
+      if (!exists) throw new AppError("Không tìm thấy thuốc", 404);
+      throw new AppError(
+        `Tồn kho hiện là ${exists.stockQuantity}, không thể giảm ${-delta}`,
+        409,
+        "INSUFFICIENT_STOCK",
+      );
+    }
 
-      return tx.medicine.findUniqueOrThrow({
-        where: { id: medicineId },
-        select: medicineSelect,
-      });
+    const { stockQuantity } = await tx.medicine.findUniqueOrThrow({
+      where: { id: medicineId },
+      select: { stockQuantity: true },
+    });
+    await tx.stockMovement.create({
+      data: {
+        medicineId,
+        type,
+        quantity: delta,
+        balanceAfter: stockQuantity,
+        reason,
+        actorId: actor.userId,
+      },
+    });
+
+    return tx.medicine.findUniqueOrThrow({
+      where: { id: medicineId },
+      select: medicineSelect,
     });
   }
 
