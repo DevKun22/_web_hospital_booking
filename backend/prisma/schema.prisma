@@ -1221,6 +1221,10 @@ model Invoice {
   refundReason  String?
   refundReference String?
   refundedAt    DateTime?
+  // Mã yêu cầu hoàn tiền gửi VNPAY (vnp_RequestId). Đặt trước khi gọi API để một hóa đơn
+  // không bị gửi hai yêu cầu hoàn; chỉ xóa khi VNPAY từ chối rõ ràng.
+  refundRequestId   String?   @unique
+  refundAttemptedAt DateTime?
 
   paymentTransactions PaymentTransaction[]
   items               InvoiceItem[]

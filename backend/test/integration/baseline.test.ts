@@ -5,7 +5,11 @@ import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 
 import { getCookie, startHttpServer } from "../support/http.js";
-import { buildVnpayCallbackQuery, buildVnpayQueryResponse } from "../support/vnpay.js";
+import {
+  buildVnpayCallbackQuery,
+  buildVnpayQueryResponse,
+  buildVnpayRefundResponse,
+} from "../support/vnpay.js";
 
 if (process.env.NODE_ENV !== "test") {
   throw new Error("Integration tests require NODE_ENV=test.");
@@ -4434,4 +4438,174 @@ test("querydr reconciliation refuses a mismatched amount, a forged response and 
     (await prisma.paymentTransaction.findUniqueOrThrow({ where: { id: payment.id } })).status,
     "PENDING",
   );
+});
+
+// ---- Hoàn tiền VNPAY qua API ----------------------------------------------
+const withStubbedVnpayRefund = async (
+  responder: (body: Record<string, unknown>) => unknown,
+  run: () => Promise<void>,
+) => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (async (url: Parameters<typeof fetch>[0], init?: RequestInit) => {
+    // Chỉ chặn lời gọi tới VNPAY; các lời gọi HTTP của chính test vẫn đi qua fetch thật.
+    if (!String(url).includes("merchant_webapi")) return originalFetch(url, init);
+    const body = JSON.parse(String(init?.body)) as Record<string, unknown>;
+    assert.equal(body.vnp_Command, "refund");
+    return new Response(JSON.stringify(responder(body)), { status: 200 });
+  }) as typeof fetch;
+  try {
+    await run();
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+};
+
+const createVnpayPaidInvoice = async (bookingCode: string) => {
+  const created = await createPayableInvoice({ bookingCode });
+  const payment = await createVnpayPayment(
+    created.invoice.id,
+    created.authorization,
+    `idem-${bookingCode}`,
+  );
+  const ipn = await vnpayIpn(
+    buildVnpayCallbackQuery({ transactionCode: payment.transactionCode, amount: 300000 }),
+  );
+  assert.equal(ipn.body.RspCode, "00");
+  return { ...created, payment };
+};
+
+const callVnpayRefund = (invoiceId: string, cookie: string, refundReason = "Benh nhan huy dich vu") =>
+  http.request(`/api/dashboard/invoices/${invoiceId}/refund/vnpay`, {
+    method: "POST",
+    headers: dashboardHeaders(cookie),
+    body: { refundReason },
+  });
+
+test("VNPay refund API refunds a VNPAY-paid invoice once and records it", async () => {
+  const { invoice, payment, appointment } = await createVnpayPaidInvoice("VNPAY-REFUND-OK");
+  const adminCookie = await authCookie(fixture.adminUser.id, "ADMIN");
+
+  let sent: Record<string, unknown> | undefined;
+  await withStubbedVnpayRefund(
+    (body) => {
+      sent = body;
+      return buildVnpayRefundResponse({ transactionCode: String(body.vnp_TxnRef), amount: 300000 });
+    },
+    async () => {
+      const refunded = await callVnpayRefund(invoice.id, adminCookie);
+      assert.equal(refunded.status, 200, JSON.stringify(refunded.body));
+      assert.equal(refunded.body.data.status, "REFUNDED");
+      // Gửi đúng giao dịch gốc: mã VNPAY của lần trả tiền và đúng số tiền.
+      assert.equal(sent?.vnp_TxnRef, payment.transactionCode);
+      assert.equal(sent?.vnp_TransactionNo, "14000001");
+      assert.equal(sent?.vnp_Amount, 30000000);
+      assert.equal(sent?.vnp_TransactionType, "02");
+
+      // Gọi lần hai không gửi thêm yêu cầu hoàn nào.
+      sent = undefined;
+      assert.equal((await callVnpayRefund(invoice.id, adminCookie)).status, 409);
+      assert.equal(sent, undefined);
+    },
+  );
+
+  const stored = await prisma.invoice.findUniqueOrThrow({ where: { id: invoice.id } });
+  assert.equal(stored.status, "REFUNDED");
+  assert.equal(stored.refundReference, "16000001");
+  assert.ok(stored.refundRequestId);
+  assert.equal(
+    await prisma.appointmentLog.count({
+      where: { appointmentId: appointment.id, action: "PAYMENT_REFUNDED" },
+    }),
+    1,
+  );
+  assert.equal(
+    await prisma.notification.count({
+      where: { userId: appointment.patientId, type: "PAYMENT_REFUNDED" },
+    }),
+    1,
+  );
+});
+
+test("VNPay refund API frees the invoice after a definite rejection", async () => {
+  const { invoice } = await createVnpayPaidInvoice("VNPAY-REFUND-REJECT");
+  const adminCookie = await authCookie(fixture.adminUser.id, "ADMIN");
+
+  await withStubbedVnpayRefund(
+    (body) =>
+      buildVnpayRefundResponse({
+        transactionCode: String(body.vnp_TxnRef),
+        amount: 300000,
+        responseCode: "95",
+      }),
+    async () => {
+      const rejected = await callVnpayRefund(invoice.id, adminCookie);
+      assert.equal(rejected.status, 422);
+      assert.equal(rejected.body.code, "VNPAY_REFUND_REJECTED");
+    },
+  );
+  const afterReject = await prisma.invoice.findUniqueOrThrow({ where: { id: invoice.id } });
+  assert.equal(afterReject.status, "PAID");
+  assert.equal(afterReject.refundRequestId, null);
+
+  // Bị từ chối rõ ràng nên thử lại được.
+  await withStubbedVnpayRefund(
+    (body) => buildVnpayRefundResponse({ transactionCode: String(body.vnp_TxnRef), amount: 300000 }),
+    async () => assert.equal((await callVnpayRefund(invoice.id, adminCookie)).status, 200),
+  );
+  assert.equal(
+    (await prisma.invoice.findUniqueOrThrow({ where: { id: invoice.id } })).status,
+    "REFUNDED",
+  );
+});
+
+test("VNPay refund API never retries an unverifiable result and allows manual confirmation", async () => {
+  const { invoice } = await createVnpayPaidInvoice("VNPAY-REFUND-UNKNOWN");
+  const adminCookie = await authCookie(fixture.adminUser.id, "ADMIN");
+
+  const originalFetch = globalThis.fetch;
+  let calls = 0;
+  globalThis.fetch = (async (url: Parameters<typeof fetch>[0], init?: RequestInit) => {
+    if (!String(url).includes("merchant_webapi")) return originalFetch(url, init);
+    calls += 1;
+    throw new Error("network down");
+  }) as unknown as typeof fetch;
+  try {
+    const first = await callVnpayRefund(invoice.id, adminCookie);
+    assert.equal(first.status, 502);
+    assert.equal(first.body.code, "VNPAY_REFUND_UNVERIFIED");
+    assert.equal(calls, 1);
+
+    // Tiền có thể đã được hoàn: không gửi thêm yêu cầu nào nữa.
+    const second = await callVnpayRefund(invoice.id, adminCookie);
+    assert.equal(second.status, 409);
+    assert.equal(second.body.code, "REFUND_PENDING_VERIFICATION");
+    assert.equal(calls, 1);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+
+  const pending = await prisma.invoice.findUniqueOrThrow({ where: { id: invoice.id } });
+  assert.equal(pending.status, "PAID");
+  assert.ok(pending.refundRequestId);
+
+  // Sau khi kiểm tra trên cổng VNPAY, quản trị ghi nhận thủ công như trước.
+  const manual = await http.request(`/api/dashboard/invoices/${invoice.id}/refund`, {
+    method: "PATCH",
+    headers: dashboardHeaders(adminCookie),
+    body: { refundReason: "Da xac nhan tren cong VNPAY", refundReference: "VNP-MANUAL-1" },
+  });
+  assert.equal(manual.status, 200);
+  assert.equal(manual.body.data.status, "REFUNDED");
+});
+
+test("VNPay refund API refuses non-VNPAY invoices and users without invoice.refund", async () => {
+  const cash = await createPayableInvoice({ bookingCode: "VNPAY-REFUND-CASH" });
+  await InvoiceService.pay(cash.invoice.id, { paymentMethod: "CASH" }, fixture.adminUser.id);
+  const adminCookie = await authCookie(fixture.adminUser.id, "ADMIN");
+  const staff = await createDashboardUser("STAFF", "0900000099");
+  const staffCookie = await authCookie(staff.id, "STAFF");
+
+  assert.equal((await callVnpayRefund(cash.invoice.id, adminCookie)).status, 409);
+  assert.equal((await callVnpayRefund(cash.invoice.id, staffCookie)).status, 403);
+  assert.equal((await callVnpayRefund(cash.invoice.id, adminCookie, "ab")).status, 400);
 });

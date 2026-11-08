@@ -323,3 +323,164 @@ export const queryVnpayTransaction = async (
     payDate: field("vnp_PayDate") || null,
   };
 };
+
+// ---------------------------------------------------------------------------
+// Hoàn tiền (refund) toàn phần qua API VNPAY 2.1.0. Cùng endpoint và cách ký với querydr.
+// Hoàn tiền là thao tác không đảo ngược: mọi kết quả không xác minh được (mất mạng, HTTP
+// lỗi, chữ ký phản hồi sai) phải báo "chưa xác nhận" chứ không được coi là bị từ chối,
+// vì tiền có thể đã được hoàn.
+// ---------------------------------------------------------------------------
+
+export type VnpayRefundResult =
+  | {
+      outcome: "ACCEPTED";
+      responseCode: string;
+      refundTransactionNo: string | null;
+      transactionStatus: string | null;
+    }
+  | { outcome: "REJECTED"; responseCode: string; message: string };
+
+const REFUND_REJECT_MESSAGES: Record<string, string> = {
+  "02": "Mã merchant VNPAY không hợp lệ",
+  "03": "VNPAY không nhận dữ liệu yêu cầu hoàn tiền",
+  "91": "VNPAY không tìm thấy giao dịch cần hoàn",
+  "94": "Yêu cầu hoàn tiền bị trùng trong thời gian ngắn",
+  "95": "VNPAY từ chối hoàn tiền giao dịch này",
+  "97": "VNPAY báo chữ ký yêu cầu không hợp lệ",
+};
+
+export const refundVnpayTransaction = async (
+  input: {
+    requestId: string;
+    txnRef: string;
+    amount: number;
+    transactionNo: string;
+    transactionDate: string;
+    createBy: string;
+    reason: string;
+    ipAddress?: string;
+  },
+  fetchImpl: typeof fetch = fetch,
+): Promise<VnpayRefundResult> => {
+  const tmnCode = requiredEnv("VNPAY_TMN_CODE");
+  const secret = requiredEnv("VNPAY_HASH_SECRET");
+  const url = process.env.VNPAY_QUERY_URL?.trim() || DEFAULT_QUERY_URL;
+
+  const orderInfo = toAsciiOrderInfo(input.reason) || "Hoan tien";
+  const createDate = formatVnpayDate(new Date());
+  const ipAddr = normalizeVnpayIp(input.ipAddress);
+  const createBy = toAsciiOrderInfo(input.createBy).slice(0, 245) || "system";
+  const amount = String(input.amount * 100);
+  const body = {
+    vnp_RequestId: input.requestId,
+    vnp_Version: "2.1.0",
+    vnp_Command: "refund",
+    vnp_TmnCode: tmnCode,
+    vnp_TransactionType: "02",
+    vnp_TxnRef: input.txnRef,
+    vnp_Amount: Number(amount),
+    vnp_OrderInfo: orderInfo,
+    vnp_TransactionNo: input.transactionNo,
+    vnp_TransactionDate: input.transactionDate,
+    vnp_CreateBy: createBy,
+    vnp_CreateDate: createDate,
+    vnp_IpAddr: ipAddr,
+    vnp_SecureHash: sign(
+      joinHashFields([
+        input.requestId,
+        "2.1.0",
+        "refund",
+        tmnCode,
+        "02",
+        input.txnRef,
+        amount,
+        input.transactionNo,
+        input.transactionDate,
+        createBy,
+        createDate,
+        ipAddr,
+        orderInfo,
+      ]),
+      secret,
+    ),
+  };
+
+  const unverified = (detail: string) =>
+    new AppError(
+      `Chưa xác nhận được kết quả hoàn tiền từ VNPAY (${detail}). Hãy kiểm tra trên cổng quản trị VNPAY trước khi thử lại.`,
+      502,
+      "VNPAY_REFUND_UNVERIFIED",
+    );
+
+  let response: Response;
+  try {
+    response = await fetchImpl(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(QUERY_TIMEOUT_MS * 2),
+    });
+  } catch {
+    throw unverified("không kết nối được");
+  }
+  if (!response.ok) throw unverified(`HTTP ${response.status}`);
+
+  const data = (await response.json().catch(() => null)) as Record<string, unknown> | null;
+  if (!data || typeof data !== "object") throw unverified("phản hồi không hợp lệ");
+  const field = (key: string) =>
+    data[key] === undefined || data[key] === null ? undefined : String(data[key]);
+
+  const expected = sign(
+    joinHashFields([
+      field("vnp_ResponseId"),
+      field("vnp_Command"),
+      field("vnp_ResponseCode"),
+      field("vnp_Message"),
+      field("vnp_TmnCode"),
+      field("vnp_TxnRef"),
+      field("vnp_Amount"),
+      field("vnp_BankCode"),
+      field("vnp_PayDate"),
+      field("vnp_TransactionNo"),
+      field("vnp_TransactionType"),
+      field("vnp_TransactionStatus"),
+      field("vnp_OrderInfo"),
+    ]),
+    secret,
+  );
+  if (!safeEqualHex(field("vnp_SecureHash") || "", expected)) {
+    throw unverified("chữ ký phản hồi không hợp lệ");
+  }
+  if (field("vnp_TxnRef") && field("vnp_TxnRef") !== input.txnRef) {
+    throw unverified("phản hồi không khớp giao dịch");
+  }
+
+  const responseCode = field("vnp_ResponseCode") || "";
+  const transactionStatus = field("vnp_TransactionStatus") ?? null;
+  // Trạng thái 09: VNPAY đã nhận yêu cầu nhưng từ chối hoàn trả (xử lý ngay bên dưới).
+  if (responseCode === "00" && transactionStatus !== "09") {
+    return {
+      outcome: "ACCEPTED",
+      responseCode,
+      refundTransactionNo: field("vnp_TransactionNo") || null,
+      transactionStatus,
+    };
+  }
+  if (responseCode === "00") {
+    return {
+      outcome: "REJECTED",
+      responseCode: "00/09",
+      message: "VNPAY từ chối hoàn trả giao dịch này",
+    };
+  }
+  // Mã khác 00 được ký hợp lệ nhưng không thuộc danh sách từ chối đã biết (ví dụ 99 lỗi
+  // hệ thống) thì chưa chắc đã hoàn hay chưa: coi là chưa xác nhận.
+  if (!REFUND_REJECT_MESSAGES[responseCode]) {
+    throw unverified(`mã ${responseCode || "không rõ"}`);
+  }
+  return {
+    outcome: "REJECTED",
+    responseCode,
+    message: REFUND_REJECT_MESSAGES[responseCode],
+  };
+};

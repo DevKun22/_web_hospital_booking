@@ -194,3 +194,130 @@ test("querydr outcome mapping distinguishes paid, pending, failed and not found"
   assert.equal(interpretVnpayQuery("94", null), "UNKNOWN");
   assert.equal(interpretVnpayQuery("99", null), "UNKNOWN");
 });
+
+// ---- refund --------------------------------------------------------------
+const signedRefundResponse = (overrides: Record<string, string | undefined> = {}) => {
+  const data: Record<string, string | undefined> = {
+    vnp_ResponseId: "resp-r1",
+    vnp_Command: "refund",
+    vnp_ResponseCode: "00",
+    vnp_Message: "Refund Success",
+    vnp_TmnCode: "TESTTMN1",
+    vnp_TxnRef: "PAY-UNIT-001",
+    vnp_Amount: "25000000",
+    vnp_BankCode: "NCB",
+    vnp_PayDate: "20261108130000",
+    vnp_TransactionNo: "16000001",
+    vnp_TransactionType: "02",
+    vnp_TransactionStatus: "05",
+    vnp_OrderInfo: "Hoan tien",
+    ...overrides,
+  };
+  const vnp_SecureHash = hmac([
+    data.vnp_ResponseId,
+    data.vnp_Command,
+    data.vnp_ResponseCode,
+    data.vnp_Message,
+    data.vnp_TmnCode,
+    data.vnp_TxnRef,
+    data.vnp_Amount,
+    data.vnp_BankCode,
+    data.vnp_PayDate,
+    data.vnp_TransactionNo,
+    data.vnp_TransactionType,
+    data.vnp_TransactionStatus,
+    data.vnp_OrderInfo,
+  ]);
+  return { ...data, vnp_SecureHash };
+};
+
+const refundInput = {
+  requestId: "a".repeat(32),
+  txnRef: "PAY-UNIT-001",
+  amount: 250000,
+  transactionNo: "14000001",
+  transactionDate: "20261108115900",
+  createBy: "admin-1",
+  reason: "Bệnh nhân yêu cầu hoàn",
+  ipAddress: "203.0.113.10",
+};
+
+test("refund sends a correctly signed full-refund request and accepts a signed response", async () => {
+  const { refundVnpayTransaction } = await import(
+    "../../src/services/paymentProviders/vnpay.provider.js"
+  );
+  const captured: { body?: Record<string, string> } = {};
+  const result = await refundVnpayTransaction(refundInput, fakeFetch(signedRefundResponse(), captured));
+
+  const body = captured.body!;
+  assert.equal(body.vnp_Command, "refund");
+  assert.equal(body.vnp_TransactionType, "02");
+  assert.equal(body.vnp_Amount, 25000000);
+  assert.equal(body.vnp_OrderInfo, "Benh nhan yeu cau hoan");
+  assert.equal(
+    body.vnp_SecureHash,
+    hmac([
+      body.vnp_RequestId,
+      body.vnp_Version,
+      body.vnp_Command,
+      body.vnp_TmnCode,
+      body.vnp_TransactionType,
+      body.vnp_TxnRef,
+      String(body.vnp_Amount),
+      body.vnp_TransactionNo,
+      body.vnp_TransactionDate,
+      body.vnp_CreateBy,
+      body.vnp_CreateDate,
+      body.vnp_IpAddr,
+      body.vnp_OrderInfo,
+    ]),
+  );
+  assert.deepEqual(result, {
+    outcome: "ACCEPTED",
+    responseCode: "00",
+    refundTransactionNo: "16000001",
+    transactionStatus: "05",
+  });
+});
+
+test("refund distinguishes a definite rejection from an unverifiable result", async () => {
+  const { refundVnpayTransaction } = await import(
+    "../../src/services/paymentProviders/vnpay.provider.js"
+  );
+
+  // Từ chối rõ ràng, có chữ ký hợp lệ: an toàn để cho thử lại.
+  const rejected = await refundVnpayTransaction(
+    refundInput,
+    fakeFetch(signedRefundResponse({ vnp_ResponseCode: "95" })),
+  );
+  assert.equal(rejected.outcome, "REJECTED");
+  const refusedLater = await refundVnpayTransaction(
+    refundInput,
+    fakeFetch(signedRefundResponse({ vnp_TransactionStatus: "09" })),
+  );
+  assert.equal(refusedLater.outcome, "REJECTED");
+
+  // Mọi trường hợp còn lại có thể tiền đã được hoàn: phải báo chưa xác nhận.
+  const unverifiedCases: Array<[string, typeof fetch]> = [
+    ["unknown code", fakeFetch(signedRefundResponse({ vnp_ResponseCode: "99" }))],
+    ["tampered", fakeFetch({ ...signedRefundResponse(), vnp_Amount: "100" })],
+    ["foreign txn", fakeFetch(signedRefundResponse({ vnp_TxnRef: "OTHER" }))],
+    [
+      "http 500",
+      (async () => new Response("boom", { status: 500 })) as unknown as typeof fetch,
+    ],
+    [
+      "network",
+      (async () => {
+        throw new Error("network down");
+      }) as unknown as typeof fetch,
+    ],
+  ];
+  for (const [label, fetchImpl] of unverifiedCases) {
+    await assert.rejects(
+      refundVnpayTransaction(refundInput, fetchImpl),
+      (error: { code?: string }) => error.code === "VNPAY_REFUND_UNVERIFIED",
+      label,
+    );
+  }
+});

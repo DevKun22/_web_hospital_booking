@@ -84,3 +84,7 @@ export const refundInvoiceSchema = z.object({
     .nullable()
     .optional(),
 });
+
+export const refundInvoiceViaVnpaySchema = z.object({
+  refundReason: refundInvoiceSchema.shape.refundReason,
+});

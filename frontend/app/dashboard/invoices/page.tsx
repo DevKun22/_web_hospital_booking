@@ -495,6 +495,37 @@ export default function InvoicesPage() {
     }
   };
 
+  // Hoàn tiền toàn phần tự động qua API VNPay; chỉ dùng cho hóa đơn đã trả bằng VNPay.
+  const refundInvoiceViaVnpay = async () => {
+    if (!actionTarget || actionTarget.type !== "refund") return;
+    if (refundReason.trim().length < 5) {
+      setError("Lý do hoàn tiền phải có ít nhất 5 ký tự");
+      return;
+    }
+    if (
+      !window.confirm(
+        `Gửi yêu cầu hoàn ${actionTarget.invoice.finalAmount.toLocaleString("vi-VN")} đ qua VNPay? Thao tác không thể hoàn tác.`,
+      )
+    ) {
+      return;
+    }
+
+    setBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      const updated = await apiRequest<Invoice>(`/dashboard/invoices/${actionTarget.invoice.id}/refund/vnpay`, {
+        method: "POST",
+        body: { refundReason: refundReason.trim() },
+      });
+      await updateSelectedInvoice(updated, "Đã gửi yêu cầu hoàn tiền tới VNPay");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Không hoàn tiền được qua VNPay");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const renderActions = (invoice: Invoice) => (
     <>
       {invoice.status === "UNPAID" ? (
@@ -858,8 +889,8 @@ export default function InvoicesPage() {
                         <span className="text-sm font-medium text-[#334155]">Mã tham chiếu hoàn tiền {actionTarget.invoice.paymentMethod === "VNPAY" ? "*" : ""}</span>
                         <input value={refundReference} onChange={(event) => setRefundReference(event.target.value)} maxLength={100} placeholder="Mã hoàn tiền từ quầy hoặc cổng thanh toán" className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" />
                       </label>
-                      {(actionTarget.invoice.paymentMethod === "VNPAY") ? <p className="mt-2 text-xs leading-5 text-[#8a5a00]">Hãy hoàn tiền trên cổng thanh toán trước, sau đó nhập mã tham chiếu để đồng bộ trạng thái hệ thống.</p> : null}
-                      <div className="mt-3 flex gap-2"><button disabled={busy} onClick={() => void refundInvoice()} className="rounded-md bg-[#0d4f8b] px-3 py-2 text-sm font-semibold text-white disabled:opacity-60">Hoàn tiền</button><button type="button" onClick={() => { setActionTarget(null); setRefundReason(""); }} className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm font-medium text-[#42526b]">Hủy</button></div>
+                      {(actionTarget.invoice.paymentMethod === "VNPAY") ? <p className="mt-2 text-xs leading-5 text-[#8a5a00]">Dùng nút &quot;Hoàn tự động qua VNPay&quot; để hệ thống gửi yêu cầu hoàn toàn phần tới VNPay. Nếu đã hoàn trực tiếp trên cổng VNPay (hoặc hệ thống báo chưa xác nhận được kết quả), hãy nhập mã tham chiếu rồi bấm &quot;Hoàn tiền&quot; để chỉ đồng bộ trạng thái.</p> : null}
+                      <div className="mt-3 flex flex-wrap gap-2">{actionTarget.invoice.paymentMethod === "VNPAY" ? <button disabled={busy} onClick={() => void refundInvoiceViaVnpay()} className="rounded-md bg-[#b3261e] px-3 py-2 text-sm font-semibold text-white disabled:opacity-60">Hoàn tự động qua VNPay</button> : null}<button disabled={busy} onClick={() => void refundInvoice()} className="rounded-md bg-[#0d4f8b] px-3 py-2 text-sm font-semibold text-white disabled:opacity-60">Hoàn tiền</button><button type="button" onClick={() => { setActionTarget(null); setRefundReason(""); }} className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm font-medium text-[#42526b]">Hủy</button></div>
                     </>
                   ) : null}
                 </div>
