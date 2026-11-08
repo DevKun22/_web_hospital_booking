@@ -1,5 +1,9 @@
 import 'package:hospital_booking_mobile/features/auth/domain/patient_user.dart';
 
+/// Phiên bản nội dung đồng ý lưu thông tin sức khỏe; phải khớp `HEALTH_CONSENT_VERSION`
+/// ở `backend/src/services/appointment.service.ts`.
+const currentHealthConsentVersion = '2026-11';
+
 enum PatientGender {
   male('MALE', 'Nam'),
   female('FEMALE', 'Nữ'),
@@ -39,6 +43,7 @@ class PatientProfile {
     this.medicalHistory,
     this.familyHistory,
     this.bloodPressure,
+    this.healthConsentVersion,
   });
 
   factory PatientProfile.fromJson(Map<String, dynamic> json) {
@@ -66,6 +71,7 @@ class PatientProfile {
       medicalHistory: _nullableString(details['medicalHistory']),
       familyHistory: _nullableString(details['familyHistory']),
       bloodPressure: _nullableString(details['bloodPressure']),
+      healthConsentVersion: _nullableString(details['healthConsentVersion']),
     );
   }
 
@@ -89,6 +95,13 @@ class PatientProfile {
   final String? medicalHistory;
   final String? familyHistory;
   final String? bloodPressure;
+
+  /// Phiên bản nội dung đồng ý lưu thông tin sức khỏe mà người dùng đã xác nhận (null nếu chưa).
+  final String? healthConsentVersion;
+
+  /// Đã đồng ý đúng phiên bản nội dung hiện hành; phiên bản cũ hoặc chưa đồng ý thì hỏi lại.
+  bool get hasHealthConsent =>
+      healthConsentVersion == currentHealthConsentVersion;
 
   PatientUser toPatientUser() => PatientUser(
     id: id,
@@ -137,6 +150,7 @@ class PatientProfileDraft {
     this.medicalHistory,
     this.familyHistory,
     this.bloodPressure,
+    this.healthConsent = false,
   });
 
   final String fullName;
@@ -156,6 +170,9 @@ class PatientProfileDraft {
   final String? familyHistory;
   final String? bloodPressure;
 
+  /// Người dùng vừa tick đồng ý lưu thông tin sức khỏe ở lần lưu này.
+  final bool healthConsent;
+
   Map<String, dynamic> toRequestJson() => {
     'fullName': fullName.trim(),
     'email': _trimOrNull(email),
@@ -173,6 +190,7 @@ class PatientProfileDraft {
     'medicalHistory': _trimOrNull(medicalHistory),
     'familyHistory': _trimOrNull(familyHistory),
     'bloodPressure': _trimOrNull(bloodPressure),
+    if (healthConsent) 'healthConsent': true,
   };
 }
 

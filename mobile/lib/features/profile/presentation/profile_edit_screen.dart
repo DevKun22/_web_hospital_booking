@@ -34,6 +34,8 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
   String? _dateOfBirth;
   PatientGender? _gender;
   bool _hasBhyt = false;
+  bool _healthConsent = false;
+  bool _hadHealthConsent = false;
   _ProfileFormSnapshot? _baseline;
   bool _isHydrating = false;
   bool _allowPop = false;
@@ -339,6 +341,28 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
                         label: 'Tiền sử gia đình',
                         maxLength: 5000,
                       ),
+                      if (_hasHealthText && !_hadHealthConsent) ...[
+                        const SizedBox(height: 12),
+                        CheckboxListTile(
+                          key: const ValueKey('health-consent-checkbox'),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 4,
+                          ),
+                          value: _healthConsent,
+                          onChanged: state.isSaving
+                              ? null
+                              : (value) => setState(
+                                  () => _healthConsent = value ?? false,
+                                ),
+                          title: const Text('Đồng ý lưu thông tin sức khỏe'),
+                          subtitle: const Text(
+                            'Tôi đồng ý cho bệnh viện lưu dị ứng, tiền sử bệnh và '
+                            'tiền sử gia đình để phục vụ khám chữa bệnh. '
+                            'Tôi có thể xóa các nội dung này bất cứ lúc nào.',
+                          ),
+                          controlAffinity: ListTileControlAffinity.leading,
+                        ),
+                      ],
                       const SizedBox(height: 24),
                       AppPrimaryButton(
                         label: state.isSaving
@@ -375,11 +399,31 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
     _dateOfBirth = profile.dateOfBirth;
     _gender = profile.gender;
     _hasBhyt = profile.hasBhyt;
+    _hadHealthConsent = profile.hasHealthConsent;
+    _healthConsent = false;
     _baseline = _snapshot();
     _isHydrating = false;
   }
 
   bool get _hasUnsavedChanges => _baseline != null && _snapshot() != _baseline;
+
+  bool get _hasHealthText =>
+      _allergies.text.trim().isNotEmpty ||
+      _medicalHistory.text.trim().isNotEmpty ||
+      _familyHistory.text.trim().isNotEmpty;
+
+  /// Có nội dung sức khỏe mới hoặc đã đổi so với bản đã lưu (xóa nội dung không tính).
+  bool get _changesHealthData {
+    final baseline = _baseline;
+    if (baseline == null) return false;
+    bool changed(String current, String saved) =>
+        current.trim().isNotEmpty && current.trim() != saved;
+    return changed(_allergies.text, baseline.allergies) ||
+        changed(_medicalHistory.text, baseline.medicalHistory) ||
+        changed(_familyHistory.text, baseline.familyHistory);
+  }
+
+  bool get _needsHealthConsent => _changesHealthData && !_hadHealthConsent;
 
   _ProfileFormSnapshot _snapshot() => (
     fullName: _fullName.text.trim(),
@@ -466,6 +510,18 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
   Future<void> _save() async {
     FocusManager.instance.primaryFocus?.unfocus();
     if (_formKey.currentState?.validate() != true) return;
+    if (_needsHealthConsent && !_healthConsent) {
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Vui lòng đồng ý lưu thông tin sức khỏe để cập nhật dị ứng và tiền sử.',
+            ),
+          ),
+        );
+      return;
+    }
     final draft = PatientProfileDraft(
       fullName: _fullName.text,
       email: _email.text,
@@ -483,6 +539,7 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
       allergies: _allergies.text,
       medicalHistory: _medicalHistory.text,
       familyHistory: _familyHistory.text,
+      healthConsent: _healthConsent,
     );
     final saved = await ref
         .read(patientProfileControllerProvider.notifier)
