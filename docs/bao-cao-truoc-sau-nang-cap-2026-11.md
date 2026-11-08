@@ -20,8 +20,8 @@ Số liệu lấy trực tiếp từ git ở hai commit trên.
 | Dịch vụ backend (tệp) | 42 | 48 | |
 | Mã nguồn backend (`backend/src`) | 32.042 dòng | 30.908 dòng | Giảm 1.134 dòng dù thêm tính năng nhờ gỡ mã không dùng |
 | Trang frontend | 31 | 45 | Thêm phân quyền, cấp thuốc, kho thuốc, trang kết quả và các màn khác |
-| Ca kiểm thử backend | 69 | 121 | Chia: unit 33, smoke 21, integration 67; đều đạt |
-| Ca kiểm thử mobile (tệp test) | 70 | 70 | Có sửa các test lỗi thời |
+| Ca kiểm thử backend | 69 | 123 | Chia: unit 33, smoke 21, integration 69; đều đạt |
+| Tệp kiểm thử mobile | 70 | 73 | Sửa test lỗi thời, thêm test lớp mạng, bắt lỗi toàn cục, đồng ý sức khỏe; 180 ca đạt |
 | Lệnh kiểm thử | nhiều đường | một đường `npm run test:all` | CI chạy backend, frontend, mobile và build APK |
 
 ## 2. Thay đổi theo nhóm
