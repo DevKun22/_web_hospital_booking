@@ -12,7 +12,7 @@ import { DashboardWorkspace } from "@/components/dashboard/dashboard-workspace";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { VietnamDateInput } from "@/components/ui/vietnam-date-input";
-import { apiRequest, uploadImages } from "@/lib/api";
+import { apiRequest, uploadMedicalFile } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import {
   fetchDashboardMedicalRecord,
@@ -291,10 +291,7 @@ export default function MedicalRecordsPage() {
     setError("");
     setNotice("");
     try {
-      const [asset] = await uploadImages([file], "medical-results");
-      if (!asset) {
-        throw new Error("Đã tải lên nhưng không nhận được đường dẫn tệp");
-      }
+      const asset = await uploadMedicalFile(file);
       setRecordForm((current) => ({ ...current, resultPdfUrl: asset.url }));
       setNotice("Đã tải tệp kết quả lên");
     } catch (err) {
@@ -310,10 +307,7 @@ export default function MedicalRecordsPage() {
     setError("");
     setNotice("");
     try {
-      const [asset] = await uploadImages([file], "medical-results");
-      if (!asset) {
-        throw new Error("Đã tải lên nhưng không nhận được đường dẫn tệp");
-      }
+      const asset = await uploadMedicalFile(file);
       setLabForm((current) => ({ ...current, fileUrl: asset.url }));
       setNotice("Đã tải tệp cận lâm sàng lên");
     } catch (err) {
@@ -554,24 +548,16 @@ export default function MedicalRecordsPage() {
                 <input value={recordForm.resultPdfUrl} onChange={(e) => setRecordForm((current) => ({ ...current, resultPdfUrl: e.target.value }))} placeholder="https://..." className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" />
                 <input
                   type="file"
-                  accept="image/jpeg,image/png,image/webp"
+                  accept="application/pdf,image/jpeg,image/png,image/webp"
                   disabled={uploadingRecordFile}
                   onChange={(event) => void uploadRecordResultFile(event.target.files?.[0])}
                   className="mt-2 w-full rounded-md border border-dashed border-[#cfd8e6] bg-[#f8fafc] px-3 py-2 text-sm file:mr-3 file:rounded-md file:border-0 file:bg-[#0d4f8b] file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-white disabled:opacity-60"
                 />
                 <p className="mt-1 text-xs text-[#667892]">
-                  Tải lên hỗ trợ ảnh JPG, PNG và WEBP trong thư mục kết quả khám.
+                  Tải lên PDF, JPG, PNG hoặc WEBP, tối đa 10 MB. Tệp được lưu riêng tư, chỉ bệnh nhân của hồ sơ này xem được sau khi công bố.
                 </p>
                 {recordForm.resultPdfUrl ? (
-                  <div className="mt-2 rounded-md border border-[#e5ebf3] p-2">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={recordForm.resultPdfUrl}
-                      alt="Xem trước tệp kết quả"
-                      className="h-36 w-full rounded-md object-cover"
-                    />
-                    <p className="mt-2 truncate text-xs text-[#667892]">{recordForm.resultPdfUrl}</p>
-                  </div>
+                  <p className="mt-2 rounded-md border border-[#e5ebf3] bg-[#f8fafc] px-3 py-2 text-xs text-[#3d5a73]">Đã đính kèm tệp kết quả (xem trước không khả dụng vì tệp được lưu riêng tư).</p>
                 ) : null}
               </label>
               <div className="flex flex-wrap gap-2">
@@ -628,24 +614,16 @@ export default function MedicalRecordsPage() {
                   <input value={labForm.fileUrl} onChange={(e) => setLabForm((current) => ({ ...current, fileUrl: e.target.value }))} placeholder="Đường dẫn tệp kết quả" className="w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" />
                   <input
                     type="file"
-                    accept="image/jpeg,image/png,image/webp"
+                    accept="application/pdf,image/jpeg,image/png,image/webp"
                     disabled={uploadingLabFile}
                     onChange={(event) => void uploadLabResultFile(event.target.files?.[0])}
                     className="mt-2 w-full rounded-md border border-dashed border-[#cfd8e6] bg-[#f8fafc] px-3 py-2 text-sm file:mr-3 file:rounded-md file:border-0 file:bg-[#0d4f8b] file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-white disabled:opacity-60"
                   />
                   <p className="mt-1 text-xs text-[#667892]">
-                    Tải lên hỗ trợ ảnh JPG, PNG và WEBP trong thư mục kết quả khám.
+                    Tải lên PDF, JPG, PNG hoặc WEBP, tối đa 10 MB. Tệp được lưu riêng tư, chỉ bệnh nhân của hồ sơ này xem được sau khi công bố.
                   </p>
                   {labForm.fileUrl ? (
-                    <div className="mt-2 rounded-md border border-[#e5ebf3] p-2">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={labForm.fileUrl}
-                        alt="Xem trước tệp cận lâm sàng"
-                        className="h-32 w-full rounded-md object-cover"
-                      />
-                      <p className="mt-2 truncate text-xs text-[#667892]">{labForm.fileUrl}</p>
-                    </div>
+                    <p className="mt-2 rounded-md border border-[#e5ebf3] bg-[#f8fafc] px-3 py-2 text-xs text-[#3d5a73]">Đã đính kèm tệp cận lâm sàng (xem trước không khả dụng vì tệp được lưu riêng tư).</p>
                   ) : null}
                 </div>
                 <div className="flex gap-2">

@@ -8,6 +8,7 @@ import { prisma } from "../config/prisma.js";
 import { AppError } from "../utils/appError.js";
 import { parseDateOnly } from "../utils/time.js";
 import { generateRecordCode } from "../utils/recordCode.js";
+import MediaAssetService from "./mediaAsset.service.js";
 import PatientEventNotificationService from "./patientEventNotification.service.js";
 
 type Actor = {
@@ -231,9 +232,9 @@ class MedicalRecordService {
   }
 
   async update(id: string, input: UpdateMedicalRecordInput, actor: Actor) {
-    await this.getById(id, actor);
+    const current = await this.getById(id, actor);
 
-    return prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx) => {
       const updated = await tx.medicalRecord.update({
         where: { id },
         data: {
@@ -254,6 +255,15 @@ class MedicalRecordService {
       });
       return updated;
     });
+
+    if (input.resultPdfUrl !== undefined) {
+      await MediaAssetService.syncMedicalFile({
+        ownerId: id,
+        url: result.resultPdfUrl,
+        previousUrl: current.resultPdfUrl,
+      });
+    }
+    return result;
   }
 
   async publish(id: string, actor: Actor) {
@@ -325,7 +335,7 @@ class MedicalRecordService {
   async createLabResult(recordId: string, input: LabResultInput, actor: Actor) {
     await this.getById(recordId, actor);
 
-    return prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx) => {
       const created = await tx.labResult.create({
         data: {
           medicalRecordId: recordId,
@@ -345,6 +355,9 @@ class MedicalRecordService {
       });
       return created;
     });
+
+    await MediaAssetService.syncMedicalFile({ ownerId: result.id, url: result.fileUrl });
+    return result;
   }
 
   async updateLabResult(
@@ -354,9 +367,9 @@ class MedicalRecordService {
     actor: Actor,
   ) {
     await this.getById(recordId, actor);
-    await this.getLabResult(recordId, labResultId);
+    const previous = await this.getLabResult(recordId, labResultId);
 
-    return prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx) => {
       const updated = await tx.labResult.update({
         where: { id: labResultId },
         data: {
@@ -376,6 +389,15 @@ class MedicalRecordService {
       });
       return updated;
     });
+
+    if (input.fileUrl !== undefined) {
+      await MediaAssetService.syncMedicalFile({
+        ownerId: labResultId,
+        url: result.fileUrl,
+        previousUrl: previous.fileUrl,
+      });
+    }
+    return result;
   }
 
   async deleteLabResult(recordId: string, labResultId: string, actor: Actor) {
@@ -394,6 +416,11 @@ class MedicalRecordService {
       });
     });
 
+    await MediaAssetService.syncMedicalFile({
+      ownerId: labResultId,
+      url: null,
+      previousUrl: labResult.fileUrl,
+    });
     return labResult;
   }
 

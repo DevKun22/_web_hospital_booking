@@ -1,9 +1,11 @@
+import { randomUUID } from "node:crypto";
 import { UploadApiResponse } from "cloudinary";
 import { Prisma } from "../../generated/prisma/client.js";
 import type { MediaOwnerType } from "../../generated/prisma/enums.js";
 import { cloudinary } from "../config/cloudinary.js";
 import { prisma } from "../config/prisma.js";
 import { AppError } from "../utils/appError.js";
+import { sniffMedicalFile } from "../utils/fileSignature.js";
 
 type UploadFolder =
   | "departments"
@@ -42,6 +44,18 @@ const mediaAssetSelect = {
   updatedAt: true,
 } satisfies Prisma.MediaAssetSelect;
 
+const MEDICAL_FOLDER = folderMap["medical-results"];
+
+// Tệp kết quả khám tải lên bằng endpoint riêng được lưu dạng `authenticated` (không có đường
+// dẫn công khai, chỉ truy cập được qua URL có chữ ký do backend tạo). Tệp cũ (ảnh công khai)
+// vẫn dùng bình thường.
+const isAuthenticatedRawUrl = (url: string) => url.includes("/raw/authenticated/");
+
+const destroyOptions = (asset: { url: string }) =>
+  isAuthenticatedRawUrl(asset.url)
+    ? { resource_type: "raw" as const, type: "authenticated" as const }
+    : { resource_type: "image" as const };
+
 const isUploadFolder = (folder: string): folder is UploadFolder =>
   Object.keys(folderMap).includes(folder);
 
@@ -67,6 +81,27 @@ const uploadBufferToCloudinary = (file: Express.Multer.File, folder: string) =>
     );
 
     stream.end(file.buffer);
+  });
+
+const uploadMedicalBufferToCloudinary = (buffer: Buffer, publicId: string) =>
+  new Promise<UploadApiResponse>((resolve, reject) => {
+    const stream = cloudinary.uploader.upload_stream(
+      {
+        folder: MEDICAL_FOLDER,
+        public_id: publicId,
+        resource_type: "raw",
+        type: "authenticated",
+        overwrite: false,
+      },
+      (error, result) => {
+        if (error || !result) {
+          reject(error || new Error("Upload Cloudinary failed"));
+          return;
+        }
+        resolve(result);
+      },
+    );
+    stream.end(buffer);
   });
 
 class MediaAssetService {
@@ -146,6 +181,55 @@ class MediaAssetService {
     );
 
     return uploadedItems;
+  }
+
+  // Tệp kết quả khám (PDF hoặc ảnh): kiểm tra nội dung thật, lưu riêng tư, giữ nguyên không nén.
+  async uploadMedicalFile(file: Express.Multer.File, uploadedById?: string) {
+    const kind = sniffMedicalFile(file.buffer);
+    if (!kind) {
+      throw new AppError("Nội dung tệp không phải PDF, JPG, PNG hoặc WEBP", 400);
+    }
+    if (file.mimetype !== kind.mime) {
+      throw new AppError("Loại tệp không khớp với nội dung", 400);
+    }
+
+    const result = await uploadMedicalBufferToCloudinary(
+      file.buffer,
+      `${randomUUID()}.${kind.extension}`,
+    );
+
+    return prisma.mediaAsset.create({
+      data: {
+        url: result.secure_url,
+        publicId: result.public_id,
+        folder: MEDICAL_FOLDER,
+        mimeType: kind.mime,
+        format: kind.extension,
+        bytes: file.size,
+        uploadedById,
+      },
+      select: mediaAssetSelect,
+    });
+  }
+
+  // Gắn tệp kết quả vào hồ sơ khám khi bác sĩ lưu đường dẫn, để lệnh dọn ảnh không dùng
+  // không bao giờ xóa tệp đang được dùng; nhả tệp cũ khi đường dẫn bị thay.
+  async syncMedicalFile(input: {
+    ownerId: string;
+    url?: string | null;
+    previousUrl?: string | null;
+  }) {
+    if (input.previousUrl && input.previousUrl !== input.url) {
+      await this.detachOwnerAssetByUrl("MEDICAL_RESULT", input.ownerId, input.previousUrl);
+    }
+    if (!input.url) return null;
+
+    const asset = await prisma.mediaAsset.findFirst({
+      where: { url: input.url, folder: MEDICAL_FOLDER },
+      select: mediaAssetSelect,
+    });
+    if (!asset) return null; // đường dẫn ngoài kho của hệ thống (tệp cũ hoặc nhập tay)
+    return this.attachAsset(asset.id, "MEDICAL_RESULT", input.ownerId);
   }
 
   async attachAsset(
@@ -263,9 +347,7 @@ class MediaAssetService {
       throw new AppError("Không thể xóa ảnh đang được sử dụng", 409);
     }
 
-    await cloudinary.uploader.destroy(asset.publicId, {
-      resource_type: "image",
-    });
+    await cloudinary.uploader.destroy(asset.publicId, destroyOptions(asset));
 
     await prisma.mediaAsset.delete({
       where: { id },
@@ -282,6 +364,8 @@ class MediaAssetService {
     const candidates = await prisma.mediaAsset.findMany({
       where: {
         isUsed: false,
+        // Tệp kết quả khám là dữ liệu y tế: không tự động xóa hàng loạt.
+        folder: { not: MEDICAL_FOLDER },
         createdAt: {
           lt: olderThan,
         },
@@ -298,9 +382,7 @@ class MediaAssetService {
 
     for (const asset of candidates) {
       try {
-        await cloudinary.uploader.destroy(asset.publicId, {
-          resource_type: "image",
-        });
+        await cloudinary.uploader.destroy(asset.publicId, destroyOptions(asset));
 
         await prisma.mediaAsset.delete({
           where: { id: asset.id },

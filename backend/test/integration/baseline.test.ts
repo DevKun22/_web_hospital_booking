@@ -5051,3 +5051,140 @@ test("the account owner is warned when an admin changes their email, phone, role
     EmailService.sendMail = originalSend;
   }
 });
+
+// ---- Tải tệp kết quả khám (PDF, ảnh) an toàn ----------------------------------------
+test("doctors upload private result files; content, size and role are enforced end to end", async () => {
+  const { cloudinary } = await import("../../src/config/cloudinary.js");
+  const uploader = cloudinary.uploader as unknown as Record<string, unknown>;
+  const originalUpload = uploader.upload_stream;
+  const originalDestroy = uploader.destroy;
+  const destroyed: string[] = [];
+  uploader.upload_stream = (
+    options: { folder: string; public_id: string; resource_type: string; type: string },
+    callback: (error: unknown, result: unknown) => void,
+  ) => ({
+    end(buffer: Buffer) {
+      assert.equal(options.resource_type, "raw");
+      assert.equal(options.type, "authenticated");
+      callback(null, {
+        secure_url: `https://res.cloudinary.com/demo/raw/authenticated/v1700000000/${options.folder}/${options.public_id}`,
+        public_id: `${options.folder}/${options.public_id}`,
+        bytes: buffer.length,
+      });
+    },
+  });
+  uploader.destroy = async (publicId: string) => {
+    destroyed.push(publicId);
+    return { result: "ok" };
+  };
+
+  const originalFetch = globalThis.fetch;
+  try {
+    const appointment = await createStoredAppointment({
+      status: "COMPLETED",
+      bookingCode: "MEDFILE-ONE",
+    });
+    const record = await prisma.medicalRecord.create({
+      data: {
+        recordCode: "MEDFILE-REC",
+        appointmentId: appointment.id,
+        patientId: appointment.patientId,
+        doctorId: appointment.doctorId,
+        status: "DRAFT",
+      },
+    });
+    const doctorCookie = await authCookie(fixture.doctorOneUser.id, "DOCTOR");
+    const adminCookie = await authCookie(fixture.adminUser.id, "ADMIN");
+    const staff = await createDashboardUser("STAFF", "0900000301");
+    const staffCookie = await authCookie(staff.id, "STAFF");
+
+    const pdfBytes = Buffer.concat([Buffer.from("%PDF-1.4\n"), Buffer.alloc(2048, 0x20)]);
+    const upload = (cookie: string | undefined, bytes: Buffer, type: string, name = "ket-qua.pdf") => {
+      const form = new FormData();
+      form.append("file", new Blob([new Uint8Array(bytes)], { type }), name);
+      return fetch(`${http.baseUrl}/api/uploads/medical-files`, {
+        method: "POST",
+        headers: cookie ? dashboardHeaders(cookie) : {},
+        body: form,
+      });
+    };
+
+    // Chỉ tài khoản có record.edit (bác sĩ) tải được.
+    assert.equal((await upload(adminCookie, pdfBytes, "application/pdf")).status, 403);
+    assert.equal((await upload(staffCookie, pdfBytes, "application/pdf")).status, 403);
+    assert.equal((await upload(undefined, pdfBytes, "application/pdf")).status, 401);
+
+    const ok = await upload(doctorCookie, pdfBytes, "application/pdf");
+    assert.equal(ok.status, 201);
+    const created = (await ok.json()) as { data: { item: { id: string; url: string; mimeType: string } } };
+    const asset = created.data.item;
+    assert.match(asset.url, /\/raw\/authenticated\//);
+    assert.equal(asset.mimeType, "application/pdf");
+
+    // Nội dung thật phải khớp: tệp thực thi đội lốt PDF, hoặc PDF khai báo là ảnh, đều bị từ chối.
+    const fake = await upload(doctorCookie, Buffer.from("MZ\x90\x00 not a pdf"), "application/pdf");
+    assert.equal(fake.status, 400);
+    const mismatch = await upload(doctorCookie, pdfBytes, "image/png", "anh.png");
+    assert.equal(mismatch.status, 400);
+    // SVG và loại khác không được nhận.
+    assert.equal((await upload(doctorCookie, Buffer.from("<svg/>"), "image/svg+xml", "x.svg")).status, 400);
+    // Quá 10 MB.
+    const big = Buffer.concat([Buffer.from("%PDF-"), Buffer.alloc(10 * 1024 * 1024 + 1)]);
+    assert.equal((await upload(doctorCookie, big, "application/pdf")).status, 413);
+
+    // Lưu đường dẫn vào hồ sơ: chỉ nhận nguồn lưu trữ của hệ thống, và tệp được gắn vào hồ sơ.
+    const save = (url: string) =>
+      dashboardCall("PATCH", `/api/dashboard/medical-records/${record.id}`, doctorCookie, { resultPdfUrl: url });
+    assert.equal((await save("https://evil.example/ket-qua.pdf")).status, 400);
+    assert.equal((await save("http://res.cloudinary.com/demo/raw/upload/x.pdf")).status, 400);
+    assert.equal((await save(asset.url)).status, 200);
+    const attached = await prisma.mediaAsset.findUniqueOrThrow({ where: { id: asset.id } });
+    assert.equal(attached.isUsed, true);
+    assert.equal(attached.ownerType, "MEDICAL_RESULT");
+    assert.equal(attached.ownerId, record.id);
+
+    // Lệnh dọn tệp không dùng không bao giờ xóa tệp kết quả khám, kể cả tệp chưa gắn.
+    const orphanResponse = await upload(doctorCookie, pdfBytes, "application/pdf", "mo-coi.pdf");
+    const orphan = ((await orphanResponse.json()) as { data: { item: { id: string } } }).data.item;
+    await prisma.mediaAsset.update({
+      where: { id: orphan.id },
+      data: { createdAt: new Date(Date.now() - 72 * 60 * 60 * 1000) },
+    });
+    const cleanup = await dashboardCall("POST", "/api/uploads/images/cleanup-unused", adminCookie, {
+      olderThanHours: 24,
+    });
+    assert.equal(cleanup.status, 200);
+    assert.deepEqual(destroyed, []);
+    assert.ok(await prisma.mediaAsset.findUnique({ where: { id: orphan.id } }));
+
+    // Bệnh nhân chỉ xem được sau khi công bố, qua cổng của mình: backend tự ký đường dẫn riêng tư,
+    // trả đúng loại tệp và đuôi .pdf dù nơi lưu trả octet-stream.
+    await prisma.medicalRecord.update({
+      where: { id: record.id },
+      data: { status: "PUBLISHED", publishedAt: new Date() },
+    });
+    const requested: string[] = [];
+    globalThis.fetch = (async (input: Parameters<typeof fetch>[0], init?: RequestInit) => {
+      const target = String(input);
+      if (!target.includes("res.cloudinary.com")) return originalFetch(input, init);
+      requested.push(target);
+      return new Response(new Uint8Array(pdfBytes), {
+        status: 200,
+        headers: { "content-type": "application/octet-stream" },
+      });
+    }) as typeof fetch;
+    const patientAuthorization = `Bearer ${(await loginPatient(appointment.patientPhone)).accessToken}`;
+    const file = await fetch(`${http.baseUrl}/api/v1/me/medical-records/${record.id}/file`, {
+      headers: { authorization: patientAuthorization },
+    });
+    assert.equal(file.status, 200);
+    assert.equal(file.headers.get("content-type"), "application/pdf");
+    assert.match(file.headers.get("content-disposition") ?? "", /\.pdf"/);
+    assert.equal(requested.length, 1);
+    assert.match(requested[0], /\/raw\/authenticated\/s--[^/]+--\/v1700000000\//);
+  } finally {
+    uploader.upload_stream = originalUpload;
+    uploader.destroy = originalDestroy;
+    globalThis.fetch = originalFetch;
+  }
+});
