@@ -11,6 +11,7 @@ import 'package:hospital_booking_mobile/features/booking/application/otp_channel
 import 'package:hospital_booking_mobile/features/booking/application/booking_patient_prefill.dart';
 import 'package:hospital_booking_mobile/features/booking/application/booking_submission_controller.dart';
 import 'package:hospital_booking_mobile/features/booking/domain/booking_submission.dart';
+import 'package:hospital_booking_mobile/features/booking/presentation/booking_date_format.dart';
 import 'package:hospital_booking_mobile/features/booking/presentation/widgets/booking_patient_type_selector.dart';
 import 'package:hospital_booking_mobile/features/booking/presentation/widgets/booking_journey_indicator.dart';
 import 'package:hospital_booking_mobile/features/dependents/application/dependent_profiles_controller.dart';
@@ -212,7 +213,7 @@ class _BookingPatientScreenState extends ConsumerState<BookingPatientScreen> {
                 packagePrice: selectedPackage?.finalPrice,
                 date: selectedSlot.date,
                 time:
-                    '${_shortTime(selectedSlot.startTime)} – ${_shortTime(selectedSlot.endTime)}',
+                    '${shortTime(selectedSlot.startTime)} – ${shortTime(selectedSlot.endTime)}',
               ),
               const SizedBox(height: 20),
               Text(
@@ -531,7 +532,7 @@ class _BookingPatientScreenState extends ConsumerState<BookingPatientScreen> {
       helpText: 'Chọn ngày sinh',
     );
     if (selected != null) {
-      _dateOfBirthController.text = _formatApiDate(selected);
+      _dateOfBirthController.text = formatApiDate(selected);
     }
   }
 
@@ -870,7 +871,7 @@ class _CompactSelectionCard extends StatelessWidget {
                 ],
                 Text(doctorName, style: Theme.of(context).textTheme.titleSmall),
                 const SizedBox(height: 3),
-                Text('$departmentName · ${_displayDate(date)} · $time'),
+                Text('$departmentName · ${displayDate(date)} · $time'),
               ],
             ),
           ),
@@ -884,16 +885,3 @@ class _CompactSelectionCard extends StatelessWidget {
     ),
   );
 }
-
-String _shortTime(String value) =>
-    value.length >= 5 ? value.substring(0, 5) : value;
-
-String _displayDate(String value) {
-  final parts = value.split('-');
-  return parts.length == 3 ? '${parts[2]}/${parts[1]}/${parts[0]}' : value;
-}
-
-String _formatApiDate(DateTime date) =>
-    '${date.year.toString().padLeft(4, '0')}-'
-    '${date.month.toString().padLeft(2, '0')}-'
-    '${date.day.toString().padLeft(2, '0')}';

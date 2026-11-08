@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hospital_booking_mobile/features/catalog/domain/catalog_entities.dart';
 import 'package:hospital_booking_mobile/core/errors/api_exception.dart';
 import 'package:hospital_booking_mobile/features/appointments/application/appointments_controller.dart';
 import 'package:hospital_booking_mobile/features/appointments/domain/patient_appointment.dart';
@@ -92,9 +93,11 @@ class _LoadedHomeContentController extends HomeContentController {
         HomeBanner(id: 'banner-1', title: 'Chăm sóc từ trái tim'),
         HomeBanner(id: 'banner-2', title: 'Khám đúng lúc, an tâm hơn'),
       ],
-      departments: const [HomeDepartment(id: 'department-1', name: 'Tim mạch')],
+      departments: const [
+        CatalogDepartment(id: 'department-1', name: 'Tim mạch'),
+      ],
       doctors: const [
-        HomeDoctor(
+        CatalogDoctor(
           id: 'doctor-1',
           fullName: 'Nguyễn Văn An',
           departmentName: 'Tim mạch',
@@ -103,14 +106,14 @@ class _LoadedHomeContentController extends HomeContentController {
           averageRating: 4.9,
           reviewCount: 120,
           todayAvailableSlots: [
-            HomeDoctorSlot(startTime: '14:30', endTime: '15:00'),
-            HomeDoctorSlot(startTime: '15:00', endTime: '15:30'),
-            HomeDoctorSlot(startTime: '15:30', endTime: '16:00'),
+            CatalogDoctorSlot(startTime: '14:30', endTime: '15:00'),
+            CatalogDoctorSlot(startTime: '15:00', endTime: '15:30'),
+            CatalogDoctorSlot(startTime: '15:30', endTime: '16:00'),
           ],
         ),
       ],
       packages: const [
-        HomeMedicalPackage(
+        CatalogMedicalPackage(
           id: 'package-1',
           name: 'Khám tổng quát',
           finalPrice: 1850000,

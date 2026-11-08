@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:hospital_booking_mobile/features/catalog/domain/catalog_entities.dart';
 import 'package:hospital_booking_mobile/core/errors/api_exception.dart';
 import 'package:hospital_booking_mobile/core/network/api_contract.dart';
 import 'package:hospital_booking_mobile/features/home/data/home_content_cache.dart';
@@ -23,9 +24,15 @@ class HomeRepository {
       final data = requireDataMap(response.data);
       final content = HomeContent(
         banners: _decodeItems(data['banners'], HomeBanner.fromJson),
-        departments: _decodeItems(data['departments'], HomeDepartment.fromJson),
-        doctors: _decodeItems(data['doctors'], HomeDoctor.fromJson),
-        packages: _decodeItems(data['packages'], HomeMedicalPackage.fromJson),
+        departments: _decodeItems(
+          data['departments'],
+          CatalogDepartment.fromJson,
+        ),
+        doctors: _decodeItems(data['doctors'], CatalogDoctor.fromJson),
+        packages: _decodeItems(
+          data['packages'],
+          CatalogMedicalPackage.fromJson,
+        ),
         faqs: _decodeItems(data['faqs'], HomeFaq.fromJson),
         siteSettings: HomeSiteSettings.fromJson(
           Map<String, dynamic>.from(data['siteSettings'] as Map? ?? const {}),

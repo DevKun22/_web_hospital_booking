@@ -1,9 +1,9 @@
 import 'package:dio/dio.dart';
+import 'package:hospital_booking_mobile/features/catalog/domain/catalog_entities.dart';
 import 'package:hospital_booking_mobile/core/errors/api_exception.dart';
 import 'package:hospital_booking_mobile/core/network/api_contract.dart';
 import 'package:hospital_booking_mobile/features/catalog/domain/catalog_page.dart';
 import 'package:hospital_booking_mobile/features/booking/domain/booking_catalog.dart';
-import 'package:hospital_booking_mobile/features/home/domain/home_content.dart';
 import 'package:hospital_booking_mobile/features/packages/domain/medical_package.dart';
 
 class CatalogRepository {
@@ -22,7 +22,7 @@ class CatalogRepository {
     }
   }
 
-  Future<CatalogPage<HomeDoctor>> fetchDoctors({
+  Future<CatalogPage<CatalogDoctor>> fetchDoctors({
     String? search,
     String? departmentId,
     int page = 1,
@@ -38,7 +38,7 @@ class CatalogRepository {
           'limit': limit,
         },
       );
-      return _decodePage(response.data, HomeDoctor.fromJson);
+      return _decodePage(response.data, CatalogDoctor.fromJson);
     } on DioException catch (error) {
       throw ApiException.fromDio(error);
     }

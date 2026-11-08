@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hospital_booking_mobile/features/catalog/domain/catalog_entities.dart';
 import 'package:hospital_booking_mobile/features/home/data/home_content_cache.dart';
 import 'package:hospital_booking_mobile/features/home/data/home_repository.dart';
 import 'package:hospital_booking_mobile/features/home/domain/home_content.dart';
@@ -111,7 +112,7 @@ void main() {
       banners: const [],
       departments: const [],
       doctors: const [
-        HomeDoctor(
+        CatalogDoctor(
           id: 'cached-doctor',
           fullName: 'Bác sĩ đã lưu',
           departmentName: 'Nội khoa',
