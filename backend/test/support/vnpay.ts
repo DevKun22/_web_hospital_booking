@@ -58,3 +58,50 @@ export const buildVnpayCallbackQuery = (input: VnpayCallbackInput) => {
   const { data, hash } = signVnpayParams(params, input.secret);
   return `${data}&vnp_SecureHash=${hash}`;
 };
+
+// Phản hồi của API querydr, ký đúng đặc tả (các trường nối bằng "|"); viết độc lập với provider.
+export const buildVnpayQueryResponse = (input: {
+  transactionCode: string;
+  amount: number;
+  responseCode?: string;
+  transactionStatus?: string;
+  secret?: string;
+}) => {
+  const data: Record<string, string> = {
+    vnp_ResponseId: "resp-test",
+    vnp_Command: "querydr",
+    vnp_ResponseCode: input.responseCode ?? "00",
+    vnp_Message: "QueryDR Success",
+    vnp_TmnCode: VNPAY_TEST_TMN_CODE,
+    vnp_TxnRef: input.transactionCode,
+    vnp_Amount: String(input.amount * 100),
+    vnp_BankCode: "NCB",
+    vnp_PayDate: "20261108120000",
+    vnp_TransactionNo: "15000001",
+    vnp_TransactionType: "01",
+    vnp_TransactionStatus: input.transactionStatus ?? "00",
+    vnp_OrderInfo: "Thanh toan",
+  };
+  const fields = [
+    data.vnp_ResponseId,
+    data.vnp_Command,
+    data.vnp_ResponseCode,
+    data.vnp_Message,
+    data.vnp_TmnCode,
+    data.vnp_TxnRef,
+    data.vnp_Amount,
+    data.vnp_BankCode,
+    data.vnp_PayDate,
+    data.vnp_TransactionNo,
+    data.vnp_TransactionType,
+    data.vnp_TransactionStatus,
+    data.vnp_OrderInfo,
+    "",
+    "",
+  ];
+  const vnp_SecureHash = crypto
+    .createHmac("sha512", input.secret ?? VNPAY_TEST_HASH_SECRET)
+    .update(fields.join("|"))
+    .digest("hex");
+  return { ...data, vnp_SecureHash };
+};

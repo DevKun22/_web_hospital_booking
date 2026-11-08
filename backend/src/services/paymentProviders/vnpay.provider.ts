@@ -177,3 +177,149 @@ export const parseVerifiedVnpayCallback = (
     isSuccess: responseCode === "00" && (transactionStatus === null || transactionStatus === "00"),
   };
 };
+
+// ---------------------------------------------------------------------------
+// Truy vấn kết quả giao dịch (querydr) để đối soát chủ động khi Return URL và IPN
+// đều không tới. Đặc tả: VNPAY API 2.1.0, POST JSON, chữ ký HMAC-SHA512 trên các
+// trường nối bằng "|" (khác với chữ ký query của luồng thanh toán).
+// ---------------------------------------------------------------------------
+
+const DEFAULT_QUERY_URL = "https://sandbox.vnpayment.vn/merchant_webapi/api/transaction";
+const QUERY_TIMEOUT_MS = 10_000;
+
+const joinHashFields = (values: Array<string | number | undefined | null>) =>
+  values.map((value) => (value === undefined || value === null ? "" : String(value))).join("|");
+
+const safeEqualHex = (received: string, expected: string) =>
+  received.length === expected.length &&
+  crypto.timingSafeEqual(Buffer.from(received.toLowerCase()), Buffer.from(expected.toLowerCase()));
+
+export type VnpayQueryOutcome = "PAID" | "FAILED" | "PENDING" | "NOT_FOUND" | "UNKNOWN";
+
+export type VerifiedVnpayQuery = {
+  outcome: VnpayQueryOutcome;
+  responseCode: string;
+  transactionStatus: string | null;
+  amount: number | null;
+  transactionNo: string | null;
+  bankCode: string | null;
+  payDate: string | null;
+};
+
+// vnp_ResponseCode là kết quả của chính lệnh truy vấn; vnp_TransactionStatus mới là
+// trạng thái giao dịch thanh toán: 00 thành công, 01 chưa hoàn tất, 02 lỗi. Các trạng
+// thái đảo/hoàn tiền (04..09) không được tự động xử lý nên trả UNKNOWN.
+export const interpretVnpayQuery = (
+  responseCode: string,
+  transactionStatus: string | null,
+): VnpayQueryOutcome => {
+  if (responseCode === "91") return "NOT_FOUND";
+  if (responseCode !== "00") return "UNKNOWN";
+  if (transactionStatus === "00") return "PAID";
+  if (transactionStatus === "01") return "PENDING";
+  if (transactionStatus === "02") return "FAILED";
+  return "UNKNOWN";
+};
+
+export const queryVnpayTransaction = async (
+  input: { txnRef: string; transactionDate: string; ipAddress?: string },
+  fetchImpl: typeof fetch = fetch,
+): Promise<VerifiedVnpayQuery> => {
+  const tmnCode = requiredEnv("VNPAY_TMN_CODE");
+  const secret = requiredEnv("VNPAY_HASH_SECRET");
+  const url = process.env.VNPAY_QUERY_URL?.trim() || DEFAULT_QUERY_URL;
+
+  const requestId = crypto.randomUUID().replace(/-/g, "");
+  const orderInfo = toAsciiOrderInfo(`Truy van giao dich ${input.txnRef}`);
+  const createDate = formatVnpayDate(new Date());
+  const ipAddr = normalizeVnpayIp(input.ipAddress);
+  const body = {
+    vnp_RequestId: requestId,
+    vnp_Version: "2.1.0",
+    vnp_Command: "querydr",
+    vnp_TmnCode: tmnCode,
+    vnp_TxnRef: input.txnRef,
+    vnp_OrderInfo: orderInfo,
+    vnp_TransactionDate: input.transactionDate,
+    vnp_CreateDate: createDate,
+    vnp_IpAddr: ipAddr,
+    vnp_SecureHash: sign(
+      joinHashFields([
+        requestId,
+        "2.1.0",
+        "querydr",
+        tmnCode,
+        input.txnRef,
+        input.transactionDate,
+        createDate,
+        ipAddr,
+        orderInfo,
+      ]),
+      secret,
+    ),
+  };
+
+  let response: Response;
+  try {
+    response = await fetchImpl(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(QUERY_TIMEOUT_MS),
+    });
+  } catch {
+    throw new AppError("Không kết nối được VNPAY để truy vấn giao dịch", 502, "VNPAY_QUERY_UNAVAILABLE");
+  }
+  if (!response.ok) {
+    throw new AppError(`VNPAY truy vấn trả HTTP ${response.status}`, 502, "VNPAY_QUERY_UNAVAILABLE");
+  }
+
+  const data = (await response.json().catch(() => null)) as Record<string, unknown> | null;
+  if (!data || typeof data !== "object") {
+    throw new AppError("Phản hồi truy vấn VNPAY không hợp lệ", 502, "VNPAY_QUERY_INVALID");
+  }
+  const field = (key: string) =>
+    data[key] === undefined || data[key] === null ? undefined : String(data[key]);
+
+  const expected = sign(
+    joinHashFields([
+      field("vnp_ResponseId"),
+      field("vnp_Command"),
+      field("vnp_ResponseCode"),
+      field("vnp_Message"),
+      tmnCode,
+      field("vnp_TxnRef"),
+      field("vnp_Amount"),
+      field("vnp_BankCode"),
+      field("vnp_PayDate"),
+      field("vnp_TransactionNo"),
+      field("vnp_TransactionType"),
+      field("vnp_TransactionStatus"),
+      field("vnp_OrderInfo"),
+      field("vnp_PromotionCode"),
+      field("vnp_PromotionAmount"),
+    ]),
+    secret,
+  );
+  const received = field("vnp_SecureHash") || "";
+  if (!safeEqualHex(received, expected)) {
+    throw new AppError("Chữ ký phản hồi truy vấn VNPAY không hợp lệ", 502, "VNPAY_INVALID_SIGNATURE");
+  }
+  // Phản hồi hợp lệ nhưng thuộc giao dịch khác thì không được dùng.
+  if (field("vnp_TxnRef") && field("vnp_TxnRef") !== input.txnRef) {
+    throw new AppError("Phản hồi truy vấn VNPAY không khớp giao dịch", 502, "VNPAY_QUERY_INVALID");
+  }
+
+  const responseCode = field("vnp_ResponseCode") || "";
+  const transactionStatus = field("vnp_TransactionStatus") ?? null;
+  const rawAmount = Number(field("vnp_Amount"));
+  return {
+    outcome: interpretVnpayQuery(responseCode, transactionStatus),
+    responseCode,
+    transactionStatus,
+    amount: Number.isSafeInteger(rawAmount) && rawAmount % 100 === 0 ? rawAmount / 100 : null,
+    transactionNo: field("vnp_TransactionNo") || null,
+    bankCode: field("vnp_BankCode") || null,
+    payDate: field("vnp_PayDate") || null,
+  };
+};

@@ -10,11 +10,27 @@ import {
   assertPaymentProviderAvailable,
   getPaymentProviderAdapter,
   getPaymentProviderCapabilities,
+  getVnpayConfigurationStatus,
   parseVerifiedVnpayCallback,
+  queryVnpayTransaction,
 } from "./paymentProviders/index.js";
 import PatientEventNotificationService from "./patientEventNotification.service.js";
 
 const PAYMENT_EXPIRES_MINUTES = 15;
+// Chỉ đối soát giao dịch đã treo đủ lâu để Return URL/IPN bình thường kịp tới trước.
+const RECONCILE_MIN_AGE_MS = 2 * 60 * 1000;
+// Chờ thêm sau hạn thanh toán trước khi kết luận giao dịch hết hạn.
+const RECONCILE_EXPIRY_GRACE_MS = 2 * 60 * 1000;
+// Giới hạn tần suất gọi VNPAY khi người dùng liên tục tải lại trang kết quả.
+const RECONCILE_THROTTLE_MS = 30 * 1000;
+
+export type VnpayReconcileOutcome =
+  | "PAID"
+  | "FAILED"
+  | "EXPIRED"
+  | "PENDING"
+  | "UNKNOWN"
+  | "SKIPPED";
 
 type CreatePaymentTransactionInput = {
   provider: PaymentProvider;
@@ -462,6 +478,164 @@ class PaymentService {
       );
     }
     return this.getById(transaction.id, transaction.invoice.patientId);
+  }
+
+  private readonly lastVnpayQueryAt = new Map<string, number>();
+
+  // Đối soát một giao dịch VNPAY còn PENDING bằng API querydr. Dùng khi Return URL và
+  // IPN đều không tới (ví dụ máy chủ đang ngủ). Kết quả đi qua cùng hàm áp dụng
+  // idempotent như callback nên không thể ghi nhận thanh toán hai lần.
+  async reconcileVnpayTransaction(
+    transactionId: string,
+    now = new Date(),
+  ): Promise<{ outcome: VnpayReconcileOutcome }> {
+    const transaction = await prisma.paymentTransaction.findUnique({
+      where: { id: transactionId },
+      select: {
+        ...providerTransactionSelect,
+        provider: true,
+        expiredAt: true,
+        rawRequest: true,
+      },
+    });
+    if (
+      !transaction ||
+      transaction.provider !== "VNPAY" ||
+      transaction.status !== "PENDING"
+    ) {
+      return { outcome: "SKIPPED" };
+    }
+
+    const request = transaction.rawRequest as Record<string, unknown> | null;
+    const transactionDate =
+      typeof request?.vnp_CreateDate === "string" ? request.vnp_CreateDate : null;
+    if (!transactionDate) return { outcome: "UNKNOWN" };
+
+    const query = await queryVnpayTransaction({
+      txnRef: transaction.transactionCode,
+      transactionDate,
+    });
+
+    if (query.outcome === "PAID" || query.outcome === "FAILED") {
+      if (
+        query.amount !== transaction.amount ||
+        transaction.amount !== transaction.invoice.finalAmount
+      ) {
+        throw new AppError(
+          "Số tiền VNPAY không khớp hóa đơn",
+          400,
+          "VNPAY_AMOUNT_MISMATCH",
+        );
+      }
+      await this.applyProviderOutcome({
+        transaction,
+        outcome: query.outcome === "PAID" ? "SUCCESS" : "FAILED",
+        amount: query.amount,
+        providerReference: query.transactionNo ?? transaction.transactionCode,
+        paymentMethod: "VNPAY",
+        providerLabel: "VNPAY",
+        safeResponse: {
+          provider: "VNPAY",
+          source: "QUERYDR",
+          txnRef: transaction.transactionCode,
+          amount: query.amount,
+          responseCode: query.responseCode,
+          transactionStatus: query.transactionStatus,
+          transactionNo: query.transactionNo,
+          bankCode: query.bankCode,
+          payDate: query.payDate,
+        },
+      });
+      return { outcome: query.outcome };
+    }
+
+    if (query.outcome === "NOT_FOUND" || query.outcome === "PENDING") {
+      const expired =
+        now.getTime() >= transaction.expiredAt.getTime() + RECONCILE_EXPIRY_GRACE_MS;
+      if (!expired) return { outcome: "PENDING" };
+      const result = await prisma.paymentTransaction.updateMany({
+        where: { id: transaction.id, status: "PENDING" },
+        data: { status: "EXPIRED", activeKey: null },
+      });
+      return { outcome: result.count === 1 ? "EXPIRED" : "SKIPPED" };
+    }
+
+    return { outcome: "UNKNOWN" };
+  }
+
+  // Quét các giao dịch VNPAY treo PENDING; mỗi giao dịch lỗi không cản các giao dịch khác.
+  async reconcilePendingVnpay(options: { limit?: number; now?: Date } = {}) {
+    const summary = {
+      scanned: 0,
+      paid: 0,
+      failed: 0,
+      expired: 0,
+      pending: 0,
+      errors: 0,
+    };
+    const vnpay = getVnpayConfigurationStatus();
+    if (!vnpay.enabled || !vnpay.configured) return summary;
+
+    const now = options.now ?? new Date();
+    const candidates = await prisma.paymentTransaction.findMany({
+      where: {
+        provider: "VNPAY",
+        status: "PENDING",
+        createdAt: { lte: new Date(now.getTime() - RECONCILE_MIN_AGE_MS) },
+      },
+      orderBy: { createdAt: "asc" },
+      take: options.limit ?? 50,
+      select: { id: true },
+    });
+
+    for (const candidate of candidates) {
+      summary.scanned += 1;
+      try {
+        const { outcome } = await this.reconcileVnpayTransaction(candidate.id, now);
+        if (outcome === "PAID") summary.paid += 1;
+        else if (outcome === "FAILED") summary.failed += 1;
+        else if (outcome === "EXPIRED") summary.expired += 1;
+        else summary.pending += 1;
+      } catch (error) {
+        summary.errors += 1;
+        console.error(
+          "[PAYMENT_RECONCILIATION]",
+          candidate.id,
+          error instanceof AppError ? (error.code ?? error.message) : error,
+        );
+      }
+    }
+    return summary;
+  }
+
+  // Như getById nhưng nếu giao dịch VNPAY còn PENDING quá lâu thì đối soát ngay, để người
+  // dùng mở lại trang kết quả là thấy trạng thái đúng mà không chờ lần quét định kỳ.
+  async getByIdWithReconciliation(id: string, patientId: string) {
+    const transaction = await this.getById(id, patientId);
+    const vnpay = getVnpayConfigurationStatus();
+    const lastQuery = this.lastVnpayQueryAt.get(id) ?? 0;
+    if (
+      transaction.provider !== "VNPAY" ||
+      transaction.status !== "PENDING" ||
+      !vnpay.enabled ||
+      !vnpay.configured ||
+      Date.now() - transaction.createdAt.getTime() < RECONCILE_MIN_AGE_MS ||
+      Date.now() - lastQuery < RECONCILE_THROTTLE_MS
+    ) {
+      return transaction;
+    }
+    this.lastVnpayQueryAt.set(id, Date.now());
+    try {
+      await this.reconcileVnpayTransaction(id);
+    } catch (error) {
+      // Đối soát chỉ là tối ưu: lỗi mạng tới VNPAY không được làm hỏng việc xem giao dịch.
+      console.error(
+        "[PAYMENT_RECONCILIATION]",
+        id,
+        error instanceof AppError ? (error.code ?? error.message) : error,
+      );
+    }
+    return this.getById(id, patientId);
   }
 
   async getById(id: string, patientId: string) {

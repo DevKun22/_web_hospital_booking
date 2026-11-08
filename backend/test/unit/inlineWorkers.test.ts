@@ -18,3 +18,7 @@ test("INLINE_WORKERS tách, chuẩn hóa và loại trùng", () => {
 test("INLINE_WORKERS từ chối tên không hợp lệ", () => {
   assert.throws(() => parseInlineWorkers("otp,sms"), /không hợp lệ: sms/);
 });
+
+test("INLINE_WORKERS nhận worker đối soát thanh toán", () => {
+  assert.deepEqual(parseInlineWorkers("payments"), ["payments"]);
+});

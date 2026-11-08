@@ -1,9 +1,9 @@
 // Chạy worker ngay trong tiến trình API khi không có tiến trình worker riêng
 // (ví dụ Render gói free chỉ có một Web Service). Bật bằng biến môi trường:
-//   INLINE_WORKERS=otp,appointments,notifications
+//   INLINE_WORKERS=otp,appointments,notifications,payments
 // Để trống thì API không chạy worker nào (dùng `npm run worker:*` như trước).
 
-export const INLINE_WORKER_NAMES = ["otp", "appointments", "notifications"] as const;
+export const INLINE_WORKER_NAMES = ["otp", "appointments", "notifications", "payments"] as const;
 export type InlineWorkerName = (typeof INLINE_WORKER_NAMES)[number];
 
 export const parseInlineWorkers = (value?: string): InlineWorkerName[] => {
@@ -27,6 +27,7 @@ const loaders: Record<InlineWorkerName, () => Promise<unknown>> = {
   otp: () => import("./otp.worker.js"),
   appointments: () => import("./appointmentLifecycle.worker.js"),
   notifications: () => import("./notification.worker.js"),
+  payments: () => import("./paymentReconciliation.worker.js"),
 };
 
 export const startInlineWorkers = async (value = process.env.INLINE_WORKERS) => {

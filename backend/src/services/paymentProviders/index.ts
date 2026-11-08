@@ -48,5 +48,9 @@ export type {
 export {
   getVnpayConfigurationStatus,
   parseVerifiedVnpayCallback,
+  queryVnpayTransaction,
 } from "./vnpay.provider.js";
-export type { VerifiedVnpayCallback } from "./vnpay.provider.js";
+export type {
+  VerifiedVnpayCallback,
+  VerifiedVnpayQuery,
+} from "./vnpay.provider.js";
