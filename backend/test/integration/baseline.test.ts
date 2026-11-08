@@ -4172,3 +4172,82 @@ test("patient notification inbox is private, filterable and idempotent", async (
   const unauthenticated = await http.request("/api/v1/me/notifications");
   assert.equal(unauthenticated.status, 401);
 });
+
+test("patient profile health data needs explicit consent that is recorded once", async () => {
+  const patient = await prisma.user.create({
+    data: {
+      fullName: "Health Consent Patient",
+      phone: "0983333330",
+      role: "PATIENT",
+      isPhoneVerified: true,
+      patientProfile: { create: {} },
+    },
+  });
+  const auth = await loginPatient(patient.phone!);
+  const authorization = `Bearer ${auth.accessToken}`;
+  const patch = (body: Record<string, unknown>) =>
+    http.request("/api/v1/me", { method: "PATCH", headers: { authorization }, body });
+
+  const denied = await patch({ allergies: "Penicillin" });
+  assert.equal(denied.status, 400);
+  assert.equal(denied.body.code, "HEALTH_CONSENT_REQUIRED");
+
+  const plain = await patch({ address: "12 Nguyen Hue" });
+  assert.equal(plain.status, 200);
+  assert.equal(plain.body.data.patientProfile.allergies, null);
+  assert.equal(plain.body.data.patientProfile.healthConsentAt, null);
+
+  const consented = await patch({ allergies: "Penicillin", healthConsent: true });
+  assert.equal(consented.status, 200);
+  assert.equal(consented.body.data.patientProfile.allergies, "Penicillin");
+  assert.equal(consented.body.data.patientProfile.healthConsentVersion, "2026-11");
+  assert.ok(consented.body.data.patientProfile.healthConsentAt);
+
+  // Đã có bản ghi đồng ý đúng phiên bản: sửa tiếp không bị hỏi lại.
+  const later = await patch({ medicalHistory: "Hen suyen" });
+  assert.equal(later.status, 200);
+  assert.equal(later.body.data.patientProfile.medicalHistory, "Hen suyen");
+
+  // Xóa nội dung không cần đồng ý.
+  const cleared = await patch({ allergies: null, medicalHistory: "" });
+  assert.equal(cleared.status, 200);
+  assert.equal(cleared.body.data.patientProfile.allergies, null);
+});
+
+test("patient profile resend of unchanged legacy health data does not need consent", async () => {
+  const patient = await prisma.user.create({
+    data: {
+      fullName: "Legacy Health Patient",
+      phone: "0983333331",
+      role: "PATIENT",
+      isPhoneVerified: true,
+      patientProfile: { create: { allergies: "Penicillin", medicalHistory: "Hen suyen" } },
+    },
+  });
+  const auth = await loginPatient(patient.phone!);
+  const authorization = `Bearer ${auth.accessToken}`;
+  const patch = (body: Record<string, unknown>) =>
+    http.request("/api/v1/me", { method: "PATCH", headers: { authorization }, body });
+
+  // App cũ gửi lại cả hồ sơ: dữ liệu sức khỏe giữ nguyên nên không bị chặn.
+  const resent = await patch({
+    address: "34 Le Loi",
+    allergies: " Penicillin ",
+    medicalHistory: "Hen suyen",
+    familyHistory: null,
+  });
+  assert.equal(resent.status, 200);
+  assert.equal(resent.body.data.patientProfile.address, "34 Le Loi");
+  assert.equal(resent.body.data.patientProfile.healthConsentAt, null);
+
+  // Nội dung đổi hoặc thêm mới thì cần đồng ý.
+  const changed = await patch({ allergies: "Penicillin, Aspirin" });
+  assert.equal(changed.status, 400);
+  assert.equal(changed.body.code, "HEALTH_CONSENT_REQUIRED");
+  const added = await patch({ familyHistory: "Tieu duong" });
+  assert.equal(added.status, 400);
+
+  const consented = await patch({ allergies: "Penicillin, Aspirin", healthConsent: true });
+  assert.equal(consented.status, 200);
+  assert.equal(consented.body.data.patientProfile.healthConsentVersion, "2026-11");
+});

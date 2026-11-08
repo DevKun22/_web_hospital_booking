@@ -65,7 +65,7 @@ Nguyên tắc chính:
 - Xác thực dashboard và bệnh nhân bằng OTP qua email (Resend). Kênh SMS chỉ bật khi cấu hình nhà cung cấp.
 - **Phân quyền động:** 39 mã quyền (`backend/src/config/permissions.ts`), mỗi mã khai báo vai trò đủ điều kiện, vai trò cố định và mặc định. Ma trận vai trò–quyền lưu ở `SiteSetting` khóa `rbac.matrix`; API `/api/dashboard/rbac`; middleware `requirePermission(...mã quyền)` cho phép nếu vai trò có bất kỳ mã nào. Phạm vi dữ liệu theo người dùng (ví dụ bác sĩ chỉ thấy dữ liệu của mình) vẫn được kiểm tra trong service. Quản trị viên không mặc định có mọi quyền (không được khám, ghi bệnh án, kê đơn hay cấp thuốc).
 - **Chính sách đặt lịch** lưu ở `SiteSetting` khóa `policy` (hạn hủy lịch, tự đánh dấu vắng mặt, giới hạn), API `/api/dashboard/policy`.
-- Quản lý lịch khám và vòng đời trạng thái; tự đánh dấu vắng mặt theo chính sách; yêu cầu **đồng ý xử lý dữ liệu sức khỏe** (`healthConsentAt`, `healthConsentVersion`) khi đặt lịch có dữ liệu sức khỏe.
+- Quản lý lịch khám và vòng đời trạng thái; tự đánh dấu vắng mặt theo chính sách; yêu cầu **đồng ý xử lý dữ liệu sức khỏe** (`healthConsentAt`, `healthConsentVersion`) khi đặt lịch có dữ liệu sức khỏe và khi người dùng thêm hoặc đổi dị ứng, tiền sử trong hồ sơ cá nhân (web và mobile đều có ô đồng ý).
 - Lịch bác sĩ, khung giờ và yêu cầu thay đổi lịch.
 - Hồ sơ bệnh nhân và hồ sơ người thân.
 - Bệnh án, kết quả xét nghiệm, đơn thuốc và hóa đơn. Mọi thao tác lâm sàng (ghi, sửa, công bố, kê đơn, phát hành, hủy) được ghi vào `AppointmentLog` qua `logClinicalAction`.
@@ -220,7 +220,6 @@ Mã `isProductionLike()` (có `NODE_ENV=production` hoặc biến `RENDER`) quy�
 - Thanh toán chưa có đối soát chủ động (`querydr`, quét giao dịch `PENDING`) và chưa tích hợp hoàn tiền qua VNPay.
 - Chưa đặt `Content-Security-Policy` cho web.
 - Worker chạy trong API nên ngừng khi instance ngủ; cần gói trả phí hoặc dịch vụ giữ thức, hoặc tách worker ra dịch vụ riêng.
-- Mobile chưa có màn hình đồng ý xử lý dữ liệu sức khỏe cho hồ sơ cá nhân.
 - Đo hiệu năng mobile bằng profile/release build thay vì debug build.
 - Hoàn thiện cấu hình push và ký ứng dụng iOS.
 - Theo dõi worker/queue, tỷ lệ push thất bại và slow request bằng hệ thống giám sát production.

@@ -315,6 +315,10 @@ model PatientProfile {
   familyHistory  String?
   bloodPressure  String?
 
+  // Đồng ý lưu thông tin sức khỏe (dị ứng, tiền sử): thời điểm và phiên bản nội dung đã đồng ý.
+  healthConsentAt      DateTime?
+  healthConsentVersion String?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
