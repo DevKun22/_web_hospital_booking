@@ -4799,3 +4799,255 @@ test("only a doctor finishes an exam by default, and invoice adjustments are aud
   });
   assert.equal((refundAudit.meta as { via: string }).via, "MANUAL");
 });
+
+// ---- Rà phân quyền cổng bệnh nhân: không chạm được dữ liệu của người khác ----------
+test("a patient cannot read or change another patient's data, nor unpublished clinical data", async () => {
+  const createPatient = (phone: string, fullName: string) =>
+    prisma.user.create({
+      data: { fullName, phone, role: "PATIENT", isPhoneVerified: true },
+    });
+  const patientA = await createPatient("0971111111", "Patient A");
+  const patientB = await createPatient("0972222222", "Patient B");
+
+  const createAppointment = (owner: typeof patientA, code: string, startTime: string) =>
+    prisma.appointment.create({
+      data: {
+        bookingCode: code,
+        appointmentDate: dateOnly(fixture.appointmentDate),
+        startTime,
+        endTime: `${startTime.slice(0, 2)}:59`,
+        status: "COMPLETED",
+        patientName: owner.fullName,
+        patientPhone: owner.phone!,
+        patientId: owner.id,
+        doctorId: fixture.doctorOne.id,
+        departmentId: fixture.department.id,
+        completedAt: new Date(),
+      },
+    });
+  const appointmentB = await createAppointment(patientB, "XPAT-B", "15:00");
+  const publishedRecordB = await prisma.medicalRecord.create({
+    data: {
+      recordCode: "XPAT-B-PUB",
+      appointmentId: appointmentB.id,
+      patientId: patientB.id,
+      doctorId: fixture.doctorOne.id,
+      status: "PUBLISHED",
+      resultPdfUrl: "https://res.cloudinary.com/demo/image/upload/b-result.png",
+      publishedAt: new Date(),
+      labResults: {
+        create: {
+          testName: "B blood test",
+          fileUrl: "https://res.cloudinary.com/demo/image/upload/b-lab.png",
+        },
+      },
+    },
+    include: { labResults: true },
+  });
+  const prescriptionB = await prisma.prescription.create({
+    data: {
+      prescriptionCode: "XPAT-B-RX",
+      medicalRecordId: publishedRecordB.id,
+      appointmentId: appointmentB.id,
+      patientId: patientB.id,
+      doctorId: fixture.doctorOne.id,
+      status: "ISSUED",
+      issuedAt: new Date(),
+      items: { create: { medicineName: "B medicine", sortOrder: 0 } },
+    },
+  });
+  const invoiceB = await prisma.invoice.create({
+    data: {
+      invoiceCode: "XPAT-B-INV",
+      barcode: "XPAT-B-BAR",
+      appointmentId: appointmentB.id,
+      patientId: patientB.id,
+      totalAmount: 100000,
+      finalAmount: 100000,
+    },
+  });
+  const dependentB = await prisma.dependentProfile.create({
+    data: {
+      ownerId: patientB.id,
+      fullName: "B Child",
+      relationship: "CHILD",
+      dateOfBirth: new Date("2018-01-01"),
+      gender: "MALE",
+    },
+  });
+
+  // Bệnh nhân A có lịch và bệnh án nháp (chưa công bố) của chính mình.
+  const appointmentA = await createAppointment(patientA, "XPAT-A", "16:00");
+  const draftRecordA = await prisma.medicalRecord.create({
+    data: {
+      recordCode: "XPAT-A-DRAFT",
+      appointmentId: appointmentA.id,
+      patientId: patientA.id,
+      doctorId: fixture.doctorOne.id,
+      status: "DRAFT",
+      diagnosis: "Chua cong bo",
+    },
+  });
+  await prisma.prescription.create({
+    data: {
+      prescriptionCode: "XPAT-A-DRAFT-RX",
+      medicalRecordId: draftRecordA.id,
+      appointmentId: appointmentA.id,
+      patientId: patientA.id,
+      doctorId: fixture.doctorOne.id,
+      status: "DRAFT",
+      items: { create: { medicineName: "Draft medicine", sortOrder: 0 } },
+    },
+  });
+
+  const authorization = `Bearer ${(await loginPatient(patientA.phone!)).accessToken}`;
+  const as = (method: string, path: string, body?: unknown) =>
+    http.request(`/api/v1/me${path}`, { method, headers: { authorization }, body });
+  const labResultId = publishedRecordB.labResults[0].id;
+
+  // Mọi tài nguyên của B đều không tồn tại với A (404, không phải 403, để không lộ sự tồn tại).
+  const foreign: Array<[string, string, unknown?]> = [
+    ["GET", `/appointments/${appointmentB.id}`],
+    ["POST", `/appointments/${appointmentB.id}/cancel`, { reason: "Khong phai lich cua toi" }],
+    ["GET", `/appointments/${appointmentB.id}/review`],
+    ["GET", `/medical-records/${publishedRecordB.id}`],
+    ["GET", `/medical-records/${publishedRecordB.id}/file`],
+    ["GET", `/medical-records/${publishedRecordB.id}/lab-results/${labResultId}/file`],
+    ["GET", `/prescriptions/${prescriptionB.id}`],
+    ["GET", `/invoices/${invoiceB.id}`],
+    ["POST", `/invoices/${invoiceB.id}/payments`, { provider: "VNPAY" }],
+    ["PATCH", `/dependents/${dependentB.id}`, { fullName: "Hijacked" }],
+    ["DELETE", `/dependents/${dependentB.id}`],
+  ];
+  for (const [method, path, body] of foreign) {
+    const response = await as(method, path, body);
+    assert.ok(
+      [404, 400].includes(response.status) && response.status !== 200,
+      `${method} ${path} -> ${response.status}`,
+    );
+    assert.notEqual(response.status, 403, `${method} ${path} must not reveal existence`);
+  }
+  assert.equal(
+    (await prisma.dependentProfile.findUniqueOrThrow({ where: { id: dependentB.id } })).fullName,
+    "B Child",
+  );
+  assert.equal(
+    (await prisma.appointment.findUniqueOrThrow({ where: { id: appointmentB.id } })).status,
+    "COMPLETED",
+  );
+
+  // Đặt lịch cho người thân của người khác bị từ chối.
+  const stolenDependentBooking = await http.request("/api/v1/appointments", {
+    method: "POST",
+    headers: { authorization },
+    body: { ...bookingBody({ phone: patientA.phone! }), dependentProfileId: dependentB.id },
+  });
+  assert.ok(
+    [400, 403, 404].includes(stolenDependentBooking.status),
+    `booking for another owner's dependent -> ${stolenDependentBooking.status}`,
+  );
+
+  // Dữ liệu y tế chưa công bố không lộ ra cho chính chủ.
+  const records = await as("GET", "/medical-records");
+  assert.equal(records.status, 200);
+  assert.deepEqual(records.body.data, []);
+  assert.equal((await as("GET", `/medical-records/${draftRecordA.id}`)).status, 404);
+  const prescriptions = await as("GET", "/prescriptions");
+  assert.equal(prescriptions.status, 200);
+  assert.deepEqual(prescriptions.body.data, []);
+
+  // Token bệnh nhân không dùng được cho dashboard và ngược lại.
+  assert.equal(
+    (
+      await http.request("/api/dashboard/invoices", {
+        headers: { authorization, "x-hospital-dashboard-request": "1" },
+      })
+    ).status,
+    401,
+  );
+  const adminCookie = await authCookie(fixture.adminUser.id, "ADMIN");
+  assert.equal(
+    (await http.request("/api/v1/me", { headers: dashboardHeaders(adminCookie) })).status,
+    401,
+  );
+});
+
+// ---- Báo cho chủ tài khoản khi người khác đổi thông tin đăng nhập -----------------
+test("the account owner is warned when an admin changes their email, phone, role or password", async () => {
+  const { default: EmailService } = await import("../../src/services/email.service.js");
+  const sent: Array<{ to: string; subject: string; text: string }> = [];
+  const originalSend = EmailService.sendMail.bind(EmailService);
+  EmailService.sendMail = async (input) => {
+    sent.push({ to: input.to, subject: input.subject, text: input.text });
+  };
+
+  try {
+    const adminCookie = await authCookie(fixture.adminUser.id, "ADMIN");
+    const staff = await prisma.user.create({
+      data: {
+        fullName: "Notice Staff",
+        phone: "0900000201",
+        email: "owner.old@example.test",
+        role: "STAFF",
+        isPhoneVerified: true,
+      },
+    });
+    const patch = (body: unknown) =>
+      dashboardCall("PATCH", `/api/dashboard/users/${staff.id}`, adminCookie, body);
+
+    // Đổi email: thư tới email CŨ, không lộ email mới.
+    const emailChange = await patch({ email: "attacker.new@example.test" });
+    assert.equal(emailChange.status, 200, JSON.stringify(emailChange.body));
+    assert.equal(sent.length, 1);
+    assert.equal(sent[0].to, "owner.old@example.test");
+    assert.match(sent[0].text, /Email nhận mã đăng nhập/);
+    assert.ok(!sent[0].text.includes("attacker.new"));
+
+    // Đổi số điện thoại và vai trò: thư tới email hiện tại (đã là email mới sau lần đổi trước).
+    const phoneAndRole = await patch({ phone: "0900000202", role: "PHARMACIST" });
+    assert.equal(phoneAndRole.status, 200, JSON.stringify(phoneAndRole.body));
+    assert.equal(sent.length, 2);
+    assert.equal(sent[1].to, "attacker.new@example.test");
+    assert.match(sent[1].text, /Số điện thoại đăng nhập/);
+    assert.match(sent[1].text, /Vai trò/);
+
+    // Đặt lại mật khẩu: có thư, và thư không chứa mật khẩu.
+    const reset = await dashboardCall(
+      "PATCH",
+      `/api/dashboard/users/${staff.id}/password`,
+      adminCookie,
+      { password: "SecretTemp99" },
+    );
+    assert.equal(reset.status, 200);
+    assert.equal(sent.length, 3);
+    assert.match(sent[2].text, /Mật khẩu tài khoản đã được quản trị đặt lại/);
+    assert.ok(!sent[2].text.includes("SecretTemp99"));
+
+    // Đổi tên (không ảnh hưởng đăng nhập) thì không gửi thư.
+    assert.equal((await patch({ fullName: "Renamed Staff" })).status, 200);
+    assert.equal(sent.length, 3);
+
+    // Tự sửa tài khoản của chính mình thì không cần cảnh báo.
+    const selfEdit = await dashboardCall(
+      "PATCH",
+      `/api/dashboard/users/${fixture.adminUser.id}`,
+      adminCookie,
+      { email: "admin.self@example.test" },
+    );
+    assert.equal(selfEdit.status, 200);
+    assert.equal(sent.length, 3);
+
+    // Gửi thư lỗi không làm hỏng thao tác của quản trị.
+    EmailService.sendMail = async () => {
+      throw new Error("mail provider down");
+    };
+    const resilient = await patch({ email: "owner.third@example.test" });
+    assert.equal(resilient.status, 200);
+    assert.equal(
+      (await prisma.user.findUniqueOrThrow({ where: { id: staff.id } })).email,
+      "owner.third@example.test",
+    );
+  } finally {
+    EmailService.sendMail = originalSend;
+  }
+});
