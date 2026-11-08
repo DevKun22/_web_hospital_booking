@@ -219,7 +219,7 @@ export default function SchedulesPage() {
     [isDoctor, slotDate, slotDoctorId, slotPage, slotStatus],
   );
   const doctorQuery = useMemo(() => ({ isAvailable: "true", limit: 100 }), []);
-  const doctorsQuery = useDashboardScheduleDoctors(doctorQuery, !isDoctor);
+  const doctorsQuery = useDashboardScheduleDoctors(doctorQuery, !isDoctor && can(user, "catalog.view"));
   const schedulesQuery = useDashboardDoctorSchedules(scheduleQuery);
   const slotsQuery = useDashboardDoctorTimeSlots(slotQuery);
   const loadingSchedules = schedulesQuery.isLoading;
