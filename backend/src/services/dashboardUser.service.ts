@@ -6,7 +6,9 @@ import { hashPassword } from "../utils/password.js";
 import { AppError } from "../utils/appError.js";
 import MediaAssetService from "./mediaAsset.service.js";
 import { invalidateDashboardAuthSnapshot } from "./dashboardAuthCache.service.js";
+import AccountChangeNoticeService from "./accountChangeNotice.service.js";
 import AuditLogService from "./auditLog.service.js";
+import type { AccountChangeKind } from "./emailTemplates/accountChange.template.js";
 import AuthSessionService from "./authSession.service.js";
 
 type DashboardRole = StaffRole;
@@ -284,6 +286,15 @@ class DashboardUserService {
       },
     });
 
+    // Chỉ báo khi người khác sửa tài khoản của mình; tự sửa hồ sơ của chính mình thì không cần.
+    if (actor.userId !== id) {
+      const changes: AccountChangeKind[] = [];
+      if (input.email !== undefined && input.email !== currentUser.email) changes.push("EMAIL_CHANGED");
+      if (input.phone !== undefined && input.phone !== currentUser.phone) changes.push("PHONE_CHANGED");
+      if (input.role && input.role !== currentUser.role) changes.push("ROLE_CHANGED");
+      await AccountChangeNoticeService.notify({ email: currentUser.email, changes });
+    }
+
     return user;
   }
 
@@ -335,6 +346,9 @@ class DashboardUserService {
 
     await AuthSessionService.revokeAllForUser({ userId: id, kind: "DASHBOARD" });
     invalidateDashboardAuthSnapshot(id);
+    if (forceChange) {
+      await AccountChangeNoticeService.notify({ email: user.email, changes: ["PASSWORD_RESET"] });
+    }
     await AuditLogService.record({
       actor,
       action: "USER_PASSWORD_RESET",

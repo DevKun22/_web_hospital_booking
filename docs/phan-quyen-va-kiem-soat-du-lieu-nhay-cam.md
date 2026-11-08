@@ -56,8 +56,14 @@ Ba cột "cấp thêm được" nghĩa là quản trị có thể bật trong tr
 
 ## 6. Giới hạn hiện tại và hướng phát triển
 
-- Quản trị vẫn có thể đổi email và số điện thoại đăng nhập của người khác (hai thông tin quyết định nơi nhận mã OTP). Việc này được ghi nhật ký và kèm buộc đổi mật khẩu khi đặt lại, nhưng chưa có xác nhận từ chính chủ tài khoản. Hướng phát triển: gửi thông báo tới email cũ của chủ tài khoản khi các thông tin này đổi.
+- Quản trị vẫn đổi được email và số điện thoại đăng nhập của người khác (hai thông tin quyết định nơi nhận mã OTP). Mỗi lần đổi đều ghi nhật ký, đặt lại mật khẩu buộc người đó tự đổi, và chủ tài khoản được báo bằng thư gửi tới **email cũ** (không chứa thông tin mới). Chưa có bước chủ tài khoản phải xác nhận trước khi thay đổi có hiệu lực.
 - Chưa có quyền xem khẩn cấp (break-glass) với lý do bắt buộc; hiện quản trị phải được cấp quyền trong ma trận trước khi xem.
 - Bác sĩ chỉ xem bệnh án do chính mình lập. Trường hợp bác sĩ khác cần xem lịch sử khám của cùng bệnh nhân (liên tục chăm sóc) chưa được hỗ trợ; nên cho phép khi có lịch hẹn hiện hành với bệnh nhân đó và ghi nhật ký.
 - Liên kết tệp kết quả xét nghiệm (`LabResult.fileUrl`) là URL thường; cần kiểm tra chế độ công khai của kho lưu trữ tệp trên production.
-- Chưa rà phân quyền phía cổng bệnh nhân (người thân, phiên đăng nhập) trong đợt này.
+- Cổng bệnh nhân đã được rà bằng test tích hợp (mục 7), chưa phát hiện lỗ hổng truy cập chéo.
+
+## 7. Cách giữ cho phân quyền đúng về sau
+
+- **Test quét tuyến** (`backend/test/unit/routePermissions.test.ts`): mọi tuyến dashboard phải qua `authDashboard` và có `requirePermission` (gắn thẳng hoặc ở `router.use` đứng trước), mọi mã quyền dùng trong tuyến phải tồn tại, và mọi mã quyền phải bảo vệ ít nhất một tuyến. Thêm tuyến mới mà quên quyền thì test đỏ.
+- **Test truy cập chéo cổng bệnh nhân** (`baseline.test.ts`, "a patient cannot read or change another patient's data..."): bệnh nhân A gọi lịch, bệnh án, tệp kết quả, đơn thuốc, hóa đơn, thanh toán, hồ sơ người thân của bệnh nhân B đều nhận 404 (không lộ sự tồn tại), không đặt lịch được cho người thân của người khác, không thấy bệnh án và đơn thuốc chưa công bố của chính mình, và token bệnh nhân không dùng được cho dashboard (ngược lại cũng vậy).
+- **Cảnh báo chủ tài khoản** (`accountChangeNotice.service.ts`): thư tới email cũ khi người khác đổi email, số điện thoại, vai trò hoặc đặt lại mật khẩu; lỗi gửi thư không làm hỏng thao tác của quản trị (chỉ ghi log). Cần `RESEND_API_KEY` đã cấu hình như các thư OTP.
