@@ -134,7 +134,7 @@ export default function PrescriptionsPage() {
   );
   const doctorQuery = useMemo(() => ({ limit: 100 }), []);
   const prescriptionsQuery = useDashboardPrescriptions(query);
-  const doctorsQuery = useDashboardPrescriptionDoctors(doctorQuery, !isDoctor);
+  const doctorsQuery = useDashboardPrescriptionDoctors(doctorQuery, !isDoctor && can(user, "catalog.view"));
   const selectedPrescriptionQuery = useDashboardPrescription(selectedSnapshot?.id);
   const loading = prescriptionsQuery.isLoading;
   const prescriptions = prescriptionsQuery.data?.items ?? [];

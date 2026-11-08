@@ -137,7 +137,7 @@ export default function AppointmentsPage() {
   const doctorQuery = useMemo(() => ({ limit: 100 }), []);
   const appointmentsQuery = useDashboardAppointments(query);
   const pendingInvoiceQuery = useDashboardPendingInvoiceAppointments(canStaffActions);
-  const doctorsQuery = useDashboardAppointmentDoctors(doctorQuery, !isDoctor);
+  const doctorsQuery = useDashboardAppointmentDoctors(doctorQuery, !isDoctor && can(user, "catalog.view"));
   const rescheduleSlotsQuery = usePublicAvailableSlots({
     doctorId: rescheduleTarget?.doctor.id,
     date: rescheduleTarget ? rescheduleDate : undefined,

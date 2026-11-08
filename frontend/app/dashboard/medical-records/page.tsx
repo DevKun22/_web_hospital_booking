@@ -168,7 +168,7 @@ export default function MedicalRecordsPage() {
   );
   const doctorQuery = useMemo(() => ({ limit: 100 }), []);
   const recordsQuery = useDashboardMedicalRecords(query);
-  const doctorsQuery = useDashboardMedicalRecordDoctors(doctorQuery, !isDoctor);
+  const doctorsQuery = useDashboardMedicalRecordDoctors(doctorQuery, !isDoctor && can(user, "catalog.view"));
   const selectedRecordQuery = useDashboardMedicalRecord(selectedSnapshot?.id);
   const loading = recordsQuery.isLoading;
   const records = recordsQuery.data?.items ?? [];
