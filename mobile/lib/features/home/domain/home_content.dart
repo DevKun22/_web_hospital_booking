@@ -1,4 +1,5 @@
-import 'package:hospital_booking_mobile/core/formatters/professional_name_formatter.dart';
+import 'package:hospital_booking_mobile/core/network/json_readers.dart';
+import 'package:hospital_booking_mobile/features/catalog/domain/catalog_entities.dart';
 
 class HomeContent {
   const HomeContent({
@@ -12,21 +13,24 @@ class HomeContent {
   });
 
   factory HomeContent.fromJson(Map<String, dynamic> json) => HomeContent(
-    banners: _decodeList(json['banners'], HomeBanner.fromJson),
-    departments: _decodeList(json['departments'], HomeDepartment.fromJson),
-    doctors: _decodeList(json['doctors'], HomeDoctor.fromJson),
-    packages: _decodeList(json['packages'], HomeMedicalPackage.fromJson),
-    faqs: _decodeList(json['faqs'], HomeFaq.fromJson),
-    siteSettings: HomeSiteSettings.fromJson(_map(json['siteSettings'])),
+    banners: decodeJsonList(json['banners'], HomeBanner.fromJson),
+    departments: decodeJsonList(
+      json['departments'],
+      CatalogDepartment.fromJson,
+    ),
+    doctors: decodeJsonList(json['doctors'], CatalogDoctor.fromJson),
+    packages: decodeJsonList(json['packages'], CatalogMedicalPackage.fromJson),
+    faqs: decodeJsonList(json['faqs'], HomeFaq.fromJson),
+    siteSettings: HomeSiteSettings.fromJson(jsonMap(json['siteSettings'])),
     fetchedAt:
         DateTime.tryParse(json['fetchedAt']?.toString() ?? '') ??
         DateTime.fromMillisecondsSinceEpoch(0),
   );
 
   final List<HomeBanner> banners;
-  final List<HomeDepartment> departments;
-  final List<HomeDoctor> doctors;
-  final List<HomeMedicalPackage> packages;
+  final List<CatalogDepartment> departments;
+  final List<CatalogDoctor> doctors;
+  final List<CatalogMedicalPackage> packages;
   final List<HomeFaq> faqs;
   final HomeSiteSettings siteSettings;
   final DateTime fetchedAt;
@@ -53,12 +57,12 @@ class HomeBanner {
   });
 
   factory HomeBanner.fromJson(Map<String, dynamic> json) => HomeBanner(
-    id: _string(json['id']),
-    title: _string(json['title']),
-    subtitle: _nullableString(json['subtitle']),
-    image: _nullableString(json['image']),
-    mobileImage: _nullableString(json['mobileImage']),
-    linkUrl: _nullableString(json['linkUrl']),
+    id: jsonString(json['id']),
+    title: jsonString(json['title']),
+    subtitle: jsonNullableString(json['subtitle']),
+    image: jsonNullableString(json['image']),
+    mobileImage: jsonNullableString(json['mobileImage']),
+    linkUrl: jsonNullableString(json['linkUrl']),
   );
 
   final String id;
@@ -80,158 +84,6 @@ class HomeBanner {
   };
 }
 
-class HomeDepartment {
-  const HomeDepartment({
-    required this.id,
-    required this.name,
-    this.slug,
-    this.image,
-  });
-
-  factory HomeDepartment.fromJson(Map<String, dynamic> json) => HomeDepartment(
-    id: _string(json['id']),
-    name: _string(json['name']),
-    slug: _nullableString(json['slug']),
-    image: _nullableString(json['image']),
-  );
-
-  final String id;
-  final String name;
-  final String? slug;
-  final String? image;
-
-  Map<String, dynamic> toJson() => {
-    'id': id,
-    'name': name,
-    'slug': slug,
-    'image': image,
-  };
-}
-
-class HomeDoctor {
-  const HomeDoctor({
-    required this.id,
-    required this.fullName,
-    required this.departmentName,
-    required this.consultationFee,
-    this.title,
-    this.specialization,
-    this.avatar,
-    this.experience,
-    this.averageRating = 0,
-    this.reviewCount = 0,
-    this.todayAvailableSlots = const [],
-  });
-
-  factory HomeDoctor.fromJson(Map<String, dynamic> json) {
-    final user = _map(json['user']);
-    final department = _map(json['department']);
-    final reviewSummary = _map(json['reviewSummary']);
-    return HomeDoctor(
-      id: _string(json['id']),
-      fullName: _string(user['fullName']),
-      departmentName: _string(department['name']),
-      consultationFee: _number(json['consultationFee']),
-      title: _nullableString(json['title']),
-      specialization: _nullableString(json['specialization']),
-      avatar: _nullableString(user['avatar']),
-      experience: _nullableInt(json['experience']),
-      averageRating: _number(reviewSummary['averageRating']),
-      reviewCount: _nullableInt(reviewSummary['count']) ?? 0,
-      todayAvailableSlots: _decodeList(
-        json['todayAvailableSlots'],
-        HomeDoctorSlot.fromJson,
-      ),
-    );
-  }
-
-  final String id;
-  final String fullName;
-  final String departmentName;
-  final double consultationFee;
-  final String? title;
-  final String? specialization;
-  final String? avatar;
-  final int? experience;
-  final double averageRating;
-  final int reviewCount;
-  final List<HomeDoctorSlot> todayAvailableSlots;
-
-  String get displayName =>
-      formatProfessionalName(title: title, fullName: fullName);
-
-  Map<String, dynamic> toJson() => {
-    'id': id,
-    'title': title,
-    'specialization': specialization,
-    'experience': experience,
-    'consultationFee': consultationFee,
-    'reviewSummary': {'averageRating': averageRating, 'count': reviewCount},
-    'todayAvailableSlots': todayAvailableSlots
-        .map((slot) => slot.toJson())
-        .toList(growable: false),
-    'user': {'fullName': fullName, 'avatar': avatar},
-    'department': {'name': departmentName},
-  };
-}
-
-class HomeDoctorSlot {
-  const HomeDoctorSlot({required this.startTime, required this.endTime});
-
-  factory HomeDoctorSlot.fromJson(Map<String, dynamic> json) => HomeDoctorSlot(
-    startTime: _string(json['startTime']),
-    endTime: _string(json['endTime']),
-  );
-
-  final String startTime;
-  final String endTime;
-
-  Map<String, dynamic> toJson() => {'startTime': startTime, 'endTime': endTime};
-}
-
-class HomeMedicalPackage {
-  const HomeMedicalPackage({
-    required this.id,
-    required this.name,
-    required this.finalPrice,
-    required this.isPopular,
-    required this.isBhytSupport,
-    this.slug,
-    this.summary,
-  });
-
-  factory HomeMedicalPackage.fromJson(Map<String, dynamic> json) =>
-      HomeMedicalPackage(
-        id: _string(json['id']),
-        name: _string(json['name']),
-        finalPrice: _number(json['finalPrice']),
-        isPopular: json['isPopular'] == true,
-        isBhytSupport: json['isBHYTSupport'] == true,
-        slug: _nullableString(json['slug']),
-        summary:
-            _nullableString(json['summary']) ??
-            _nullableString(json['description']),
-      );
-
-  final String id;
-  final String name;
-  final String? slug;
-  final String? summary;
-  final double finalPrice;
-  final bool isPopular;
-  final bool isBhytSupport;
-
-  Map<String, dynamic> toJson() => {
-    'id': id,
-    'name': name,
-    'slug': slug,
-    'summary': summary,
-    'finalPrice': finalPrice,
-    'isPopular': isPopular,
-    'isBHYTSupport': isBhytSupport,
-  };
-}
-
 class HomeFaq {
   const HomeFaq({
     required this.id,
@@ -240,9 +92,9 @@ class HomeFaq {
   });
 
   factory HomeFaq.fromJson(Map<String, dynamic> json) => HomeFaq(
-    id: _string(json['id']),
-    question: _string(json['question']),
-    answer: _string(json['answer']),
+    id: jsonString(json['id']),
+    question: jsonString(json['question']),
+    answer: jsonString(json['answer']),
   );
 
   final String id;
@@ -268,12 +120,12 @@ class HomeSiteSettings {
 
   factory HomeSiteSettings.fromJson(Map<String, dynamic> json) =>
       HomeSiteSettings(
-        hospitalName: _nullableString(json['hospitalName']),
-        hotline: _nullableString(json['hotline']),
-        emergencyHotline: _nullableString(json['emergencyHotline']),
-        address: _nullableString(json['address']),
-        workingHours: _nullableString(json['workingHours']),
-        mapUrl: _nullableString(json['mapUrl']),
+        hospitalName: jsonNullableString(json['hospitalName']),
+        hotline: jsonNullableString(json['hotline']),
+        emergencyHotline: jsonNullableString(json['emergencyHotline']),
+        address: jsonNullableString(json['address']),
+        workingHours: jsonNullableString(json['workingHours']),
+        mapUrl: jsonNullableString(json['mapUrl']),
       );
 
   final String? hospitalName;
@@ -292,27 +144,3 @@ class HomeSiteSettings {
     'mapUrl': mapUrl,
   };
 }
-
-List<T> _decodeList<T>(
-  dynamic value,
-  T Function(Map<String, dynamic>) decode,
-) => value is List
-    ? value.whereType<Map>().map((item) => decode(_map(item))).toList()
-    : const [];
-
-Map<String, dynamic> _map(dynamic value) =>
-    value is Map ? Map<String, dynamic>.from(value) : <String, dynamic>{};
-
-String _string(dynamic value) => value?.toString() ?? '';
-
-String? _nullableString(dynamic value) {
-  final result = value?.toString().trim();
-  return result == null || result.isEmpty ? null : result;
-}
-
-double _number(dynamic value) => value is num
-    ? value.toDouble()
-    : double.tryParse(value?.toString() ?? '') ?? 0;
-
-int? _nullableInt(dynamic value) =>
-    value is num ? value.toInt() : int.tryParse(value?.toString() ?? '');

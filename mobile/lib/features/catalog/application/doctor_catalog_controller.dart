@@ -1,8 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:hospital_booking_mobile/features/catalog/domain/catalog_entities.dart';
 import 'package:hospital_booking_mobile/core/errors/api_exception.dart';
 import 'package:hospital_booking_mobile/core/providers/app_providers.dart';
 import 'package:hospital_booking_mobile/features/catalog/data/catalog_repository.dart';
-import 'package:hospital_booking_mobile/features/home/domain/home_content.dart';
 
 final catalogRepositoryProvider = Provider<CatalogRepository>(
   (ref) => CatalogRepository(ref.watch(authDioProvider)),
@@ -30,7 +30,7 @@ class DoctorCatalogState {
     this.isLoadingMore = false,
   });
 
-  final List<HomeDoctor> items;
+  final List<CatalogDoctor> items;
   final String query;
   final String? departmentId;
   final ApiException? error;
@@ -43,7 +43,7 @@ class DoctorCatalogState {
   bool get hasMore => page < totalPages;
 
   DoctorCatalogState copyWith({
-    List<HomeDoctor>? items,
+    List<CatalogDoctor>? items,
     String? query,
     String? departmentId,
     bool clearDepartment = false,

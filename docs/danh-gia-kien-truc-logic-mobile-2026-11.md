@@ -24,7 +24,7 @@ Kiến trúc nền tảng đúng hướng (Riverpod, phân lớp theo tính năn
 | 3 | Lỗi thật của lần gọi lại bị **thay bằng 401 cũ** (`catch (_)`) | Trung bình | Đọc mã; test sau sửa đòi lỗi 404 gốc | **Đã sửa** |
 | 4 | Không có bắt lỗi toàn cục và không báo cáo sự cố; 40 chỗ `catch (_)` nuốt lỗi | Trung bình | Tìm kiếm mã: không có `FlutterError.onError` hay `PlatformDispatcher` | **Đã làm bộ bắt lỗi toàn cục tối thiểu**; còn rà `catch (_)` |
 | 5 | `core/` phụ thuộc ngược vào `features/` (3 tệp) | Trung bình | `session_refresh_coordinator`, `app_providers`, `patient_data_sync_coordinator` | **Đã sửa** |
-| 6 | Tệp trình bày quá lớn: 9 tệp trên 600 dòng, lớn nhất 2.010; trình bày chiếm 59% mã | Trung bình (bảo trì) | Đếm dòng | Đề xuất |
+| 6 | Tệp trình bày quá lớn: 9 tệp trên 600 dòng, lớn nhất 2.010; trình bày chiếm 59% mã | Trung bình (bảo trì) | Đếm dòng | **Đã sửa một phần**: `home_screen` 2.010 → 259 dòng, `booking_start_screen` 1.088 → 331 dòng; CI cảnh báo tệp trên 800 dòng (còn `booking_patient_screen`, `appointment_detail_screen`) |
 | 7 | Lớp `domain` phụ thuộc Flutter (`material.dart`) ở 4 tệp | Thấp | Tìm kiếm mã | **Đã sửa** |
 | 8 | Màn hình gọi thẳng lớp `data` (3 chỗ), bỏ qua `application` | Thấp | Tìm kiếm mã | **Đã sửa** phần tham chiếu kiểu (`PushPermissionStatus` sang domain); còn lại chỉ là kiểu dữ liệu, chấp nhận |
 | 9 | URL thanh toán chỉ kiểm tra `https`, không kiểm tra tên miền | Thấp | `invoice_detail_screen.dart` | Chấp nhận |
@@ -86,5 +86,13 @@ Phản biện: đây là refactor thuần, không đổi hành vi; rủi ro th�
 | 1 | Bộ chặn 401 và test | Xong | PR riêng |
 | 2 | Bắt lỗi toàn cục tối thiểu | Xong | Không thêm thư viện |
 | 3 | Gỡ phụ thuộc ngược `core` sang `features` | Xong | Có test ranh giới |
-| 4 | Cảnh báo tệp lớn trong CI, tách `home_screen` dần | Vừa, kéo dài | Mỗi lần một vùng, kèm widget test |
+| 4 | Cảnh báo tệp lớn trong CI, tách `home_screen` dần | Đã làm `home_screen`, `booking_start_screen`, cảnh báo CI | Còn 2 tệp trên 800 dòng |
 | 5 | Làm mới token chủ động trước khi hết hạn | Nhỏ | Chỉ khi đo thấy vòng 401 gây chậm |
+
+## 5. Tái phân bổ cấu trúc (đợt 2)
+
+- **Mô hình danh mục đặt sai chỗ:** `HomeDepartment`, `HomeDoctor`, `HomeDoctorSlot`, `HomeMedicalPackage` nằm trong `features/home/domain` nhưng được `catalog` và `support` dùng chéo. Đã chuyển sang `features/catalog/domain/catalog_entities.dart` và đổi tên thành `Catalog*`; `home` giờ phụ thuộc `catalog` (đúng chiều), không còn `catalog` phụ thuộc `home`.
+- **Bộ đọc JSON chịu lỗi** (`_string`, `_map`, ...) chuyển thành `core/network/json_readers.dart` dùng chung.
+- **Trùng lặp:** `_shortTime`, `_displayDate`, `_formatApiDate` lặp ở hai màn hình đặt lịch, gom vào `booking_date_format.dart`.
+- **Tách màn hình lớn** theo vùng giao diện: `home/presentation/widgets/{home_chrome, home_search_sheet, home_hero_carousel, home_doctor_section, home_catalog_sections}.dart` và `booking/presentation/widgets/booking_selection_widgets.dart`.
+- **Còn ba chiều phụ thuộc chéo chấp nhận được:** `chatbot_entry_context` (kiểu điểm vào chatbot) dùng từ đặt lịch và gói khám; `auth` gọi cổng push để hủy token khi đăng xuất; `home` dùng thẻ lịch hẹn của `appointments`.
