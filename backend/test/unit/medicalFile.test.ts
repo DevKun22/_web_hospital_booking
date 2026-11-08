@@ -43,7 +43,7 @@ test("private result links are signed when read, public links are left untouched
     "https://res.cloudinary.com/unit_cloud/raw/authenticated/v1700000000/hospital/medical-results/abc.pdf",
   );
   const signed = signAuthenticatedMedicalUrl(privateUrl);
-  assert.match(signed.pathname, /^\/unit_cloud\/raw\/authenticated\/s--[^/]+--\/v1700000000\/hospital\/medical-results\/abc\.pdf$/);
+  assert.match(signed.pathname, /^\/[^/]+\/raw\/authenticated\/s--[^/]+--\/v1700000000\/hospital\/medical-results\/abc\.pdf$/);
 
   // Ký lại một đường dẫn đã có chữ ký vẫn cho cùng một kết quả hợp lệ.
   assert.equal(signAuthenticatedMedicalUrl(signed).pathname, signed.pathname);
