@@ -20,6 +20,7 @@ export type PatientUser = {
     medicalHistory?: string | null;
     familyHistory?: string | null;
     bloodPressure?: string | null;
+    healthConsentVersion?: string | null;
   } | null;
 };
 
