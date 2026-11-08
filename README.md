@@ -1,441 +1,204 @@
 # Hospital Booking
 
-Hệ thống đặt lịch khám bệnh trực tuyến gồm site người dùng, dashboard quản trị bệnh viện và backend API. Dự án được xây dựng cho môn Tiểu Luận Chuyên Ngành, tập trung vào luồng đặt lịch, xác thực OTP, vận hành khám bệnh, hóa đơn, thanh toán, chatbot hỗ trợ và tìm kiếm nội dung y tế.
+Hệ thống đặt lịch khám trực tuyến gồm **website cho bệnh nhân, ứng dụng mobile Flutter, dashboard vận hành cho nhân sự bệnh viện** và một backend dùng chung. Bệnh nhân đặt lịch, theo dõi lịch khám, xem kết quả, đơn thuốc, hóa đơn và thanh toán trực tuyến; nhân sự bệnh viện tiếp đón, khám, kê đơn, cấp thuốc và quản lý theo đúng vai trò của mình.
 
-website đã deploy: https://web-hospital-booking.vercel.app
-Dashboard: https://web-hospital-booking.vercel.app/dashboard
+Đồ án tốt nghiệp: *Xây dựng website hệ thống đặt lịch khám trực tuyến tích hợp chatbot và app mobile Flutter*.
 
-## Thông Tin Author
+| Thành phần | Địa chỉ |
+| --- | --- |
+| Website | https://hospital.ngoloi.dev |
+| Dashboard nhân sự | https://hospital.ngoloi.dev/dashboard (đăng nhập bằng tài khoản được cấp) |
+| API | https://hospital-api.ngoloi.dev (kiểm tra sống: `/health`) |
 
-- Developer: ``Ngô Quang Lợi``
-- Email: ``kamado.nql2109@gmail.com``
-- Môn học: ``Tiểu Luận Chuyên Ngành CNTT``
-- Trường: ``Đại Học Công Nghệ Kỹ Thuật TP HCM - HCMUTE``
-- GVHD: ``GV, TS. Phan Thị Thể``
+> API chạy trên gói miễn phí của Render nên có thể mất khoảng 50 giây ở lần gọi đầu sau thời gian không có truy cập.
 
-## Mục Tiêu
+## Chức năng theo vai trò
 
-- Giúp người bệnh xem chuyên khoa, bác sĩ, gói khám và đặt lịch khám trực tuyến.
-- Cổng bệnh nhân (web + app) đăng nhập bằng OTP để xem lịch hẹn, hủy lịch, kết quả, đơn thuốc, hóa đơn và đánh giá.
-- Cung cấp dashboard cho quản trị viên, nhân viên và bác sĩ quản lý nghiệp vụ khám bệnh.
-- Tích hợp các thành phần triển khai thực tế như Redis queue, gửi email OTP, upload ảnh, push FCM và theo dõi hiệu năng trên Vercel.
+| Vai trò | Làm được gì |
+| --- | --- |
+| Bệnh nhân (web và mobile) | Xem chuyên khoa, bác sĩ, gói khám; đặt lịch có xác thực OTP qua email; xem và hủy lịch; đánh giá sau khám; xem kết quả khám, đơn thuốc, hóa đơn; thanh toán VNPay; quản lý hồ sơ người thân và đặt lịch cho người thân; nhận thông báo đẩy; hỏi chatbot |
+| Nhân viên | Tiếp đón (xác nhận, check-in, đổi lịch, ghi vắng mặt), lập và thu hóa đơn, quản lý danh mục, lịch làm việc và nội dung |
+| Bác sĩ | Xem lịch của mình, bắt đầu và kết thúc buổi khám, ghi bệnh án và kết quả xét nghiệm, kê đơn, gửi yêu cầu đổi lịch làm việc |
+| Dược sĩ | Cấp thuốc theo đơn đã phát hành, nhập kho, điều chỉnh tồn, quản lý danh mục thuốc |
+| Quản trị | Quản lý tài khoản nhân sự và ma trận phân quyền, hoàn tiền, cấu hình hệ thống, xem nhật ký truy cập |
 
-## Công Nghệ Sử Dụng
+Luồng chính: **đặt lịch** (chọn dịch vụ, ngày, khung giờ, OTP) → **tiếp đón** (xác nhận, check-in) → **khám** (bệnh án, đơn thuốc) → **cấp thuốc** → **hóa đơn và thanh toán** → **đánh giá**. Mỗi bước phát sinh thông báo trong ứng dụng và push tới thiết bị.
+
+## Kiến trúc
+
+```text
+Web công khai / Dashboard (Next.js) ─┐
+                                     ├── REST API (Express + TypeScript) ── PostgreSQL (Prisma)
+Ứng dụng bệnh nhân (Flutter) ────────┘                │
+                                                      ├── Redis + BullMQ (OTP, nhắc lịch, thông báo)
+                                                      ├── Firebase Cloud Messaging (push)
+                                                      ├── Resend (email OTP)
+                                                      ├── Cloudinary (ảnh, tệp kết quả)
+                                                      ├── Gemini (chatbot)
+                                                      └── VNPay (thanh toán, IPN)
+```
+
+- Web và mobile không truy cập cơ sở dữ liệu trực tiếp, chỉ gọi REST API. Web công khai và dashboard dùng các route `/api`; cổng bệnh nhân (web và mobile) dùng `/api/v1`; tất cả cùng một lớp nghiệp vụ.
+- Backend quyết định quyền truy cập, trạng thái lịch khám và tính hợp lệ của dữ liệu; PostgreSQL là nguồn dữ liệu duy nhất.
+- Hộp thư thông báo lưu trong PostgreSQL là dữ liệu chính, push chỉ là kênh chuyển phát.
+- Các việc nền (gửi OTP, nhắc lịch, hết hạn giữ chỗ, đối soát thanh toán) chạy qua hàng đợi hoặc worker, có thể chạy ngay trong tiến trình API (`INLINE_WORKERS`).
+
+Mô tả đầy đủ: [docs/kien-truc-he-thong-hien-tai.md](docs/kien-truc-he-thong-hien-tai.md).
+
+## Công nghệ
 
 | Phần | Công nghệ |
 | --- | --- |
-| Frontend | Next.js 16, React 19, TypeScript, Tailwind CSS |
-| State/Data | TanStack Query, Zustand |
-| UI | Lucide Icons, Embla Carousel, Recharts |
-| Backend | Node.js, Express, TypeScript |
-| Database | PostgreSQL, Prisma ORM |
-| Queue | Redis, BullMQ, ioredis |
-| Email OTP | Resend |
-| Upload | Cloudinary, MediaAsset tracking |
-| Search | PostgreSQL (ILIKE, cache ngắn hạn) |
-| Deploy | Vercel frontend, Render backend và worker |
-| Analytics | Vercel Analytics, Vercel Speed Insights |
+| Web | Next.js 16, React 19, TypeScript, Tailwind CSS, TanStack Query, Zustand |
+| Mobile | Flutter 3.38, Riverpod, GoRouter, Dio, Firebase Messaging, flutter_secure_storage |
+| Backend | Node.js 20 trở lên, Express 5, TypeScript, Prisma, PostgreSQL |
+| Hàng đợi | Redis, BullMQ |
+| Dịch vụ ngoài | Resend, Cloudinary, Firebase Cloud Messaging, Gemini, VNPay |
+| Triển khai | Vercel (web), Render (API), Upstash (Redis), Docker Compose (môi trường phát triển) |
+| Chất lượng | GitHub Actions, kiểm thử tích hợp trên PostgreSQL riêng, `flutter analyze` |
 
-## Kiến Trúc Tổng Quan
+## Cấu trúc thư mục
 
-```txt
-Người dùng / Dashboard
-        |
-        v
-Next.js Frontend
-        |
-        v
-Express Backend API
-        |
-        +--> PostgreSQL + Prisma
-        +--> Redis + BullMQ OTP Worker
-        +--> Resend
-        +--> Cloudinary
-        +--> Gemini (chatbot), Firebase Cloud Messaging (push)
+```text
+backend/    API Express, schema và migration Prisma, worker, kiểm thử
+frontend/   Website công khai, cổng bệnh nhân và dashboard (Next.js)
+mobile/     Ứng dụng Flutter cho bệnh nhân
+docs/       Tài liệu kiến trúc, vận hành, phân quyền, đánh giá
+docker/ compose*.yaml   Hạ tầng phát triển bằng Docker
+.github/    Quy trình kiểm tra chất lượng (CI)
 ```
 
-PostgreSQL là nguồn dữ liệu chính, kể cả cho tìm kiếm public. OTP được tạo ở backend, lưu vào database và đưa vào hàng đợi Redis để worker gửi nền.
+## Chạy ở máy cục bộ
 
-## Cấu Trúc Thư Mục
+Yêu cầu: Node.js 20 trở lên, PostgreSQL 16, Redis 7 (hoặc Docker), Flutter 3.38 cho ứng dụng mobile.
 
-```txt
-|-->backend/       # Express API, Prisma schema, services, workers
-|-->frontend/      # Next.js app, dashboard, public website, UI components
-```
-
-## Tính Năng Chính
-
-### Site Người Dùng
-
-- Trang chủ lấy cấu hình động từ dashboard: logo, favicon, banner, FAQ, thông tin bệnh viện.
-- Banner hero dạng carousel bằng Embla.
-- Danh sách và chi tiết chuyên khoa, bác sĩ, gói khám.
-- Trang chi tiết có skeleton loading, cache server và tải song song dữ liệu độc lập để điều hướng mượt hơn.
-- Form đặt lịch gồm thông tin bắt buộc và thông tin bổ sung.
-- Chọn chuyên khoa, bác sĩ, ngày khám, slot khám và gói khám.
-- Xác thực OTP khi đặt lịch.
-- Hiển thị mã đặt lịch, nút copy mã, box OTP test khi bật debug.
-- Tra cứu lịch hẹn qua cổng bệnh nhân: đăng nhập bằng số điện thoại + OTP, không cần nhớ mã lịch.
-- Trong cổng bệnh nhân: xem/hủy lịch, đánh giá sau khám, xem hóa đơn và thanh toán online.
-- Xem kết quả khám, kết quả lâm sàng và đơn thuốc đã phát hành.
-- Chatbot hỗ trợ đặt lịch, tra cứu, FAQ và điều hướng nhanh.
-- Tìm kiếm public: chuyên khoa, bác sĩ, gói khám, FAQ.
-- Social widgets, nút cuộn lên đầu.
-
-### Dashboard Quản Trị
-
-- Đăng nhập dashboard bằng mật khẩu + OTP, cookie httpOnly.
-- Tự đăng xuất hoặc refresh token khi phiên hết hạn.
-- Quản lý người dùng, role, trạng thái tài khoản, đổi mật khẩu.
-- Quản lý chuyên khoa, bác sĩ, lịch làm việc, slot khám.
-- Quản lý gói khám và hạng mục gói khám.
-- Quản lý lịch hẹn: xác nhận, check-in, bắt đầu khám, hoàn thành, hủy, no-show.
-- Cập nhật thông tin bệnh nhân sau check-in.
-- Tạo hồ sơ khám, kết quả lâm sàng, file kết quả, đơn thuốc.
-- Tạo hóa đơn từ lịch đã hoàn thành, thanh toán, hoàn tiền.
-- Quản lý media assets: ảnh chưa dùng, xóa ảnh, cleanup ảnh không dùng.
-- Quản lý cấu hình site: site settings, banner, FAQ (một nguồn FAQ cho trang Hỏi đáp và chatbot).
-- Dashboard thống kê bằng card và chart.
-- Quản lý chatbot: phiên, nhật ký, cấu hình bật/tắt AI.
-- Duyệt/ẩn đánh giá của người bệnh; bác sĩ chỉ xem phản hồi ẩn danh thuộc phạm vi của mình.
-
-## Luồng Nghiệp Vụ Chính
-
-### 1. Đặt Lịch Và OTP
-
-```txt
-Người bệnh chọn lịch
-        |
-Frontend gửi POST /api/appointments
-        |
-Backend validate bác sĩ, slot, ngày khám, thông tin bệnh nhân
-        |
-Tạo Appointment trạng thái PENDING_OTP
-        |
-Tạo OTP record trong database
-        |
-Đưa job OTP vào Redis/BullMQ
-        |
-API trả response nhanh cho frontend
-        |
-Worker gửi email/SMS/debug OTP và cập nhật trạng thái gửi
-```
-
-Nếu chọn `EMAIL`, bệnh nhân phải nhập email và OTP được gửi qua email. Nếu chọn `SMS`, hệ thống dùng số điện thoại; khi chưa có nhà cung cấp SMS thật, có thể bật `OTP_DEBUG_ENABLED=true` để hiển thị/log OTP phục vụ demo.
-
-### 2. Gửi Lại OTP
-
-- Dùng lại kênh OTP ban đầu của lịch.
-- Lịch đặt bằng email thì gửi lại email.
-- Lịch đặt bằng SMS thì gửi lại SMS hoặc debug SMS.
-- Có kiểm tra cooldown và giới hạn gửi OTP.
-
-### 3. Cổng Bệnh Nhân: Tra Cứu, Hủy Lịch Và Đánh Giá
-
-- Người bệnh đăng nhập bằng số điện thoại + OTP (`/api/v1/auth/patient/*`); web lưu token trong cookie httpOnly qua BFF, app lưu trong secure storage.
-- Sau đăng nhập, mọi lịch hẹn của tài khoản (kể cả lịch đặt cho người thân) hiển thị trong `/tai-khoan/lich-hen`; không cần mã lịch.
-- Chỉ cho hủy lịch đang chờ xác nhận hoặc đã xác nhận; hủy thành công mở lại slot.
-- Lịch đã hoàn thành có thể được đánh giá một lần; đánh giá chỉ công khai khi ADMIN/STAFF duyệt.
-- URL cũ `/tra-cuu-lich-hen` tự chuyển sang trang đăng nhập cổng bệnh nhân.
-
-### Phân Quyền Dashboard (RBAC động)
-
-- Dashboard có 4 vai trò: ADMIN, STAFF, DOCTOR, PHARMACIST. Route kiểm tra **mã quyền** (`requirePermission("record.edit")`), không kiểm tra tên vai trò.
-- Mỗi mã quyền khai báo trong `backend/src/config/permissions.ts` với `eligibleRoles` (vai trò được phép nhận, cố định trong code), `fixedRoles` (không thể gỡ) và `defaultRoles`. Ma trận chỉnh được lưu ở `SiteSetting` khóa `rbac.matrix` và chỉ bật/tắt trong tập đủ điều kiện, nên dù cấu hình sai, quản trị vẫn không sửa được bệnh án/đơn thuốc và nhân viên không đọc được chúng.
-- ADMIN không có "mọi quyền": hoàn tiền, xóa danh mục, cấu hình hệ thống là quyền riêng; thu tiền (STAFF) tách khỏi hoàn tiền (ADMIN); chỉ DOCTOR ghi bệnh án và kê đơn; chỉ PHARMACIST có quyền kho thuốc.
-- Quản trị chỉnh ma trận ở `/dashboard/permissions` (API `GET|PUT|DELETE /api/dashboard/rbac`); thay đổi có hiệu lực ngay trên instance vừa ghi, các instance khác trong tối đa 15 giây. Người dùng thiếu `record.view` thấy lịch hẹn nhưng không thấy dị ứng và tiền sử.
-- Phạm vi dữ liệu vẫn theo vai trò: bác sĩ chỉ thấy lịch, bệnh án, đơn thuốc của mình.
-
-### Chính Sách, Nhật Ký Lâm Sàng Và Đồng Ý Dữ Liệu Sức Khỏe
-
-- Tham số chính sách lưu ở SiteSetting khóa `policy`, sửa tại `/dashboard/permissions` (API `GET|PUT|DELETE /api/dashboard/policy`, ghi cần quyền `settings.edit`): `bookingHoldMinutes` (giữ chỗ chờ OTP), `reminderLeadMinutes` (nhắc lịch), `patientCancelCutoffHours` (mặc định 2: người khám không tự hủy trong 2 giờ trước giờ khám, trả 409 `PATIENT_CANCEL_CUTOFF`), `noShowGraceMinutes` (mặc định 0 = tắt; > 0 thì worker tự chuyển lịch CONFIRMED chưa check-in sang NO_SHOW). Chưa cấu hình thì dùng biến môi trường `BOOKING_HOLD_MINUTES`, `APPOINTMENT_REMINDER_LEAD_MINUTES`; giá trị ngoài khoảng cho phép bị từ chối khi lưu.
-- Thao tác lâm sàng (cập nhật/lưu trữ hồ sơ khám, công bố kết quả, thêm/sửa/xóa kết quả cận lâm sàng, phát hành/hủy đơn thuốc) ghi vào `AppointmentLog` cùng transaction: chỉ ai làm gì và lúc nào, không chứa nội dung y tế.
-- Đặt lịch có khai báo dị ứng/tiền sử bắt buộc `healthConsent: true` (web có ô đồng ý); thiếu thì trả 400 `HEALTH_CONSENT_REQUIRED`. Lịch lưu `healthConsentAt` và `healthConsentVersion`. Hồ sơ đã lưu của tài khoản/người thân được gộp tự động và không đòi đồng ý lại. Cập nhật hồ sơ cá nhân (`PATCH /api/v1/me`, web và mobile đều có ô đồng ý) cũng đòi `healthConsent: true` khi dị ứng, tiền sử bệnh hoặc tiền sử gia đình có nội dung mới hoặc đổi (giữ nguyên hoặc xóa thì không), trả 400 `HEALTH_CONSENT_REQUIRED` nếu thiếu; hồ sơ lưu `healthConsentAt` và `healthConsentVersion`, đã đồng ý đúng phiên bản thì không hỏi lại.
-- Worker vòng đời lịch hẹn xóa mã OTP đã hết hạn quá 24 giờ.
-
-### Kho Thuốc Và Cấp Thuốc (Dược sĩ)
-
-- Quy trình gọn: bác sĩ kê và phát hành đơn → dược sĩ thấy đơn ở `/dashboard/pharmacy` (kèm dị ứng đã khai báo) → chọn thuốc trong kho cho từng dòng (dòng không chọn là thuốc mua ngoài, không trừ kho) → tick hộp "đã kiểm tra đơn" → cấp **nguyên đơn** → người khám nhận thông báo `PRESCRIPTION_DISPENSED`. Không lô/hạn dùng, không cấp từng phần, không bước duyệt riêng.
-- Cấp thuốc chạy trong một transaction: giành quyền cấp đơn (hai dược sĩ cùng bấm thì một bên nhận 409 `ALREADY_DISPENSED`), trừ kho có điều kiện không âm cho từng thuốc, ghi sổ kho, ghi `AppointmentLog` và thông báo. Thiếu một thuốc thì cả đơn không được cấp (409 `INSUFFICIENT_STOCK`), kho giữ nguyên. Đơn đã cấp không hủy được.
-- Hai bảng: `Medicine` (danh mục, tồn, mức tối thiểu) và `StockMovement` (sổ kho nhập/cấp/điều chỉnh, chỉ thêm dòng). Tồn không sửa trực tiếp mà chỉ đổi qua sổ kho; DB có CHECK (tồn ≥ 0, dấu số lượng theo loại, điều chỉnh bắt buộc lý do) và trigger chặn sửa/xóa sổ kho.
-- API `/api/dashboard/pharmacy`: `GET /prescriptions`, `GET /prescriptions/:id`, `POST /prescriptions/:id/dispense`, `GET|POST /medicines`, `GET|PATCH /medicines/:id`, `GET /medicines/:id/movements`, `POST /medicines/:id/receipts`, `POST /medicines/:id/adjustments`. Chỉ vai trò PHARMACIST có quyền `pharmacy.*`. Màn hình web: `/dashboard/pharmacy` (cấp thuốc) và `/dashboard/medicines` (kho thuốc).
-
-### 4. Khám Bệnh Và Hồ Sơ
-
-```txt
-Lịch đã xác nhận
-    -> Check-in
-    -> Bác sĩ bắt đầu khám
-    -> Tạo/cập nhật hồ sơ bệnh án
-    -> Tạo kết quả lâm sàng, upload file nếu có
-    -> Tạo đơn thuốc
-    -> Phát hành hồ sơ/kết quả/đơn thuốc
-    -> Hoàn thành lịch khám
-```
-
-### 5. Hóa Đơn Và Thanh Toán
-
-- Hóa đơn được tạo từ lịch hẹn đã hoàn thành.
-- Có hỗ trợ giảm trừ BHYT theo thông tin bệnh nhân và thông tin hóa đơn.
-- Có thể hủy hóa đơn để tạo lại khi nhập sai.
-- Người bệnh xem hóa đơn và thanh toán online bằng VNPay (sandbox) trong cổng bệnh nhân (`/api/v1/me/invoices/:id/payments`); kết quả được ghi nhận khi trình duyệt quay về Return URL và/hoặc khi VNPay gọi IPN (cả hai đều xác thực chữ ký và idempotent). VNPay là cổng online duy nhất; không còn MoMo hay thanh toán mô phỏng.
-
-### 6. Tìm Kiếm
-
-```txt
-Next.js Search UI -> debounce -> GET /api/search -> PostgreSQL (cache 30 giây)
-```
-
-Các loại dữ liệu: `department`, `doctor`, `package`, `faq`.
-
-## API Chính
-
-### Public API
-
-```txt
-GET  /api/site-settings
-GET  /api/banners
-GET  /api/faqs
-GET  /api/departments
-GET  /api/departments/:slug
-GET  /api/doctors
-GET  /api/doctors/:id
-GET  /api/doctors/:id/available-slots?date=YYYY-MM-DD
-GET  /api/packages
-GET  /api/packages/:slug
-POST /api/appointments
-POST /api/appointments/:id/resend-otp
-POST /api/appointments/:id/verify-otp
-DELETE /api/appointments/:id/pending
-GET  /api/search
-GET  /api/payments/vnpay/return
-GET  /api/payments/vnpay/ipn
-```
-
-### Patient API (web + mobile, Bearer token)
-
-```txt
-POST /api/v1/auth/patient/request-otp
-POST /api/v1/auth/patient/verify-otp
-POST /api/v1/auth/refresh | /api/v1/auth/logout
-GET/PATCH /api/v1/me
-GET/POST/PATCH/DELETE /api/v1/me/dependents
-GET  /api/v1/me/appointments[/:id]
-POST /api/v1/me/appointments/:id/cancel
-GET/POST /api/v1/me/appointments/:id/review
-GET  /api/v1/me/medical-records | prescriptions | invoices
-POST /api/v1/me/invoices/:invoiceId/payments
-GET  /api/v1/me/notifications
-```
-
-### Dashboard API
-
-```txt
-POST  /api/auth/dashboard/login
-POST  /api/auth/dashboard/verify-otp
-POST  /api/auth/dashboard/refresh
-GET   /api/auth/dashboard/me
-POST  /api/auth/dashboard/logout
-
-GET/PATCH          /api/dashboard/site-settings
-GET/POST/PATCH/DELETE /api/dashboard/banners
-GET/POST/PATCH/DELETE /api/dashboard/faqs
-GET/POST/PATCH/DELETE /api/dashboard/departments
-GET/POST/PATCH/DELETE /api/dashboard/doctors
-GET/POST/PATCH/DELETE /api/dashboard/doctor-schedules
-GET/POST/PATCH/DELETE /api/dashboard/doctor-time-slots
-GET/POST/PATCH/DELETE /api/dashboard/packages
-GET/PATCH          /api/dashboard/appointments
-GET/POST/PATCH     /api/dashboard/medical-records
-GET/POST/PATCH     /api/dashboard/prescriptions
-GET/POST/PATCH     /api/dashboard/invoices
-GET                /api/dashboard/statistics
-GET/POST/PATCH     /api/dashboard/users
-GET/POST/PATCH     /api/dashboard/chatbot
-GET                /api/dashboard/reviews
-PATCH              /api/dashboard/reviews/:id/visibility
-POST               /api/uploads/images
-GET                /api/uploads/images
-DELETE             /api/uploads/images/:id
-POST               /api/uploads/images/cleanup-unused
-```
-
-## Cài Đặt Local
-
-### Hạ tầng Docker (khuyến nghị)
-
-Docker có thể cấp PostgreSQL, Redis, backend API và các worker bằng một quy trình có health check và migration gate. Xem [tài liệu kiến trúc Docker](docs/docker-architecture.md) để chọn chế độ chỉ chạy hạ tầng hoặc chạy đầy đủ backend.
-
-### Backend
+### Cách 1: Docker cho hạ tầng và backend
 
 ```bash
+# chỉ PostgreSQL và Redis
+docker compose up -d
+
+# thêm API và các worker (có kiểm tra sức khỏe và chạy migration một lần)
+docker compose -f compose.yaml -f compose.backend.yaml up -d --build
+```
+
+Chi tiết cổng, cơ sở dữ liệu test và worker thông báo: [docs/docker-architecture.md](docs/docker-architecture.md).
+
+### Cách 2: chạy trực tiếp
+
+```bash
+# Backend (cổng 4000)
 cd backend
+cp .env.example .env        # điền DATABASE_URL, JWT_SECRET, OTP_SECRET, REDIS_URL...
 npm install
-npx prisma generate
-npx prisma migrate dev
-npm run seed:demo-full
+npx prisma migrate deploy
+npm run seed:demo-full      # dữ liệu mẫu (xem lưu ý bên dưới)
 npm run dev
-```
 
-Server mặc định:
-
-```txt
-http://localhost:4000/api
-```
-
-Chạy OTP worker ở terminal khác:
-
-```bash
-cd backend
-npm run worker:otp:dev
-```
-
-### Frontend
-
-```bash
+# Frontend (cổng 3000)
 cd frontend
+cp .env.example .env.local  # NEXT_PUBLIC_API_URL=http://localhost:4000/api
 npm install
 npm run dev
 ```
 
-Frontend mặc định:
+Khi chạy local, đặt `OTP_DEBUG_ENABLED=true` để API trả mã OTP trong phản hồi (production bắt buộc `false`).
 
-```txt
-http://localhost:3000
+### Ứng dụng mobile
+
+```powershell
+cd mobile
+Copy-Item config/dev.json.example config/dev.json   # chỉnh API_BASE_URL nếu cần
+flutter pub get
+.\tool\run_android_device.ps1                        # điện thoại Android kết nối USB
 ```
 
-## Biến Môi Trường Quan Trọng
+Hướng dẫn chi tiết (thiết bị thật, emulator, đóng gói): [mobile/README.md](mobile/README.md). Ứng dụng đã được kiểm thử trên Android; chưa có bằng chứng kiểm thử trên iOS.
 
-### Backend
+### Dữ liệu mẫu
 
-```env
-PORT=4000
-NODE_ENV=production
-DATABASE_URL=
+`npm run seed:demo-full` tạo chuyên khoa, bác sĩ, gói khám, khung giờ, tài khoản mẫu cho các vai trò và thuốc mẫu. Script **có thể xóa dữ liệu hiện có**, chỉ chạy trên cơ sở dữ liệu cục bộ.
 
-# Origin HTTPS của web, không kèm path.
-FRONTEND_URLS=https://hospital.ngoloi.dev
-# Web và API cùng site ngoloi.dev nên dùng lax.
-DASHBOARD_COOKIE_SAME_SITE=lax
+## Cấu hình
 
-# Mỗi secret tối thiểu 32 ký tự.
-JWT_SECRET=
-OTP_SECRET=
-# Production bắt buộc false; backend từ chối khởi động nếu bật.
-OTP_DEBUG_ENABLED=false
+Biến môi trường backend được giải thích đầy đủ trong [backend/.env.example](backend/.env.example); frontend trong [frontend/.env.example](frontend/.env.example). Những điểm quan trọng khi chạy thật:
 
-# OTP: email là kênh chính, SMS là kênh phụ (tắt khi chưa có nhà cung cấp).
-RESEND_API_KEY=
-RESEND_FROM="Hospital Booking <no-reply@mail.ngoloi.dev>"
+- `NODE_ENV=production` bật kiểm tra cấu hình lúc khởi động: mỗi bí mật (`JWT_SECRET`, `OTP_SECRET`) tối thiểu 32 ký tự, `FRONTEND_URLS` phải là HTTPS, `OTP_DEBUG_ENABLED` phải `false`.
+- Web và API cùng site `ngoloi.dev` nên cookie dashboard dùng `SameSite=Lax`.
+- Khóa bí mật (VNPay, Firebase, Resend, Cloudinary) chỉ nằm ở backend hoặc dịch vụ triển khai, không đưa vào Flutter, biến công khai của Next.js hay Git.
+- Không nhập nguyên tệp `.env` local lên môi trường triển khai (giá trị `localhost` làm hỏng cookie, CORS và địa chỉ quay về thanh toán).
 
-REDIS_URL=
-CLOUDINARY_URL=
-```
-
-Danh sách đầy đủ, giải thích từng biến và các biến tinh chỉnh (đã có mặc định) nằm trong [`backend/.env.example`](backend/.env.example). Khi `NODE_ENV=production` backend kiểm tra cấu hình ngay lúc khởi động.
-
-### Frontend
-
-Tên biến có thể thay đổi theo cấu hình trong `frontend/lib`, nhưng cần tối thiểu:
-
-```env
-NEXT_PUBLIC_API_URL=https://hospital-api.ngoloi.dev/api
-NEXT_PUBLIC_SITE_URL=https://hospital.ngoloi.dev
-```
-
-## Deploy
-
-### Backend Render Web Service
-
-```txt
-Root Directory: backend
-Build Command: npm install && npm run render:build
-Start Command: npm run start
-```
-
-Lưu ý Render Free có thể cold start, request đầu tiên sau thời gian idle sẽ chậm hơn local.
-
-### OTP Worker Render Background Worker
-
-```txt
-Root Directory: backend
-Build Command: npm install && npm run build
-Start Command: npm run worker:otp
-```
-
-Worker cần dùng chung `DATABASE_URL`, `REDIS_URL`, `RESEND_API_KEY`, `RESEND_FROM`, `OTP_SECRET`, `JWT_SECRET`.
-
-### Frontend Vercel
-
-```txt
-Root Directory: frontend
-Build Command: npm run build
-Output: Next.js mặc định
-```
-
-Sau khi đổi backend URL, cần cập nhật `NEXT_PUBLIC_API_URL` trên Vercel và redeploy.
-
-## Dữ Liệu Demo
-
-Tạo dữ liệu demo đầy đủ:
+## Kiểm thử và CI
 
 ```bash
 cd backend
-npm run seed:demo-full
+npm run test:all            # kiểu, smoke, unit, tích hợp
+npm run test:unit           # chỉ unit, không cần cơ sở dữ liệu
+npm run test:integration    # cần TEST_DATABASE_URL (xem bên dưới)
+
+cd frontend && npx tsc --noEmit && npm run lint && npm run build
+cd mobile   && flutter analyze && flutter test
 ```
 
-Script demo có thể reset database và sinh chuyên khoa, bác sĩ, gói khám, slot lịch, tài khoản demo. Cần kiểm tra kỹ biến môi trường trước khi chạy trên database thật.
+- Kiểm thử tích hợp chạy trên cơ sở dữ liệu **riêng** (`TEST_DATABASE_URL`, tên hoặc schema phải chứa `test` và khác `DATABASE_URL`); bộ chạy từ chối khởi động nếu không đúng để không xóa nhầm dữ liệu thật.
+- Tại 08/11/2026: 80 kiểm thử tích hợp và 39 kiểm thử đơn vị ở backend, 21 smoke test, 188 kiểm thử Flutter.
+- CI (`.github/workflows/phase0.yml`) chạy trên mỗi pull request: chặn tệp bí mật bị đưa vào Git, kiểm tra schema Prisma, toàn bộ kiểm thử backend, build backend và image Docker, kiểm tra kiểu, lint và build frontend, phân tích và kiểm thử Flutter, build APK, cảnh báo tệp Dart trên 800 dòng.
 
-## Ghi Chú Kỹ Thuật
+## Triển khai
 
-- `@default(uuid())` của Prisma sinh UUID v4.
-- Dashboard dùng access token và refresh token qua httpOnly cookie.
-- OTP không lưu plaintext trong database, chỉ lưu hash HMAC.
-- Khách đặt lịch bằng email OTP chỉ chứng minh được email, không chứng minh được số điện thoại. Nếu số điện thoại đã có tài khoản thuộc người khác (email khác hoặc đã xác thực bằng SMS), backend trả `409 ACCOUNT_LOGIN_REQUIRED` và yêu cầu đăng nhập cổng bệnh nhân; dữ liệu xác thực chỉ được ghi vào tài khoản chưa có chủ hoặc cùng email.
-- Endpoint công khai tốn tài nguyên (đặt lịch, tìm kiếm, chatbot) có giới hạn tần suất theo IP và số điện thoại, trả `429 RATE_LIMITED` kèm `Retry-After`. Đếm bằng Redis nếu có, không thì trong bộ nhớ; tắt bằng `RATE_LIMIT_ENABLED=false`. IP lấy từ `req.ip` (một lớp proxy tin cậy), không đọc trực tiếp `X-Forwarded-For`.
-- OTP gửi nền qua BullMQ để giảm thời gian phản hồi của API đặt lịch.
-- OTP gửi qua email (kênh chính). Chạy local có thể bật `OTP_DEBUG_ENABLED=true` để API trả mã OTP; production bắt buộc tắt. Demo trước hội đồng khi chưa có SMS thật dùng `DEMO_OTP_PHONES` để hiện OTP của riêng các số demo.
-- Media upload đánh dấu `isUsed` để dọn ảnh không còn được sử dụng.
-- Site settings điều khiển logo, favicon, banner, FAQ và một số nội dung public.
-- TanStack Query được dùng để cache/refetch dữ liệu frontend.
-- Zustand được dùng để đồng bộ trạng thái đặt lịch giữa trang chi tiết và form đặt lịch.
-- Các trang chi tiết public dùng `loading.tsx` để hiển thị skeleton ngay khi chuyển route; dữ liệu detail được cache theo ISR 5 phút và khử request trùng giữa metadata/nội dung.
-- Review lưu điểm tổng quan và các điểm thành phần; dữ liệu công khai chỉ lấy review đã được duyệt, không lộ tên bệnh nhân hay mã lịch.
-- Vercel Analytics và Speed Insights dùng để theo dõi traffic và hiệu năng frontend.
-- Render Free có cold start; nên warm up backend trước khi demo.
+| Thành phần | Nền tảng | Ghi chú |
+| --- | --- | --- |
+| Web | Vercel, thư mục gốc `frontend` | Đặt `NEXT_PUBLIC_API_URL` và `NEXT_PUBLIC_SITE_URL` |
+| API | Render Web Service, thư mục gốc `backend` | Build `npm install && npm run render:build` (chạy migration rồi build), start `npm run start` |
+| Redis | Upstash | Dùng cho hàng đợi và bộ đếm giới hạn tần suất; nên đặt chính sách `noeviction` |
+| Cơ sở dữ liệu | PostgreSQL | Migration áp dụng khi build API |
 
-## Kiểm Tra Trước Khi Commit
+Gói miễn phí của Render chỉ có một Web Service, nên các worker chạy ngay trong tiến trình API bằng biến `INLINE_WORKERS=otp,appointments,notifications,payments`. Có thể tách ra tiến trình riêng bằng các lệnh `npm run worker:*`.
 
-Backend:
+## Thanh toán VNPay
 
-```bash
-cd backend
-npx tsc --noEmit
-```
+VNPay là cổng thanh toán trực tuyến duy nhất. Return URL và IPN dùng chung một xử lý không ghi nhận hai lần; có đối soát giao dịch bị lỡ bằng API `querydr` (worker và khi người dùng mở lại giao dịch) và hoàn tiền toàn phần qua API cho quản trị. Hiện chạy ở môi trường sandbox; đối soát và hoàn tiền mới được kiểm thử bằng phản hồi giả ký đúng đặc tả, chưa thử với sandbox thật. Cấu hình và vận hành: [docs/van-hanh-thanh-toan-vnpay.md](docs/van-hanh-thanh-toan-vnpay.md).
 
-Frontend:
+## Phân quyền và bảo vệ dữ liệu y tế
 
-```bash
-cd frontend
-npx tsc --noEmit
-npm run lint
-npm run build
-```
+- **Ma trận quyền động:** 41 mã quyền, 4 vai trò nhân sự. Mỗi quyền khai báo vai trò đủ điều kiện, vai trò cố định và mặc định; quản trị chỉ bật tắt trong tập đủ điều kiện. Quản trị không mặc định có mọi quyền và không đọc nội dung bệnh án, đơn thuốc.
+- **Phạm vi dữ liệu:** bác sĩ chỉ thấy lịch, bệnh án, đơn thuốc của mình; dược sĩ chỉ thấy dữ liệu tối thiểu để cấp thuốc; bệnh nhân chỉ thấy dữ liệu của mình và người thân do mình quản lý.
+- **Tách người làm và người xác nhận:** bác sĩ kết thúc buổi khám, nhân viên thu tiền, quản trị hoàn tiền, dược sĩ cấp thuốc.
+- **Nhật ký truy cập** chỉ thêm dòng (cơ sở dữ liệu chặn sửa, xóa); quản trị đặt lại mật khẩu thì người dùng phải tự đổi; cần ghi nhận đồng ý khi lưu thông tin sức khỏe.
+- **Bảo vệ khác:** giới hạn tần suất endpoint công khai, OTP chỉ lưu dạng băm, token phiên xoay vòng và phát hiện dùng lại, access token mobile chỉ giữ trong bộ nhớ.
 
-## Hạn Chế Hiện Tại
+Chi tiết: [docs/phan-quyen-va-kiem-soat-du-lieu-nhay-cam.md](docs/phan-quyen-va-kiem-soat-du-lieu-nhay-cam.md).
 
-- SMS thật chưa được tích hợp, hiện dùng debug OTP hoặc email OTP. Vì vậy số điện thoại chưa được xác minh độc lập: người đến trước có thể gắn email của mình vào một số điện thoại chưa có tài khoản, và chủ thật của số đó phải liên hệ bệnh viện để xử lý. Sẽ được giải quyết khi có SMS provider thật.
-- Bản ghi OTP hết hạn trong bảng `OtpCode` chưa được dọn tự động.
-- Render Free có độ trễ do cold start và giới hạn tài nguyên.
-- Thanh toán online mới chạy trên VNPay sandbox; chưa có merchant production.
-- Một số chính sách BHYT mới dừng ở mức hỗ trợ nhập và tính giảm trừ theo dữ liệu hệ thống, chưa thay thế quy trình giám định bảo hiểm thực tế.
+## Tài liệu
 
-## Hướng Phát Triển
+| Tài liệu | Nội dung |
+| --- | --- |
+| [docs/kien-truc-he-thong-hien-tai.md](docs/kien-truc-he-thong-hien-tai.md) | Kiến trúc kỹ thuật hiện tại |
+| [docs/phan-quyen-va-kiem-soat-du-lieu-nhay-cam.md](docs/phan-quyen-va-kiem-soat-du-lieu-nhay-cam.md) | Phân quyền, nhật ký truy cập, dữ liệu nhạy cảm |
+| [docs/van-hanh-thanh-toan-vnpay.md](docs/van-hanh-thanh-toan-vnpay.md) | Vận hành VNPay, đối soát, hoàn tiền |
+| [docs/van-hanh-thong-bao.md](docs/van-hanh-thong-bao.md) | Thông báo và push |
+| [docs/docker-architecture.md](docs/docker-architecture.md) | Hạ tầng Docker cục bộ |
+| [docs/danh-gia-kien-truc-logic-mobile-2026-11.md](docs/danh-gia-kien-truc-logic-mobile-2026-11.md) | Đánh giá kiến trúc mobile |
+| [docs/bao-cao-truoc-sau-nang-cap-2026-11.md](docs/bao-cao-truoc-sau-nang-cap-2026-11.md) | Báo cáo trước và sau đợt nâng cấp |
+| [docs/checklist-kiem-thu-production-thiet-bi-that.md](docs/checklist-kiem-thu-production-thiet-bi-that.md) | Checklist kiểm thử trên môi trường thật |
+| [docs/nhat-ky-minh-chung-t11-t12.md](docs/nhat-ky-minh-chung-t11-t12.md) | Nhật ký minh chứng tháng 11 và 12 |
 
-- Tích hợp SMS provider thật.
-- Chuyển VNPay từ sandbox sang production khi có merchant thật.
-- Bổ sung notification real-time cho dashboard.
-- Thêm audit log chi tiết hơn cho thao tác quản trị.
-- Nâng cấp chatbot theo hướng hiểu ngữ cảnh và truy vấn dữ liệu linh hoạt hơn.
-- Bổ sung test tự động cho service nghiệp vụ quan trọng.
-- Call Video khám online trực tuyến với Bác sĩ
+## Hạn chế và hướng phát triển
+
+**Hạn chế hiện tại**
+
+- Chưa tích hợp SMS thật; OTP gửi qua email. Số điện thoại vì vậy chưa được xác minh độc lập.
+- Thanh toán mới ở sandbox VNPay; đối soát và hoàn tiền chưa thử với sandbox thật.
+- Push trên iOS chưa được cấu hình và kiểm thử; mobile mới kiểm thử trên Android.
+- Chatbot chỉ cung cấp thông tin và điều hướng, không chẩn đoán.
+- Chính sách BHYT dừng ở mức nhập thông tin và tính giảm trừ, chưa thay quy trình giám định.
+- Bác sĩ chỉ xem bệnh án do chính mình lập, chưa hỗ trợ xem lịch sử khám từ bác sĩ khác khi có lịch hiện hành.
+- Máy chủ gói miễn phí có độ trễ khi khởi động lại.
+
+**Hướng phát triển:** tích hợp SMS, chuyển VNPay sang production, quyền xem khẩn cấp có lý do bắt buộc cho quản trị, cho bác sĩ xem lịch sử khám khi có lịch hẹn hiện hành, báo cáo độ phủ kiểm thử, thông báo thời gian thực cho dashboard, khám từ xa qua video.
+
+## Tác giả
+
+- Sinh viên: Ngô Quang Lợi (24810036)
+- Giảng viên hướng dẫn: TS. Phan Thị Thể
+- Trường Đại học Công nghệ Kỹ thuật TP.HCM (HCMUTE)
