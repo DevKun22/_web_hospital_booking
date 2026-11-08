@@ -2,18 +2,11 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hospital_booking_mobile/features/notifications/domain/push_message.dart';
+import 'package:hospital_booking_mobile/features/notifications/domain/push_permission_status.dart';
 
 final pushMessagingGatewayProvider = Provider<PushMessagingGateway>(
   (ref) => FirebasePushMessagingGateway(),
 );
-
-enum PushPermissionStatus {
-  unknown,
-  notDetermined,
-  denied,
-  authorized,
-  provisional,
-}
 
 abstract interface class PushMessagingGateway {
   Future<PushPermissionStatus> permissionStatus();

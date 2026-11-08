@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:hospital_booking_mobile/features/invoices/presentation/invoice_status_visuals.dart';
 import 'package:hospital_booking_mobile/core/errors/api_exception.dart';
 import 'package:hospital_booking_mobile/core/formatters/display_formatters.dart';
 import 'package:hospital_booking_mobile/core/widgets/app_error_banner.dart';
@@ -218,19 +219,16 @@ class _PaymentSummary extends StatelessWidget {
             const Divider(height: 24),
             Text(
               'Biên nhận thanh toán',
-              style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                fontWeight: FontWeight.w800,
-              ),
+              style: Theme.of(
+                context,
+              ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
             ),
             const SizedBox(height: 8),
             _TextRow(label: 'Mã biên nhận', value: invoice.invoiceCode),
             _TextRow(label: 'Phương thức', value: invoice.paymentMethod!.label),
           ],
           if (invoice.paymentReference != null)
-            _TextRow(
-              label: 'Mã tham chiếu',
-              value: invoice.paymentReference!,
-            ),
+            _TextRow(label: 'Mã tham chiếu', value: invoice.paymentReference!),
           if (invoice.paidAt != null)
             _TextRow(
               label: 'Thanh toán lúc',
@@ -242,10 +240,7 @@ class _PaymentSummary extends StatelessWidget {
               value: _formatDateTime(invoice.refundedAt!),
             ),
           if (invoice.refundReference != null)
-            _TextRow(
-              label: 'Mã hoàn tiền',
-              value: invoice.refundReference!,
-            ),
+            _TextRow(label: 'Mã hoàn tiền', value: invoice.refundReference!),
           if (invoice.refundReason != null)
             _TextRow(label: 'Lý do hoàn', value: invoice.refundReason!),
         ],

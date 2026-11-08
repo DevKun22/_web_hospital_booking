@@ -2,7 +2,7 @@ import 'dart:ui' show SemanticsAction;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:hospital_booking_mobile/app/theme/app_theme.dart';
+import 'package:hospital_booking_mobile/core/theme/app_theme.dart';
 import 'package:hospital_booking_mobile/core/widgets/app_ui.dart';
 
 void main() {

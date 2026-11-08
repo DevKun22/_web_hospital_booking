@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:hospital_booking_mobile/app/theme/app_theme.dart';
+import 'package:hospital_booking_mobile/core/theme/app_theme.dart';
 
 void main() {
   test('light theme keeps system bars readable on the app canvas', () {

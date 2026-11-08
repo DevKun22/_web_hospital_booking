@@ -23,10 +23,10 @@ Kiến trúc nền tảng đúng hướng (Riverpod, phân lớp theo tính năn
 | 2 | N yêu cầu cùng bị 401 gây **N lần làm mới** (mỗi lần xoay refresh token) | Trung bình | Thí nghiệm: 3 yêu cầu thành 3 lần làm mới | **Đã sửa** |
 | 3 | Lỗi thật của lần gọi lại bị **thay bằng 401 cũ** (`catch (_)`) | Trung bình | Đọc mã; test sau sửa đòi lỗi 404 gốc | **Đã sửa** |
 | 4 | Không có bắt lỗi toàn cục và không báo cáo sự cố; 40 chỗ `catch (_)` nuốt lỗi | Trung bình | Tìm kiếm mã: không có `FlutterError.onError` hay `PlatformDispatcher` | **Đã làm bộ bắt lỗi toàn cục tối thiểu**; còn rà `catch (_)` |
-| 5 | `core/` phụ thuộc ngược vào `features/` (3 tệp) | Trung bình | `session_refresh_coordinator`, `app_providers`, `patient_data_sync_coordinator` | Đề xuất |
+| 5 | `core/` phụ thuộc ngược vào `features/` (3 tệp) | Trung bình | `session_refresh_coordinator`, `app_providers`, `patient_data_sync_coordinator` | **Đã sửa** |
 | 6 | Tệp trình bày quá lớn: 9 tệp trên 600 dòng, lớn nhất 2.010; trình bày chiếm 59% mã | Trung bình (bảo trì) | Đếm dòng | Đề xuất |
-| 7 | Lớp `domain` phụ thuộc Flutter (`material.dart`) ở 3 tệp | Thấp | Tìm kiếm mã | Đề xuất |
-| 8 | Màn hình gọi thẳng lớp `data` (3 chỗ), bỏ qua `application` | Thấp | Tìm kiếm mã | Đề xuất |
+| 7 | Lớp `domain` phụ thuộc Flutter (`material.dart`) ở 4 tệp | Thấp | Tìm kiếm mã | **Đã sửa** |
+| 8 | Màn hình gọi thẳng lớp `data` (3 chỗ), bỏ qua `application` | Thấp | Tìm kiếm mã | **Đã sửa** phần tham chiếu kiểu (`PushPermissionStatus` sang domain); còn lại chỉ là kiểu dữ liệu, chấp nhận |
 | 9 | URL thanh toán chỉ kiểm tra `https`, không kiểm tra tên miền | Thấp | `invoice_detail_screen.dart` | Chấp nhận |
 | 10 | Lớp mạng và phiên (cốt lõi) trước đó **không có test** | Trung bình | Không test nào gọi `createAuthenticatedDio` | **Đã bổ sung 5 test** |
 
@@ -52,7 +52,7 @@ Lỗi bất đồng bộ không bắt được (ví dụ `unawaited(handleAppRes
 - **Phản biện về Crashlytics:** dự án đã có `firebase_core`, nên thêm báo cáo sự cố là dễ, nhưng đây là ứng dụng y tế: stack trace và thông điệp lỗi có thể chứa dữ liệu cá nhân. Nếu thêm phải tắt mặc định, lọc nội dung, và nêu trong chính sách quyền riêng tư. Với đồ án, bản nhật ký cục bộ là đủ; Crashlytics để sau.
 - **Rà `catch (_)`:** giữ những chỗ chủ ý (đăng xuất khi mất mạng), còn lại ít nhất ghi nhật ký lỗi ở chế độ phát triển.
 
-### 3.3 Phụ thuộc ngược (phát hiện 5): đề xuất
+### 3.3 Phụ thuộc ngược (phát hiện 5): đã sửa
 
 `core/` đáng lẽ là hạ tầng không biết gì về tính năng, nhưng 3 tệp import `features/`.
 
@@ -61,6 +61,8 @@ Lỗi bất đồng bộ không bắt được (ví dụ `unawaited(handleAppRes
 | `core/network/session_refresh_coordinator.dart` | `AuthSession` | Chuyển `AuthSession` sang `core/network` hoặc để `refresh()` trả về cặp token thuần |
 | `core/providers/app_providers.dart` | `AuthRepository` | Chuyển `authRepositoryProvider` về `features/auth/application` |
 | `core/sync/patient_data_sync_coordinator.dart` | 8 bộ điều khiển | Chuyển sang `app/` (nơi ráp ứng dụng) |
+
+**Kết quả:** `refresh()` trả `RefreshedSession` (token và dữ liệu thô) để hạ tầng không biết `AuthSession`; `authRepositoryProvider` về `features/auth/application/auth_providers.dart`; bộ đồng bộ về `app/sync/`; theme về `core/theme/`; biểu diễn giao diện (biểu tượng, màu, tông) của domain về các tiện ích mở rộng ở `presentation`. Test `architecture_boundaries_test.dart` giữ ranh giới này trong CI.
 
 Phản biện: đây là refactor thuần, không đổi hành vi; rủi ro thấp vì chỉ đổi đường dẫn import và có 178 test bảo vệ. Lợi ích rõ nhất là chặn vòng phụ thuộc khi dự án lớn thêm.
 
@@ -83,6 +85,6 @@ Phản biện: đây là refactor thuần, không đổi hành vi; rủi ro th�
 |---|---|---|---|
 | 1 | Bộ chặn 401 và test | Xong | PR riêng |
 | 2 | Bắt lỗi toàn cục tối thiểu | Xong | Không thêm thư viện |
-| 3 | Gỡ phụ thuộc ngược `core` sang `features` | Nhỏ đến vừa | Đổi import, 178 test bảo vệ |
+| 3 | Gỡ phụ thuộc ngược `core` sang `features` | Xong | Có test ranh giới |
 | 4 | Cảnh báo tệp lớn trong CI, tách `home_screen` dần | Vừa, kéo dài | Mỗi lần một vùng, kèm widget test |
 | 5 | Làm mới token chủ động trước khi hết hạn | Nhỏ | Chỉ khi đo thấy vòng 401 gây chậm |

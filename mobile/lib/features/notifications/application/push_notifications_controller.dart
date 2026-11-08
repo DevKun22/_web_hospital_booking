@@ -2,8 +2,9 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:hospital_booking_mobile/features/notifications/domain/push_permission_status.dart';
 import 'package:hospital_booking_mobile/core/providers/app_providers.dart';
-import 'package:hospital_booking_mobile/core/sync/patient_data_sync_coordinator.dart';
+import 'package:hospital_booking_mobile/app/sync/patient_data_sync_coordinator.dart';
 import 'package:hospital_booking_mobile/features/auth/application/auth_controller.dart';
 import 'package:hospital_booking_mobile/features/notifications/application/notifications_controller.dart';
 import 'package:hospital_booking_mobile/features/notifications/data/push_messaging_gateway.dart';

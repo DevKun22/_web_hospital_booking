@@ -1,6 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:hospital_booking_mobile/core/sync/patient_data_sync_coordinator.dart';
+import 'package:hospital_booking_mobile/app/sync/patient_data_sync_coordinator.dart';
 import 'package:hospital_booking_mobile/features/appointments/application/appointments_controller.dart';
 import 'package:hospital_booking_mobile/features/auth/application/auth_controller.dart';
 import 'package:hospital_booking_mobile/features/auth/application/auth_state.dart';

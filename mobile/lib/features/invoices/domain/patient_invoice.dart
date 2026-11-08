@@ -1,6 +1,4 @@
-import 'package:flutter/material.dart';
 import 'package:hospital_booking_mobile/core/formatters/professional_name_formatter.dart';
-import 'package:hospital_booking_mobile/core/widgets/app_ui.dart';
 
 enum PatientInvoiceStatus {
   unpaid('UNPAID'),
@@ -45,22 +43,6 @@ enum PatientInvoiceStatus {
     PatientInvoiceStatus.refunded => 'Đã hoàn tiền',
     PatientInvoiceStatus.cancelled ||
     PatientInvoiceStatus.unknown => 'Giá trị hóa đơn',
-  };
-
-  AppStatusTone get tone => switch (this) {
-    PatientInvoiceStatus.paid => AppStatusTone.success,
-    PatientInvoiceStatus.unpaid => AppStatusTone.warning,
-    PatientInvoiceStatus.cancelled => AppStatusTone.danger,
-    PatientInvoiceStatus.refunded ||
-    PatientInvoiceStatus.unknown => AppStatusTone.info,
-  };
-
-  IconData get icon => switch (this) {
-    PatientInvoiceStatus.paid => Icons.check_circle_outline,
-    PatientInvoiceStatus.unpaid => Icons.schedule_outlined,
-    PatientInvoiceStatus.cancelled => Icons.cancel_outlined,
-    PatientInvoiceStatus.refunded => Icons.currency_exchange_outlined,
-    PatientInvoiceStatus.unknown => Icons.info_outline,
   };
 }
 

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:hospital_booking_mobile/features/appointments/presentation/appointment_status_visuals.dart';
 import 'package:hospital_booking_mobile/core/formatters/display_formatters.dart';
 import 'package:hospital_booking_mobile/core/widgets/app_ui.dart';
 import 'package:hospital_booking_mobile/features/appointments/domain/patient_appointment.dart';
@@ -28,142 +29,140 @@ class HomeAppointmentActionCard extends StatelessWidget {
         child: DefaultTextStyle.merge(
           style: const TextStyle(color: Colors.white),
           child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(
-                  Icons.event_available_outlined,
-                  size: 20,
-                  color: Colors.white,
-                ),
-                const SizedBox(width: AppSpacing.xs),
-                Expanded(
-                  child: Text(
-                    copy.title,
-                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ),
-                AppStatusBadge(
-                  label: appointment.status.label,
-                  tone: appointment.status.tone,
-                ),
-              ],
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            Text(
-              appointment.doctorName.isEmpty
-                  ? 'Bác sĩ đang được cập nhật'
-                  : appointment.doctorName,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(
-                context,
-              ).textTheme.titleMedium?.copyWith(
-                color: Colors.white,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-            const SizedBox(height: AppSpacing.xxs),
-            Text(
-              appointment.careUnit,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: const Color(0xDFFFFFFF),
-              ),
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            DecoratedBox(
-              decoration: BoxDecoration(
-                color: AppPalette.clinicalBlueDark,
-                borderRadius: BorderRadius.circular(AppRadius.md),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.all(AppSpacing.sm),
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.schedule_rounded,
-                      size: 19,
-                      color: Colors.white,
-                    ),
-                    const SizedBox(width: AppSpacing.xs),
-                    Expanded(
-                      child: Text(
-                        '${formatDateVi(appointment.appointmentDate)} · ${formatTimeRange(appointment.startTime, appointment.endTime)}',
-                        style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                    Text(
-                      appointment.bookingCode,
-                      style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                        color: const Color(0xDFFFFFFF),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            if (copy.guidance != null) ...[
-              Text(
-                copy.guidance!,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: const Color(0xDFFFFFFF),
-                  height: 1.35,
-                ),
-              ),
-              const SizedBox(height: AppSpacing.sm),
-            ],
-            if (copy.showQr)
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
               Row(
                 children: [
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      key: const Key('home-appointment-qr'),
-                      onPressed: onShowQr,
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: Colors.white,
-                        side: const BorderSide(color: Colors.white),
-                      ),
-                      icon: const Icon(Icons.qr_code_2_rounded),
-                      label: const Text('Vé khám QR'),
-                    ),
+                  Icon(
+                    Icons.event_available_outlined,
+                    size: 20,
+                    color: Colors.white,
                   ),
                   const SizedBox(width: AppSpacing.xs),
                   Expanded(
-                    child: FilledButton.icon(
-                      key: const Key('home-appointment-prepare'),
-                      onPressed: onOpen,
-                      style: FilledButton.styleFrom(
-                        backgroundColor: Colors.white,
-                        foregroundColor: AppPalette.clinicalBlueDark,
+                    child: Text(
+                      copy.title,
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w800,
                       ),
-                      icon: Icon(copy.primaryIcon),
-                      label: Text(copy.primaryLabel),
                     ),
                   ),
+                  AppStatusBadge(
+                    label: appointment.status.label,
+                    tone: appointment.status.tone,
+                  ),
                 ],
-              )
-            else
-              FilledButton.icon(
-                key: const Key('home-appointment-follow'),
-                onPressed: onOpen,
-                style: FilledButton.styleFrom(
-                  backgroundColor: Colors.white,
-                  foregroundColor: AppPalette.clinicalBlueDark,
-                ),
-                icon: Icon(copy.primaryIcon),
-                label: Text(copy.primaryLabel),
               ),
-          ],
+              const SizedBox(height: AppSpacing.sm),
+              Text(
+                appointment.doctorName.isEmpty
+                    ? 'Bác sĩ đang được cập nhật'
+                    : appointment.doctorName,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: AppSpacing.xxs),
+              Text(
+                appointment.careUnit,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: const Color(0xDFFFFFFF),
+                ),
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  color: AppPalette.clinicalBlueDark,
+                  borderRadius: BorderRadius.circular(AppRadius.md),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(AppSpacing.sm),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.schedule_rounded,
+                        size: 19,
+                        color: Colors.white,
+                      ),
+                      const SizedBox(width: AppSpacing.xs),
+                      Expanded(
+                        child: Text(
+                          '${formatDateVi(appointment.appointmentDate)} · ${formatTimeRange(appointment.startTime, appointment.endTime)}',
+                          style: Theme.of(context).textTheme.labelLarge
+                              ?.copyWith(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w700,
+                              ),
+                        ),
+                      ),
+                      Text(
+                        appointment.bookingCode,
+                        style: Theme.of(context).textTheme.labelMedium
+                            ?.copyWith(color: const Color(0xDFFFFFFF)),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              if (copy.guidance != null) ...[
+                Text(
+                  copy.guidance!,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: const Color(0xDFFFFFFF),
+                    height: 1.35,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.sm),
+              ],
+              if (copy.showQr)
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        key: const Key('home-appointment-qr'),
+                        onPressed: onShowQr,
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.white,
+                          side: const BorderSide(color: Colors.white),
+                        ),
+                        icon: const Icon(Icons.qr_code_2_rounded),
+                        label: const Text('Vé khám QR'),
+                      ),
+                    ),
+                    const SizedBox(width: AppSpacing.xs),
+                    Expanded(
+                      child: FilledButton.icon(
+                        key: const Key('home-appointment-prepare'),
+                        onPressed: onOpen,
+                        style: FilledButton.styleFrom(
+                          backgroundColor: Colors.white,
+                          foregroundColor: AppPalette.clinicalBlueDark,
+                        ),
+                        icon: Icon(copy.primaryIcon),
+                        label: Text(copy.primaryLabel),
+                      ),
+                    ),
+                  ],
+                )
+              else
+                FilledButton.icon(
+                  key: const Key('home-appointment-follow'),
+                  onPressed: onOpen,
+                  style: FilledButton.styleFrom(
+                    backgroundColor: Colors.white,
+                    foregroundColor: AppPalette.clinicalBlueDark,
+                  ),
+                  icon: Icon(copy.primaryIcon),
+                  label: Text(copy.primaryLabel),
+                ),
+            ],
           ),
         ),
       ),

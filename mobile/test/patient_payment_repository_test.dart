@@ -9,7 +9,8 @@ Map<String, dynamic> _paymentJson({String status = 'PENDING'}) => {
   'status': status,
   'amount': 260000,
   'transactionCode': 'PAY-1001',
-  'paymentUrl': 'https://sandbox.vnpayment.vn/paymentv2/vpcpay.html?vnp_TxnRef=PAY-1001',
+  'paymentUrl':
+      'https://sandbox.vnpayment.vn/paymentv2/vpcpay.html?vnp_TxnRef=PAY-1001',
   'expiredAt': '2030-01-02T10:15:00.000Z',
 };
 

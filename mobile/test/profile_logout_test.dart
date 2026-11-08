@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
+import 'package:hospital_booking_mobile/features/notifications/domain/push_permission_status.dart';
 import 'package:hospital_booking_mobile/features/auth/application/auth_controller.dart';
 import 'package:hospital_booking_mobile/features/auth/application/auth_state.dart';
 import 'package:hospital_booking_mobile/features/auth/domain/patient_user.dart';
@@ -10,7 +11,6 @@ import 'package:hospital_booking_mobile/features/booking/application/booking_sub
 import 'package:hospital_booking_mobile/features/booking/domain/booking_catalog.dart';
 import 'package:hospital_booking_mobile/features/booking/domain/booking_submission.dart';
 import 'package:hospital_booking_mobile/features/notifications/application/push_notifications_controller.dart';
-import 'package:hospital_booking_mobile/features/notifications/data/push_messaging_gateway.dart';
 import 'package:hospital_booking_mobile/features/profile/application/patient_profile_controller.dart';
 import 'package:hospital_booking_mobile/features/profile/domain/patient_profile.dart';
 import 'package:hospital_booking_mobile/features/profile/presentation/profile_screen.dart';

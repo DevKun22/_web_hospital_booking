@@ -4,6 +4,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hospital_booking_mobile/features/notifications/domain/push_permission_status.dart';
 import 'package:hospital_booking_mobile/app/hospital_booking_app.dart';
 import 'package:hospital_booking_mobile/app/router/app_router.dart';
 import 'package:hospital_booking_mobile/core/config/app_config.dart';
@@ -19,7 +20,6 @@ import 'package:hospital_booking_mobile/features/booking/domain/booking_catalog.
 import 'package:hospital_booking_mobile/features/home/application/home_content_controller.dart';
 import 'package:hospital_booking_mobile/features/notifications/application/notifications_controller.dart';
 import 'package:hospital_booking_mobile/features/notifications/application/push_notifications_controller.dart';
-import 'package:hospital_booking_mobile/features/notifications/data/push_messaging_gateway.dart';
 import 'package:hospital_booking_mobile/features/onboarding/application/onboarding_controller.dart';
 
 class _OtpFlowAuthController extends AuthController {

@@ -7,7 +7,6 @@ import 'package:hospital_booking_mobile/core/network/session_events.dart';
 import 'package:hospital_booking_mobile/core/network/session_refresh_coordinator.dart';
 import 'package:hospital_booking_mobile/core/storage/app_preferences.dart';
 import 'package:hospital_booking_mobile/core/storage/token_storage.dart';
-import 'package:hospital_booking_mobile/features/auth/data/auth_repository.dart';
 
 final appConfigProvider = Provider<AppConfig>(
   (ref) => throw StateError('AppConfig must be overridden during bootstrap.'),
@@ -55,12 +54,3 @@ final authenticatedDioProvider = Provider<Dio>((ref) {
   ref.onDispose(() => dio.close(force: true));
   return dio;
 });
-
-final authRepositoryProvider = Provider<AuthRepository>(
-  (ref) => AuthRepository(
-    authDio: ref.watch(authDioProvider),
-    authenticatedDio: ref.watch(authenticatedDioProvider),
-    tokenStorage: ref.watch(tokenStorageProvider),
-    refreshCoordinator: ref.watch(sessionRefreshCoordinatorProvider),
-  ),
-);

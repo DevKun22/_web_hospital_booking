@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:hospital_booking_mobile/app/theme/app_theme.dart';
+import 'package:hospital_booking_mobile/features/notifications/domain/push_permission_status.dart';
+import 'package:hospital_booking_mobile/features/notifications/presentation/notification_type_visuals.dart';
+import 'package:hospital_booking_mobile/core/theme/app_theme.dart';
 import 'package:hospital_booking_mobile/core/widgets/app_error_banner.dart';
 import 'package:hospital_booking_mobile/core/widgets/app_route_back_scope.dart';
 import 'package:hospital_booking_mobile/core/widgets/app_ui.dart';
 import 'package:hospital_booking_mobile/features/notifications/application/notifications_controller.dart';
 import 'package:hospital_booking_mobile/features/notifications/application/push_notifications_controller.dart';
-import 'package:hospital_booking_mobile/features/notifications/data/push_messaging_gateway.dart';
 import 'package:hospital_booking_mobile/features/notifications/domain/patient_notification.dart';
 
 class NotificationsScreen extends ConsumerStatefulWidget {

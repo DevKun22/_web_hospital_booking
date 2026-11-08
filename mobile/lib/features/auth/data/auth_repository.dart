@@ -60,7 +60,17 @@ class AuthRepository {
         },
       );
       final session = AuthSession.fromJson(requireDataMap(response.data));
-      await _refreshCoordinator.persist(session);
+      if (!session.isValid) {
+        throw const ApiException(
+          kind: ApiErrorKind.unknown,
+          code: 'INVALID_AUTH_CONTRACT',
+          message: 'Thông tin đăng nhập không hợp lệ.',
+        );
+      }
+      await _refreshCoordinator.persist(
+        accessToken: session.accessToken,
+        refreshToken: session.refreshToken,
+      );
       return session;
     } on DioException catch (error) {
       throw ApiException.fromDio(error);
@@ -70,7 +80,7 @@ class AuthRepository {
   Future<AuthSession?> restoreSession() async {
     final refreshToken = await _tokenStorage.readRefreshToken();
     if (refreshToken == null || refreshToken.isEmpty) return null;
-    return _refreshCoordinator.refresh();
+    return AuthSession.fromJson((await _refreshCoordinator.refresh()).payload);
   }
 
   Future<void> logout() async {

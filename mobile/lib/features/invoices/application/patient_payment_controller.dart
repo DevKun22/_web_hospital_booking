@@ -12,7 +12,8 @@ final patientPaymentCapabilitiesProvider = FutureProvider.autoDispose(
 );
 
 final patientPaymentControllerProvider = Provider<PatientPaymentController>(
-  (ref) => PatientPaymentController(ref.watch(patientPaymentRepositoryProvider)),
+  (ref) =>
+      PatientPaymentController(ref.watch(patientPaymentRepositoryProvider)),
 );
 
 class PatientPaymentController {

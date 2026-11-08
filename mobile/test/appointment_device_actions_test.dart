@@ -22,11 +22,14 @@ void main() {
     expect(appointment.scheduledEnd, DateTime(2030, 4, 5, 9, 45));
   });
 
-  test('QR payload contains only opaque appointment identity and booking code', () {
-    final payload = actions.qrPayload(appointment);
-    expect(payload, contains('/appointments/appointment%20with%20spaces'));
-    expect(payload, contains('code=HB+1001%2F2026'));
-    expect(payload, isNot(contains(appointment.patientName)));
-    expect(payload, isNot(contains(appointment.doctorName)));
-  });
+  test(
+    'QR payload contains only opaque appointment identity and booking code',
+    () {
+      final payload = actions.qrPayload(appointment);
+      expect(payload, contains('/appointments/appointment%20with%20spaces'));
+      expect(payload, contains('code=HB+1001%2F2026'));
+      expect(payload, isNot(contains(appointment.patientName)));
+      expect(payload, isNot(contains(appointment.doctorName)));
+    },
+  );
 }

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:hospital_booking_mobile/features/appointments/presentation/appointment_status_visuals.dart';
 import 'package:hospital_booking_mobile/app/navigation/booking_navigation.dart';
 import 'package:hospital_booking_mobile/core/formatters/display_formatters.dart';
 import 'package:hospital_booking_mobile/core/widgets/app_error_banner.dart';
