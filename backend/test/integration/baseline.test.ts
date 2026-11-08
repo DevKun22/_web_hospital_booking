@@ -5,7 +5,7 @@ import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 
 import { getCookie, startHttpServer } from "../support/http.js";
-import { buildVnpayCallbackQuery } from "../support/vnpay.js";
+import { buildVnpayCallbackQuery, buildVnpayQueryResponse } from "../support/vnpay.js";
 
 if (process.env.NODE_ENV !== "test") {
   throw new Error("Integration tests require NODE_ENV=test.");
@@ -4250,4 +4250,188 @@ test("patient profile resend of unchanged legacy health data does not need conse
   const consented = await patch({ allergies: "Penicillin, Aspirin", healthConsent: true });
   assert.equal(consented.status, 200);
   assert.equal(consented.body.data.patientProfile.healthConsentVersion, "2026-11");
+});
+
+// ---- Đối soát VNPAY bằng querydr -----------------------------------------
+const withStubbedVnpayQuery = async (
+  responder: (txnRef: string) => unknown,
+  run: () => Promise<void>,
+) => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (async (_url: unknown, init?: RequestInit) => {
+    const body = JSON.parse(String(init?.body)) as { vnp_TxnRef: string; vnp_Command: string };
+    assert.equal(body.vnp_Command, "querydr");
+    return new Response(JSON.stringify(responder(body.vnp_TxnRef)), { status: 200 });
+  }) as typeof fetch;
+  try {
+    await run();
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+};
+
+test("querydr reconciliation settles a payment whose Return URL and IPN were both lost", async () => {
+  const { default: PaymentService } = await import("../../src/services/payment.service.js");
+  const { invoice, authorization, appointment } = await createPayableInvoice({
+    bookingCode: "VNPAY-QUERYDR-PAID",
+  });
+  const payment = await createVnpayPayment(invoice.id, authorization, "vnpay-querydr-paid");
+  // Giao dịch đã treo đủ lâu để quét định kỳ chú ý tới.
+  await prisma.paymentTransaction.update({
+    where: { id: payment.id },
+    data: { createdAt: new Date(Date.now() - 10 * 60 * 1000) },
+  });
+
+  await withStubbedVnpayQuery(
+    (txnRef) => buildVnpayQueryResponse({ transactionCode: txnRef, amount: 300000 }),
+    async () => {
+      const summary = await PaymentService.reconcilePendingVnpay();
+      assert.equal(summary.scanned, 1);
+      assert.equal(summary.paid, 1);
+      assert.equal(summary.errors, 0);
+      // Quét lại: giao dịch đã SUCCESS nên không còn ứng viên và không ghi nhận lần hai.
+      assert.equal((await PaymentService.reconcilePendingVnpay()).scanned, 0);
+    },
+  );
+
+  const paid = await prisma.invoice.findUniqueOrThrow({ where: { id: invoice.id } });
+  assert.equal(paid.status, "PAID");
+  assert.equal(paid.paymentMethod, "VNPAY");
+  assert.equal(paid.paymentReference, "15000001");
+  assert.equal(
+    (await prisma.paymentTransaction.findUniqueOrThrow({ where: { id: payment.id } })).status,
+    "SUCCESS",
+  );
+  assert.equal(
+    await prisma.appointmentLog.count({
+      where: { appointmentId: appointment.id, action: "PAYMENT_RECORDED" },
+    }),
+    1,
+  );
+  assert.equal(
+    await prisma.notification.count({
+      where: { userId: appointment.patientId, type: "PAYMENT_SUCCEEDED" },
+    }),
+    1,
+  );
+});
+
+test("querydr reconciliation keeps young pending payments, expires abandoned ones and records failures", async () => {
+  const { default: PaymentService } = await import("../../src/services/payment.service.js");
+  const { invoice, authorization } = await createPayableInvoice({
+    bookingCode: "VNPAY-QUERYDR-PENDING",
+  });
+  const payment = await createVnpayPayment(invoice.id, authorization, "vnpay-querydr-pending");
+
+  // Khách chưa hoàn tất (mã giao dịch 01): còn hạn thì giữ PENDING.
+  await withStubbedVnpayQuery(
+    (txnRef) => buildVnpayQueryResponse({ transactionCode: txnRef, amount: 300000, transactionStatus: "01" }),
+    async () => {
+      assert.equal((await PaymentService.reconcileVnpayTransaction(payment.id)).outcome, "PENDING");
+    },
+  );
+  assert.equal(
+    (await prisma.paymentTransaction.findUniqueOrThrow({ where: { id: payment.id } })).status,
+    "PENDING",
+  );
+
+  // Quá hạn thanh toán mà VNPAY không có giao dịch (mã 91): chuyển EXPIRED, hóa đơn vẫn UNPAID.
+  await withStubbedVnpayQuery(
+    (txnRef) =>
+      buildVnpayQueryResponse({ transactionCode: txnRef, amount: 300000, responseCode: "91" }),
+    async () => {
+      const later = new Date(Date.now() + 60 * 60 * 1000);
+      assert.equal(
+        (await PaymentService.reconcileVnpayTransaction(payment.id, later)).outcome,
+        "EXPIRED",
+      );
+    },
+  );
+  assert.equal(
+    (await prisma.paymentTransaction.findUniqueOrThrow({ where: { id: payment.id } })).status,
+    "EXPIRED",
+  );
+  assert.equal(
+    (await prisma.invoice.findUniqueOrThrow({ where: { id: invoice.id } })).status,
+    "UNPAID",
+  );
+
+  // Giao dịch mới trên cùng hóa đơn bị VNPAY báo lỗi (mã 02): ghi nhận FAILED, hóa đơn còn UNPAID.
+  const second = await createVnpayPayment(invoice.id, authorization, "vnpay-querydr-failed");
+  await withStubbedVnpayQuery(
+    (txnRef) => buildVnpayQueryResponse({ transactionCode: txnRef, amount: 300000, transactionStatus: "02" }),
+    async () => {
+      assert.equal((await PaymentService.reconcileVnpayTransaction(second.id)).outcome, "FAILED");
+    },
+  );
+  assert.equal(
+    (await prisma.paymentTransaction.findUniqueOrThrow({ where: { id: second.id } })).status,
+    "FAILED",
+  );
+  assert.equal(
+    (await prisma.invoice.findUniqueOrThrow({ where: { id: invoice.id } })).status,
+    "UNPAID",
+  );
+});
+
+test("querydr reconciliation refuses a mismatched amount, a forged response and a VNPAY outage", async () => {
+  const { default: PaymentService } = await import("../../src/services/payment.service.js");
+  const { invoice, authorization } = await createPayableInvoice({
+    bookingCode: "VNPAY-QUERYDR-GUARD",
+  });
+  const payment = await createVnpayPayment(invoice.id, authorization, "vnpay-querydr-guard");
+
+  await withStubbedVnpayQuery(
+    (txnRef) => buildVnpayQueryResponse({ transactionCode: txnRef, amount: 100000 }),
+    async () => {
+      await assert.rejects(
+        PaymentService.reconcileVnpayTransaction(payment.id),
+        /Số tiền VNPAY không khớp hóa đơn/,
+      );
+    },
+  );
+  await withStubbedVnpayQuery(
+    (txnRef) =>
+      buildVnpayQueryResponse({
+        transactionCode: txnRef,
+        amount: 300000,
+        secret: "WRONGSECRETWRONGSECRETWRONGSEC12",
+      }),
+    async () => {
+      await assert.rejects(
+        PaymentService.reconcileVnpayTransaction(payment.id),
+        /Chữ ký phản hồi truy vấn VNPAY không hợp lệ/,
+      );
+    },
+  );
+
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (async () => {
+    throw new Error("network down");
+  }) as unknown as typeof fetch;
+  try {
+    await assert.rejects(
+      PaymentService.reconcileVnpayTransaction(payment.id),
+      /Không kết nối được VNPAY/,
+    );
+    // Lượt xem của người dùng không bị hỏng khi VNPAY gián đoạn.
+    await prisma.paymentTransaction.update({
+      where: { id: payment.id },
+      data: { createdAt: new Date(Date.now() - 10 * 60 * 1000) },
+    });
+    const viewed = await PaymentService.getByIdWithReconciliation(
+      payment.id,
+      (await prisma.invoice.findUniqueOrThrow({ where: { id: invoice.id } })).patientId,
+    );
+    assert.equal(viewed.status, "PENDING");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+
+  const untouched = await prisma.invoice.findUniqueOrThrow({ where: { id: invoice.id } });
+  assert.equal(untouched.status, "UNPAID");
+  assert.equal(
+    (await prisma.paymentTransaction.findUniqueOrThrow({ where: { id: payment.id } })).status,
+    "PENDING",
+  );
 });

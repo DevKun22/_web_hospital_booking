@@ -71,7 +71,7 @@ export const getPatientPaymentHandler = async (
   next: NextFunction,
 ) => {
   try {
-    const data = await PaymentService.getById(
+    const data = await PaymentService.getByIdWithReconciliation(
       param(req, "paymentId"),
       requirePatientId(req),
     );

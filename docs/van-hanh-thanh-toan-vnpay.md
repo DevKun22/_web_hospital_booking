@@ -54,8 +54,17 @@ Kết quả nghiệm thu trên production ngày 08/11/2026: lịch thử `BK2026
 - Theo dõi giao dịch `PENDING` kéo dài, tỷ lệ IPN lỗi và chênh lệch giữa hóa đơn và giao dịch (log theo `requestId`, không ghi khóa hay chữ ký).
 - Khi có sự cố nhà cung cấp, đặt `PAYMENT_VNPAY_ENABLED=false`; dữ liệu giao dịch cũ vẫn giữ để đối soát.
 
+## Đối soát chủ động bằng querydr
+
+Khi cả Return URL và IPN đều lỡ (ví dụ máy chủ đang ngủ), hệ thống tự hỏi VNPay bằng API `querydr` (`POST` JSON, chữ ký HMAC-SHA512 trên các trường nối bằng `|`, phản hồi cũng được xác thực chữ ký và đối chiếu mã giao dịch).
+
+- **Quét định kỳ:** worker `payments` (`INLINE_WORKERS=...,payments` hoặc `npm run worker:payments`) chạy mỗi 5 phút (`PAYMENT_RECONCILIATION_INTERVAL_MS`, tối thiểu 60 giây), lấy tối đa 50 giao dịch VNPAY còn `PENDING` đã tạo trên 2 phút.
+- **Khi người dùng mở lại giao dịch:** `GET /api/v1/me/payments/:id` tự đối soát nếu giao dịch `PENDING` quá 2 phút, tối đa một lần mỗi 30 giây cho mỗi giao dịch.
+- **Kết quả:** `vnp_TransactionStatus=00` ghi nhận thanh toán (qua cùng hàm idempotent với IPN, kiểm tra số tiền khớp giao dịch và hóa đơn); `02` ghi nhận `FAILED`; `01` hoặc mã `91` (VNPay không có giao dịch) giữ `PENDING` cho tới khi quá hạn thêm 2 phút rồi chuyển `EXPIRED`; trạng thái đảo/hoàn tiền (04 đến 09) và mã lỗi khác được giữ nguyên để xử lý thủ công.
+- **Cấu hình:** `VNPAY_QUERY_URL` (mặc định sandbox `https://sandbox.vnpayment.vn/merchant_webapi/api/transaction`, production dùng địa chỉ do VNPay cấp). Trên Render cần thêm `payments` vào `INLINE_WORKERS`.
+- **An toàn:** lỗi mạng hoặc chữ ký phản hồi sai không làm đổi dữ liệu và không làm hỏng việc xem giao dịch; log chỉ ghi mã lỗi, không ghi khóa hay chữ ký.
+
 ## Giới hạn hiện tại
 
-- Chưa có đối soát chủ động: chưa gọi API truy vấn giao dịch (`querydr`) và chưa có worker quét giao dịch `PENDING`. Nếu cả Return URL và IPN đều lỡ (ví dụ máy chủ đang ngủ), hóa đơn có thể chưa cập nhật dù người dùng đã trả; giao dịch chỉ chuyển `EXPIRED` khi có truy vấn tới nó.
 - Chưa tích hợp API hoàn tiền của VNPay: hoàn tiền (`invoice.refund`) chỉ đánh dấu trong hệ thống và phải xử lý phía VNPay.
 - Máy chủ gói free của Render ngủ sau 15 phút không có yêu cầu; lần gọi đầu có thể mất khoảng 50 giây, nên IPN đầu tiên có thể chậm.
