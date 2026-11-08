@@ -5,9 +5,13 @@ import 'package:hospital_booking_mobile/features/booking/domain/booking_submissi
 
 /// Kênh OTP backend đang hỗ trợ (GET /capabilities). Lỗi mạng thì giả định
 /// chỉ có email để người dùng không chọn phải kênh không gửi được.
-final otpChannelsProvider = FutureProvider<List<BookingOtpChannel>>((ref) async {
+final otpChannelsProvider = FutureProvider<List<BookingOtpChannel>>((
+  ref,
+) async {
   try {
-    final response = await ref.watch(authDioProvider).get<dynamic>('/capabilities');
+    final response = await ref
+        .watch(authDioProvider)
+        .get<dynamic>('/capabilities');
     final otp = requireDataMap(response.data)['otp'];
     final channels = otp is Map ? otp['channels'] : null;
     if (channels is! List) return const [BookingOtpChannel.email];

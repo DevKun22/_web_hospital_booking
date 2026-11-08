@@ -6,25 +6,21 @@ enum PatientPaymentStatus {
   expired,
   unknown;
 
-  factory PatientPaymentStatus.fromJson(dynamic value) => switch (
-    value?.toString().toUpperCase()
-  ) {
-    'PENDING' => pending,
-    'SUCCESS' => success,
-    'FAILED' => failed,
-    'CANCELLED' => cancelled,
-    'EXPIRED' => expired,
-    _ => unknown,
-  };
+  factory PatientPaymentStatus.fromJson(dynamic value) =>
+      switch (value?.toString().toUpperCase()) {
+        'PENDING' => pending,
+        'SUCCESS' => success,
+        'FAILED' => failed,
+        'CANCELLED' => cancelled,
+        'EXPIRED' => expired,
+        _ => unknown,
+      };
 
   bool get isFinal => this != pending && this != unknown;
 }
 
 class PatientPaymentProvider {
-  const PatientPaymentProvider({
-    required this.code,
-    required this.label,
-  });
+  const PatientPaymentProvider({required this.code, required this.label});
 
   factory PatientPaymentProvider.fromJson(Map<String, dynamic> json) =>
       PatientPaymentProvider(
@@ -97,4 +93,5 @@ String? _optionalString(dynamic value) {
   return parsed == null || parsed.isEmpty ? null : parsed;
 }
 
-DateTime? _dateTime(dynamic value) => DateTime.tryParse(value?.toString() ?? '');
+DateTime? _dateTime(dynamic value) =>
+    DateTime.tryParse(value?.toString() ?? '');

@@ -1,54 +1,44 @@
-import 'package:flutter/material.dart';
-
 enum NotificationPreferenceKind {
   generalAnnouncements(
     apiKey: 'generalAnnouncementsPush',
     label: 'Thông báo từ bệnh viện',
     description: 'Tin tức, hướng dẫn và cập nhật chung từ bệnh viện.',
-    icon: Icons.campaign_outlined,
   ),
   appointmentUpdates(
     apiKey: 'appointmentUpdatesPush',
     label: 'Cập nhật lịch khám',
     description: 'Xác nhận, đổi, hủy và tiến trình khám.',
-    icon: Icons.calendar_month_outlined,
   ),
   appointmentReminders(
     apiKey: 'appointmentRemindersPush',
     label: 'Nhắc lịch khám',
     description: 'Nhắc bạn chuẩn bị trước giờ khám.',
-    icon: Icons.alarm_outlined,
   ),
   medicalResults(
     apiKey: 'medicalResultsPush',
     label: 'Kết quả khám',
     description: 'Hồ sơ và kết quả mới được bệnh viện công bố.',
-    icon: Icons.fact_check_outlined,
   ),
   prescriptions(
     apiKey: 'prescriptionsPush',
     label: 'Đơn thuốc',
     description: 'Đơn thuốc mới được bác sĩ phát hành.',
-    icon: Icons.medication_outlined,
   ),
   billing(
     apiKey: 'billingPush',
     label: 'Hóa đơn & thanh toán',
     description: 'Hóa đơn, thanh toán và hoàn tiền đã ghi nhận.',
-    icon: Icons.receipt_long_outlined,
   );
 
   const NotificationPreferenceKind({
     required this.apiKey,
     required this.label,
     required this.description,
-    required this.icon,
   });
 
   final String apiKey;
   final String label;
   final String description;
-  final IconData icon;
 }
 
 class NotificationPreferences {

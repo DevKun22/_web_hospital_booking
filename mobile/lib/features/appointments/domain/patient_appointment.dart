@@ -1,6 +1,4 @@
-import 'package:flutter/material.dart';
 import 'package:hospital_booking_mobile/core/formatters/professional_name_formatter.dart';
-import 'package:hospital_booking_mobile/core/widgets/app_ui.dart';
 
 enum PatientAppointmentStatus {
   pendingOtp('PENDING_OTP'),
@@ -66,36 +64,6 @@ enum PatientAppointmentStatus {
     PatientAppointmentStatus.noShow => 'Lịch được ghi nhận là không đến khám.',
     PatientAppointmentStatus.unknown =>
       'Trạng thái đang được đồng bộ từ bệnh viện.',
-  };
-
-  AppStatusTone get tone => switch (this) {
-    PatientAppointmentStatus.confirmed ||
-    PatientAppointmentStatus.checkedIn ||
-    PatientAppointmentStatus.inProgress => AppStatusTone.success,
-    PatientAppointmentStatus.pendingOtp ||
-    PatientAppointmentStatus.pendingConfirm ||
-    PatientAppointmentStatus.rescheduled => AppStatusTone.warning,
-    PatientAppointmentStatus.cancelledByPatient ||
-    PatientAppointmentStatus.cancelledByDoctor ||
-    PatientAppointmentStatus.cancelledByAdmin ||
-    PatientAppointmentStatus.noShow => AppStatusTone.danger,
-    PatientAppointmentStatus.completed ||
-    PatientAppointmentStatus.unknown => AppStatusTone.info,
-  };
-
-  IconData get icon => switch (this) {
-    PatientAppointmentStatus.confirmed => Icons.verified_outlined,
-    PatientAppointmentStatus.checkedIn => Icons.how_to_reg_outlined,
-    PatientAppointmentStatus.inProgress => Icons.medical_services_outlined,
-    PatientAppointmentStatus.completed => Icons.task_alt_outlined,
-    PatientAppointmentStatus.cancelledByPatient ||
-    PatientAppointmentStatus.cancelledByDoctor ||
-    PatientAppointmentStatus.cancelledByAdmin => Icons.cancel_outlined,
-    PatientAppointmentStatus.noShow => Icons.person_off_outlined,
-    PatientAppointmentStatus.rescheduled => Icons.update_outlined,
-    PatientAppointmentStatus.pendingOtp ||
-    PatientAppointmentStatus.pendingConfirm => Icons.schedule_outlined,
-    PatientAppointmentStatus.unknown => Icons.info_outline,
   };
 
   bool get canCancel =>

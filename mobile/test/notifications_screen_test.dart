@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
-import 'package:hospital_booking_mobile/app/theme/app_theme.dart';
+import 'package:hospital_booking_mobile/features/notifications/domain/push_permission_status.dart';
+import 'package:hospital_booking_mobile/core/theme/app_theme.dart';
 import 'package:hospital_booking_mobile/features/notifications/application/notifications_controller.dart';
 import 'package:hospital_booking_mobile/features/notifications/application/push_notifications_controller.dart';
-import 'package:hospital_booking_mobile/features/notifications/data/push_messaging_gateway.dart';
 import 'package:hospital_booking_mobile/features/notifications/domain/patient_notification.dart';
 import 'package:hospital_booking_mobile/features/notifications/presentation/notifications_screen.dart';
 

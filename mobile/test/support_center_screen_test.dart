@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:hospital_booking_mobile/app/theme/app_theme.dart';
+import 'package:hospital_booking_mobile/core/theme/app_theme.dart';
 import 'package:hospital_booking_mobile/features/home/application/home_content_controller.dart';
 import 'package:hospital_booking_mobile/features/home/domain/home_content.dart';
 import 'package:hospital_booking_mobile/features/support/application/support_action_launcher.dart';

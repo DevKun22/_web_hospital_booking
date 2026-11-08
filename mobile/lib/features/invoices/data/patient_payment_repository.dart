@@ -28,9 +28,7 @@ class PatientPaymentRepository {
         data: {'provider': provider},
         options: Options(headers: {'Idempotency-Key': idempotencyKey}),
       );
-      return PatientPaymentTransaction.fromJson(
-        requireDataMap(response.data),
-      );
+      return PatientPaymentTransaction.fromJson(requireDataMap(response.data));
     } on DioException catch (error) {
       throw ApiException.fromDio(error);
     }
@@ -39,9 +37,7 @@ class PatientPaymentRepository {
   Future<PatientPaymentTransaction> getById(String paymentId) async {
     try {
       final response = await _dio.get<dynamic>('/me/payments/$paymentId');
-      return PatientPaymentTransaction.fromJson(
-        requireDataMap(response.data),
-      );
+      return PatientPaymentTransaction.fromJson(requireDataMap(response.data));
     } on DioException catch (error) {
       throw ApiException.fromDio(error);
     }

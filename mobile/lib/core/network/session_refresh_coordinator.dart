@@ -5,7 +5,20 @@ import 'package:hospital_booking_mobile/core/network/access_token_store.dart';
 import 'package:hospital_booking_mobile/core/network/api_contract.dart';
 import 'package:hospital_booking_mobile/core/network/session_events.dart';
 import 'package:hospital_booking_mobile/core/storage/token_storage.dart';
-import 'package:hospital_booking_mobile/features/auth/domain/auth_session.dart';
+
+/// Kết quả làm mới phiên: cặp token đã lưu cùng dữ liệu thô máy chủ trả về, để tính năng
+/// đăng nhập tự dựng mô hình người dùng mà lớp hạ tầng không cần biết mô hình đó.
+class RefreshedSession {
+  const RefreshedSession({
+    required this.accessToken,
+    required this.refreshToken,
+    required this.payload,
+  });
+
+  final String accessToken;
+  final String refreshToken;
+  final Map<String, dynamic> payload;
+}
 
 class SessionRefreshCoordinator {
   SessionRefreshCoordinator({
@@ -22,13 +35,13 @@ class SessionRefreshCoordinator {
   final TokenStorage _tokenStorage;
   final AccessTokenStore _accessTokenStore;
   final SessionEvents _sessionEvents;
-  Future<AuthSession>? _refreshing;
+  Future<RefreshedSession>? _refreshing;
 
-  Future<AuthSession> refresh() {
+  Future<RefreshedSession> refresh() {
     final current = _refreshing;
     if (current != null) return current;
 
-    late final Future<AuthSession> operation;
+    late final Future<RefreshedSession> operation;
     operation = _performRefresh().whenComplete(() {
       if (identical(_refreshing, operation)) _refreshing = null;
     });
@@ -36,16 +49,19 @@ class SessionRefreshCoordinator {
     return operation;
   }
 
-  Future<void> persist(AuthSession session) async {
-    if (!session.isValid) {
+  Future<void> persist({
+    required String accessToken,
+    required String refreshToken,
+  }) async {
+    if (accessToken.isEmpty || refreshToken.isEmpty) {
       throw const ApiException(
         kind: ApiErrorKind.unknown,
         code: 'INVALID_AUTH_CONTRACT',
         message: 'Thông tin đăng nhập không hợp lệ.',
       );
     }
-    _accessTokenStore.set(session.accessToken);
-    await _tokenStorage.writeRefreshToken(session.refreshToken);
+    _accessTokenStore.set(accessToken);
+    await _tokenStorage.writeRefreshToken(refreshToken);
   }
 
   Future<void> clear({bool notify = false}) async {
@@ -54,7 +70,7 @@ class SessionRefreshCoordinator {
     if (notify) _sessionEvents.invalidate();
   }
 
-  Future<AuthSession> _performRefresh() async {
+  Future<RefreshedSession> _performRefresh() async {
     final refreshToken = await _tokenStorage.readRefreshToken();
     if (refreshToken == null || refreshToken.isEmpty) {
       throw const ApiException(
@@ -75,9 +91,23 @@ class SessionRefreshCoordinator {
           'platform': _platformName,
         },
       );
-      final session = AuthSession.fromJson(requireDataMap(response.data));
-      await persist(session);
-      return session;
+      final payload = requireDataMap(response.data);
+      final user = payload['user'];
+      final accessToken = payload['accessToken']?.toString() ?? '';
+      final newRefreshToken = payload['refreshToken']?.toString() ?? '';
+      if (user is! Map || (user['id']?.toString() ?? '').isEmpty) {
+        throw const ApiException(
+          kind: ApiErrorKind.unknown,
+          code: 'INVALID_AUTH_CONTRACT',
+          message: 'Thông tin đăng nhập không hợp lệ.',
+        );
+      }
+      await persist(accessToken: accessToken, refreshToken: newRefreshToken);
+      return RefreshedSession(
+        accessToken: accessToken,
+        refreshToken: newRefreshToken,
+        payload: payload,
+      );
     } on DioException catch (error) {
       final exception = ApiException.fromDio(error);
       if (exception.invalidatesSession) {

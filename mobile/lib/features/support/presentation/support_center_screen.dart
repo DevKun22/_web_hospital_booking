@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hospital_booking_mobile/app/navigation/booking_navigation.dart';
-import 'package:hospital_booking_mobile/app/theme/app_theme.dart';
+import 'package:hospital_booking_mobile/core/theme/app_theme.dart';
 import 'package:hospital_booking_mobile/core/widgets/app_error_banner.dart';
 import 'package:hospital_booking_mobile/core/widgets/app_ui.dart';
 import 'package:hospital_booking_mobile/features/home/application/home_content_controller.dart';
@@ -324,18 +324,18 @@ class _SupportOptions extends StatelessWidget {
             subtitle: hotline ?? 'Chưa có số tổng đài',
             onTap: hotline == null ? null : () => onCall(hotline!),
           ),
-        if (mapUrl != null || address != null) ...[
-          const Divider(height: 1, indent: 68),
-          _SupportOptionTile(
-            key: const Key('support-location-option'),
-            icon: Icons.map_outlined,
-            title: 'Đường đến bệnh viện',
-            subtitle: locationDetails.isEmpty
-                ? 'Mở vị trí bệnh viện'
-                : locationDetails,
-            onTap: onOpenMap,
-          ),
-        ],
+          if (mapUrl != null || address != null) ...[
+            const Divider(height: 1, indent: 68),
+            _SupportOptionTile(
+              key: const Key('support-location-option'),
+              icon: Icons.map_outlined,
+              title: 'Đường đến bệnh viện',
+              subtitle: locationDetails.isEmpty
+                  ? 'Mở vị trí bệnh viện'
+                  : locationDetails,
+              onTap: onOpenMap,
+            ),
+          ],
           const Divider(height: 1, indent: 68),
           _SupportOptionTile(
             key: const Key('support-chatbot-option'),

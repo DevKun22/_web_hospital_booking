@@ -5,7 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hospital_booking_mobile/app/navigation/main_navigation_destination.dart';
 import 'package:hospital_booking_mobile/core/design/app_design_tokens.dart';
-import 'package:hospital_booking_mobile/core/sync/patient_data_sync_coordinator.dart';
+import 'package:hospital_booking_mobile/app/sync/patient_data_sync_coordinator.dart';
 
 class MainNavigationHistoryController extends ChangeNotifier {
   static const _homeIndex = 0;

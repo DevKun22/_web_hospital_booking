@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:hospital_booking_mobile/app/theme/app_theme.dart';
+import 'package:hospital_booking_mobile/core/theme/app_theme.dart';
 
 class BookingJourneyIndicator extends StatelessWidget {
   const BookingJourneyIndicator({required this.currentStep, super.key});
