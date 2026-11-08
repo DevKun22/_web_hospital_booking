@@ -81,5 +81,4 @@ Thực hiện trên hệ thống thật (web Vercel, API Render, VNPay sandbox):
 - Chưa có `Content-Security-Policy` cho web.
 - Worker chạy trong API nên ngừng khi instance ngủ; Redis Upstash cần chuyển chính sách eviction sang `noeviction`.
 - Thông báo đẩy tới thiết bị thật chưa nghiệm thu (cần app mobile và token thiết bị).
-- Màn hình mobile hỏi đồng ý xử lý dữ liệu sức khỏe cho hồ sơ cá nhân chưa làm.
 - SRS và SDD trên Claude Docs cần cập nhật theo hệ thống đã triển khai (mục tiếp theo).
