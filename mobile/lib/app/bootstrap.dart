@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hospital_booking_mobile/app/hospital_booking_app.dart';
 import 'package:hospital_booking_mobile/app/theme/app_theme.dart';
 import 'package:hospital_booking_mobile/core/config/app_config.dart';
+import 'package:hospital_booking_mobile/core/errors/global_error_handler.dart';
 import 'package:hospital_booking_mobile/core/providers/app_providers.dart';
 
 @pragma('vm:entry-point')
@@ -15,6 +16,7 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 
 Future<void> bootstrap(AppEnvironment environment) async {
   WidgetsFlutterBinding.ensureInitialized();
+  installGlobalErrorHandlers();
   await Firebase.initializeApp();
   FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
   SystemChrome.setSystemUIOverlayStyle(
