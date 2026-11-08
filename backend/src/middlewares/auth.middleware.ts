@@ -13,11 +13,9 @@ import { roleHasAnyPermission } from "../services/rbac.service.js";
 
 const DASHBOARD_ROLES: Role[] = [...STAFF_ROLES];
 
-export const authDashboard = async (
-  req: Request,
-  res: Response,
-  next: NextFunction,
-) => {
+const createAuthDashboard =
+  (options: { allowPasswordChange: boolean }) =>
+  async (req: Request, res: Response, next: NextFunction) => {
   try {
     const token = req.cookies.dashboard_token;
 
@@ -48,6 +46,7 @@ export const authDashboard = async (
           id: true,
           role: true,
           isActive: true,
+          mustChangePassword: true,
         },
       });
       const userLookupMs = performance.now() - userLookupStartedAt;
@@ -70,6 +69,16 @@ export const authDashboard = async (
       });
     }
 
+    // Tài khoản do quản trị tạo hoặc đặt lại mật khẩu chỉ được đổi mật khẩu (và xem hồ sơ
+    // của mình) cho tới khi tự đặt mật khẩu mới.
+    if (user.mustChangePassword && !options.allowPasswordChange) {
+      return res.status(403).json({
+        success: false,
+        message: "Bạn cần đổi mật khẩu trước khi tiếp tục",
+        code: "PASSWORD_CHANGE_REQUIRED",
+      });
+    }
+
     req.user = {
       ...payload,
       userId: user.id,
@@ -84,6 +93,12 @@ export const authDashboard = async (
     });
   }
 };
+
+export const authDashboard = createAuthDashboard({ allowPasswordChange: false });
+// Dùng cho /auth/me và /auth/change-password: tài khoản bị buộc đổi mật khẩu vẫn gọi được.
+export const authDashboardAllowPasswordChange = createAuthDashboard({
+  allowPasswordChange: true,
+});
 
 // Cho qua khi vai trò của người dùng được cấp BẤT KỲ mã quyền nào trong danh sách.
 // Quyền do ma trận `rbac.matrix` quyết định; ràng buộc cứng nằm ở config/permissions.ts.

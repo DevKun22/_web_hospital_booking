@@ -1,4 +1,5 @@
 import type { Prisma } from "../../generated/prisma/client.js";
+import AuditLogService from "./auditLog.service.js";
 import { prisma } from "../config/prisma.js";
 import {
   PERMISSIONS,
@@ -70,7 +71,11 @@ class RbacService {
 
   // Nhận { [code]: Role[] }. Mã lạ hoặc vai trò ngoài `eligibleRoles` bị từ chối
   // thay vì lặng lẽ bỏ qua, để người dùng biết thay đổi không có hiệu lực.
-  async updateMatrix(input: Record<string, string[]>, actorId: string) {
+  async updateMatrix(
+    input: Record<string, string[]>,
+    actor: { userId: string; role: string },
+    ipAddress?: string,
+  ) {
     for (const [code, roles] of Object.entries(input)) {
       if (!isPermissionCode(code)) {
         throw new AppError(`Mã quyền không tồn tại: ${code}`, 400, "RBAC_UNKNOWN_PERMISSION");
@@ -88,10 +93,16 @@ class RbacService {
 
     const current = await loadGrants();
     const next = normalizeGrants({ ...current, ...input });
+    // Chỉ ghi các mã quyền thật sự đổi, kèm vai trò trước và sau, để nhật ký đọc được ngay.
+    const changes = Object.fromEntries(
+      PERMISSION_CODES.filter(
+        (code) => [...current[code]].sort().join() !== [...next[code]].sort().join(),
+      ).map((code) => [code, { from: current[code], to: next[code] }]),
+    );
     const value = {
       version: 1,
       grants: next,
-      updatedById: actorId,
+      updatedById: actor.userId,
       updatedAt: new Date().toISOString(),
     } as unknown as Prisma.InputJsonValue;
 
@@ -101,12 +112,25 @@ class RbacService {
       update: { value, isActive: true },
     });
     invalidateRbacCache();
+    await AuditLogService.record({
+      actor,
+      action: "RBAC_MATRIX_UPDATED",
+      targetType: "RBAC_MATRIX",
+      ipAddress,
+      meta: { changes } as Prisma.InputJsonObject,
+    });
     return this.getMatrix();
   }
 
-  async resetMatrix() {
+  async resetMatrix(actor?: { userId: string; role: string }, ipAddress?: string) {
     await prisma.siteSetting.deleteMany({ where: { key: RBAC_MATRIX_KEY } });
     invalidateRbacCache();
+    await AuditLogService.record({
+      actor,
+      action: "RBAC_MATRIX_RESET",
+      targetType: "RBAC_MATRIX",
+      ipAddress,
+    });
     return this.getMatrix();
   }
 }

@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell-production";
+import { ForcePasswordChange } from "@/components/dashboard/force-password-change";
 import { useAuth } from "@/lib/auth";
 import { canAccessDashboardPath } from "@/lib/dashboard-navigation";
 
@@ -42,6 +43,10 @@ export function DashboardAuthLayout({
         </div>
       </div>
     );
+  }
+
+  if (user.mustChangePassword) {
+    return <ForcePasswordChange />;
   }
 
   return <DashboardShell>{children}</DashboardShell>;

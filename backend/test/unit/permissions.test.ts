@@ -50,12 +50,12 @@ test("fixed roles cannot be removed and unknown codes are dropped", () => {
 
 test("optional permissions can be toggled within the eligible set", () => {
   const grants = normalizeGrants({
-    "appointment.exam": ["DOCTOR"],
+    "appointment.exam_finish": ["DOCTOR", "STAFF"],
     "record.view": ["DOCTOR", "ADMIN"],
     "invoice.collect": ["ADMIN"],
   });
 
-  assert.deepEqual(grants["appointment.exam"], ["DOCTOR"]);
+  assert.deepEqual(grants["appointment.exam_finish"], ["DOCTOR", "STAFF"]);
   assert.deepEqual(grants["invoice.collect"], ["ADMIN"]);
   assert.ok(permissionsForRole(grants, "ADMIN").includes("record.view"));
   assert.ok(!permissionsForRole(grants, "STAFF").includes("invoice.collect"));

@@ -250,6 +250,9 @@ model User {
   isPhoneVerified Boolean @default(false)
   isEmailVerified Boolean @default(false)
   isActive        Boolean @default(true)
+  // Đặt khi quản trị tạo tài khoản hoặc đặt lại mật khẩu thay người dùng: người dùng phải tự
+  // đổi mật khẩu trước khi làm việc tiếp, để quản trị không biết mật khẩu lâu dài.
+  mustChangePassword Boolean @default(false)
 
   // Patient relations
   patientProfile PatientProfile?
@@ -469,6 +472,29 @@ model DashboardLoginFailure {
 
   @@index([targetHash, createdAt])
   @@index([ipHash, createdAt])
+}
+
+// Nhật ký truy cập và thao tác nhạy cảm (ai làm gì, trên đối tượng nào, từ đâu). Không ghi
+// nội dung y tế. Chỉ thêm dòng (trigger chặn sửa, xóa). actorId cố ý không phải khóa ngoại để
+// nhật ký còn nguyên khi tài khoản bị xóa.
+model AuditLog {
+  id String @id @default(uuid())
+
+  actorId   String?
+  actorName String?
+  actorRole String?
+
+  action     String
+  targetType String?
+  targetId   String?
+  ipAddress  String?
+  meta       Json?
+
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([action, createdAt])
+  @@index([actorId, createdAt])
 }
 
 model DashboardSession {

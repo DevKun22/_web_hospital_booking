@@ -5,6 +5,7 @@ import type {
 } from "../../generated/prisma/enums.js";
 import InvoiceService from "../services/invoice.service.js";
 import { AppError } from "../utils/appError.js";
+import { getClientIp } from "../utils/clientIp.js";
 
 const parseNumberQuery = (value: unknown) => {
   if (typeof value !== "string") return undefined;
@@ -112,6 +113,8 @@ export const updateInvoiceHandler = async (
     const invoice = await InvoiceService.updateFinancials(
       getParam(req.params.id),
       req.body,
+      { userId: getActorId(req), role: req.user!.role },
+      getClientIp(req),
     );
 
     return res.json({
@@ -177,6 +180,7 @@ export const refundInvoiceHandler = async (
       getParam(req.params.id),
       req.body,
       getActorId(req),
+      { role: req.user!.role, ipAddress: getClientIp(req) },
     );
 
     return res.json({
@@ -199,7 +203,8 @@ export const refundInvoiceViaVnpayHandler = async (
       getParam(req.params.id),
       req.body,
       getActorId(req),
-      req.ip,
+      getClientIp(req),
+      req.user!.role,
     );
 
     return res.json({

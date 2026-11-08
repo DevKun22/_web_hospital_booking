@@ -9,6 +9,8 @@ export type DashboardUser = {
   avatar: string | null;
   // Mã quyền hiện hành của vai trò (từ ma trận phân quyền); chỉ có ở /auth/dashboard/me.
   permissions?: string[];
+  // Tài khoản do quản trị tạo hoặc đặt lại mật khẩu phải tự đổi mật khẩu trước khi làm việc.
+  mustChangePassword?: boolean;
   isActive?: boolean;
   isPhoneVerified?: boolean;
   isEmailVerified?: boolean;

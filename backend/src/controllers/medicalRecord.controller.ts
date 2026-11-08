@@ -4,6 +4,7 @@ import type {
   Role,
 } from "../../generated/prisma/enums.js";
 import MedicalRecordService from "../services/medicalRecord.service.js";
+import { auditClinicalView } from "../utils/auditClinicalView.js";
 import { AppError } from "../utils/appError.js";
 
 const parseNumberQuery = (value: unknown) => {
@@ -81,6 +82,8 @@ export const getMedicalRecordHandler = async (
       getParam(req.params.id),
       getActor(req),
     );
+
+    await auditClinicalView(req, "MEDICAL_RECORD_VIEWED", "MEDICAL_RECORD", record.id);
 
     return res.json({ success: true, data: record });
   } catch (error) {

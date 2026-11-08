@@ -11,6 +11,9 @@ import AuthSessionService, {
 import DashboardLoginSecurityService from "./dashboardLoginSecurity.service.js";
 import { STAFF_ROLES, type StaffRole } from "../config/permissions.js";
 import { getRolePermissions } from "./rbac.service.js";
+import AuditLogService from "./auditLog.service.js";
+import { invalidateDashboardAuthSnapshot } from "./dashboardAuthCache.service.js";
+import { hashPassword } from "../utils/password.js";
 
 const DASHBOARD_ROLES: Role[] = [...STAFF_ROLES];
 const MAX_CHALLENGE_ATTEMPTS = 5;
@@ -56,6 +59,7 @@ const toSafeDashboardUser = (user: {
   email: string | null;
   role: Role;
   avatar: string | null;
+  mustChangePassword?: boolean;
 }) => ({
   id: user.id,
   fullName: user.fullName,
@@ -63,6 +67,7 @@ const toSafeDashboardUser = (user: {
   email: user.email,
   role: user.role,
   avatar: user.avatar,
+  mustChangePassword: user.mustChangePassword ?? false,
 });
 
 const getRefreshExpiresAt = () =>
@@ -306,6 +311,7 @@ class DashboardAuthService {
         role: true,
         avatar: true,
         isActive: true,
+        mustChangePassword: true,
       },
     });
 
@@ -325,6 +331,48 @@ class DashboardAuthService {
       ...toSafeDashboardUser(user),
       permissions: await getRolePermissions(user.role),
     };
+  }
+
+  // Người dùng tự đổi mật khẩu: phải biết mật khẩu hiện tại, các phiên khác bị thu hồi.
+  async changePassword(input: {
+    userId: string;
+    sessionId?: string;
+    role: string;
+    currentPassword: string;
+    newPassword: string;
+    ipAddress?: string;
+  }) {
+    const user = await prisma.user.findUnique({
+      where: { id: input.userId },
+      select: { password: true },
+    });
+    const valid =
+      !!user?.password && (await bcrypt.compare(input.currentPassword, user.password));
+    if (!valid) throw new AppError("Mật khẩu hiện tại không chính xác", 400);
+    if (input.currentPassword === input.newPassword) {
+      throw new AppError("Mật khẩu mới phải khác mật khẩu hiện tại", 400);
+    }
+
+    await prisma.user.update({
+      where: { id: input.userId },
+      data: {
+        password: await hashPassword(input.newPassword),
+        mustChangePassword: false,
+      },
+    });
+    await AuthSessionService.revokeAllForUser({
+      userId: input.userId,
+      kind: "DASHBOARD",
+      exceptSessionId: input.sessionId,
+    });
+    invalidateDashboardAuthSnapshot(input.userId);
+    await AuditLogService.record({
+      actor: { userId: input.userId, role: input.role },
+      action: "PASSWORD_CHANGED",
+      targetType: "USER",
+      targetId: input.userId,
+      ipAddress: input.ipAddress,
+    });
   }
 }
 

@@ -4,6 +4,7 @@ type DashboardAuthSnapshot = {
   id: string;
   role: Role;
   isActive: boolean;
+  mustChangePassword: boolean;
 };
 
 type CachedSnapshot = DashboardAuthSnapshot & {
@@ -30,6 +31,7 @@ export const getCachedDashboardAuthSnapshot = (userId: string) => {
     id: cached.id,
     role: cached.role,
     isActive: cached.isActive,
+    mustChangePassword: cached.mustChangePassword,
   };
 };
 
