@@ -93,6 +93,9 @@ docs/*
 !docs/van-hanh-thong-bao.md
 !docs/checklist-kiem-thu-production-thiet-bi-that.md
 !docs/docker-architecture.md
+!docs/van-hanh-thanh-toan-vnpay.md
+!docs/kien-truc-he-thong-hien-tai.md
+!docs/bao-cao-truoc-sau-nang-cap-2026-11.md
 
 # Archify working candidates and browser-check evidence (final HTML stays in docs/)
 .archify/

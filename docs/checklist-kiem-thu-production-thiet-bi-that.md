@@ -13,8 +13,9 @@ demo hoặc database staging được chỉ định rõ.
 - Firebase Admin credential, notification worker và Redis hoạt động.
 - Android release/profile có `google-services.json` đúng project.
 - Có tài khoản bệnh nhân demo, lịch hẹn demo và dashboard role phù hợp.
-- Nếu nghiệm thu thanh toán: chỉ dùng MoMo sandbox cho đến khi có credential
-  production, IPN HTTPS và biên bản đối soát. Tuyệt đối không dùng mock trên production.
+- Nếu nghiệm thu thanh toán: chỉ dùng VNPay sandbox cho đến khi có credential
+  production, IPN HTTPS đã đăng ký và biên bản đối soát. Quy trình và giới hạn
+  hiện tại xem `docs/van-hanh-thanh-toan-vnpay.md`. Hệ thống không còn thanh toán giả lập.
 
 ## Cảnh báo vận hành đã ghi nhận
 
