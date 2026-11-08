@@ -4,9 +4,10 @@ import {
   deleteUnusedMediaAssetHandler,
   listMediaAssetsHandler,
   uploadImagesHandler,
+  uploadMedicalFileHandler,
 } from "../controllers/upload.controller.js";
 import { authDashboard, requirePermission } from "../middlewares/auth.middleware.js";
-import { uploadImages } from "../middlewares/upload.middleware.js";
+import { uploadImages, uploadMedicalFile } from "../middlewares/upload.middleware.js";
 import { validate } from "../middlewares/validate.middleware.js";
 import { cleanupUnusedMediaAssetsSchema } from "../validations/mediaAsset.validation.js";
 
@@ -25,6 +26,15 @@ router.post(
   requirePermission("content.manage"),
   uploadImages,
   uploadImagesHandler,
+);
+
+// Tệp kết quả khám (PDF hoặc ảnh): chỉ bác sĩ có quyền ghi bệnh án, không dùng quyền nội dung.
+router.post(
+  "/medical-files",
+  authDashboard,
+  requirePermission("record.edit"),
+  uploadMedicalFile,
+  uploadMedicalFileHandler,
 );
 
 router.post(

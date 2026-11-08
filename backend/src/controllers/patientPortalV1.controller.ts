@@ -98,7 +98,11 @@ export const downloadPatientMedicalFileHandler = async (req: Request, res: Respo
     );
     const file = await SecureMedicalFileService.fetch(source.url);
     res.setHeader("Content-Type", file.contentType);
-    res.setHeader("Content-Disposition", `inline; filename="${source.fileName.replace(/[^a-zA-Z0-9._-]/g, "-")}"`);
+    const safeName = source.fileName.replace(/[^a-zA-Z0-9._-]/g, "-");
+    const fileName = file.extension && !safeName.toLowerCase().endsWith(`.${file.extension}`)
+      ? `${safeName}.${file.extension}`
+      : safeName;
+    res.setHeader("Content-Disposition", `inline; filename="${fileName}"`);
     res.setHeader("Cache-Control", "private, no-store, max-age=0");
     res.setHeader("X-Content-Type-Options", "nosniff");
     return res.send(file.buffer);

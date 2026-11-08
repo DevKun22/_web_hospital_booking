@@ -172,3 +172,40 @@ export async function uploadImages(files: File[], folder: string) {
 
   return payload?.data?.items || [];
 }
+
+// Tệp kết quả khám (PDF hoặc ảnh JPG, PNG, WEBP, tối đa 10 MB). Chỉ tài khoản có quyền ghi bệnh án
+// (bác sĩ) tải được; tệp được lưu riêng tư và bệnh nhân chỉ xem qua cổng của mình.
+export async function uploadMedicalFile(file: File) {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  const response = await fetch(buildUrl("/uploads/medical-files"), {
+    method: "POST",
+    credentials: "include",
+    headers: {
+      Accept: "application/json",
+      [DASHBOARD_REQUEST_HEADER]: "1",
+    },
+    body: formData,
+  });
+
+  const payload = (await response.json().catch(() => null)) as ApiEnvelope<{
+    item: import("@/lib/types").MediaAsset;
+  }> | null;
+
+  if (!response.ok || payload?.success === false) {
+    if (response.status === 401 && isDashboardRoute()) {
+      notifyAuthExpired();
+    }
+
+    throw new ApiError(
+      payload?.message || "Không tải được tệp kết quả",
+      response.status,
+    );
+  }
+
+  if (!payload?.data?.item) {
+    throw new ApiError("Đã tải lên nhưng không nhận được đường dẫn tệp", response.status);
+  }
+  return payload.data.item;
+}

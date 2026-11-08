@@ -10,6 +10,31 @@ const getUploadedFiles = (files: Request["files"]) => {
   return Object.values(files).flat();
 };
 
+export const uploadMedicalFileHandler = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    if (!req.is("multipart/form-data")) {
+      throw new AppError("Request upload phải là multipart/form-data", 400);
+    }
+    if (!req.file) {
+      throw new AppError("Chưa chọn tệp kết quả", 400);
+    }
+
+    const asset = await MediaAssetService.uploadMedicalFile(req.file, req.user?.userId);
+
+    return res.status(201).json({
+      success: true,
+      message: "Tải tệp kết quả thành công",
+      data: { item: asset },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 export const uploadImagesHandler = async (
   req: Request,
   res: Response,
