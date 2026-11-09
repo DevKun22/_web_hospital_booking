@@ -16,7 +16,7 @@ import {
   UserRound,
 } from "lucide-react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -141,6 +141,7 @@ function DashboardNavLink({
   const link = (
     <Link
       href={item.href}
+      prefetch
       onClick={onNavigate}
       aria-current={active ? "page" : undefined}
       className={`group relative flex min-h-10 items-center rounded-lg text-sm font-medium transition-colors ${
@@ -246,6 +247,7 @@ function DashboardNavigation({
 
 export function DashboardShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
   const { user, logout } = useAuth();
   const siteSettingsQuery = usePublicSiteSettings();
   const sidebarCollapsed = useSyncExternalStore(
@@ -284,6 +286,18 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
     window.addEventListener("keydown", handleShortcut);
     return () => window.removeEventListener("keydown", handleShortcut);
   }, []);
+
+  // Nạp trước mọi trang trong sidebar lúc trình duyệt rảnh để bấm là chuyển ngay.
+  useEffect(() => {
+    if (visibleItems.length === 0) return;
+    const run = () => visibleItems.forEach((item) => router.prefetch(item.href));
+    if (typeof window.requestIdleCallback === "function") {
+      const id = window.requestIdleCallback(run, { timeout: 2000 });
+      return () => window.cancelIdleCallback(id);
+    }
+    const id = window.setTimeout(run, 500);
+    return () => window.clearTimeout(id);
+  }, [router, visibleItems]);
 
   const toggleSidebar = () => {
     localStorage.setItem(SIDEBAR_STORAGE_KEY, String(!sidebarCollapsed));
