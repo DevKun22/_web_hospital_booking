@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Plus, RefreshCw, Search } from "lucide-react";
 import {
@@ -50,7 +50,9 @@ type Movement = {
   prescriptionItem: { prescription: { prescriptionCode: string } } | null;
 };
 
-type Paged<T> = { items: T[]; pagination: { total: number } };
+type Paged<T> = { items: T[]; pagination: { total: number; totalPages?: number } };
+
+const PAGE_SIZE = 30;
 
 const movementLabel = { RECEIPT: "Nhập kho", DISPENSE: "Cấp phát", ADJUSTMENT: "Điều chỉnh" } as const;
 // Tệp mẫu cho nhập CSV: đúng tiêu đề cột mà máy chủ yêu cầu.
@@ -86,6 +88,7 @@ export default function MedicinesPage() {
   const [search, setSearch] = useState("");
   const [applied, setApplied] = useState("");
   const [lowOnly, setLowOnly] = useState(false);
+  const [page, setPage] = useState(1);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [form, setForm] = useState(emptyForm);
@@ -94,10 +97,10 @@ export default function MedicinesPage() {
   const [adjustReason, setAdjustReason] = useState("");
 
   const listQuery = useQuery({
-    queryKey: ["dashboard", "pharmacy", "medicines", applied, lowOnly],
+    queryKey: ["dashboard", "pharmacy", "medicines", applied, lowOnly, page],
     queryFn: () =>
       apiRequest<Paged<Medicine>>("/dashboard/pharmacy/medicines", {
-        query: { q: applied || undefined, lowStock: lowOnly ? "true" : undefined, limit: 100 },
+        query: { q: applied || undefined, lowStock: lowOnly ? "true" : undefined, page, limit: PAGE_SIZE },
       }),
   });
   const items = listQuery.data?.items ?? [];
@@ -162,6 +165,20 @@ export default function MedicinesPage() {
   };
 
   const resetMutations = () => mutations.forEach((item) => item.reset());
+
+  // Thông báo thành công tự tắt sau vài giây, giống các trang khác.
+  useEffect(() => {
+    if (!succeeded) return;
+    const timeoutId = window.setTimeout(() => {
+      createMutation.reset();
+      receiveMutation.reset();
+      adjustMutation.reset();
+    }, 4500);
+    return () => window.clearTimeout(timeoutId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [succeeded]);
+
+  const totalPages = listQuery.data?.pagination.totalPages ?? 1;
   const selectMedicine = (id: string) => {
     resetMutations();
     setCreating(false);
@@ -211,7 +228,10 @@ export default function MedicinesPage() {
 
   const list = (
     <DsPanel flush>
-      <form onSubmit={submit(() => setApplied(search.trim()))} aria-label="Tìm thuốc">
+      <form onSubmit={submit(() => {
+        setApplied(search.trim());
+        setPage(1);
+      })} aria-label="Tìm thuốc">
         <DsToolbar>
           <div style={{ minWidth: 160, flex: "1 1 200px" }}>
             <DsInput aria-label="Tìm thuốc" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Tên, mã hoặc hoạt chất" />
@@ -235,7 +255,11 @@ export default function MedicinesPage() {
           ) : null}
         </DsToolbar>
       </form>
-      <DsTabs label="Lọc theo tồn kho" items={stockTabs} value={lowOnly ? "low" : "all"} onChange={(id) => setLowOnly(id === "low")} />
+      <DsTabs label="Lọc theo tồn kho" items={stockTabs} value={lowOnly ? "low" : "all"} onChange={(id) => {
+          setLowOnly(id === "low");
+          setPage(1);
+        }}
+      />
       {open ? (
         items.length ? (
           <div role="listbox" aria-label="Danh sách thuốc">
@@ -271,6 +295,21 @@ export default function MedicinesPage() {
           onRowClick={(item) => selectMedicine(item.id)}
         />
       )}
+      {totalPages > 1 ? (
+        <div className="ds-pager">
+          <span>
+            {listQuery.data?.pagination.total ?? 0} thuốc · trang {page}/{totalPages}
+          </span>
+          <span style={{ display: "flex", gap: 8 }}>
+            <DsButton disabled={page <= 1} onClick={() => setPage((current) => Math.max(current - 1, 1))}>
+              Trước
+            </DsButton>
+            <DsButton disabled={page >= totalPages} onClick={() => setPage((current) => current + 1)}>
+              Sau
+            </DsButton>
+          </span>
+        </div>
+      ) : null}
     </DsPanel>
   );
 

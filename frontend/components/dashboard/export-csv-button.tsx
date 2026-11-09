@@ -29,6 +29,9 @@ export function ExportCsvButton({
   const [to, setTo] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  // Trong khu thiết kế mới, khoảng ngày là tuỳ chọn nên mặc định gập lại để hàng nút gọn.
+  const [showRange, setShowRange] = useState(false);
+  const rangeVisible = ranged && (!ds || showRange);
 
   const run = async () => {
     setBusy(true);
@@ -49,7 +52,7 @@ export function ExportCsvButton({
   return (
     <div className="flex flex-col gap-1">
       <div className="flex flex-wrap items-center gap-2">
-        {ranged ? (
+        {rangeVisible ? (
           <>
             <label className="flex items-center gap-1 text-xs text-[var(--text-muted)]">
               Từ
@@ -62,10 +65,17 @@ export function ExportCsvButton({
           </>
         ) : null}
         {ds ? (
-          <DsButton disabled={busy} onClick={() => void run()}>
-            <Download aria-hidden="true" />
-            {busy ? "Đang xuất..." : label}
-          </DsButton>
+          <>
+            <DsButton disabled={busy} onClick={() => void run()}>
+              <Download aria-hidden="true" />
+              {busy ? "Đang xuất..." : label}
+            </DsButton>
+            {ranged ? (
+              <DsButton variant="ghost" aria-expanded={showRange} onClick={() => setShowRange((current) => !current)}>
+                {showRange ? "Ẩn khoảng ngày" : from || to ? "Đã chọn khoảng ngày" : "Chọn khoảng ngày"}
+              </DsButton>
+            ) : null}
+          </>
         ) : (
           <Button type="button" variant="outline" disabled={busy} onClick={() => void run()}>
             <Download className="size-4" aria-hidden="true" />
@@ -73,7 +83,7 @@ export function ExportCsvButton({
           </Button>
         )}
       </div>
-      {ranged ? (
+      {rangeVisible ? (
         <p className="text-xs text-[var(--text-muted)]">Bỏ trống: 30 ngày gần nhất. Tối đa 366 ngày và 5.000 dòng.</p>
       ) : null}
       {error ? (
