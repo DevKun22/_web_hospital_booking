@@ -53,7 +53,7 @@ import {
   dashboardNavGroups,
   dashboardRoleLabels,
   getDashboardNavItem,
-  getVisibleDashboardItems,
+  getListedDashboardItems,
   isDashboardItemActive,
   type DashboardNavItem,
 } from "@/lib/dashboard-navigation";
@@ -260,7 +260,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   const [searchTerm, setSearchTerm] = useState("");
   const currentItem = getDashboardNavItem(pathname);
   const visibleItems = useMemo(
-    () => (user ? getVisibleDashboardItems(user) : []),
+    () => (user ? getListedDashboardItems(user) : []),
     [user],
   );
   const siteSettings = siteSettingsQuery.data || null;

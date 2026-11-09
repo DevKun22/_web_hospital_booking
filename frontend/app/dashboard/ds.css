@@ -1,0 +1,249 @@
+/*
+  Nền thiết kế khu quản trị ("Phòng làm việc lâm sàng").
+  Phạm vi: chỉ trong phần tử có class `.ds`, nên chưa làm đổi trang nào đang chạy; các trang
+  được chuyển dần sang `.ds` ở giai đoạn 3 và 4. Tên biến bắt đầu bằng `--ds-`.
+  Màu nhấn: xanh mực. Trạng thái dùng màu ngữ nghĩa riêng (ổn, chờ, lỗi), không lẫn với màu nhấn.
+*/
+
+.ds {
+  --ds-font: var(--font-ds-sans), "Segoe UI", system-ui, sans-serif;
+  --ds-mono: var(--font-ds-mono), ui-monospace, Consolas, monospace;
+
+  --ds-bg: #f4f6f7;
+  --ds-surface: #ffffff;
+  --ds-sunken: #eceff1;
+  --ds-ink: #14191c;
+  --ds-muted: #5b676e;
+  --ds-line: #d9dfe3;
+  --ds-line-strong: #b9c3c9;
+
+  --ds-accent: #0e6e7e;
+  --ds-accent-hover: #0b5967;
+  --ds-accent-soft: #dff0f3;
+  --ds-accent-ink: #ffffff;
+
+  --ds-good: #1a7f4b;
+  --ds-good-soft: #e1f3e9;
+  --ds-warn: #a66a00;
+  --ds-warn-soft: #fbefd5;
+  --ds-bad: #b8322a;
+  --ds-bad-soft: #fbe4e1;
+
+  --ds-focus: #0e6e7e;
+  --ds-radius: 8px;
+  --ds-radius-sm: 6px;
+  --ds-control: 36px;
+  --ds-control-lg: 44px;
+
+  background: var(--ds-bg);
+  color: var(--ds-ink);
+  font-family: var(--ds-font);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+:root[data-theme="dark"] .ds,
+:root.theme-dark .ds {
+  --ds-bg: #0e1214;
+  --ds-surface: #151b1e;
+  --ds-sunken: #1b2327;
+  --ds-ink: #e8edef;
+  --ds-muted: #92a0a7;
+  --ds-line: #28343a;
+  --ds-line-strong: #3a4a52;
+
+  --ds-accent: #4fb3c4;
+  --ds-accent-hover: #6cc3d2;
+  --ds-accent-soft: #16333a;
+  --ds-accent-ink: #06191d;
+
+  --ds-good: #58c08a;
+  --ds-good-soft: #15301f;
+  --ds-warn: #e0a94a;
+  --ds-warn-soft: #352a12;
+  --ds-bad: #ef7b72;
+  --ds-bad-soft: #3a1a18;
+
+  --ds-focus: #4fb3c4;
+}
+
+.ds *,
+.ds *::before,
+.ds *::after {
+  box-sizing: border-box;
+}
+
+.ds :focus-visible {
+  outline: 2px solid var(--ds-focus);
+  outline-offset: 2px;
+}
+
+.ds .ds-num {
+  font-variant-numeric: tabular-nums;
+}
+
+.ds .ds-mono {
+  font-family: var(--ds-mono);
+  font-size: 0.92em;
+}
+
+/* ---- Nút ---- */
+.ds .ds-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: var(--ds-control);
+  padding: 0 14px;
+  border-radius: var(--ds-radius-sm);
+  border: 1px solid var(--ds-line-strong);
+  background: var(--ds-surface);
+  color: var(--ds-ink);
+  font: 600 13px/1 var(--ds-font);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color 0.12s, border-color 0.12s;
+}
+.ds .ds-btn:hover:not(:disabled) { background: var(--ds-sunken); }
+.ds .ds-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.ds .ds-btn svg { width: 16px; height: 16px; flex: none; }
+.ds .ds-btn--primary { background: var(--ds-accent); border-color: var(--ds-accent); color: var(--ds-accent-ink); }
+.ds .ds-btn--primary:hover:not(:disabled) { background: var(--ds-accent-hover); border-color: var(--ds-accent-hover); }
+.ds .ds-btn--ghost { border-color: transparent; background: transparent; color: var(--ds-muted); }
+.ds .ds-btn--ghost:hover:not(:disabled) { background: var(--ds-sunken); color: var(--ds-ink); }
+.ds .ds-btn--danger { border-color: var(--ds-bad); color: var(--ds-bad); }
+.ds .ds-btn--danger:hover:not(:disabled) { background: var(--ds-bad-soft); }
+.ds .ds-btn--lg { height: var(--ds-control-lg); padding: 0 18px; font-size: 14px; }
+.ds .ds-btn--icon { width: var(--ds-control); padding: 0; }
+.ds .ds-btn[aria-busy="true"] { cursor: progress; }
+
+/* ---- Ô nhập ---- */
+.ds .ds-field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.ds .ds-label { font: 600 12px/1.2 var(--ds-font); color: var(--ds-ink); }
+.ds .ds-label .ds-req { color: var(--ds-bad); margin-left: 2px; }
+.ds .ds-hint { font-size: 12px; color: var(--ds-muted); }
+.ds .ds-error { font-size: 12px; color: var(--ds-bad); }
+.ds .ds-input,
+.ds .ds-select,
+.ds .ds-textarea {
+  width: 100%;
+  min-width: 0;
+  height: var(--ds-control);
+  padding: 0 11px;
+  border-radius: var(--ds-radius-sm);
+  border: 1px solid var(--ds-line-strong);
+  background: var(--ds-surface);
+  color: var(--ds-ink);
+  font: 400 14px/1.3 var(--ds-font);
+}
+.ds .ds-textarea { height: auto; min-height: 84px; padding: 9px 11px; resize: vertical; }
+.ds .ds-input::placeholder,
+.ds .ds-textarea::placeholder { color: var(--ds-muted); }
+.ds .ds-input:hover,
+.ds .ds-select:hover,
+.ds .ds-textarea:hover { border-color: var(--ds-muted); }
+.ds .ds-input:disabled,
+.ds .ds-select:disabled,
+.ds .ds-textarea:disabled { background: var(--ds-sunken); color: var(--ds-muted); cursor: not-allowed; }
+.ds .ds-input[aria-invalid="true"],
+.ds .ds-select[aria-invalid="true"],
+.ds .ds-textarea[aria-invalid="true"] { border-color: var(--ds-bad); }
+
+/* ---- Trạng thái ---- */
+.ds .ds-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 9px 3px 7px;
+  border-radius: 999px;
+  font: 600 12px/1.2 var(--ds-font);
+  white-space: nowrap;
+  background: var(--ds-sunken);
+  color: var(--ds-muted);
+}
+.ds .ds-pill::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.ds .ds-pill--good { background: var(--ds-good-soft); color: var(--ds-good); }
+.ds .ds-pill--warn { background: var(--ds-warn-soft); color: var(--ds-warn); }
+.ds .ds-pill--bad { background: var(--ds-bad-soft); color: var(--ds-bad); }
+.ds .ds-pill--info { background: var(--ds-accent-soft); color: var(--ds-accent); }
+
+/* ---- Khối, tiêu đề trang ---- */
+.ds .ds-panel { background: var(--ds-surface); border: 1px solid var(--ds-line); border-radius: var(--ds-radius); }
+.ds .ds-panel__head { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--ds-line); }
+.ds .ds-panel__title { margin: 0; font-size: 14px; font-weight: 600; flex: 1; min-width: 0; }
+.ds .ds-panel__body { padding: 16px; }
+
+.ds .ds-page-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 4px 0 14px; }
+.ds .ds-page-head__text { flex: 1 1 260px; min-width: 0; }
+.ds .ds-page-head h1 { margin: 0; font-size: 20px; line-height: 1.25; font-weight: 600; letter-spacing: -0.01em; text-wrap: balance; }
+.ds .ds-page-head p { margin: 2px 0 0; color: var(--ds-muted); font-size: 13px; }
+.ds .ds-page-head__actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+.ds .ds-toolbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 10px 12px; border-bottom: 1px solid var(--ds-line); }
+.ds .ds-toolbar__spacer { flex: 1; }
+
+/* ---- Tab ---- */
+.ds .ds-tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--ds-line); overflow-x: auto; }
+.ds .ds-tab {
+  display: inline-flex; align-items: center; gap: 8px; padding: 9px 12px; margin-bottom: -1px;
+  border: 0; border-bottom: 2px solid transparent; background: transparent; color: var(--ds-muted);
+  font: 500 13px/1 var(--ds-font); cursor: pointer; white-space: nowrap;
+}
+.ds .ds-tab:hover { color: var(--ds-ink); }
+.ds .ds-tab[aria-selected="true"] { color: var(--ds-ink); font-weight: 600; border-bottom-color: var(--ds-accent); }
+.ds .ds-tab__count { font: 500 11px/1 var(--ds-mono); background: var(--ds-sunken); color: var(--ds-muted); border-radius: 999px; padding: 3px 7px; }
+
+/* ---- Bảng ---- */
+.ds .ds-table-wrap { overflow-x: auto; }
+.ds .ds-table { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 560px; }
+.ds .ds-table caption { text-align: left; padding: 0; }
+.ds .ds-table th {
+  position: sticky; top: 0; z-index: 1; text-align: left; padding: 9px 12px;
+  background: var(--ds-sunken); color: var(--ds-muted);
+  font: 600 11px/1.2 var(--ds-font); letter-spacing: 0.05em; text-transform: uppercase;
+  border-bottom: 1px solid var(--ds-line); white-space: nowrap;
+}
+.ds .ds-table td { padding: 10px 12px; border-bottom: 1px solid var(--ds-line); vertical-align: middle; }
+.ds .ds-table tbody tr:last-child td { border-bottom: 0; }
+.ds .ds-table tbody tr[data-clickable="true"] { cursor: pointer; }
+.ds .ds-table tbody tr[data-clickable="true"]:hover td { background: var(--ds-sunken); }
+.ds .ds-table tbody tr[aria-selected="true"] td { background: var(--ds-accent-soft); }
+.ds .ds-table td.is-num, .ds .ds-table th.is-num { text-align: right; font-variant-numeric: tabular-nums; }
+.ds .ds-table td.is-mono { font-family: var(--ds-mono); font-size: 12px; }
+.ds .ds-skel { display: block; height: 12px; border-radius: 4px; background: var(--ds-sunken); }
+@media (prefers-reduced-motion: no-preference) {
+  .ds .ds-skel { animation: ds-pulse 1.2s ease-in-out infinite; }
+}
+@keyframes ds-pulse { 50% { opacity: 0.45; } }
+
+/* ---- Trạng thái rỗng, thông báo ---- */
+.ds .ds-empty { display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center; padding: 36px 16px; color: var(--ds-muted); }
+.ds .ds-empty strong { color: var(--ds-ink); font-size: 14px; }
+.ds .ds-empty p { margin: 0; max-width: 42ch; }
+.ds .ds-notice { display: flex; gap: 10px; padding: 10px 12px; border-radius: var(--ds-radius-sm); border: 1px solid var(--ds-line); background: var(--ds-surface); font-size: 13px; }
+.ds .ds-notice--info { background: var(--ds-accent-soft); border-color: transparent; }
+.ds .ds-notice--good { background: var(--ds-good-soft); border-color: transparent; }
+.ds .ds-notice--warn { background: var(--ds-warn-soft); border-color: transparent; }
+.ds .ds-notice--bad { background: var(--ds-bad-soft); border-color: transparent; }
+
+/* ---- Danh sách khóa-giá trị ---- */
+.ds .ds-kv { display: grid; gap: 8px; margin: 0; }
+.ds .ds-kv div { display: flex; justify-content: space-between; gap: 12px; }
+.ds .ds-kv dt { color: var(--ds-muted); }
+.ds .ds-kv dd { margin: 0; text-align: right; font-weight: 500; min-width: 0; overflow-wrap: anywhere; }
+
+/* ---- Ngăn bên ---- */
+.ds-drawer-overlay { position: fixed; inset: 0; background: rgb(8 12 14 / 0.5); z-index: 60; }
+.ds-drawer {
+  position: fixed; top: 0; right: 0; bottom: 0; z-index: 61; width: min(420px, 100vw);
+  display: flex; flex-direction: column; box-shadow: -8px 0 24px rgb(0 0 0 / 0.18);
+  background: var(--ds-surface); border-left: 1px solid var(--ds-line);
+}
+.ds-drawer__head { display: flex; align-items: center; gap: 12px; padding: 14px 16px; border-bottom: 1px solid var(--ds-line); }
+.ds-drawer__title { margin: 0; font-size: 15px; font-weight: 600; flex: 1; }
+.ds-drawer__body { flex: 1; overflow-y: auto; padding: 16px; }
+.ds-drawer__foot { display: flex; gap: 8px; justify-content: flex-end; padding: 12px 16px; border-top: 1px solid var(--ds-line); }
+
+@media (prefers-reduced-motion: reduce) {
+  .ds *, .ds-drawer { transition: none !important; animation: none !important; }
+}
