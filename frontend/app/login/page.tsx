@@ -1,21 +1,10 @@
 "use client";
 
-import { FormEvent, useEffect, useRef, useState } from "react";
+import { ClipboardEvent, FormEvent, KeyboardEvent, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import {
-  ArrowLeft,
-  CheckCircle2,
-  Eye,
-  EyeOff,
-  Hospital,
-  Loader2,
-  LockKeyhole,
-  Mail,
-  Phone,
-  ShieldCheck,
-  Smartphone,
-} from "lucide-react";
+import { ArrowLeft, Eye, EyeOff, Hospital, Loader2 } from "lucide-react";
+import { DsButton, DsField, DsInput, DsNotice, DsRoot, DsStatusPill, describedBy } from "@/components/ds";
 import { DebugOtpBox } from "@/components/ui/debug-otp-box";
 import { useAuth } from "@/lib/auth";
 import { usePublicSiteSettings } from "@/lib/public-home-query";
@@ -23,19 +12,20 @@ import { usePublicSiteSettings } from "@/lib/public-home-query";
 type LoginStep = "credentials" | "otp";
 type OtpDeliveryStatus = "PENDING" | "SENT" | "FAILED";
 
+const OTP_LENGTH = 6;
+// Chờ trước khi cho gửi lại mã, để không gửi dồn dập.
+const RESEND_COOLDOWN_SECONDS = 45;
+
 const buildOtpNotice = (channel: "SMS" | "EMAIL", target: string, status?: OtpDeliveryStatus) => {
   const targetLabel = channel === "EMAIL" ? "email" : "số điện thoại";
 
-  if (status === "SENT") {
-    return `Đã gửi mã OTP đến ${targetLabel} ${target}.`;
-  }
-
-  if (status === "FAILED") {
-    return `Chưa gửi được mã OTP đến ${targetLabel} ${target}. Vui lòng thử gửi lại.`;
-  }
-
-  return `Yêu cầu gửi OTP đã được tiếp nhận. Vui lòng kiểm tra ${targetLabel} ${target} trong giây lát.`;
+  if (status === "SENT") return `Đã gửi mã OTP đến ${targetLabel} ${target}.`;
+  if (status === "FAILED") return `Chưa gửi được mã OTP đến ${targetLabel} ${target}. Hãy thử gửi lại.`;
+  return `Đã tiếp nhận yêu cầu gửi OTP. Kiểm tra ${targetLabel} ${target} trong giây lát.`;
 };
+
+const formatClock = (seconds: number) =>
+  `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
 
 export default function LoginPage() {
   const router = useRouter();
@@ -45,35 +35,50 @@ export default function LoginPage() {
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [otp, setOtp] = useState("");
+  const [digits, setDigits] = useState<string[]>(() => Array(OTP_LENGTH).fill(""));
   const [challengeId, setChallengeId] = useState("");
   const [otpTarget, setOtpTarget] = useState("");
   const [otpChannel, setOtpChannel] = useState<"SMS" | "EMAIL">("SMS");
-  const [otpDeliveryStatus, setOtpDeliveryStatus] = useState<OtpDeliveryStatus>("PENDING");
   const [debugOtp, setDebugOtp] = useState("");
-  const [expiresIn, setExpiresIn] = useState<number | null>(null);
+  const [expiresLeft, setExpiresLeft] = useState(0);
+  const [resendLeft, setResendLeft] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
-  const [successMessage, setSuccessMessage] = useState("");
+  const [notice, setNotice] = useState("");
   const phoneInputRef = useRef<HTMLInputElement>(null);
+  const otpRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   const siteSettings = siteSettingsQuery.data || null;
   const hospitalName = siteSettings?.hospitalName?.trim() || "Hospital Booking";
   const logo = siteSettings?.logo?.trim();
-  const otpTargetLabel = otpChannel === "EMAIL" ? "email" : "số điện thoại";
-  const otpTargetText = otpTarget || phone;
-  const otpDescription =
-    otpDeliveryStatus === "SENT"
-      ? `Mã OTP đã gửi đến ${otpTargetLabel} ${otpTargetText}.`
-      : otpDeliveryStatus === "FAILED"
-        ? `Chưa gửi được mã OTP đến ${otpTargetLabel} ${otpTargetText}.`
-        : `Mã OTP đang được gửi đến ${otpTargetLabel} ${otpTargetText}.`;
+  const otp = digits.join("");
 
   useEffect(() => {
-    if (!loading && user) {
-      router.replace("/dashboard");
-    }
+    if (!loading && user) router.replace("/dashboard");
   }, [loading, router, user]);
+
+  // Đếm ngược hạn dùng của mã và thời gian chờ gửi lại, mỗi giây một lần.
+  useEffect(() => {
+    if (step !== "otp") return;
+    const id = window.setInterval(() => {
+      setExpiresLeft((current) => Math.max(0, current - 1));
+      setResendLeft((current) => Math.max(0, current - 1));
+    }, 1000);
+    return () => window.clearInterval(id);
+  }, [step]);
+
+  const applyChallenge = (result: Awaited<ReturnType<typeof login>>) => {
+    const target = result.otpTarget || result.email || result.phone;
+    const channel = result.otpChannel || "SMS";
+    setChallengeId(result.challengeId);
+    setOtpTarget(target);
+    setOtpChannel(channel);
+    setDebugOtp(result.debugOtp || "");
+    setExpiresLeft(result.otpExpiresIn);
+    setResendLeft(RESEND_COOLDOWN_SECONDS);
+    setDigits(Array(OTP_LENGTH).fill(""));
+    setNotice(buildOtpNotice(channel, target, result.otpDeliveryStatus));
+  };
 
   const handleLogin = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -81,21 +86,9 @@ export default function LoginPage() {
     setSubmitting(true);
 
     try {
-      const result = await login(phone.trim(), password);
-      setChallengeId(result.challengeId);
-      setOtpTarget(result.otpTarget || result.email || result.phone);
-      setOtpChannel(result.otpChannel || "SMS");
-      setOtpDeliveryStatus(result.otpDeliveryStatus || "PENDING");
-      setDebugOtp(result.debugOtp || "");
-      setExpiresIn(result.otpExpiresIn);
-      setSuccessMessage(
-        buildOtpNotice(
-          result.otpChannel || "SMS",
-          result.otpTarget || result.email || result.phone,
-          result.otpDeliveryStatus,
-        ),
-      );
+      applyChallenge(await login(phone.trim(), password));
       setStep("otp");
+      window.requestAnimationFrame(() => otpRefs.current[0]?.focus());
     } catch (err) {
       setError(err instanceof Error ? err.message : "Đăng nhập thất bại");
     } finally {
@@ -103,17 +96,33 @@ export default function LoginPage() {
     }
   };
 
+  const handleResend = async () => {
+    setError("");
+    setSubmitting(true);
+    try {
+      applyChallenge(await login(phone.trim(), password));
+      window.requestAnimationFrame(() => otpRefs.current[0]?.focus());
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Không gửi lại được mã OTP");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const handleVerify = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (otp.length !== OTP_LENGTH) return;
     setError("");
-    setSuccessMessage("");
+    setNotice("");
     setSubmitting(true);
 
     try {
-      await verifyOtp(challengeId, otp.trim());
+      await verifyOtp(challengeId, otp);
       router.replace("/dashboard");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Xác thực OTP thất bại");
+      setDigits(Array(OTP_LENGTH).fill(""));
+      window.requestAnimationFrame(() => otpRefs.current[0]?.focus());
     } finally {
       setSubmitting(false);
     }
@@ -123,87 +132,126 @@ export default function LoginPage() {
     setStep("credentials");
     setPhone("");
     setPassword("");
-    setOtp("");
+    setDigits(Array(OTP_LENGTH).fill(""));
     setChallengeId("");
     setOtpTarget("");
-    setOtpChannel("SMS");
-    setOtpDeliveryStatus("PENDING");
     setDebugOtp("");
-    setExpiresIn(null);
+    setExpiresLeft(0);
+    setResendLeft(0);
     setSubmitting(false);
     setError("");
-    setSuccessMessage("");
+    setNotice("");
     window.requestAnimationFrame(() => phoneInputRef.current?.focus());
   };
 
+  const setDigitAt = (index: number, value: string) => {
+    setDigits((current) => current.map((item, position) => (position === index ? value : item)));
+  };
+
+  const onDigitChange = (index: number, raw: string) => {
+    const onlyDigits = raw.replace(/\D/g, "");
+    if (!onlyDigits) {
+      setDigitAt(index, "");
+      return;
+    }
+    // Nhiều số cùng lúc (tự điền OTP của điện thoại): rải vào các ô kế tiếp.
+    if (onlyDigits.length > 1) {
+      fillFrom(index, onlyDigits);
+      return;
+    }
+    setDigitAt(index, onlyDigits);
+    if (index < OTP_LENGTH - 1) otpRefs.current[index + 1]?.focus();
+  };
+
+  const fillFrom = (start: number, value: string) => {
+    const incoming = value.replace(/\D/g, "").slice(0, OTP_LENGTH - start).split("");
+    if (incoming.length === 0) return;
+    setDigits((current) => current.map((item, position) => (position >= start && position < start + incoming.length ? incoming[position - start] : item)));
+    otpRefs.current[Math.min(start + incoming.length, OTP_LENGTH - 1)]?.focus();
+  };
+
+  const onDigitKeyDown = (index: number, event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === "Backspace" && !digits[index] && index > 0) {
+      event.preventDefault();
+      setDigitAt(index - 1, "");
+      otpRefs.current[index - 1]?.focus();
+    } else if (event.key === "ArrowLeft" && index > 0) {
+      event.preventDefault();
+      otpRefs.current[index - 1]?.focus();
+    } else if (event.key === "ArrowRight" && index < OTP_LENGTH - 1) {
+      event.preventDefault();
+      otpRefs.current[index + 1]?.focus();
+    }
+  };
+
+  const onDigitPaste = (index: number, event: ClipboardEvent<HTMLInputElement>) => {
+    event.preventDefault();
+    fillFrom(index, event.clipboardData.getData("text"));
+  };
+
+  const fillDebugOtp = (value: string) => setDigits(value.replace(/\D/g, "").slice(0, OTP_LENGTH).padEnd(OTP_LENGTH, " ").split("").map((item) => item.trim()));
+
+  const otpTargetLabel = otpChannel === "EMAIL" ? "email" : "số điện thoại";
+
   return (
-    <main className="flex min-h-screen items-center justify-center bg-[#f4f9ff] px-4 py-8 text-[#172033]">
-      <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_top_left,rgba(13,79,139,0.14),transparent_32%),radial-gradient(circle_at_bottom_right,rgba(31,122,58,0.12),transparent_30%)]" />
-
-      <section className="relative w-full max-w-md rounded-2xl border border-[#d7e7f8] bg-white/95 p-5 shadow-[0_24px_70px_rgba(13,79,139,0.14)] ring-1 ring-white sm:p-6">
-        <div className="mb-6 flex items-center justify-between gap-4">
-          <Link href="/" className="flex min-w-0 items-center gap-3">
-            <span className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-[#e7f0fb] text-[#0d4f8b] ring-1 ring-[#d8e9ff]">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              {logo ? <img src={logo} alt={hospitalName} className="h-full w-full object-contain p-1" /> : <Hospital className="h-6 w-6" />}
-            </span>
-            <span className="min-w-0">
-              <span className="block truncate text-base font-semibold">{hospitalName}</span>
-              <span className="block truncate text-xs text-[#667892]">Dashboard quản trị</span>
-            </span>
-          </Link>
-          <Link href="/" className="shrink-0 rounded-lg border border-[#cfd8e6] bg-white px-3 py-2 text-sm font-semibold text-[#42526b] shadow-sm transition hover:bg-[#f6f8fb]">
-            Website
-          </Link>
-        </div>
-
-        <div className="mb-5">
-          <div className="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-[#e7f0fb] text-[#0d4f8b] ring-1 ring-[#d8e9ff]">
-            {step === "credentials" ? <LockKeyhole className="h-6 w-6" /> : otpChannel === "EMAIL" ? <Mail className="h-6 w-6" /> : <Smartphone className="h-6 w-6" />}
+    <DsRoot className="ds-login">
+      <aside className="ds-login__aside">
+        <Link href="/" className="ds-login__brand">
+          <span className="ds-brand-mark">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            {logo ? <img src={logo} alt="" /> : <Hospital aria-hidden="true" />}
+          </span>
+          <strong>{hospitalName}</strong>
+        </Link>
+        <div className="ds-login__pitch">
+          <h2>Làm việc theo đúng quyền của bạn</h2>
+          <p>Sau khi xác thực, hệ thống mở đúng phần việc của tài khoản: khám bệnh, cấp thuốc, tiếp nhận hay quản trị.</p>
+          <div className="ds-login__roles">
+            <DsStatusPill tone="info">Bác sĩ</DsStatusPill>
+            <DsStatusPill tone="info">Dược sĩ</DsStatusPill>
+            <DsStatusPill tone="info">Nhân viên</DsStatusPill>
+            <DsStatusPill tone="info">Quản trị</DsStatusPill>
           </div>
-          <p className="mt-4 text-xs font-semibold uppercase tracking-wide text-[#0d4f8b]">
-            {step === "credentials" ? "Đăng nhập dashboard" : "Xác thực bảo mật"}
-          </p>
-          <h1 className="mt-2 text-2xl font-semibold text-[#172033]">
-            {step === "credentials" ? "Chào mừng quay lại" : "Nhập mã OTP"}
-          </h1>
-          <p className="mt-2 text-sm leading-6 text-[#667892]">
+        </div>
+        <div className="ds-login__status">Đăng nhập hai bước: mật khẩu và mã OTP</div>
+      </aside>
+
+      <main className="ds-login__main">
+        <div className="ds-login__card">
+          <div className="ds-login__top">
+            <Link href="/" className="ds-login__brand">
+              <span className="ds-brand-mark">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                {logo ? <img src={logo} alt="" /> : <Hospital aria-hidden="true" />}
+              </span>
+              <strong>{hospitalName}</strong>
+            </Link>
+            <Link href="/" className="ds-btn">
+              Website
+            </Link>
+          </div>
+
+          <ol className="ds-login__steps" aria-label="Các bước đăng nhập" style={{ listStyle: "none", margin: 0, padding: 0 }}>
+            <li aria-current={step === "credentials" ? "step" : undefined}>1 Mật khẩu</li>
+            <i aria-hidden="true" />
+            <li aria-current={step === "otp" ? "step" : undefined}>2 Mã OTP</li>
+          </ol>
+
+          <h1>{step === "credentials" ? "Đăng nhập quản trị" : "Nhập mã OTP"}</h1>
+          <p className="ds-login__lead">
             {step === "credentials"
-              ? "Đăng nhập bằng tài khoản đã được cấp quyền để vào hệ thống quản trị."
-              : `${otpDescription} ${expiresIn ? `Hiệu lực trong ${expiresIn} giây.` : ""}`}
+              ? "Dùng số điện thoại và mật khẩu của tài khoản được cấp."
+              : `Mã 6 số đã được gửi đến ${otpTargetLabel} ${otpTarget}.`}
           </p>
-        </div>
 
-        <div className="mb-5 grid grid-cols-2 rounded-xl border border-[#d8e9ff] bg-[#eef6ff] p-1 text-xs font-semibold">
-          <span className={`rounded-lg px-2 py-2 text-center transition ${step === "credentials" ? "bg-white text-[#0d4f8b] shadow-sm" : "text-[#667892]"}`}>
-            1. Đăng nhập
-          </span>
-          <span className={`rounded-lg px-2 py-2 text-center transition ${step === "otp" ? "bg-white text-[#0d4f8b] shadow-sm" : "text-[#667892]"}`}>
-            2. OTP
-          </span>
-        </div>
+          {error ? <DsNotice tone="bad">{error}</DsNotice> : null}
+          {notice && !error ? <DsNotice tone="good">{notice}</DsNotice> : null}
 
-        {error ? (
-          <div className="mb-4 flex items-start gap-2 rounded-lg border border-[#f2b8b5] bg-[#fff3f2] px-3 py-2.5 text-sm font-medium text-[#b3261e]">
-            <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0" />
-            <span>{error}</span>
-          </div>
-        ) : null}
-
-        {successMessage ? (
-          <div className="mb-4 flex items-start gap-2 rounded-lg border border-[#b7e4c7] bg-[#effaf3] px-3 py-2.5 text-sm font-medium text-[#166534]">
-            <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
-            <span>{successMessage}</span>
-          </div>
-        ) : null}
-
-        {step === "credentials" ? (
-          <form className="space-y-4" onSubmit={handleLogin}>
-            <label className="block">
-              <span className="text-sm font-medium text-[#334155]">Số điện thoại</span>
-              <div className="login-input-shell mt-1 flex items-center rounded-xl border border-[#cfd8e6] bg-[#fbfdff] px-3 transition">
-                <Phone className="h-4 w-4 shrink-0 text-[#667892]" />
-                <input
+          {step === "credentials" ? (
+            <form className="ds-login__form" onSubmit={handleLogin}>
+              <DsField label="Số điện thoại" htmlFor="login-phone" required>
+                <DsInput
+                  id="login-phone"
                   ref={phoneInputRef}
                   value={phone}
                   onChange={(event) => setPhone(event.target.value)}
@@ -212,86 +260,87 @@ export default function LoginPage() {
                   pattern="[0-9]*"
                   placeholder="0901234567"
                   autoComplete="username tel"
-                  className="min-w-0 flex-1 bg-transparent px-3 py-3 text-sm"
+                  autoFocus
                   required
                 />
-              </div>
-            </label>
+              </DsField>
+              <DsField label="Mật khẩu" htmlFor="login-password" required>
+                <span className="ds-input-wrap">
+                  <DsInput
+                    id="login-password"
+                    value={password}
+                    onChange={(event) => setPassword(event.target.value)}
+                    type={showPassword ? "text" : "password"}
+                    autoComplete="current-password"
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((current) => !current)}
+                    aria-label={showPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
+                    aria-pressed={showPassword}
+                  >
+                    {showPassword ? <EyeOff aria-hidden="true" /> : <Eye aria-hidden="true" />}
+                  </button>
+                </span>
+              </DsField>
+              <DsButton type="submit" variant="primary" size="lg" disabled={submitting}>
+                {submitting ? <Loader2 className="ds-spin" aria-hidden="true" /> : null}
+                {submitting ? "Đang gửi mã OTP" : "Tiếp tục"}
+              </DsButton>
+            </form>
+          ) : (
+            <form className="ds-login__form" onSubmit={handleVerify}>
+              <DebugOtpBox otp={debugOtp} onFill={fillDebugOtp} />
 
-            <label className="block">
-              <span className="text-sm font-medium text-[#334155]">Mật khẩu</span>
-              <div className="login-input-shell mt-1 flex items-center rounded-xl border border-[#cfd8e6] bg-[#fbfdff] px-3 transition">
-                <LockKeyhole className="h-4 w-4 shrink-0 text-[#667892]" />
-                <input
-                  value={password}
-                  onChange={(event) => setPassword(event.target.value)}
-                  type={showPassword ? "text" : "password"}
-                  autoComplete="current-password"
-                  className="min-w-0 flex-1 bg-transparent px-3 py-3 text-sm"
-                  required
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword((current) => !current)}
-                  className="rounded-lg p-1.5 text-[#667892] hover:bg-[#eef4fb] focus:outline-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#cfe4fa]"
-                  aria-label={showPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
-                >
-                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              <DsField
+                label="Mã OTP"
+                htmlFor="login-otp-0"
+                hint={expiresLeft > 0 ? `Mã còn hiệu lực ${formatClock(expiresLeft)}` : "Mã đã hết hạn, hãy gửi lại mã mới"}
+              >
+                <div className="ds-otp" role="group" aria-label="Mã OTP 6 số" data-invalid={error ? "true" : undefined}>
+                  {digits.map((digit, index) => (
+                    <input
+                      key={index}
+                      id={`login-otp-${index}`}
+                      ref={(node) => {
+                        otpRefs.current[index] = node;
+                      }}
+                      value={digit}
+                      onChange={(event) => onDigitChange(index, event.target.value)}
+                      onKeyDown={(event) => onDigitKeyDown(index, event)}
+                      onPaste={(event) => onDigitPaste(index, event)}
+                      onFocus={(event) => event.target.select()}
+                      inputMode="numeric"
+                      autoComplete={index === 0 ? "one-time-code" : "off"}
+                      aria-label={`Số thứ ${index + 1}`}
+                      aria-describedby={index === 0 ? describedBy("login-otp-0", { hint: "x" }) : undefined}
+                      maxLength={OTP_LENGTH}
+                    />
+                  ))}
+                </div>
+              </DsField>
+
+              <DsButton type="submit" variant="primary" size="lg" disabled={submitting || otp.length !== OTP_LENGTH || expiresLeft === 0}>
+                {submitting ? <Loader2 className="ds-spin" aria-hidden="true" /> : null}
+                {submitting ? "Đang xác thực" : "Vào dashboard"}
+              </DsButton>
+
+              <div className="ds-login__row">
+                <button type="button" className="ds-login__link" onClick={handleResend} disabled={submitting || resendLeft > 0}>
+                  {resendLeft > 0 ? `Gửi lại mã sau ${resendLeft} giây` : "Gửi lại mã"}
+                </button>
+                <button type="button" className="ds-login__link" onClick={handleChangePhone}>
+                  <ArrowLeft aria-hidden="true" style={{ width: 13, height: 13, verticalAlign: "-2px", marginRight: 4 }} />
+                  Đổi số điện thoại
                 </button>
               </div>
-            </label>
+            </form>
+          )}
 
-            <button
-              type="submit"
-              disabled={submitting}
-              className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#0d4f8b] px-4 py-3 text-sm font-semibold text-white shadow-[0_12px_26px_rgba(13,79,139,0.22)] transition hover:bg-[#083d6d] disabled:opacity-60"
-            >
-              {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
-              {submitting ? "Đang gửi OTP..." : "Tiếp tục"}
-            </button>
-          </form>
-        ) : (
-          <form className="space-y-4" onSubmit={handleVerify}>
-            <DebugOtpBox otp={debugOtp} onFill={setOtp} />
-
-            <label className="block">
-              <span className="text-sm font-medium text-[#334155]">Mã OTP</span>
-              <input
-                value={otp}
-                onChange={(event) => setOtp(event.target.value.replace(/\D/g, "").slice(0, 6))}
-                inputMode="numeric"
-                autoComplete="one-time-code"
-                placeholder="000000"
-                className="login-otp-input ui-field mt-1 w-full rounded-xl bg-[#fbfdff] px-3 py-3 text-center text-xl font-semibold tracking-[0.25em] focus-visible:outline-none"
-                required
-              />
-            </label>
-
-            <button
-              type="submit"
-              disabled={submitting || otp.length !== 6}
-              className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#0d4f8b] px-4 py-3 text-sm font-semibold text-white shadow-[0_12px_26px_rgba(13,79,139,0.22)] transition hover:bg-[#083d6d] disabled:opacity-60"
-            >
-              {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
-              {submitting ? "Đang xác thực..." : "Vào dashboard"}
-            </button>
-
-            <button
-              type="button"
-              onClick={handleChangePhone}
-              className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-[#cfd8e6] bg-white px-4 py-3 text-sm font-semibold text-[#42526b] transition hover:bg-[#f6f8fb]"
-            >
-              <ArrowLeft className="h-4 w-4" />
-              Đổi số điện thoại
-            </button>
-          </form>
-        )}
-
-        <div className="mt-5 flex items-start gap-2 rounded-xl border border-[#d8e9ff] bg-[#f8fbff] px-3 py-2.5 text-xs leading-5 text-[#667892]">
-          <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-[#0d4f8b]" />
-          <p>Sau khi xác thực OTP thành công, hệ thống sẽ mở dashboard theo đúng quyền tài khoản.</p>
+          <p className="ds-login__foot">Không chia sẻ mã OTP với bất kỳ ai, kể cả người tự nhận là quản trị hệ thống.</p>
         </div>
-      </section>
-    </main>
+      </main>
+    </DsRoot>
   );
 }

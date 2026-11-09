@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { buildNoIndexMetadata } from "@/lib/seo";
+import "../dashboard/ds.css";
+import "./login.css";
 
 export const metadata: Metadata = buildNoIndexMetadata({
   title: "Đăng nhập quản trị",

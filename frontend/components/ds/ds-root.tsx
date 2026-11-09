@@ -26,11 +26,15 @@ export function useDsRoot() {
   return useContext(DsRootContext);
 }
 
-export function DsRoot({ className, children }: { className?: string; children: React.ReactNode }) {
+export function DsRoot({
+  className,
+  children,
+  ...rest
+}: React.HTMLAttributes<HTMLDivElement> & { children: React.ReactNode }) {
   const [element, setElement] = useState<HTMLElement | null>(null);
 
   return (
-    <div ref={setElement} className={cn("ds", plexSans.variable, plexMono.variable, className)}>
+    <div ref={setElement} className={cn("ds", plexSans.variable, plexMono.variable, className)} {...rest}>
       <DsRootContext.Provider value={element}>{children}</DsRootContext.Provider>
     </div>
   );
