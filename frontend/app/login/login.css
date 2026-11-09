@@ -1,31 +1,37 @@
-/* Trang đăng nhập quản trị: hai cột (giới thiệu ngắn, biểu mẫu), dùng biến --ds-* của ds.css. */
+/* Trang đăng nhập quản trị: một thẻ nằm giữa trang, dùng biến --ds-* của ds.css. */
 
 .ds.ds-login {
   min-height: 100dvh;
   display: grid;
-  grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
+  place-items: center;
+  padding: 24px 16px;
+  background: var(--ds-bg);
 }
 
-.ds .ds-login__aside {
-  background: var(--ds-sunken);
-  border-right: 1px solid var(--ds-line);
-  padding: 32px clamp(24px, 4vw, 56px);
+.ds .ds-login__main {
+  width: 100%;
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
-  gap: 32px;
+  align-items: center;
+  gap: 16px;
 }
+
+.ds .ds-login__card {
+  width: min(420px, 100%);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 28px;
+  background: var(--ds-surface);
+  border: 1px solid var(--ds-line);
+  border-radius: 12px;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.04), 0 12px 32px rgb(0 0 0 / 0.06);
+}
+
+.ds .ds-login__top { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 4px; }
 .ds .ds-login__brand { display: flex; align-items: center; gap: 10px; color: inherit; text-decoration: none; min-width: 0; }
 .ds .ds-login__brand strong { font-size: 14px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.ds .ds-login__pitch h2 { margin: 0 0 10px; font-size: clamp(22px, 2.4vw, 30px); line-height: 1.2; letter-spacing: -0.02em; font-weight: 600; max-width: 18ch; text-wrap: balance; }
-.ds .ds-login__pitch p { margin: 0; color: var(--ds-muted); max-width: 40ch; font-size: 14px; }
-.ds .ds-login__roles { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 20px; }
-.ds .ds-login__status { font: 500 12px/1.4 var(--ds-mono); color: var(--ds-muted); display: flex; align-items: center; gap: 8px; }
-.ds .ds-login__status::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--ds-good); }
 
-.ds .ds-login__main { display: grid; place-items: center; padding: 32px 20px; background: var(--ds-surface); }
-.ds .ds-login__card { width: min(400px, 100%); display: flex; flex-direction: column; gap: 16px; }
-.ds .ds-login__top { display: none; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
 .ds .ds-login__steps { display: flex; align-items: center; gap: 8px; font: 500 11px/1 var(--ds-mono); letter-spacing: 0.06em; text-transform: uppercase; color: var(--ds-muted); }
 .ds .ds-login__steps [aria-current="step"] { color: var(--ds-accent); font-weight: 600; }
 .ds .ds-login__steps i { flex: 1; height: 1px; background: var(--ds-line); max-width: 36px; }
@@ -53,16 +59,14 @@
 .ds .ds-login__row { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; font-size: 13px; color: var(--ds-muted); }
 .ds .ds-login__link { border: 0; background: transparent; padding: 0; color: var(--ds-accent); font: 600 13px var(--ds-font); cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
 .ds .ds-login__link:disabled { color: var(--ds-muted); text-decoration: none; cursor: not-allowed; }
-.ds .ds-login__debug { border: 1px dashed var(--ds-warn); background: var(--ds-warn-soft); color: var(--ds-warn); border-radius: var(--ds-radius-sm); padding: 8px 12px; font-size: 12px; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.ds .ds-login__debug strong { font: 600 18px var(--ds-mono); letter-spacing: 0.15em; }
-.ds .ds-login__foot { font-size: 12px; color: var(--ds-muted); }
+.ds .ds-login__foot { margin: 0; font-size: 12px; color: var(--ds-muted); }
+.ds .ds-login__status { margin: 0; font: 500 12px/1.4 var(--ds-mono); color: var(--ds-muted); display: flex; align-items: center; gap: 8px; text-align: center; }
+.ds .ds-login__status::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--ds-good); flex: none; }
 .ds .ds-spin { animation: ds-spin 0.8s linear infinite; }
 @keyframes ds-spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .ds .ds-spin { animation: none; } }
 
-@media (max-width: 860px) {
-  .ds.ds-login { grid-template-columns: minmax(0, 1fr); }
-  .ds .ds-login__aside { display: none; }
-  .ds .ds-login__top { display: flex; }
-  .ds .ds-login__main { place-items: start center; padding-top: 28px; }
+@media (max-width: 480px) {
+  .ds.ds-login { padding: 16px 12px; align-items: start; }
+  .ds .ds-login__card { padding: 20px 16px; }
 }
