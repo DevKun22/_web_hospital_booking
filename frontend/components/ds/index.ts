@@ -7,3 +7,4 @@ export { DsDataTable, type DsColumn } from "./data-table";
 export { DsTabs, type DsTabItem } from "./tabs";
 export { DsDrawer } from "./drawer";
 export { DsMenu, DsMenuItem, DsMenuLabel, DsMenuSeparator } from "./menu";
+export { DsSplit, DsPane, DsStepList } from "./split";
