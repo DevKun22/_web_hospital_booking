@@ -10,6 +10,7 @@ import {
   DashboardSurface,
 } from "@/components/dashboard/dashboard-ui";
 import { ExportCsvButton } from "@/components/dashboard/export-csv-button";
+import { ImportCsvPanel } from "@/components/dashboard/import-csv-panel";
 import { apiRequest } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { formatVietnamDateTime } from "@/lib/date";
@@ -42,6 +43,10 @@ type Movement = {
 type Paged<T> = { items: T[]; pagination: { total: number } };
 
 const movementLabel = { RECEIPT: "Nhập kho", DISPENSE: "Cấp phát", ADJUSTMENT: "Điều chỉnh" } as const;
+// Tệp mẫu cho nhập CSV: đúng tiêu đề cột mà máy chủ yêu cầu.
+const CATALOG_TEMPLATE =
+  "Mã thuốc,Tên thuốc,Đơn vị,Hoạt chất,Hàm lượng,Dạng bào chế,Mức tối thiểu,Ghi chú\r\nPARA500,Paracetamol 500mg,viên,Paracetamol,500mg,Viên nén,100,\r\n";
+const RECEIPT_TEMPLATE = "Mã thuốc,Số lượng,Lý do\r\nPARA500,200,Phiếu nhập 01\r\n";
 const emptyForm = { code: "", name: "", unit: "viên", strength: "", dosageForm: "", activeIngredient: "", minStock: "0" };
 
 export default function MedicinesPage() {
@@ -144,6 +149,26 @@ export default function MedicinesPage() {
           <div className="flex flex-wrap items-start gap-3">
             <ExportCsvButton path="/dashboard/pharmacy/medicines/export" fallbackName="ton-kho-thuoc.csv" ranged={false} label="Xuất tồn kho" />
             <ExportCsvButton path="/dashboard/pharmacy/movements/export" fallbackName="so-kho-thuoc.csv" label="Xuất sổ kho" />
+            {canCatalog ? (
+              <ImportCsvPanel
+                path="/dashboard/pharmacy/import/catalog"
+                title="Nhập danh mục từ CSV"
+                templateName="mau-danh-muc-thuoc.csv"
+                templateCsv={CATALOG_TEMPLATE}
+                hint="Thêm thuốc mới hoặc cập nhật thuốc đã có theo Mã thuốc (ô trống = giữ nguyên). Không thay đổi tồn kho. Tối đa 500 dòng, có dòng lỗi thì không nhập gì."
+                onDone={() => void refresh()}
+              />
+            ) : null}
+            {canReceive ? (
+              <ImportCsvPanel
+                path="/dashboard/pharmacy/import/receipts"
+                title="Nhập kho từ CSV"
+                templateName="mau-nhap-kho.csv"
+                templateCsv={RECEIPT_TEMPLATE}
+                hint="Mỗi dòng là một phiếu nhập cho một thuốc đã có trong danh mục, ghi vào sổ kho như nhập tay. Mỗi mã thuốc chỉ một dòng. Tối đa 500 dòng."
+                onDone={() => void refresh()}
+              />
+            ) : null}
             <button
               type="button"
               onClick={() => void listQuery.refetch()}

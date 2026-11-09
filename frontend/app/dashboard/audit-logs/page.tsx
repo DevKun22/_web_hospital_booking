@@ -37,6 +37,7 @@ const actionLabels: Record<string, string> = {
   INVOICE_REFUNDED: "Hoàn tiền hóa đơn",
   INVOICE_REFUND_UNVERIFIED: "Hoàn tiền VNPay chưa xác nhận kết quả",
   DATA_EXPORTED: "Xuất báo cáo CSV",
+  DATA_IMPORTED: "Nhập dữ liệu từ CSV",
 };
 
 const formatTime = (value: string) =>
