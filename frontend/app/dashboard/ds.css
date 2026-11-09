@@ -282,3 +282,23 @@
 .ds .ds-todo__text { flex: 1; min-width: 0; }
 .ds .ds-todo__text strong { display: block; font-size: 13px; }
 .ds .ds-todo__text small { display: block; color: var(--ds-muted); font-size: 12px; }
+
+/* ---- Tổng quan vận hành ---- */
+.ds .ds-period { border: 1px solid var(--ds-line); border-radius: var(--ds-radius); background: var(--ds-surface); gap: 8px; }
+.ds .ds-period__sep { width: 1px; align-self: stretch; background: var(--ds-line); margin: 0 4px; }
+.ds .ds-period__field { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--ds-muted); }
+.ds .ds-period__field .ds-input { width: 132px; }
+.ds .ds-attn-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; }
+.ds .ds-attn { display: flex; flex-direction: column; gap: 6px; padding: 14px 16px; border: 1px solid var(--ds-line); border-radius: var(--ds-radius); background: var(--ds-surface); color: inherit; text-decoration: none; }
+.ds a.ds-attn:hover { border-color: var(--ds-line-strong); background: var(--ds-sunken); }
+.ds .ds-attn.is-warn { border-color: var(--ds-warn); background: var(--ds-warn-soft); }
+.ds .ds-attn__label { font-size: 12px; color: var(--ds-muted); font-weight: 500; }
+.ds .ds-attn.is-warn .ds-attn__label { color: var(--ds-warn); }
+.ds .ds-attn__value { font-size: 26px; line-height: 1.1; font-weight: 600; letter-spacing: -0.02em; }
+.ds .ds-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 0; margin: 0; }
+.ds .ds-stats > div { padding: 2px 16px; border-left: 1px solid var(--ds-line); min-width: 0; }
+.ds .ds-stats > div:first-child { border-left: 0; padding-left: 0; }
+.ds .ds-stats dt { font-size: 12px; color: var(--ds-muted); font-weight: 500; }
+.ds .ds-stats dd { margin: 2px 0 0; font-size: 20px; font-weight: 600; letter-spacing: -0.01em; overflow-wrap: anywhere; }
+.ds .ds-stats small { display: block; color: var(--ds-muted); font-size: 12px; }
+.ds .ds-grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 440px), 1fr)); gap: 16px; align-items: start; }

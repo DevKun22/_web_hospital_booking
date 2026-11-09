@@ -17,38 +17,16 @@ import {
   DsStepList,
   DsTabs,
   type DsColumn,
-  type DsTone,
 } from "@/components/ds";
 import { apiRequest } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { useDoctorDashboardOverview } from "@/lib/dashboard-overview-query";
 import { formatVietnamDate, getVietnamDateInput } from "@/lib/date";
 import { can } from "@/lib/permissions";
+import { appointmentStatusLabel as statusLabel, appointmentStatusTone as statusTone } from "@/lib/appointment-status";
 import type { Appointment, AppointmentStatus } from "@/lib/types";
 
 // Trang chủ của bác sĩ: việc cần làm trước, lịch hôm nay sau; bấm một ca để xem chi tiết ngay cạnh danh sách.
-
-const statusLabel: Partial<Record<AppointmentStatus, string>> = {
-  PENDING_OTP: "Chờ OTP",
-  PENDING_CONFIRM: "Chờ xác nhận",
-  CONFIRMED: "Đã xác nhận",
-  CHECKED_IN: "Đã check-in",
-  IN_PROGRESS: "Đang khám",
-  COMPLETED: "Hoàn tất",
-  RESCHEDULED: "Đổi lịch",
-  CANCELLED_BY_PATIENT: "Bệnh nhân hủy",
-  CANCELLED_BY_DOCTOR: "Bác sĩ hủy",
-  CANCELLED_BY_ADMIN: "Quản trị hủy",
-  NO_SHOW: "Vắng mặt",
-};
-
-const statusTone = (status: AppointmentStatus): DsTone => {
-  if (status === "IN_PROGRESS") return "info";
-  if (status === "COMPLETED") return "good";
-  if (status === "CHECKED_IN") return "warn";
-  if (status.startsWith("CANCELLED") || status === "NO_SHOW") return "bad";
-  return "neutral";
-};
 
 const waitingStatuses: AppointmentStatus[] = ["CONFIRMED", "CHECKED_IN"];
 
@@ -172,7 +150,7 @@ export function DoctorHome() {
     {
       key: "status",
       header: "Trạng thái",
-      cell: (row) => <DsStatusPill tone={statusTone(row.status)}>{statusLabel[row.status] ?? row.status}</DsStatusPill>,
+      cell: (row) => <DsStatusPill tone={statusTone(row.status)}>{statusLabel[row.status]}</DsStatusPill>,
     },
   ];
 
@@ -190,7 +168,7 @@ export function DoctorHome() {
   const pane = selected ? (
     <DsPane
       title={`${selected.patientName} · ${selected.startTime} – ${selected.endTime}`}
-      badge={<DsStatusPill tone={statusTone(selected.status)}>{statusLabel[selected.status] ?? selected.status}</DsStatusPill>}
+      badge={<DsStatusPill tone={statusTone(selected.status)}>{statusLabel[selected.status]}</DsStatusPill>}
       onClose={() => setSelectedId(null)}
       footer={
         <>
