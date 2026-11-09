@@ -1,17 +1,25 @@
 "use client";
 
-import { can } from "@/lib/permissions";
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Search } from "lucide-react";
-import { DashboardFeedback } from "@/components/dashboard/dashboard-feedback";
-import { DashboardWorkspace } from "@/components/dashboard/dashboard-workspace";
 import {
-  DashboardPageHeader,
-  DashboardStatusBadge,
-  DashboardSurface,
-  DashboardTableRegion,
-} from "@/components/dashboard/dashboard-ui";
+  DsButton,
+  DsDataTable,
+  DsEmptyState,
+  DsField,
+  DsInput,
+  DsKeyValue,
+  DsNotice,
+  DsPageHeader,
+  DsPane,
+  DsPanel,
+  DsSelect,
+  DsSplit,
+  DsStatusPill,
+  DsTabs,
+  DsToolbar,
+  type DsColumn,
+} from "@/components/ds";
 import { apiRequest } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import {
@@ -22,26 +30,18 @@ import {
   useDashboardChatbotSettings,
 } from "@/lib/dashboard-chatbot-query";
 import { formatVietnamDateTime } from "@/lib/date";
+import { can } from "@/lib/permissions";
 import { queryKeys } from "@/lib/query-keys";
-import type {
-  ChatbotLog,
-  ChatbotRuntimeValue,
-  ChatbotSession,
-  ChatbotSessionDetail,
-  ChatbotSettings,
-  Pagination,
-} from "@/lib/types";
+import type { ChatbotLog, ChatbotRuntimeValue, ChatbotSession, ChatbotSessionDetail, ChatbotSettings, Pagination } from "@/lib/types";
+import { useDebouncedValue } from "@/lib/use-debounced-value";
+
+// Trợ lý tư vấn: bốn góc nhìn bằng tab (tổng quan, phiên, nhật ký, cấu hình). Ở tab Phiên, chọn một phiên thì khung chi tiết
+// mở cạnh danh sách. Ô tìm gõ là lọc.
 
 type TabKey = "overview" | "sessions" | "logs" | "settings";
-
 type SettingsForm = ChatbotRuntimeValue;
 
-const emptyPagination: Pagination = {
-  page: 1,
-  limit: 20,
-  total: 0,
-  totalPages: 1,
-};
+const emptyPagination: Pagination = { page: 1, limit: 20, total: 0, totalPages: 1 };
 
 const defaultSettings: SettingsForm = {
   aiEnabled: true,
@@ -52,21 +52,14 @@ const defaultSettings: SettingsForm = {
   sessionExpiresDays: 7,
 };
 
-const tabs: { key: TabKey; label: string }[] = [
-  { key: "overview", label: "Tổng quan" },
-  { key: "sessions", label: "Phiên" },
-  { key: "logs", label: "Nhật ký" },
-  { key: "settings", label: "Cấu hình" },
+const tabs: { id: TabKey; label: string }[] = [
+  { id: "overview", label: "Tổng quan" },
+  { id: "sessions", label: "Phiên" },
+  { id: "logs", label: "Nhật ký" },
+  { id: "settings", label: "Cấu hình" },
 ];
 
-const statusOptions = [
-  { value: "", label: "Tất cả trạng thái" },
-  { value: "true", label: "Đang bật" },
-  { value: "false", label: "Đang tắt" },
-];
-
-const formatDateTime = (value?: string | null) =>
-  value ? formatVietnamDateTime(value) : "-";
+const formatDateTime = (value?: string | null) => (value ? formatVietnamDateTime(value) : "-");
 
 const summarizeJson = (value: unknown) => {
   if (!value) return "-";
@@ -77,8 +70,39 @@ const summarizeJson = (value: unknown) => {
   }
 };
 
-const displayParticipant = (item: ChatbotSession | ChatbotSessionDetail | ChatbotLog) =>
-  item.guestPhone || item.user?.phone || item.user?.fullName || "Khách";
+const displayParticipant = (item: ChatbotSession | ChatbotSessionDetail | ChatbotLog) => item.guestPhone || item.user?.phone || item.user?.fullName || "Khách";
+
+function Bar({ label, count, max, color }: { label: string; count: number; max: number; color: string }) {
+  return (
+    <div>
+      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}>
+        <span>{label}</span>
+        <span className="ds-num">{count}</span>
+      </div>
+      <div style={{ marginTop: 4, height: 8, borderRadius: 999, background: "var(--ds-sunken)" }}>
+        <div style={{ height: 8, borderRadius: 999, background: color, width: `${Math.max((count / max) * 100, 6)}%` }} />
+      </div>
+    </div>
+  );
+}
+
+function Pager({ pagination, onPage, unit }: { pagination: Pagination; onPage: (updater: (page: number) => number) => void; unit: string }) {
+  return (
+    <div className="ds-pager">
+      <span>
+        {pagination.total} {unit} · trang {pagination.page}/{pagination.totalPages || 1}
+      </span>
+      <span style={{ display: "flex", gap: 8 }}>
+        <DsButton disabled={pagination.page <= 1} onClick={() => onPage((current) => Math.max(current - 1, 1))}>
+          Trước
+        </DsButton>
+        <DsButton disabled={pagination.page >= pagination.totalPages} onClick={() => onPage((current) => current + 1)}>
+          Sau
+        </DsButton>
+      </span>
+    </div>
+  );
+}
 
 export default function ChatbotPage() {
   const { user } = useAuth();
@@ -89,68 +113,40 @@ export default function ChatbotPage() {
   const [settingsActive, setSettingsActive] = useState(true);
   const [settingsForm, setSettingsForm] = useState<SettingsForm>(defaultSettings);
   const [sessionSearch, setSessionSearch] = useState("");
-  const [appliedSessionSearch, setAppliedSessionSearch] = useState("");
   const [sessionStatus, setSessionStatus] = useState("");
   const [sessionPage, setSessionPage] = useState(1);
-  const [selectedSessionSnapshot, setSelectedSessionSnapshot] = useState<ChatbotSessionDetail | null>(null);
+  const [selectedSessionId, setSelectedSessionId] = useState<string | undefined>(undefined);
   const [logSearch, setLogSearch] = useState("");
-  const [appliedLogSearch, setAppliedLogSearch] = useState("");
   const [logIntent, setLogIntent] = useState("");
-  const [appliedLogIntent, setAppliedLogIntent] = useState("");
   const [logPage, setLogPage] = useState(1);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
-  const [sessionWorkspaceOpen, setSessionWorkspaceOpen] = useState(false);
-  const sessionDetailRef = useRef<HTMLElement | null>(null);
   const settingsFormInitializedRef = useRef(false);
 
-  const sessionQuery = useMemo(
-    () => ({
-      search: appliedSessionSearch || undefined,
-      isActive: sessionStatus || undefined,
-      page: sessionPage,
-      limit: 20,
-    }),
-    [appliedSessionSearch, sessionPage, sessionStatus],
-  );
+  // Gõ đến đâu lọc đến đó (chờ ngừng gõ một chút rồi mới gọi máy chủ).
+  const appliedSessionSearch = useDebouncedValue(sessionSearch.trim());
+  const appliedLogSearch = useDebouncedValue(logSearch.trim());
+  const appliedLogIntent = useDebouncedValue(logIntent.trim());
 
-  const logQuery = useMemo(
-    () => ({
-      search: appliedLogSearch || undefined,
-      intent: appliedLogIntent || undefined,
-      page: logPage,
-      limit: 20,
-    }),
-    [appliedLogIntent, appliedLogSearch, logPage],
-  );
+  const sessionQuery = useMemo(() => ({ search: appliedSessionSearch || undefined, isActive: sessionStatus || undefined, page: sessionPage, limit: 20 }), [appliedSessionSearch, sessionPage, sessionStatus]);
+  const logQuery = useMemo(() => ({ search: appliedLogSearch || undefined, intent: appliedLogIntent || undefined, page: logPage, limit: 20 }), [appliedLogIntent, appliedLogSearch, logPage]);
 
   const overviewQuery = useDashboardChatbotOverview({}, canView && activeTab === "overview");
   const settingsQuery = useDashboardChatbotSettings(canView && activeTab === "settings");
   const sessionsQuery = useDashboardChatbotSessions(sessionQuery, canView && activeTab === "sessions");
   const logsQuery = useDashboardChatbotLogs(logQuery, canView && activeTab === "logs");
-  const selectedSessionQuery = useDashboardChatbotSession(selectedSessionSnapshot?.id);
+  const selectedSessionQuery = useDashboardChatbotSession(selectedSessionId);
   const overview = overviewQuery.data;
   const settings = settingsQuery.data;
   const sessions = sessionsQuery.data?.items ?? [];
   const sessionPagination = sessionsQuery.data?.pagination ?? emptyPagination;
-  const selectedSession = selectedSessionQuery.data ?? selectedSessionSnapshot;
+  const selectedSession = selectedSessionQuery.data ?? null;
   const logs = logsQuery.data?.items ?? [];
   const logPagination = logsQuery.data?.pagination ?? emptyPagination;
-  const activeQuery = activeTab === "overview"
-    ? overviewQuery
-    : activeTab === "settings"
-      ? settingsQuery
-      : activeTab === "sessions"
-        ? sessionsQuery
-        : logsQuery;
-  const loading = activeQuery.isLoading;
+  const activeQuery = activeTab === "overview" ? overviewQuery : activeTab === "settings" ? settingsQuery : activeTab === "sessions" ? sessionsQuery : logsQuery;
   const queryFailure = activeQuery.error || selectedSessionQuery.error;
-  const queryError = queryFailure instanceof Error
-    ? queryFailure.message
-    : queryFailure
-      ? "Không tải được dữ liệu trợ lý tư vấn"
-      : "";
+  const queryError = queryFailure instanceof Error ? queryFailure.message : queryFailure ? "Không tải được dữ liệu trợ lý tư vấn" : "";
 
   useEffect(() => {
     if (!settingsQuery.data || settingsFormInitializedRef.current) return;
@@ -171,10 +167,6 @@ export default function ChatbotPage() {
     return () => window.clearTimeout(timeoutId);
   }, [error, notice]);
 
-  const scrollTo = (ref: React.RefObject<HTMLElement | null>) => {
-    window.setTimeout(() => ref.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 0);
-  };
-
   const saveSettings = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!canAdmin) return;
@@ -182,13 +174,7 @@ export default function ChatbotPage() {
     setError("");
     setNotice("");
     try {
-      const result = await apiRequest<ChatbotSettings>("/dashboard/chatbot/settings", {
-        method: "PATCH",
-        body: {
-          isActive: settingsActive,
-          ...settingsForm,
-        },
-      });
+      const result = await apiRequest<ChatbotSettings>("/dashboard/chatbot/settings", { method: "PATCH", body: { isActive: settingsActive, ...settingsForm } });
       setSettingsActive(result.isActive);
       setSettingsForm(result.value);
       queryClient.setQueryData(queryKeys.dashboardChatbotSettings, result);
@@ -202,225 +188,318 @@ export default function ChatbotPage() {
     }
   };
 
-  const openSession = async (item: ChatbotSession) => {
-    setSessionWorkspaceOpen(true);
+  const openSession = (item: { id: string }) => {
     setError("");
     setNotice("");
-    try {
-      setSelectedSessionSnapshot({ ...item, logs: [] });
-      await queryClient.invalidateQueries({ queryKey: queryKeys.dashboardChatbotSession(item.id) });
-      setActiveTab("sessions");
-      scrollTo(sessionDetailRef);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Không tải được chi tiết phiên");
-    }
+    setSelectedSessionId(item.id);
+    setActiveTab("sessions");
+  };
+
+  const changeTab = (id: string) => {
+    setActiveTab(id as TabKey);
+    setSelectedSessionId(undefined);
   };
 
   if (!canView) {
     return (
-      <DashboardPageHeader eyebrow="Tự động hóa" title="Trợ lý tư vấn" description="Phân hệ trợ lý tư vấn chỉ dành cho quản trị viên hoặc nhân viên tiếp nhận." />
+      <>
+        <DsPageHeader title="Trợ lý tư vấn" description="Phân hệ trợ lý tư vấn chỉ dành cho tài khoản được cấp quyền xem" />
+        <DsNotice tone="info">Tài khoản của bạn chưa được cấp quyền xem trợ lý tư vấn.</DsNotice>
+      </>
     );
   }
 
   const maxIntent = Math.max(...(overview?.intents.map((item) => item.count) || [1]), 1);
   const maxState = Math.max(...(overview?.states.map((item) => item.count) || [1]), 1);
 
-  return (
-    <div className="space-y-6">
-      <DashboardFeedback error={error || queryError} notice={notice} onDismiss={() => { setError(""); setNotice(""); }} />
-
-      <DashboardPageHeader
-        eyebrow="Tự động hóa"
-        title="Trợ lý tư vấn"
-        description="Theo dõi hội thoại và cấu hình trí tuệ nhân tạo. Câu hỏi thường gặp được quản lý chung tại Cấu hình website."
-      />
-      <DashboardSurface className="p-4">
-        <div className="mt-5 flex flex-wrap gap-2">
-          {tabs.map((item) => (
-            <button
-              key={item.key}
-              onClick={() => setActiveTab(item.key)}
-              className={`rounded-md border px-3 py-2 text-sm font-semibold ${activeTab === item.key ? "border-[#0d4f8b] bg-[#e7f0fb] text-[#0d4f8b]" : "border-[#dce3ee] text-[#42526b] hover:bg-[#f8fafc]"}`}
-            >
-              {item.label}
-            </button>
-          ))}
+  const sessionColumns: DsColumn<ChatbotSession>[] = [
+    {
+      key: "user",
+      header: "Người dùng",
+      cell: (row) => (
+        <div>
+          <strong>{row.guestPhone || row.user?.phone || "-"}</strong>
+          <div style={{ color: "var(--ds-muted)", fontSize: 12 }}>{row.user?.fullName || "Khách"}</div>
         </div>
-      </DashboardSurface>
-
-      {loading ? (
-        <section className="rounded-md border border-[#dce3ee] bg-white p-8 text-center text-sm text-[#667892]">Đang tải dữ liệu trợ lý tư vấn...</section>
-      ) : null}
-
-      {activeTab === "overview" && overview ? (
-        <div className="space-y-6">
-          <section className="grid gap-4 md:grid-cols-3">
-            <div className="rounded-md border border-[#dce3ee] bg-white p-5"><p className="text-sm text-[#667892]">Tổng phiên</p><p className="mt-2 text-3xl font-semibold">{overview.metrics.totalSessions}</p></div>
-            <div className="rounded-md border border-[#dce3ee] bg-white p-5"><p className="text-sm text-[#667892]">Phiên đang hoạt động</p><p className="mt-2 text-3xl font-semibold">{overview.metrics.activeSessions}</p></div>
-            <div className="rounded-md border border-[#dce3ee] bg-white p-5"><p className="text-sm text-[#667892]">Tổng tin nhắn</p><p className="mt-2 text-3xl font-semibold">{overview.metrics.totalLogs}</p></div>
-          </section>
-
-          <section className="grid gap-6 lg:grid-cols-2">
-            <div className="rounded-md border border-[#dce3ee] bg-white p-5">
-              <h3 className="font-semibold">Nhóm nhu cầu phổ biến</h3>
-              <div className="mt-4 space-y-3">
-                {overview.intents.length ? overview.intents.map((item) => (
-                  <div key={item.intent || "none"}>
-                    <div className="flex justify-between text-sm"><span>{item.intent || "Không rõ"}</span><span>{item.count}</span></div>
-                    <div className="mt-1 h-2 rounded-full bg-[#eef2f7]"><div className="h-2 rounded-full bg-[#0d4f8b]" style={{ width: `${Math.max((item.count / maxIntent) * 100, 6)}%` }} /></div>
-                  </div>
-                )) : <p className="text-sm text-[#667892]">Chưa ghi nhận nhóm nhu cầu.</p>}
-              </div>
-            </div>
-            <div className="rounded-md border border-[#dce3ee] bg-white p-5">
-              <h3 className="font-semibold">Trạng thái hội thoại</h3>
-              <div className="mt-4 space-y-3">
-                {overview.states.length ? overview.states.map((item) => (
-                  <div key={item.state || "none"}>
-                    <div className="flex justify-between text-sm"><span>{item.state || "Không rõ"}</span><span>{item.count}</span></div>
-                    <div className="mt-1 h-2 rounded-full bg-[#eef2f7]"><div className="h-2 rounded-full bg-[#2a7f62]" style={{ width: `${Math.max((item.count / maxState) * 100, 6)}%` }} /></div>
-                  </div>
-                )) : <p className="text-sm text-[#667892]">Chưa ghi nhận trạng thái hội thoại.</p>}
-              </div>
-            </div>
-          </section>
-
-          <section className="rounded-md border border-[#dce3ee] bg-white p-5">
-            <h3 className="font-semibold">Phiên mới cập nhật</h3>
-            <div className="mt-4 grid gap-3 lg:grid-cols-2">
-              {overview.latestSessions.map((item) => (
-                <button key={item.id} onClick={() => void openSession(item)} className="rounded-md border border-[#e5ebf3] p-4 text-left hover:border-[#0d4f8b]">
-                  <div className="flex items-center justify-between gap-3">
-                    <p className="font-semibold">{displayParticipant(item)}</p>
-                     <DashboardStatusBadge tone={item.isActive ? "positive" : "neutral"}>{item.isActive ? "Đang mở" : "Đã đóng"}</DashboardStatusBadge>
-                  </div>
-                  <p className="mt-2 line-clamp-2 text-sm text-[#667892]">{item.lastMessage || "-"}</p>
-                  <p className="mt-2 text-xs text-[#8a98aa]">{formatDateTime(item.updatedAt)}</p>
-                </button>
-              ))}
-            </div>
-          </section>
+      ),
+    },
+    {
+      key: "intent",
+      header: "Nhu cầu / trạng thái",
+      cell: (row) => (
+        <div>
+          {row.currentIntent || "-"}
+          <div style={{ color: "var(--ds-muted)", fontSize: 12 }}>{row.currentState || "-"}</div>
         </div>
-      ) : null}
+      ),
+    },
+    {
+      key: "last",
+      header: "Tin gần nhất",
+      cell: (row) => (
+        <div>
+          <div style={{ maxWidth: 320, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.lastMessage || "-"}</div>
+          <div style={{ color: "var(--ds-muted)", fontSize: 12 }}>{formatDateTime(row.updatedAt)}</div>
+        </div>
+      ),
+    },
+    { key: "count", header: "Tin nhắn", align: "num", cell: (row) => row._count.logs },
+    { key: "status", header: "Trạng thái", cell: (row) => <DsStatusPill tone={row.isActive ? "good" : "neutral"}>{row.isActive ? "Đang mở" : "Đã đóng"}</DsStatusPill> },
+  ];
 
-      {activeTab === "sessions" ? (
-        <div className={`grid gap-6 transition-[grid-template-columns] duration-300 ${sessionWorkspaceOpen ? "xl:grid-cols-[minmax(0,1fr)_420px]" : "xl:grid-cols-1"}`}>
-          <section className="min-w-0 rounded-md border border-[#dce3ee] bg-white">
-            <form onSubmit={(event) => { event.preventDefault(); setAppliedSessionSearch(sessionSearch.trim()); setSessionPage(1); }} className="grid gap-3 border-b border-[#e5ebf3] p-4 md:grid-cols-[1fr_180px_auto]">
-              <input value={sessionSearch} onChange={(event) => setSessionSearch(event.target.value)} placeholder="Tìm số điện thoại, tin nhắn, phản hồi" className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" />
-              <select value={sessionStatus} onChange={(event) => { setSessionStatus(event.target.value); setSessionPage(1); }} className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]">
-                {statusOptions.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
-              </select>
-              <button type="submit" className="inline-flex items-center justify-center gap-2 rounded-md border border-[var(--border)] px-3 py-2 text-sm font-semibold"><Search className="h-4 w-4" />Tìm</button>
-            </form>
-            <DashboardTableRegion label="Danh sách phiên trợ lý tư vấn">
-              <table className="w-full min-w-[900px] border-separate border-spacing-0 text-left text-sm">
-                <thead><tr className="text-[#667892]"><th className="border-b border-[#e5ebf3] px-4 py-3 font-semibold">Người dùng</th><th className="border-b border-[#e5ebf3] px-4 py-3 font-semibold">Nhu cầu / trạng thái</th><th className="border-b border-[#e5ebf3] px-4 py-3 font-semibold">Tin gần nhất</th><th className="border-b border-[#e5ebf3] px-4 py-3 font-semibold">Nhật ký</th><th className="border-b border-[#e5ebf3] px-4 py-3 text-right font-semibold">Thao tác</th></tr></thead>
-                <tbody>
-                  {sessions.length ? sessions.map((item) => (
-                    <tr key={item.id} className="align-top">
-                      <td className="border-b border-[#eef2f7] px-4 py-3"><p className="font-semibold">{item.guestPhone || item.user?.phone || "-"}</p><p className="mt-1 text-xs text-[#667892]">{item.user?.fullName || item.id}</p></td>
-                      <td className="border-b border-[#eef2f7] px-4 py-3"><p>{item.currentIntent || "-"}</p><p className="mt-1 text-xs text-[#667892]">{item.currentState || "-"}</p></td>
-                      <td className="border-b border-[#eef2f7] px-4 py-3"><p className="line-clamp-2">{item.lastMessage || "-"}</p><p className="mt-1 text-xs text-[#667892]">{formatDateTime(item.updatedAt)}</p></td>
-                      <td className="border-b border-[#eef2f7] px-4 py-3">{item._count.logs}</td>
-                      <td className="border-b border-[#eef2f7] px-4 py-3 text-right"><button onClick={() => void openSession(item)} className="rounded-md border border-[#cfd8e6] px-3 py-1.5 text-xs font-medium text-[#42526b]">Chi tiết</button></td>
-                    </tr>
-                  )) : <tr><td colSpan={5} className="px-4 py-10 text-center text-[#667892]">Chưa có phiên phù hợp</td></tr>}
-                </tbody>
-              </table>
-            </DashboardTableRegion>
-            <div className="flex items-center justify-between border-t border-[#e5ebf3] px-4 py-3 text-sm text-[#667892]">
-              <span>{sessionPagination.total} kết quả, trang {sessionPagination.page}/{sessionPagination.totalPages || 1}</span>
-              <div className="flex gap-2">
-                <button disabled={sessionPage <= 1} onClick={() => setSessionPage((current) => Math.max(current - 1, 1))} className="rounded-md border border-[#cfd8e6] px-3 py-1.5 font-medium disabled:opacity-50">Trước</button>
-                <button disabled={sessionPage >= sessionPagination.totalPages} onClick={() => setSessionPage((current) => current + 1)} className="rounded-md border border-[#cfd8e6] px-3 py-1.5 font-medium disabled:opacity-50">Sau</button>
-              </div>
+  const overviewView = overview ? (
+    <div style={{ display: "grid", gap: 16 }}>
+      <section aria-label="Số liệu" className="ds-attn-grid">
+        {[
+          ["Tổng phiên", overview.metrics.totalSessions],
+          ["Phiên đang hoạt động", overview.metrics.activeSessions],
+          ["Tổng tin nhắn", overview.metrics.totalLogs],
+        ].map(([label, value]) => (
+          <div key={label} className="ds-attn">
+            <span className="ds-attn__label">{label}</span>
+            <strong className="ds-attn__value ds-num">{value}</strong>
+          </div>
+        ))}
+      </section>
+      <div style={{ display: "grid", gap: 16, gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", alignItems: "start" }}>
+        <DsPanel title="Nhóm nhu cầu phổ biến">
+          <div style={{ display: "grid", gap: 12 }}>
+            {overview.intents.length ? overview.intents.map((item) => <Bar key={item.intent || "none"} label={item.intent || "Không rõ"} count={item.count} max={maxIntent} color="var(--ds-accent)" />) : <p className="ds-hint" style={{ margin: 0 }}>Chưa ghi nhận nhóm nhu cầu.</p>}
+          </div>
+        </DsPanel>
+        <DsPanel title="Trạng thái hội thoại">
+          <div style={{ display: "grid", gap: 12 }}>
+            {overview.states.length ? overview.states.map((item) => <Bar key={item.state || "none"} label={item.state || "Không rõ"} count={item.count} max={maxState} color="var(--ds-good)" />) : <p className="ds-hint" style={{ margin: 0 }}>Chưa ghi nhận trạng thái hội thoại.</p>}
+          </div>
+        </DsPanel>
+      </div>
+      <DsPanel title="Phiên mới cập nhật" flush>
+        {overview.latestSessions.length === 0 ? <DsEmptyState title="Chưa có phiên nào" /> : null}
+        {overview.latestSessions.map((item) => (
+          <button key={item.id} type="button" className="ds-todo" style={{ width: "100%", textAlign: "left", background: "transparent", border: 0, cursor: "pointer", color: "inherit" }} onClick={() => openSession(item)}>
+            <div className="ds-todo__text">
+              <strong>{displayParticipant(item)}</strong>
+              <small>{item.lastMessage || "-"} · {formatDateTime(item.updatedAt)}</small>
             </div>
-          </section>
-          {sessionWorkspaceOpen ? (
-          <aside ref={sessionDetailRef} className="min-w-0 scroll-mt-24">
-            <DashboardWorkspace open={sessionWorkspaceOpen} onOpenChange={setSessionWorkspaceOpen} title="Chi tiết phiên tư vấn" description="Theo dõi trạng thái, nội dung tạm lưu và lịch sử trao đổi.">
-            <h3 className="text-lg font-semibold">Chi tiết phiên</h3>
-            {selectedSession ? (
-              <div className="mt-4 space-y-4">
-                <div className="rounded-md border border-[#e5ebf3] p-3 text-sm"><p><span className="font-medium">Khách:</span> {displayParticipant(selectedSession)}</p><p className="mt-1"><span className="font-medium">Trạng thái:</span> {selectedSession.currentState || "-"}</p><p className="mt-1"><span className="font-medium">Hết hạn:</span> {formatDateTime(selectedSession.expiresAt)}</p></div>
-                <div><p className="text-sm font-semibold">Nội dung tạm lưu</p><pre className="mt-2 max-h-44 overflow-auto rounded-md bg-[#f8fafc] p-3 text-xs text-[#42526b]">{summarizeJson(selectedSession.draft)}</pre></div>
-                <div className="space-y-3">
-                  {selectedSession.logs.map((item) => (
-                    <div key={item.id} className="rounded-md border border-[#e5ebf3] p-3 text-sm">
-                      <p className="font-medium">{item.message}</p>
-                      <p className="mt-2 text-[#667892]">{item.response}</p>
-                      <p className="mt-2 text-xs text-[#8a98aa]">{item.intent || "-"} - {formatDateTime(item.createdAt)}</p>
-                    </div>
-                  ))}
+            <DsStatusPill tone={item.isActive ? "good" : "neutral"}>{item.isActive ? "Đang mở" : "Đã đóng"}</DsStatusPill>
+          </button>
+        ))}
+      </DsPanel>
+    </div>
+  ) : null;
+
+  const sessionList = (
+    <DsPanel flush>
+      <DsToolbar>
+        <div style={{ minWidth: 180, flex: "1 1 240px" }}>
+          <DsInput
+            aria-label="Tìm phiên"
+            value={sessionSearch}
+            placeholder="Gõ số điện thoại, tin nhắn hoặc phản hồi để lọc"
+            onChange={(event) => {
+              setSessionSearch(event.target.value);
+              setSessionPage(1);
+            }}
+          />
+        </div>
+        <div style={{ minWidth: 140, flex: "0 1 180px" }}>
+          <DsSelect
+            aria-label="Lọc phiên theo trạng thái"
+            value={sessionStatus}
+            onChange={(event) => {
+              setSessionStatus(event.target.value);
+              setSessionPage(1);
+            }}
+          >
+            <option value="">Mọi trạng thái</option>
+            <option value="true">Đang mở</option>
+            <option value="false">Đã đóng</option>
+          </DsSelect>
+        </div>
+      </DsToolbar>
+      {selectedSessionId ? (
+        sessions.length ? (
+          <div role="listbox" aria-label="Danh sách phiên">
+            {sessions.map((item) => (
+              <button key={item.id} type="button" role="option" className="ds-listrow" aria-selected={item.id === selectedSessionId} onClick={() => openSession(item)}>
+                <span className="ds-listrow__main">
+                  <strong>{item.guestPhone || item.user?.phone || "Khách"}</strong>
+                  <small>{item.lastMessage || "-"}</small>
+                </span>
+                <DsStatusPill tone={item.isActive ? "good" : "neutral"}>{item._count.logs} tin</DsStatusPill>
+              </button>
+            ))}
+          </div>
+        ) : (
+          <DsEmptyState title="Chưa có phiên phù hợp" />
+        )
+      ) : (
+        <DsDataTable caption="Danh sách phiên trợ lý tư vấn" columns={sessionColumns} rows={sessions} rowKey={(row) => row.id} loading={sessionsQuery.isLoading} emptyTitle="Chưa có phiên phù hợp" onRowClick={openSession} />
+      )}
+      <Pager pagination={sessionPagination} onPage={setSessionPage} unit="phiên" />
+    </DsPanel>
+  );
+
+  const sessionPane = selectedSessionId ? (
+    <DsPane
+      title="Chi tiết phiên tư vấn"
+      badge={selectedSession ? <DsStatusPill tone={selectedSession.isActive ? "good" : "neutral"}>{selectedSession.isActive ? "Đang mở" : "Đã đóng"}</DsStatusPill> : undefined}
+      onClose={() => setSelectedSessionId(undefined)}
+    >
+      {selectedSession ? (
+        <div style={{ display: "grid", gap: 12 }}>
+          <DsKeyValue
+            items={[
+              { label: "Khách", value: displayParticipant(selectedSession) },
+              { label: "Nhu cầu", value: selectedSession.currentIntent || "-" },
+              { label: "Trạng thái", value: selectedSession.currentState || "-" },
+              { label: "Cập nhật", value: formatDateTime(selectedSession.updatedAt) },
+            ]}
+          />
+          <div>
+            <strong style={{ fontSize: 13 }}>Nội dung tạm lưu</strong>
+            <pre style={{ margin: "6px 0 0", maxHeight: 176, overflow: "auto", padding: 10, borderRadius: 6, background: "var(--ds-sunken)", fontSize: 12 }}>{summarizeJson(selectedSession.draft)}</pre>
+          </div>
+          <div className="ds-card">
+            <div className="ds-card__head">
+              <h3>Trao đổi ({selectedSession.logs.length})</h3>
+            </div>
+            {selectedSession.logs.map((item) => (
+              <div key={item.id} className="ds-labrow">
+                <div className="ds-labrow__main">
+                  <strong>{item.message}</strong>
+                  <small>{item.response}</small>
+                  <small>
+                    {item.intent || "-"} · {formatDateTime(item.createdAt)}
+                  </small>
                 </div>
               </div>
-            ) : <p className="mt-3 text-sm text-[#667892]">Chọn một phiên để xem nhật ký và nội dung tạm lưu.</p>}
-            </DashboardWorkspace>
-          </aside>
+            ))}
+            {selectedSession.logs.length === 0 ? <p style={{ margin: 0, padding: 14, color: "var(--ds-muted)" }}>Chưa có trao đổi.</p> : null}
+          </div>
+        </div>
+      ) : (
+        <p className="ds-hint" style={{ margin: 0 }}>
+          Đang tải chi tiết phiên...
+        </p>
+      )}
+    </DsPane>
+  ) : null;
+
+  const logsView = (
+    <DsPanel flush>
+      <DsToolbar>
+        <div style={{ minWidth: 180, flex: "1 1 240px" }}>
+          <DsInput
+            aria-label="Tìm nhật ký"
+            value={logSearch}
+            placeholder="Gõ tin nhắn, phản hồi hoặc số điện thoại để lọc"
+            onChange={(event) => {
+              setLogSearch(event.target.value);
+              setLogPage(1);
+            }}
+          />
+        </div>
+        <div style={{ minWidth: 150, flex: "0 1 220px" }}>
+          <DsInput
+            aria-label="Lọc theo nhóm nhu cầu"
+            value={logIntent}
+            placeholder="Nhóm nhu cầu"
+            onChange={(event) => {
+              setLogIntent(event.target.value);
+              setLogPage(1);
+            }}
+          />
+        </div>
+      </DsToolbar>
+      {logs.length === 0 && !logsQuery.isLoading ? <DsEmptyState title="Chưa có nhật ký phù hợp" /> : null}
+      {logs.map((item) => (
+        <div key={item.id} className="ds-labrow">
+          <div className="ds-labrow__main">
+            <strong>{item.message}</strong>
+            <small>{item.response}</small>
+            <small>
+              {displayParticipant(item)} · {item.intent || "Không rõ"} · {formatDateTime(item.createdAt)}
+            </small>
+          </div>
+          {item.sessionId ? (
+            <DsButton
+              variant="ghost"
+              onClick={() => {
+                const sessionId = item.sessionId || "";
+                setSessionSearch(sessionId);
+                setSessionPage(1);
+                setSelectedSessionId(undefined);
+                setActiveTab("sessions");
+              }}
+            >
+              Xem phiên
+            </DsButton>
           ) : null}
         </div>
-      ) : null}
+      ))}
+      <Pager pagination={logPagination} onPage={setLogPage} unit="dòng" />
+    </DsPanel>
+  );
 
-      {activeTab === "logs" ? (
-        <section className="rounded-md border border-[#dce3ee] bg-white">
-          <form onSubmit={(event) => { event.preventDefault(); setAppliedLogSearch(logSearch.trim()); setAppliedLogIntent(logIntent.trim()); setLogPage(1); }} className="grid gap-3 border-b border-[#e5ebf3] p-4 md:grid-cols-[1fr_220px_auto]">
-            <input value={logSearch} onChange={(event) => setLogSearch(event.target.value)} placeholder="Tìm tin nhắn, phản hồi, số điện thoại" className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" />
-            <input value={logIntent} onChange={(event) => setLogIntent(event.target.value)} placeholder="Lọc theo nhóm nhu cầu" className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" />
-            <button type="submit" className="inline-flex items-center justify-center gap-2 rounded-md border border-[var(--border)] px-3 py-2 text-sm font-semibold"><Search className="h-4 w-4" />Tìm</button>
-          </form>
-          <div className="divide-y divide-[#eef2f7]">
-            {logs.length ? logs.map((item) => (
-              <article key={item.id} className="p-4">
-                <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
-                  <div>
-                    <p className="text-sm font-semibold">{displayParticipant(item)}</p>
-                    <p className="mt-1 text-xs text-[#667892]">{item.intent || "Không rõ"} - {formatDateTime(item.createdAt)}</p>
-                  </div>
-                  <button onClick={() => { const sessionId = item.sessionId || ""; setSessionSearch(sessionId); setAppliedSessionSearch(sessionId); setSessionPage(1); setActiveTab("sessions"); }} className="rounded-md border border-[#cfd8e6] px-3 py-1.5 text-xs font-medium text-[#42526b]">Tìm phiên</button>
-                </div>
-                <p className="mt-3 text-sm font-medium">{item.message}</p>
-                <p className="mt-2 text-sm text-[#667892]">{item.response}</p>
-              </article>
-            )) : <p className="p-8 text-center text-sm text-[#667892]">Chưa có log phù hợp.</p>}
-          </div>
-          <div className="flex items-center justify-between border-t border-[#e5ebf3] px-4 py-3 text-sm text-[#667892]">
-            <span>{logPagination.total} kết quả, trang {logPagination.page}/{logPagination.totalPages || 1}</span>
-            <div className="flex gap-2">
-              <button disabled={logPage <= 1} onClick={() => setLogPage((current) => Math.max(current - 1, 1))} className="rounded-md border border-[#cfd8e6] px-3 py-1.5 font-medium disabled:opacity-50">Trước</button>
-              <button disabled={logPage >= logPagination.totalPages} onClick={() => setLogPage((current) => current + 1)} className="rounded-md border border-[#cfd8e6] px-3 py-1.5 font-medium disabled:opacity-50">Sau</button>
-            </div>
-          </div>
-        </section>
-      ) : null}
+  const toggle = (checked: boolean, onChange: (next: boolean) => void, title: string, hint?: string) => (
+    <label className="ds-check" style={{ cursor: canAdmin ? "pointer" : "default" }}>
+      <input type="checkbox" checked={checked} disabled={!canAdmin} onChange={(event) => onChange(event.target.checked)} style={{ marginTop: 3 }} />
+      <span>
+        <strong>{title}</strong>
+        {hint ? <small style={{ display: "block", color: "var(--ds-muted)" }}>{hint}</small> : null}
+      </span>
+    </label>
+  );
 
-      {activeTab === "settings" ? (
-        <section className="rounded-md border border-[#dce3ee] bg-white p-5">
-          <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
-            <div>
-              <h3 className="text-lg font-semibold">Cấu hình vận hành</h3>
-              <p className="mt-1 text-sm text-[#667892]">Nhân viên tiếp nhận được xem; chỉ quản trị viên được cập nhật cấu hình.</p>
-            </div>
-            <p className="text-xs text-[#8a98aa]">Cập nhật {formatDateTime(settings?.updatedAt)}</p>
+  const settingsView = (
+    <DsPanel title="Cấu hình vận hành">
+      <form onSubmit={saveSettings} style={{ display: "grid", gap: 14, maxWidth: 720 }} aria-label="Cấu hình trợ lý tư vấn">
+        <p className="ds-hint" style={{ margin: 0 }}>
+          Nhân viên tiếp nhận được xem; chỉ quản trị viên được cập nhật cấu hình. Cập nhật lần cuối {formatDateTime(settings?.updatedAt)}.
+        </p>
+        {toggle(settingsActive, setSettingsActive, "Bật trợ lý tư vấn trên trang người dùng", "Tắt sẽ ẩn cửa sổ trò chuyện ở trang người dùng.")}
+        {toggle(settingsForm.aiEnabled, (next) => setSettingsForm((current) => ({ ...current, aiEnabled: next })), "Bật trí tuệ nhân tạo")}
+        {toggle(settingsForm.faqEnabled, (next) => setSettingsForm((current) => ({ ...current, faqEnabled: next })), "Bật câu hỏi thường gặp", "Câu hỏi thường gặp được quản lý tại Cấu hình website.")}
+        {toggle(settingsForm.fallbackEnabled, (next) => setSettingsForm((current) => ({ ...current, fallbackEnabled: next })), "Dùng câu trả lời dự phòng khi có lỗi")}
+        <div className="ds-grid-fields">
+          <DsField label="Mô hình xử lý" htmlFor="cb-model">
+            <DsInput id="cb-model" value={settingsForm.model} disabled={!canAdmin} onChange={(event) => setSettingsForm((current) => ({ ...current, model: event.target.value }))} />
+          </DsField>
+          <DsField label="Số hành động gợi ý" htmlFor="cb-actions" hint="1 đến 6">
+            <DsInput id="cb-actions" type="number" min={1} max={6} value={settingsForm.maxSuggestedActions} disabled={!canAdmin} onChange={(event) => setSettingsForm((current) => ({ ...current, maxSuggestedActions: Number(event.target.value) }))} />
+          </DsField>
+          <DsField label="Ngày hết hạn phiên" htmlFor="cb-expire" hint="1 đến 30">
+            <DsInput id="cb-expire" type="number" min={1} max={30} value={settingsForm.sessionExpiresDays} disabled={!canAdmin} onChange={(event) => setSettingsForm((current) => ({ ...current, sessionExpiresDays: Number(event.target.value) }))} />
+          </DsField>
+        </div>
+        {canAdmin ? (
+          <div>
+            <DsButton type="submit" variant="primary" disabled={saving}>
+              {saving ? "Đang lưu..." : "Lưu cấu hình"}
+            </DsButton>
           </div>
-          <form className="mt-5 grid gap-4 lg:grid-cols-2" onSubmit={saveSettings}>
-            <label className="flex items-center justify-between rounded-md border border-[#cfe0f3] bg-[#f8fbff] px-3 py-2 lg:col-span-2">
-              <span>
-                <span className="block text-sm font-semibold text-[#172033]">Bật trợ lý tư vấn trên trang người dùng</span>
-                <span className="mt-1 block text-xs text-[#667892]">Tắt công tắc này sẽ ẩn cửa sổ trò chuyện ở trang người dùng.</span>
-              </span>
-              <input disabled={!canAdmin} type="checkbox" checked={settingsActive} onChange={(event) => setSettingsActive(event.target.checked)} className="h-4 w-4 accent-[#0d4f8b] disabled:opacity-60" />
-            </label>
-            <label className="flex items-center justify-between rounded-md border border-[#e5ebf3] px-3 py-2"><span className="text-sm font-medium text-[#334155]">Bật trí tuệ nhân tạo</span><input disabled={!canAdmin} type="checkbox" checked={settingsForm.aiEnabled} onChange={(event) => setSettingsForm((current) => ({ ...current, aiEnabled: event.target.checked }))} className="h-4 w-4 accent-[#0d4f8b] disabled:opacity-60" /></label>
-            <label className="flex items-center justify-between rounded-md border border-[#e5ebf3] px-3 py-2"><span className="text-sm font-medium text-[#334155]">Bật câu hỏi thường gặp</span><input disabled={!canAdmin} type="checkbox" checked={settingsForm.faqEnabled} onChange={(event) => setSettingsForm((current) => ({ ...current, faqEnabled: event.target.checked }))} className="h-4 w-4 accent-[#0d4f8b] disabled:opacity-60" /></label>
-            <label className="flex items-center justify-between rounded-md border border-[#e5ebf3] px-3 py-2"><span className="text-sm font-medium text-[#334155]">Dùng câu trả lời dự phòng khi có lỗi</span><input disabled={!canAdmin} type="checkbox" checked={settingsForm.fallbackEnabled} onChange={(event) => setSettingsForm((current) => ({ ...current, fallbackEnabled: event.target.checked }))} className="h-4 w-4 accent-[#0d4f8b] disabled:opacity-60" /></label>
-            <label className="block"><span className="text-sm font-medium text-[#334155]">Mô hình xử lý</span><input disabled={!canAdmin} value={settingsForm.model} onChange={(event) => setSettingsForm((current) => ({ ...current, model: event.target.value }))} className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa] disabled:bg-[#f8fafc]" required /></label>
-            <label className="block"><span className="text-sm font-medium text-[#334155]">Số hành động gợi ý</span><input disabled={!canAdmin} type="number" min={1} max={6} value={settingsForm.maxSuggestedActions} onChange={(event) => setSettingsForm((current) => ({ ...current, maxSuggestedActions: Number(event.target.value) }))} className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa] disabled:bg-[#f8fafc]" /></label>
-            <label className="block"><span className="text-sm font-medium text-[#334155]">Ngày hết hạn phiên</span><input disabled={!canAdmin} type="number" min={1} max={30} value={settingsForm.sessionExpiresDays} onChange={(event) => setSettingsForm((current) => ({ ...current, sessionExpiresDays: Number(event.target.value) }))} className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa] disabled:bg-[#f8fafc]" /></label>
-            {canAdmin ? <div className="lg:col-span-2"><button disabled={saving} className="rounded-md bg-[#0d4f8b] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#083d6d] disabled:opacity-60">{saving ? "Đang lưu..." : "Lưu cấu hình"}</button></div> : null}
-          </form>
-        </section>
-      ) : null}
-    </div>
+        ) : null}
+      </form>
+    </DsPanel>
+  );
+
+  return (
+    <>
+      <DsPageHeader title="Trợ lý tư vấn" description="Theo dõi hội thoại và cấu hình trí tuệ nhân tạo. Câu hỏi thường gặp được quản lý chung tại Cấu hình website." />
+      <div style={{ display: "grid", gap: 12, marginBottom: 16 }}>
+        {error || queryError ? <DsNotice tone="bad">{error || queryError}</DsNotice> : null}
+        {notice ? <DsNotice tone="good">{notice}</DsNotice> : null}
+      </div>
+      <DsPanel flush className="ds-tabs-host">
+        <DsTabs label="Mục trợ lý tư vấn" items={tabs} value={activeTab} onChange={changeTab} />
+      </DsPanel>
+      <div style={{ marginTop: 16 }}>
+        {activeTab === "overview" ? (overviewQuery.isLoading ? <p className="ds-hint">Đang tải dữ liệu trợ lý tư vấn...</p> : overviewView) : null}
+        {activeTab === "sessions" ? <DsSplit list={sessionList} pane={sessionPane} /> : null}
+        {activeTab === "logs" ? logsView : null}
+        {activeTab === "settings" ? (settingsQuery.isLoading ? <p className="ds-hint">Đang tải cấu hình...</p> : settingsView) : null}
+      </div>
+    </>
   );
 }

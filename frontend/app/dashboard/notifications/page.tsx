@@ -1,30 +1,37 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { FormEvent, useEffect, useMemo, useState } from "react";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { BellRing, RefreshCw } from "lucide-react";
 import {
-  BellRing,
-  CalendarClock,
-  CheckCircle2,
-  RefreshCw,
-  Send,
-  Users,
-  XCircle,
-} from "lucide-react";
-import { FormEvent, useMemo, useState } from "react";
-import { DashboardFeedback } from "@/components/dashboard/dashboard-feedback";
-import { DashboardWorkspace } from "@/components/dashboard/dashboard-workspace";
-import {
-  DashboardEmptyState,
-  DashboardPageHeader,
-  DashboardStatusBadge,
-  DashboardSurface,
-} from "@/components/dashboard/dashboard-ui";
+  DsButton,
+  DsDataTable,
+  DsEmptyState,
+  DsField,
+  DsInput,
+  DsKeyValue,
+  DsNotice,
+  DsPageHeader,
+  DsPane,
+  DsPanel,
+  DsSelect,
+  DsSplit,
+  DsStatusPill,
+  DsTabs,
+  DsTextarea,
+  DsToolbar,
+  type DsColumn,
+  type DsTone,
+} from "@/components/ds";
+import { VietnamDateTimeInput } from "@/components/ui/vietnam-datetime-input";
 import { apiRequest } from "@/lib/api";
 import { useDashboardDepartments } from "@/lib/dashboard-departments-query";
-import {
-  formatVietnamDateTime,
-  fromVietnamDateTimeInput,
-} from "@/lib/date";
+import { formatVietnamDateTime, fromVietnamDateTimeInput } from "@/lib/date";
+
+// Thông báo ứng dụng: lịch sử chiến dịch bên trái; chọn một chiến dịch hoặc bấm "Soạn thông báo" thì khung bên phải mở cạnh danh sách.
+// Bước xem lại trước khi gửi nằm ngay trong khung (không còn hộp thoại phủ màn hình).
+
+type AnnouncementAudience = "ALL_PATIENTS" | "UPCOMING_APPOINTMENTS" | "DEPARTMENT_APPOINTMENTS";
 
 type Announcement = {
   campaignId: string;
@@ -43,10 +50,7 @@ type Announcement = {
   departmentName?: string | null;
 };
 
-type AnnouncementAudience =
-  | "ALL_PATIENTS"
-  | "UPCOMING_APPOINTMENTS"
-  | "DEPARTMENT_APPOINTMENTS";
+type CreateResult = { recipientCount: number; publishedAt: string | null };
 
 const audienceLabels: Record<AnnouncementAudience, string> = {
   ALL_PATIENTS: "Tất cả người khám đang hoạt động",
@@ -54,12 +58,20 @@ const audienceLabels: Record<AnnouncementAudience, string> = {
   DEPARTMENT_APPOINTMENTS: "Người bệnh có lịch sắp tới theo chuyên khoa",
 };
 
-type CreateResult = Omit<Announcement, "deliverySummary" | "createdBy" | "createdAt" | "cancelledAt"> & {
-  deliveryCount: number;
-};
+type CampaignStatus = "PUBLISHED" | "SCHEDULED" | "CANCELLED";
 
-const inputClass =
-  "mt-2 w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2.5 text-sm outline-none transition focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary-soft)]";
+const campaignStatus = (item: Announcement): CampaignStatus => (item.cancelledAt ? "CANCELLED" : item.publishedAt ? "PUBLISHED" : "SCHEDULED");
+const statusLabel: Record<CampaignStatus, string> = { PUBLISHED: "Đã phát hành", SCHEDULED: "Đã lên lịch", CANCELLED: "Đã hủy" };
+const statusTone: Record<CampaignStatus, DsTone> = { PUBLISHED: "good", SCHEDULED: "warn", CANCELLED: "bad" };
+
+const statusTabs = [
+  { id: "", label: "Tất cả" },
+  { id: "PUBLISHED", label: "Đã phát hành" },
+  { id: "SCHEDULED", label: "Đã lên lịch" },
+  { id: "CANCELLED", label: "Đã hủy" },
+];
+
+type PaneState = { kind: "compose" } | { kind: "view"; id: string } | null;
 
 export default function DashboardNotificationsPage() {
   const [title, setTitle] = useState("");
@@ -71,38 +83,57 @@ export default function DashboardNotificationsPage() {
   const [departmentId, setDepartmentId] = useState("");
   const [confirming, setConfirming] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [cancellingId, setCancellingId] = useState<string | null>(null);
-  const [message, setMessage] = useState<{ tone: "success" | "error"; text: string } | null>(null);
-  const [composerOpen, setComposerOpen] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
+  const [confirmCancel, setConfirmCancel] = useState(false);
+  const [message, setMessage] = useState<{ tone: "good" | "bad"; text: string } | null>(null);
+  const [pane, setPane] = useState<PaneState>(null);
+  const [statusFilter, setStatusFilter] = useState("");
 
   const announcementsQuery = useQuery({
     queryKey: ["dashboard", "notifications"],
-    queryFn: () =>
-      apiRequest<{ items: Announcement[] }>("/dashboard/notifications", {
-        query: { limit: 20 },
-      }),
+    queryFn: () => apiRequest<{ items: Announcement[] }>("/dashboard/notifications", { query: { limit: 50 } }),
+    placeholderData: keepPreviousData,
     staleTime: 15_000,
     refetchOnWindowFocus: true,
     refetchOnReconnect: true,
   });
-  const items = announcementsQuery.data?.items ?? [];
-  const departmentsQuery = useDashboardDepartments({ isActive: "true", limit: 100 });
+  const allItems = announcementsQuery.data?.items ?? [];
+  const items = statusFilter ? allItems.filter((item) => campaignStatus(item) === statusFilter) : allItems;
+  const departmentsQuery = useDashboardDepartments(useMemo(() => ({ isActive: "true", limit: 100 }), []));
   const departments = departmentsQuery.data?.items ?? [];
-  const canSubmit = useMemo(
-    () =>
-      title.trim().length >= 3 &&
-      body.trim().length >= 5 &&
-      (sendMode === "now" || Boolean(scheduledAt)) &&
-      (audience !== "DEPARTMENT_APPOINTMENTS" || Boolean(departmentId)) &&
-      (!expiresAt || sendMode === "now" || expiresAt > scheduledAt),
-    [audience, body, departmentId, expiresAt, scheduledAt, sendMode, title],
-  );
+  const selected = pane?.kind === "view" ? allItems.find((item) => item.campaignId === pane.id) ?? null : null;
+  const open = pane?.kind === "compose" || (pane?.kind === "view" && Boolean(selected));
+
+  useEffect(() => {
+    if (!message) return;
+    const timeoutId = window.setTimeout(() => setMessage(null), 4500);
+    return () => window.clearTimeout(timeoutId);
+  }, [message]);
+
+  const canSubmit =
+    title.trim().length >= 3 &&
+    body.trim().length >= 5 &&
+    (sendMode === "now" || Boolean(scheduledAt)) &&
+    (audience !== "DEPARTMENT_APPOINTMENTS" || Boolean(departmentId)) &&
+    (!expiresAt || sendMode === "now" || expiresAt > scheduledAt);
+
+  const startCompose = () => {
+    setConfirming(false);
+    setMessage(null);
+    setPane({ kind: "compose" });
+  };
+
+  const closePane = () => {
+    setPane(null);
+    setConfirming(false);
+    setConfirmCancel(false);
+  };
 
   const requestConfirmation = (event: FormEvent) => {
     event.preventDefault();
     setMessage(null);
     if (!canSubmit) {
-      setMessage({ tone: "error", text: "Vui lòng nhập đủ tiêu đề, nội dung và thời gian gửi." });
+      setMessage({ tone: "bad", text: "Vui lòng nhập đủ tiêu đề, nội dung và thời gian gửi." });
       return;
     }
     setConfirming(true);
@@ -117,14 +148,10 @@ export default function DashboardNotificationsPage() {
         body: {
           title: title.trim(),
           body: body.trim(),
-          scheduledAt:
-            sendMode === "schedule"
-              ? fromVietnamDateTimeInput(scheduledAt)
-              : undefined,
+          scheduledAt: sendMode === "schedule" ? fromVietnamDateTimeInput(scheduledAt) : undefined,
           expiresAt: expiresAt ? fromVietnamDateTimeInput(expiresAt) : undefined,
           audience,
-          departmentId:
-            audience === "DEPARTMENT_APPOINTMENTS" ? departmentId : undefined,
+          departmentId: audience === "DEPARTMENT_APPOINTMENTS" ? departmentId : undefined,
         },
       });
       setConfirming(false);
@@ -135,262 +162,263 @@ export default function DashboardNotificationsPage() {
       setAudience("ALL_PATIENTS");
       setDepartmentId("");
       setSendMode("now");
-      setComposerOpen(false);
+      closePane();
       setMessage({
-        tone: "success",
-        text: result.publishedAt
-          ? `Đã tạo thông báo cho ${result.recipientCount} người khám.`
-          : `Đã lên lịch thông báo cho ${result.recipientCount} người khám.`,
+        tone: "good",
+        text: result.publishedAt ? `Đã tạo thông báo cho ${result.recipientCount} người khám.` : `Đã lên lịch thông báo cho ${result.recipientCount} người khám.`,
       });
       await announcementsQuery.refetch();
     } catch (error) {
-      setMessage({
-        tone: "error",
-        text: error instanceof Error ? error.message : "Không thể tạo thông báo.",
-      });
+      setConfirming(false);
+      setMessage({ tone: "bad", text: error instanceof Error ? error.message : "Không thể tạo thông báo." });
     } finally {
       setSubmitting(false);
     }
   };
 
   const cancelScheduled = async (campaignId: string) => {
-    if (!window.confirm("Hủy lịch gửi thông báo này? Chiến dịch sẽ không được phát hành tự động.")) return;
-    setCancellingId(campaignId);
+    setCancelling(true);
     setMessage(null);
     try {
-      await apiRequest(`/dashboard/notifications/${campaignId}/cancel`, {
-        method: "PATCH",
-      });
-      setMessage({ tone: "success", text: "Đã hủy lịch gửi thông báo." });
+      await apiRequest(`/dashboard/notifications/${campaignId}/cancel`, { method: "PATCH" });
+      setMessage({ tone: "good", text: "Đã hủy lịch gửi thông báo." });
+      setConfirmCancel(false);
       await announcementsQuery.refetch();
     } catch (error) {
-      setMessage({
-        tone: "error",
-        text: error instanceof Error ? error.message : "Không thể hủy lịch gửi.",
-      });
+      setMessage({ tone: "bad", text: error instanceof Error ? error.message : "Không thể hủy lịch gửi." });
     } finally {
-      setCancellingId(null);
+      setCancelling(false);
     }
   };
 
-  return (
-    <div className="space-y-6">
-      <DashboardPageHeader
-        eyebrow="Giao tiếp với người khám"
-        title="Thông báo ứng dụng"
-        description="Soạn một lần, hệ thống lưu vào hộp thư của người khám và chuyển phát thông báo đẩy theo lựa chọn của từng tài khoản."
-        actions={
-          <>
-            {!composerOpen ? <button type="button" onClick={() => setComposerOpen(true)} className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-[var(--primary)] px-4 text-sm font-semibold text-white hover:opacity-90"><BellRing className="h-4 w-4" />Soạn thông báo</button> : null}
-            <button
-              type="button"
-              onClick={() => void announcementsQuery.refetch()}
-              className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-4 text-sm font-semibold hover:bg-[var(--surface-soft)]"
-            >
-              <RefreshCw className={`h-4 w-4 ${announcementsQuery.isFetching ? "animate-spin" : ""}`} />
-              Làm mới
-            </button>
-          </>
-        }
-      />
+  const queryErrorMessage = announcementsQuery.error ? (announcementsQuery.error instanceof Error ? announcementsQuery.error.message : "Không tải được lịch sử.") : "";
 
-      <DashboardFeedback
-        error={message?.tone === "error" ? message.text : undefined}
-        notice={message?.tone === "success" ? message.text : undefined}
-        onDismiss={() => setMessage(null)}
-      />
-
-      <div className={`grid gap-6 transition-[grid-template-columns] duration-300 ${composerOpen ? "xl:grid-cols-[minmax(0,1fr)_430px]" : "xl:grid-cols-1"}`}>
-        {composerOpen ? (
-        <aside className="min-w-0 xl:order-2">
-        <DashboardWorkspace
-          open={composerOpen}
-          onOpenChange={setComposerOpen}
-          title="Soạn thông báo"
-          description="Chọn đúng nhóm người nhận, thời điểm gửi và thời hạn hiển thị."
-        >
-          <div className="flex items-center gap-3">
-            <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-[var(--primary-soft)] text-[var(--primary)]">
-              <BellRing className="h-5 w-5" />
-            </span>
-            <div>
-              <h2 className="font-semibold">Soạn thông báo mới</h2>
-              <p className="text-sm text-[var(--text-muted)]">Chọn đúng nhóm người nhận để hạn chế thông báo không liên quan.</p>
-            </div>
+  const columns: DsColumn<Announcement>[] = [
+    {
+      key: "title",
+      header: "Thông báo",
+      cell: (row) => (
+        <div>
+          <strong>{row.title}</strong>
+          <div style={{ color: "var(--ds-muted)", fontSize: 12, maxWidth: 380, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.body}</div>
+        </div>
+      ),
+    },
+    { key: "audience", header: "Nhóm nhận", cell: (row) => row.departmentName ?? audienceLabels[row.audience] },
+    { key: "recipients", header: "Người nhận", align: "num", cell: (row) => row.recipientCount },
+    { key: "sent", header: "Đẩy đã gửi", align: "num", cell: (row) => row.deliverySummary.SENT ?? 0 },
+    {
+      key: "status",
+      header: "Trạng thái",
+      cell: (row) => {
+        const status = campaignStatus(row);
+        return (
+          <div>
+            <DsStatusPill tone={statusTone[status]}>{statusLabel[status]}</DsStatusPill>
+            <div style={{ color: "var(--ds-muted)", fontSize: 12 }}>{formatVietnamDateTime(status === "SCHEDULED" ? row.scheduledAt : row.createdAt)}</div>
           </div>
+        );
+      },
+    },
+  ];
 
-          <form onSubmit={requestConfirmation} className="mt-6 space-y-5">
-            <fieldset>
-              <legend className="text-sm font-medium">Nhóm người nhận</legend>
-              <div className="mt-2 grid gap-2">
-                {(Object.keys(audienceLabels) as AnnouncementAudience[]).map((value) => (
-                  <label key={value} className={`flex cursor-pointer items-start gap-3 rounded-lg border p-3 text-sm ${audience === value ? "border-[var(--primary)] bg-[var(--primary-soft)]" : "border-[var(--border)]"}`}>
-                    <input
-                      type="radio"
-                      name="audience"
-                      checked={audience === value}
-                      onChange={() => {
-                        setAudience(value);
-                        if (value !== "DEPARTMENT_APPOINTMENTS") setDepartmentId("");
-                      }}
-                    />
-                    <span className="font-semibold">{audienceLabels[value]}</span>
-                  </label>
-                ))}
-              </div>
-              {audience === "DEPARTMENT_APPOINTMENTS" ? (
-                <select
-                  value={departmentId}
-                  onChange={(event) => setDepartmentId(event.target.value)}
-                  className={inputClass}
-                  aria-label="Chọn chuyên khoa"
-                >
-                  <option value="">Chọn chuyên khoa</option>
-                  {departments.map((department) => (
-                    <option key={department.id} value={department.id}>{department.name}</option>
-                  ))}
-                </select>
-              ) : null}
-            </fieldset>
-
-            <label className="block text-sm font-medium">
-              Tiêu đề <span className="text-red-600">*</span>
-              <input
-                value={title}
-                onChange={(event) => setTitle(event.target.value)}
-                maxLength={120}
-                className={inputClass}
-                placeholder="Ví dụ: Thay đổi giờ làm việc cuối tuần"
-              />
-              <span className="mt-1 block text-right text-xs text-[var(--text-muted)]">{title.length}/120</span>
-            </label>
-
-            <label className="block text-sm font-medium">
-              Nội dung <span className="text-red-600">*</span>
-              <textarea
-                value={body}
-                onChange={(event) => setBody(event.target.value)}
-                maxLength={1000}
-                rows={7}
-                className={`${inputClass} resize-y leading-6`}
-                placeholder="Nội dung ngắn gọn, rõ hành động người khám cần thực hiện."
-              />
-              <span className="mt-1 block text-right text-xs text-[var(--text-muted)]">{body.length}/1000</span>
-            </label>
-
-            <fieldset>
-              <legend className="text-sm font-medium">Thời điểm phát hành</legend>
-              <div className="mt-2 grid gap-2 sm:grid-cols-2">
-                {(["now", "schedule"] as const).map((mode) => (
-                  <label key={mode} className={`flex cursor-pointer items-center gap-3 rounded-lg border p-3 text-sm ${sendMode === mode ? "border-[var(--primary)] bg-[var(--primary-soft)]" : "border-[var(--border)]"}`}>
-                    <input type="radio" name="sendMode" checked={sendMode === mode} onChange={() => setSendMode(mode)} />
-                    {mode === "now" ? <Send className="h-4 w-4" /> : <CalendarClock className="h-4 w-4" />}
-                    <span className="font-semibold">{mode === "now" ? "Gửi ngay" : "Hẹn giờ"}</span>
-                  </label>
-                ))}
-              </div>
-              {sendMode === "schedule" ? (
-                <input
-                  type="datetime-local"
-                  value={scheduledAt}
-                  onChange={(event) => setScheduledAt(event.target.value)}
-                  className={inputClass}
-                />
-              ) : null}
-            </fieldset>
-
-            <label className="block text-sm font-medium">
-              Tự ẩn sau thời điểm (tùy chọn)
-              <input
-                type="datetime-local"
-                value={expiresAt}
-                onChange={(event) => setExpiresAt(event.target.value)}
-                className={inputClass}
-              />
-              <span className="mt-1 block text-xs text-[var(--text-muted)]">Sau thời điểm này thông báo không còn hiển thị trong hộp thư và không được gửi đến thiết bị.</span>
-            </label>
-
-            <button
-              type="submit"
-              disabled={!canSubmit || submitting}
-              className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-[var(--primary)] px-5 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
-            >
-              <Send className="h-4 w-4" />
-              Xem lại trước khi gửi
-            </button>
-          </form>
-        </DashboardWorkspace>
-        </aside>
-        ) : null}
-
-        <DashboardSurface className="overflow-hidden xl:order-1">
-          <div className="border-b border-[var(--border-soft)] p-5">
-            <h2 className="font-semibold">Lịch sử chiến dịch</h2>
-            <p className="mt-1 text-sm text-[var(--text-muted)]">Theo dõi phạm vi và trạng thái chuyển phát gần đây.</p>
-          </div>
-          {announcementsQuery.isLoading ? <p className="p-5 text-sm text-[var(--text-muted)]">Đang tải lịch sử...</p> : null}
-          {announcementsQuery.error ? <p className="m-5 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{announcementsQuery.error instanceof Error ? announcementsQuery.error.message : "Không tải được lịch sử."}</p> : null}
-          {!announcementsQuery.isLoading && !announcementsQuery.error && items.length === 0 ? (
-            <div className="p-5"><DashboardEmptyState title="Chưa có chiến dịch" description="Thông báo đầu tiên sẽ xuất hiện tại đây sau khi được tạo." /></div>
-          ) : null}
-          <div className="divide-y divide-[var(--border-soft)]">
+  const list = (
+    <DsPanel flush>
+      <DsToolbar>
+        <DsButton variant="primary" onClick={startCompose}>
+          <BellRing aria-hidden="true" />
+          Soạn thông báo
+        </DsButton>
+        <DsButton onClick={() => void announcementsQuery.refetch()}>
+          <RefreshCw aria-hidden="true" className={announcementsQuery.isFetching ? "animate-spin" : undefined} />
+          Làm mới
+        </DsButton>
+      </DsToolbar>
+      <DsTabs label="Lọc chiến dịch theo trạng thái" items={statusTabs} value={statusFilter} onChange={setStatusFilter} />
+      {open ? (
+        items.length ? (
+          <div role="listbox" aria-label="Lịch sử chiến dịch">
             {items.map((item) => {
-              const sent = item.deliverySummary.SENT ?? 0;
-              const failed = (item.deliverySummary.FAILED ?? 0) + (item.deliverySummary.EXHAUSTED ?? 0) + (item.deliverySummary.INVALID_TOKEN ?? 0);
-              const isScheduled = !item.publishedAt && !item.cancelledAt;
+              const status = campaignStatus(item);
               return (
-                <article key={item.campaignId} className="p-5">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="font-semibold">{item.title}</p>
-                      <p className="mt-1 line-clamp-2 text-sm leading-5 text-[var(--text-muted)]">{item.body}</p>
-                    </div>
-                    <DashboardStatusBadge className="shrink-0" tone={item.cancelledAt ? "danger" : isScheduled ? "warning" : "positive"}>
-                      {item.cancelledAt ? "Đã hủy" : isScheduled ? "Đã lên lịch" : "Đã phát hành"}
-                    </DashboardStatusBadge>
-                  </div>
-                  <div className="mt-3 grid gap-2 text-xs text-[var(--text-muted)] sm:grid-cols-2">
-                    <span className="inline-flex items-center gap-1.5"><Users className="h-3.5 w-3.5" /> {item.recipientCount} người nhận</span>
-                    <span className="inline-flex items-center gap-1.5"><CheckCircle2 className="h-3.5 w-3.5" /> {sent} thông báo đẩy đã gửi</span>
-                    <span className="sm:col-span-2">{item.departmentName ?? audienceLabels[item.audience]}</span>
-                    {failed > 0 ? <span className="inline-flex items-center gap-1.5 text-red-700"><XCircle className="h-3.5 w-3.5" /> {failed} thông báo gửi lỗi</span> : null}
-                    {item.expiresAt ? <span>Ẩn sau {formatVietnamDateTime(item.expiresAt)}</span> : null}
-                    <span className="sm:col-span-2">{isScheduled ? `Gửi lúc ${formatVietnamDateTime(item.scheduledAt)}` : `Tạo lúc ${formatVietnamDateTime(item.createdAt)}`} · {item.createdBy?.fullName ?? "Tài khoản hệ thống"}</span>
-                  </div>
-                  {isScheduled ? (
-                    <button type="button" disabled={cancellingId === item.campaignId} onClick={() => void cancelScheduled(item.campaignId)} className="mt-3 inline-flex items-center gap-1.5 text-xs font-semibold text-red-700 hover:underline disabled:cursor-wait disabled:opacity-60">
-                      {cancellingId === item.campaignId ? <RefreshCw className="h-4 w-4 animate-spin" /> : <XCircle className="h-4 w-4" />} {cancellingId === item.campaignId ? "Đang hủy..." : "Hủy lịch gửi"}
-                    </button>
-                  ) : null}
-                </article>
+                <button key={item.campaignId} type="button" role="option" className="ds-listrow" aria-selected={pane?.kind === "view" && pane.id === item.campaignId} onClick={() => { setConfirmCancel(false); setPane({ kind: "view", id: item.campaignId }); }}>
+                  <span className="ds-listrow__main">
+                    <strong>{item.title}</strong>
+                    <small>
+                      {item.recipientCount} người nhận · {formatVietnamDateTime(status === "SCHEDULED" ? item.scheduledAt : item.createdAt)}
+                    </small>
+                  </span>
+                  <DsStatusPill tone={statusTone[status]}>{statusLabel[status]}</DsStatusPill>
+                </button>
               );
             })}
           </div>
-        </DashboardSurface>
-      </div>
+        ) : (
+          <DsEmptyState title="Chưa có chiến dịch" />
+        )
+      ) : (
+        <DsDataTable
+          caption="Lịch sử chiến dịch thông báo"
+          columns={columns}
+          rows={items}
+          rowKey={(row) => row.campaignId}
+          loading={announcementsQuery.isLoading}
+          emptyTitle="Chưa có chiến dịch"
+          emptyDescription="Thông báo đầu tiên sẽ xuất hiện tại đây sau khi được tạo."
+          onRowClick={(row) => { setConfirmCancel(false); setPane({ kind: "view", id: row.campaignId }); }}
+        />
+      )}
+      {allItems.length >= 50 ? <p className="ds-hint" style={{ margin: 0, padding: "10px 16px" }}>Hiển thị 50 chiến dịch gần nhất.</p> : null}
+    </DsPanel>
+  );
 
-      {confirming ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="announcement-confirm-title">
-          <div className="w-full max-w-lg rounded-2xl bg-[var(--surface)] p-6 shadow-2xl">
-            <h2 id="announcement-confirm-title" className="text-xl font-semibold">Xác nhận {sendMode === "now" ? "gửi thông báo" : "lên lịch gửi"}</h2>
-            <p className="mt-2 text-sm leading-6 text-[var(--text-muted)]">Thông báo sẽ được lưu trong hộp thư của đúng nhóm đã chọn. Việc gửi thông báo đẩy tuân theo lựa chọn của từng tài khoản.</p>
-            <p className="mt-2 text-sm font-semibold text-[var(--primary)]">{audience === "DEPARTMENT_APPOINTMENTS" ? departments.find((item) => item.id === departmentId)?.name : audienceLabels[audience]}</p>
-            <div className="mt-4 rounded-xl border border-[var(--border)] bg-[var(--surface-muted)] p-4">
-              <p className="font-semibold">{title.trim()}</p>
-              <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-[var(--text-soft)]">{body.trim()}</p>
-              {sendMode === "schedule" ? <p className="mt-3 text-xs font-semibold text-[var(--primary)]">Dự kiến: {formatVietnamDateTime(fromVietnamDateTimeInput(scheduledAt))}</p> : null}
-              {expiresAt ? <p className="mt-1 text-xs text-[var(--text-muted)]">Tự ẩn: {formatVietnamDateTime(fromVietnamDateTimeInput(expiresAt))}</p> : null}
+  const departmentName = departments.find((item) => item.id === departmentId)?.name;
+
+  const composePane =
+    pane?.kind === "compose" ? (
+      <DsPane title={confirming ? `Xác nhận ${sendMode === "now" ? "gửi thông báo" : "lên lịch gửi"}` : "Soạn thông báo"} onClose={closePane}>
+        {confirming ? (
+          <div style={{ display: "grid", gap: 12 }}>
+            <p className="ds-hint" style={{ margin: 0 }}>
+              Thông báo sẽ được lưu trong hộp thư của đúng nhóm đã chọn. Việc gửi thông báo đẩy tuân theo lựa chọn của từng tài khoản.
+            </p>
+            <div className="ds-card">
+              <div className="ds-card__head">
+                <h3>{title.trim()}</h3>
+              </div>
+              <div className="ds-card__body">
+                <p style={{ margin: 0, whiteSpace: "pre-wrap", lineHeight: 1.6 }}>{body.trim()}</p>
+                <DsKeyValue
+                  items={[
+                    { label: "Nhóm nhận", value: audience === "DEPARTMENT_APPOINTMENTS" ? departmentName || "-" : audienceLabels[audience] },
+                    ...(sendMode === "schedule" ? [{ label: "Dự kiến gửi", value: formatVietnamDateTime(fromVietnamDateTimeInput(scheduledAt)) }] : [{ label: "Gửi", value: "Ngay sau khi xác nhận" }]),
+                    ...(expiresAt ? [{ label: "Tự ẩn", value: formatVietnamDateTime(fromVietnamDateTimeInput(expiresAt)) }] : []),
+                  ]}
+                />
+              </div>
             </div>
-            <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-              <button type="button" disabled={submitting} onClick={() => setConfirming(false)} className="min-h-11 rounded-lg border border-[var(--border)] px-4 text-sm font-semibold">Quay lại chỉnh sửa</button>
-              <button type="button" disabled={submitting} onClick={() => void submit()} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-[var(--primary)] px-4 text-sm font-semibold text-white disabled:opacity-60">
-                {submitting ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", flexWrap: "wrap" }}>
+              <DsButton disabled={submitting} onClick={() => setConfirming(false)}>
+                Quay lại chỉnh sửa
+              </DsButton>
+              <DsButton variant="primary" disabled={submitting} onClick={() => void submit()}>
                 {submitting ? "Đang xử lý..." : sendMode === "now" ? "Xác nhận gửi" : "Xác nhận lên lịch"}
-              </button>
+              </DsButton>
             </div>
           </div>
-        </div>
-      ) : null}
-    </div>
+        ) : (
+          <form onSubmit={requestConfirmation} style={{ display: "grid", gap: 12 }} aria-label="Soạn thông báo mới">
+            <fieldset style={{ border: 0, margin: 0, padding: 0, display: "grid", gap: 8 }}>
+              <legend style={{ fontSize: 13, fontWeight: 600, marginBottom: 6 }}>Nhóm người nhận</legend>
+              {(Object.keys(audienceLabels) as AnnouncementAudience[]).map((value) => (
+                <label key={value} className="ds-check" style={{ cursor: "pointer" }}>
+                  <input
+                    type="radio"
+                    name="audience"
+                    checked={audience === value}
+                    style={{ marginTop: 3 }}
+                    onChange={() => {
+                      setAudience(value);
+                      if (value !== "DEPARTMENT_APPOINTMENTS") setDepartmentId("");
+                    }}
+                  />
+                  <span>
+                    <strong>{audienceLabels[value]}</strong>
+                  </span>
+                </label>
+              ))}
+              {audience === "DEPARTMENT_APPOINTMENTS" ? (
+                <DsSelect aria-label="Chọn chuyên khoa" value={departmentId} onChange={(event) => setDepartmentId(event.target.value)}>
+                  <option value="">Chọn chuyên khoa</option>
+                  {departments.map((department) => (
+                    <option key={department.id} value={department.id}>
+                      {department.name}
+                    </option>
+                  ))}
+                </DsSelect>
+              ) : null}
+            </fieldset>
+            <DsField label="Tiêu đề" htmlFor="ann-title" required hint={`${title.length}/120`}>
+              <DsInput id="ann-title" value={title} maxLength={120} placeholder="Ví dụ: Thay đổi giờ làm việc cuối tuần" onChange={(event) => setTitle(event.target.value)} />
+            </DsField>
+            <DsField label="Nội dung" htmlFor="ann-body" required hint={`${body.length}/1000 · ngắn gọn, rõ hành động người khám cần thực hiện`}>
+              <DsTextarea id="ann-body" rows={6} value={body} maxLength={1000} onChange={(event) => setBody(event.target.value)} />
+            </DsField>
+            <fieldset style={{ border: 0, margin: 0, padding: 0, display: "grid", gap: 8 }}>
+              <legend style={{ fontSize: 13, fontWeight: 600, marginBottom: 6 }}>Thời điểm phát hành</legend>
+              <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
+                {(["now", "schedule"] as const).map((mode) => (
+                  <label key={mode} style={{ display: "inline-flex", alignItems: "center", gap: 6, cursor: "pointer" }}>
+                    <input type="radio" name="sendMode" checked={sendMode === mode} onChange={() => setSendMode(mode)} />
+                    <strong style={{ fontSize: 13 }}>{mode === "now" ? "Gửi ngay" : "Hẹn giờ"}</strong>
+                  </label>
+                ))}
+              </div>
+              {sendMode === "schedule" ? <VietnamDateTimeInput value={scheduledAt} onChange={setScheduledAt} ariaLabel="Thời điểm gửi" className="ds-input" /> : null}
+            </fieldset>
+            <DsField label="Tự ẩn sau thời điểm (tùy chọn)" htmlFor="ann-expires" hint="Sau thời điểm này thông báo không còn hiển thị trong hộp thư và không được gửi đến thiết bị.">
+              <VietnamDateTimeInput value={expiresAt} onChange={setExpiresAt} ariaLabel="Thời điểm tự ẩn" className="ds-input" />
+            </DsField>
+            {expiresAt && sendMode === "schedule" && expiresAt <= scheduledAt ? <DsNotice tone="warn">Thời điểm tự ẩn phải sau thời điểm gửi.</DsNotice> : null}
+            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", alignItems: "center", flexWrap: "wrap" }}>
+              {!canSubmit ? <span className="ds-hint">Cần tiêu đề (3 ký tự trở lên), nội dung (5 ký tự trở lên) và nhóm nhận.</span> : null}
+              <DsButton onClick={closePane}>Hủy</DsButton>
+              <DsButton type="submit" variant="primary" disabled={!canSubmit}>
+                Xem lại trước khi gửi
+              </DsButton>
+            </div>
+          </form>
+        )}
+      </DsPane>
+    ) : null;
+
+  const viewPane = selected ? (
+    <DsPane title={selected.title} badge={<DsStatusPill tone={statusTone[campaignStatus(selected)]}>{statusLabel[campaignStatus(selected)]}</DsStatusPill>} onClose={closePane}>
+      <div style={{ display: "grid", gap: 12 }}>
+        <p style={{ margin: 0, whiteSpace: "pre-wrap", lineHeight: 1.6 }}>{selected.body}</p>
+        <DsKeyValue
+          items={[
+            { label: "Nhóm nhận", value: selected.departmentName ?? audienceLabels[selected.audience] },
+            { label: "Người nhận", value: selected.recipientCount },
+            { label: "Thông báo đẩy đã gửi", value: selected.deliverySummary.SENT ?? 0 },
+            {
+              label: "Gửi lỗi",
+              value: (selected.deliverySummary.FAILED ?? 0) + (selected.deliverySummary.EXHAUSTED ?? 0) + (selected.deliverySummary.INVALID_TOKEN ?? 0),
+            },
+            { label: campaignStatus(selected) === "SCHEDULED" ? "Gửi lúc" : "Tạo lúc", value: formatVietnamDateTime(campaignStatus(selected) === "SCHEDULED" ? selected.scheduledAt : selected.createdAt) },
+            ...(selected.expiresAt ? [{ label: "Tự ẩn sau", value: formatVietnamDateTime(selected.expiresAt) }] : []),
+            { label: "Người tạo", value: selected.createdBy?.fullName ?? "Tài khoản hệ thống" },
+          ]}
+        />
+        {campaignStatus(selected) === "SCHEDULED" ? (
+          confirmCancel ? (
+            <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+              <span style={{ fontSize: 13 }}>Hủy lịch gửi? Chiến dịch sẽ không được phát hành tự động.</span>
+              <DsButton variant="danger" disabled={cancelling} onClick={() => void cancelScheduled(selected.campaignId)}>
+                {cancelling ? "Đang hủy..." : "Hủy lịch gửi"}
+              </DsButton>
+              <DsButton onClick={() => setConfirmCancel(false)}>Giữ lịch</DsButton>
+            </div>
+          ) : (
+            <div>
+              <DsButton variant="danger" onClick={() => setConfirmCancel(true)}>
+                Hủy lịch gửi
+              </DsButton>
+            </div>
+          )
+        ) : null}
+      </div>
+    </DsPane>
+  ) : null;
+
+  return (
+    <>
+      <DsPageHeader title="Thông báo ứng dụng" description="Soạn một lần, hệ thống lưu vào hộp thư của người khám và chuyển phát thông báo đẩy theo lựa chọn của từng tài khoản" />
+      <div style={{ display: "grid", gap: 12, marginBottom: 16 }}>
+        {queryErrorMessage ? <DsNotice tone="bad">{queryErrorMessage}</DsNotice> : null}
+        {message ? <DsNotice tone={message.tone}>{message.text}</DsNotice> : null}
+      </div>
+      <DsSplit list={list} pane={composePane ?? viewPane} />
+    </>
   );
 }
