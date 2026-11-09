@@ -129,6 +129,7 @@ export const listDashboardAppointmentsHandler = async (
           typeof req.query.bookingCode === "string"
             ? req.query.bookingCode
             : undefined,
+        q: typeof req.query.q === "string" ? req.query.q : undefined,
         billingState:
           req.query.billingState === "PENDING_INVOICE" ||
           req.query.billingState === "HAS_INVOICE"

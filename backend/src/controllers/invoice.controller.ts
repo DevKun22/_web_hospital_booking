@@ -56,6 +56,7 @@ export const listInvoicesHandler = async (
         typeof req.query.invoiceCode === "string"
           ? req.query.invoiceCode
           : undefined,
+      q: typeof req.query.q === "string" ? req.query.q : undefined,
       barcode:
         typeof req.query.barcode === "string" ? req.query.barcode : undefined,
       phone: typeof req.query.phone === "string" ? req.query.phone : undefined,
