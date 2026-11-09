@@ -103,7 +103,7 @@ export default function DesignSystemPage() {
         <DsPanel title="Màu (đổi theo chế độ sáng hoặc tối)">
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: 12 }}>
             {swatches.map((swatch) => (
-              <div key={swatch.token} style={{ display: "grid", gap: 6 }}>
+              <div key={swatch.token} style={{ display: "grid", gap: 6, alignContent: "start" }}>
                 <span style={{ height: 44, borderRadius: 6, border: "1px solid var(--ds-line)", background: `var(${swatch.token})` }} />
                 <strong style={{ fontSize: 13 }}>{swatch.name}</strong>
                 <span className="ds-mono" style={{ color: "var(--ds-muted)" }}>

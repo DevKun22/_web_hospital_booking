@@ -24,12 +24,27 @@ export function DsDrawer({
   children: React.ReactNode;
 }) {
   const container = useDsRoot();
+  // Ngăn bên thường mở từ một hàng của bảng (không phải nút Trigger của Radix), nên tự ghi nhớ
+  // phần tử đang có tiêu điểm lúc mở để trả tiêu điểm về đó khi đóng.
+  const openerRef = React.useRef<HTMLElement | null>(null);
 
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal container={container ?? undefined}>
         <Dialog.Overlay className="ds-drawer-overlay" />
-        <Dialog.Content className="ds ds-drawer">
+        <Dialog.Content
+          className="ds ds-drawer"
+          onOpenAutoFocus={() => {
+            openerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+          }}
+          onCloseAutoFocus={(event) => {
+            const opener = openerRef.current;
+            if (opener && opener.isConnected) {
+              event.preventDefault();
+              opener.focus();
+            }
+          }}
+        >
           <div className="ds-drawer__head">
             <Dialog.Title className="ds-drawer__title">{title}</Dialog.Title>
             <Dialog.Close asChild>
