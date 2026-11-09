@@ -12,7 +12,7 @@ import { DashboardWorkspace } from "@/components/dashboard/dashboard-workspace";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { VietnamDateInput } from "@/components/ui/vietnam-date-input";
-import { apiRequest, uploadMedicalFile } from "@/lib/api";
+import { apiRequest, uploadMedicalFile, apiUrl } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import {
   fetchDashboardMedicalRecord,
@@ -556,6 +556,7 @@ export default function MedicalRecordsPage() {
                 <p className="mt-1 text-xs text-[#667892]">
                   Tải lên PDF, JPG, PNG hoặc WEBP, tối đa 10 MB. Tệp được lưu riêng tư, chỉ bệnh nhân của hồ sơ này xem được sau khi công bố.
                 </p>
+                {selected.resultPdfUrl && recordForm.resultPdfUrl === selected.resultPdfUrl ? (<a href={apiUrl(`/dashboard/medical-records/${selected.id}/file`)} target="_blank" rel="noopener" className="mt-2 inline-flex text-xs font-medium text-[#0d4f8b]">Mở tệp kết quả đã lưu</a>) : null}
                 {recordForm.resultPdfUrl ? (
                   <p className="mt-2 rounded-md border border-[#e5ebf3] bg-[#f8fafc] px-3 py-2 text-xs text-[#3d5a73]">Đã đính kèm tệp kết quả (xem trước không khả dụng vì tệp được lưu riêng tư).</p>
                 ) : null}
@@ -580,7 +581,7 @@ export default function MedicalRecordsPage() {
                         <p className="text-[#667892]">{lab.resultValue || "-"} {lab.unit || ""}</p>
                         <p className="text-xs text-[#667892]">Mốc: {lab.referenceRange || "-"}</p>
                         <p className="mt-1">{lab.conclusion || ""}</p>
-                        {lab.fileUrl ? <a href={lab.fileUrl} target="_blank" className="text-xs font-medium text-[#0d4f8b]">Mở file</a> : null}
+                        {lab.fileUrl ? <a href={apiUrl(`/dashboard/medical-records/${selected.id}/lab-results/${lab.id}/file`)} target="_blank" rel="noopener" className="text-xs font-medium text-[#0d4f8b]">Mở file</a> : null}
                       </div>
                       <div className="flex gap-2">
                         <button type="button" onClick={() => { setEditingLab(lab); setDeleteLabTarget(null); setLabForm(toLabForm(lab)); }} className="rounded-md border border-[#cfd8e6] px-2 py-1 text-xs text-[#42526b]">Sửa</button>

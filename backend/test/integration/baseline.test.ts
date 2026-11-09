@@ -5182,6 +5182,26 @@ test("doctors upload private result files; content, size and role are enforced e
     assert.match(file.headers.get("content-disposition") ?? "", /\.pdf"/);
     assert.equal(requested.length, 1);
     assert.match(requested[0], /\/raw\/authenticated\/s--[^/]+--\/v1700000000\//);
+
+    // Bác sĩ mở tệp trong dashboard cũng qua máy chủ (đường dẫn gốc của tệp riêng tư không mở được):
+    // đúng loại tệp, đường dẫn được ký; bác sĩ khác (ngoài phạm vi) hoặc không có quyền thì từ chối.
+    const dashboardFile = await fetch(`${http.baseUrl}/api/dashboard/medical-records/${record.id}/file`, {
+      headers: dashboardHeaders(doctorCookie),
+    });
+    assert.equal(dashboardFile.status, 200);
+    assert.equal(dashboardFile.headers.get("content-type"), "application/pdf");
+    assert.equal(dashboardFile.headers.get("cache-control"), "private, no-store, max-age=0");
+    assert.equal(requested.length, 2);
+    assert.match(requested[1], /\/raw\/authenticated\/s--[^/]+--\/v1700000000\//);
+    const otherDoctorCookie = await authCookie(fixture.doctorTwoUser.id, "DOCTOR");
+    const otherDoctorFile = await fetch(`${http.baseUrl}/api/dashboard/medical-records/${record.id}/file`, {
+      headers: dashboardHeaders(otherDoctorCookie),
+    });
+    assert.equal(otherDoctorFile.status, 404);
+    const staffFile = await fetch(`${http.baseUrl}/api/dashboard/medical-records/${record.id}/file`, {
+      headers: dashboardHeaders(staffCookie),
+    });
+    assert.equal(staffFile.status, 403);
   } finally {
     uploader.upload_stream = originalUpload;
     uploader.destroy = originalDestroy;

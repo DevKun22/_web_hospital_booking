@@ -2,7 +2,7 @@ import type { NextFunction, Request, Response } from "express";
 import { isFirebaseAdminConfigured } from "../config/firebaseAdmin.js";
 import type { AppointmentStatus, InvoiceStatus } from "../../generated/prisma/enums.js";
 import PatientPortalService from "../services/patientPortal.service.js";
-import SecureMedicalFileService from "../services/secureMedicalFile.service.js";
+import SecureMedicalFileService, { sendMedicalFile } from "../services/secureMedicalFile.service.js";
 import { AppError } from "../utils/appError.js";
 import { parsePagination } from "../utils/pagination.js";
 import PaymentService from "../services/payment.service.js";
@@ -97,15 +97,7 @@ export const downloadPatientMedicalFileHandler = async (req: Request, res: Respo
       req.params.labResultId ? param(req, "labResultId") : undefined,
     );
     const file = await SecureMedicalFileService.fetch(source.url);
-    res.setHeader("Content-Type", file.contentType);
-    const safeName = source.fileName.replace(/[^a-zA-Z0-9._-]/g, "-");
-    const fileName = file.extension && !safeName.toLowerCase().endsWith(`.${file.extension}`)
-      ? `${safeName}.${file.extension}`
-      : safeName;
-    res.setHeader("Content-Disposition", `inline; filename="${fileName}"`);
-    res.setHeader("Cache-Control", "private, no-store, max-age=0");
-    res.setHeader("X-Content-Type-Options", "nosniff");
-    return res.send(file.buffer);
+    return sendMedicalFile(res, file, source.fileName);
   } catch (error) { next(error); }
 };
 
