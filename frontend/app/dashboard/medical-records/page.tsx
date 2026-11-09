@@ -4,7 +4,6 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
-import { Search } from "lucide-react";
 import {
   DsButton,
   DsDataTable,
@@ -34,6 +33,8 @@ import {
   useDashboardMedicalRecords,
 } from "@/lib/dashboard-medical-records-query";
 import { formatVietnamDate, getVietnamDateInput } from "@/lib/date";
+import { useDebouncedValue } from "@/lib/use-debounced-value";
+
 import { can } from "@/lib/permissions";
 import { queryKeys } from "@/lib/query-keys";
 import type { DoctorProfile, LabResult, MedicalRecord, MedicalResultStatus } from "@/lib/types";
@@ -178,7 +179,8 @@ export default function MedicalRecordsPage() {
   const [doctorId, setDoctorId] = useState("");
   const [date, setDate] = useState(getVietnamDateInput());
   const [recordCode, setRecordCode] = useState("");
-  const [appliedRecordCode, setAppliedRecordCode] = useState("");
+  // Gõ đến đâu lọc đến đó (chờ ngừng gõ một chút rồi mới gọi máy chủ).
+  const appliedRecordCode = useDebouncedValue(recordCode.trim());
   const [page, setPage] = useState(1);
   const [busy, setBusy] = useState(false);
   const [uploadingRecordFile, setUploadingRecordFile] = useState(false);
@@ -227,7 +229,6 @@ export default function MedicalRecordsPage() {
 
     const timeoutId = window.setTimeout(() => {
       setRecordCode(linkedRecordCode);
-      setAppliedRecordCode(linkedRecordCode);
       setDate("");
       setPage(1);
     }, 0);
@@ -417,11 +418,7 @@ export default function MedicalRecordsPage() {
     }
   };
 
-  const applyRecordSearch = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    setAppliedRecordCode(recordCode.trim());
-    setPage(1);
-  };
+  const applyRecordSearch = (event: FormEvent<HTMLFormElement>) => event.preventDefault();
 
   const draftCount = records.filter((record) => record.status === "DRAFT").length;
   const needPrescription = records.filter((record) => !record.prescriptionRecord && ["IN_PROGRESS", "COMPLETED"].includes(record.appointment.status)).length;
@@ -513,12 +510,16 @@ export default function MedicalRecordsPage() {
               </div>
             ) : null}
             <div style={{ minWidth: 150, flex: "1 1 170px" }}>
-              <DsInput aria-label="Mã hồ sơ" value={recordCode} onChange={(event) => setRecordCode(event.target.value)} placeholder="Mã hồ sơ" />
+              <DsInput
+                aria-label="Mã hồ sơ"
+                value={recordCode}
+                onChange={(event) => {
+                  setRecordCode(event.target.value);
+                  setPage(1);
+                }}
+                placeholder="Gõ mã hồ sơ để lọc"
+              />
             </div>
-            <DsButton type="submit">
-              <Search aria-hidden="true" />
-              Tìm
-            </DsButton>
           </DsToolbar>
         </form>
         <DsTabs

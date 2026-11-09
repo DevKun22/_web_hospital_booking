@@ -1,8 +1,8 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { RefreshCw, Search } from "lucide-react";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { RefreshCw } from "lucide-react";
 import {
   DsButton,
   DsEmptyState,
@@ -21,6 +21,8 @@ import {
 import { apiRequest } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { formatVietnamDateTime } from "@/lib/date";
+import { useDebouncedValue } from "@/lib/use-debounced-value";
+
 import { can } from "@/lib/permissions";
 
 type StockMedicine = { id: string; code: string; name: string; unit: string; stockQuantity: number; sellableQuantity?: number; expiredQuantity?: number };
@@ -97,7 +99,8 @@ export default function PharmacyQueuePage() {
   const canDispense = can(user, "pharmacy.dispense");
   const [status, setStatus] = useState<"NOT_DISPENSED" | "DISPENSED">("NOT_DISPENSED");
   const [search, setSearch] = useState("");
-  const [appliedSearch, setAppliedSearch] = useState("");
+  // Gõ đến đâu lọc đến đó (chờ ngừng gõ một chút rồi mới gọi máy chủ).
+  const appliedSearch = useDebouncedValue(search.trim());
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   // Lựa chọn thuốc kho của dược sĩ theo từng dòng; dòng chưa chọn dùng thuốc đã gắn sẵn.
@@ -112,6 +115,7 @@ export default function PharmacyQueuePage() {
         query: { dispenseStatus: status, q: appliedSearch || undefined, page, limit: QUEUE_PAGE_SIZE },
       }),
     refetchInterval: 30_000,
+    placeholderData: keepPreviousData,
   });
   // Máy chủ trả tối đa 100 thuốc mỗi trang; lấy lần lượt các trang để ô chọn thuốc luôn đủ cả kho.
   const medicinesQuery = useQuery({
@@ -182,11 +186,7 @@ export default function PharmacyQueuePage() {
     setNote("");
     dispenseMutation.reset();
   };
-  const applySearch = (event: FormEvent) => {
-    event.preventDefault();
-    setAppliedSearch(search.trim());
-    setPage(1);
-  };
+  const applySearch = (event: FormEvent) => event.preventDefault();
 
   const queue = queueQuery.data?.items ?? [];
   const queuePagination = queueQuery.data?.pagination;
@@ -213,12 +213,16 @@ export default function PharmacyQueuePage() {
       <form onSubmit={applySearch} aria-label="Tìm đơn cần cấp">
         <DsToolbar>
           <div style={{ minWidth: 160, flex: "1 1 200px" }}>
-            <DsInput aria-label="Tìm đơn" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Mã đơn, tên hoặc SĐT người khám" />
+            <DsInput
+              aria-label="Tìm đơn"
+              value={search}
+              onChange={(event) => {
+                setSearch(event.target.value);
+                setPage(1);
+              }}
+              placeholder="Gõ mã đơn, tên hoặc SĐT để lọc"
+            />
           </div>
-          <DsButton type="submit">
-            <Search aria-hidden="true" />
-            Tìm
-          </DsButton>
         </DsToolbar>
       </form>
       <DsTabs

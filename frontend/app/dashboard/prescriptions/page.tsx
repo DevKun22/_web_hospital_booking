@@ -3,7 +3,7 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useQueryClient } from "@tanstack/react-query";
-import { Plus, Search } from "lucide-react";
+import { Plus } from "lucide-react";
 import {
   DsButton,
   DsDataTable,
@@ -33,6 +33,8 @@ import {
   useDashboardPrescriptions,
 } from "@/lib/dashboard-prescriptions-query";
 import { formatVietnamDateTime } from "@/lib/date";
+import { useDebouncedValue } from "@/lib/use-debounced-value";
+
 import { can } from "@/lib/permissions";
 import { queryKeys } from "@/lib/query-keys";
 import type { DoctorProfile, Prescription, PrescriptionItem, PrescriptionStatus } from "@/lib/types";
@@ -101,7 +103,8 @@ export default function PrescriptionsPage() {
   const [status, setStatus] = useState("");
   const [doctorId, setDoctorId] = useState("");
   const [prescriptionCode, setPrescriptionCode] = useState("");
-  const [appliedPrescriptionCode, setAppliedPrescriptionCode] = useState("");
+  // Gõ đến đâu lọc đến đó (chờ ngừng gõ một chút rồi mới gọi máy chủ).
+  const appliedPrescriptionCode = useDebouncedValue(prescriptionCode.trim());
   const [page, setPage] = useState(1);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -308,11 +311,7 @@ export default function PrescriptionsPage() {
     }
   };
 
-  const applySearch = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    setAppliedPrescriptionCode(prescriptionCode.trim());
-    setPage(1);
-  };
+  const applySearch = (event: FormEvent<HTMLFormElement>) => event.preventDefault();
 
   const draftCount = prescriptions.filter((item) => item.status === "DRAFT").length;
   const emptyDraft = prescriptions.filter((item) => item.status === "DRAFT" && item.items.length === 0).length;
@@ -378,12 +377,16 @@ export default function PrescriptionsPage() {
             </div>
           ) : null}
           <div style={{ minWidth: 150, flex: "1 1 170px" }}>
-            <DsInput aria-label="Mã đơn" value={prescriptionCode} onChange={(event) => setPrescriptionCode(event.target.value)} placeholder="Mã đơn" />
+            <DsInput
+              aria-label="Mã đơn"
+              value={prescriptionCode}
+              onChange={(event) => {
+                setPrescriptionCode(event.target.value);
+                setPage(1);
+              }}
+              placeholder="Gõ mã đơn để lọc"
+            />
           </div>
-          <DsButton type="submit">
-            <Search aria-hidden="true" />
-            Tìm
-          </DsButton>
           {canEdit ? (
             <DsButton variant="primary" onClick={startCreate}>
               <Plus aria-hidden="true" />
