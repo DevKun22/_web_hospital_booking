@@ -204,7 +204,7 @@ export default function MedicalRecordsPage() {
       status: status || undefined,
       doctorId: isDoctor ? undefined : doctorId || undefined,
       date: date || undefined,
-      recordCode: appliedRecordCode || undefined,
+      q: appliedRecordCode || undefined,
       page,
       limit: 20,
     }),
@@ -511,13 +511,13 @@ export default function MedicalRecordsPage() {
             ) : null}
             <div style={{ minWidth: 150, flex: "1 1 170px" }}>
               <DsInput
-                aria-label="Mã hồ sơ"
+                aria-label="Tìm hồ sơ khám"
                 value={recordCode}
                 onChange={(event) => {
                   setRecordCode(event.target.value);
                   setPage(1);
                 }}
-                placeholder="Gõ mã hồ sơ để lọc"
+                placeholder="Gõ mã hồ sơ, mã lịch hoặc tên để lọc"
               />
             </div>
           </DsToolbar>

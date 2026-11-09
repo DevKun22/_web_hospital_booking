@@ -127,7 +127,7 @@ export default function PrescriptionsPage() {
     () => ({
       status: status || undefined,
       doctorId: isDoctor ? undefined : doctorId || undefined,
-      prescriptionCode: appliedPrescriptionCode || undefined,
+      q: appliedPrescriptionCode || undefined,
       page,
       limit: 20,
     }),
@@ -378,13 +378,13 @@ export default function PrescriptionsPage() {
           ) : null}
           <div style={{ minWidth: 150, flex: "1 1 170px" }}>
             <DsInput
-              aria-label="Mã đơn"
+              aria-label="Tìm đơn thuốc"
               value={prescriptionCode}
               onChange={(event) => {
                 setPrescriptionCode(event.target.value);
                 setPage(1);
               }}
-              placeholder="Gõ mã đơn để lọc"
+              placeholder="Gõ mã đơn, mã hồ sơ hoặc tên để lọc"
             />
           </div>
           {canEdit ? (
