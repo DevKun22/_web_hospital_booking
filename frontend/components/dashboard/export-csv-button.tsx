@@ -71,8 +71,8 @@ export function ExportCsvButton({
               {busy ? "Đang xuất..." : label}
             </DsButton>
             {ranged ? (
-              <DsButton variant="ghost" aria-expanded={showRange} onClick={() => setShowRange((current) => !current)}>
-                {showRange ? "Ẩn khoảng ngày" : from || to ? "Đã chọn khoảng ngày" : "Chọn khoảng ngày"}
+              <DsButton aria-expanded={showRange} onClick={() => setShowRange((current) => !current)}>
+                {showRange ? "Ẩn khoảng ngày" : from || to ? "Khoảng ngày: đã chọn" : "Khoảng ngày…"}
               </DsButton>
             ) : null}
           </>

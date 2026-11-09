@@ -129,6 +129,8 @@ export default function AppointmentsPage() {
   const [search, setSearch] = useState("");
   const [billingState, setBillingState] = useState<"" | "PENDING_INVOICE" | "HAS_INVOICE">("");
   const [page, setPage] = useState(1);
+  // Khi khung chi tiết đang mở, cột danh sách hẹp nên chỉ giữ ô tìm; các bộ lọc khác gập sau nút "Bộ lọc".
+  const [showFilters, setShowFilters] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -479,6 +481,24 @@ export default function AppointmentsPage() {
     <DsPanel flush>
       <form onSubmit={(event) => event.preventDefault()} aria-label="Lọc lịch hẹn">
         <DsToolbar>
+          <div style={{ minWidth: 170, flex: "1 1 200px", order: -2 }}>
+            <DsInput
+              aria-label="Tìm lịch hẹn"
+              value={search}
+              onChange={(event) => {
+                setSearch(event.target.value);
+                setPage(1);
+              }}
+              placeholder="Gõ SĐT, mã lịch hoặc tên để lọc"
+            />
+          </div>
+          {open ? (
+            <DsButton variant="ghost" aria-expanded={showFilters} style={{ order: -1 }} onClick={() => setShowFilters((current) => !current)}>
+              Bộ lọc
+            </DsButton>
+          ) : null}
+          {!open || showFilters ? (
+            <>
           <div style={{ minWidth: 150, flex: "0 1 170px" }}>
             <VietnamDateInput
               value={date}
@@ -529,17 +549,6 @@ export default function AppointmentsPage() {
               </DsSelect>
             </div>
           ) : null}
-          <div style={{ minWidth: 170, flex: "1 1 200px" }}>
-            <DsInput
-              aria-label="Tìm lịch hẹn"
-              value={search}
-              onChange={(event) => {
-                setSearch(event.target.value);
-                setPage(1);
-              }}
-              placeholder="Gõ SĐT, mã lịch hoặc tên để lọc"
-            />
-          </div>
           <div style={{ minWidth: 150, flex: "0 1 170px" }}>
             <DsSelect
               aria-label="Trạng thái khác"
@@ -561,6 +570,8 @@ export default function AppointmentsPage() {
           <DsButton variant="ghost" onClick={resetFilters}>
             Đặt lại
           </DsButton>
+            </>
+          ) : null}
         </DsToolbar>
       </form>
       <DsTabs label="Lọc lịch hẹn theo trạng thái" items={tabs} value={tabValue} onChange={changeTab} />
