@@ -8,6 +8,7 @@ import {
   FileText,
   Images,
   LayoutDashboard,
+  Palette,
   Package,
   Pill,
   Receipt,
@@ -42,6 +43,8 @@ export type DashboardNavItem = {
   // Hiện khi vai trò có BẤT KỲ quyền nào trong danh sách; rỗng = mọi nhân sự.
   permissions: readonly string[];
   group: DashboardNavGroupKey;
+  // Truy cập được bằng đường dẫn nhưng không hiện trong sidebar và tìm nhanh.
+  unlisted?: boolean;
 };
 
 export const dashboardNavGroups: ReadonlyArray<{
@@ -230,6 +233,16 @@ export const dashboardNavItems: readonly DashboardNavItem[] = [
     permissions: ["audit.view"],
     group: "system",
   },
+  {
+    key: "design-system",
+    href: "/dashboard/design-system",
+    label: "Thành phần giao diện",
+    description: "Trang xem thử nền thiết kế mới của khu quản trị",
+    icon: Palette,
+    permissions: [],
+    group: "system",
+    unlisted: true,
+  },
 ] as const;
 
 export const dashboardRoleLabels: Record<DashboardRole, string> = {
@@ -249,6 +262,11 @@ export function getVisibleDashboardItems(user: DashboardUser) {
   return dashboardNavItems.filter(
     (item) => item.permissions.length === 0 || can(user, ...item.permissions),
   );
+}
+
+// Mục hiện trong sidebar và tìm nhanh (bỏ các mục chỉ truy cập bằng đường dẫn).
+export function getListedDashboardItems(user: DashboardUser) {
+  return getVisibleDashboardItems(user).filter((item) => !("unlisted" in item && item.unlisted));
 }
 
 export function canAccessDashboardPath(user: DashboardUser, pathname: string) {

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import "./ds.css";
 import { DashboardAuthLayout } from "@/components/dashboard/dashboard-auth-layout";
 import { buildNoIndexMetadata } from "@/lib/seo";
 
