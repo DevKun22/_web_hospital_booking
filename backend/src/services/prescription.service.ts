@@ -114,6 +114,8 @@ class PrescriptionService {
       medicalRecordId?: string;
       appointmentId?: string;
       prescriptionCode?: string;
+      /** Tìm gần đúng theo mã đơn, mã hồ sơ hoặc tên người khám. */
+      q?: string;
       page?: number;
       limit?: number;
     },
@@ -122,8 +124,20 @@ class PrescriptionService {
     const page = Math.max(query.page || 1, 1);
     const limit = Math.min(Math.max(query.limit || 20, 1), 100);
     const skip = (page - 1) * limit;
+    const searchTerm = query.q?.trim() || undefined;
 
     const where: Prisma.PrescriptionWhereInput = {
+      AND: searchTerm
+        ? [
+            {
+              OR: [
+                { prescriptionCode: { contains: searchTerm, mode: "insensitive" as const } },
+                { medicalRecord: { is: { recordCode: { contains: searchTerm, mode: "insensitive" as const } } } },
+                { patient: { is: { fullName: { contains: searchTerm, mode: "insensitive" as const } } } },
+              ],
+            },
+          ]
+        : undefined,
       status: query.status,
       doctorId: query.doctorId,
       patientId: query.patientId,

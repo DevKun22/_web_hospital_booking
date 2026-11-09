@@ -2296,6 +2296,47 @@ const createIssuedPrescription = async (input: {
   return { appointment, prescription };
 };
 
+test("dashboard list endpoints support partial, case-insensitive search with q", async () => {
+  const adminCookie = await authCookie(fixture.adminUser.id, "ADMIN");
+  // Hồ sơ khám và đơn thuốc chỉ dành cho bác sĩ (quản trị không có quyền xem), nên dùng phiên bác sĩ cho hai danh sách đó.
+  const doctorCookie = await authCookie(fixture.doctorOneUser.id, "DOCTOR");
+  const list = async (path: string) => {
+    const cookie = path.startsWith("/api/dashboard/prescriptions") || path.startsWith("/api/dashboard/medical-records") ? doctorCookie : adminCookie;
+    const response = await http.request(path, { headers: dashboardHeaders(cookie) });
+    assert.equal(response.status, 200, JSON.stringify(response.body));
+    return response.body.data.items as unknown[];
+  };
+
+  const { prescription } = await createIssuedPrescription({
+    code: "RX-QSEARCH",
+    phone: "0944444444",
+    timeSlotId: fixture.slotOne.id,
+    items: [{ medicineName: "Thuốc tìm kiếm", quantity: 1 }],
+  });
+  assert.ok(prescription.id);
+
+  // Lịch hẹn: mã lịch gõ dở, không phân biệt hoa thường, hoặc số điện thoại gõ dở.
+  assert.equal((await list("/api/dashboard/appointments?q=qsearch")).length, 1);
+  assert.equal((await list("/api/dashboard/appointments?q=0944")).length, 1);
+  assert.equal((await list("/api/dashboard/appointments?q=khong-co-gi")).length, 0);
+
+  // Đơn thuốc: mã đơn gõ dở hoặc mã hồ sơ gõ dở.
+  assert.equal((await list("/api/dashboard/prescriptions?q=rx-qsea")).length, 1);
+  assert.equal((await list("/api/dashboard/prescriptions?q=REC-RX")).length, 1);
+  assert.equal((await list("/api/dashboard/prescriptions?q=khong-co-gi")).length, 0);
+
+  // Hồ sơ khám: mã hồ sơ gõ dở hoặc mã lịch gõ dở.
+  assert.equal((await list("/api/dashboard/medical-records?q=rec-rx")).length, 1);
+  assert.equal((await list("/api/dashboard/medical-records?q=BK-RX")).length, 1);
+  assert.equal((await list("/api/dashboard/medical-records?q=khong-co-gi")).length, 0);
+
+  // Hóa đơn: mã hóa đơn gõ dở hoặc mã lịch gõ dở.
+  const { invoice } = await createPayableInvoice({ bookingCode: "QINV-001", phone: "0955555555", timeSlotId: fixture.slotTwo.id });
+  assert.equal((await list(`/api/dashboard/invoices?q=${invoice.invoiceCode.slice(0, 8).toLowerCase()}`)).length, 1);
+  assert.equal((await list("/api/dashboard/invoices?q=qinv")).length, 1);
+  assert.equal((await list("/api/dashboard/invoices?q=khong-co-gi")).length, 0);
+});
+
 test("pharmacy endpoints are limited to the pharmacist role", async () => {
   const pharmacist = await createDashboardUser("PHARMACIST", "0900000012");
   const staff = await createDashboardUser("STAFF", "0900000011");

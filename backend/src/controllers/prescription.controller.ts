@@ -64,6 +64,7 @@ export const listPrescriptionsHandler = async (
           typeof req.query.prescriptionCode === "string"
             ? req.query.prescriptionCode
             : undefined,
+        q: typeof req.query.q === "string" ? req.query.q : undefined,
         page: parseNumberQuery(req.query.page),
         limit: parseNumberQuery(req.query.limit),
       },

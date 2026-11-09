@@ -281,12 +281,15 @@ class InvoiceService {
     invoiceCode?: string;
     barcode?: string;
     phone?: string;
+    /** Tìm gần đúng theo mã hóa đơn, mã vạch, mã lịch, số điện thoại hoặc tên người khám. */
+    q?: string;
     page?: number;
     limit?: number;
   }) {
     const page = Math.max(query.page || 1, 1);
     const limit = Math.min(Math.max(query.limit || 20, 1), 100);
     const skip = (page - 1) * limit;
+    const searchTerm = query.q?.trim() || undefined;
 
     const where: Prisma.InvoiceWhereInput = {
       status: query.status,
@@ -295,6 +298,17 @@ class InvoiceService {
       appointmentId: query.appointmentId,
       invoiceCode: query.invoiceCode,
       barcode: query.barcode,
+      AND: searchTerm
+        ? [
+            {
+              OR: [
+                { invoiceCode: { contains: searchTerm, mode: "insensitive" as const } },
+                { barcode: { contains: searchTerm, mode: "insensitive" as const } },
+                { appointment: { is: { OR: [{ bookingCode: { contains: searchTerm, mode: "insensitive" as const } }, { patientPhone: { contains: searchTerm, mode: "insensitive" as const } }, { patientName: { contains: searchTerm, mode: "insensitive" as const } }] } } },
+              ],
+            },
+          ]
+        : undefined,
       appointment: query.phone
         ? {
             patientPhone: {

@@ -166,6 +166,8 @@ class MedicalRecordService {
       doctorId?: string;
       patientId?: string;
       recordCode?: string;
+      /** Tìm gần đúng theo mã hồ sơ, mã lịch hoặc tên người khám. */
+      q?: string;
       date?: string;
       page?: number;
       limit?: number;
@@ -175,8 +177,20 @@ class MedicalRecordService {
     const page = Math.max(query.page || 1, 1);
     const limit = Math.min(Math.max(query.limit || 20, 1), 100);
     const skip = (page - 1) * limit;
+    const searchTerm = query.q?.trim() || undefined;
 
     const where: Prisma.MedicalRecordWhereInput = {
+      AND: searchTerm
+        ? [
+            {
+              OR: [
+                { recordCode: { contains: searchTerm, mode: "insensitive" as const } },
+                { appointment: { is: { bookingCode: { contains: searchTerm, mode: "insensitive" as const } } } },
+                { patient: { is: { fullName: { contains: searchTerm, mode: "insensitive" as const } } } },
+              ],
+            },
+          ]
+        : undefined,
       status: query.status,
       doctorId: query.doctorId,
       patientId: query.patientId,

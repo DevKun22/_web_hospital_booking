@@ -60,6 +60,7 @@ export const listMedicalRecordsHandler = async (
           typeof req.query.recordCode === "string"
             ? req.query.recordCode
             : undefined,
+        q: typeof req.query.q === "string" ? req.query.q : undefined,
         date: typeof req.query.date === "string" ? req.query.date : undefined,
         page: parseNumberQuery(req.query.page),
         limit: parseNumberQuery(req.query.limit),

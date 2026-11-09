@@ -1111,6 +1111,8 @@ class AppointmentService {
       date?: string;
       phone?: string;
       bookingCode?: string;
+      /** Tìm gần đúng theo mã lịch, số điện thoại hoặc tên người khám (gõ đến đâu lọc đến đó). */
+      q?: string;
       billingState?: "PENDING_INVOICE" | "HAS_INVOICE";
       page?: number;
       limit?: number;
@@ -1120,6 +1122,7 @@ class AppointmentService {
     const page = Math.max(query.page || 1, 1);
     const limit = Math.min(Math.max(query.limit || 20, 1), 100);
     const skip = (page - 1) * limit;
+    const searchTerm = query.q?.trim() || undefined;
 
     const where: Prisma.AppointmentWhereInput = {
       status: query.status,
@@ -1127,6 +1130,9 @@ class AppointmentService {
       appointmentDate: query.date ? parseDateOnly(query.date) : undefined,
       patientPhone: query.phone ? { contains: query.phone } : undefined,
       bookingCode: query.bookingCode,
+      AND: searchTerm
+        ? [{ OR: [{ bookingCode: { contains: searchTerm, mode: "insensitive" as const } }, { patientPhone: { contains: searchTerm, mode: "insensitive" as const } }, { patientName: { contains: searchTerm, mode: "insensitive" as const } }] }]
+        : undefined,
       invoice:
         query.billingState === "PENDING_INVOICE"
           ? { is: null }
