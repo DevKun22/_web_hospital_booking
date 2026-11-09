@@ -1,18 +1,31 @@
 "use client";
 
-import { can } from "@/lib/permissions";
-import { useQueryClient } from "@tanstack/react-query";
-import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { PanelRightOpen, Search } from "lucide-react";
-import { DashboardFeedback } from "@/components/dashboard/dashboard-feedback";
-import { DashboardPageHeader, DashboardStatusBadge, DashboardSurface } from "@/components/dashboard/dashboard-ui";
-import { DashboardWorkspace } from "@/components/dashboard/dashboard-workspace";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { useQueryClient } from "@tanstack/react-query";
+import { Search } from "lucide-react";
+import {
+  DsButton,
+  DsDataTable,
+  DsEmptyState,
+  DsField,
+  DsInput,
+  DsNotice,
+  DsPageHeader,
+  DsPane,
+  DsPanel,
+  DsSelect,
+  DsSplit,
+  DsStatusPill,
+  DsTabs,
+  DsTextarea,
+  DsToolbar,
+  type DsColumn,
+  type DsTone,
+} from "@/components/ds";
 import { VietnamDateInput } from "@/components/ui/vietnam-date-input";
-import { apiRequest, uploadMedicalFile, apiUrl } from "@/lib/api";
+import { apiRequest, apiUrl, uploadMedicalFile } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import {
   fetchDashboardMedicalRecord,
@@ -21,13 +34,12 @@ import {
   useDashboardMedicalRecords,
 } from "@/lib/dashboard-medical-records-query";
 import { formatVietnamDate, getVietnamDateInput } from "@/lib/date";
+import { can } from "@/lib/permissions";
 import { queryKeys } from "@/lib/query-keys";
-import type {
-  DoctorProfile,
-  LabResult,
-  MedicalRecord,
-  MedicalResultStatus,
-} from "@/lib/types";
+import type { DoctorProfile, LabResult, MedicalRecord, MedicalResultStatus } from "@/lib/types";
+
+// Hồ sơ khám: danh sách bên trái; chọn một hồ sơ thì danh sách thu hẹp và khung làm việc chiếm phần còn lại
+// (biểu mẫu chuyên môn, tệp kết quả, kết quả cận lâm sàng, việc cần làm trước khi công bố).
 
 type RecordForm = {
   symptoms: string;
@@ -47,30 +59,8 @@ type LabForm = {
   fileUrl: string;
 };
 
-const emptyRecordForm: RecordForm = {
-  symptoms: "",
-  diagnosis: "",
-  treatment: "",
-  prescription: "",
-  doctorNotes: "",
-  resultPdfUrl: "",
-};
-
-const emptyLabForm: LabForm = {
-  testName: "",
-  resultValue: "",
-  unit: "",
-  referenceRange: "",
-  conclusion: "",
-  fileUrl: "",
-};
-
-const statusOptions: { value: "" | MedicalResultStatus; label: string }[] = [
-  { value: "", label: "Tất cả trạng thái" },
-  { value: "DRAFT", label: "Bản nháp" },
-  { value: "PUBLISHED", label: "Đã công bố" },
-  { value: "ARCHIVED", label: "Đã lưu trữ" },
-];
+const emptyRecordForm: RecordForm = { symptoms: "", diagnosis: "", treatment: "", prescription: "", doctorNotes: "", resultPdfUrl: "" };
+const emptyLabForm: LabForm = { testName: "", resultValue: "", unit: "", referenceRange: "", conclusion: "", fileUrl: "" };
 
 const statusLabel: Record<MedicalResultStatus, string> = {
   DRAFT: "Bản nháp",
@@ -78,15 +68,11 @@ const statusLabel: Record<MedicalResultStatus, string> = {
   ARCHIVED: "Đã lưu trữ",
 };
 
-const statusTone: Record<MedicalResultStatus, "warning" | "positive" | "neutral"> = {
-  DRAFT: "warning",
-  PUBLISHED: "positive",
+const statusTone: Record<MedicalResultStatus, DsTone> = {
+  DRAFT: "warn",
+  PUBLISHED: "good",
   ARCHIVED: "neutral",
 };
-
-const today = () => getVietnamDateInput();
-
-const formatDate = (value: string) => formatVietnamDate(value);
 
 const doctorName = (doctor: DoctorProfile | MedicalRecord["doctor"]) =>
   [doctor.title, doctor.user.fullName].filter(Boolean).join(" ");
@@ -127,13 +113,70 @@ const buildLabPayload = (form: LabForm) => ({
   fileUrl: form.fileUrl.trim() || null,
 });
 
+const statusTabs = [
+  { id: "", label: "Tất cả" },
+  { id: "DRAFT", label: "Bản nháp" },
+  { id: "PUBLISHED", label: "Đã công bố" },
+  { id: "ARCHIVED", label: "Đã lưu trữ" },
+];
+
+const textFields: { key: keyof RecordForm; label: string; hint?: string; rows: number; internal?: boolean }[] = [
+  { key: "symptoms", label: "Triệu chứng", rows: 3 },
+  { key: "diagnosis", label: "Chẩn đoán", rows: 3 },
+  { key: "treatment", label: "Hướng điều trị", rows: 3 },
+  { key: "prescription", label: "Ghi chú đơn thuốc", hint: "Hiện cho người khám cùng đơn thuốc.", rows: 2 },
+  { key: "doctorNotes", label: "Ghi chú của bác sĩ", hint: "Nội bộ: người khám không nhìn thấy.", rows: 2, internal: true },
+];
+
+// Vùng chọn hoặc kéo thả tệp, dùng cho tệp kết quả của hồ sơ và của từng kết quả cận lâm sàng.
+function FileDrop({ inputId, busy, onFile }: { inputId: string; busy: boolean; onFile: (file: File | undefined) => void }) {
+  const [over, setOver] = useState(false);
+
+  return (
+    <div
+      className={`ds-drop${over ? " is-over" : ""}`}
+      onDragOver={(event) => {
+        event.preventDefault();
+        setOver(true);
+      }}
+      onDragLeave={() => setOver(false)}
+      onDrop={(event) => {
+        event.preventDefault();
+        setOver(false);
+        onFile(event.dataTransfer.files?.[0]);
+      }}
+    >
+      {busy ? (
+        "Đang tải tệp lên..."
+      ) : (
+        <>
+          Kéo thả tệp vào đây hoặc <label htmlFor={inputId}>chọn từ máy</label>
+          <input
+            id={inputId}
+            type="file"
+            accept="application/pdf,image/jpeg,image/png,image/webp"
+            className="sr-only"
+            onChange={(event) => {
+              onFile(event.target.files?.[0]);
+              event.target.value = "";
+            }}
+          />
+          <div className="ds-hint" style={{ marginTop: 4 }}>
+            PDF, JPG, PNG, WEBP · tối đa 10 MB · lưu riêng tư, người khám chỉ xem được sau khi công bố
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 export default function MedicalRecordsPage() {
   const { user } = useAuth();
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
   const [status, setStatus] = useState("");
   const [doctorId, setDoctorId] = useState("");
-  const [date, setDate] = useState(today());
+  const [date, setDate] = useState(getVietnamDateInput());
   const [recordCode, setRecordCode] = useState("");
   const [appliedRecordCode, setAppliedRecordCode] = useState("");
   const [page, setPage] = useState(1);
@@ -142,18 +185,17 @@ export default function MedicalRecordsPage() {
   const [uploadingLabFile, setUploadingLabFile] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
-  const [workspaceOpen, setWorkspaceOpen] = useState(false);
   const [selectedSnapshot, setSelected] = useState<MedicalRecord | null>(null);
   const [recordForm, setRecordForm] = useState<RecordForm>(emptyRecordForm);
+  const [labOpen, setLabOpen] = useState(false);
   const [editingLab, setEditingLab] = useState<LabResult | null>(null);
   const [deleteLabTarget, setDeleteLabTarget] = useState<LabResult | null>(null);
   const [labForm, setLabForm] = useState<LabForm>(emptyLabForm);
-  const listRef = useRef<HTMLElement | null>(null);
-  const detailRef = useRef<HTMLElement | null>(null);
 
   const canArchive = can(user, "record.archive");
   const isDoctor = user?.role === "DOCTOR";
   const canCreatePrescription = can(user, "prescription.write");
+  const canEdit = can(user, "record.edit");
 
   const query = useMemo(
     () => ({
@@ -176,11 +218,7 @@ export default function MedicalRecordsPage() {
   const pagination = recordsQuery.data?.pagination ?? { page, limit: 20, total: 0, totalPages: 1 };
   const selected = selectedRecordQuery.data ?? selectedSnapshot;
   const queryError = recordsQuery.error || doctorsQuery.error || selectedRecordQuery.error;
-  const queryErrorMessage = queryError
-    ? queryError instanceof Error
-      ? queryError.message
-      : "Không tải được dữ liệu hồ sơ khám"
-    : "";
+  const queryErrorMessage = queryError ? (queryError instanceof Error ? queryError.message : "Không tải được dữ liệu hồ sơ khám") : "";
   const visibleError = error || queryErrorMessage;
 
   useEffect(() => {
@@ -195,6 +233,15 @@ export default function MedicalRecordsPage() {
     }, 0);
     return () => window.clearTimeout(timeoutId);
   }, [searchParams]);
+
+  useEffect(() => {
+    if (!notice && !error) return;
+    const timeoutId = window.setTimeout(() => {
+      setNotice("");
+      setError("");
+    }, 4500);
+    return () => window.clearTimeout(timeoutId);
+  }, [error, notice]);
 
   const invalidateMedicalRecords = async () => {
     await Promise.all([
@@ -215,56 +262,21 @@ export default function MedicalRecordsPage() {
     return refreshed;
   };
 
-  useEffect(() => {
-    if (!notice && !error) return;
-    const timeoutId = window.setTimeout(() => {
-      setNotice("");
-      setError("");
-    }, 4500);
-    return () => window.clearTimeout(timeoutId);
-  }, [error, notice]);
-
-  const scrollTo = (ref: React.RefObject<HTMLElement | null>) => {
-    window.setTimeout(() => {
-      ref.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-    }, 0);
-  };
-
-  const setQuickFilter = (nextStatus: "" | MedicalResultStatus, nextDate = today()) => {
-    setStatus(nextStatus);
-    setDate(nextDate);
-    setRecordCode("");
-    setAppliedRecordCode("");
-    setPage(1);
-    scrollTo(listRef);
-  };
-
-  const doctorSummary = {
-    total: records.length,
-    draft: records.filter((record) => record.status === "DRAFT").length,
-    publishable: records.filter((record) => record.status === "DRAFT" && ["IN_PROGRESS", "COMPLETED"].includes(record.appointment.status)).length,
-    published: records.filter((record) => record.status === "PUBLISHED").length,
-    needPrescription: records.filter((record) => !record.prescriptionRecord && ["IN_PROGRESS", "COMPLETED"].includes(record.appointment.status)).length,
-  };
-
-  const applyRecordSearch = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    setAppliedRecordCode(recordCode.trim());
-    setPage(1);
-  };
-
   const openDetail = (record: MedicalRecord) => {
     setSelected(record);
-    setWorkspaceOpen(true);
     setRecordForm(toRecordForm(record));
+    setLabOpen(false);
     setEditingLab(null);
     setDeleteLabTarget(null);
     setLabForm(emptyLabForm);
-    scrollTo(detailRef);
   };
 
-  const saveRecord = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
+  const closeDetail = () => setSelected(null);
+
+  const dirty = Boolean(selected) && JSON.stringify(recordForm) !== JSON.stringify(selected ? toRecordForm(selected) : emptyRecordForm);
+
+  const saveRecord = async (event?: FormEvent) => {
+    event?.preventDefault();
     if (!selected) return;
     setBusy(true);
     setError("");
@@ -276,7 +288,7 @@ export default function MedicalRecordsPage() {
       });
       setSelected(updated);
       setRecordForm(toRecordForm(updated));
-      setNotice("Đã cập nhật hồ sơ khám");
+      setNotice("Đã lưu hồ sơ khám");
       await invalidateMedicalRecords();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Không cập nhật được hồ sơ khám");
@@ -293,7 +305,7 @@ export default function MedicalRecordsPage() {
     try {
       const asset = await uploadMedicalFile(file);
       setRecordForm((current) => ({ ...current, resultPdfUrl: asset.url }));
-      setNotice("Đã tải tệp kết quả lên");
+      setNotice("Đã tải tệp kết quả lên. Bấm Lưu hồ sơ để đính kèm.");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Không tải được tệp kết quả lên");
     } finally {
@@ -322,9 +334,7 @@ export default function MedicalRecordsPage() {
     setError("");
     setNotice("");
     try {
-      const updated = await apiRequest<MedicalRecord>(`/dashboard/medical-records/${record.id}${path}`, {
-        method: "PATCH",
-      });
+      const updated = await apiRequest<MedicalRecord>(`/dashboard/medical-records/${record.id}${path}`, { method: "PATCH" });
       setSelected(updated);
       setRecordForm(toRecordForm(updated));
       setNotice(message);
@@ -338,18 +348,13 @@ export default function MedicalRecordsPage() {
 
   const createPrescriptionFromRecord = async (record: MedicalRecord) => {
     if (!canCreatePrescription) return;
-
     setBusy(true);
     setError("");
     setNotice("");
-
     try {
       await apiRequest(`/dashboard/medical-records/${record.id}/prescription`, {
         method: "POST",
-        body: {
-          note: recordForm.prescription.trim() || recordForm.doctorNotes.trim() || null,
-          items: [],
-        },
+        body: { note: recordForm.prescription.trim() || recordForm.doctorNotes.trim() || null, items: [] },
       });
       await refreshSelectedRecord(record.id);
       setNotice("Đã tạo đơn thuốc nháp từ hồ sơ");
@@ -361,7 +366,7 @@ export default function MedicalRecordsPage() {
     }
   };
 
-  const saveLabResult = async (event: FormEvent<HTMLFormElement>) => {
+  const saveLabResult = async (event: FormEvent) => {
     event.preventDefault();
     if (!selected) return;
     setBusy(true);
@@ -369,10 +374,10 @@ export default function MedicalRecordsPage() {
     setNotice("");
     try {
       if (editingLab) {
-        await apiRequest<LabResult>(
-          `/dashboard/medical-records/${selected.id}/lab-results/${editingLab.id}`,
-          { method: "PATCH", body: buildLabPayload(labForm) },
-        );
+        await apiRequest<LabResult>(`/dashboard/medical-records/${selected.id}/lab-results/${editingLab.id}`, {
+          method: "PATCH",
+          body: buildLabPayload(labForm),
+        });
         setNotice("Đã cập nhật kết quả cận lâm sàng");
       } else {
         await apiRequest<LabResult>(`/dashboard/medical-records/${selected.id}/lab-results`, {
@@ -383,6 +388,7 @@ export default function MedicalRecordsPage() {
       }
       setEditingLab(null);
       setDeleteLabTarget(null);
+      setLabOpen(false);
       setLabForm(emptyLabForm);
       await refreshSelectedRecord(selected.id);
       await invalidateMedicalRecords();
@@ -399,9 +405,7 @@ export default function MedicalRecordsPage() {
     setError("");
     setNotice("");
     try {
-      await apiRequest<LabResult>(`/dashboard/medical-records/${selected.id}/lab-results/${deleteLabTarget.id}`, {
-        method: "DELETE",
-      });
+      await apiRequest<LabResult>(`/dashboard/medical-records/${selected.id}/lab-results/${deleteLabTarget.id}`, { method: "DELETE" });
       setNotice("Đã xoá kết quả cận lâm sàng");
       setDeleteLabTarget(null);
       await refreshSelectedRecord(selected.id);
@@ -413,237 +417,436 @@ export default function MedicalRecordsPage() {
     }
   };
 
-  return (
-    <div className={`grid gap-6 transition-[grid-template-columns] duration-300 ${workspaceOpen ? "xl:grid-cols-[minmax(0,1fr)_430px]" : "xl:grid-cols-1"}`}>
-      <DashboardFeedback error={visibleError} notice={notice} onDismiss={queryErrorMessage ? undefined : () => { setError(""); setNotice(""); }} />
+  const applyRecordSearch = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setAppliedRecordCode(recordCode.trim());
+    setPage(1);
+  };
 
-      <section ref={listRef} className="min-w-0 scroll-mt-24 space-y-4">
-        <DashboardPageHeader eyebrow={isDoctor ? "Khu làm việc bác sĩ" : "Chuyên môn"} title="Hồ sơ khám"
-          description={isDoctor ? "Hoàn thiện hồ sơ trong ca khám, bổ sung kết quả cận lâm sàng, kê đơn và công bố kết quả." : "Theo dõi chẩn đoán, điều trị, kết quả cận lâm sàng và trạng thái công bố."}
-          actions={selected && !workspaceOpen ? <Button variant="outline" size="lg" onClick={() => setWorkspaceOpen(true)}><PanelRightOpen />Mở hồ sơ đang chọn</Button> : undefined}
-        />
+  const draftCount = records.filter((record) => record.status === "DRAFT").length;
+  const needPrescription = records.filter((record) => !record.prescriptionRecord && ["IN_PROGRESS", "COMPLETED"].includes(record.appointment.status)).length;
 
-        {isDoctor ? (
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            <button type="button" onClick={() => setQuickFilter("", today())} className="rounded-md border border-[#cfe4fa] bg-[#f3f8ff] p-4 text-left text-[#0d4f8b] transition hover:-translate-y-0.5 hover:shadow-sm">
-              <p className="text-sm font-medium opacity-80">Hồ sơ đang lọc</p>
-              <p className="mt-2 text-2xl font-semibold">{doctorSummary.total}</p>
-              <p className="mt-1 text-xs opacity-75">Toàn bộ hồ sơ trong ngày</p>
-            </button>
-            <button type="button" onClick={() => setQuickFilter("DRAFT", today())} className="rounded-md border border-[#f4d7a1] bg-[#fff8eb] p-4 text-left text-[#946200] transition hover:-translate-y-0.5 hover:shadow-sm">
-              <p className="text-sm font-medium opacity-80">Hồ sơ nháp</p>
-              <p className="mt-2 text-2xl font-semibold">{doctorSummary.draft}</p>
-              <p className="mt-1 text-xs opacity-75">Cần nhập hoặc kiểm tra</p>
-            </button>
-            <button type="button" onClick={() => setQuickFilter("DRAFT", today())} className="rounded-md border border-[#e2d6ff] bg-[#f7f2ff] p-4 text-left text-[#673ab7] transition hover:-translate-y-0.5 hover:shadow-sm">
-              <p className="text-sm font-medium opacity-80">Có thể công bố</p>
-              <p className="mt-2 text-2xl font-semibold">{doctorSummary.publishable}</p>
-              <p className="mt-1 text-xs opacity-75">Ca đã bắt đầu hoặc hoàn tất</p>
-            </button>
-            <button type="button" onClick={() => setQuickFilter("PUBLISHED", today())} className="rounded-md border border-[#c7ead0] bg-[#f0fff4] p-4 text-left text-[#1f7a3a] transition hover:-translate-y-0.5 hover:shadow-sm">
-              <p className="text-sm font-medium opacity-80">Đã công bố</p>
-              <p className="mt-2 text-2xl font-semibold">{doctorSummary.published}</p>
-              <p className="mt-1 text-xs opacity-75">{doctorSummary.needPrescription} hồ sơ chưa có đơn</p>
-            </button>
-          </div>
-        ) : null}
+  const tableColumns: DsColumn<MedicalRecord>[] = [
+    {
+      key: "record",
+      header: "Hồ sơ",
+      cell: (row) => (
+        <div>
+          <strong className="ds-mono">{row.recordCode}</strong>
+          <div style={{ color: "var(--ds-muted)", fontSize: 12 }}>{row.labResults.length} kết quả cận lâm sàng</div>
+        </div>
+      ),
+    },
+    {
+      key: "patient",
+      header: "Người khám",
+      cell: (row) => (
+        <div>
+          <strong>{row.patient.fullName}</strong>
+          <div style={{ color: "var(--ds-muted)", fontSize: 12 }}>{row.patient.phone || "-"}</div>
+        </div>
+      ),
+    },
+    {
+      key: "appointment",
+      header: "Lịch hẹn",
+      cell: (row) => (
+        <div>
+          <span className="ds-mono">{row.appointment.bookingCode}</span>
+          <div style={{ color: "var(--ds-muted)", fontSize: 12 }}>{formatVietnamDate(row.appointment.appointmentDate)}</div>
+        </div>
+      ),
+    },
+    { key: "doctor", header: "Bác sĩ", cell: (row) => doctorName(row.doctor) },
+    { key: "status", header: "Trạng thái", cell: (row) => <DsStatusPill tone={statusTone[row.status]}>{statusLabel[row.status]}</DsStatusPill> },
+  ];
 
-        <DashboardSurface>
-          <form onSubmit={applyRecordSearch} className={`grid gap-3 border-b border-border p-4 ${isDoctor ? "lg:grid-cols-2 2xl:grid-cols-[170px_170px_minmax(0,1fr)_auto]" : "lg:grid-cols-2 2xl:grid-cols-[170px_minmax(0,1fr)_170px_170px_auto]"}`}>
-            <VietnamDateInput value={date} onChange={(value) => { setDate(value); setPage(1); }} ariaLabel="Ngày lọc hồ sơ khám" className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" />
+  const pager = (
+    <div className="ds-pager">
+      <span>
+        {pagination.total} hồ sơ · trang {pagination.page}/{pagination.totalPages || 1}
+      </span>
+      <span style={{ display: "flex", gap: 8 }}>
+        <DsButton disabled={page <= 1} onClick={() => setPage((current) => Math.max(current - 1, 1))}>
+          Trước
+        </DsButton>
+        <DsButton disabled={page >= pagination.totalPages} onClick={() => setPage((current) => current + 1)}>
+          Sau
+        </DsButton>
+      </span>
+    </div>
+  );
+
+  const list = (
+    <>
+      <DsPanel flush>
+        <form onSubmit={applyRecordSearch} aria-label="Lọc hồ sơ khám">
+          <DsToolbar>
+            <div style={{ minWidth: 150, flex: "0 1 160px" }}>
+              <VietnamDateInput
+                value={date}
+                onChange={(value) => {
+                  setDate(value);
+                  setPage(1);
+                }}
+                ariaLabel="Ngày lọc hồ sơ khám"
+                className="ds-input"
+              />
+            </div>
             {!isDoctor ? (
-              <select value={doctorId} onChange={(e) => { setDoctorId(e.target.value); setPage(1); }} className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]">
-                <option value="">Tất cả bác sĩ</option>
-                {doctors.map((doctor) => <option key={doctor.id} value={doctor.id}>{doctorName(doctor)}</option>)}
-              </select>
+              <div style={{ minWidth: 160, flex: "1 1 180px" }}>
+                <DsSelect
+                  aria-label="Lọc theo bác sĩ"
+                  value={doctorId}
+                  onChange={(event) => {
+                    setDoctorId(event.target.value);
+                    setPage(1);
+                  }}
+                >
+                  <option value="">Tất cả bác sĩ</option>
+                  {doctors.map((doctor) => (
+                    <option key={doctor.id} value={doctor.id}>
+                      {doctorName(doctor)}
+                    </option>
+                  ))}
+                </DsSelect>
+              </div>
             ) : null}
-            <select value={status} onChange={(e) => { setStatus(e.target.value); setPage(1); }} className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]">
-              {statusOptions.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
-            </select>
-            <Input value={recordCode} onChange={(e) => setRecordCode(e.target.value)} placeholder="Mã hồ sơ" />
-            <Button type="submit"><Search />Tìm kiếm</Button>
-          </form>
-
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[980px] border-separate border-spacing-0 text-left text-sm">
-              <thead>
-                <tr className="text-[#667892]">
-                  <th className="border-b border-[#e5ebf3] px-4 py-3 font-semibold">Hồ sơ</th>
-                  <th className="border-b border-[#e5ebf3] px-4 py-3 font-semibold">Người khám</th>
-                  <th className="border-b border-[#e5ebf3] px-4 py-3 font-semibold">Lịch hẹn</th>
-                  <th className="border-b border-[#e5ebf3] px-4 py-3 font-semibold">Bác sĩ</th>
-                  <th className="border-b border-[#e5ebf3] px-4 py-3 font-semibold">Kết quả</th>
-                  <th className="border-b border-[#e5ebf3] px-4 py-3 text-right font-semibold">Thao tác</th>
-                </tr>
-              </thead>
-              <tbody>
-                {loading ? (
-                  <tr><td colSpan={6} className="px-4 py-10 text-center text-[#667892]">Đang tải hồ sơ...</td></tr>
-                ) : records.length === 0 ? (
-                  <tr><td colSpan={6} className="px-4 py-10 text-center text-[#667892]">Chưa có hồ sơ phù hợp</td></tr>
-                ) : records.map((record) => (
-                  <tr key={record.id} className="align-top">
-                    <td className="border-b border-[#eef2f7] px-4 py-3">
-                      <button onClick={() => openDetail(record)} className="font-semibold text-[#0d4f8b] hover:underline">{record.recordCode}</button>
-                      <p className="mt-1 text-xs text-[#667892]">{record.labResults.length} kết quả cận lâm sàng</p>
-                    </td>
-                    <td className="border-b border-[#eef2f7] px-4 py-3"><p className="font-semibold">{record.patient.fullName}</p><p className="mt-1 text-xs text-[#667892]">{record.patient.phone}</p></td>
-                    <td className="border-b border-[#eef2f7] px-4 py-3"><p>{record.appointment.bookingCode}</p><p className="mt-1 text-xs text-[#667892]">{formatDate(record.appointment.appointmentDate)} {record.appointment.startTime}</p></td>
-                    <td className="border-b border-[#eef2f7] px-4 py-3"><p>{doctorName(record.doctor)}</p><p className="mt-1 text-xs text-[#667892]">{record.doctor.department.name}</p></td>
-                    <td className="border-b border-[#eef2f7] px-4 py-3"><DashboardStatusBadge tone={statusTone[record.status]}>{statusLabel[record.status]}</DashboardStatusBadge><p className="mt-1 text-xs text-[#667892]">{record.diagnosis || "Chưa có chẩn đoán"}</p></td>
-                    <td className="border-b border-[#eef2f7] px-4 py-3 text-right"><button onClick={() => openDetail(record)} className="rounded-md border border-[#cfd8e6] px-3 py-1.5 text-xs font-medium text-[#42526b]">Chi tiết</button></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          <div className="flex items-center justify-between border-t border-[#e5ebf3] px-4 py-3 text-sm text-[#667892]">
-            <span>{pagination.total} kết quả, trang {pagination.page}/{pagination.totalPages || 1}</span>
-            <div className="flex gap-2">
-              <button disabled={page <= 1} onClick={() => setPage((current) => Math.max(current - 1, 1))} className="rounded-md border border-[#cfd8e6] px-3 py-1.5 font-medium disabled:opacity-50">Trước</button>
-              <button disabled={page >= pagination.totalPages} onClick={() => setPage((current) => current + 1)} className="rounded-md border border-[#cfd8e6] px-3 py-1.5 font-medium disabled:opacity-50">Sau</button>
+            <div style={{ minWidth: 150, flex: "1 1 170px" }}>
+              <DsInput aria-label="Mã hồ sơ" value={recordCode} onChange={(event) => setRecordCode(event.target.value)} placeholder="Mã hồ sơ" />
             </div>
-          </div>
-        </DashboardSurface>
-      </section>
-
-      {workspaceOpen ? (
-      <aside ref={detailRef} className="min-w-0 scroll-mt-24">
-        <DashboardWorkspace
-          open={workspaceOpen}
-          onOpenChange={setWorkspaceOpen}
-          title={selected ? `Hồ sơ ${selected.recordCode}` : "Chi tiết hồ sơ khám"}
-          description="Cập nhật chẩn đoán, điều trị và kết quả cận lâm sàng trong cùng một vùng làm việc."
-        >
+            <DsButton type="submit">
+              <Search aria-hidden="true" />
+              Tìm
+            </DsButton>
+          </DsToolbar>
+        </form>
+        <DsTabs
+          label="Lọc hồ sơ theo trạng thái"
+          items={statusTabs}
+          value={status}
+          onChange={(id) => {
+            setStatus(id);
+            setPage(1);
+          }}
+        />
         {selected ? (
-          <div className="space-y-5">
-            <div>
-              <p className="text-sm font-medium text-[#55708f]">Chi tiết hồ sơ</p>
-              <h3 className="mt-1 text-xl font-semibold">{selected.recordCode}</h3>
-              <DashboardStatusBadge tone={statusTone[selected.status]} className="mt-3">{statusLabel[selected.status]}</DashboardStatusBadge>
-            </div>
-
-            <div className="rounded-md border border-[#e5ebf3] p-3 text-sm">
-              <p className="font-semibold">{selected.patient.fullName}</p>
-              <p className="text-[#667892]">{selected.patient.phone || "-"} · {selected.appointment.bookingCode}</p>
-              <p className="mt-1 text-[#667892]">{doctorName(selected.doctor)} · {selected.doctor.department.name}</p>
-            </div>
-
-            <form className="space-y-3" onSubmit={saveRecord}>
-              {[
-                ["symptoms", "Triệu chứng"],
-                ["diagnosis", "Chẩn đoán"],
-                ["treatment", "Hướng điều trị"],
-                ["prescription", "Đơn thuốc ghi chú"],
-                ["doctorNotes", "Ghi chú bác sĩ"],
-              ].map(([key, label]) => (
-                <label key={key} className="block">
-                  <span className="text-sm font-medium text-[#334155]">{label}</span>
-                  <textarea value={recordForm[key as keyof RecordForm]} onChange={(e) => setRecordForm((current) => ({ ...current, [key]: e.target.value }))} rows={2} className="mt-1 w-full resize-none rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" />
-                </label>
+          records.length ? (
+            <div role="listbox" aria-label="Danh sách hồ sơ">
+              {records.map((record) => (
+                <button
+                  key={record.id}
+                  type="button"
+                  role="option"
+                  className="ds-listrow"
+                  aria-selected={record.id === selected.id}
+                  onClick={() => openDetail(record)}
+                >
+                  <span className="ds-listrow__main">
+                    <strong>{record.patient.fullName}</strong>
+                    <small>{record.recordCode}</small>
+                  </span>
+                  <DsStatusPill tone={statusTone[record.status]}>{statusLabel[record.status]}</DsStatusPill>
+                </button>
               ))}
-              <label className="block">
-                <span className="text-sm font-medium text-[#334155]">Đường dẫn tệp kết quả</span>
-                <input value={recordForm.resultPdfUrl} onChange={(e) => setRecordForm((current) => ({ ...current, resultPdfUrl: e.target.value }))} placeholder="https://..." className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" />
-                <input
-                  type="file"
-                  accept="application/pdf,image/jpeg,image/png,image/webp"
-                  disabled={uploadingRecordFile}
-                  onChange={(event) => void uploadRecordResultFile(event.target.files?.[0])}
-                  className="mt-2 w-full rounded-md border border-dashed border-[#cfd8e6] bg-[#f8fafc] px-3 py-2 text-sm file:mr-3 file:rounded-md file:border-0 file:bg-[#0d4f8b] file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-white disabled:opacity-60"
-                />
-                <p className="mt-1 text-xs text-[#667892]">
-                  Tải lên PDF, JPG, PNG hoặc WEBP, tối đa 10 MB. Tệp được lưu riêng tư, chỉ bệnh nhân của hồ sơ này xem được sau khi công bố.
-                </p>
-                {selected.resultPdfUrl && recordForm.resultPdfUrl === selected.resultPdfUrl ? (<a href={apiUrl(`/dashboard/medical-records/${selected.id}/file`)} target="_blank" rel="noopener" className="mt-2 inline-flex text-xs font-medium text-[#0d4f8b]">Mở tệp kết quả đã lưu</a>) : null}
-                {recordForm.resultPdfUrl ? (
-                  <p className="mt-2 rounded-md border border-[#e5ebf3] bg-[#f8fafc] px-3 py-2 text-xs text-[#3d5a73]">Đã đính kèm tệp kết quả (xem trước không khả dụng vì tệp được lưu riêng tư).</p>
-                ) : null}
-              </label>
-              <div className="flex flex-wrap gap-2">
-                <button disabled={busy || uploadingRecordFile} className="rounded-md bg-[#0d4f8b] px-4 py-2 text-sm font-semibold text-white disabled:opacity-60">{uploadingRecordFile ? "Đang tải lên..." : "Lưu hồ sơ"}</button>
-                {selected.status !== "PUBLISHED" ? <button type="button" disabled={busy} onClick={() => void simpleRecordAction(selected, "/publish", "Đã công bố kết quả")} className="rounded-md border border-[#cfd8e6] px-4 py-2 text-sm font-medium text-[#42526b]">Công bố</button> : null}
-                {canCreatePrescription && !selected.prescriptionRecord ? <button type="button" disabled={busy} onClick={() => void createPrescriptionFromRecord(selected)} className="rounded-md border border-[#cfe4fa] px-4 py-2 text-sm font-medium text-[#0d4f8b]">Tạo đơn thuốc</button> : null}
-                {selected.prescriptionRecord ? <Link href="/dashboard/prescriptions" className="rounded-md border border-[#cfe4fa] px-4 py-2 text-sm font-medium text-[#0d4f8b]">Mở đơn thuốc</Link> : null}
-                {canArchive && selected.status !== "ARCHIVED" ? <button type="button" disabled={busy} onClick={() => void simpleRecordAction(selected, "/archive", "Đã lưu trữ hồ sơ")} className="rounded-md border border-[#cfd8e6] px-4 py-2 text-sm font-medium text-[#42526b]">Lưu trữ</button> : null}
-              </div>
-            </form>
+            </div>
+          ) : (
+            <DsEmptyState title="Chưa có hồ sơ phù hợp" />
+          )
+        ) : (
+          <DsDataTable
+            caption="Danh sách hồ sơ khám"
+            columns={tableColumns}
+            rows={records}
+            rowKey={(row) => row.id}
+            loading={loading}
+            emptyTitle="Chưa có hồ sơ phù hợp"
+            emptyDescription="Đổi ngày hoặc bộ lọc để xem hồ sơ khác."
+            onRowClick={openDetail}
+          />
+        )}
+        {pager}
+      </DsPanel>
+    </>
+  );
 
-            <section className="border-t border-[#e5ebf3] pt-5">
-              <h4 className="font-semibold">Kết quả cận lâm sàng</h4>
-              <div className="mt-3 space-y-2">
-                {selected.labResults.length === 0 ? <p className="text-sm text-[#667892]">Chưa có kết quả cận lâm sàng</p> : selected.labResults.map((lab) => (
-                  <div key={lab.id} className="rounded-md border border-[#e5ebf3] p-3 text-sm">
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <p className="font-semibold">{lab.testName}</p>
-                        <p className="text-[#667892]">{lab.resultValue || "-"} {lab.unit || ""}</p>
-                        <p className="text-xs text-[#667892]">Mốc: {lab.referenceRange || "-"}</p>
-                        <p className="mt-1">{lab.conclusion || ""}</p>
-                        {lab.fileUrl ? <a href={apiUrl(`/dashboard/medical-records/${selected.id}/lab-results/${lab.id}/file`)} target="_blank" rel="noopener" className="text-xs font-medium text-[#0d4f8b]">Mở file</a> : null}
-                      </div>
-                      <div className="flex gap-2">
-                        <button type="button" onClick={() => { setEditingLab(lab); setDeleteLabTarget(null); setLabForm(toLabForm(lab)); }} className="rounded-md border border-[#cfd8e6] px-2 py-1 text-xs text-[#42526b]">Sửa</button>
-                        <button type="button" onClick={() => { setDeleteLabTarget(lab); setEditingLab(null); }} className="rounded-md border border-[#f2b8b5] px-2 py-1 text-xs text-[#b3261e]">Xoá</button>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-              {deleteLabTarget ? (
-                <div className="mt-3 rounded-md border border-[#f2d4d2] bg-[#fff8f7] p-3 text-sm">
-                  <p className="font-semibold text-[#8f1d18]">Xoá kết quả cận lâm sàng?</p>
-                  <p className="mt-1 text-[#667892]">{deleteLabTarget.testName}</p>
-                  <div className="mt-3 flex gap-2">
-                    <button type="button" onClick={() => setDeleteLabTarget(null)} className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm font-medium text-[#42526b]">Giữ lại</button>
-                    <button type="button" disabled={busy} onClick={() => void deleteLabResult()} className="rounded-md bg-[#b3261e] px-3 py-2 text-sm font-semibold text-white disabled:opacity-60">Xoá kết quả</button>
-                  </div>
-                </div>
-              ) : null}
+  const hasFile = Boolean(recordForm.resultPdfUrl);
+  const savedFile = selected && selected.resultPdfUrl && recordForm.resultPdfUrl === selected.resultPdfUrl;
 
-              <form className="mt-4 space-y-3 rounded-md border border-[#e5ebf3] p-3" onSubmit={saveLabResult}>
-                <h5 className="font-semibold">{editingLab ? "Sửa kết quả cận lâm sàng" : "Thêm kết quả cận lâm sàng"}</h5>
-                <input value={labForm.testName} onChange={(e) => setLabForm((current) => ({ ...current, testName: e.target.value }))} placeholder="Tên xét nghiệm" className="w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" required />
-                <div className="grid gap-2 sm:grid-cols-2">
-                  <input value={labForm.resultValue} onChange={(e) => setLabForm((current) => ({ ...current, resultValue: e.target.value }))} placeholder="Giá trị" className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" />
-                  <input value={labForm.unit} onChange={(e) => setLabForm((current) => ({ ...current, unit: e.target.value }))} placeholder="Đơn vị" className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" />
-                </div>
-                <input value={labForm.referenceRange} onChange={(e) => setLabForm((current) => ({ ...current, referenceRange: e.target.value }))} placeholder="Khoảng tham chiếu" className="w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" />
-                <textarea value={labForm.conclusion} onChange={(e) => setLabForm((current) => ({ ...current, conclusion: e.target.value }))} placeholder="Kết luận" rows={2} className="w-full resize-none rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" />
-                <div>
-                  <input value={labForm.fileUrl} onChange={(e) => setLabForm((current) => ({ ...current, fileUrl: e.target.value }))} placeholder="Đường dẫn tệp kết quả" className="w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" />
-                  <input
-                    type="file"
-                    accept="application/pdf,image/jpeg,image/png,image/webp"
-                    disabled={uploadingLabFile}
-                    onChange={(event) => void uploadLabResultFile(event.target.files?.[0])}
-                    className="mt-2 w-full rounded-md border border-dashed border-[#cfd8e6] bg-[#f8fafc] px-3 py-2 text-sm file:mr-3 file:rounded-md file:border-0 file:bg-[#0d4f8b] file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-white disabled:opacity-60"
+  const pane = selected ? (
+    <DsPane
+      wide
+      bodyClassName="ds-pane__body ds-pane__body--flush"
+      title={`${selected.recordCode} · ${selected.patient.fullName}`}
+      badge={<DsStatusPill tone={statusTone[selected.status]}>{statusLabel[selected.status]}</DsStatusPill>}
+      onClose={closeDetail}
+    >
+      <div style={{ padding: "12px 16px 0", color: "var(--ds-muted)", fontSize: 13 }}>
+        {selected.patient.phone || "-"} · {selected.appointment.bookingCode} · khám ngày {formatVietnamDate(selected.appointment.appointmentDate)} ·{" "}
+        {doctorName(selected.doctor)} · {selected.doctor.department.name}
+      </div>
+
+      <div className="ds-savebar" style={{ borderTop: 0, position: "static", paddingTop: 12 }}>
+        {selected.status !== "PUBLISHED" && canEdit ? (
+          <DsButton variant="primary" disabled={busy} onClick={() => void simpleRecordAction(selected, "/publish", "Đã công bố kết quả cho người khám")}>
+            Công bố cho người khám
+          </DsButton>
+        ) : null}
+        {canCreatePrescription && !selected.prescriptionRecord ? (
+          <DsButton disabled={busy} onClick={() => void createPrescriptionFromRecord(selected)}>
+            Tạo đơn thuốc
+          </DsButton>
+        ) : null}
+        {selected.prescriptionRecord ? (
+          <Link href="/dashboard/prescriptions" className="ds-btn">
+            Mở đơn thuốc
+          </Link>
+        ) : null}
+        <span style={{ flex: 1 }} />
+        {canArchive && selected.status !== "ARCHIVED" ? (
+          <DsButton variant="ghost" disabled={busy} onClick={() => void simpleRecordAction(selected, "/archive", "Đã lưu trữ hồ sơ")}>
+            Lưu trữ
+          </DsButton>
+        ) : null}
+      </div>
+
+      <div className="ds-editor">
+        <form className="ds-editor__col" onSubmit={saveRecord} id="record-form" aria-label="Nội dung chuyên môn">
+          <div className="ds-card">
+            <div className="ds-card__head">
+              <h3>Nội dung chuyên môn</h3>
+            </div>
+            <div className="ds-card__body">
+              {textFields.map((field) => (
+                <DsField key={field.key} label={field.label} htmlFor={`rf-${field.key}`} hint={field.hint}>
+                  <DsTextarea
+                    id={`rf-${field.key}`}
+                    rows={field.rows}
+                    value={recordForm[field.key]}
+                    disabled={!canEdit}
+                    onChange={(event) => setRecordForm((current) => ({ ...current, [field.key]: event.target.value }))}
+                    aria-describedby={field.hint ? `rf-${field.key}-hint` : undefined}
+                    style={field.internal ? { background: "var(--ds-sunken)" } : undefined}
                   />
-                  <p className="mt-1 text-xs text-[#667892]">
-                    Tải lên PDF, JPG, PNG hoặc WEBP, tối đa 10 MB. Tệp được lưu riêng tư, chỉ bệnh nhân của hồ sơ này xem được sau khi công bố.
-                  </p>
-                  {labForm.fileUrl ? (
-                    <p className="mt-2 rounded-md border border-[#e5ebf3] bg-[#f8fafc] px-3 py-2 text-xs text-[#3d5a73]">Đã đính kèm tệp cận lâm sàng (xem trước không khả dụng vì tệp được lưu riêng tư).</p>
+                </DsField>
+              ))}
+            </div>
+          </div>
+        </form>
+
+        <div className="ds-editor__col">
+          <div className="ds-card">
+            <div className="ds-card__head">
+              <h3>Tệp kết quả</h3>
+              <DsStatusPill>Riêng tư</DsStatusPill>
+            </div>
+            <div className="ds-card__body">
+              {hasFile ? (
+                <div className="ds-file">
+                  <div className="ds-file__text">
+                    <strong>{savedFile ? "Tệp kết quả đã đính kèm" : "Tệp mới, chưa lưu"}</strong>
+                    <small>{savedFile ? "Đã lưu trong hồ sơ" : "Bấm Lưu hồ sơ để đính kèm"}</small>
+                  </div>
+                  {savedFile && selected ? (
+                    <a href={apiUrl(`/dashboard/medical-records/${selected.id}/file`)} target="_blank" rel="noopener" className="ds-link">
+                      Mở
+                    </a>
+                  ) : null}
+                  {canEdit ? (
+                    <DsButton variant="ghost" onClick={() => setRecordForm((current) => ({ ...current, resultPdfUrl: "" }))}>
+                      Gỡ
+                    </DsButton>
                   ) : null}
                 </div>
-                <div className="flex gap-2">
-                  <button disabled={busy || uploadingLabFile} className="flex-1 rounded-md bg-[#0d4f8b] px-3 py-2 text-sm font-semibold text-white disabled:opacity-60">{uploadingLabFile ? "Đang tải lên..." : busy ? "Đang lưu..." : editingLab ? "Lưu kết quả" : "Thêm kết quả"}</button>
-                  {editingLab ? <button type="button" onClick={() => { setEditingLab(null); setLabForm(emptyLabForm); }} className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm font-medium text-[#42526b]">Huỷ</button> : null}
+              ) : null}
+              {canEdit ? <FileDrop inputId="record-file" busy={uploadingRecordFile} onFile={(file) => void uploadRecordResultFile(file)} /> : null}
+            </div>
+          </div>
+
+          <div className="ds-card">
+            <div className="ds-card__head">
+              <h3>Kết quả cận lâm sàng</h3>
+              {canEdit && !labOpen ? (
+                <DsButton
+                  onClick={() => {
+                    setEditingLab(null);
+                    setDeleteLabTarget(null);
+                    setLabForm(emptyLabForm);
+                    setLabOpen(true);
+                  }}
+                >
+                  Thêm kết quả
+                </DsButton>
+              ) : null}
+            </div>
+            {selected.labResults.length === 0 && !labOpen ? (
+              <p style={{ margin: 0, padding: "14px", color: "var(--ds-muted)" }}>Chưa có kết quả cận lâm sàng.</p>
+            ) : null}
+            {selected.labResults.map((lab) => (
+              <div key={lab.id} className="ds-labrow">
+                <div className="ds-labrow__main">
+                  <strong>{lab.testName}</strong>
+                  <small>
+                    {lab.resultValue || "-"} {lab.unit || ""}
+                    {lab.referenceRange ? ` · tham chiếu ${lab.referenceRange}` : ""}
+                  </small>
+                  {lab.conclusion ? <small>{lab.conclusion}</small> : null}
+                  {lab.fileUrl ? (
+                    <a href={apiUrl(`/dashboard/medical-records/${selected.id}/lab-results/${lab.id}/file`)} target="_blank" rel="noopener" className="ds-link">
+                      Mở tệp
+                    </a>
+                  ) : null}
+                  {deleteLabTarget?.id === lab.id ? (
+                    <div style={{ display: "flex", gap: 8, marginTop: 8, alignItems: "center", flexWrap: "wrap" }}>
+                      <span style={{ fontSize: 13 }}>Xoá kết quả này?</span>
+                      <DsButton variant="danger" disabled={busy} onClick={() => void deleteLabResult()}>
+                        Xoá
+                      </DsButton>
+                      <DsButton onClick={() => setDeleteLabTarget(null)}>Giữ lại</DsButton>
+                    </div>
+                  ) : null}
+                </div>
+                {canEdit && deleteLabTarget?.id !== lab.id ? (
+                  <span style={{ display: "flex", gap: 4 }}>
+                    <DsButton
+                      variant="ghost"
+                      onClick={() => {
+                        setEditingLab(lab);
+                        setDeleteLabTarget(null);
+                        setLabForm(toLabForm(lab));
+                        setLabOpen(true);
+                      }}
+                    >
+                      Sửa
+                    </DsButton>
+                    <DsButton
+                      variant="ghost"
+                      onClick={() => {
+                        setDeleteLabTarget(lab);
+                        setEditingLab(null);
+                        setLabOpen(false);
+                      }}
+                    >
+                      Xoá
+                    </DsButton>
+                  </span>
+                ) : null}
+              </div>
+            ))}
+            {labOpen ? (
+              <form className="ds-card__body" onSubmit={saveLabResult} style={{ borderTop: "1px solid var(--ds-line)" }} aria-label={editingLab ? "Sửa kết quả" : "Thêm kết quả"}>
+                <DsField label="Tên xét nghiệm" htmlFor="lab-name" required>
+                  <DsInput id="lab-name" value={labForm.testName} required onChange={(event) => setLabForm((current) => ({ ...current, testName: event.target.value }))} />
+                </DsField>
+                <div className="ds-grid-fields">
+                  <DsField label="Giá trị" htmlFor="lab-value">
+                    <DsInput id="lab-value" value={labForm.resultValue} onChange={(event) => setLabForm((current) => ({ ...current, resultValue: event.target.value }))} />
+                  </DsField>
+                  <DsField label="Đơn vị" htmlFor="lab-unit">
+                    <DsInput id="lab-unit" value={labForm.unit} onChange={(event) => setLabForm((current) => ({ ...current, unit: event.target.value }))} />
+                  </DsField>
+                  <DsField label="Khoảng tham chiếu" htmlFor="lab-ref">
+                    <DsInput id="lab-ref" value={labForm.referenceRange} onChange={(event) => setLabForm((current) => ({ ...current, referenceRange: event.target.value }))} />
+                  </DsField>
+                </div>
+                <DsField label="Kết luận" htmlFor="lab-conclusion">
+                  <DsTextarea id="lab-conclusion" rows={2} value={labForm.conclusion} onChange={(event) => setLabForm((current) => ({ ...current, conclusion: event.target.value }))} />
+                </DsField>
+                {labForm.fileUrl ? (
+                  <div className="ds-file">
+                    <div className="ds-file__text">
+                      <strong>Đã có tệp đính kèm</strong>
+                    </div>
+                    <DsButton variant="ghost" onClick={() => setLabForm((current) => ({ ...current, fileUrl: "" }))}>
+                      Gỡ
+                    </DsButton>
+                  </div>
+                ) : null}
+                <FileDrop inputId="lab-file" busy={uploadingLabFile} onFile={(file) => void uploadLabResultFile(file)} />
+                <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+                  <DsButton
+                    onClick={() => {
+                      setLabOpen(false);
+                      setEditingLab(null);
+                      setLabForm(emptyLabForm);
+                    }}
+                  >
+                    Hủy
+                  </DsButton>
+                  <DsButton type="submit" variant="primary" disabled={busy || uploadingLabFile}>
+                    {editingLab ? "Lưu kết quả" : "Thêm kết quả"}
+                  </DsButton>
                 </div>
               </form>
-            </section>
+            ) : null}
           </div>
-        ) : (
-          <div>
-            <p className="text-sm font-medium text-[#55708f]">Chi tiết hồ sơ</p>
-            <h3 className="mt-1 text-xl font-semibold">Chọn một hồ sơ</h3>
-            <p className="mt-2 text-sm leading-6 text-[#667892]">Bấm vào mã hồ sơ để cập nhật chẩn đoán, điều trị và kết quả cận lâm sàng.</p>
+
+          <div className="ds-card">
+            <div className="ds-card__head">
+              <h3>Trước khi công bố</h3>
+            </div>
+            <div className="ds-card__body">
+              <div className="ds-check">
+                <span className={`ds-step__n${recordForm.diagnosis.trim() ? " is-done" : ""}`} aria-hidden="true">
+                  {recordForm.diagnosis.trim() ? "✓" : "!"}
+                </span>
+                <div>
+                  <strong>{recordForm.diagnosis.trim() ? "Có chẩn đoán" : "Chưa có chẩn đoán"}</strong>
+                </div>
+              </div>
+              <div className="ds-check">
+                <span className={`ds-step__n${hasFile || selected.labResults.length > 0 ? " is-done" : ""}`} aria-hidden="true">
+                  {hasFile || selected.labResults.length > 0 ? "✓" : "–"}
+                </span>
+                <div>
+                  <strong>{hasFile || selected.labResults.length > 0 ? "Có kết quả đính kèm" : "Chưa có kết quả đính kèm"}</strong>
+                  <small>Không bắt buộc.</small>
+                </div>
+              </div>
+              <div className="ds-check">
+                <span className={`ds-step__n${selected.prescriptionRecord ? " is-done" : ""}`} aria-hidden="true">
+                  {selected.prescriptionRecord ? "✓" : "–"}
+                </span>
+                <div>
+                  <strong>{selected.prescriptionRecord ? "Đã có đơn thuốc" : "Chưa có đơn thuốc"}</strong>
+                  <small>Có thể công bố trước, kê đơn sau.</small>
+                </div>
+              </div>
+              <p className="ds-hint" style={{ margin: 0 }}>
+                Công bố sẽ gửi thông báo cho người khám và mở hồ sơ cho họ xem.
+              </p>
+            </div>
           </div>
-        )}
-        </DashboardWorkspace>
-      </aside>
-      ) : null}
-    </div>
+        </div>
+      </div>
+
+      <div className="ds-savebar">
+        <span className="ds-savebar__msg">{dirty ? <DsStatusPill tone="warn">Có thay đổi chưa lưu</DsStatusPill> : "Mọi thay đổi đã được lưu"}</span>
+        <DsButton disabled={!dirty || busy} onClick={() => selected && setRecordForm(toRecordForm(selected))}>
+          Hủy thay đổi
+        </DsButton>
+        <DsButton type="submit" form="record-form" variant="primary" disabled={!dirty || busy || uploadingRecordFile || !canEdit}>
+          Lưu hồ sơ
+        </DsButton>
+      </div>
+    </DsPane>
+  ) : null;
+
+  return (
+    <>
+      <DsPageHeader
+        title="Hồ sơ khám"
+        description={
+          isDoctor
+            ? `${draftCount} hồ sơ nháp trong danh sách · ${needPrescription} hồ sơ chưa có đơn thuốc`
+            : "Theo dõi chẩn đoán, điều trị và kết quả khám của người khám"
+        }
+      />
+      <div style={{ display: "grid", gap: 12, marginBottom: 16 }}>
+        {visibleError ? <DsNotice tone="bad">{visibleError}</DsNotice> : null}
+        {notice ? <DsNotice tone="good">{notice}</DsNotice> : null}
+      </div>
+      <DsSplit wide list={list} pane={pane} />
+    </>
   );
 }

@@ -9,14 +9,17 @@ export function DsSplit({
   list,
   pane,
   className,
+  wide = false,
 }: {
   list: React.ReactNode;
   /** null: chưa chọn gì, danh sách chiếm toàn bề ngang. */
   pane: React.ReactNode | null;
   className?: string;
+  /** Khung chi tiết là nơi làm việc chính: danh sách thu hẹp, chi tiết chiếm phần còn lại. */
+  wide?: boolean;
 }) {
   return (
-    <div className={cn("ds-split", pane ? "ds-split--open" : undefined, className)}>
+    <div className={cn("ds-split", pane ? "ds-split--open" : undefined, wide && "ds-split--wide", className)}>
       <div className="ds-split__list">{list}</div>
       {pane ? <div className="ds-split__pane">{pane}</div> : null}
     </div>
@@ -28,16 +31,21 @@ export function DsPane({
   badge,
   onClose,
   footer,
+  wide = false,
+  bodyClassName,
   children,
 }: {
   title: string;
   badge?: React.ReactNode;
   onClose: () => void;
   footer?: React.ReactNode;
+  wide?: boolean;
+  /** Ghi đè lớp của phần thân (ví dụ bỏ đệm để bên trong tự chia cột). */
+  bodyClassName?: string;
   children: React.ReactNode;
 }) {
   return (
-    <aside className="ds-pane" aria-label={title}>
+    <aside className={cn("ds-pane", wide && "ds-pane--wide")} aria-label={title}>
       <div className="ds-pane__head">
         <h2 className="ds-pane__title">{title}</h2>
         {badge}
@@ -45,7 +53,7 @@ export function DsPane({
           <X />
         </DsButton>
       </div>
-      <div className="ds-pane__body">{children}</div>
+      <div className={bodyClassName ?? "ds-pane__body"}>{children}</div>
       {footer ? <div className="ds-pane__foot">{footer}</div> : null}
     </aside>
   );
