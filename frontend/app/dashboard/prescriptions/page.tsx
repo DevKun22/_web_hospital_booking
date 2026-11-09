@@ -1,16 +1,29 @@
 "use client";
 
-import { can } from "@/lib/permissions";
-import { useQueryClient } from "@tanstack/react-query";
-import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { PanelRightOpen, Search } from "lucide-react";
-import { DashboardFeedback } from "@/components/dashboard/dashboard-feedback";
-import { DashboardPageHeader, DashboardStatusBadge, DashboardSurface } from "@/components/dashboard/dashboard-ui";
-import { DashboardWorkspace } from "@/components/dashboard/dashboard-workspace";
+import { useQueryClient } from "@tanstack/react-query";
+import { Plus, Search } from "lucide-react";
+import {
+  DsButton,
+  DsDataTable,
+  DsEmptyState,
+  DsField,
+  DsInput,
+  DsNotice,
+  DsPageHeader,
+  DsPane,
+  DsPanel,
+  DsSelect,
+  DsSplit,
+  DsStatusPill,
+  DsTabs,
+  DsTextarea,
+  DsToolbar,
+  type DsColumn,
+  type DsTone,
+} from "@/components/ds";
 import { PrintButton, PrintablePrescription } from "@/components/dashboard/printable-documents";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { apiRequest } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import {
@@ -19,14 +32,13 @@ import {
   useDashboardPrescriptionDoctors,
   useDashboardPrescriptions,
 } from "@/lib/dashboard-prescriptions-query";
-import { queryKeys } from "@/lib/query-keys";
 import { formatVietnamDateTime } from "@/lib/date";
-import type {
-  DoctorProfile,
-  Prescription,
-  PrescriptionItem,
-  PrescriptionStatus,
-} from "@/lib/types";
+import { can } from "@/lib/permissions";
+import { queryKeys } from "@/lib/query-keys";
+import type { DoctorProfile, Prescription, PrescriptionItem, PrescriptionStatus } from "@/lib/types";
+
+// Đơn thuốc: danh sách bên trái; chọn một đơn thì danh sách thu hẹp, khung bên phải để soạn thuốc,
+// kiểm tra và phát hành. Đơn đã phát hành chỉ xem và in.
 
 type ItemForm = {
   medicineName: string;
@@ -36,25 +48,15 @@ type ItemForm = {
   quantity: string;
   unit: string;
   instruction: string;
-  sortOrder: string;
 };
 
-const emptyItemForm: ItemForm = {
-  medicineName: "",
-  dosage: "",
-  frequency: "",
-  duration: "",
-  quantity: "",
-  unit: "",
-  instruction: "",
-  sortOrder: "0",
-};
+const emptyItemForm: ItemForm = { medicineName: "", dosage: "", frequency: "", duration: "", quantity: "", unit: "", instruction: "" };
 
-const statusOptions: { value: "" | PrescriptionStatus; label: string }[] = [
-  { value: "", label: "Tất cả trạng thái" },
-  { value: "DRAFT", label: "Bản nháp" },
-  { value: "ISSUED", label: "Đã phát hành" },
-  { value: "CANCELLED", label: "Đã huỷ" },
+const statusTabs = [
+  { id: "", label: "Tất cả" },
+  { id: "DRAFT", label: "Bản nháp" },
+  { id: "ISSUED", label: "Đã phát hành" },
+  { id: "CANCELLED", label: "Đã huỷ" },
 ];
 
 const statusLabel: Record<PrescriptionStatus, string> = {
@@ -63,10 +65,10 @@ const statusLabel: Record<PrescriptionStatus, string> = {
   CANCELLED: "Đã huỷ",
 };
 
-const statusTone: Record<PrescriptionStatus, "warning" | "positive" | "danger"> = {
-  DRAFT: "warning",
-  ISSUED: "positive",
-  CANCELLED: "danger",
+const statusTone: Record<PrescriptionStatus, DsTone> = {
+  DRAFT: "warn",
+  ISSUED: "good",
+  CANCELLED: "bad",
 };
 
 const doctorName = (doctor: DoctorProfile | Prescription["doctor"]) =>
@@ -80,10 +82,9 @@ const toItemForm = (item: PrescriptionItem): ItemForm => ({
   quantity: item.quantity === null ? "" : String(item.quantity),
   unit: item.unit || "",
   instruction: item.instruction || "",
-  sortOrder: String(item.sortOrder || 0),
 });
 
-const buildItemPayload = (form: ItemForm) => ({
+const buildItemPayload = (form: ItemForm, sortOrder: number) => ({
   medicineName: form.medicineName.trim(),
   dosage: form.dosage.trim() || null,
   frequency: form.frequency.trim() || null,
@@ -91,7 +92,7 @@ const buildItemPayload = (form: ItemForm) => ({
   quantity: form.quantity ? Number(form.quantity) : null,
   unit: form.unit.trim() || null,
   instruction: form.instruction.trim() || null,
-  sortOrder: Number(form.sortOrder || 0),
+  sortOrder,
 });
 
 export default function PrescriptionsPage() {
@@ -100,26 +101,23 @@ export default function PrescriptionsPage() {
   const [status, setStatus] = useState("");
   const [doctorId, setDoctorId] = useState("");
   const [prescriptionCode, setPrescriptionCode] = useState("");
-  const [medicalRecordId, setMedicalRecordId] = useState("");
   const [appliedPrescriptionCode, setAppliedPrescriptionCode] = useState("");
-  const [appliedMedicalRecordId, setAppliedMedicalRecordId] = useState("");
   const [page, setPage] = useState(1);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
-  const [workspaceOpen, setWorkspaceOpen] = useState(false);
   const [selectedSnapshot, setSelected] = useState<Prescription | null>(null);
+  const [creating, setCreating] = useState(false);
   const [createRecordId, setCreateRecordId] = useState("");
   const [createNote, setCreateNote] = useState("");
   const [note, setNote] = useState("");
+  const [itemOpen, setItemOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<PrescriptionItem | null>(null);
   const [deleteItemTarget, setDeleteItemTarget] = useState<PrescriptionItem | null>(null);
+  const [confirmCancel, setConfirmCancel] = useState(false);
   const [itemForm, setItemForm] = useState<ItemForm>(emptyItemForm);
-  const listRef = useRef<HTMLElement | null>(null);
-  const detailRef = useRef<HTMLElement | null>(null);
 
   const canEdit = can(user, "prescription.write");
-  const canCancel = can(user, "prescription.write");
   const isDoctor = user?.role === "DOCTOR";
 
   const query = useMemo(
@@ -127,11 +125,10 @@ export default function PrescriptionsPage() {
       status: status || undefined,
       doctorId: isDoctor ? undefined : doctorId || undefined,
       prescriptionCode: appliedPrescriptionCode || undefined,
-      medicalRecordId: appliedMedicalRecordId || undefined,
       page,
       limit: 20,
     }),
-    [appliedMedicalRecordId, appliedPrescriptionCode, doctorId, isDoctor, page, status],
+    [appliedPrescriptionCode, doctorId, isDoctor, page, status],
   );
   const doctorQuery = useMemo(() => ({ limit: 100 }), []);
   const prescriptionsQuery = useDashboardPrescriptions(query);
@@ -143,12 +140,19 @@ export default function PrescriptionsPage() {
   const pagination = prescriptionsQuery.data?.pagination ?? { page, limit: 20, total: 0, totalPages: 1 };
   const selected = selectedPrescriptionQuery.data ?? selectedSnapshot;
   const queryError = prescriptionsQuery.error || doctorsQuery.error || selectedPrescriptionQuery.error;
-  const queryErrorMessage = queryError
-    ? queryError instanceof Error
-      ? queryError.message
-      : "Không tải được dữ liệu đơn thuốc"
-    : "";
+  const queryErrorMessage = queryError ? (queryError instanceof Error ? queryError.message : "Không tải được dữ liệu đơn thuốc") : "";
   const visibleError = error || queryErrorMessage;
+  const isDraft = selected?.status === "DRAFT";
+  const editable = canEdit && isDraft;
+
+  useEffect(() => {
+    if (!notice && !error) return;
+    const timeoutId = window.setTimeout(() => {
+      setNotice("");
+      setError("");
+    }, 4500);
+    return () => window.clearTimeout(timeoutId);
+  }, [error, notice]);
 
   const invalidatePrescriptions = async () => {
     await Promise.all([
@@ -169,60 +173,32 @@ export default function PrescriptionsPage() {
     return refreshed;
   };
 
-  useEffect(() => {
-    if (!notice && !error) return;
-    const timeoutId = window.setTimeout(() => {
-      setNotice("");
-      setError("");
-    }, 4500);
-    return () => window.clearTimeout(timeoutId);
-  }, [error, notice]);
-
-  const scrollDetail = () => {
-    window.setTimeout(() => {
-      detailRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-    }, 0);
-  };
-
-  const scrollList = () => {
-    window.setTimeout(() => {
-      listRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-    }, 0);
-  };
-
-  const setQuickFilter = (nextStatus: "" | PrescriptionStatus) => {
-    setStatus(nextStatus);
-    setPrescriptionCode("");
-    setMedicalRecordId("");
-    setAppliedPrescriptionCode("");
-    setAppliedMedicalRecordId("");
-    setPage(1);
-    scrollList();
-  };
-
-  const doctorSummary = {
-    total: prescriptions.length,
-    draft: prescriptions.filter((item) => item.status === "DRAFT").length,
-    issued: prescriptions.filter((item) => item.status === "ISSUED").length,
-    emptyDraft: prescriptions.filter((item) => item.status === "DRAFT" && item.items.length === 0).length,
-  };
-
-  const applySearch = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    setAppliedPrescriptionCode(prescriptionCode.trim());
-    setAppliedMedicalRecordId(medicalRecordId.trim());
-    setPage(1);
+  const resetItemEditor = () => {
+    setItemOpen(false);
+    setEditingItem(null);
+    setDeleteItemTarget(null);
+    setItemForm(emptyItemForm);
   };
 
   const openDetail = (prescription: Prescription) => {
     setSelected(prescription);
-    setWorkspaceOpen(true);
+    setCreating(false);
+    setConfirmCancel(false);
     setNote(prescription.note || "");
-    setEditingItem(null);
-    setDeleteItemTarget(null);
-    setItemForm({ ...emptyItemForm, sortOrder: String(prescription.items.length) });
-    scrollDetail();
+    resetItemEditor();
   };
+
+  const closeDetail = () => {
+    setSelected(null);
+    setCreating(false);
+  };
+
+  const startCreate = () => {
+    setSelected(null);
+    setCreating(true);
+  };
+
+  const dirtyNote = Boolean(selected) && note.trim() !== (selected?.note || "").trim();
 
   const createPrescription = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -231,20 +207,17 @@ export default function PrescriptionsPage() {
     setError("");
     setNotice("");
     try {
-      const created = await apiRequest<Prescription>(
-        `/dashboard/medical-records/${createRecordId}/prescription`,
-        {
-          method: "POST",
-          body: { note: createNote.trim() || null, items: [] },
-        },
-      );
+      const created = await apiRequest<Prescription>(`/dashboard/medical-records/${createRecordId.trim()}/prescription`, {
+        method: "POST",
+        body: { note: createNote.trim() || null, items: [] },
+      });
+      setCreating(false);
       setSelected(created);
       setNote(created.note || "");
       setCreateRecordId("");
       setCreateNote("");
       setNotice("Đã tạo đơn thuốc");
       await invalidatePrescriptions();
-      scrollDetail();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Không tạo được đơn thuốc");
     } finally {
@@ -252,9 +225,8 @@ export default function PrescriptionsPage() {
     }
   };
 
-  const updateNote = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    if (!canEdit || !selected) return;
+  const updateNote = async () => {
+    if (!editable || !selected) return;
     setBusy(true);
     setError("");
     setNotice("");
@@ -265,7 +237,7 @@ export default function PrescriptionsPage() {
       });
       setSelected(updated);
       setNote(updated.note || "");
-      setNotice("Đã cập nhật ghi chú đơn");
+      setNotice("Đã lưu ghi chú đơn");
       await invalidatePrescriptions();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Không cập nhật được đơn thuốc");
@@ -279,13 +251,11 @@ export default function PrescriptionsPage() {
     setError("");
     setNotice("");
     try {
-      const updated = await apiRequest<Prescription>(`/dashboard/prescriptions/${prescription.id}${path}`, {
-        method: "PATCH",
-      });
+      const updated = await apiRequest<Prescription>(`/dashboard/prescriptions/${prescription.id}${path}`, { method: "PATCH" });
       setSelected(updated);
       setNote(updated.note || "");
-      setEditingItem(null);
-      setDeleteItemTarget(null);
+      setConfirmCancel(false);
+      resetItemEditor();
       setNotice(message);
       await invalidatePrescriptions();
     } catch (err) {
@@ -297,24 +267,20 @@ export default function PrescriptionsPage() {
 
   const saveItem = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!canEdit || !selected) return;
+    if (!editable || !selected) return;
     setBusy(true);
     setError("");
     setNotice("");
     try {
       const updated = await apiRequest<Prescription>(
-        editingItem
-          ? `/dashboard/prescriptions/${selected.id}/items/${editingItem.id}`
-          : `/dashboard/prescriptions/${selected.id}/items`,
+        editingItem ? `/dashboard/prescriptions/${selected.id}/items/${editingItem.id}` : `/dashboard/prescriptions/${selected.id}/items`,
         {
           method: editingItem ? "PATCH" : "POST",
-          body: buildItemPayload(itemForm),
+          body: buildItemPayload(itemForm, editingItem ? editingItem.sortOrder : selected.items.length),
         },
       );
       setSelected(updated);
-      setEditingItem(null);
-      setDeleteItemTarget(null);
-      setItemForm({ ...emptyItemForm, sortOrder: String(updated.items.length) });
+      resetItemEditor();
       setNotice(editingItem ? "Đã cập nhật thuốc" : "Đã thêm thuốc");
       await invalidatePrescriptions();
     } catch (err) {
@@ -325,14 +291,12 @@ export default function PrescriptionsPage() {
   };
 
   const deleteItem = async () => {
-    if (!selected || !canEdit || !deleteItemTarget) return;
+    if (!selected || !editable || !deleteItemTarget) return;
     setBusy(true);
     setError("");
     setNotice("");
     try {
-      await apiRequest<PrescriptionItem>(`/dashboard/prescriptions/${selected.id}/items/${deleteItemTarget.id}`, {
-        method: "DELETE",
-      });
+      await apiRequest<PrescriptionItem>(`/dashboard/prescriptions/${selected.id}/items/${deleteItemTarget.id}`, { method: "DELETE" });
       await refreshSelectedPrescription(selected.id);
       setDeleteItemTarget(null);
       setNotice("Đã xoá thuốc");
@@ -344,226 +308,407 @@ export default function PrescriptionsPage() {
     }
   };
 
-  return (
-    <div className={`grid gap-6 transition-[grid-template-columns] duration-300 ${workspaceOpen ? "xl:grid-cols-[minmax(0,1fr)_420px]" : "xl:grid-cols-1"}`}>
-      <DashboardFeedback error={visibleError} notice={notice} onDismiss={queryErrorMessage ? undefined : () => { setError(""); setNotice(""); }} />
+  const applySearch = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setAppliedPrescriptionCode(prescriptionCode.trim());
+    setPage(1);
+  };
 
-      <section ref={listRef} className="min-w-0 scroll-mt-24 space-y-4">
-        <DashboardPageHeader eyebrow={isDoctor ? "Khu làm việc bác sĩ" : "Chuyên môn"} title="Đơn thuốc"
-          description={isDoctor ? "Hoàn thiện đơn nháp, kiểm tra thuốc và phát hành đơn cho người khám." : "Tạo đơn từ hồ sơ khám, quản lý thuốc và theo dõi trạng thái phát hành."}
-          actions={!workspaceOpen ? <Button variant="outline" size="lg" onClick={() => setWorkspaceOpen(true)}><PanelRightOpen />{canEdit ? "Mở công cụ đơn thuốc" : "Mở đơn đang chọn"}</Button> : undefined}
-        />
+  const draftCount = prescriptions.filter((item) => item.status === "DRAFT").length;
+  const emptyDraft = prescriptions.filter((item) => item.status === "DRAFT" && item.items.length === 0).length;
 
-        {isDoctor ? (
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            <button type="button" onClick={() => setQuickFilter("")} className="rounded-md border border-[#cfe4fa] bg-[#f3f8ff] p-4 text-left text-[#0d4f8b] transition hover:-translate-y-0.5 hover:shadow-sm">
-              <p className="text-sm font-medium opacity-80">Đơn đang lọc</p>
-              <p className="mt-2 text-2xl font-semibold">{doctorSummary.total}</p>
-              <p className="mt-1 text-xs opacity-75">Toàn bộ đơn thuốc</p>
-            </button>
-            <button type="button" onClick={() => setQuickFilter("DRAFT")} className="rounded-md border border-[#f4d7a1] bg-[#fff8eb] p-4 text-left text-[#946200] transition hover:-translate-y-0.5 hover:shadow-sm">
-              <p className="text-sm font-medium opacity-80">Đơn nháp</p>
-              <p className="mt-2 text-2xl font-semibold">{doctorSummary.draft}</p>
-              <p className="mt-1 text-xs opacity-75">Cần kiểm tra trước khi phát hành</p>
-            </button>
-            <button type="button" onClick={() => setQuickFilter("DRAFT")} className="rounded-md border border-[#f2b8b5] bg-[#fff3f2] p-4 text-left text-[#b3261e] transition hover:-translate-y-0.5 hover:shadow-sm">
-              <p className="text-sm font-medium opacity-80">Chưa có thuốc</p>
-              <p className="mt-2 text-2xl font-semibold">{doctorSummary.emptyDraft}</p>
-              <p className="mt-1 text-xs opacity-75">Cần thêm ít nhất 1 thuốc</p>
-            </button>
-            <button type="button" onClick={() => setQuickFilter("ISSUED")} className="rounded-md border border-[#c7ead0] bg-[#f0fff4] p-4 text-left text-[#1f7a3a] transition hover:-translate-y-0.5 hover:shadow-sm">
-              <p className="text-sm font-medium opacity-80">Đã phát hành</p>
-              <p className="mt-2 text-2xl font-semibold">{doctorSummary.issued}</p>
-              <p className="mt-1 text-xs opacity-75">Sẵn sàng gửi cho người khám</p>
-            </button>
-          </div>
-        ) : null}
+  const columns: DsColumn<Prescription>[] = [
+    {
+      key: "code",
+      header: "Đơn thuốc",
+      cell: (row) => (
+        <div>
+          <strong className="ds-mono">{row.prescriptionCode}</strong>
+          <div style={{ color: "var(--ds-muted)", fontSize: 12 }}>{row.items.length} thuốc</div>
+        </div>
+      ),
+    },
+    {
+      key: "patient",
+      header: "Người khám",
+      cell: (row) => (
+        <div>
+          <strong>{row.patient.fullName}</strong>
+          <div style={{ color: "var(--ds-muted)", fontSize: 12 }}>{row.patient.phone || "-"}</div>
+        </div>
+      ),
+    },
+    {
+      key: "record",
+      header: "Hồ sơ",
+      cell: (row) => (
+        <div>
+          <span className="ds-mono">{row.medicalRecord.recordCode}</span>
+          <div style={{ color: "var(--ds-muted)", fontSize: 12 }}>{row.medicalRecord.diagnosis || "Chưa có chẩn đoán"}</div>
+        </div>
+      ),
+    },
+    { key: "doctor", header: "Bác sĩ", cell: (row) => doctorName(row.doctor) },
+    { key: "status", header: "Trạng thái", cell: (row) => <DsStatusPill tone={statusTone[row.status]}>{statusLabel[row.status]}</DsStatusPill> },
+  ];
 
-        <DashboardSurface>
-          <form onSubmit={applySearch} className={`grid gap-3 border-b border-border p-4 ${isDoctor ? "lg:grid-cols-2 2xl:grid-cols-[170px_minmax(0,1fr)_minmax(0,1fr)_auto]" : "lg:grid-cols-2 2xl:grid-cols-[170px_minmax(0,1fr)_170px_170px_auto]"}`}>
-            <select value={status} onChange={(e) => { setStatus(e.target.value); setPage(1); }} className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]">
-              {statusOptions.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
-            </select>
-            {!isDoctor ? (
-              <select value={doctorId} onChange={(e) => { setDoctorId(e.target.value); setPage(1); }} className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]">
+  const open = Boolean(selected) || creating;
+
+  const list = (
+    <DsPanel flush>
+      <form onSubmit={applySearch} aria-label="Lọc đơn thuốc">
+        <DsToolbar>
+          {!isDoctor ? (
+            <div style={{ minWidth: 160, flex: "1 1 180px" }}>
+              <DsSelect
+                aria-label="Lọc theo bác sĩ"
+                value={doctorId}
+                onChange={(event) => {
+                  setDoctorId(event.target.value);
+                  setPage(1);
+                }}
+              >
                 <option value="">Tất cả bác sĩ</option>
-                {doctors.map((doctor) => <option key={doctor.id} value={doctor.id}>{doctorName(doctor)}</option>)}
-              </select>
-            ) : null}
-            <Input value={prescriptionCode} onChange={(e) => setPrescriptionCode(e.target.value)} placeholder="Mã đơn" />
-            <Input value={medicalRecordId} onChange={(e) => setMedicalRecordId(e.target.value)} placeholder="Mã hồ sơ hoặc mã định danh" />
-            <Button type="submit"><Search />Tìm kiếm</Button>
-          </form>
-
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[980px] border-separate border-spacing-0 text-left text-sm">
-              <thead>
-                <tr className="text-[#667892]">
-                  <th className="border-b border-[#e5ebf3] px-4 py-3 font-semibold">Đơn thuốc</th>
-                  <th className="border-b border-[#e5ebf3] px-4 py-3 font-semibold">Người khám</th>
-                  <th className="border-b border-[#e5ebf3] px-4 py-3 font-semibold">Hồ sơ</th>
-                  <th className="border-b border-[#e5ebf3] px-4 py-3 font-semibold">Bác sĩ</th>
-                  <th className="border-b border-[#e5ebf3] px-4 py-3 font-semibold">Trạng thái</th>
-                  <th className="border-b border-[#e5ebf3] px-4 py-3 text-right font-semibold">Thao tác</th>
-                </tr>
-              </thead>
-              <tbody>
-                {loading ? (
-                  <tr><td colSpan={6} className="px-4 py-10 text-center text-[#667892]">Đang tải đơn thuốc...</td></tr>
-                ) : prescriptions.length === 0 ? (
-                  <tr><td colSpan={6} className="px-4 py-10 text-center text-[#667892]">Chưa có đơn thuốc phù hợp</td></tr>
-                ) : prescriptions.map((prescription) => (
-                  <tr key={prescription.id} className="align-top">
-                    <td className="border-b border-[#eef2f7] px-4 py-3"><button onClick={() => openDetail(prescription)} className="font-semibold text-[#0d4f8b] hover:underline">{prescription.prescriptionCode}</button><p className="mt-1 text-xs text-[#667892]">{prescription.items.length} thuốc</p></td>
-                    <td className="border-b border-[#eef2f7] px-4 py-3"><p className="font-semibold">{prescription.patient.fullName}</p><p className="mt-1 text-xs text-[#667892]">{prescription.patient.phone}</p></td>
-                    <td className="border-b border-[#eef2f7] px-4 py-3"><p>{prescription.medicalRecord.recordCode}</p><p className="mt-1 text-xs text-[#667892]">{prescription.medicalRecord.diagnosis || "Chưa có chẩn đoán"}</p></td>
-                    <td className="border-b border-[#eef2f7] px-4 py-3"><p>{doctorName(prescription.doctor)}</p><p className="mt-1 text-xs text-[#667892]">{prescription.doctor.department.name}</p></td>
-                    <td className="border-b border-[#eef2f7] px-4 py-3"><DashboardStatusBadge tone={statusTone[prescription.status]}>{statusLabel[prescription.status]}</DashboardStatusBadge></td>
-                    <td className="border-b border-[#eef2f7] px-4 py-3">
-                      <div className="flex flex-wrap justify-end gap-2">
-                        <button onClick={() => openDetail(prescription)} className="rounded-md border border-[#cfd8e6] px-3 py-1.5 text-xs font-medium text-[#42526b]">Chi tiết</button>
-                        {canEdit && prescription.status === "DRAFT" ? (
-                          <button type="button" disabled={busy} onClick={() => void simpleAction(prescription, "/issue", "Đã phát hành đơn")} className="rounded-md border border-[#cfe4fa] px-3 py-1.5 text-xs font-medium text-[#0d4f8b] disabled:opacity-60">Phát hành</button>
-                        ) : null}
-                      </div>
-                    </td>
-                  </tr>
+                {doctors.map((doctor) => (
+                  <option key={doctor.id} value={doctor.id}>
+                    {doctorName(doctor)}
+                  </option>
                 ))}
-              </tbody>
-            </table>
-          </div>
-          <div className="flex items-center justify-between border-t border-[#e5ebf3] px-4 py-3 text-sm text-[#667892]">
-            <span>{pagination.total} kết quả, trang {pagination.page}/{pagination.totalPages || 1}</span>
-            <div className="flex gap-2">
-              <button disabled={page <= 1} onClick={() => setPage((current) => Math.max(current - 1, 1))} className="rounded-md border border-[#cfd8e6] px-3 py-1.5 font-medium disabled:opacity-50">Trước</button>
-              <button disabled={page >= pagination.totalPages} onClick={() => setPage((current) => current + 1)} className="rounded-md border border-[#cfd8e6] px-3 py-1.5 font-medium disabled:opacity-50">Sau</button>
+              </DsSelect>
             </div>
+          ) : null}
+          <div style={{ minWidth: 150, flex: "1 1 170px" }}>
+            <DsInput aria-label="Mã đơn" value={prescriptionCode} onChange={(event) => setPrescriptionCode(event.target.value)} placeholder="Mã đơn" />
           </div>
-        </DashboardSurface>
-      </section>
+          <DsButton type="submit">
+            <Search aria-hidden="true" />
+            Tìm
+          </DsButton>
+          {canEdit ? (
+            <DsButton variant="primary" onClick={startCreate}>
+              <Plus aria-hidden="true" />
+              Tạo đơn
+            </DsButton>
+          ) : null}
+        </DsToolbar>
+      </form>
+      <DsTabs
+        label="Lọc đơn theo trạng thái"
+        items={statusTabs}
+        value={status}
+        onChange={(id) => {
+          setStatus(id);
+          setPage(1);
+        }}
+      />
+      {open ? (
+        prescriptions.length ? (
+          <div role="listbox" aria-label="Danh sách đơn thuốc">
+            {prescriptions.map((prescription) => (
+              <button
+                key={prescription.id}
+                type="button"
+                role="option"
+                className="ds-listrow"
+                aria-selected={prescription.id === selected?.id}
+                onClick={() => openDetail(prescription)}
+              >
+                <span className="ds-listrow__main">
+                  <strong>{prescription.patient.fullName}</strong>
+                  <small>
+                    {prescription.prescriptionCode} · {prescription.items.length} thuốc
+                  </small>
+                </span>
+                <DsStatusPill tone={statusTone[prescription.status]}>{statusLabel[prescription.status]}</DsStatusPill>
+              </button>
+            ))}
+          </div>
+        ) : (
+          <DsEmptyState title="Chưa có đơn thuốc phù hợp" />
+        )
+      ) : (
+        <DsDataTable
+          caption="Danh sách đơn thuốc"
+          columns={columns}
+          rows={prescriptions}
+          rowKey={(row) => row.id}
+          loading={loading}
+          emptyTitle="Chưa có đơn thuốc phù hợp"
+          emptyDescription="Đổi bộ lọc hoặc tạo đơn từ một hồ sơ khám."
+          onRowClick={openDetail}
+        />
+      )}
+      <div className="ds-pager">
+        <span>
+          {pagination.total} đơn · trang {pagination.page}/{pagination.totalPages || 1}
+        </span>
+        <span style={{ display: "flex", gap: 8 }}>
+          <DsButton disabled={page <= 1} onClick={() => setPage((current) => Math.max(current - 1, 1))}>
+            Trước
+          </DsButton>
+          <DsButton disabled={page >= pagination.totalPages} onClick={() => setPage((current) => current + 1)}>
+            Sau
+          </DsButton>
+        </span>
+      </div>
+    </DsPanel>
+  );
 
-      {workspaceOpen ? (
-      <aside ref={detailRef} className="min-w-0 scroll-mt-24">
-        <DashboardWorkspace
-          open={workspaceOpen}
-          onOpenChange={setWorkspaceOpen}
-          title={selected ? `Đơn thuốc ${selected.prescriptionCode}` : "Công cụ đơn thuốc"}
-          description="Tạo, kiểm tra và phát hành đơn thuốc trong một vùng làm việc tập trung."
-        >
-        <div className="space-y-4">
-        {canEdit ? (
-          <section className="rounded-md border border-[#dce3ee] bg-white p-5">
-            <h3 className="text-lg font-semibold">Tạo đơn thuốc</h3>
-            <p className="mt-2 text-sm text-[#667892]">Nhập mã hồ sơ hiển thị trên bảng hoặc mã định danh. Hồ sơ phải thuộc ca đang khám hoặc đã hoàn thành và chưa có đơn thuốc.</p>
-            <form className="mt-4 space-y-3" onSubmit={createPrescription}>
-              <input value={createRecordId} onChange={(e) => setCreateRecordId(e.target.value)} placeholder="Mã hồ sơ hoặc mã định danh" className="w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" required />
-              <textarea value={createNote} onChange={(e) => setCreateNote(e.target.value)} placeholder="Ghi chú đơn" rows={2} className="w-full resize-none rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" />
-              <button disabled={busy} className="w-full rounded-md bg-[#0d4f8b] px-4 py-2 text-sm font-semibold text-white disabled:opacity-60">{busy ? "Đang tạo..." : "Tạo đơn"}</button>
-            </form>
-          </section>
+  const createPane = creating ? (
+    <DsPane title="Tạo đơn thuốc" onClose={closeDetail}>
+      <form onSubmit={createPrescription} style={{ display: "grid", gap: 12 }} aria-label="Tạo đơn thuốc">
+        <DsNotice tone="info">Hồ sơ phải thuộc ca đang khám hoặc đã hoàn thành và chưa có đơn thuốc. Cũng có thể tạo ngay từ trang Hồ sơ khám.</DsNotice>
+        <DsField label="Mã hồ sơ hoặc mã định danh" htmlFor="create-record" required>
+          <DsInput id="create-record" value={createRecordId} required onChange={(event) => setCreateRecordId(event.target.value)} />
+        </DsField>
+        <DsField label="Ghi chú đơn" htmlFor="create-note">
+          <DsTextarea id="create-note" rows={2} value={createNote} onChange={(event) => setCreateNote(event.target.value)} />
+        </DsField>
+        <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+          <DsButton onClick={closeDetail}>Hủy</DsButton>
+          <DsButton type="submit" variant="primary" disabled={busy}>
+            {busy ? "Đang tạo..." : "Tạo đơn"}
+          </DsButton>
+        </div>
+      </form>
+    </DsPane>
+  ) : null;
+
+  const detailPane = selected ? (
+    <DsPane
+      wide
+      bodyClassName="ds-pane__body ds-pane__body--flush"
+      title={`${selected.prescriptionCode} · ${selected.patient.fullName}`}
+      badge={<DsStatusPill tone={statusTone[selected.status]}>{statusLabel[selected.status]}</DsStatusPill>}
+      onClose={closeDetail}
+    >
+      <div style={{ padding: "12px 16px 0", color: "var(--ds-muted)", fontSize: 13 }}>
+        {selected.patient.phone || "-"} · {selected.medicalRecord.recordCode} · {doctorName(selected.doctor)} · tạo {formatVietnamDateTime(selected.createdAt)}
+        {selected.issuedAt ? ` · phát hành ${formatVietnamDateTime(selected.issuedAt)}` : ""}
+        {selected.cancelledAt ? ` · huỷ ${formatVietnamDateTime(selected.cancelledAt)}` : ""}
+      </div>
+
+      <div className="ds-savebar" style={{ borderTop: 0, position: "static", paddingTop: 12 }}>
+        {editable ? (
+          <DsButton
+            variant="primary"
+            disabled={busy || selected.items.length === 0 || dirtyNote}
+            title={selected.items.length === 0 ? "Cần thêm ít nhất 1 thuốc" : dirtyNote ? "Lưu ghi chú trước khi phát hành" : undefined}
+            onClick={() => void simpleAction(selected, "/issue", "Đã phát hành đơn")}
+          >
+            Phát hành đơn
+          </DsButton>
         ) : null}
+        {selected.status === "ISSUED" ? (
+          <>
+            <PrintButton label="In đơn thuốc" />
+            <PrintablePrescription prescription={selected} />
+          </>
+        ) : null}
+        <Link href={`/dashboard/medical-records?recordCode=${encodeURIComponent(selected.medicalRecord.recordCode)}`} className="ds-btn">
+          Mở hồ sơ khám
+        </Link>
+        <span style={{ flex: 1 }} />
+        {canEdit && selected.status !== "CANCELLED" ? (
+          confirmCancel ? (
+            <>
+              <span style={{ fontSize: 13 }}>Huỷ đơn này?</span>
+              <DsButton variant="danger" disabled={busy} onClick={() => void simpleAction(selected, "/cancel", "Đã huỷ đơn thuốc")}>
+                Huỷ đơn
+              </DsButton>
+              <DsButton onClick={() => setConfirmCancel(false)}>Giữ lại</DsButton>
+            </>
+          ) : (
+            <DsButton variant="ghost" disabled={busy} onClick={() => setConfirmCancel(true)}>
+              Huỷ đơn
+            </DsButton>
+          )
+        ) : null}
+      </div>
+      {editable && selected.items.length === 0 ? (
+        <div style={{ padding: "0 16px" }}>
+          <DsNotice tone="warn">Đơn chưa có thuốc. Thêm ít nhất 1 thuốc để phát hành.</DsNotice>
+        </div>
+      ) : null}
 
-        <section className="rounded-md border border-[#dce3ee] bg-white p-5">
-          {selected ? (
-            <div className="space-y-5">
-              <div>
-                <p className="text-sm font-medium text-[#55708f]">Chi tiết đơn thuốc</p>
-                <h3 className="mt-1 text-xl font-semibold">{selected.prescriptionCode}</h3>
-                <DashboardStatusBadge tone={statusTone[selected.status]} className="mt-3">{statusLabel[selected.status]}</DashboardStatusBadge>
-                {selected.status === "ISSUED" ? (<div className="mt-3"><PrintButton label="In đơn thuốc" /><PrintablePrescription prescription={selected} /></div>) : null}
+      <div className="ds-editor">
+        <div className="ds-editor__col">
+          <div className="ds-card">
+            <div className="ds-card__head">
+              <h3>Thuốc trong đơn ({selected.items.length})</h3>
+              {editable && !itemOpen ? (
+                <DsButton
+                  onClick={() => {
+                    setEditingItem(null);
+                    setDeleteItemTarget(null);
+                    setItemForm(emptyItemForm);
+                    setItemOpen(true);
+                  }}
+                >
+                  Thêm thuốc
+                </DsButton>
+              ) : null}
+            </div>
+            {selected.items.length === 0 && !itemOpen ? (
+              <p style={{ margin: 0, padding: 14, color: "var(--ds-muted)" }}>Chưa có thuốc.</p>
+            ) : null}
+            {selected.items.map((item) => (
+              <div key={item.id} className="ds-labrow">
+                <div className="ds-labrow__main">
+                  <strong>{item.medicineName}</strong>
+                  <small>
+                    {[item.dosage, item.frequency, item.duration].filter(Boolean).join(" · ") || "Chưa có liều dùng"}
+                    {" · "}
+                    SL {item.quantity ?? "-"} {item.unit || ""}
+                  </small>
+                  {item.instruction ? <small>{item.instruction}</small> : null}
+                  {deleteItemTarget?.id === item.id ? (
+                    <div style={{ display: "flex", gap: 8, marginTop: 8, alignItems: "center", flexWrap: "wrap" }}>
+                      <span style={{ fontSize: 13 }}>Xoá thuốc này khỏi đơn?</span>
+                      <DsButton variant="danger" disabled={busy} onClick={() => void deleteItem()}>
+                        Xoá
+                      </DsButton>
+                      <DsButton onClick={() => setDeleteItemTarget(null)}>Giữ lại</DsButton>
+                    </div>
+                  ) : null}
+                </div>
+                {editable && deleteItemTarget?.id !== item.id ? (
+                  <span style={{ display: "flex", gap: 4 }}>
+                    <DsButton
+                      variant="ghost"
+                      onClick={() => {
+                        setEditingItem(item);
+                        setDeleteItemTarget(null);
+                        setItemForm(toItemForm(item));
+                        setItemOpen(true);
+                      }}
+                    >
+                      Sửa
+                    </DsButton>
+                    <DsButton
+                      variant="ghost"
+                      onClick={() => {
+                        setDeleteItemTarget(item);
+                        setEditingItem(null);
+                        setItemOpen(false);
+                      }}
+                    >
+                      Xoá
+                    </DsButton>
+                  </span>
+                ) : null}
               </div>
-              <div className="rounded-md border border-[#e5ebf3] p-3 text-sm">
-                <p className="font-semibold">{selected.patient.fullName}</p>
-                <p className="text-[#667892]">{selected.patient.phone || "-"} · {selected.medicalRecord.recordCode}</p>
-                <p className="mt-1 text-[#667892]">{doctorName(selected.doctor)}</p>
-                <Link href={`/dashboard/medical-records?recordCode=${encodeURIComponent(selected.medicalRecord.recordCode)}`} className="mt-2 inline-flex rounded-md border border-[#cfe4fa] px-2 py-1 text-xs font-medium text-[#0d4f8b]">Mở hồ sơ khám</Link>
-              </div>
-
-              <div className="grid gap-2 rounded-md border border-[#e5ebf3] bg-[#f8fafc] p-3 text-xs text-[#667892] sm:grid-cols-2">
-                <p>Tạo lúc: <span className="font-medium text-[#42526b]">{formatVietnamDateTime(selected.createdAt)}</span></p>
-                <p>Cập nhật: <span className="font-medium text-[#42526b]">{formatVietnamDateTime(selected.updatedAt)}</span></p>
-                {selected.issuedAt ? <p>Phát hành: <span className="font-medium text-[#1f7a3a]">{formatVietnamDateTime(selected.issuedAt)}</span></p> : null}
-                {selected.cancelledAt ? <p>Hủy lúc: <span className="font-medium text-[#b3261e]">{formatVietnamDateTime(selected.cancelledAt)}</span></p> : null}
-              </div>
-
-              <form className="space-y-3" onSubmit={updateNote}>
-                <label className="block">
-                  <span className="text-sm font-medium text-[#334155]">Ghi chú đơn</span>
-                  <textarea value={note} onChange={(e) => setNote(e.target.value)} disabled={!canEdit || selected.status !== "DRAFT"} rows={3} className="mt-1 w-full resize-none rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa] disabled:bg-[#f6f8fb]" />
-                </label>
-                <div className="flex flex-wrap gap-2">
-                  {canEdit && selected.status === "DRAFT" ? <button disabled={busy} className="rounded-md bg-[#0d4f8b] px-4 py-2 text-sm font-semibold text-white disabled:opacity-60">Lưu ghi chú</button> : null}
-                  {canEdit && selected.status === "DRAFT" ? <button type="button" disabled={busy} onClick={() => void simpleAction(selected, "/issue", "Đã phát hành đơn")} className="rounded-md border border-[#cfd8e6] px-4 py-2 text-sm font-medium text-[#42526b]">Phát hành</button> : null}
-                  {canCancel && selected.status !== "CANCELLED" ? <button type="button" disabled={busy} onClick={() => void simpleAction(selected, "/cancel", "Đã huỷ đơn thuốc")} className="rounded-md border border-[#f2b8b5] px-4 py-2 text-sm font-medium text-[#b3261e]">Huỷ đơn</button> : null}
+            ))}
+            {itemOpen && editable ? (
+              <form className="ds-card__body" onSubmit={saveItem} style={{ borderTop: "1px solid var(--ds-line)" }} aria-label={editingItem ? "Sửa thuốc" : "Thêm thuốc"}>
+                <DsField label="Tên thuốc" htmlFor="item-name" required>
+                  <DsInput id="item-name" value={itemForm.medicineName} required onChange={(event) => setItemForm((current) => ({ ...current, medicineName: event.target.value }))} />
+                </DsField>
+                <div className="ds-grid-fields">
+                  <DsField label="Liều dùng" htmlFor="item-dosage">
+                    <DsInput id="item-dosage" value={itemForm.dosage} onChange={(event) => setItemForm((current) => ({ ...current, dosage: event.target.value }))} />
+                  </DsField>
+                  <DsField label="Tần suất" htmlFor="item-frequency">
+                    <DsInput id="item-frequency" value={itemForm.frequency} onChange={(event) => setItemForm((current) => ({ ...current, frequency: event.target.value }))} />
+                  </DsField>
+                  <DsField label="Thời gian" htmlFor="item-duration">
+                    <DsInput id="item-duration" value={itemForm.duration} onChange={(event) => setItemForm((current) => ({ ...current, duration: event.target.value }))} />
+                  </DsField>
+                  <DsField label="Số lượng" htmlFor="item-quantity">
+                    <DsInput
+                      id="item-quantity"
+                      inputMode="numeric"
+                      value={itemForm.quantity}
+                      onChange={(event) => setItemForm((current) => ({ ...current, quantity: event.target.value.replace(/\D/g, "") }))}
+                    />
+                  </DsField>
+                  <DsField label="Đơn vị" htmlFor="item-unit">
+                    <DsInput id="item-unit" value={itemForm.unit} onChange={(event) => setItemForm((current) => ({ ...current, unit: event.target.value }))} />
+                  </DsField>
+                </div>
+                <DsField label="Hướng dẫn dùng thuốc" htmlFor="item-instruction">
+                  <DsTextarea id="item-instruction" rows={2} value={itemForm.instruction} onChange={(event) => setItemForm((current) => ({ ...current, instruction: event.target.value }))} />
+                </DsField>
+                <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+                  <DsButton onClick={resetItemEditor}>Hủy</DsButton>
+                  <DsButton type="submit" variant="primary" disabled={busy}>
+                    {busy ? "Đang lưu..." : editingItem ? "Lưu thuốc" : "Thêm thuốc"}
+                  </DsButton>
                 </div>
               </form>
-
-              <section className="border-t border-[#e5ebf3] pt-5">
-                <h4 className="font-semibold">Thuốc trong đơn</h4>
-                <div className="mt-3 space-y-2">
-                  {selected.items.length === 0 ? <p className="text-sm text-[#667892]">Chưa có thuốc</p> : selected.items.map((item) => (
-                    <div key={item.id} className="rounded-md border border-[#e5ebf3] p-3 text-sm">
-                      <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <p className="font-semibold">{item.medicineName}</p>
-                          <p className="text-[#667892]">{item.dosage || "-"} · {item.frequency || "-"} · {item.duration || "-"}</p>
-                          <p className="text-xs text-[#667892]">Số lượng: {item.quantity ?? "-"} {item.unit || ""}</p>
-                          <p className="mt-1">{item.instruction || ""}</p>
-                        </div>
-                        {canEdit && selected.status === "DRAFT" ? (
-                          <div className="flex gap-2">
-                            <button type="button" onClick={() => { setEditingItem(item); setDeleteItemTarget(null); setItemForm(toItemForm(item)); }} className="rounded-md border border-[#cfd8e6] px-2 py-1 text-xs text-[#42526b]">Sửa</button>
-                            <button type="button" onClick={() => { setDeleteItemTarget(item); setEditingItem(null); }} className="rounded-md border border-[#f2b8b5] px-2 py-1 text-xs text-[#b3261e]">Xoá</button>
-                          </div>
-                        ) : null}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                {deleteItemTarget ? (
-                  <div className="mt-3 rounded-md border border-[#f2d4d2] bg-[#fff8f7] p-3 text-sm">
-                    <p className="font-semibold text-[#8f1d18]">Xoá thuốc khỏi đơn?</p>
-                    <p className="mt-1 text-[#667892]">{deleteItemTarget.medicineName}</p>
-                    <div className="mt-3 flex gap-2">
-                      <button type="button" onClick={() => setDeleteItemTarget(null)} className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm font-medium text-[#42526b]">Giữ lại</button>
-                      <button type="button" disabled={busy} onClick={() => void deleteItem()} className="rounded-md bg-[#b3261e] px-3 py-2 text-sm font-semibold text-white disabled:opacity-60">Xoá thuốc</button>
-                    </div>
-                  </div>
-                ) : null}
-
-                {canEdit && selected.status === "DRAFT" ? (
-                  <form className="mt-4 space-y-3 rounded-md border border-[#e5ebf3] p-3" onSubmit={saveItem}>
-                    <h5 className="font-semibold">{editingItem ? "Sửa thuốc" : "Thêm thuốc"}</h5>
-                    <input value={itemForm.medicineName} onChange={(e) => setItemForm((current) => ({ ...current, medicineName: e.target.value }))} placeholder="Tên thuốc" className="w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" required />
-                    <div className="grid gap-2 sm:grid-cols-2">
-                      <input value={itemForm.dosage} onChange={(e) => setItemForm((current) => ({ ...current, dosage: e.target.value }))} placeholder="Liều dùng" className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" />
-                      <input value={itemForm.frequency} onChange={(e) => setItemForm((current) => ({ ...current, frequency: e.target.value }))} placeholder="Tần suất" className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" />
-                      <input value={itemForm.duration} onChange={(e) => setItemForm((current) => ({ ...current, duration: e.target.value }))} placeholder="Thời gian" className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" />
-                      <input value={itemForm.quantity} onChange={(e) => setItemForm((current) => ({ ...current, quantity: e.target.value.replace(/\D/g, "") }))} placeholder="Số lượng" inputMode="numeric" className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" />
-                      <input value={itemForm.unit} onChange={(e) => setItemForm((current) => ({ ...current, unit: e.target.value }))} placeholder="Đơn vị" className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" />
-                      <input value={itemForm.sortOrder} onChange={(e) => setItemForm((current) => ({ ...current, sortOrder: e.target.value.replace(/\D/g, "") }))} placeholder="Thứ tự" inputMode="numeric" className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" />
-                    </div>
-                    <textarea value={itemForm.instruction} onChange={(e) => setItemForm((current) => ({ ...current, instruction: e.target.value }))} placeholder="Hướng dẫn dùng thuốc" rows={2} className="w-full resize-none rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" />
-                    <div className="flex gap-2">
-                      <button disabled={busy} className="flex-1 rounded-md bg-[#0d4f8b] px-3 py-2 text-sm font-semibold text-white disabled:opacity-60">{busy ? "Đang lưu..." : editingItem ? "Lưu thuốc" : "Thêm thuốc"}</button>
-                      {editingItem ? <button type="button" onClick={() => { setEditingItem(null); setItemForm({ ...emptyItemForm, sortOrder: String(selected.items.length) }); }} className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm font-medium text-[#42526b]">Huỷ</button> : null}
-                    </div>
-                  </form>
-                ) : null}
-              </section>
-            </div>
-          ) : (
-            <div>
-              <p className="text-sm font-medium text-[#55708f]">Chi tiết đơn thuốc</p>
-              <h3 className="mt-1 text-xl font-semibold">Chọn một đơn thuốc</h3>
-              <p className="mt-2 text-sm leading-6 text-[#667892]">Bấm vào mã đơn để xem và chỉnh sửa thuốc trong đơn.</p>
-            </div>
-          )}
-        </section>
+            ) : null}
+          </div>
         </div>
-        </DashboardWorkspace>
-      </aside>
-      ) : null}
-    </div>
+
+        <div className="ds-editor__col">
+          <div className="ds-card">
+            <div className="ds-card__head">
+              <h3>Ghi chú đơn</h3>
+            </div>
+            <div className="ds-card__body">
+              <DsTextarea aria-label="Ghi chú đơn" rows={3} value={note} disabled={!editable} onChange={(event) => setNote(event.target.value)} />
+              {editable ? (
+                <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", alignItems: "center" }}>
+                  {dirtyNote ? <DsStatusPill tone="warn">Chưa lưu</DsStatusPill> : null}
+                  <DsButton disabled={!dirtyNote || busy} onClick={() => setNote(selected.note || "")}>
+                    Hủy thay đổi
+                  </DsButton>
+                  <DsButton variant="primary" disabled={!dirtyNote || busy} onClick={() => void updateNote()}>
+                    Lưu ghi chú
+                  </DsButton>
+                </div>
+              ) : null}
+            </div>
+          </div>
+
+          <div className="ds-card">
+            <div className="ds-card__head">
+              <h3>Trước khi phát hành</h3>
+            </div>
+            <div className="ds-card__body">
+              <div className="ds-check">
+                <span className={`ds-step__n${selected.items.length > 0 ? " is-done" : ""}`} aria-hidden="true">
+                  {selected.items.length > 0 ? "✓" : "!"}
+                </span>
+                <strong>{selected.items.length > 0 ? `Có ${selected.items.length} thuốc` : "Chưa có thuốc"}</strong>
+              </div>
+              <div className="ds-check">
+                <span
+                  className={`ds-step__n${selected.items.length > 0 && selected.items.every((item) => item.dosage && item.quantity) ? " is-done" : ""}`}
+                  aria-hidden="true"
+                >
+                  {selected.items.length > 0 && selected.items.every((item) => item.dosage && item.quantity) ? "✓" : "–"}
+                </span>
+                <div>
+                  <strong>Liều dùng và số lượng đầy đủ</strong>
+                  <small>Không bắt buộc, giúp dược sĩ cấp thuốc chính xác.</small>
+                </div>
+              </div>
+              <p className="ds-hint" style={{ margin: 0 }}>
+                Phát hành đơn sẽ gửi cho người khám và chuyển sang hàng đợi cấp thuốc. Đơn đã phát hành không sửa được.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </DsPane>
+  ) : null;
+
+  return (
+    <>
+      <DsPageHeader
+        title="Đơn thuốc"
+        description={
+          isDoctor
+            ? `${draftCount} đơn nháp trong danh sách · ${emptyDraft} đơn chưa có thuốc`
+            : "Tạo đơn từ hồ sơ khám, quản lý thuốc và theo dõi trạng thái phát hành"
+        }
+      />
+      <div style={{ display: "grid", gap: 12, marginBottom: 16 }}>
+        {visibleError ? <DsNotice tone="bad">{visibleError}</DsNotice> : null}
+        {notice ? <DsNotice tone="good">{notice}</DsNotice> : null}
+      </div>
+      <DsSplit wide list={list} pane={detailPane ?? createPane} />
+    </>
   );
 }
