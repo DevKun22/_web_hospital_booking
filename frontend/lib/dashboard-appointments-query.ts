@@ -11,6 +11,8 @@ export type DashboardAppointmentFilters = {
   date?: string;
   phone?: string;
   bookingCode?: string;
+  /** Tìm gần đúng theo mã lịch, SĐT hoặc tên người khám. */
+  q?: string;
   billingState?: "PENDING_INVOICE" | "HAS_INVOICE";
   page?: number;
   limit?: number;
