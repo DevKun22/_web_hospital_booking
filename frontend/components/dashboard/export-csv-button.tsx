@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { DsButton } from "@/components/ds";
 import { downloadCsv } from "@/lib/api";
 
 // Nút xuất báo cáo CSV dùng chung. Có chọn khoảng ngày (mặc định 30 ngày gần nhất, tối đa 366 ngày,
@@ -13,12 +14,15 @@ export function ExportCsvButton({
   params,
   ranged = true,
   label = "Xuất CSV",
+  ds = false,
 }: {
   path: string;
   fallbackName: string;
   params?: Record<string, string | undefined>;
   ranged?: boolean;
   label?: string;
+  /** Dùng nút kiểu thiết kế mới (trong khu .ds). */
+  ds?: boolean;
 }) {
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
@@ -66,10 +70,17 @@ export function ExportCsvButton({
             </label>
           </>
         ) : null}
-        <Button type="button" variant="outline" disabled={busy} onClick={() => void run()}>
-          <Download className="size-4" aria-hidden="true" />
-          {busy ? "Đang xuất..." : label}
-        </Button>
+        {ds ? (
+          <DsButton disabled={busy} onClick={() => void run()}>
+            <Download aria-hidden="true" />
+            {busy ? "Đang xuất..." : label}
+          </DsButton>
+        ) : (
+          <Button type="button" variant="outline" disabled={busy} onClick={() => void run()}>
+            <Download className="size-4" aria-hidden="true" />
+            {busy ? "Đang xuất..." : label}
+          </Button>
+        )}
       </div>
       {ranged ? (
         <p className="text-xs text-[var(--text-muted)]">Bỏ trống: 30 ngày gần nhất. Tối đa 366 ngày và 5.000 dòng.</p>

@@ -3,8 +3,6 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import {
-  Area,
-  AreaChart,
   Bar,
   BarChart,
   CartesianGrid,
@@ -28,7 +26,7 @@ import { ExportCsvButton } from "@/components/dashboard/export-csv-button";
 import { VietnamDateInput } from "@/components/ui/vietnam-date-input";
 import { useDashboardStatistics } from "@/lib/dashboard-overview-query";
 import { appointmentStatusLabel, appointmentStatusTone } from "@/lib/appointment-status";
-import { formatVietnamDate, formatVietnamDateTime, getVietnamDateInput } from "@/lib/date";
+import { formatVietnamDate, getVietnamDateInput } from "@/lib/date";
 import type { PaymentMethod } from "@/lib/types";
 
 // Tổng quan vận hành cho quản trị và nhân viên: việc cần xử lý trước, số liệu trong kỳ, hai biểu đồ chính
@@ -114,10 +112,10 @@ export function OperationsOverview() {
       ]
     : [];
 
-  const appointmentDaily = (data?.appointments.daily ?? []).map((item) => ({ ...item, label: formatVietnamDate(item.date), other: Math.max(0, item.total - item.completed - item.cancelled) }));
-  const revenueDaily = (data?.revenue.daily ?? []).map((item) => ({ ...item, label: formatVietnamDate(item.date) }));
+  const appointmentDaily = (data?.appointments.daily ?? []).map((item) => ({ ...item, label: formatVietnamDate(item.date).slice(0, 5), other: Math.max(0, item.total - item.completed - item.cancelled) }));
+  const revenueDaily = (data?.revenue.daily ?? []).map((item) => ({ ...item, label: formatVietnamDate(item.date).slice(0, 5) }));
   const hasAppointmentChart = appointmentDaily.some((item) => item.total > 0);
-  const hasRevenueChart = revenueDaily.some((item) => item.collectedAmount > 0 || item.refundedAmount > 0 || item.netAmount > 0);
+  const hasRevenueChart = revenueDaily.some((item) => item.collectedAmount > 0 || item.refundedAmount > 0);
   const payments = (data?.revenue.byPaymentMethod ?? []).filter((item) => item.amount > 0 || item.count > 0);
 
   const doctorColumns: DsColumn<NonNullable<typeof data>["doctors"]["items"][number]>[] = [
@@ -158,7 +156,7 @@ export function OperationsOverview() {
       header: "Bác sĩ",
       cell: (row) => [row.doctor.title, row.doctor.user.fullName].filter(Boolean).join(" "),
     },
-    { key: "time", header: "Thời gian", cell: (row) => `${formatVietnamDateTime(row.appointmentDate).slice(0, 10)} · ${row.startTime}` },
+    { key: "time", header: "Thời gian", cell: (row) => `${formatVietnamDate(row.appointmentDate)} · ${row.startTime}` },
     {
       key: "status",
       header: "Trạng thái",
@@ -267,21 +265,22 @@ export function OperationsOverview() {
                 params={{ from: range.from, to: range.to }}
                 ranged={false}
                 label="Xuất CSV"
+                ds
               />
             }
           >
             {hasRevenueChart ? (
               <div style={{ height: 260 }}>
                 <ResponsiveContainer width="100%" height="100%" minWidth={0}>
-                  <AreaChart data={revenueDaily}>
+                  <BarChart data={revenueDaily}>
                     <CartesianGrid stroke="var(--ds-line)" vertical={false} />
                     <XAxis dataKey="label" tick={axisTick} tickLine={false} axisLine={false} interval="preserveStartEnd" />
                     <YAxis tickFormatter={compactCurrency} tick={axisTick} tickLine={false} axisLine={false} width={48} />
                     <Tooltip contentStyle={tooltipStyle} formatter={(value) => formatCurrency(tooltipNumber(value))} />
                     <Legend wrapperStyle={{ fontSize: 12 }} />
-                    <Area type="monotone" dataKey="collectedAmount" name="Đã thu" stroke="var(--ds-good)" fill="var(--ds-good)" fillOpacity={0.12} strokeWidth={2} />
-                    <Area type="monotone" dataKey="netAmount" name="Thuần" stroke="var(--ds-accent)" fill="var(--ds-accent)" fillOpacity={0.12} strokeWidth={2} />
-                  </AreaChart>
+                    <Bar dataKey="collectedAmount" name="Đã thu" fill="var(--ds-good)" radius={[3, 3, 0, 0]} />
+                    <Bar dataKey="refundedAmount" name="Hoàn tiền" fill="var(--ds-bad)" radius={[3, 3, 0, 0]} />
+                  </BarChart>
                 </ResponsiveContainer>
               </div>
             ) : (
@@ -300,7 +299,7 @@ export function OperationsOverview() {
             <DsDataTable
               caption="Bác sĩ có nhiều lịch hẹn nhất trong kỳ"
               columns={doctorColumns}
-              rows={data?.doctors.items ?? []}
+              rows={(data?.doctors.items ?? []).slice(0, 6)}
               rowKey={(row) => row.doctor.id}
               loading={query.isLoading}
               emptyTitle="Chưa có dữ liệu bác sĩ"
