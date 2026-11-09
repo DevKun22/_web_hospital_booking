@@ -4,7 +4,6 @@ import { can } from "@/lib/permissions";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowRight, RefreshCw } from "lucide-react";
 import {
   Area,
   AreaChart,
@@ -26,12 +25,11 @@ import { ExportCsvButton } from "@/components/dashboard/export-csv-button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { DoctorHome } from "@/components/doctor/doctor-home";
 import { AppointmentStatusBadge } from "@/features/appointments/appointment-status";
 import { useAuth } from "@/lib/auth";
 import {
-  type DoctorDashboardData,
   useDashboardStatistics,
-  useDoctorDashboardOverview,
 } from "@/lib/dashboard-overview-query";
 import { formatVietnamDate, formatVietnamDateTime, getVietnamDateInput } from "@/lib/date";
 import type { PaymentMethod } from "@/lib/types";
@@ -183,7 +181,6 @@ function DashboardPage() {
     if (goesToPharmacy) router.replace("/dashboard/pharmacy");
   }, [goesToPharmacy, router]);
   const monthRange = useMemo(() => getMonthRange(), []);
-  const todayDate = useMemo(() => toDateInput(new Date()), []);
   const [from, setFrom] = useState(monthRange.from);
   const [to, setTo] = useState(monthRange.to);
   const [appliedRange, setAppliedRange] = useState(monthRange);
@@ -196,24 +193,16 @@ function DashboardPage() {
     [appliedRange],
   );
   const statisticsResult = useDashboardStatistics(statisticsQuery, canViewStats);
-  const doctorDashboardResult = useDoctorDashboardOverview(todayDate, isDoctorDashboard);
   const loading = statisticsResult.isLoading;
-  const doctorLoading = doctorDashboardResult.isLoading;
   const overview = statisticsResult.data?.overview ?? null;
   const appointments = statisticsResult.data?.appointments ?? null;
   const revenue = statisticsResult.data?.revenue ?? null;
   const doctors = statisticsResult.data?.doctors ?? null;
   const departments = statisticsResult.data?.departments ?? null;
-  const doctorDashboard: DoctorDashboardData | null = doctorDashboardResult.data ?? null;
   const error = statisticsResult.error
     ? statisticsResult.error instanceof Error
       ? statisticsResult.error.message
       : "Không tải được thống kê tổng quan"
-    : "";
-  const doctorError = doctorDashboardResult.error
-    ? doctorDashboardResult.error instanceof Error
-      ? doctorDashboardResult.error.message
-      : "Không tải được tổng quan bác sĩ"
     : "";
   const applyFilter = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -254,180 +243,7 @@ function DashboardPage() {
   const hasAppointmentStatus = appointmentStatusData.length > 0;
   const hasPaymentMethod = paymentMethodData.length > 0;
 
-  const doctorTasks = [
-    ...(doctorDashboard?.inProgressAppointments || []).slice(0, 3).map((item) => ({
-      id: `progress-${item.id}`,
-      title: `${item.patientName} đang khám`,
-      caption: `${item.bookingCode} · ${item.startTime} - ${item.endTime}`,
-      href: "/dashboard/medical-records",
-      tone: "blue" as const,
-    })),
-    ...(doctorDashboard?.checkedInAppointments || []).slice(0, 3).map((item) => ({
-      id: `checked-${item.id}`,
-      title: `${item.patientName} đã check-in`,
-      caption: `${item.bookingCode} · ${item.startTime} - ${item.endTime}`,
-      href: "/dashboard/appointments",
-      tone: "amber" as const,
-    })),
-    ...(doctorDashboard?.draftRecords || []).slice(0, 2).map((item) => ({
-      id: `record-${item.id}`,
-      title: `Hồ sơ ${item.recordCode} còn nháp`,
-      caption: `${item.patient.fullName} · ${formatDate(item.appointment.appointmentDate)}`,
-      href: "/dashboard/medical-records",
-      tone: "red" as const,
-    })),
-    ...(doctorDashboard?.draftPrescriptions || []).slice(0, 2).map((item) => ({
-      id: `prescription-${item.id}`,
-      title: `Đơn thuốc ${item.prescriptionCode} còn nháp`,
-      caption: `${item.patient.fullName} · ${item.items.length} thuốc`,
-      href: "/dashboard/prescriptions",
-      tone: "amber" as const,
-    })),
-  ].slice(0, 6);
-
-  const slotSummary = (doctorDashboard?.todaySlots || []).reduce<Record<string, number>>((summary, slot) => {
-    summary[slot.status] = (summary[slot.status] || 0) + 1;
-    return summary;
-  }, {});
-
-  const completedTodayCount = (doctorDashboard?.todayAppointments || []).filter((item) => item.status === "COMPLETED").length;
-  const waitingTodayCount = (doctorDashboard?.todayAppointments || []).filter((item) => ["CONFIRMED", "CHECKED_IN"].includes(item.status)).length;
-
   if (goesToPharmacy) return null;
-
-  if (isDoctorDashboard) {
-    return (
-      <div className="space-y-6">
-        <DashboardPageHeader
-          eyebrow={`Xin chào, ${user?.fullName || "bác sĩ"}`}
-          title="Tổng quan bác sĩ"
-          description={`Hàng đợi khám, hồ sơ cần hoàn thiện và lịch làm việc ngày ${formatDate(todayDate)}.`}
-          actions={(
-            <>
-              <Button type="button" variant="outline" size="lg" onClick={() => void doctorDashboardResult.refetch()} disabled={doctorDashboardResult.isFetching}>
-                <RefreshCw className={doctorDashboardResult.isFetching ? "animate-spin" : ""} />
-                Làm mới
-              </Button>
-              <Button asChild size="lg"><Link href="/dashboard/appointments">Mở lịch hẹn <ArrowRight /></Link></Button>
-            </>
-          )}
-        />
-
-        {doctorError ? (
-          <Alert variant="destructive"><AlertTitle>Không tải được tổng quan</AlertTitle><AlertDescription>{doctorError}</AlertDescription></Alert>
-        ) : null}
-
-        {doctorLoading ? (
-          <DashboardSurface className="grid gap-3 p-5">
-            <Skeleton className="h-20 w-full" />
-            <Skeleton className="h-20 w-full" />
-          </DashboardSurface>
-        ) : null}
-
-        <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
-          <MetricCard title="Lịch hôm nay" value={formatNumber(doctorDashboard?.todayAppointments.length || 0)} tone="blue" />
-          <MetricCard title="Đang chờ khám" value={formatNumber(waitingTodayCount)} tone="amber" />
-          <MetricCard title="Đang khám" value={formatNumber(doctorDashboard?.inProgressAppointments.length || 0)} tone="red" />
-          <MetricCard title="Đã hoàn tất" value={formatNumber(completedTodayCount)} tone="green" />
-          <MetricCard title="Hồ sơ / đơn nháp" value={`${formatNumber(doctorDashboard?.draftRecords.length || 0)} / ${formatNumber(doctorDashboard?.draftPrescriptions.length || 0)}`} tone="slate" />
-        </section>
-
-        <section className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
-          <div className="rounded-md border border-[#dce3ee] bg-white p-5">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <h3 className="font-semibold">Việc cần xử lý</h3>
-                <p className="mt-1 text-sm text-[#667892]">Ưu tiên ca đang khám, người khám đã tiếp nhận và hồ sơ còn nháp.</p>
-              </div>
-              <Link href="/dashboard/medical-records" className="rounded-md border border-[#cfd8e6] px-3 py-1.5 text-xs font-medium text-[#42526b]">Mở hồ sơ</Link>
-            </div>
-            <div className="mt-4 grid gap-3 md:grid-cols-2">
-              {doctorTasks.length ? doctorTasks.map((task) => {
-                const toneClass = {
-                  amber: "border-[#f4d7a1] bg-[#fff8eb] text-[#946200]",
-                  red: "border-[#f2b8b5] bg-[#fff3f2] text-[#b3261e]",
-                  blue: "border-[#cfe4fa] bg-[#f3f8ff] text-[#0d4f8b]",
-                }[task.tone];
-
-                return (
-                  <Link key={task.id} href={task.href} className={`rounded-md border p-4 transition hover:-translate-y-0.5 hover:shadow-sm ${toneClass}`}>
-                    <p className="font-semibold">{task.title}</p>
-                    <p className="mt-1 text-xs opacity-75">{task.caption}</p>
-                  </Link>
-                );
-              }) : (
-                <p className="rounded-md border border-dashed border-[#dce3ee] bg-[#f8fafc] p-6 text-center text-sm text-[#667892] md:col-span-2">
-                  Hiện chưa có việc ưu tiên cần xử lý.
-                </p>
-              )}
-            </div>
-          </div>
-
-          <aside className="rounded-md border border-[#dce3ee] bg-white p-5">
-            <h3 className="font-semibold">Slot hôm nay</h3>
-            <p className="mt-1 text-sm text-[#667892]">Theo dõi nhanh slot trống, đã đặt và bị khóa.</p>
-            <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
-              {["AVAILABLE", "BOOKED", "LOCKED", "CANCELLED"].map((status) => (
-                <div key={status} className="rounded-md bg-[#f8fafc] p-3">
-                  <p className="text-[#667892]">{slotLabel[status] || status}</p>
-                  <p className="mt-1 text-lg font-semibold text-[#172033]">{formatNumber(slotSummary[status] || 0)}</p>
-                </div>
-              ))}
-            </div>
-            <Link href="/dashboard/schedules" className="mt-4 block rounded-md border border-[#cfd8e6] px-3 py-2 text-center text-sm font-semibold text-[#42526b] hover:bg-[#f8fafc]">
-              Xem lịch làm việc
-            </Link>
-          </aside>
-        </section>
-
-        <section className="rounded-md border border-[#dce3ee] bg-white p-5">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <h3 className="font-semibold">Lịch hẹn hôm nay</h3>
-              <p className="mt-1 text-sm text-[#667892]">Danh sách người khám trong ngày để bác sĩ bắt đầu hoặc tiếp tục quy trình khám.</p>
-            </div>
-            <Link href="/dashboard/appointments" className="rounded-md border border-[#cfd8e6] px-3 py-1.5 text-xs font-medium text-[#42526b]">Xem tất cả</Link>
-          </div>
-          <div className="mt-4 overflow-x-auto">
-            <table className="w-full min-w-[760px] border-separate border-spacing-0 text-left text-sm">
-              <thead>
-                <tr className="text-[#667892]">
-                  <th className="border-b border-[#e5ebf3] py-3 font-semibold">Người khám</th>
-                  <th className="border-b border-[#e5ebf3] py-3 font-semibold">Thời gian</th>
-                  <th className="border-b border-[#e5ebf3] py-3 font-semibold">Lý do khám</th>
-                  <th className="border-b border-[#e5ebf3] py-3 font-semibold">Trạng thái</th>
-                  <th className="border-b border-[#e5ebf3] py-3 text-right font-semibold">Thao tác</th>
-                </tr>
-              </thead>
-              <tbody>
-                {doctorDashboard?.todayAppointments.length ? doctorDashboard.todayAppointments.map((item) => (
-                  <tr key={item.id}>
-                    <td className="border-b border-[#eef2f7] py-3">
-                      <p className="font-semibold">{item.patientName}</p>
-                      <p className="mt-1 text-xs text-[#667892]">{item.patientPhone} · {item.bookingCode}</p>
-                    </td>
-                    <td className="border-b border-[#eef2f7] py-3">{item.startTime} - {item.endTime}</td>
-                    <td className="border-b border-[#eef2f7] py-3">{item.reason || "Khám bác sĩ"}</td>
-                    <td className="border-b border-[#eef2f7] py-3"><AppointmentStatusBadge status={item.status} /></td>
-                    <td className="border-b border-[#eef2f7] py-3">
-                      <div className="flex justify-end gap-2">
-                        <Link href="/dashboard/appointments" className="rounded-md border border-[#cfd8e6] px-3 py-1.5 text-xs font-medium text-[#42526b]">Lịch hẹn</Link>
-                        <Link href="/dashboard/medical-records" className="rounded-md border border-[#cfe4fa] px-3 py-1.5 text-xs font-medium text-[#0d4f8b]">Hồ sơ</Link>
-                      </div>
-                    </td>
-                  </tr>
-                )) : (
-                  <tr>
-                    <td colSpan={5} className="py-8 text-center text-[#667892]">Hôm nay chưa có lịch hẹn.</td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </section>
-      </div>
-    );
-  }
 
   if (!canViewStats) {
     return (
@@ -732,4 +548,8 @@ function DashboardPage() {
   );
 }
 
-export default DashboardPage;
+// Bác sĩ có trang chủ riêng ("Việc của tôi"); các vai trò khác giữ tổng quan vận hành.
+export default function DashboardHome() {
+  const { user } = useAuth();
+  return user?.role === "DOCTOR" ? <DoctorHome /> : <DashboardPage />;
+}
