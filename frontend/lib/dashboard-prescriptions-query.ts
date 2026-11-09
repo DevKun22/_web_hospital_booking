@@ -9,6 +9,8 @@ export type DashboardPrescriptionFilters = {
   status?: string;
   doctorId?: string;
   prescriptionCode?: string;
+  /** Tìm gần đúng theo mã đơn, mã hồ sơ hoặc tên người khám. */
+  q?: string;
   medicalRecordId?: string;
   page?: number;
   limit?: number;

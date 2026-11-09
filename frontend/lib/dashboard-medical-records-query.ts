@@ -10,6 +10,8 @@ export type DashboardMedicalRecordFilters = {
   doctorId?: string;
   date?: string;
   recordCode?: string;
+  /** Tìm gần đúng theo mã hồ sơ, mã lịch hoặc tên người khám. */
+  q?: string;
   page?: number;
   limit?: number;
 };

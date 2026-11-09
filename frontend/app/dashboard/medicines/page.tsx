@@ -1,8 +1,8 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus, RefreshCw, Search } from "lucide-react";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Plus, RefreshCw } from "lucide-react";
 import {
   DsButton,
   DsDataTable,
@@ -25,6 +25,8 @@ import { apiRequest } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { VietnamDateInput } from "@/components/ui/vietnam-date-input";
 import { formatVietnamDate, formatVietnamDateTime } from "@/lib/date";
+import { useDebouncedValue } from "@/lib/use-debounced-value";
+
 import { can } from "@/lib/permissions";
 
 type Medicine = {
@@ -111,7 +113,8 @@ export default function MedicinesPage() {
   const canAdjust = can(user, "pharmacy.adjust");
 
   const [search, setSearch] = useState("");
-  const [applied, setApplied] = useState("");
+  // Gõ đến đâu lọc đến đó (chờ ngừng gõ một chút rồi mới gọi máy chủ).
+  const applied = useDebouncedValue(search.trim());
   const [lowOnly, setLowOnly] = useState(false);
   const [page, setPage] = useState(1);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -130,6 +133,7 @@ export default function MedicinesPage() {
       apiRequest<Paged<Medicine>>("/dashboard/pharmacy/medicines", {
         query: { q: applied || undefined, lowStock: lowOnly ? "true" : undefined, page, limit: PAGE_SIZE },
       }),
+    placeholderData: keepPreviousData,
   });
   const items = listQuery.data?.items ?? [];
   const selected = items.find((item) => item.id === selectedId) || null;
@@ -292,18 +296,19 @@ export default function MedicinesPage() {
 
   const list = (
     <DsPanel flush>
-      <form onSubmit={submit(() => {
-        setApplied(search.trim());
-        setPage(1);
-      })} aria-label="Tìm thuốc">
+      <form onSubmit={(event) => event.preventDefault()} aria-label="Tìm thuốc">
         <DsToolbar>
           <div style={{ minWidth: 160, flex: "1 1 200px" }}>
-            <DsInput aria-label="Tìm thuốc" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Tên, mã hoặc hoạt chất" />
+            <DsInput
+              aria-label="Tìm thuốc"
+              value={search}
+              onChange={(event) => {
+                setSearch(event.target.value);
+                setPage(1);
+              }}
+              placeholder="Gõ tên, mã hoặc hoạt chất để lọc"
+            />
           </div>
-          <DsButton type="submit">
-            <Search aria-hidden="true" />
-            Tìm
-          </DsButton>
           {canCatalog ? (
             <DsButton
               variant="primary"
