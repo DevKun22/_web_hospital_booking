@@ -1,5 +1,7 @@
 "use client";
 
+import { VietnamDateInput } from "@/components/ui/vietnam-date-input";
+
 import { FormEvent, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
@@ -42,7 +44,7 @@ export default function PatientDependentEditPage() {
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <label className="text-sm font-semibold">Họ và tên <span className="text-red-600">*</span><input className={input} value={draft.fullName} onChange={(event) => set("fullName", event.target.value)} required minLength={2} /></label>
         <label className="text-sm font-semibold">Mối quan hệ<select className={input} value={draft.relationship} onChange={(event) => set("relationship", event.target.value)}><option value="CHILD">Con</option><option value="SPOUSE">Vợ/chồng</option><option value="PARENT">Cha/mẹ</option><option value="SIBLING">Anh/chị/em</option><option value="OTHER">Khác</option></select></label>
-        <label className="text-sm font-semibold">Ngày sinh<input className={input} type="date" value={draft.dateOfBirth} max={new Date().toISOString().slice(0, 10)} onChange={(event) => set("dateOfBirth", event.target.value)} /></label>
+        <label className="text-sm font-semibold">Ngày sinh<VietnamDateInput className={input} ariaLabel="Ngày sinh" value={draft.dateOfBirth} max={new Date().toISOString().slice(0, 10)} onChange={(value) => set("dateOfBirth", value)} /></label>
         <label className="text-sm font-semibold">Giới tính<select className={input} value={draft.gender} onChange={(event) => set("gender", event.target.value)}><option value="">Chưa cập nhật</option><option value="MALE">Nam</option><option value="FEMALE">Nữ</option><option value="OTHER">Khác</option></select></label>
         <label className="text-sm font-semibold">Số điện thoại<input className={input} inputMode="tel" value={draft.phone} onChange={(event) => set("phone", event.target.value)} /></label>
         <label className="text-sm font-semibold">Email<input className={input} type="email" value={draft.email} onChange={(event) => set("email", event.target.value)} /></label>
