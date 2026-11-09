@@ -31,7 +31,7 @@
     "prisma:migrate:deploy": "prisma migrate deploy",
     "prisma:reset": "prisma migrate reset",
     "render:build": "npm run prisma:migrate:deploy && npm run build",
-    "test:unit": "tsx --test test/unit/patientSessionPolicy.test.ts test/unit/requestParsers.test.ts test/unit/vnpayProvider.test.ts test/unit/bookingIdentity.test.ts test/unit/rateLimit.test.ts test/unit/permissions.test.ts test/unit/inlineWorkers.test.ts test/unit/routePermissions.test.ts test/unit/medicalFile.test.ts test/unit/csvExport.test.ts test/unit/csvParse.test.ts test/unit/maskContact.test.ts"
+    "test:unit": "tsx --test test/unit/patientSessionPolicy.test.ts test/unit/requestParsers.test.ts test/unit/vnpayProvider.test.ts test/unit/bookingIdentity.test.ts test/unit/rateLimit.test.ts test/unit/permissions.test.ts test/unit/inlineWorkers.test.ts test/unit/routePermissions.test.ts test/unit/medicalFile.test.ts test/unit/csvExport.test.ts test/unit/csvParse.test.ts test/unit/maskContact.test.ts test/unit/stockBatch.test.ts"
   },
   "keywords": [],
   "author": "",

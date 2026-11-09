@@ -23,7 +23,10 @@ import { useAuth } from "@/lib/auth";
 import { formatVietnamDateTime } from "@/lib/date";
 import { can } from "@/lib/permissions";
 
-type StockMedicine = { id: string; code: string; name: string; unit: string; stockQuantity: number };
+type StockMedicine = { id: string; code: string; name: string; unit: string; stockQuantity: number; sellableQuantity?: number; expiredQuantity?: number };
+
+// Tồn cấp được: không tính lô đã hết hạn (máy chủ không cho cấp từ lô hết hạn).
+const availableOf = (medicine: StockMedicine) => medicine.sellableQuantity ?? medicine.stockQuantity;
 
 type PrescriptionItem = {
   id: string;
@@ -145,7 +148,7 @@ export default function PharmacyQueuePage() {
         const medicine = medicines.find((entry) => entry.id === medicineId);
         if (!medicine) return [];
         const needed = neededByMedicine(selected, medicineId);
-        return needed > medicine.stockQuantity ? [`${medicine.name}: cần ${needed}, tồn ${medicine.stockQuantity}`] : [];
+        return needed > availableOf(medicine) ? [`${medicine.name}: cần ${needed}, còn hạn ${availableOf(medicine)}`] : [];
       })
     : [];
   const uniqueWarnings = Array.from(new Set(stockWarnings));
@@ -301,7 +304,7 @@ export default function PharmacyQueuePage() {
             {selected.items.map((item) => {
               const medicineId = pickedMedicineId(item);
               const medicine = medicines.find((entry) => entry.id === medicineId);
-              const short = medicine ? neededByMedicine(selected, medicineId) > medicine.stockQuantity : false;
+              const short = medicine ? neededByMedicine(selected, medicineId) > availableOf(medicine) : false;
               return (
                 <div key={item.id} className="ds-labrow" style={{ display: "block" }}>
                   <div className="ds-labrow__main">
@@ -321,7 +324,7 @@ export default function PharmacyQueuePage() {
                         {item.medicine ? `Đã cấp ${item.dispensedQuantity} · ${item.medicine.name}` : "Thuốc mua ngoài"}
                       </small>
                     ) : (
-                      <DsField label="Thuốc trong kho" htmlFor={`pick-${item.id}`} hint={short ? undefined : medicine ? `${!item.medicineId && !(item.id in picks) ? "Gợi ý theo tên thuốc, kiểm tra lại. " : ""}Tồn ${medicine.stockQuantity} ${medicine.unit}` : undefined}>
+                      <DsField label="Thuốc trong kho" htmlFor={`pick-${item.id}`} hint={short ? undefined : medicine ? `${!item.medicineId && !(item.id in picks) ? "Gợi ý theo tên thuốc, kiểm tra lại. " : ""}Còn hạn ${availableOf(medicine)} ${medicine.unit}${medicine.expiredQuantity ? ` (đã loại ${medicine.expiredQuantity} hết hạn)` : ""}` : undefined}>
                         <DsSelect
                           id={`pick-${item.id}`}
                           value={medicineId}
@@ -331,13 +334,13 @@ export default function PharmacyQueuePage() {
                           <option value={OUTSIDE}>Thuốc mua ngoài (không trừ kho)</option>
                           {medicines.map((entry) => (
                             <option key={entry.id} value={entry.id}>
-                              {entry.name} — tồn {entry.stockQuantity} {entry.unit}
+                              {entry.name} — còn hạn {availableOf(entry)} {entry.unit}
                             </option>
                           ))}
                         </DsSelect>
                         {short && medicine ? (
                           <span style={{ color: "var(--ds-bad)", fontSize: 12 }}>
-                            Không đủ: cần {neededByMedicine(selected, medicineId)}, tồn {medicine.stockQuantity}
+                            Không đủ: cần {neededByMedicine(selected, medicineId)}, còn hạn {availableOf(medicine)}
                           </span>
                         ) : null}
                       </DsField>

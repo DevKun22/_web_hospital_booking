@@ -3,10 +3,12 @@ import {
   adjustStockHandler,
   createMedicineHandler,
   dispensePrescriptionHandler,
+  expiryAlertsHandler,
   getMedicineHandler,
   getPrescriptionHandler,
   importCatalogHandler,
   importReceiptsHandler,
+  listBatchesHandler,
   listMedicinesHandler,
   listMovementsHandler,
   listPrescriptionsHandler,
@@ -47,6 +49,8 @@ router.get("/medicines", requirePermission("pharmacy.view"), listMedicinesHandle
 // Xuất báo cáo: đứng trước "/medicines/:id".
 router.get("/medicines/export", requirePermission("pharmacy.view"), exportInventoryHandler);
 router.get("/movements/export", requirePermission("pharmacy.view"), exportMovementsHandler);
+// Cảnh báo hạn dùng: đứng trước "/medicines/:id".
+router.get("/medicines/expiry-alerts", requirePermission("pharmacy.view"), expiryAlertsHandler);
 router.post(
   "/medicines",
   requirePermission("pharmacy.catalog"),
@@ -77,6 +81,7 @@ router.post(
 
 // Sổ kho
 router.get("/medicines/:id/movements", requirePermission("pharmacy.view"), listMovementsHandler);
+router.get("/medicines/:id/batches", requirePermission("pharmacy.view"), listBatchesHandler);
 router.post(
   "/medicines/:id/receipts",
   requirePermission("pharmacy.receive"),

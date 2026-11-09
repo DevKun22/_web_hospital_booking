@@ -83,6 +83,7 @@ export const receiveStockHandler = wrap(async (req, res) =>
       req.body.quantity,
       req.body.reason,
       actorOf(req),
+      { batchNumber: req.body.batchNumber, expiryDate: req.body.expiryDate },
     ),
   }),
 );
@@ -96,8 +97,17 @@ export const adjustStockHandler = wrap(async (req, res) =>
       req.body.delta,
       req.body.reason,
       actorOf(req),
+      req.body.batchId,
     ),
   }),
+);
+
+export const listBatchesHandler = wrap(async (req, res) =>
+  res.json({ success: true, data: await PharmacyService.listBatches(param(req.params.id)) }),
+);
+
+export const expiryAlertsHandler = wrap(async (req, res) =>
+  res.json({ success: true, data: await PharmacyService.expiryAlerts(num(req.query.days)) }),
 );
 
 export const listPrescriptionsHandler = wrap(async (req, res) => {

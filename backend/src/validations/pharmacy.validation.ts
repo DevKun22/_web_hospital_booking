@@ -29,11 +29,21 @@ export const updateMedicineSchema = z.object({
 export const receiveStockSchema = z.object({
   quantity: positiveInt,
   reason: nullableText(300),
+  // Khai cả hai hoặc không khai gì; hạn dùng theo YYYY-MM-DD.
+  batchNumber: nullableText(60),
+  expiryDate: z
+    .string()
+    .trim()
+    .regex(/^\d{4}-\d{2}-\d{2}$/,"Hạn dùng phải có dạng YYYY-MM-DD")
+    .nullable()
+    .optional(),
 });
 
 export const adjustStockSchema = z.object({
   delta: z.number().int().min(-1_000_000).max(1_000_000),
   reason: text(300).min(1, "Điều chỉnh tồn kho phải có lý do"),
+  // Điều chỉnh trong một lô cụ thể (ví dụ hủy lô hết hạn).
+  batchId: z.string().uuid().nullable().optional(),
 });
 
 export const dispenseSchema = z.object({
