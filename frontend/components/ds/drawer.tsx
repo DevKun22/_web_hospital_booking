@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { Dialog } from "radix-ui";
+import { cn } from "@/lib/utils";
 import { X } from "lucide-react";
 import { DsButton } from "@/components/ds/button";
 import { useDsRoot } from "@/components/ds/ds-root";
@@ -14,6 +15,8 @@ export function DsDrawer({
   title,
   description,
   footer,
+  side = "right",
+  flush = false,
   children,
 }: {
   open: boolean;
@@ -21,6 +24,10 @@ export function DsDrawer({
   title: string;
   description: string;
   footer?: React.ReactNode;
+  /** Cạnh màn hình mà ngăn trượt ra: phải cho chi tiết, trái cho điều hướng. */
+  side?: "right" | "left";
+  /** Không đệm phần thân (dùng cho danh sách điều hướng). */
+  flush?: boolean;
   children: React.ReactNode;
 }) {
   const container = useDsRoot();
@@ -33,7 +40,7 @@ export function DsDrawer({
       <Dialog.Portal container={container ?? undefined}>
         <Dialog.Overlay className="ds-drawer-overlay" />
         <Dialog.Content
-          className="ds ds-drawer"
+          className={cn("ds ds-drawer", side === "left" && "ds-drawer--left")}
           onOpenAutoFocus={() => {
             openerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
           }}
@@ -54,7 +61,7 @@ export function DsDrawer({
             </Dialog.Close>
           </div>
           <Dialog.Description className="sr-only">{description}</Dialog.Description>
-          <div className="ds-drawer__body">{children}</div>
+          <div className={cn("ds-drawer__body", flush && "ds-drawer__body--flush")}>{children}</div>
           {footer ? <div className="ds-drawer__foot">{footer}</div> : null}
         </Dialog.Content>
       </Dialog.Portal>

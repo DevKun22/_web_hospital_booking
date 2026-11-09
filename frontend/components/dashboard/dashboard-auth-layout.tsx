@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { DashboardShell } from "@/components/dashboard/dashboard-shell-production";
+import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import { DashboardContentSkeleton } from "@/components/dashboard/dashboard-content-skeleton";
 import { ForcePasswordChange } from "@/components/dashboard/force-password-change";
 import { useAuth } from "@/lib/auth";

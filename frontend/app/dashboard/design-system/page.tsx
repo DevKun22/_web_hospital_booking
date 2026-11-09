@@ -13,7 +13,6 @@ import {
   DsNotice,
   DsPageHeader,
   DsPanel,
-  DsRoot,
   DsSelect,
   DsStatusPill,
   DsTabs,
@@ -83,7 +82,7 @@ export default function DesignSystemPage() {
   ];
 
   return (
-    <DsRoot className="rounded-xl p-5">
+    <div>
       <DsPageHeader
         title="Thành phần giao diện"
         description="Nền thiết kế mới của khu quản trị: màu, chữ và các thành phần dùng chung. Dữ liệu trong trang là ví dụ."
@@ -232,6 +231,6 @@ export default function DesignSystemPage() {
           />
         ) : null}
       </DsDrawer>
-    </DsRoot>
+    </div>
   );
 }
