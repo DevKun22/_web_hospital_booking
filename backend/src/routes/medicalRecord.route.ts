@@ -3,6 +3,7 @@ import {
   archiveMedicalRecordHandler,
   createLabResultHandler,
   deleteLabResultHandler,
+  downloadMedicalFileHandler,
   getMedicalRecordHandler,
   listMedicalRecordsHandler,
   publishMedicalRecordHandler,
@@ -27,6 +28,16 @@ router.get(
   "/",
   requirePermission("record.view"),
   listMedicalRecordsHandler,
+);
+router.get(
+  "/:id/file",
+  requirePermission("record.view"),
+  downloadMedicalFileHandler,
+);
+router.get(
+  "/:id/lab-results/:labResultId/file",
+  requirePermission("record.view"),
+  downloadMedicalFileHandler,
 );
 router.get(
   "/:id",

@@ -231,6 +231,31 @@ class MedicalRecordService {
     return record;
   }
 
+  // Nguồn tệp kết quả để bác sĩ mở trong dashboard: cùng phạm vi truy cập với getById, nên bác sĩ
+  // chỉ mở được tệp của hồ sơ mình được xem. Máy chủ ký lại đường dẫn riêng tư khi tải.
+  async getFileSource(id: string, actor: Actor, labResultId?: string) {
+    const record = await prisma.medicalRecord.findFirst({
+      where: this.withActorScope({ id }, actor),
+      select: {
+        id: true,
+        recordCode: true,
+        resultPdfUrl: true,
+        labResults: labResultId
+          ? { where: { id: labResultId }, select: { fileUrl: true }, take: 1 }
+          : false,
+      },
+    });
+    if (!record) throw new AppError("Không tìm thấy hồ sơ khám", 404);
+
+    if (labResultId) {
+      const url = record.labResults?.[0]?.fileUrl;
+      if (!url) throw new AppError("Không tìm thấy file kết quả", 404);
+      return { recordId: record.id, url, fileName: `${record.recordCode}-lab-${labResultId}` };
+    }
+    if (!record.resultPdfUrl) throw new AppError("Không tìm thấy file kết quả", 404);
+    return { recordId: record.id, url: record.resultPdfUrl, fileName: `${record.recordCode}-result` };
+  }
+
   async update(id: string, input: UpdateMedicalRecordInput, actor: Actor) {
     const current = await this.getById(id, actor);
 

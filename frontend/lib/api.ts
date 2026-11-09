@@ -30,6 +30,9 @@ const buildUrl = (path: string, query?: RequestOptions["query"]) => {
   return url.toString();
 };
 
+// Địa chỉ đầy đủ của API, dùng cho liên kết mở trong tab mới (cookie đăng nhập đi kèm).
+export const apiUrl = (path: string) => buildUrl(path);
+
 export class ApiError extends Error {
   status: number;
 

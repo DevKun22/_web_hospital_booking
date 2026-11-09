@@ -4,6 +4,7 @@ import type {
   Role,
 } from "../../generated/prisma/enums.js";
 import MedicalRecordService from "../services/medicalRecord.service.js";
+import SecureMedicalFileService, { sendMedicalFile } from "../services/secureMedicalFile.service.js";
 import { auditClinicalView } from "../utils/auditClinicalView.js";
 import { AppError } from "../utils/appError.js";
 
@@ -217,6 +218,27 @@ export const deleteLabResultHandler = async (
       message: "Xóa kết quả cận lâm sàng thành công",
       data: labResult,
     });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Mở tệp kết quả (đính kèm hồ sơ hoặc của một kết quả cận lâm sàng) qua máy chủ: tệp riêng tư
+// không mở được bằng đường dẫn gốc. Ghi nhật ký như xem hồ sơ (bác sĩ điều trị thì không ghi).
+export const downloadMedicalFileHandler = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const source = await MedicalRecordService.getFileSource(
+      getParam(req.params.id),
+      getActor(req),
+      req.params.labResultId ? getParam(req.params.labResultId, "labResultId") : undefined,
+    );
+    const file = await SecureMedicalFileService.fetch(source.url);
+    await auditClinicalView(req, "MEDICAL_RECORD_VIEWED", "MEDICAL_RECORD", source.recordId);
+    return sendMedicalFile(res, file, source.fileName);
   } catch (error) {
     next(error);
   }

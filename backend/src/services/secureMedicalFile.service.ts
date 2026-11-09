@@ -1,3 +1,4 @@
+import type { Response } from "express";
 import { cloudinary } from "../config/cloudinary.js";
 import { AppError } from "../utils/appError.js";
 import { sniffMedicalFile } from "../utils/fileSignature.js";
@@ -98,5 +99,23 @@ class SecureMedicalFileService {
     }
   }
 }
+
+// Trả tệp đã tải về cho người đã được xác thực quyền; không cache, không cho trình duyệt đoán loại tệp.
+export const sendMedicalFile = (
+  res: Response,
+  file: { buffer: Buffer; contentType: string; extension: string | null },
+  baseName: string,
+) => {
+  const safeName = baseName.replace(/[^a-zA-Z0-9._-]/g, "-");
+  const fileName =
+    file.extension && !safeName.toLowerCase().endsWith(`.${file.extension}`)
+      ? `${safeName}.${file.extension}`
+      : safeName;
+  res.setHeader("Content-Type", file.contentType);
+  res.setHeader("Content-Disposition", `inline; filename="${fileName}"`);
+  res.setHeader("Cache-Control", "private, no-store, max-age=0");
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  return res.send(file.buffer);
+};
 
 export default new SecureMedicalFileService();
