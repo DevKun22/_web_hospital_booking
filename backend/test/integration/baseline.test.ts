@@ -5416,6 +5416,71 @@ test("batches: receipts by lot, FEFO dispensing and expired stock never dispense
   assert.equal((await prisma.stockBatch.findUniqueOrThrow({ where: { id: expired.id } })).quantity, 0);
 });
 
+test("pharmacy CSV receipts can carry lot and expiry; exports include them", async () => {
+  const pharmacist = await createDashboardUser("PHARMACIST", "0900000413");
+  const cookie = await authCookie(pharmacist.id, "PHARMACIST");
+  const send = (csv: string, apply: boolean) =>
+    http.request("/api/dashboard/pharmacy/import/receipts", {
+      method: "POST",
+      headers: dashboardHeaders(cookie),
+      body: { csv, apply },
+    });
+  const plus = (days: number) => new Date(Date.now() + 7 * 3_600_000 + days * 86_400_000);
+  const iso = (days: number) => plus(days).toISOString().slice(0, 10);
+  const vn = (days: number) => iso(days).split("-").reverse().join("/");
+
+  const medicine = await prisma.medicine.create({
+    data: { code: "LOT-CSV", name: "Thuốc lô CSV", unit: "viên", stockQuantity: 5, minStock: 1 },
+  });
+
+  // Cùng thuốc nhiều lô trong một tệp là hợp lệ; ngày kiểu Việt Nam và ISO đều nhận.
+  const csv = `Mã thuốc,Số lượng,Số lô,Hạn dùng,Lý do\r\nLOT-CSV,10,A1,${vn(200)},Phiếu 01\r\nLOT-CSV,6,B2,${iso(90)},Phiếu 01\r\n`;
+  const preview = await send(csv, false);
+  assert.equal(preview.status, 200, JSON.stringify(preview.body));
+  assert.equal(preview.body.data.summary.errors, 0);
+  assert.equal(preview.body.data.rows[0].batchNumber, "A1");
+  assert.equal(preview.body.data.rows[0].expiryDate, iso(200));
+  assert.equal(await prisma.stockBatch.count(), 0);
+
+  // Lỗi: khai thiếu một nửa, hạn đã qua, ngày không có thật, lặp lô trong tệp.
+  const bad = await send(
+    `Mã thuốc,Số lượng,Số lô,Hạn dùng\r\nLOT-CSV,1,C3,\r\nLOT-CSV,1,D4,${vn(-1)}\r\nLOT-CSV,1,E5,31/02/2030\r\nLOT-CSV,1,F6,${vn(50)}\r\nLOT-CSV,1,f6,${vn(50)}\r\n`,
+    true,
+  );
+  assert.equal(bad.body.data.applied, false);
+  assert.deepEqual(
+    bad.body.data.rows.map((row: { errors: string[] }) => row.errors.length > 0),
+    [true, true, true, false, true],
+  );
+
+  const applied = await send(csv, true);
+  assert.equal(applied.body.data.applied, true);
+  assert.equal(applied.body.data.summary.totalQuantity, 16);
+  const batches = await prisma.stockBatch.findMany({ where: { medicineId: medicine.id }, orderBy: { batchNumber: "asc" } });
+  assert.deepEqual(batches.map((item) => [item.batchNumber, item.quantity]), [["A1", 10], ["B2", 6]]);
+  assert.equal((await prisma.medicine.findUniqueOrThrow({ where: { id: medicine.id } })).stockQuantity, 21);
+
+  // Cùng số lô với hạn dùng khác bị báo ngay ở bước xem trước; cùng hạn thì cộng dồn.
+  const mismatch = await send(`Mã thuốc,Số lượng,Số lô,Hạn dùng\r\nLOT-CSV,1,A1,${iso(201)}\r\n`, false);
+  assert.equal(mismatch.body.data.summary.errors, 1);
+  assert.equal((await send(`Mã thuốc,Số lượng,Số lô,Hạn dùng\r\nLOT-CSV,4,A1,${iso(200)}\r\n`, true)).body.data.applied, true);
+  assert.equal((await prisma.stockBatch.findFirstOrThrow({ where: { batchNumber: "A1" } })).quantity, 14);
+
+  // Xuất tồn kho có hạn dùng gần nhất; xuất sổ kho có số lô.
+  const download = async (path: string) => {
+    const response = await fetch(`${http.baseUrl}${path}`, { headers: dashboardHeaders(cookie) });
+    return { status: response.status, text: await response.text() };
+  };
+  const inventory = await download("/api/dashboard/pharmacy/medicines/export");
+  assert.equal(inventory.status, 200);
+  assert.ok(inventory.text.includes("Hạn dùng gần nhất"));
+  assert.ok(inventory.text.includes(iso(90)));
+  const movements = await download("/api/dashboard/pharmacy/movements/export");
+  assert.equal(movements.status, 200);
+  assert.ok(movements.text.includes("Số lô"));
+  assert.ok(movements.text.includes("B2"));
+});
+
 test("pharmacy CSV import previews first, applies all-or-nothing and never overwrites stock", async () => {
   const pharmacist = await createDashboardUser("PHARMACIST", "0900000411");
   const cookie = await authCookie(pharmacist.id, "PHARMACIST");

@@ -83,7 +83,7 @@ const movementLabel = { RECEIPT: "Nhập kho", DISPENSE: "Cấp phát", ADJUSTME
 // Tệp mẫu cho nhập CSV: đúng tiêu đề cột mà máy chủ yêu cầu.
 const CATALOG_TEMPLATE =
   "Mã thuốc,Tên thuốc,Đơn vị,Hoạt chất,Hàm lượng,Dạng bào chế,Mức tối thiểu,Ghi chú\r\nPARA500,Paracetamol 500mg,viên,Paracetamol,500mg,Viên nén,100,\r\n";
-const RECEIPT_TEMPLATE = "Mã thuốc,Số lượng,Lý do\r\nPARA500,200,Phiếu nhập 01\r\n";
+const RECEIPT_TEMPLATE = "Mã thuốc,Số lượng,Số lô,Hạn dùng,Lý do\r\nPARA500,200,PA2611A,31/12/2027,Phiếu nhập 01\r\n";
 const emptyForm = { code: "", name: "", unit: "viên", strength: "", dosageForm: "", activeIngredient: "", minStock: "0" };
 
 const stockTabs = [
@@ -586,7 +586,7 @@ export default function MedicinesPage() {
                 title="Nhập kho từ CSV"
                 templateName="mau-nhap-kho.csv"
                 templateCsv={RECEIPT_TEMPLATE}
-                hint="Mỗi dòng là một phiếu nhập cho một thuốc đã có trong danh mục, ghi vào sổ kho như nhập tay. Mỗi mã thuốc chỉ một dòng. Tối đa 500 dòng."
+                hint="Mỗi dòng là một phiếu nhập cho một thuốc đã có trong danh mục, ghi vào sổ kho như nhập tay. Cột Số lô và Hạn dùng (dd/mm/yyyy) là tuỳ chọn nhưng phải khai cùng nhau; một thuốc có thể có nhiều lô, mỗi lô một dòng. Tối đa 500 dòng."
                 onDone={() => void refresh()}
               />
             ) : null}

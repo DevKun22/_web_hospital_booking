@@ -1,12 +1,13 @@
 import { prisma } from "../config/prisma.js";
 import { AppError } from "../utils/appError.js";
 import { parseCsv } from "../utils/csvParse.js";
+import { getVietnamNowParts } from "../utils/time.js";
 import AuditLogService from "./auditLog.service.js";
 import PharmacyService from "./pharmacy.service.js";
 
 // Nhập CSV cho kho thuốc. Hai loại tệp:
 //   - catalog:  thêm thuốc mới hoặc cập nhật thông tin thuốc đã có (KHÔNG đụng tới tồn kho);
-//   - receipts: nhập kho theo mã thuốc, mỗi dòng đi qua sổ kho như nhập tay.
+//   - receipts: nhập kho theo mã thuốc, mỗi dòng đi qua sổ kho như nhập tay; có thể kèm Số lô + Hạn dùng.
 // Luôn kiểm tra toàn bộ tệp trước (apply=false chỉ xem trước). Chỉ áp dụng khi không có dòng
 // nào lỗi, và áp dụng trong một transaction: hoặc đủ mọi dòng hoặc không đổi gì.
 
@@ -19,6 +20,9 @@ export type ImportRow = {
   code: string;
   action: "create" | "update" | "unchanged" | "receive" | "error";
   quantity?: number;
+  /** Số lô và hạn dùng (YYYY-MM-DD) khi dòng nhập kho có khai lô. */
+  batchNumber?: string;
+  expiryDate?: string;
   errors: string[];
 };
 
@@ -48,9 +52,11 @@ const HEADERS = {
   note: "Ghi chú",
   quantity: "Số lượng",
   reason: "Lý do",
+  batchNumber: "Số lô",
+  expiryDate: "Hạn dùng",
 } as const;
 
-const LIMITS = { code: 40, name: 200, activeIngredient: 200, strength: 80, dosageForm: 80, unit: 30, note: 500, reason: 300 };
+const LIMITS = { batchNumber: 60, code: 40, name: 200, activeIngredient: 200, strength: 80, dosageForm: 80, unit: 30, note: 500, reason: 300 };
 const MAX_NUMBER = 1_000_000;
 // 500 dòng x vài truy vấn dễ vượt 5 giây mặc định của transaction.
 const TX_OPTIONS = { timeout: 30_000, maxWait: 10_000 };
@@ -77,6 +83,24 @@ const intField = (raw: string, field: string, min: number, errors: string[]) => 
   const value = Number(raw);
   if (value < min || value > MAX_NUMBER) {
     errors.push(`${field} phải từ ${min} đến ${MAX_NUMBER.toLocaleString("vi-VN")}`);
+    return undefined;
+  }
+  return value;
+};
+
+// Hạn dùng nhận dd/mm/yyyy (kiểu Việt Nam) hoặc yyyy-mm-dd; ngày không có thật bị từ chối.
+const parseExpiry = (raw: string, errors: string[]) => {
+  const vn = /^(\d{1,2})[/.-](\d{1,2})[/.-](\d{4})$/.exec(raw);
+  const iso = /^(\d{4})-(\d{2})-(\d{2})$/.exec(raw);
+  const [year, month, day] = vn ? [Number(vn[3]), Number(vn[2]), Number(vn[1])] : iso ? [Number(iso[1]), Number(iso[2]), Number(iso[3])] : [0, 0, 0];
+  const date = new Date(Date.UTC(year, month - 1, day));
+  if (!year || date.getUTCFullYear() !== year || date.getUTCMonth() !== month - 1 || date.getUTCDate() !== day) {
+    errors.push(`${HEADERS.expiryDate} phải có dạng ngày/tháng/năm hợp lệ (ví dụ 31/12/2027)`);
+    return undefined;
+  }
+  const value = date.toISOString().slice(0, 10);
+  if (value < getVietnamNowParts().date) {
+    errors.push(`${HEADERS.expiryDate} đã qua, không nhập kho lô hết hạn`);
     return undefined;
   }
   return value;
@@ -279,6 +303,15 @@ class PharmacyImportService {
     });
     const byCode = new Map(medicines.map((medicine) => [medicine.code, medicine]));
 
+    // Lô đã có trong kho: cùng số lô thì phải cùng hạn dùng (kiểm tra sớm để báo ngay ở bước xem trước).
+    const existingBatches = await prisma.stockBatch.findMany({
+      where: { medicineId: { in: medicines.map((medicine) => medicine.id) } },
+      select: { medicineId: true, batchNumber: true, expiryDate: true },
+    });
+    const batchExpiry = new Map(
+      existingBatches.map((batch) => [`${batch.medicineId}|${batch.batchNumber}`, batch.expiryDate.toISOString().slice(0, 10)]),
+    );
+
     const seen = new Set<string>();
     const plans = rows.map(({ line, cells }) => {
       const errors: string[] = [];
@@ -287,8 +320,26 @@ class PharmacyImportService {
       if (!code) errors.push("Thiếu mã thuốc");
       else if (!medicine) errors.push("Không có thuốc với mã này trong danh mục");
       else if (!medicine.isActive) errors.push("Thuốc đã ngừng sử dụng");
-      if (code && seen.has(code)) errors.push("Mã thuốc bị lặp trong tệp, hãy gộp thành một dòng");
-      seen.add(code);
+
+      // Cùng một thuốc có thể có nhiều lô trong một tệp, nhưng mỗi lô (hoặc dòng không khai lô) chỉ một dòng.
+      const batchNumber = cell(cells, HEADERS.batchNumber);
+      const expiryRaw = cell(cells, HEADERS.expiryDate);
+      let expiryDate: string | undefined;
+      tooLong(batchNumber, LIMITS.batchNumber, HEADERS.batchNumber, errors);
+      if (Boolean(batchNumber) !== Boolean(expiryRaw)) {
+        errors.push(`${HEADERS.batchNumber} và ${HEADERS.expiryDate} phải khai cùng nhau hoặc để trống cả hai`);
+      } else if (expiryRaw) {
+        expiryDate = parseExpiry(expiryRaw, errors);
+      }
+      const dedupeKey = `${code}|${batchNumber.toUpperCase()}`;
+      if (code && seen.has(dedupeKey)) {
+        errors.push(batchNumber ? "Lô này bị lặp trong tệp, hãy gộp thành một dòng" : "Mã thuốc bị lặp trong tệp, hãy gộp thành một dòng");
+      }
+      seen.add(dedupeKey);
+      const known = medicine && batchNumber ? batchExpiry.get(`${medicine.id}|${batchNumber}`) : undefined;
+      if (known && expiryDate && known !== expiryDate) {
+        errors.push(`Lô ${batchNumber} đã có trong kho với hạn dùng khác (${known})`);
+      }
 
       const quantity = intField(cell(cells, HEADERS.quantity), HEADERS.quantity, 1, errors);
       const reason = cell(cells, HEADERS.reason) || DEFAULT_RECEIPT_REASON;
@@ -299,9 +350,10 @@ class PharmacyImportService {
         code,
         action: errors.length > 0 ? "error" : "receive",
         quantity,
+        ...(batchNumber && expiryDate ? { batchNumber, expiryDate } : {}),
         errors,
       };
-      return { row, medicineId: medicine?.id, quantity, reason };
+      return { row, medicineId: medicine?.id, quantity, reason, batchNumber, expiryDate };
     });
 
     const outcome = plans.map((plan) => plan.row);
@@ -312,7 +364,9 @@ class PharmacyImportService {
     const ordered = [...plans].sort((a, b) => a.medicineId!.localeCompare(b.medicineId!));
     await prisma.$transaction(async (tx) => {
       for (const plan of ordered) {
-        await PharmacyService.moveStockIn(tx, plan.medicineId!, plan.quantity!, "RECEIPT", plan.reason, actor);
+        await PharmacyService.moveStockIn(tx, plan.medicineId!, plan.quantity!, "RECEIPT", plan.reason, actor, {
+          batch: plan.batchNumber && plan.expiryDate ? { batchNumber: plan.batchNumber, expiryDate: plan.expiryDate } : undefined,
+        });
       }
     }, TX_OPTIONS);
     return summarise("receipts", true, outcome);
