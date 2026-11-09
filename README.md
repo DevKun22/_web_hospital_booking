@@ -126,7 +126,7 @@ cd mobile   && flutter analyze && flutter test
 
 - Kiểm thử tích hợp chạy trên cơ sở dữ liệu **riêng** (`TEST_DATABASE_URL`, tên hoặc schema phải chứa `test` và khác `DATABASE_URL`); bộ chạy từ chối khởi động nếu không đúng để không xóa nhầm dữ liệu thật.
 - Tại 08/11/2026: 80 kiểm thử tích hợp và 39 kiểm thử đơn vị ở backend, 21 smoke test, 188 kiểm thử Flutter.
-- CI (`.github/workflows/phase0.yml`) chạy trên mỗi pull request: chặn tệp bí mật bị đưa vào Git, kiểm tra schema Prisma, toàn bộ kiểm thử backend, build backend, kiểm tra kiểu, lint và build frontend, phân tích và kiểm thử Flutter, build APK, cảnh báo tệp Dart trên 800 dòng.
+- CI (`.github/workflows/phase0.yml`): các job `guard` (chặn tệp bí mật), `backend`, `frontend`, `mobile` chạy song song và chỉ chạy khi pull request có đổi phần tương ứng (đổi workflow hoặc chạy trên `main` thì chạy đủ); build APK chỉ khi đổi mobile hoặc trên `main`. Job `verify` gom kết quả: phần bị bỏ qua tính là đạt, phần lỗi thì lỗi. Backend: kiểm tra schema Prisma, kiểu, smoke, đơn vị, tích hợp, build. Frontend: kiểm tra kiểu, lint, build. Mobile: phân tích, kiểm thử Flutter, cảnh báo tệp Dart trên 800 dòng.
 
 ## Triển khai
 

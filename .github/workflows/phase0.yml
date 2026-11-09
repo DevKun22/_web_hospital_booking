@@ -1,5 +1,8 @@
 name: Hospital Booking quality gates
 
+# Mỗi phần (backend, frontend, mobile) chạy song song và chỉ chạy khi pull request có đổi phần đó
+# (hoặc đổi workflow). Trên main và khi chạy tay thì chạy đủ. Job `verify` ở cuối gom kết quả và giữ
+# nguyên tên kiểm tra "quality gates / verify": phần bị bỏ qua tính là đạt, phần lỗi thì verify lỗi.
 on:
   pull_request:
   push:
@@ -14,9 +17,74 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  verify:
+  changes:
+    name: Xác định phần bị đổi
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 5
+    outputs:
+      backend: ${{ steps.filter.outputs.backend }}
+      frontend: ${{ steps.filter.outputs.frontend }}
+      mobile: ${{ steps.filter.outputs.mobile }}
+      apk: ${{ steps.filter.outputs.apk }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: filter
+        shell: bash
+        run: |
+          event="${{ github.event_name }}"
+          files=""
+          if [ "$event" = "pull_request" ]; then
+            files="$(git diff --name-only "${{ github.event.pull_request.base.sha }}...${{ github.event.pull_request.head.sha }}")"
+          fi
+          echo "Tệp đổi trong pull request:"
+          printf '%s\n' "$files"
+
+          has() { printf '%s\n' "$files" | grep -Eq "$1"; }
+
+          # Ngoài pull request (main, chạy tay) hoặc khi đổi workflow: chạy đủ mọi phần.
+          all=false
+          if [ "$event" != "pull_request" ] || has '^\.github/workflows/'; then all=true; fi
+
+          backend=false; frontend=false; mobile=false; apk=false
+          if [ "$all" = true ] || has '^backend/'; then backend=true; fi
+          if [ "$all" = true ] || has '^frontend/'; then frontend=true; fi
+          if [ "$all" = true ] || has '^mobile/'; then mobile=true; fi
+          # Build APK chậm và hay lỗi mạng: chỉ khi đổi mobile, đổi workflow, hoặc ngoài pull request.
+          if [ "$all" = true ] || has '^mobile/'; then apk=true; fi
+
+          {
+            echo "backend=$backend"
+            echo "frontend=$frontend"
+            echo "mobile=$mobile"
+            echo "apk=$apk"
+          } >> "$GITHUB_OUTPUT"
+          echo "backend=$backend frontend=$frontend mobile=$mobile apk=$apk"
+
+  guard:
+    name: Chặn tệp bí mật
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Reject tracked local secrets
+        shell: bash
+        run: |
+          forbidden="$(git ls-files 'backend/.env' 'backend/secrets/**' 'mobile/config/dev.json' 'mobile/config/prod.json')"
+          test -z "$forbidden" || { echo "Local secret/config files are tracked:"; echo "$forbidden"; exit 1; }
+          private_key_marker='-----BEGIN PRIVATE'' KEY-----'
+          if git grep -n -- "$private_key_marker"; then
+            echo "A tracked private key marker was found."
+            exit 1
+          fi
+
+  backend:
+    name: Backend
+    needs: changes
+    if: needs.changes.outputs.backend == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
     services:
       postgres:
         image: postgres:16
@@ -40,33 +108,18 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
-
     env:
       TEST_DATABASE_URL: postgresql://phase0:phase0@127.0.0.1:5432/hospital_booking_test
       DATABASE_URL: postgresql://phase0:phase0@127.0.0.1:5432/hospital_booking_ci_placeholder
       QUEUE_REDIS_URL: redis://127.0.0.1:6379/0
       CLOUDINARY_URL: cloudinary://ci_test_key:ci_test_secret@ci_test_cloud
-
     steps:
       - uses: actions/checkout@v4
-      - name: Reject tracked local secrets
-        shell: bash
-        run: |
-          forbidden="$(git ls-files 'backend/.env' 'backend/secrets/**' 'mobile/config/dev.json' 'mobile/config/prod.json')"
-          test -z "$forbidden" || { echo "Local secret/config files are tracked:"; echo "$forbidden"; exit 1; }
-          private_key_marker='-----BEGIN PRIVATE'' KEY-----'
-          if git grep -n -- "$private_key_marker"; then
-            echo "A tracked private key marker was found."
-            exit 1
-          fi
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: |
-            backend/package-lock.json
-            frontend/package-lock.json
-
+          cache-dependency-path: backend/package-lock.json
       - name: Install backend dependencies
         working-directory: backend
         run: npm ci
@@ -79,6 +132,27 @@ jobs:
       - name: Build backend
         working-directory: backend
         run: npm run build
+
+  frontend:
+    name: Frontend
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      # Bộ nhớ đệm của Next giúp build lại nhanh khi chỉ đổi vài tệp.
+      - uses: actions/cache@v4
+        with:
+          path: frontend/.next/cache
+          key: next-${{ runner.os }}-${{ hashFiles('frontend/package-lock.json') }}-${{ hashFiles('frontend/**/*.ts', 'frontend/**/*.tsx') }}
+          restore-keys: |
+            next-${{ runner.os }}-${{ hashFiles('frontend/package-lock.json') }}-
       - name: Install frontend dependencies
         working-directory: frontend
         run: npm ci
@@ -92,6 +166,14 @@ jobs:
         working-directory: frontend
         run: npm run build
 
+  mobile:
+    name: Mobile
+    needs: changes
+    if: needs.changes.outputs.mobile == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2
         with:
           flutter-version: 3.38.7
@@ -111,6 +193,39 @@ jobs:
       - name: Mobile tests
         working-directory: mobile
         run: flutter test
+      # Gradle tải bản phân phối và thư viện từ mạng (hay lỗi 504): lưu đệm để lần sau khỏi tải lại.
+      - name: Cache Gradle
+        if: needs.changes.outputs.apk == 'true'
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ runner.os }}-${{ hashFiles('mobile/android/**/*.gradle*', 'mobile/android/gradle/wrapper/gradle-wrapper.properties', 'mobile/pubspec.lock') }}
+          restore-keys: |
+            gradle-${{ runner.os }}-
       - name: Build Android debug APK
+        if: needs.changes.outputs.apk == 'true'
         working-directory: mobile
         run: flutter build apk --debug -t lib/main_dev.dart --dart-define-from-file=config/dev.json.example
+
+  verify:
+    name: verify
+    needs: [guard, backend, frontend, mobile]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Gom kết quả (bỏ qua tính là đạt, lỗi hoặc hủy thì không đạt)
+        shell: bash
+        run: |
+          failed=0
+          for pair in "guard=${{ needs.guard.result }}" "backend=${{ needs.backend.result }}" "frontend=${{ needs.frontend.result }}" "mobile=${{ needs.mobile.result }}"; do
+            name="${pair%%=*}"; result="${pair#*=}"
+            echo "$name: $result"
+            case "$result" in
+              success|skipped) ;;
+              *) failed=1 ;;
+            esac
+          done
+          exit $failed
