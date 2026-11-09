@@ -8,6 +8,7 @@ import { PanelRightOpen, Search } from "lucide-react";
 import { DashboardFeedback } from "@/components/dashboard/dashboard-feedback";
 import { DashboardPageHeader, DashboardStatusBadge, DashboardSurface } from "@/components/dashboard/dashboard-ui";
 import { DashboardWorkspace } from "@/components/dashboard/dashboard-workspace";
+import { PrintButton, PrintablePrescription } from "@/components/dashboard/printable-documents";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { apiRequest } from "@/lib/api";
@@ -469,6 +470,7 @@ export default function PrescriptionsPage() {
                 <p className="text-sm font-medium text-[#55708f]">Chi tiết đơn thuốc</p>
                 <h3 className="mt-1 text-xl font-semibold">{selected.prescriptionCode}</h3>
                 <DashboardStatusBadge tone={statusTone[selected.status]} className="mt-3">{statusLabel[selected.status]}</DashboardStatusBadge>
+                {selected.status === "ISSUED" ? (<div className="mt-3"><PrintButton label="In đơn thuốc" /><PrintablePrescription prescription={selected} /></div>) : null}
               </div>
               <div className="rounded-md border border-[#e5ebf3] p-3 text-sm">
                 <p className="font-semibold">{selected.patient.fullName}</p>
