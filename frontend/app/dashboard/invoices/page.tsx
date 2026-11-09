@@ -8,6 +8,7 @@ import { DashboardFeedback } from "@/components/dashboard/dashboard-feedback";
 import { DashboardPageHeader, DashboardStatusBadge, DashboardSurface } from "@/components/dashboard/dashboard-ui";
 import { ExportCsvButton } from "@/components/dashboard/export-csv-button";
 import { DashboardWorkspace } from "@/components/dashboard/dashboard-workspace";
+import { PrintButton, PrintableInvoice } from "@/components/dashboard/printable-documents";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ApiError, apiRequest } from "@/lib/api";
@@ -735,6 +736,7 @@ export default function InvoicesPage() {
                 <p className="text-sm font-medium text-[#55708f]">Chi tiết hóa đơn</p>
                 <h3 className="mt-1 text-xl font-semibold">{selected.invoiceCode}</h3>
                 <DashboardStatusBadge tone={statusTone[selected.status]} className="mt-3">{statusLabel[selected.status]}</DashboardStatusBadge>
+                <div className="mt-3"><PrintButton label="In hóa đơn" /><PrintableInvoice invoice={selected} /></div>
               </div>
               <div className="space-y-3 text-sm">
                 <div><p className="text-[#667892]">Mã vạch</p><p className="font-semibold">{selected.barcode}</p></div>

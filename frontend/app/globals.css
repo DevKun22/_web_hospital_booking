@@ -1299,3 +1299,104 @@ button:disabled {
     @apply font-sans;
   }
 }
+
+/* In đơn thuốc / hóa đơn: khối .print-sheet ẩn trên màn hình, khi in chỉ hiện đúng khối đó. */
+.print-sheet {
+  display: none;
+}
+
+@media print {
+  @page {
+    size: A5;
+    margin: 12mm;
+  }
+
+  body * {
+    visibility: hidden;
+  }
+
+  .print-sheet,
+  .print-sheet * {
+    visibility: visible;
+  }
+
+  .print-sheet {
+    display: block;
+    position: absolute;
+    inset: 0 auto auto 0;
+    width: 100%;
+    color: #000;
+    background: #fff;
+    font-size: 11pt;
+    line-height: 1.45;
+  }
+
+  .print-header {
+    text-align: center;
+    margin-bottom: 10pt;
+  }
+
+  .print-header h1 {
+    font-size: 16pt;
+    font-weight: 700;
+    text-transform: uppercase;
+  }
+
+  .print-org,
+  .print-code {
+    font-size: 10pt;
+  }
+
+  .print-row {
+    display: flex;
+    gap: 8pt;
+    justify-content: space-between;
+  }
+
+  .print-row span {
+    flex: 0 0 32%;
+  }
+
+  .print-row strong {
+    flex: 1;
+    text-align: left;
+    font-weight: 600;
+  }
+
+  .print-table {
+    width: 100%;
+    margin-top: 10pt;
+    border-collapse: collapse;
+  }
+
+  .print-table th,
+  .print-table td {
+    border: 0.5pt solid #000;
+    padding: 3pt 5pt;
+    text-align: left;
+    vertical-align: top;
+  }
+
+  .print-totals {
+    margin-top: 8pt;
+  }
+
+  .print-note {
+    margin-top: 8pt;
+  }
+
+  .print-stamp {
+    text-align: center;
+    font-weight: 700;
+    letter-spacing: 1pt;
+    margin-bottom: 6pt;
+  }
+
+  .print-signature {
+    margin-top: 24pt;
+    margin-left: auto;
+    width: 45%;
+    text-align: center;
+    min-height: 60pt;
+  }
+}
