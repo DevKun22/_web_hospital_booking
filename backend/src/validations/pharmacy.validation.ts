@@ -34,7 +34,7 @@ export const receiveStockSchema = z.object({
   expiryDate: z
     .string()
     .trim()
-    .regex(/^d{4}-d{2}-d{2}$/, "Hạn dùng phải có dạng YYYY-MM-DD")
+    .regex(/^\d{4}-\d{2}-\d{2}$/,"Hạn dùng phải có dạng YYYY-MM-DD")
     .nullable()
     .optional(),
 });
