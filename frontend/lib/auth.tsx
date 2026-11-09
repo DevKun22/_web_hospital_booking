@@ -15,8 +15,7 @@ import type { DashboardUser } from "@/lib/types";
 
 type LoginResult = {
   challengeId: string;
-  phone: string;
-  email?: string | null;
+  // Nơi nhận mã OTP đã được máy chủ che bớt (ví dụ nq*******@gmail.com).
   otpTarget: string;
   otpChannel: "SMS" | "EMAIL";
   otpDeliveryStatus?: "PENDING" | "SENT" | "FAILED";
@@ -96,7 +95,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const handleAuthExpired = () => {
       setUser(null);
       setLoading(false);
-      router.replace("/login");
+      router.replace("/login?expired=1");
     };
 
     window.addEventListener(AUTH_EXPIRED_EVENT, handleAuthExpired);
@@ -120,9 +119,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         body: { challengeId, otp },
       },
     );
-    setUser(result.user);
+    // Phản hồi xác thực chưa có danh sách quyền (chỉ /auth/dashboard/me có): nạp lại người dùng đầy đủ
+    // ngay để sidebar hiện đúng các mục thay vì chỉ "Tổng quan" cho tới khi tải lại trang.
+    const fullUser = await refreshUser();
+    if (!fullUser) setUser(result.user);
     return result;
-  }, []);
+  }, [refreshUser]);
 
   const logout = useCallback(async () => {
     await apiRequest<void>("/auth/dashboard/logout", { method: "POST" }).catch(

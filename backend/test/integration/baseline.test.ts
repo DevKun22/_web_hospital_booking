@@ -1340,6 +1340,11 @@ test("dashboard cookie login, refresh and logout remain compatible", async () =>
   });
   assert.equal(login.status, 200);
   assert.equal(login.body.success, true);
+  // Phản hồi đăng nhập không được lộ email hay số điện thoại đầy đủ, chỉ bản đã che.
+  const loginText = JSON.stringify(login.body.data);
+  if (fixture.adminUser.phone) assert.ok(!loginText.includes(fixture.adminUser.phone));
+  if (fixture.adminUser.email) assert.ok(!loginText.includes(fixture.adminUser.email));
+  assert.match(String(login.body.data.otpTarget), /\*/);
 
   const verification = await http.request("/api/auth/dashboard/verify-otp", {
     method: "POST",
