@@ -120,9 +120,6 @@ const mainStatusTabs = [
   { id: "COMPLETED", label: "Hoàn thành" },
 ];
 
-// Ô tìm kiếm duy nhất: toàn chữ số (có thể có dấu cách, +, -) là số điện thoại, còn lại là mã lịch.
-const isPhoneQuery = (text: string) => /^[\d\s+().-]+$/.test(text);
-
 export default function AppointmentsPage() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -150,21 +147,18 @@ export default function AppointmentsPage() {
 
   // Gõ đến đâu lọc đến đó (chờ ngừng gõ một chút rồi mới gọi máy chủ).
   const term = useDebouncedValue(search.trim());
-  const phone = term && isPhoneQuery(term) ? term : "";
-  const bookingCode = term && !isPhoneQuery(term) ? term : "";
 
   const query = useMemo(
     () => ({
       status: status || undefined,
       doctorId: isDoctor ? undefined : doctorId || undefined,
       date: date || undefined,
-      phone: phone || undefined,
-      bookingCode: bookingCode || undefined,
+      q: term || undefined,
       billingState: canStaffActions ? billingState || undefined : undefined,
       page,
       limit: 20,
     }),
-    [billingState, bookingCode, canStaffActions, date, doctorId, isDoctor, page, phone, status],
+    [billingState, canStaffActions, date, doctorId, isDoctor, page, status, term],
   );
   const doctorQuery = useMemo(() => ({ limit: 100 }), []);
   const appointmentsQuery = useDashboardAppointments(query);
@@ -537,13 +531,13 @@ export default function AppointmentsPage() {
           ) : null}
           <div style={{ minWidth: 170, flex: "1 1 200px" }}>
             <DsInput
-              aria-label="Tìm theo số điện thoại hoặc mã lịch"
+              aria-label="Tìm lịch hẹn"
               value={search}
               onChange={(event) => {
                 setSearch(event.target.value);
                 setPage(1);
               }}
-              placeholder="Gõ SĐT hoặc mã lịch để lọc"
+              placeholder="Gõ SĐT, mã lịch hoặc tên để lọc"
             />
           </div>
           <div style={{ minWidth: 150, flex: "0 1 170px" }}>
