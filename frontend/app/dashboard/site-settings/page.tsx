@@ -2,25 +2,34 @@
 
 /* eslint-disable @next/next/no-img-element */
 
-import { can } from "@/lib/permissions";
+import { useEffect, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
-import { Search } from "lucide-react";
-import { DashboardFeedback } from "@/components/dashboard/dashboard-feedback";
-import { DashboardWorkspace } from "@/components/dashboard/dashboard-workspace";
 import {
-  DashboardPageHeader,
-  DashboardStatusBadge,
-  DashboardSurface,
-} from "@/components/dashboard/dashboard-ui";
+  DsButton,
+  DsEmptyState,
+  DsField,
+  DsInput,
+  DsNotice,
+  DsPageHeader,
+  DsPane,
+  DsPanel,
+  DsSelect,
+  DsSplit,
+  DsStatusPill,
+  DsTabs,
+  DsTextarea,
+  DsToolbar,
+} from "@/components/ds";
 import { NumberStepper } from "@/components/ui/number-stepper";
+import { VietnamDateTimeInput } from "@/components/ui/vietnam-datetime-input";
 import { apiRequest, uploadImages } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { useDashboardBanners, useDashboardFAQs, useDashboardHomePageConfig, useDashboardSiteSettings } from "@/lib/dashboard-site-settings-query";
 import { formatVietnamDateTime, fromVietnamDateTimeInput, toVietnamDateTimeInput } from "@/lib/date";
+import { can } from "@/lib/permissions";
 import { publishPublicContentUpdated } from "@/lib/public-content-sync";
 import { queryKeys } from "@/lib/query-keys";
-import type { Banner, HomePageConfigRecord, HomePageConfigValue, HomePageSectionConfig, MediaAsset, DashboardFAQ, SiteSettingsRecord, SiteSettingsValue } from "@/lib/types";
+import type { Banner, DashboardFAQ, HomePageConfigRecord, HomePageConfigValue, HomePageSectionConfig, MediaAsset, SiteSettingsRecord, SiteSettingsValue } from "@/lib/types";
 
 type TabKey = "home" | "settings" | "banners" | "faqs";
 
@@ -60,11 +69,16 @@ type FAQForm = {
   isActive: boolean;
 };
 
-const tabs: { key: TabKey; label: string }[] = [
-  { key: "home", label: "Bố cục trang chủ" },
-  { key: "settings", label: "Thông tin trang người dùng" },
-  { key: "banners", label: "Ảnh quảng bá" },
-  { key: "faqs", label: "Câu hỏi thường gặp" },
+type Pane =
+  | { kind: "banner"; banner: Banner | null }
+  | { kind: "faq"; faq: DashboardFAQ | null }
+  | null;
+
+const tabs: { id: TabKey; label: string }[] = [
+  { id: "settings", label: "Thông tin trang" },
+  { id: "home", label: "Bố cục trang chủ" },
+  { id: "banners", label: "Ảnh quảng bá" },
+  { id: "faqs", label: "Câu hỏi thường gặp" },
 ];
 
 const emptyHomePageForm: HomePageConfigValue = {
@@ -142,8 +156,17 @@ const emptyFAQForm: FAQForm = {
   isActive: true,
 };
 
-const positionOptions = ["HOME_HERO", "HOME_PARTNER"];
-const faqCategories = ["booking", "payment", "doctor", "insurance", "general"];
+const positionLabels: Record<string, string> = {
+  HOME_HERO: "Ảnh lớn đầu trang chủ",
+  HOME_PARTNER: "Dải đối tác",
+};
+const faqCategoryLabels: Record<string, string> = {
+  booking: "Đặt lịch",
+  payment: "Thanh toán",
+  doctor: "Bác sĩ",
+  insurance: "Bảo hiểm",
+  general: "Chung",
+};
 
 const toNullable = (value: string) => value.trim() || null;
 
@@ -201,6 +224,18 @@ const toFAQForm = (faq: DashboardFAQ): FAQForm => ({
 const parseKeywords = (value: string) =>
   Array.from(new Set(value.split(",").map((item) => item.trim()).filter(Boolean)));
 
+function Check({ id, checked, disabled, onChange, label, hint }: { id: string; checked: boolean; disabled?: boolean; onChange: (value: boolean) => void; label: string; hint?: string }) {
+  return (
+    <div className="ds-check">
+      <input id={id} type="checkbox" checked={checked} disabled={disabled} onChange={(event) => onChange(event.target.checked)} />
+      <label htmlFor={id}>
+        {label}
+        {hint ? <small>{hint}</small> : null}
+      </label>
+    </div>
+  );
+}
+
 export default function SiteSettingsPage() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -209,45 +244,30 @@ export default function SiteSettingsPage() {
   const [activeTab, setActiveTab] = useState<TabKey>("settings");
   const [homeForm, setHomeForm] = useState<HomePageConfigValue>(emptyHomePageForm);
   const [siteForm, setSiteForm] = useState<SiteForm>(emptySiteForm);
+  const [homeDirty, setHomeDirty] = useState(false);
+  const [siteDirty, setSiteDirty] = useState(false);
+  const [homeReady, setHomeReady] = useState(false);
+  const [siteReady, setSiteReady] = useState(false);
+  const [pane, setPane] = useState<Pane>(null);
   const [bannerForm, setBannerForm] = useState<BannerForm>(emptyBannerForm);
-  const [bannerWorkspaceOpen, setBannerWorkspaceOpen] = useState(false);
-  const [editingBanner, setEditingBanner] = useState<Banner | null>(null);
-  const [deleteBanner, setDeleteBanner] = useState<Banner | null>(null);
-  const [bannerPosition, setBannerPosition] = useState("");
-  const [appliedBannerPosition, setAppliedBannerPosition] = useState("");
-  const [bannerActive, setBannerActive] = useState("");
   const [faqForm, setFAQForm] = useState<FAQForm>(emptyFAQForm);
-  const [faqWorkspaceOpen, setFAQWorkspaceOpen] = useState(false);
-  const [editingFAQ, setEditingFAQ] = useState<DashboardFAQ | null>(null);
-  const [deleteFAQ, setDeleteFAQ] = useState<DashboardFAQ | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [bannerPosition, setBannerPosition] = useState("");
+  const [bannerActive, setBannerActive] = useState("");
   const [faqCategory, setFAQCategory] = useState("");
-  const [appliedFAQCategory, setAppliedFAQCategory] = useState("");
   const [faqActive, setFAQActive] = useState("");
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState("");
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
-  const bannerListRef = useRef<HTMLElement | null>(null);
-  const bannerFormRef = useRef<HTMLDivElement | null>(null);
-  const faqListRef = useRef<HTMLElement | null>(null);
-  const faqFormRef = useRef<HTMLDivElement | null>(null);
-  const siteFormInitializedRef = useRef(false);
-  const homeFormInitializedRef = useRef(false);
 
   const bannerQuery = useMemo(
-    () => ({
-      position: appliedBannerPosition || undefined,
-      isActive: bannerActive || undefined,
-    }),
-    [appliedBannerPosition, bannerActive],
+    () => ({ position: bannerPosition || undefined, isActive: bannerActive || undefined }),
+    [bannerPosition, bannerActive],
   );
-
   const faqQuery = useMemo(
-    () => ({
-      category: appliedFAQCategory || undefined,
-      isActive: faqActive || undefined,
-    }),
-    [appliedFAQCategory, faqActive],
+    () => ({ category: faqCategory || undefined, isActive: faqActive || undefined }),
+    [faqCategory, faqActive],
   );
   const siteSettingsQuery = useDashboardSiteSettings(canManage && activeTab === "settings");
   const homeConfigQuery = useDashboardHomePageConfig(canManage && activeTab === "home");
@@ -256,23 +276,8 @@ export default function SiteSettingsPage() {
   const siteRecord = siteSettingsQuery.data;
   const banners = bannersQuery.data ?? [];
   const faqs = faqsQuery.data ?? [];
-  const loading = activeTab === "home"
-    ? homeConfigQuery.isLoading
-    : activeTab === "settings"
-      ? siteSettingsQuery.isLoading
-      : activeTab === "banners"
-      ? bannersQuery.isLoading
-      : faqsQuery.isLoading;
   const queryFailure = homeConfigQuery.error || siteSettingsQuery.error || bannersQuery.error || faqsQuery.error;
-  const queryError = queryFailure instanceof Error
-    ? queryFailure.message
-    : queryFailure
-      ? "Không tải được cấu hình trang người dùng"
-      : "";
-
-  const scrollTo = (ref: React.RefObject<HTMLElement | null>) => {
-    window.setTimeout(() => ref.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 0);
-  };
+  const queryError = queryFailure instanceof Error ? queryFailure.message : queryFailure ? "Không tải được cấu hình trang người dùng" : "";
 
   const invalidateSiteSettings = async () => {
     await Promise.all([
@@ -282,7 +287,6 @@ export default function SiteSettingsPage() {
     ]);
     publishPublicContentUpdated();
   };
-
   const invalidateHomePageConfig = async () => {
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: queryKeys.dashboardHomePageConfig }),
@@ -290,7 +294,6 @@ export default function SiteSettingsPage() {
     ]);
     publishPublicContentUpdated();
   };
-
   const invalidateBanners = async () => {
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ["dashboard", "banners"] }),
@@ -299,7 +302,6 @@ export default function SiteSettingsPage() {
     ]);
     publishPublicContentUpdated();
   };
-
   const invalidateFAQs = async () => {
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ["dashboard", "faqs"] }),
@@ -310,24 +312,24 @@ export default function SiteSettingsPage() {
   };
 
   useEffect(() => {
-    if (!siteSettingsQuery.data || siteFormInitializedRef.current) return;
+    if (!siteSettingsQuery.data || siteReady) return;
     const timeoutId = window.setTimeout(() => {
       if (!siteSettingsQuery.data) return;
-      siteFormInitializedRef.current = true;
+      setSiteReady(true);
       setSiteForm(toSiteForm(siteSettingsQuery.data.value));
     }, 0);
     return () => window.clearTimeout(timeoutId);
-  }, [siteSettingsQuery.data]);
+  }, [siteSettingsQuery.data, siteReady]);
 
   useEffect(() => {
-    if (!homeConfigQuery.data || homeFormInitializedRef.current) return;
+    if (!homeConfigQuery.data || homeReady) return;
     const timeoutId = window.setTimeout(() => {
       if (!homeConfigQuery.data) return;
-      homeFormInitializedRef.current = true;
+      setHomeReady(true);
       setHomeForm(homeConfigQuery.data.value);
     }, 0);
     return () => window.clearTimeout(timeoutId);
-  }, [homeConfigQuery.data]);
+  }, [homeConfigQuery.data, homeReady]);
 
   useEffect(() => {
     if (!notice && !error) return;
@@ -338,12 +340,30 @@ export default function SiteSettingsPage() {
     return () => window.clearTimeout(timeoutId);
   }, [error, notice]);
 
-  const uploadToForm = async (
-    file: File | undefined,
-    folder: string,
-    key: string,
-    setter: (asset: MediaAsset) => void,
-  ) => {
+  const closePane = () => {
+    setPane(null);
+    setConfirmDelete(false);
+  };
+
+  const changeTab = (id: string) => {
+    setActiveTab(id as TabKey);
+    closePane();
+  };
+
+  const updateSite = (patch: Partial<SiteForm>) => {
+    setSiteForm((current) => ({ ...current, ...patch }));
+    setSiteDirty(true);
+  };
+  const updateHome = (updater: (current: HomePageConfigValue) => HomePageConfigValue) => {
+    setHomeForm(updater);
+    setHomeDirty(true);
+  };
+  const updateAnnouncement = (patch: Partial<HomePageConfigValue["announcement"]>) =>
+    updateHome((current) => ({ ...current, announcement: { ...current.announcement, ...patch } }));
+  const updateSection = (key: keyof HomePageConfigValue["sections"], patch: Partial<HomePageSectionConfig>) =>
+    updateHome((current) => ({ ...current, sections: { ...current.sections, [key]: { ...current.sections[key], ...patch } } }));
+
+  const uploadToForm = async (file: File | undefined, folder: string, key: string, setter: (asset: MediaAsset) => void) => {
     if (!file) return;
     setUploading(key);
     setError("");
@@ -360,19 +380,16 @@ export default function SiteSettingsPage() {
     }
   };
 
-  const saveHomePageConfig = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
+  const saveHomePageConfig = async () => {
     if (!canWrite) return;
     setSaving(true);
     setError("");
     setNotice("");
     try {
-      const updated = await apiRequest<HomePageConfigRecord>(
-        "/dashboard/homepage-config",
-        { method: "PATCH", body: homeForm },
-      );
+      const updated = await apiRequest<HomePageConfigRecord>("/dashboard/homepage-config", { method: "PATCH", body: homeForm });
       queryClient.setQueryData(queryKeys.dashboardHomePageConfig, updated);
       setHomeForm(updated.value);
+      setHomeDirty(false);
       await invalidateHomePageConfig();
       setNotice("Đã cập nhật bố cục và nội dung trang chủ");
     } catch (err) {
@@ -382,8 +399,7 @@ export default function SiteSettingsPage() {
     }
   };
 
-  const saveSiteSettings = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
+  const saveSiteSettings = async () => {
     if (!canWrite) return;
     setSaving(true);
     setError("");
@@ -395,10 +411,7 @@ export default function SiteSettingsPage() {
         ...(siteForm.youtube.trim() ? { youtube: siteForm.youtube.trim() } : {}),
         ...(siteForm.tiktok.trim() ? { tiktok: siteForm.tiktok.trim() } : {}),
       };
-      const payload: Partial<SiteSettingsValue> & {
-        logoAssetId?: string;
-        faviconAssetId?: string;
-      } = {
+      const payload: Partial<SiteSettingsValue> & { logoAssetId?: string; faviconAssetId?: string } = {
         hospitalName: toNullable(siteForm.hospitalName || ""),
         logo: toNullable(siteForm.logo || ""),
         logoAssetId: siteForm.logoAssetId || undefined,
@@ -412,12 +425,10 @@ export default function SiteSettingsPage() {
         mapUrl: toNullable(siteForm.mapUrl || ""),
         socialLinks,
       };
-      const updated = await apiRequest<SiteSettingsRecord>("/dashboard/site-settings", {
-        method: "PATCH",
-        body: payload,
-      });
+      const updated = await apiRequest<SiteSettingsRecord>("/dashboard/site-settings", { method: "PATCH", body: payload });
       queryClient.setQueryData(queryKeys.dashboardSiteSettings, updated);
       setSiteForm(toSiteForm(updated.value));
+      setSiteDirty(false);
       await invalidateSiteSettings();
       setNotice("Đã cập nhật thông tin trang người dùng");
     } catch (err) {
@@ -427,27 +438,14 @@ export default function SiteSettingsPage() {
     }
   };
 
-  const startCreateBanner = () => {
-    setBannerWorkspaceOpen(true);
-    setEditingBanner(null);
-    setDeleteBanner(null);
-    setBannerForm(emptyBannerForm);
-    setActiveTab("banners");
-    scrollTo(bannerFormRef);
+  const openBanner = (banner: Banner | null) => {
+    setBannerForm(banner ? toBannerForm(banner) : emptyBannerForm);
+    setConfirmDelete(false);
+    setPane({ kind: "banner", banner });
   };
 
-  const startEditBanner = (banner: Banner) => {
-    setBannerWorkspaceOpen(true);
-    setEditingBanner(banner);
-    setDeleteBanner(null);
-    setBannerForm(toBannerForm(banner));
-    setActiveTab("banners");
-    scrollTo(bannerFormRef);
-  };
-
-  const saveBanner = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    if (!canManage) return;
+  const saveBanner = async () => {
+    if (!canManage || pane?.kind !== "banner") return;
     setSaving(true);
     setError("");
     setNotice("");
@@ -467,23 +465,15 @@ export default function SiteSettingsPage() {
         startAt: fromVietnamDateTimeInput(bannerForm.startAt),
         endAt: fromVietnamDateTimeInput(bannerForm.endAt),
       };
-      if (editingBanner) {
-        await apiRequest<Banner>(`/dashboard/banners/${editingBanner.id}`, {
-          method: "PATCH",
-          body,
-        });
+      if (pane.banner) {
+        await apiRequest<Banner>(`/dashboard/banners/${pane.banner.id}`, { method: "PATCH", body });
         setNotice("Đã cập nhật ảnh quảng bá");
       } else {
-        await apiRequest<Banner>("/dashboard/banners", {
-          method: "POST",
-          body,
-        });
+        await apiRequest<Banner>("/dashboard/banners", { method: "POST", body });
         setNotice("Đã tạo ảnh quảng bá");
       }
-      setEditingBanner(null);
-      setBannerForm(emptyBannerForm);
+      closePane();
       await invalidateBanners();
-      scrollTo(bannerListRef);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Không lưu được ảnh quảng bá");
     } finally {
@@ -496,10 +486,7 @@ export default function SiteSettingsPage() {
     setError("");
     setNotice("");
     try {
-      await apiRequest<Banner>(`/dashboard/banners/${banner.id}`, {
-        method: "PATCH",
-        body: { isActive: !banner.isActive },
-      });
+      await apiRequest<Banner>(`/dashboard/banners/${banner.id}`, { method: "PATCH", body: { isActive: !banner.isActive } });
       setNotice(banner.isActive ? "Đã tắt ảnh quảng bá" : "Đã bật ảnh quảng bá");
       await invalidateBanners();
     } catch (err) {
@@ -507,17 +494,16 @@ export default function SiteSettingsPage() {
     }
   };
 
-  const confirmDeleteBanner = async () => {
-    if (!canWrite || !deleteBanner) return;
+  const deleteBanner = async () => {
+    if (!canWrite || pane?.kind !== "banner" || !pane.banner) return;
     setSaving(true);
     setError("");
     setNotice("");
     try {
-      await apiRequest<Banner>(`/dashboard/banners/${deleteBanner.id}`, { method: "DELETE" });
-      setDeleteBanner(null);
+      await apiRequest<Banner>(`/dashboard/banners/${pane.banner.id}`, { method: "DELETE" });
+      closePane();
       setNotice("Đã xoá ảnh quảng bá");
       await invalidateBanners();
-      scrollTo(bannerListRef);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Không xoá được ảnh quảng bá");
     } finally {
@@ -525,27 +511,14 @@ export default function SiteSettingsPage() {
     }
   };
 
-  const startCreateFAQ = () => {
-    setFAQWorkspaceOpen(true);
-    setEditingFAQ(null);
-    setDeleteFAQ(null);
-    setFAQForm(emptyFAQForm);
-    setActiveTab("faqs");
-    scrollTo(faqFormRef);
+  const openFAQ = (faq: DashboardFAQ | null) => {
+    setFAQForm(faq ? toFAQForm(faq) : emptyFAQForm);
+    setConfirmDelete(false);
+    setPane({ kind: "faq", faq });
   };
 
-  const startEditFAQ = (faq: DashboardFAQ) => {
-    setFAQWorkspaceOpen(true);
-    setEditingFAQ(faq);
-    setDeleteFAQ(null);
-    setFAQForm(toFAQForm(faq));
-    setActiveTab("faqs");
-    scrollTo(faqFormRef);
-  };
-
-  const saveFAQ = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    if (!canManage) return;
+  const saveFAQ = async () => {
+    if (!canManage || pane?.kind !== "faq") return;
     setSaving(true);
     setError("");
     setNotice("");
@@ -560,23 +533,15 @@ export default function SiteSettingsPage() {
         useInChatbot: faqForm.useInChatbot,
         isActive: faqForm.isActive,
       };
-      if (editingFAQ) {
-        await apiRequest<DashboardFAQ>(`/dashboard/faqs/${editingFAQ.id}`, {
-          method: "PATCH",
-          body,
-        });
+      if (pane.faq) {
+        await apiRequest<DashboardFAQ>(`/dashboard/faqs/${pane.faq.id}`, { method: "PATCH", body });
         setNotice("Đã cập nhật câu hỏi thường gặp");
       } else {
-        await apiRequest<DashboardFAQ>("/dashboard/faqs", {
-          method: "POST",
-          body,
-        });
+        await apiRequest<DashboardFAQ>("/dashboard/faqs", { method: "POST", body });
         setNotice("Đã tạo câu hỏi thường gặp");
       }
-      setEditingFAQ(null);
-      setFAQForm(emptyFAQForm);
+      closePane();
       await invalidateFAQs();
-      scrollTo(faqListRef);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Không lưu được câu hỏi thường gặp");
     } finally {
@@ -589,10 +554,7 @@ export default function SiteSettingsPage() {
     setError("");
     setNotice("");
     try {
-      await apiRequest<DashboardFAQ>(`/dashboard/faqs/${faq.id}`, {
-        method: "PATCH",
-        body: { isActive: !faq.isActive },
-      });
+      await apiRequest<DashboardFAQ>(`/dashboard/faqs/${faq.id}`, { method: "PATCH", body: { isActive: !faq.isActive } });
       setNotice(faq.isActive ? "Đã tắt câu hỏi" : "Đã bật câu hỏi");
       await invalidateFAQs();
     } catch (err) {
@@ -600,17 +562,16 @@ export default function SiteSettingsPage() {
     }
   };
 
-  const confirmDeleteFAQ = async () => {
-    if (!canWrite || !deleteFAQ) return;
+  const deleteFAQ = async () => {
+    if (!canWrite || pane?.kind !== "faq" || !pane.faq) return;
     setSaving(true);
     setError("");
     setNotice("");
     try {
-      await apiRequest<DashboardFAQ>(`/dashboard/faqs/${deleteFAQ.id}`, { method: "DELETE" });
-      setDeleteFAQ(null);
+      await apiRequest<DashboardFAQ>(`/dashboard/faqs/${pane.faq.id}`, { method: "DELETE" });
+      closePane();
       setNotice("Đã xoá câu hỏi thường gặp");
       await invalidateFAQs();
-      scrollTo(faqListRef);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Không xoá được câu hỏi thường gặp");
     } finally {
@@ -620,220 +581,405 @@ export default function SiteSettingsPage() {
 
   if (!canManage) {
     return (
-      <DashboardPageHeader eyebrow="Trang người dùng" title="Cấu hình trang người dùng" description="Phân hệ này chỉ dành cho quản trị viên hoặc nhân viên tiếp nhận." />
+      <>
+        <DsPageHeader title="Cài đặt trang" description="Phân hệ này chỉ dành cho tài khoản được cấp quyền xem cấu hình trang người dùng." />
+        <DsNotice tone="info">Tài khoản của bạn chưa được cấp quyền xem cấu hình trang người dùng.</DsNotice>
+      </>
     );
   }
 
-  return (
-    <div className="space-y-6">
-      <DashboardFeedback error={error || queryError} notice={notice} onDismiss={() => { setError(""); setNotice(""); }} />
+  const tabBar = <DsTabs label="Các nhóm cài đặt trang" items={tabs} value={activeTab} onChange={changeTab} />;
 
-      <DashboardPageHeader
-        eyebrow="Trang người dùng"
-        title="Cấu hình trang người dùng"
-        description="Quản lý thông tin công khai, ảnh quảng bá và câu hỏi thường gặp trên hệ thống đặt lịch."
-        actions={
-          activeTab === "banners" ? (
-            <button type="button" onClick={startCreateBanner} className="rounded-md bg-[#0d4f8b] px-3 py-2 text-sm font-semibold text-white hover:bg-[#083d6d]">Tạo ảnh quảng bá</button>
-          ) : activeTab === "faqs" ? (
-            <button type="button" onClick={startCreateFAQ} className="rounded-md bg-[#0d4f8b] px-3 py-2 text-sm font-semibold text-white hover:bg-[#083d6d]">Tạo câu hỏi</button>
-          ) : null
-        }
-      />
-      <DashboardSurface className="p-4">
-        <div className="mt-5 flex flex-wrap gap-2">
-          {tabs.map((tab) => (
-            <button
-              key={tab.key}
-              type="button"
-              onClick={() => setActiveTab(tab.key)}
-              className={`rounded-md border px-3 py-2 text-sm font-semibold ${activeTab === tab.key ? "border-[#0d4f8b] bg-[#e7f0fb] text-[#0d4f8b]" : "border-[#dce3ee] text-[#42526b] hover:bg-[#f8fafc]"}`}
-            >
-              {tab.label}
+  const saveBar = (dirty: boolean, onSave: () => void, label: string) =>
+    canWrite ? (
+      <div className="ds-savebar">
+        <span className="ds-savebar__msg">{dirty ? "Có thay đổi chưa lưu" : "Chưa có thay đổi"}</span>
+        <DsButton variant="primary" disabled={!dirty || saving || Boolean(uploading)} onClick={onSave}>
+          {saving ? "Đang lưu..." : label}
+        </DsButton>
+      </div>
+    ) : (
+      <div className="ds-savebar">
+        <span className="ds-savebar__msg">Bạn chỉ có quyền xem; chỉ quản trị viên được cập nhật.</span>
+      </div>
+    );
+
+  const imageField = (key: "logo" | "favicon", label: string) => (
+    <div style={{ display: "grid", gap: 8 }}>
+      <DsField label={label} htmlFor={`site-${key}`} hint="Dán đường dẫn ảnh hoặc tải ảnh lên bên dưới">
+        <DsInput id={`site-${key}`} disabled={!canWrite} value={siteForm[key] || ""} placeholder="https://..." onChange={(event) => updateSite({ [key]: event.target.value, [`${key}AssetId`]: "" } as Partial<SiteForm>)} />
+      </DsField>
+      {canWrite ? (
+        <input
+          type="file"
+          aria-label={`Tải ${label} lên`}
+          disabled={uploading === key}
+          accept="image/jpeg,image/png,image/webp,image/gif,image/svg+xml,image/x-icon,image/vnd.microsoft.icon,.ico"
+          onChange={(event) => void uploadToForm(event.target.files?.[0], "site-settings", key, (asset) => updateSite({ [key]: asset.url, [`${key}AssetId`]: asset.id } as Partial<SiteForm>))}
+        />
+      ) : null}
+      {uploading === key ? <span role="status" className="ds-hint">Đang tải ảnh lên...</span> : null}
+      {siteForm[key] ? <img src={siteForm[key] || ""} alt={`Xem trước ${label}`} style={{ height: 80, maxWidth: "100%", objectFit: "contain", borderRadius: 6, background: "var(--ds-sunken)", padding: 6 }} /> : null}
+    </div>
+  );
+
+  const settingsTab = (
+    <DsPanel title="Thông tin hiển thị công khai" actions={<span className="ds-hint">Cập nhật {siteRecord?.updatedAt ? formatVietnamDateTime(siteRecord.updatedAt) : "-"}</span>}>
+      {siteSettingsQuery.isLoading ? (
+        <p className="ds-hint">Đang tải...</p>
+      ) : (
+        <div style={{ display: "grid", gap: 16 }}>
+          <div className="ds-grid-fields">
+            <DsField label="Tên bệnh viện" htmlFor="site-name">
+              <DsInput id="site-name" disabled={!canWrite} value={siteForm.hospitalName || ""} onChange={(event) => updateSite({ hospitalName: event.target.value })} />
+            </DsField>
+            <DsField label="Email" htmlFor="site-email">
+              <DsInput id="site-email" disabled={!canWrite} value={siteForm.email || ""} onChange={(event) => updateSite({ email: event.target.value })} />
+            </DsField>
+            <DsField label="Hotline" htmlFor="site-hotline">
+              <DsInput id="site-hotline" disabled={!canWrite} value={siteForm.hotline || ""} onChange={(event) => updateSite({ hotline: event.target.value })} />
+            </DsField>
+            <DsField label="Hotline cấp cứu" htmlFor="site-emergency">
+              <DsInput id="site-emergency" disabled={!canWrite} value={siteForm.emergencyHotline || ""} onChange={(event) => updateSite({ emergencyHotline: event.target.value })} />
+            </DsField>
+          </div>
+          <DsField label="Địa chỉ" htmlFor="site-address">
+            <DsTextarea id="site-address" rows={2} disabled={!canWrite} value={siteForm.address || ""} onChange={(event) => updateSite({ address: event.target.value })} />
+          </DsField>
+          <div className="ds-grid-fields">
+            <DsField label="Giờ làm việc" htmlFor="site-hours">
+              <DsTextarea id="site-hours" rows={2} disabled={!canWrite} value={siteForm.workingHours || ""} onChange={(event) => updateSite({ workingHours: event.target.value })} />
+            </DsField>
+            <DsField label="Đường dẫn bản đồ" htmlFor="site-map">
+              <DsTextarea id="site-map" rows={2} disabled={!canWrite} value={siteForm.mapUrl || ""} onChange={(event) => updateSite({ mapUrl: event.target.value })} />
+            </DsField>
+          </div>
+          <div className="ds-grid-fields">
+            {(["facebook", "zalo", "youtube", "tiktok"] as const).map((key) => (
+              <DsField key={key} label={key === "facebook" ? "Facebook" : key === "zalo" ? "Zalo" : key === "youtube" ? "YouTube" : "TikTok"} htmlFor={`site-${key}`}>
+                <DsInput id={`site-${key}`} disabled={!canWrite} value={siteForm[key]} onChange={(event) => updateSite({ [key]: event.target.value } as Partial<SiteForm>)} />
+              </DsField>
+            ))}
+          </div>
+          <div className="ds-grid-fields">
+            {imageField("logo", "Logo")}
+            {imageField("favicon", "Favicon")}
+          </div>
+        </div>
+      )}
+      {saveBar(siteDirty, () => void saveSiteSettings(), "Lưu thông tin")}
+    </DsPanel>
+  );
+
+  const homeTab = (
+    <div style={{ display: "grid", gap: 16 }}>
+      <DsPanel title="Thanh chương trình dưới ảnh lớn" actions={<Check id="ann-enabled" checked={homeForm.announcement.enabled} disabled={!canWrite} onChange={(enabled) => updateAnnouncement({ enabled })} label="Hiển thị" />}>
+        <p className="ds-hint" style={{ marginTop: 0 }}>Nội dung công khai chạy trên trang chủ; không tạo thông báo đẩy tới tài khoản.</p>
+        <div className="ds-grid-fields">
+          <DsField label="Nhãn chương trình" htmlFor="ann-label">
+            <DsInput id="ann-label" disabled={!canWrite} value={homeForm.announcement.label} onChange={(event) => updateAnnouncement({ label: event.target.value })} />
+          </DsField>
+          <DsField label="Nhãn nút" htmlFor="ann-cta">
+            <DsInput id="ann-cta" disabled={!canWrite} value={homeForm.announcement.ctaLabel} onChange={(event) => updateAnnouncement({ ctaLabel: event.target.value })} />
+          </DsField>
+        </div>
+        <div style={{ display: "grid", gap: 12, marginTop: 12 }}>
+          <DsField label="Nội dung chạy" htmlFor="ann-message">
+            <DsTextarea id="ann-message" rows={2} disabled={!canWrite} value={homeForm.announcement.message} onChange={(event) => updateAnnouncement({ message: event.target.value })} />
+          </DsField>
+          <DsField label="Đường dẫn nút" htmlFor="ann-href">
+            <DsInput id="ann-href" disabled={!canWrite} value={homeForm.announcement.ctaHref} placeholder="/goi-kham" onChange={(event) => updateAnnouncement({ ctaHref: event.target.value })} />
+          </DsField>
+          <div className="ds-grid-fields">
+            <DsField label="Bắt đầu hiển thị" hint="Để trống: hiển thị ngay">
+              <VietnamDateTimeInput ariaLabel="Bắt đầu hiển thị" disabled={!canWrite} value={toVietnamDateTimeInput(homeForm.announcement.startAt)} onChange={(value) => updateAnnouncement({ startAt: fromVietnamDateTimeInput(value) })} />
+            </DsField>
+            <DsField label="Kết thúc hiển thị" hint="Để trống: hiển thị mãi">
+              <VietnamDateTimeInput ariaLabel="Kết thúc hiển thị" disabled={!canWrite} value={toVietnamDateTimeInput(homeForm.announcement.endAt)} onChange={(value) => updateAnnouncement({ endAt: fromVietnamDateTimeInput(value) })} />
+            </DsField>
+          </div>
+        </div>
+      </DsPanel>
+
+      <div className="ds-grid-fields">
+        {configurableHomeSections.map(({ key, label }) => {
+          const section = homeForm.sections[key];
+          return (
+            <DsPanel key={key} title={`Khối ${label}`} actions={<Check id={`sec-${key}`} checked={section.enabled} disabled={!canWrite} onChange={(enabled) => updateSection(key, { enabled })} label="Hiển thị" />}>
+              <div style={{ display: "grid", gap: 12 }}>
+                <DsField label="Nhãn nhỏ" htmlFor={`sec-${key}-eyebrow`}>
+                  <DsInput id={`sec-${key}-eyebrow`} disabled={!canWrite} value={section.eyebrow} onChange={(event) => updateSection(key, { eyebrow: event.target.value })} />
+                </DsField>
+                <DsField label="Tiêu đề" htmlFor={`sec-${key}-title`} required>
+                  <DsInput id={`sec-${key}-title`} disabled={!canWrite} value={section.title} onChange={(event) => updateSection(key, { title: event.target.value })} />
+                </DsField>
+                <DsField label="Mô tả" htmlFor={`sec-${key}-desc`}>
+                  <DsTextarea id={`sec-${key}-desc`} rows={2} disabled={!canWrite} value={section.description} onChange={(event) => updateSection(key, { description: event.target.value })} />
+                </DsField>
+                <DsField label="Số mục hiển thị">
+                  <NumberStepper label={`Số mục hiển thị của khối ${label}`} value={section.limit} min={1} max={12} disabled={!canWrite || saving} onChange={(limit) => updateSection(key, { limit })} />
+                </DsField>
+              </div>
+            </DsPanel>
+          );
+        })}
+      </div>
+
+      <DsPanel title="Vùng chức năng cố định">
+        <Check id="sec-serviceHub" checked={homeForm.sections.serviceHub.enabled} disabled={!canWrite} onChange={(enabled) => updateSection("serviceHub", { enabled })} label="Dịch vụ nhanh" hint="Các lối tắt đặt lịch, tra cứu và hỗ trợ ngay dưới ảnh lớn" />
+        {saveBar(homeDirty, () => void saveHomePageConfig(), "Lưu bố cục trang chủ")}
+      </DsPanel>
+    </div>
+  );
+
+  const open = pane !== null;
+
+  const bannerList = (
+    <DsPanel flush>
+      <DsToolbar>
+        <div style={{ minWidth: 160, flex: "1 1 200px" }}>
+          <DsSelect aria-label="Lọc theo vị trí" value={bannerPosition} onChange={(event) => setBannerPosition(event.target.value)}>
+            <option value="">Mọi vị trí</option>
+            {Object.entries(positionLabels).map(([value, label]) => (
+              <option key={value} value={value}>{label}</option>
+            ))}
+          </DsSelect>
+        </div>
+        <div style={{ minWidth: 140 }}>
+          <DsSelect aria-label="Lọc theo trạng thái" value={bannerActive} onChange={(event) => setBannerActive(event.target.value)}>
+            <option value="">Mọi trạng thái</option>
+            <option value="true">Đang bật</option>
+            <option value="false">Đang tắt</option>
+          </DsSelect>
+        </div>
+        <DsButton variant="primary" onClick={() => openBanner(null)}>Tạo ảnh quảng bá</DsButton>
+      </DsToolbar>
+      {bannersQuery.isLoading ? (
+        <p className="ds-hint" style={{ padding: 16 }}>Đang tải...</p>
+      ) : banners.length ? (
+        <div role="listbox" aria-label="Danh sách ảnh quảng bá">
+          {banners.map((banner) => (
+            <button key={banner.id} type="button" role="option" className="ds-listrow" aria-selected={pane?.kind === "banner" && pane.banner?.id === banner.id} onClick={() => openBanner(banner)}>
+              <img src={banner.image} alt="" style={{ width: open ? 56 : 120, height: open ? 36 : 64, objectFit: "cover", borderRadius: 6, flexShrink: 0 }} />
+              <span className="ds-listrow__main">
+                <strong>{banner.title}</strong>
+                <small>{positionLabels[banner.position] || banner.position} · thứ tự {banner.order}{banner.linkUrl && !open ? ` · ${banner.linkUrl}` : ""}</small>
+              </span>
+              <DsStatusPill tone={banner.isActive ? "good" : "neutral"}>{banner.isActive ? "Đang bật" : "Đang tắt"}</DsStatusPill>
             </button>
           ))}
         </div>
-      </DashboardSurface>
+      ) : (
+        <DsEmptyState title="Chưa có ảnh quảng bá phù hợp" />
+      )}
+    </DsPanel>
+  );
 
-      {loading ? <section className="rounded-md border border-[#dce3ee] bg-white p-8 text-center text-sm text-[#667892]">Đang tải cấu hình trang người dùng...</section> : null}
-
-      {activeTab === "home" && !loading ? (
-        <form className="space-y-6" onSubmit={saveHomePageConfig}>
-          <DashboardSurface className="p-5">
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-              <div>
-                <h3 className="text-lg font-semibold">Thanh chương trình dưới hero</h3>
-                <p className="mt-1 text-sm text-[#667892]">Nội dung công khai chạy trên trang chủ; không tạo thông báo đẩy tới tài khoản.</p>
-              </div>
-              <label className="inline-flex items-center gap-2 text-sm font-medium text-[#334155]">
-                <input type="checkbox" checked={homeForm.announcement.enabled} onChange={(event) => setHomeForm((current) => ({ ...current, announcement: { ...current.announcement, enabled: event.target.checked } }))} className="h-4 w-4 accent-[#0d4f8b]" />
-                Hiển thị
-              </label>
-            </div>
-            <div className="mt-5 grid gap-4 md:grid-cols-2">
-              <label className="block"><span className="text-sm font-medium text-[#334155]">Nhãn chương trình</span><input value={homeForm.announcement.label} onChange={(event) => setHomeForm((current) => ({ ...current, announcement: { ...current.announcement, label: event.target.value } }))} className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm" required /></label>
-              <label className="block"><span className="text-sm font-medium text-[#334155]">Nhãn nút</span><input value={homeForm.announcement.ctaLabel} onChange={(event) => setHomeForm((current) => ({ ...current, announcement: { ...current.announcement, ctaLabel: event.target.value } }))} className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm" required /></label>
-              <label className="block md:col-span-2"><span className="text-sm font-medium text-[#334155]">Nội dung chạy</span><textarea value={homeForm.announcement.message} onChange={(event) => setHomeForm((current) => ({ ...current, announcement: { ...current.announcement, message: event.target.value } }))} rows={2} className="mt-1 w-full resize-none rounded-md border border-[#cfd8e6] px-3 py-2 text-sm" required /></label>
-              <label className="block md:col-span-2"><span className="text-sm font-medium text-[#334155]">Đường dẫn nút</span><input value={homeForm.announcement.ctaHref} onChange={(event) => setHomeForm((current) => ({ ...current, announcement: { ...current.announcement, ctaHref: event.target.value } }))} placeholder="/goi-kham" className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm" required /></label>
-              <label className="block"><span className="text-sm font-medium text-[#334155]">Bắt đầu hiển thị</span><input type="datetime-local" value={toVietnamDateTimeInput(homeForm.announcement.startAt)} onChange={(event) => setHomeForm((current) => ({ ...current, announcement: { ...current.announcement, startAt: fromVietnamDateTimeInput(event.target.value) } }))} className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm" /></label>
-              <label className="block"><span className="text-sm font-medium text-[#334155]">Kết thúc hiển thị</span><input type="datetime-local" value={toVietnamDateTimeInput(homeForm.announcement.endAt)} onChange={(event) => setHomeForm((current) => ({ ...current, announcement: { ...current.announcement, endAt: fromVietnamDateTimeInput(event.target.value) } }))} className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm" /></label>
-            </div>
-          </DashboardSurface>
-
-          <div className="grid gap-5 xl:grid-cols-2">
-            {configurableHomeSections.map(({ key, label }) => {
-              const section = homeForm.sections[key];
-              const updateSection = (patch: Partial<HomePageSectionConfig>) => setHomeForm((current) => ({
-                ...current,
-                sections: { ...current.sections, [key]: { ...current.sections[key], ...patch } },
-              }));
-              return (
-                <DashboardSurface key={key} className="p-5">
-                  <div className="flex items-center justify-between gap-3">
-                    <h3 className="text-base font-semibold">Section {label}</h3>
-                    <label className="inline-flex items-center gap-2 text-sm font-medium"><input type="checkbox" checked={section.enabled} onChange={(event) => updateSection({ enabled: event.target.checked })} className="h-4 w-4 accent-[#0d4f8b]" />Hiển thị</label>
-                  </div>
-                  <div className="mt-4 space-y-3">
-                    <label className="block"><span className="text-sm font-medium text-[#334155]">Nhãn nhỏ</span><input value={section.eyebrow} onChange={(event) => updateSection({ eyebrow: event.target.value })} className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm" /></label>
-                    <label className="block"><span className="text-sm font-medium text-[#334155]">Tiêu đề</span><input value={section.title} onChange={(event) => updateSection({ title: event.target.value })} className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm" required /></label>
-                    <label className="block"><span className="text-sm font-medium text-[#334155]">Mô tả</span><textarea value={section.description} onChange={(event) => updateSection({ description: event.target.value })} rows={2} className="mt-1 w-full resize-none rounded-md border border-[#cfd8e6] px-3 py-2 text-sm" /></label>
-                    <div className="block">
-                      <span className="mb-1 block text-sm font-medium text-[#334155]">Số mục hiển thị</span>
-                      <NumberStepper
-                        label={`Số mục hiển thị của section ${label}`}
-                        value={section.limit}
-                        min={1}
-                        max={12}
-                        disabled={!canWrite || saving}
-                        onChange={(limit) => updateSection({ limit })}
-                      />
-                    </div>
-                  </div>
-                </DashboardSurface>
-              );
-            })}
-          </div>
-
-          <DashboardSurface className="p-5">
-            <h3 className="text-base font-semibold">Các vùng chức năng cố định</h3>
-            <div className="mt-4 grid gap-3 sm:grid-cols-2">
-              <label className="flex items-center justify-between rounded-md border border-[#dce3ee] px-4 py-3 text-sm font-medium"><span>Dịch vụ nhanh</span><input type="checkbox" checked={homeForm.sections.serviceHub.enabled} onChange={(event) => setHomeForm((current) => ({ ...current, sections: { ...current.sections, serviceHub: { enabled: event.target.checked } } }))} className="h-4 w-4 accent-[#0d4f8b]" /></label>
-            </div>
-          </DashboardSurface>
-
-          <div className="flex justify-end">
-            <button disabled={!canWrite || saving} className="rounded-md bg-[#0d4f8b] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#083d6d] disabled:opacity-60">{saving ? "Đang lưu..." : "Lưu cấu hình trang chủ"}</button>
-          </div>
-        </form>
-      ) : null}
-
-      {activeTab === "settings" ? (
-        <DashboardSurface className="p-5">
-          <div className="mb-5 flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
-            <div>
-              <h3 className="text-lg font-semibold">Thông tin trang người dùng</h3>
-              <p className="mt-1 text-sm text-[#667892]">Nhân viên được xem, chỉ quản trị viên được cập nhật cấu hình hiển thị công khai.</p>
-            </div>
-            <p className="text-xs text-[#8a98aa]">Cập nhật {siteRecord?.updatedAt ? formatVietnamDateTime(siteRecord.updatedAt) : "-"}</p>
-          </div>
-          <form className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]" onSubmit={saveSiteSettings}>
-            <div className="space-y-5">
-              <div className="grid gap-4 md:grid-cols-2">
-                <label className="block"><span className="text-sm font-medium text-[#334155]">Tên bệnh viện</span><input disabled={!canWrite} value={siteForm.hospitalName || ""} onChange={(e) => setSiteForm((current) => ({ ...current, hospitalName: e.target.value }))} className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa] disabled:bg-[#f8fafc]" /></label>
-                <label className="block"><span className="text-sm font-medium text-[#334155]">Email</span><input disabled={!canWrite} value={siteForm.email || ""} onChange={(e) => setSiteForm((current) => ({ ...current, email: e.target.value }))} className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa] disabled:bg-[#f8fafc]" /></label>
-                <label className="block"><span className="text-sm font-medium text-[#334155]">Hotline</span><input disabled={!canWrite} value={siteForm.hotline || ""} onChange={(e) => setSiteForm((current) => ({ ...current, hotline: e.target.value }))} className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa] disabled:bg-[#f8fafc]" /></label>
-                <label className="block"><span className="text-sm font-medium text-[#334155]">Hotline cấp cứu</span><input disabled={!canWrite} value={siteForm.emergencyHotline || ""} onChange={(e) => setSiteForm((current) => ({ ...current, emergencyHotline: e.target.value }))} className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa] disabled:bg-[#f8fafc]" /></label>
-              </div>
-              <label className="block"><span className="text-sm font-medium text-[#334155]">Địa chỉ</span><textarea disabled={!canWrite} value={siteForm.address || ""} onChange={(e) => setSiteForm((current) => ({ ...current, address: e.target.value }))} rows={2} className="mt-1 w-full resize-none rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa] disabled:bg-[#f8fafc]" /></label>
-              <div className="grid gap-4 md:grid-cols-2">
-                <label className="block"><span className="text-sm font-medium text-[#334155]">Giờ làm việc</span><textarea disabled={!canWrite} value={siteForm.workingHours || ""} onChange={(e) => setSiteForm((current) => ({ ...current, workingHours: e.target.value }))} rows={2} className="mt-1 w-full resize-none rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa] disabled:bg-[#f8fafc]" /></label>
-                <label className="block"><span className="text-sm font-medium text-[#334155]">Đường dẫn bản đồ</span><textarea disabled={!canWrite} value={siteForm.mapUrl || ""} onChange={(e) => setSiteForm((current) => ({ ...current, mapUrl: e.target.value }))} rows={2} className="mt-1 w-full resize-none rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa] disabled:bg-[#f8fafc]" /></label>
-              </div>
-              <div className="grid gap-4 md:grid-cols-4">
-                {(["facebook", "zalo", "youtube", "tiktok"] as const).map((key) => (
-                  <label key={key} className="block"><span className="text-sm font-medium capitalize text-[#334155]">{key}</span><input disabled={!canWrite} value={siteForm[key]} onChange={(e) => setSiteForm((current) => ({ ...current, [key]: e.target.value }))} className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa] disabled:bg-[#f8fafc]" /></label>
-                ))}
-              </div>
-              {canWrite ? <button disabled={saving || Boolean(uploading)} className="rounded-md bg-[#0d4f8b] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#083d6d] disabled:opacity-60">{saving ? "Đang lưu..." : "Lưu thông tin"}</button> : null}
-            </div>
-            <aside className="space-y-4">
-              {(["logo", "favicon"] as const).map((key) => (
-                <div key={key} className="rounded-md border border-[#e5ebf3] p-3">
-                  <label className="block"><span className="text-sm font-medium text-[#334155]">{key === "logo" ? "Logo" : "Favicon"}</span><input disabled={!canWrite} value={siteForm[key] || ""} onChange={(e) => setSiteForm((current) => ({ ...current, [key]: e.target.value, [`${key}AssetId`]: "" }))} placeholder="https://..." className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa] disabled:bg-[#f8fafc]" /></label>
-                  <input disabled={!canWrite || uploading === key} type="file" accept="image/jpeg,image/png,image/webp,image/gif,image/svg+xml,image/x-icon,image/vnd.microsoft.icon,.ico" onChange={(e) => void uploadToForm(e.target.files?.[0], "site-settings", key, (asset) => setSiteForm((current) => ({ ...current, [key]: asset.url, [`${key}AssetId`]: asset.id })))} className="mt-2 w-full rounded-md border border-dashed border-[#cfd8e6] bg-[#f8fafc] px-3 py-2 text-sm file:mr-3 file:rounded-md file:border-0 file:bg-[#0d4f8b] file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-white disabled:opacity-60" />
-                  {uploading === key ? <p role="status" className="mt-2 text-xs font-medium text-[#0d4f8b]">Đang tải ảnh lên...</p> : null}
-                  {siteForm[key] ? <div className="mt-3 rounded-md border border-[#e5ebf3] p-2"><img src={siteForm[key] || ""} alt={`Xem trước ${key === "logo" ? "biểu trưng" : "biểu tượng trang"}`} className="h-28 w-full rounded-md object-contain" /><p className="mt-2 truncate text-xs text-[#667892]">{siteForm[key]}</p></div> : null}
-                </div>
-              ))}
-            </aside>
-          </form>
-        </DashboardSurface>
-      ) : null}
-
-      {activeTab === "banners" ? (
-        <div className={`grid gap-6 ${bannerWorkspaceOpen ? "xl:grid-cols-[minmax(0,1fr)_420px]" : "grid-cols-1"}`}>
-          <section ref={bannerListRef} className="min-w-0 scroll-mt-24 rounded-md border border-[#dce3ee] bg-white">
-            <form onSubmit={(event) => { event.preventDefault(); setAppliedBannerPosition(bannerPosition.trim()); }} className="grid gap-3 border-b border-[#e5ebf3] p-4 md:grid-cols-[1fr_180px_auto]">
-              <input value={bannerPosition} onChange={(e) => setBannerPosition(e.target.value)} placeholder="Lọc theo mã vị trí hiển thị" list="banner-positions" className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" />
-              <select value={bannerActive} onChange={(e) => setBannerActive(e.target.value)} className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]"><option value="">Tất cả trạng thái</option><option value="true">Đang bật</option><option value="false">Đang tắt</option></select>
-              <button type="submit" className="inline-flex items-center justify-center gap-2 rounded-md border border-[var(--border)] px-3 py-2 text-sm font-semibold"><Search className="h-4 w-4" />Lọc</button>
-            </form>
-            <datalist id="banner-positions">{positionOptions.map((position) => <option key={position} value={position} />)}</datalist>
-            <div className="divide-y divide-[#eef2f7]">
-              {banners.length ? banners.map((banner) => (
-                <article key={banner.id} className={`p-4 transition-colors ${editingBanner?.id === banner.id || deleteBanner?.id === banner.id ? "bg-[var(--primary-soft)]" : "hover:bg-[var(--surface-soft)]"}`}>
-                  <div className="grid gap-4 lg:grid-cols-[180px_1fr_auto]">
-                    <div className="overflow-hidden rounded-md border border-[#e5ebf3] bg-[#f8fafc]"><img src={banner.image} alt={banner.title} className="h-28 w-full object-cover" /></div>
-                    <div className="min-w-0">
-                      <div className="flex flex-wrap items-center gap-2"><h3 className="font-semibold">{banner.title}</h3><DashboardStatusBadge tone={banner.isActive ? "positive" : "neutral"}>{banner.isActive ? "Đang bật" : "Đang tắt"}</DashboardStatusBadge></div>
-                      <p className="mt-1 text-sm text-[#667892]">{banner.subtitle || "Không có mô tả phụ"}</p>
-                      <p className="mt-2 text-xs text-[#8a98aa]">{banner.position} - thứ tự {banner.order}</p>
-                      <p className="mt-1 truncate text-xs text-[#8a98aa]">{banner.linkUrl || "Chưa có đường dẫn"}</p>
-                    </div>
-                    <div className="flex flex-wrap gap-2 lg:justify-end">
-                      <button type="button" onClick={() => startEditBanner(banner)} className="rounded-md border border-[#cfd8e6] px-3 py-1.5 text-xs font-medium text-[#42526b]">Sửa</button>
-                      <button type="button" onClick={() => void toggleBanner(banner)} className="rounded-md border border-[#cfd8e6] px-3 py-1.5 text-xs font-medium text-[#42526b]">{banner.isActive ? "Tắt" : "Bật"}</button>
-                      {canWrite ? <button type="button" onClick={() => { setBannerWorkspaceOpen(true); setDeleteBanner(banner); scrollTo(bannerFormRef); }} className="rounded-md border border-[#f2b8b5] px-3 py-1.5 text-xs font-medium text-[#b3261e]">Xoá</button> : null}
-                    </div>
-                  </div>
-                </article>
-              )) : <p className="p-8 text-center text-sm text-[#667892]">Chưa có ảnh quảng bá phù hợp.</p>}
-            </div>
-          </section>
-
-          {bannerWorkspaceOpen ? <div ref={bannerFormRef} className="order-first scroll-mt-24 xl:order-none">
-          <DashboardWorkspace open={bannerWorkspaceOpen} onOpenChange={setBannerWorkspaceOpen} title={deleteBanner ? "Xoá ảnh quảng bá" : editingBanner ? "Cập nhật ảnh quảng bá" : "Tạo ảnh quảng bá"} description="Kiểm soát nội dung, hình ảnh, vị trí và thời gian hiển thị trên trang người dùng.">
-            {deleteBanner ? <div className="mb-5 rounded-md border border-[#f2b8b5] bg-[#fff3f2] p-4"><h3 className="font-semibold text-[#b3261e]">Xoá ảnh quảng bá?</h3><p className="mt-2 text-sm text-[#5f2630]">{deleteBanner.title}</p><div className="mt-3 flex gap-2"><button type="button" disabled={saving} onClick={() => void confirmDeleteBanner()} className="rounded-md bg-[#b3261e] px-3 py-2 text-sm font-semibold text-white disabled:opacity-60">Xoá</button><button type="button" onClick={() => setDeleteBanner(null)} className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm font-medium text-[#42526b]">Huỷ</button></div></div> : null}
-            {!deleteBanner ? <form className="space-y-4" onSubmit={saveBanner}>
-              <label className="block"><span className="text-sm font-medium text-[#334155]">Tiêu đề</span><input value={bannerForm.title} onChange={(e) => setBannerForm((current) => ({ ...current, title: e.target.value }))} className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" required /></label>
-              <label className="block"><span className="text-sm font-medium text-[#334155]">Mô tả phụ</span><textarea value={bannerForm.subtitle} onChange={(e) => setBannerForm((current) => ({ ...current, subtitle: e.target.value }))} rows={2} className="mt-1 w-full resize-none rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" /></label>
-              {(["image", "mobileImage"] as const).map((key) => <div key={key}><label className="block"><span className="text-sm font-medium text-[#334155]">{key === "image" ? "Ảnh trên máy tính" : "Ảnh trên điện thoại"}</span><input value={bannerForm[key]} onChange={(e) => setBannerForm((current) => ({ ...current, [key]: e.target.value, [`${key}AssetId`]: "" }))} placeholder="https://..." className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" required={key === "image"} /></label><input disabled={uploading === key} type="file" accept="image/jpeg,image/png,image/webp" onChange={(e) => void uploadToForm(e.target.files?.[0], "banners", key, (asset) => setBannerForm((current) => ({ ...current, [key]: asset.url, [`${key}AssetId`]: asset.id })))} className="mt-2 w-full rounded-md border border-dashed border-[#cfd8e6] bg-[#f8fafc] px-3 py-2 text-sm file:mr-3 file:rounded-md file:border-0 file:bg-[#0d4f8b] file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-white disabled:opacity-60" />{uploading === key ? <p role="status" className="mt-2 text-xs font-medium text-[#0d4f8b]">Đang tải ảnh lên...</p> : null}{bannerForm[key] ? <div className="mt-2 rounded-md border border-[#e5ebf3] p-2"><img src={bannerForm[key]} alt={`Xem trước ảnh ${key === "image" ? "máy tính" : "điện thoại"}`} className="h-32 w-full rounded-md object-cover" /><p className="mt-2 truncate text-xs text-[#667892]">{bannerForm[key]}</p></div> : null}</div>)}
-              <div className="grid gap-3 sm:grid-cols-2"><label className="block"><span className="text-sm font-medium text-[#334155]">Vị trí</span><input value={bannerForm.position} onChange={(e) => setBannerForm((current) => ({ ...current, position: e.target.value }))} list="banner-positions" className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" required /></label><label className="block"><span className="text-sm font-medium text-[#334155]">Thứ tự</span><input value={bannerForm.order} onChange={(e) => setBannerForm((current) => ({ ...current, order: e.target.value.replace(/\D/g, "") }))} inputMode="numeric" className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" /></label></div>
-              <div className="grid gap-3 sm:grid-cols-2"><label className="block"><span className="text-sm font-medium text-[#334155]">Đường dẫn</span><input value={bannerForm.linkUrl} onChange={(e) => setBannerForm((current) => ({ ...current, linkUrl: e.target.value }))} className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" /></label><label className="block"><span className="text-sm font-medium text-[#334155]">Cách mở</span><select value={bannerForm.target} onChange={(e) => setBannerForm((current) => ({ ...current, target: e.target.value }))} className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]"><option value="_self">Mở trong trang hiện tại</option><option value="_blank">Mở trang mới</option></select></label></div>
-              <div className="grid gap-3 sm:grid-cols-2"><label className="block"><span className="text-sm font-medium text-[#334155]">Bắt đầu</span><input type="datetime-local" value={bannerForm.startAt} onChange={(e) => setBannerForm((current) => ({ ...current, startAt: e.target.value }))} className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" /></label><label className="block"><span className="text-sm font-medium text-[#334155]">Kết thúc</span><input type="datetime-local" value={bannerForm.endAt} onChange={(e) => setBannerForm((current) => ({ ...current, endAt: e.target.value }))} className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" /></label></div>
-              <label className="flex items-center justify-between rounded-md border border-[#e5ebf3] px-3 py-2"><span className="text-sm font-medium text-[#334155]">Đang bật</span><input type="checkbox" checked={bannerForm.isActive} onChange={(e) => setBannerForm((current) => ({ ...current, isActive: e.target.checked }))} className="h-4 w-4 accent-[#0d4f8b]" /></label>
-              <div className="flex gap-2"><button disabled={saving || Boolean(uploading)} className="flex-1 rounded-md bg-[#0d4f8b] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#083d6d] disabled:opacity-60">{saving ? "Đang lưu..." : editingBanner ? "Lưu thay đổi" : "Tạo ảnh quảng bá"}</button>{editingBanner ? <button type="button" onClick={startCreateBanner} className="rounded-md border border-[#cfd8e6] px-4 py-2.5 text-sm font-medium text-[#42526b]">Huỷ</button> : null}</div>
-            </form> : null}
-          </DashboardWorkspace>
-          </div> : null}
-        </div>
-      ) : null}
-
-      {activeTab === "faqs" ? (
-        <div className={`grid gap-6 ${faqWorkspaceOpen ? "xl:grid-cols-[minmax(0,1fr)_420px]" : "grid-cols-1"}`}>
-          <section ref={faqListRef} className="min-w-0 scroll-mt-24 rounded-md border border-[#dce3ee] bg-white">
-            <form onSubmit={(event) => { event.preventDefault(); setAppliedFAQCategory(faqCategory.trim()); }} className="grid gap-3 border-b border-[#e5ebf3] p-4 md:grid-cols-[1fr_180px_auto]"><input value={faqCategory} onChange={(e) => setFAQCategory(e.target.value)} placeholder="Lọc nhóm, ví dụ đặt lịch" list="faq-categories" className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" /><select value={faqActive} onChange={(e) => setFAQActive(e.target.value)} className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]"><option value="">Tất cả trạng thái</option><option value="true">Đang bật</option><option value="false">Đang tắt</option></select><button type="submit" className="inline-flex items-center justify-center gap-2 rounded-md border border-[var(--border)] px-3 py-2 text-sm font-semibold"><Search className="h-4 w-4" />Lọc</button></form>
-            <datalist id="faq-categories">{faqCategories.map((category) => <option key={category} value={category} />)}</datalist>
-            <div className="divide-y divide-[#eef2f7]">{faqs.length ? faqs.map((faq) => <article key={faq.id} className={`p-4 transition-colors ${editingFAQ?.id === faq.id || deleteFAQ?.id === faq.id ? "bg-[var(--primary-soft)]" : "hover:bg-[var(--surface-soft)]"}`}><div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between"><div><div className="flex flex-wrap items-center gap-2"><h3 className="font-semibold">{faq.question}</h3><DashboardStatusBadge tone={faq.isActive ? "positive" : "neutral"}>{faq.isActive ? "Đang bật" : "Đang tắt"}</DashboardStatusBadge></div><p className="mt-2 text-sm text-[#667892]">{faq.answer}</p><p className="mt-2 text-xs text-[#8a98aa]">{faq.category || "chung"} - thứ tự {faq.order}{faq.showOnWeb ? " - hiện trên web" : ""}{faq.useInChatbot ? " - dùng cho trợ lý" : ""}</p>{faq.keywords.length ? <div className="mt-2 flex flex-wrap gap-1.5">{faq.keywords.map((keyword) => <span key={keyword} className="rounded-md bg-[#f1f5f9] px-2 py-0.5 text-xs text-[#42526b]">{keyword}</span>)}</div> : null}</div><div className="flex flex-wrap gap-2 lg:justify-end"><button type="button" onClick={() => startEditFAQ(faq)} className="rounded-md border border-[#cfd8e6] px-3 py-1.5 text-xs font-medium text-[#42526b]">Sửa</button><button type="button" onClick={() => void toggleFAQ(faq)} className="rounded-md border border-[#cfd8e6] px-3 py-1.5 text-xs font-medium text-[#42526b]">{faq.isActive ? "Tắt" : "Bật"}</button>{canWrite ? <button type="button" onClick={() => { setFAQWorkspaceOpen(true); setDeleteFAQ(faq); scrollTo(faqFormRef); }} className="rounded-md border border-[#f2b8b5] px-3 py-1.5 text-xs font-medium text-[#b3261e]">Xoá</button> : null}</div></div></article>) : <p className="p-8 text-center text-sm text-[#667892]">Chưa có câu hỏi phù hợp.</p>}</div>
-          </section>
-          {faqWorkspaceOpen ? <div ref={faqFormRef} className="order-first scroll-mt-24 xl:order-none">
-          <DashboardWorkspace open={faqWorkspaceOpen} onOpenChange={setFAQWorkspaceOpen} title={deleteFAQ ? "Xoá câu hỏi" : editingFAQ ? "Cập nhật câu hỏi" : "Tạo câu hỏi"} description="Một nguồn câu hỏi cho trang Hỏi đáp và trợ lý ảo.">
-            {deleteFAQ ? <div className="mb-5 rounded-md border border-[#f2b8b5] bg-[#fff3f2] p-4"><h3 className="font-semibold text-[#b3261e]">Xoá câu hỏi này?</h3><p className="mt-2 text-sm text-[#5f2630]">{deleteFAQ.question}</p><div className="mt-3 flex gap-2"><button type="button" disabled={saving} onClick={() => void confirmDeleteFAQ()} className="rounded-md bg-[#b3261e] px-3 py-2 text-sm font-semibold text-white disabled:opacity-60">Xoá</button><button type="button" onClick={() => setDeleteFAQ(null)} className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm font-medium text-[#42526b]">Huỷ</button></div></div> : null}
-            {!deleteFAQ ? <form className="space-y-4" onSubmit={saveFAQ}><label className="block"><span className="text-sm font-medium text-[#334155]">Câu hỏi</span><textarea value={faqForm.question} onChange={(e) => setFAQForm((current) => ({ ...current, question: e.target.value }))} rows={3} className="mt-1 w-full resize-none rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" required /></label><label className="block"><span className="text-sm font-medium text-[#334155]">Câu trả lời</span><textarea value={faqForm.answer} onChange={(e) => setFAQForm((current) => ({ ...current, answer: e.target.value }))} rows={5} className="mt-1 w-full resize-none rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" required /></label><div className="grid gap-3 sm:grid-cols-2"><label className="block"><span className="text-sm font-medium text-[#334155]">Nhóm nội dung</span><input value={faqForm.category} onChange={(e) => setFAQForm((current) => ({ ...current, category: e.target.value }))} list="faq-categories" className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" /></label><label className="block"><span className="text-sm font-medium text-[#334155]">Thứ tự</span><input value={faqForm.order} onChange={(e) => setFAQForm((current) => ({ ...current, order: e.target.value.replace(/\D/g, "") }))} inputMode="numeric" className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" /></label></div><label className="block"><span className="text-sm font-medium text-[#334155]">Từ khóa cho trợ lý</span><input value={faqForm.keywords} onChange={(e) => setFAQForm((current) => ({ ...current, keywords: e.target.value }))} placeholder="đặt lịch, khám, bác sĩ" className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" /><span className="mt-1 block text-xs text-[#667892]">Phân tách bằng dấu phẩy, tối đa 20 từ khóa.</span></label><label className="flex items-center justify-between rounded-md border border-[#e5ebf3] px-3 py-2"><span className="text-sm font-medium text-[#334155]">Hiện trên trang Hỏi đáp</span><input type="checkbox" checked={faqForm.showOnWeb} onChange={(e) => setFAQForm((current) => ({ ...current, showOnWeb: e.target.checked }))} className="h-4 w-4 accent-[#0d4f8b]" /></label><label className="flex items-center justify-between rounded-md border border-[#e5ebf3] px-3 py-2"><span className="text-sm font-medium text-[#334155]">Dùng cho trợ lý ảo</span><input type="checkbox" checked={faqForm.useInChatbot} onChange={(e) => setFAQForm((current) => ({ ...current, useInChatbot: e.target.checked }))} className="h-4 w-4 accent-[#0d4f8b]" /></label><label className="flex items-center justify-between rounded-md border border-[#e5ebf3] px-3 py-2"><span className="text-sm font-medium text-[#334155]">Đang bật</span><input type="checkbox" checked={faqForm.isActive} onChange={(e) => setFAQForm((current) => ({ ...current, isActive: e.target.checked }))} className="h-4 w-4 accent-[#0d4f8b]" /></label><div className="flex gap-2"><button disabled={saving} className="flex-1 rounded-md bg-[#0d4f8b] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#083d6d] disabled:opacity-60">{saving ? "Đang lưu..." : editingFAQ ? "Lưu thay đổi" : "Tạo câu hỏi"}</button>{editingFAQ ? <button type="button" onClick={startCreateFAQ} className="rounded-md border border-[#cfd8e6] px-4 py-2.5 text-sm font-medium text-[#42526b]">Huỷ</button> : null}</div></form> : null}
-          </DashboardWorkspace>
-          </div> : null}
-        </div>
-      ) : null}
+  const imagePicker = (key: "image" | "mobileImage", label: string) => (
+    <div style={{ display: "grid", gap: 8 }}>
+      <DsField label={label} htmlFor={`bn-${key}`} required={key === "image"}>
+        <DsInput id={`bn-${key}`} value={bannerForm[key]} placeholder="https://..." onChange={(event) => setBannerForm((current) => ({ ...current, [key]: event.target.value, [`${key}AssetId`]: "" }))} />
+      </DsField>
+      <input
+        type="file"
+        aria-label={`Tải ${label} lên`}
+        disabled={uploading === `banner-${key}`}
+        accept="image/jpeg,image/png,image/webp,image/gif"
+        onChange={(event) => void uploadToForm(event.target.files?.[0], "banners", `banner-${key}`, (asset) => setBannerForm((current) => ({ ...current, [key]: asset.url, [`${key}AssetId`]: asset.id })))}
+      />
+      {uploading === `banner-${key}` ? <span role="status" className="ds-hint">Đang tải ảnh lên...</span> : null}
+      {bannerForm[key] ? <img src={bannerForm[key]} alt={`Xem trước ${label}`} style={{ maxHeight: 120, maxWidth: "100%", objectFit: "contain", borderRadius: 6, background: "var(--ds-sunken)" }} /> : null}
     </div>
+  );
+
+  const bannerPane =
+    pane?.kind === "banner" ? (
+      <DsPane
+        title={pane.banner ? "Sửa ảnh quảng bá" : "Tạo ảnh quảng bá"}
+        badge={pane.banner ? <DsStatusPill tone={pane.banner.isActive ? "good" : "neutral"}>{pane.banner.isActive ? "Đang bật" : "Đang tắt"}</DsStatusPill> : undefined}
+        onClose={closePane}
+      >
+        <div style={{ display: "grid", gap: 12 }}>
+          <DsField label="Tiêu đề" htmlFor="bn-title" required>
+            <DsInput id="bn-title" value={bannerForm.title} onChange={(event) => setBannerForm((current) => ({ ...current, title: event.target.value }))} />
+          </DsField>
+          <DsField label="Mô tả phụ" htmlFor="bn-subtitle">
+            <DsTextarea id="bn-subtitle" rows={2} value={bannerForm.subtitle} onChange={(event) => setBannerForm((current) => ({ ...current, subtitle: event.target.value }))} />
+          </DsField>
+          {imagePicker("image", "Ảnh trên máy tính")}
+          {imagePicker("mobileImage", "Ảnh trên điện thoại")}
+          <div className="ds-grid-fields">
+            <DsField label="Vị trí" htmlFor="bn-position">
+              <DsSelect id="bn-position" value={bannerForm.position} onChange={(event) => setBannerForm((current) => ({ ...current, position: event.target.value }))}>
+                {Object.entries(positionLabels).map(([value, label]) => (
+                  <option key={value} value={value}>{label}</option>
+                ))}
+              </DsSelect>
+            </DsField>
+            <DsField label="Thứ tự" hint="Số nhỏ hiển thị trước">
+              <NumberStepper label="Thứ tự hiển thị" value={Number(bannerForm.order || 0)} min={0} max={999} onChange={(value) => setBannerForm((current) => ({ ...current, order: String(value) }))} />
+            </DsField>
+          </div>
+          <div className="ds-grid-fields">
+            <DsField label="Đường dẫn khi bấm" htmlFor="bn-link">
+              <DsInput id="bn-link" value={bannerForm.linkUrl} placeholder="/goi-kham" onChange={(event) => setBannerForm((current) => ({ ...current, linkUrl: event.target.value }))} />
+            </DsField>
+            <DsField label="Cách mở" htmlFor="bn-target">
+              <DsSelect id="bn-target" value={bannerForm.target} onChange={(event) => setBannerForm((current) => ({ ...current, target: event.target.value }))}>
+                <option value="_self">Cùng tab</option>
+                <option value="_blank">Tab mới</option>
+              </DsSelect>
+            </DsField>
+          </div>
+          <div className="ds-grid-fields">
+            <DsField label="Bắt đầu" hint="Để trống: hiển thị ngay">
+              <VietnamDateTimeInput ariaLabel="Bắt đầu hiển thị ảnh" value={bannerForm.startAt} onChange={(value) => setBannerForm((current) => ({ ...current, startAt: value }))} />
+            </DsField>
+            <DsField label="Kết thúc" hint="Để trống: hiển thị mãi">
+              <VietnamDateTimeInput ariaLabel="Kết thúc hiển thị ảnh" value={bannerForm.endAt} onChange={(value) => setBannerForm((current) => ({ ...current, endAt: value }))} />
+            </DsField>
+          </div>
+          <Check id="bn-active" checked={bannerForm.isActive} onChange={(isActive) => setBannerForm((current) => ({ ...current, isActive }))} label="Đang bật" />
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+            {pane.banner ? (
+              <>
+                <DsButton onClick={() => void toggleBanner(pane.banner as Banner)}>{pane.banner.isActive ? "Tắt ngay" : "Bật ngay"}</DsButton>
+                {canWrite ? <DsButton variant="ghost" onClick={() => setConfirmDelete(true)}>Xoá</DsButton> : null}
+              </>
+            ) : null}
+            <DsButton onClick={closePane}>Đóng</DsButton>
+            <DsButton variant="primary" disabled={saving || Boolean(uploading) || !bannerForm.title.trim() || !bannerForm.image.trim()} onClick={() => void saveBanner()}>
+              {saving ? "Đang lưu..." : pane.banner ? "Lưu thay đổi" : "Tạo ảnh quảng bá"}
+            </DsButton>
+          </div>
+          {confirmDelete && pane.banner ? (
+            <DsNotice tone="bad">
+              <div style={{ display: "grid", gap: 8 }}>
+                <span>Xoá ảnh quảng bá “{pane.banner.title}”? Không hoàn tác được.</span>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <DsButton variant="danger" disabled={saving} onClick={() => void deleteBanner()}>Xoá ảnh</DsButton>
+                  <DsButton onClick={() => setConfirmDelete(false)}>Giữ lại</DsButton>
+                </div>
+              </div>
+            </DsNotice>
+          ) : null}
+        </div>
+      </DsPane>
+    ) : null;
+
+  const faqList = (
+    <DsPanel flush>
+      <DsToolbar>
+        <div style={{ minWidth: 160, flex: "1 1 200px" }}>
+          <DsSelect aria-label="Lọc theo nhóm" value={faqCategory} onChange={(event) => setFAQCategory(event.target.value)}>
+            <option value="">Mọi nhóm</option>
+            {Object.entries(faqCategoryLabels).map(([value, label]) => (
+              <option key={value} value={value}>{label}</option>
+            ))}
+          </DsSelect>
+        </div>
+        <div style={{ minWidth: 140 }}>
+          <DsSelect aria-label="Lọc theo trạng thái" value={faqActive} onChange={(event) => setFAQActive(event.target.value)}>
+            <option value="">Mọi trạng thái</option>
+            <option value="true">Đang bật</option>
+            <option value="false">Đang tắt</option>
+          </DsSelect>
+        </div>
+        <DsButton variant="primary" onClick={() => openFAQ(null)}>Tạo câu hỏi</DsButton>
+      </DsToolbar>
+      {faqsQuery.isLoading ? (
+        <p className="ds-hint" style={{ padding: 16 }}>Đang tải...</p>
+      ) : faqs.length ? (
+        <div role="listbox" aria-label="Danh sách câu hỏi thường gặp">
+          {faqs.map((faq) => (
+            <button key={faq.id} type="button" role="option" className="ds-listrow" aria-selected={pane?.kind === "faq" && pane.faq?.id === faq.id} onClick={() => openFAQ(faq)}>
+              <span className="ds-listrow__main">
+                <strong>{faq.question}</strong>
+                <small>{faqCategoryLabels[faq.category || ""] || faq.category || "Chưa phân nhóm"} · {faq.showOnWeb ? "Hiện trên web" : "Ẩn trên web"} · {faq.useInChatbot ? "Dùng cho trợ lý" : "Không dùng cho trợ lý"}</small>
+              </span>
+              <DsStatusPill tone={faq.isActive ? "good" : "neutral"}>{faq.isActive ? "Đang bật" : "Đang tắt"}</DsStatusPill>
+            </button>
+          ))}
+        </div>
+      ) : (
+        <DsEmptyState title="Chưa có câu hỏi phù hợp" />
+      )}
+    </DsPanel>
+  );
+
+  const faqPane =
+    pane?.kind === "faq" ? (
+      <DsPane
+        title={pane.faq ? "Sửa câu hỏi" : "Tạo câu hỏi"}
+        badge={pane.faq ? <DsStatusPill tone={pane.faq.isActive ? "good" : "neutral"}>{pane.faq.isActive ? "Đang bật" : "Đang tắt"}</DsStatusPill> : undefined}
+        onClose={closePane}
+      >
+        <div style={{ display: "grid", gap: 12 }}>
+          <p className="ds-hint" style={{ margin: 0 }}>Một nguồn câu hỏi cho trang Hỏi đáp và trợ lý ảo.</p>
+          <DsField label="Câu hỏi" htmlFor="faq-question" required>
+            <DsTextarea id="faq-question" rows={2} value={faqForm.question} onChange={(event) => setFAQForm((current) => ({ ...current, question: event.target.value }))} />
+          </DsField>
+          <DsField label="Câu trả lời" htmlFor="faq-answer" required>
+            <DsTextarea id="faq-answer" rows={5} value={faqForm.answer} onChange={(event) => setFAQForm((current) => ({ ...current, answer: event.target.value }))} />
+          </DsField>
+          <div className="ds-grid-fields">
+            <DsField label="Nhóm" htmlFor="faq-category">
+              <DsSelect id="faq-category" value={faqForm.category} onChange={(event) => setFAQForm((current) => ({ ...current, category: event.target.value }))}>
+                <option value="">Chưa phân nhóm</option>
+                {Object.entries(faqCategoryLabels).map(([value, label]) => (
+                  <option key={value} value={value}>{label}</option>
+                ))}
+              </DsSelect>
+            </DsField>
+            <DsField label="Thứ tự" hint="Số nhỏ hiển thị trước">
+              <NumberStepper label="Thứ tự hiển thị" value={Number(faqForm.order || 0)} min={0} max={999} onChange={(value) => setFAQForm((current) => ({ ...current, order: String(value) }))} />
+            </DsField>
+          </div>
+          <DsField label="Từ khóa" htmlFor="faq-keywords" hint="Cách nhau bằng dấu phẩy; giúp trợ lý ảo tìm đúng câu hỏi">
+            <DsInput id="faq-keywords" value={faqForm.keywords} onChange={(event) => setFAQForm((current) => ({ ...current, keywords: event.target.value }))} />
+          </DsField>
+          <Check id="faq-web" checked={faqForm.showOnWeb} onChange={(showOnWeb) => setFAQForm((current) => ({ ...current, showOnWeb }))} label="Hiện trên trang Hỏi đáp" />
+          <Check id="faq-bot" checked={faqForm.useInChatbot} onChange={(useInChatbot) => setFAQForm((current) => ({ ...current, useInChatbot }))} label="Dùng cho trợ lý ảo" />
+          <Check id="faq-active" checked={faqForm.isActive} onChange={(isActive) => setFAQForm((current) => ({ ...current, isActive }))} label="Đang bật" />
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+            {pane.faq ? (
+              <>
+                <DsButton onClick={() => void toggleFAQ(pane.faq as DashboardFAQ)}>{pane.faq.isActive ? "Tắt ngay" : "Bật ngay"}</DsButton>
+                {canWrite ? <DsButton variant="ghost" onClick={() => setConfirmDelete(true)}>Xoá</DsButton> : null}
+              </>
+            ) : null}
+            <DsButton onClick={closePane}>Đóng</DsButton>
+            <DsButton variant="primary" disabled={saving || !faqForm.question.trim() || !faqForm.answer.trim()} onClick={() => void saveFAQ()}>
+              {saving ? "Đang lưu..." : pane.faq ? "Lưu thay đổi" : "Tạo câu hỏi"}
+            </DsButton>
+          </div>
+          {confirmDelete && pane.faq ? (
+            <DsNotice tone="bad">
+              <div style={{ display: "grid", gap: 8 }}>
+                <span>Xoá câu hỏi này? Không hoàn tác được.</span>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <DsButton variant="danger" disabled={saving} onClick={() => void deleteFAQ()}>Xoá câu hỏi</DsButton>
+                  <DsButton onClick={() => setConfirmDelete(false)}>Giữ lại</DsButton>
+                </div>
+              </div>
+            </DsNotice>
+          ) : null}
+        </div>
+      </DsPane>
+    ) : null;
+
+  return (
+    <>
+      <DsPageHeader title="Cài đặt trang" description="Thông tin công khai, bố cục trang chủ, ảnh quảng bá và câu hỏi thường gặp trên trang người dùng." />
+      <div style={{ display: "grid", gap: 12, marginBottom: 16 }}>
+        {error || queryError ? <DsNotice tone="bad">{error || queryError}</DsNotice> : null}
+        {notice ? <DsNotice tone="good">{notice}</DsNotice> : null}
+        {tabBar}
+      </div>
+      {activeTab === "settings" ? settingsTab : null}
+      {activeTab === "home" ? homeTab : null}
+      {activeTab === "banners" ? <DsSplit list={bannerList} pane={bannerPane} /> : null}
+      {activeTab === "faqs" ? <DsSplit list={faqList} pane={faqPane} /> : null}
+    </>
   );
 }

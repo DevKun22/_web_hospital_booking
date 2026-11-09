@@ -3,7 +3,7 @@ import { cn } from "@/lib/utils";
 
 type FieldProps = {
   label: string;
-  htmlFor: string;
+  htmlFor?: string;
   hint?: string;
   error?: string;
   required?: boolean;
@@ -25,11 +25,11 @@ export function DsField({ label, htmlFor, hint, error, required, className, chil
       </label>
       {children}
       {error ? (
-        <p className="ds-error" id={`${htmlFor}-error`} role="alert">
+        <p className="ds-error" id={htmlFor ? `${htmlFor}-error` : undefined} role="alert">
           {error}
         </p>
       ) : hint ? (
-        <p className="ds-hint" id={`${htmlFor}-hint`}>
+        <p className="ds-hint" id={htmlFor ? `${htmlFor}-hint` : undefined}>
           {hint}
         </p>
       ) : null}
