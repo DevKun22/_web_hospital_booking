@@ -92,3 +92,9 @@ tools
 
 # Anh chup kiem thu thiet bi (khong commit)
 mobile/.qa-device/
+
+# Docker: tạm thời không đưa lên Git, sẽ dựng lại khi cần đóng gói triển khai (production chạy trên Render theo kiểu Node, không dùng Docker)
+backend/Dockerfile
+backend/.dockerignore
+compose*.yaml
+docker/
