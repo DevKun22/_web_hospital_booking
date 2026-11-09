@@ -1,36 +1,31 @@
 "use client";
 
-import { useEffect, useMemo } from "react";
+import { useMemo } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { DsPageHeader, DsPanel } from "@/components/ds";
 import { DoctorHome } from "@/components/doctor/doctor-home";
 import { OperationsOverview } from "@/components/overview/operations-overview";
+import { PharmacistHome } from "@/components/pharmacy/pharmacist-home";
 import { useAuth } from "@/lib/auth";
 import { getListedDashboardItems } from "@/lib/dashboard-navigation";
 import { can } from "@/lib/permissions";
 
-// Trang chủ theo vai trò: bác sĩ có "Việc của tôi", dược sĩ vào thẳng hàng đợi cấp thuốc, người có quyền
-// xem thống kê thấy tổng quan vận hành; còn lại là lối tắt tới các mục được phép dùng.
+// Trang chủ theo vai trò: bác sĩ và dược sĩ có "Việc của tôi", người có quyền xem thống kê thấy tổng quan
+// vận hành; còn lại là lối tắt tới các mục được phép dùng.
 export default function DashboardHome() {
   const { user } = useAuth();
-  const router = useRouter();
   const canViewStats = can(user, "stats.view");
   const isDoctor = user?.role === "DOCTOR";
-  const goesToPharmacy = can(user, "pharmacy.view") && !canViewStats && !isDoctor;
-
-  useEffect(() => {
-    if (goesToPharmacy) router.replace("/dashboard/pharmacy");
-  }, [goesToPharmacy, router]);
+  const isPharmacy = can(user, "pharmacy.view") && !canViewStats && !isDoctor;
 
   const shortcuts = useMemo(
     () => (user ? getListedDashboardItems(user).filter((item) => item.href !== "/dashboard") : []),
     [user],
   );
 
-  if (goesToPharmacy) return null;
   if (isDoctor) return <DoctorHome />;
   if (canViewStats) return <OperationsOverview />;
+  if (isPharmacy) return <PharmacistHome />;
 
   return (
     <>

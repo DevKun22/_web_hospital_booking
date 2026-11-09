@@ -269,10 +269,12 @@ export function getListedDashboardItems(user: DashboardUser) {
   return getVisibleDashboardItems(user)
     .filter((item) => !("unlisted" in item && item.unlisted))
     .map((item) =>
-      // Bác sĩ có trang chủ riêng ("Việc của tôi") nên mục đầu của họ mang đúng tên đó.
+      // Bác sĩ và dược sĩ (không có quyền xem thống kê) có trang chủ riêng ("Việc của tôi") nên mục đầu mang đúng tên đó.
       item.href === "/dashboard" && user.role === "DOCTOR"
         ? { ...item, label: "Việc của tôi", description: "Ca khám, hồ sơ và đơn thuốc cần xử lý" }
-        : item,
+        : item.href === "/dashboard" && can(user, "pharmacy.view") && !can(user, "stats.view")
+          ? { ...item, label: "Việc của tôi", description: "Đơn chờ cấp và thuốc sắp hết" }
+          : item,
     );
 }
 
