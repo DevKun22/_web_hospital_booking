@@ -146,7 +146,7 @@ export default function MedicinesPage() {
         title="Kho thuốc"
         description="Danh mục và tồn kho. Tồn chỉ thay đổi qua phiếu nhập, cấp thuốc theo đơn hoặc điều chỉnh có lý do; sổ kho không sửa hay xóa."
         actions={
-          <div className="flex flex-wrap items-start gap-3">
+          <div className="flex min-w-0 flex-wrap items-start gap-3">
             <ExportCsvButton path="/dashboard/pharmacy/medicines/export" fallbackName="ton-kho-thuoc.csv" ranged={false} label="Xuất tồn kho" />
             <ExportCsvButton path="/dashboard/pharmacy/movements/export" fallbackName="so-kho-thuoc.csv" label="Xuất sổ kho" />
             {canCatalog ? (
