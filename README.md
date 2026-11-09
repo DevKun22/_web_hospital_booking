@@ -52,7 +52,7 @@ Web công khai / Dashboard (Next.js) ─┐
 | Backend | Node.js 20 trở lên, Express 5, TypeScript, Prisma, PostgreSQL |
 | Hàng đợi | Redis, BullMQ |
 | Dịch vụ ngoài | Resend, Cloudinary, Firebase Cloud Messaging, Gemini, VNPay |
-| Triển khai | Vercel (web), Render (API), Upstash (Redis), Docker Compose (môi trường phát triển) |
+| Triển khai | Vercel (web), Render (API), Upstash (Redis) |
 | Chất lượng | GitHub Actions, kiểm thử tích hợp trên PostgreSQL riêng, `flutter analyze` |
 
 ## Cấu trúc thư mục
@@ -61,27 +61,14 @@ Web công khai / Dashboard (Next.js) ─┐
 backend/    API Express, schema và migration Prisma, worker, kiểm thử
 frontend/   Website công khai, cổng bệnh nhân và dashboard (Next.js)
 mobile/     Ứng dụng Flutter cho bệnh nhân
-docker/ compose*.yaml   Hạ tầng phát triển bằng Docker
 .github/    Quy trình kiểm tra chất lượng (CI)
 ```
 
 ## Chạy ở máy cục bộ
 
-Yêu cầu: Node.js 20 trở lên, PostgreSQL 16, Redis 7 (hoặc Docker), Flutter 3.38 cho ứng dụng mobile.
+Yêu cầu: Node.js 20 trở lên, PostgreSQL 16, Redis 7 (cài trực tiếp hoặc dùng dịch vụ đám mây), Flutter 3.38 cho ứng dụng mobile.
 
-### Cách 1: Docker cho hạ tầng và backend
-
-```bash
-# chỉ PostgreSQL và Redis
-docker compose up -d
-
-# thêm API và các worker (có kiểm tra sức khỏe và chạy migration một lần)
-docker compose -f compose.yaml -f compose.backend.yaml up -d --build
-```
-
-Cổng trên máy: PostgreSQL `5433`, Redis `6380`, API `4000`. Docker tạo sẵn hai cơ sở dữ liệu `hospital_booking_dev` (chạy ứng dụng) và `hospital_booking_test` (chỉ cho kiểm thử tích hợp, có xóa dữ liệu). Bật worker thông báo bằng `--profile notifications`.
-
-### Cách 2: chạy trực tiếp
+### Chạy backend và frontend
 
 ```bash
 # Backend (cổng 4000)
@@ -139,7 +126,7 @@ cd mobile   && flutter analyze && flutter test
 
 - Kiểm thử tích hợp chạy trên cơ sở dữ liệu **riêng** (`TEST_DATABASE_URL`, tên hoặc schema phải chứa `test` và khác `DATABASE_URL`); bộ chạy từ chối khởi động nếu không đúng để không xóa nhầm dữ liệu thật.
 - Tại 08/11/2026: 80 kiểm thử tích hợp và 39 kiểm thử đơn vị ở backend, 21 smoke test, 188 kiểm thử Flutter.
-- CI (`.github/workflows/phase0.yml`) chạy trên mỗi pull request: chặn tệp bí mật bị đưa vào Git, kiểm tra schema Prisma, toàn bộ kiểm thử backend, build backend và image Docker, kiểm tra kiểu, lint và build frontend, phân tích và kiểm thử Flutter, build APK, cảnh báo tệp Dart trên 800 dòng.
+- CI (`.github/workflows/phase0.yml`) chạy trên mỗi pull request: chặn tệp bí mật bị đưa vào Git, kiểm tra schema Prisma, toàn bộ kiểm thử backend, build backend, kiểm tra kiểu, lint và build frontend, phân tích và kiểm thử Flutter, build APK, cảnh báo tệp Dart trên 800 dòng.
 
 ## Triển khai
 

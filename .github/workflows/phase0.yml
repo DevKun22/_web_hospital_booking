@@ -79,17 +79,6 @@ jobs:
       - name: Build backend
         working-directory: backend
         run: npm run build
-      - name: Validate Docker Compose configuration
-        run: docker compose -f compose.yaml -f compose.backend.yaml config --quiet
-
-      - name: Validate remote database Compose override
-        env:
-          DATABASE_URL: postgresql://ci_placeholder:ci_placeholder@db.example.invalid:5432/hospital_booking_demo?sslmode=require
-          HOSPITAL_REMOTE_ENV_FILE: /dev/null
-        run: docker compose -f compose.yaml -f compose.backend.yaml -f compose.remote-db.yaml --profile notifications config --quiet
-      - name: Build backend runtime image
-        run: docker build --target runtime --tag hospital-booking-backend:ci ./backend
-
       - name: Install frontend dependencies
         working-directory: frontend
         run: npm ci
