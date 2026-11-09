@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { RefreshCw, Search } from "lucide-react";
 import {
@@ -54,9 +54,33 @@ type QueuePrescription = {
   items: PrescriptionItem[];
 };
 
-type Paged<T> = { items: T[]; pagination: { total: number } };
+type Paged<T> = { items: T[]; pagination: { total: number; totalPages?: number } };
 
 const OUTSIDE = "";
+const QUEUE_PAGE_SIZE = 20;
+
+const normalizeName = (text: string) =>
+  text
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase()
+    .replace(/đ/g, "d")
+    .replace(/[^a-z0-9 ]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+// Gợi ý thuốc kho khi dòng đơn chưa gắn sẵn: tên thuốc trong kho nằm trong tên ở đơn (hoặc ngược lại); lấy tên dài nhất.
+const suggestMedicine = (itemName: string, medicines: StockMedicine[]) => {
+  const target = normalizeName(itemName);
+  if (!target) return null;
+  let best: StockMedicine | null = null;
+  for (const medicine of medicines) {
+    const name = normalizeName(medicine.name);
+    if (!name) continue;
+    if ((target.includes(name) || name.includes(target)) && (!best || name.length > normalizeName(best.name).length)) best = medicine;
+  }
+  return best;
+};
 
 const statusTabs = [
   { id: "NOT_DISPENSED", label: "Chờ cấp" },
@@ -72,32 +96,43 @@ export default function PharmacyQueuePage() {
   const [search, setSearch] = useState("");
   const [appliedSearch, setAppliedSearch] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
   // Lựa chọn thuốc kho của dược sĩ theo từng dòng; dòng chưa chọn dùng thuốc đã gắn sẵn.
   const [picks, setPicks] = useState<Record<string, string>>({});
   const [confirmed, setConfirmed] = useState(false);
   const [note, setNote] = useState("");
 
   const queueQuery = useQuery({
-    queryKey: ["dashboard", "pharmacy", "queue", status, appliedSearch],
+    queryKey: ["dashboard", "pharmacy", "queue", status, appliedSearch, page],
     queryFn: () =>
       apiRequest<Paged<QueuePrescription>>("/dashboard/pharmacy/prescriptions", {
-        query: { dispenseStatus: status, q: appliedSearch || undefined, limit: 50 },
+        query: { dispenseStatus: status, q: appliedSearch || undefined, page, limit: QUEUE_PAGE_SIZE },
       }),
     refetchInterval: 30_000,
   });
+  // Máy chủ trả tối đa 100 thuốc mỗi trang; lấy lần lượt các trang để ô chọn thuốc luôn đủ cả kho.
   const medicinesQuery = useQuery({
     queryKey: ["dashboard", "pharmacy", "medicine-options"],
-    queryFn: () =>
-      apiRequest<Paged<StockMedicine>>("/dashboard/pharmacy/medicines", {
-        query: { isActive: "true", limit: 100 },
-      }),
+    queryFn: async () => {
+      const items: StockMedicine[] = [];
+      for (let current = 1; current <= 20; current += 1) {
+        const result = await apiRequest<Paged<StockMedicine> & { pagination: { totalPages?: number } }>("/dashboard/pharmacy/medicines", {
+          query: { isActive: "true", page: current, limit: 100 },
+        });
+        items.push(...result.items);
+        if (current >= (result.pagination.totalPages ?? 1)) break;
+      }
+      return { items, pagination: { total: items.length } } as Paged<StockMedicine>;
+    },
     staleTime: 15_000,
   });
 
   const selected = queueQuery.data?.items.find((item) => item.id === selectedId) || null;
   const medicines = medicinesQuery.data?.items || [];
 
-  const pickedMedicineId = (item: PrescriptionItem) => (item.id in picks ? picks[item.id] : (item.medicineId ?? OUTSIDE));
+  // Dòng đơn chưa gắn thuốc kho thì gợi ý theo tên; dược sĩ vẫn phải kiểm tra lại trước khi cấp.
+  const suggestedFor = (item: PrescriptionItem) => (item.medicineId ? null : suggestMedicine(item.medicineName, medicines));
+  const pickedMedicineId = (item: PrescriptionItem) => (item.id in picks ? picks[item.id] : (item.medicineId ?? suggestedFor(item)?.id ?? OUTSIDE));
 
   // Cộng dồn số cần cấp theo từng thuốc kho, để cảnh báo cả khi nhiều dòng cùng lấy một thuốc.
   const neededByMedicine = (prescription: QueuePrescription, medicineId: string) =>
@@ -147,9 +182,20 @@ export default function PharmacyQueuePage() {
   const applySearch = (event: FormEvent) => {
     event.preventDefault();
     setAppliedSearch(search.trim());
+    setPage(1);
   };
 
   const queue = queueQuery.data?.items ?? [];
+  const queuePagination = queueQuery.data?.pagination;
+  const queueTotalPages = queuePagination?.totalPages ?? 1;
+
+  // Thông báo thành công tự tắt sau vài giây, giống các trang khác.
+  const resetDispense = dispenseMutation.reset;
+  useEffect(() => {
+    if (!dispenseMutation.isSuccess) return;
+    const timeoutId = window.setTimeout(() => resetDispense(), 4500);
+    return () => window.clearTimeout(timeoutId);
+  }, [dispenseMutation.isSuccess, resetDispense]);
   const errorMessage = dispenseMutation.error instanceof Error ? dispenseMutation.error.message : "";
   const queueError = queueQuery.error ? (queueQuery.error instanceof Error ? queueQuery.error.message : "Không tải được hàng đợi") : "";
 
@@ -178,6 +224,7 @@ export default function PharmacyQueuePage() {
         value={status}
         onChange={(id) => {
           setStatus(id as "NOT_DISPENSED" | "DISPENSED");
+          setPage(1);
           setSelectedId(null);
         }}
       />
@@ -202,6 +249,21 @@ export default function PharmacyQueuePage() {
           </button>
         ))}
       </div>
+      {queueTotalPages > 1 ? (
+        <div className="ds-pager">
+          <span>
+            {queuePagination?.total ?? 0} đơn · trang {page}/{queueTotalPages}
+          </span>
+          <span style={{ display: "flex", gap: 8 }}>
+            <DsButton disabled={page <= 1} onClick={() => setPage((current) => Math.max(current - 1, 1))}>
+              Trước
+            </DsButton>
+            <DsButton disabled={page >= queueTotalPages} onClick={() => setPage((current) => current + 1)}>
+              Sau
+            </DsButton>
+          </span>
+        </div>
+      ) : null}
     </DsPanel>
   );
 
@@ -259,7 +321,7 @@ export default function PharmacyQueuePage() {
                         {item.medicine ? `Đã cấp ${item.dispensedQuantity} · ${item.medicine.name}` : "Thuốc mua ngoài"}
                       </small>
                     ) : (
-                      <DsField label="Thuốc trong kho" htmlFor={`pick-${item.id}`} hint={short ? undefined : medicine ? `Tồn ${medicine.stockQuantity} ${medicine.unit}` : undefined}>
+                      <DsField label="Thuốc trong kho" htmlFor={`pick-${item.id}`} hint={short ? undefined : medicine ? `${!item.medicineId && !(item.id in picks) ? "Gợi ý theo tên thuốc, kiểm tra lại. " : ""}Tồn ${medicine.stockQuantity} ${medicine.unit}` : undefined}>
                         <DsSelect
                           id={`pick-${item.id}`}
                           value={medicineId}

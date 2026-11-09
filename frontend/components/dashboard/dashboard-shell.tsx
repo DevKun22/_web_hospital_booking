@@ -300,6 +300,12 @@ function ShellFrame({ children, collapsed }: { children: React.ReactNode; collap
   const hospitalName = siteSettings?.hospitalName?.trim() || "Hệ thống đặt khám";
   const logo = siteSettings?.logo?.trim();
   const dark = theme === "dark";
+  const currentLabel = currentItem?.label;
+
+  // Tiêu đề tab theo mục đang mở (và theo tên của chính mục đó với từng vai trò), không dùng chung một tiêu đề cho mọi trang.
+  useEffect(() => {
+    if (currentLabel) document.title = `${currentLabel} | ${hospitalName}`;
+  }, [currentLabel, hospitalName]);
 
   useEffect(() => {
     const handleShortcut = (event: KeyboardEvent) => {
