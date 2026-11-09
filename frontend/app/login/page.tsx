@@ -1,12 +1,13 @@
 "use client";
 
-import { ClipboardEvent, FormEvent, KeyboardEvent, useEffect, useRef, useState } from "react";
+import { ClipboardEvent, FormEvent, KeyboardEvent, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Eye, EyeOff, Hospital, Loader2 } from "lucide-react";
 import { DsButton, DsField, DsInput, DsNotice, DsRoot, describedBy } from "@/components/ds";
 import { DebugOtpBox } from "@/components/ui/debug-otp-box";
 import { useAuth } from "@/lib/auth";
+import { maskContactForDisplay } from "@/lib/mask-contact";
 import { usePublicSiteSettings } from "@/lib/public-home-query";
 
 type LoginStep = "credentials" | "otp";
@@ -23,6 +24,8 @@ const buildOtpNotice = (channel: "SMS" | "EMAIL", target: string, status?: OtpDe
   if (status === "FAILED") return `Chưa gửi được mã OTP đến ${targetLabel} ${target}. Hãy thử gửi lại.`;
   return `Đã tiếp nhận yêu cầu gửi OTP. Kiểm tra ${targetLabel} ${target} trong giây lát.`;
 };
+
+const subscribeNever = () => () => undefined;
 
 const formatClock = (seconds: number) =>
   `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
@@ -45,6 +48,9 @@ export default function LoginPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  // Đọc ?expired=1 qua useSyncExternalStore: an toàn khi dựng tĩnh (bản máy chủ luôn rỗng).
+  const search = useSyncExternalStore(subscribeNever, () => window.location.search, () => "");
+  const sessionExpired = new URLSearchParams(search).get("expired") === "1";
   const phoneInputRef = useRef<HTMLInputElement>(null);
   const otpRefs = useRef<(HTMLInputElement | null)[]>([]);
 
@@ -68,7 +74,7 @@ export default function LoginPage() {
   }, [step]);
 
   const applyChallenge = (result: Awaited<ReturnType<typeof login>>) => {
-    const target = result.otpTarget || result.email || result.phone;
+    const target = maskContactForDisplay(result.otpTarget);
     const channel = result.otpChannel || "SMS";
     setChallengeId(result.challengeId);
     setOtpTarget(target);
@@ -118,6 +124,8 @@ export default function LoginPage() {
 
     try {
       await verifyOtp(challengeId, otp);
+      // Đã xác thực xong: không giữ mật khẩu trong bộ nhớ trang nữa.
+      setPassword("");
       router.replace("/dashboard");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Xác thực OTP thất bại");
@@ -220,9 +228,12 @@ export default function LoginPage() {
           <p className="ds-login__lead">
             {step === "credentials"
               ? "Dùng số điện thoại và mật khẩu của tài khoản được cấp."
-              : `Mã 6 số đã được gửi đến ${otpTargetLabel} ${otpTarget}.`}
+              : `Mã 6 số đã được gửi đến ${otpTargetLabel} ${otpTarget}.${otpChannel === "EMAIL" ? " Nếu chưa thấy, hãy kiểm tra cả thư rác." : ""}`}
           </p>
 
+          {sessionExpired && step === "credentials" && !error ? (
+            <DsNotice tone="warn">Phiên làm việc đã hết hạn hoặc đã đăng xuất ở nơi khác. Hãy đăng nhập lại.</DsNotice>
+          ) : null}
           {error ? <DsNotice tone="bad">{error}</DsNotice> : null}
           {notice && !error ? <DsNotice tone="good">{notice}</DsNotice> : null}
 

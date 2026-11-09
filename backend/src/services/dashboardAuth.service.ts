@@ -1,3 +1,4 @@
+import { maskContact } from "../utils/maskContact.js";
 import bcrypt from "bcrypt";
 import type { SignOptions } from "jsonwebtoken";
 import { prisma } from "../config/prisma.js";
@@ -146,11 +147,10 @@ class DashboardAuthService {
       throw error;
     }
 
+    // Không trả lại email hay số điện thoại đầy đủ: chỉ bản đã che để người dùng nhận ra nơi nhận mã.
     return {
       challengeId: challenge.id,
-      phone,
-      email: user.email,
-      otpTarget: otp.target,
+      otpTarget: maskContact(otp.target),
       otpChannel: otp.channel,
       otpDeliveryStatus: otp.deliveryStatus,
       debugOtp: otp.debugOtp,
