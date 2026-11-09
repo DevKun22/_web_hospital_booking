@@ -183,7 +183,7 @@
 .ds .ds-toolbar__spacer { flex: 1; }
 
 /* ---- Tab ---- */
-.ds .ds-tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--ds-line); overflow-x: auto; }
+.ds .ds-tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--ds-line); overflow-x: auto; overflow-y: hidden; }
 .ds .ds-tab {
   display: inline-flex; align-items: center; gap: 8px; padding: 9px 12px; margin-bottom: -1px;
   border: 0; border-bottom: 2px solid transparent; background: transparent; color: var(--ds-muted);
