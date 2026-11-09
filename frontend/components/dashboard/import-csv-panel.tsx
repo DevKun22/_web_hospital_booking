@@ -10,6 +10,8 @@ type ImportRow = {
   code: string;
   action: "create" | "update" | "unchanged" | "receive" | "error";
   quantity?: number;
+  batchNumber?: string;
+  expiryDate?: string;
   errors: string[];
 };
 
@@ -39,7 +41,13 @@ const columns: DsColumn<ImportRow>[] = [
   { key: "line", header: "Dòng", cell: (row) => row.line },
   { key: "code", header: "Mã thuốc", cell: (row) => <span className="ds-mono">{row.code || "—"}</span> },
   { key: "action", header: "Kết quả", cell: (row) => actionLabel[row.action] },
-  { key: "detail", header: "Chi tiết", cell: (row) => (row.errors.length > 0 ? row.errors.join("; ") : row.quantity ? `+${row.quantity}` : "") },
+  { key: "detail", header: "Chi tiết", cell: (row) =>
+      row.errors.length > 0
+        ? row.errors.join("; ")
+        : row.quantity
+          ? `+${row.quantity}${row.batchNumber && row.expiryDate ? ` · lô ${row.batchNumber} · hạn ${row.expiryDate.split("-").reverse().join("/")}` : ""}`
+          : "",
+  },
 ];
 
 // Nhập CSV theo hai bước: chọn tệp -> kiểm tra (không ghi gì) -> xác nhận áp dụng.

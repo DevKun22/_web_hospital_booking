@@ -7,6 +7,7 @@ import {
   buildCsv,
   type CsvCell,
 } from "../utils/csvExport.js";
+import { getVietnamNowParts, toDateOnly } from "../utils/time.js";
 import DashboardStatisticsService from "./dashboardStatistics.service.js";
 
 // Xuất báo cáo CSV cho dashboard. Nguyên tắc: chỉ các cột vận hành cần cho đối soát, không đưa họ tên,
@@ -154,8 +155,16 @@ class DataExportService {
         stockQuantity: true,
         minStock: true,
         isActive: true,
+        batches: { where: { quantity: { gt: 0 } }, select: { expiryDate: true, quantity: true } },
       },
     });
+    const today = getVietnamNowParts().date;
+    const expiryOf = (item: (typeof items)[number]) => {
+      const live = item.batches.map((batch) => toDateOnly(batch.expiryDate)).filter((date) => date >= today).sort();
+      return live[0] ?? null;
+    };
+    const expiredOf = (item: (typeof items)[number]) =>
+      item.batches.filter((batch) => toDateOnly(batch.expiryDate) < today).reduce((sum, batch) => sum + batch.quantity, 0);
 
     return finish(
       [
@@ -169,6 +178,8 @@ class DataExportService {
         "Mức tối thiểu",
         "Dưới mức tối thiểu",
         "Đang dùng",
+        "Hạn dùng gần nhất",
+        "Tồn đã hết hạn",
       ],
       items.map((item) => [
         item.code,
@@ -181,6 +192,8 @@ class DataExportService {
         item.minStock,
         item.stockQuantity < item.minStock,
         item.isActive,
+        expiryOf(item),
+        expiredOf(item),
       ]),
     );
   }
@@ -200,6 +213,7 @@ class DataExportService {
         quantity: true,
         balanceAfter: true,
         reason: true,
+        batch: { select: { batchNumber: true, expiryDate: true } },
         medicine: { select: { code: true, name: true, unit: true } },
         actor: { select: { fullName: true } },
         prescriptionItem: {
@@ -218,6 +232,8 @@ class DataExportService {
         "Số lượng",
         "Tồn sau",
         "Mã đơn thuốc",
+        "Số lô",
+        "Hạn dùng",
         "Lý do",
         "Người thực hiện",
       ],
@@ -230,6 +246,8 @@ class DataExportService {
         item.quantity,
         item.balanceAfter,
         item.prescriptionItem?.prescription.prescriptionCode,
+        item.batch?.batchNumber,
+        item.batch ? toDateOnly(item.batch.expiryDate) : null,
         item.reason,
         item.actor.fullName,
       ]),
