@@ -3,6 +3,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { Check, Clock3, Send, X } from "lucide-react";
+import { VietnamDateInput } from "@/components/ui/vietnam-date-input";
 import { apiRequest } from "@/lib/api";
 import { formatVietnamDate, getVietnamDateInput } from "@/lib/date";
 import { queryKeys } from "@/lib/query-keys";
@@ -374,14 +375,7 @@ export function ScheduleChangeRequestPanel({
             <span className="text-sm font-medium text-[#334155]">
               {"Ngày dự kiến áp dụng"}
             </span>
-            <input
-              type="date"
-              value={effectiveFrom}
-              min={getVietnamDateInput()}
-              onChange={(event) => setEffectiveFrom(event.target.value)}
-              className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm"
-              required
-            />
+            <VietnamDateInput value={effectiveFrom} min={getVietnamDateInput()} onChange={setEffectiveFrom} ariaLabel="Ngày dự kiến áp dụng" className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm" required />
           </label>
           <label className="block">
             <span className="text-sm font-medium text-[#334155]">

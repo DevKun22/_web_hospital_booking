@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DsButton } from "@/components/ds";
+import { VietnamDateInput } from "@/components/ui/vietnam-date-input";
 import { downloadCsv } from "@/lib/api";
 
 // Nút xuất báo cáo CSV dùng chung. Có chọn khoảng ngày (mặc định 30 ngày gần nhất, tối đa 366 ngày,
@@ -52,21 +53,11 @@ export function ExportCsvButton({
           <>
             <label className="flex items-center gap-1 text-xs text-[var(--text-muted)]">
               Từ
-              <input
-                type="date"
-                value={from}
-                onChange={(event) => setFrom(event.target.value)}
-                className="h-9 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2 text-sm text-[var(--foreground)]"
-              />
+              <VietnamDateInput value={from} onChange={setFrom} ariaLabel="Từ ngày" className="h-9 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2 text-sm text-[var(--foreground)]" />
             </label>
             <label className="flex items-center gap-1 text-xs text-[var(--text-muted)]">
               Đến
-              <input
-                type="date"
-                value={to}
-                onChange={(event) => setTo(event.target.value)}
-                className="h-9 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2 text-sm text-[var(--foreground)]"
-              />
+              <VietnamDateInput value={to} onChange={setTo} ariaLabel="Đến ngày" className="h-9 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2 text-sm text-[var(--foreground)]" />
             </label>
           </>
         ) : null}
