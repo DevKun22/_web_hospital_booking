@@ -93,7 +93,7 @@ async function resetDatabase() {
     // Sổ kho chỉ thêm dòng (trigger chặn DELETE), nên dọn kho bằng TRUNCATE.
     // CASCADE kéo theo PrescriptionItem; mọi dữ liệu đơn thuốc đều bị xóa ở dưới.
     prisma.$executeRawUnsafe(
-      'TRUNCATE TABLE "StockMovement", "Medicine" CASCADE',
+      'TRUNCATE TABLE "StockMovement", "StockBatch", "Medicine" CASCADE',
     ),
     prisma.paymentTransaction.deleteMany(),
     prisma.invoiceItem.deleteMany(),
@@ -1198,6 +1198,50 @@ async function seedDemoMedicines(actorId: string) {
   return created;
 }
 
+// Lô mẫu để màn hình kho và dược sĩ có đủ trạng thái hạn dùng: còn hạn lâu, sắp hết hạn và đã hết hạn.
+// Chỉ thêm cho thuốc chưa có lô nào; số lượng lô lấy từ phần tồn sẵn có (không đổi tồn tổng, không thêm dòng sổ kho).
+const DEMO_BATCHES: Record<string, { batchNumber: string; days: number; share: number }[]> = {
+  PARA500: [
+    { batchNumber: "PA2611A", days: 420, share: 0.6 },
+    { batchNumber: "PA2603B", days: 35, share: 0.2 },
+  ],
+  VITC500: [{ batchNumber: "VC2609A", days: 300, share: 0.7 }],
+  AMOX500: [
+    { batchNumber: "AM2610A", days: 240, share: 0.5 },
+    { batchNumber: "AM2512X", days: -12, share: 0.1 },
+  ],
+  ORS: [{ batchNumber: "OR2605A", days: 50, share: 0.5 }],
+};
+
+async function seedDemoBatches() {
+  const vietnamToday = Date.parse(`${new Date(Date.now() + 7 * 3_600_000).toISOString().slice(0, 10)}T00:00:00Z`);
+  let created = 0;
+  for (const [code, batches] of Object.entries(DEMO_BATCHES)) {
+    const medicine = await prisma.medicine.findUnique({
+      where: { code },
+      select: { id: true, stockQuantity: true, _count: { select: { batches: true } } },
+    });
+    if (!medicine || medicine._count.batches > 0) continue;
+    let remaining = medicine.stockQuantity;
+    for (const batch of batches) {
+      const quantity = Math.min(Math.max(Math.floor(medicine.stockQuantity * batch.share), 1), remaining);
+      if (quantity <= 0) continue;
+      remaining -= quantity;
+      await prisma.stockBatch.create({
+        data: {
+          medicineId: medicine.id,
+          batchNumber: batch.batchNumber,
+          expiryDate: new Date(vietnamToday + batch.days * 86_400_000),
+          receivedQuantity: quantity,
+          quantity,
+        },
+      });
+      created += 1;
+    }
+  }
+  return created;
+}
+
 async function seedDemoData() {
   await resetDatabase();
 
@@ -1214,6 +1258,7 @@ async function seedDemoData() {
   ]);
 
   const medicinesCreated = await seedDemoMedicines(admin.id);
+  const batchesCreated = await seedDemoBatches();
 
   const departments = await Promise.all([
     upsertDepartment({
@@ -1377,6 +1422,7 @@ async function seedDemoData() {
     { key: "staffPhone", value: staff.phone },
     { key: "pharmacistPhone", value: pharmacist.phone },
     { key: "medicinesCreated", value: medicinesCreated },
+    { key: "batchesCreated", value: batchesCreated },
     { key: "password", value: PASSWORD },
     { key: "departments", value: departments.length },
     { key: "doctors", value: doctors.length },
