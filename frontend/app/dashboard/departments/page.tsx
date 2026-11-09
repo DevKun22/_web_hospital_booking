@@ -1,19 +1,34 @@
 "use client";
 
-import { can } from "@/lib/permissions";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
-import { PanelRightOpen, Plus, Search } from "lucide-react";
-import { DashboardFeedback } from "@/components/dashboard/dashboard-feedback";
-import { DashboardPageHeader, DashboardStatusBadge, DashboardSurface } from "@/components/dashboard/dashboard-ui";
-import { DashboardWorkspace } from "@/components/dashboard/dashboard-workspace";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { Plus } from "lucide-react";
+import {
+  DsButton,
+  DsDataTable,
+  DsEmptyState,
+  DsField,
+  DsInput,
+  DsNotice,
+  DsPageHeader,
+  DsPane,
+  DsPanel,
+  DsSplit,
+  DsStatusPill,
+  DsTabs,
+  DsTextarea,
+  DsToolbar,
+  type DsColumn,
+} from "@/components/ds";
 import { apiRequest, uploadImages } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { useDashboardDepartments } from "@/lib/dashboard-departments-query";
+import { can } from "@/lib/permissions";
 import { queryKeys } from "@/lib/query-keys";
 import type { Department } from "@/lib/types";
+import { useDebouncedValue } from "@/lib/use-debounced-value";
+
+// Chuyên khoa: danh sách bên trái; chọn một khoa hoặc bấm "Tạo chuyên khoa" thì biểu mẫu mở cạnh danh sách, không che nội dung.
 
 type DepartmentForm = {
   name: string;
@@ -39,10 +54,10 @@ const emptyForm: DepartmentForm = {
   isActive: true,
 };
 
-const statusOptions = [
-  { label: "Tất cả", value: "" },
-  { label: "Đang hoạt động", value: "true" },
-  { label: "Tạm ẩn", value: "false" },
+const statusTabs = [
+  { id: "", label: "Tất cả" },
+  { id: "true", label: "Đang hoạt động" },
+  { id: "false", label: "Tạm ẩn" },
 ];
 
 const toForm = (department: Department): DepartmentForm => ({
@@ -60,7 +75,7 @@ const toForm = (department: Department): DepartmentForm => ({
 const createSlug = (value: string) =>
   value
     .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[̀-ͯ]/g, "")
     .replace(/đ/g, "d")
     .replace(/Đ/g, "D")
     .toLowerCase()
@@ -87,53 +102,37 @@ const buildPayload = (form: DepartmentForm) => ({
   isActive: form.isActive,
 });
 
+type PaneState = { kind: "new" } | { kind: "edit"; id: string } | null;
+
 export default function DepartmentsPage() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
-  const [appliedSearch, setAppliedSearch] = useState("");
   const [status, setStatus] = useState("");
   const [page, setPage] = useState(1);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
-  const [workspaceOpen, setWorkspaceOpen] = useState(false);
-  const [editing, setEditing] = useState<Department | null>(null);
-  const [deleteTarget, setDeleteTarget] = useState<Department | null>(null);
+  const [pane, setPane] = useState<PaneState>(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const [form, setForm] = useState<DepartmentForm>(emptyForm);
   const [slugTouched, setSlugTouched] = useState(false);
-  const listPanelRef = useRef<HTMLElement | null>(null);
-  const formPanelRef = useRef<HTMLElement | null>(null);
 
   const canWrite = can(user, "catalog.manage");
   const canDelete = can(user, "catalog.delete");
 
-  const query = useMemo(
-    () => ({
-      search: appliedSearch || undefined,
-      isActive: status || undefined,
-      page,
-      limit: 10,
-    }),
-    [appliedSearch, page, status],
-  );
+  // Gõ đến đâu lọc đến đó (chờ ngừng gõ một chút rồi mới gọi máy chủ).
+  const term = useDebouncedValue(search.trim());
+  const query = useMemo(() => ({ search: term || undefined, isActive: status || undefined, page, limit: 10 }), [page, status, term]);
   const departmentsQuery = useDashboardDepartments(query);
-  const loading = departmentsQuery.isLoading;
   const departments = departmentsQuery.data?.items ?? [];
   const pagination = departmentsQuery.data?.pagination ?? { page, limit: 10, total: 0, totalPages: 1 };
-  const queryErrorMessage = departmentsQuery.error
-    ? departmentsQuery.error instanceof Error
-      ? departmentsQuery.error.message
-      : "Không tải được danh sách chuyên khoa"
-    : "";
+  const queryErrorMessage = departmentsQuery.error ? (departmentsQuery.error instanceof Error ? departmentsQuery.error.message : "Không tải được danh sách chuyên khoa") : "";
   const visibleError = error || queryErrorMessage;
-
-  const scrollTo = (ref: React.RefObject<HTMLElement | null>) => {
-    window.setTimeout(() => {
-      ref.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-    }, 0);
-  };
+  const editing = pane?.kind === "edit" ? departments.find((item) => item.id === pane.id) ?? null : null;
+  const open = canWrite && (pane?.kind === "new" || (pane?.kind === "edit" && Boolean(editing)));
 
   const invalidateDepartments = async () => {
     await Promise.all([
@@ -145,61 +144,39 @@ export default function DepartmentsPage() {
 
   useEffect(() => {
     if (!notice && !error) return;
-
     const timeoutId = window.setTimeout(() => {
       setNotice("");
       setError("");
     }, 4500);
-
     return () => window.clearTimeout(timeoutId);
   }, [error, notice]);
 
-  const applySearch = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    setAppliedSearch(search.trim());
-    setPage(1);
-  };
-
   const startCreate = () => {
-    setWorkspaceOpen(true);
-    setEditing(null);
-    setDeleteTarget(null);
     setForm(emptyForm);
     setSlugTouched(false);
-    setNotice("");
+    setConfirmDelete(false);
     setError("");
-    scrollTo(formPanelRef);
+    setPane({ kind: "new" });
   };
 
   const startEdit = (department: Department) => {
-    setWorkspaceOpen(true);
-    setEditing(department);
-    setDeleteTarget(null);
+    if (!canWrite) return;
     setForm(toForm(department));
     setSlugTouched(false);
-    setNotice("");
+    setConfirmDelete(false);
     setError("");
-    scrollTo(formPanelRef);
+    setPane({ kind: "edit", id: department.id });
   };
 
-  const startDelete = (department: Department) => {
-    setWorkspaceOpen(true);
-    setDeleteTarget(department);
-    setEditing(null);
-    setNotice("");
-    setError("");
-    scrollTo(formPanelRef);
+  const closePane = () => {
+    setPane(null);
+    setConfirmDelete(false);
   };
 
   const handleNameChange = (name: string) => {
     setForm((current) => {
       const currentSlugWasAuto = !current.slug || current.slug === createSlug(current.name);
-
-      return {
-        ...current,
-        name,
-        slug: !slugTouched && currentSlugWasAuto ? createSlug(name) : current.slug,
-      };
+      return { ...current, name, slug: !slugTouched && currentSlugWasAuto ? createSlug(name) : current.slug };
     });
   };
 
@@ -212,25 +189,15 @@ export default function DepartmentsPage() {
     setNotice("");
 
     try {
-      if (editing) {
-        await apiRequest<Department>(`/dashboard/departments/${editing.id}`, {
-          method: "PATCH",
-          body: buildPayload(form),
-        });
+      if (pane?.kind === "edit") {
+        await apiRequest<Department>(`/dashboard/departments/${pane.id}`, { method: "PATCH", body: buildPayload(form) });
         setNotice("Đã cập nhật chuyên khoa");
       } else {
-        await apiRequest<Department>("/dashboard/departments", {
-          method: "POST",
-          body: buildPayload(form),
-        });
+        await apiRequest<Department>("/dashboard/departments", { method: "POST", body: buildPayload(form) });
         setNotice("Đã tạo chuyên khoa");
+        closePane();
       }
-
-      setEditing(null);
-      setForm(emptyForm);
-      setSlugTouched(false);
       await invalidateDepartments();
-      scrollTo(listPanelRef);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Không lưu được chuyên khoa");
     } finally {
@@ -248,13 +215,8 @@ export default function DepartmentsPage() {
     try {
       const [asset] = await uploadImages([file], "departments");
       if (!asset) throw new Error("Đã tải lên nhưng không nhận được thông tin ảnh");
-
-      setForm((current) => ({
-        ...current,
-        image: asset.url,
-        imageAssetId: asset.id,
-      }));
-      setNotice("Đã tải ảnh chuyên khoa lên");
+      setForm((current) => ({ ...current, image: asset.url, imageAssetId: asset.id }));
+      setNotice("Đã tải ảnh chuyên khoa lên. Bấm Lưu thay đổi để áp dụng.");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Không tải được ảnh lên");
     } finally {
@@ -263,20 +225,17 @@ export default function DepartmentsPage() {
   };
 
   const handleDelete = async () => {
-    if (!deleteTarget || !canDelete) return;
+    if (!editing || !canDelete) return;
 
     setSaving(true);
     setError("");
     setNotice("");
 
     try {
-      await apiRequest<Department>(`/dashboard/departments/${deleteTarget.id}`, {
-        method: "DELETE",
-      });
-      setDeleteTarget(null);
+      await apiRequest<Department>(`/dashboard/departments/${editing.id}`, { method: "DELETE" });
       setNotice("Đã xóa chuyên khoa");
+      closePane();
       await invalidateDepartments();
-      scrollTo(listPanelRef);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Không xóa được chuyên khoa");
     } finally {
@@ -284,156 +243,236 @@ export default function DepartmentsPage() {
     }
   };
 
-  return (
-    <div className={`grid gap-6 transition-[grid-template-columns] duration-300 ${workspaceOpen && canWrite ? "xl:grid-cols-[minmax(0,1fr)_400px]" : "xl:grid-cols-1"}`}>
-      <DashboardFeedback error={visibleError} notice={notice} onDismiss={queryErrorMessage ? undefined : () => { setError(""); setNotice(""); }} />
+  const columns: DsColumn<Department>[] = [
+    {
+      key: "name",
+      header: "Chuyên khoa",
+      cell: (row) => (
+        <div>
+          <strong>{row.name}</strong>
+          <div style={{ color: "var(--ds-muted)", fontSize: 12, maxWidth: 360, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.description || "Chưa có mô tả"}</div>
+        </div>
+      ),
+    },
+    { key: "slug", header: "Đường dẫn", cell: (row) => <span className="ds-mono">{row.slug || "-"}</span> },
+    { key: "doctors", header: "Bác sĩ", align: "num", cell: (row) => row._count.doctors },
+    { key: "appointments", header: "Lịch hẹn", align: "num", cell: (row) => row._count.appointments },
+    { key: "status", header: "Trạng thái", cell: (row) => <DsStatusPill tone={row.isActive ? "good" : "neutral"}>{row.isActive ? "Hoạt động" : "Tạm ẩn"}</DsStatusPill> },
+  ];
 
-      <section ref={listPanelRef} className="min-w-0 scroll-mt-24 space-y-4">
-        <DashboardPageHeader eyebrow="Dữ liệu nền" title="Chuyên khoa" description="Quản lý khoa phòng dùng xuyên suốt hồ sơ bác sĩ, gói khám, chatbot và lịch hẹn."
-          actions={canWrite ? <><Button onClick={startCreate} size="lg"><Plus />Tạo chuyên khoa</Button>{!workspaceOpen && (editing || deleteTarget) ? <Button variant="outline" size="lg" onClick={() => setWorkspaceOpen(true)}><PanelRightOpen />Mở lại biểu mẫu</Button> : null}</> : undefined}
-        />
-
-        <DashboardSurface>
-          <form onSubmit={applySearch} className="grid gap-3 border-b border-border p-4 md:grid-cols-[1fr_180px_auto]">
-            <Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Tìm theo tên hoặc đường dẫn" />
-            <select value={status} onChange={(event) => { setStatus(event.target.value); setPage(1); }} className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]">
-              {statusOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-            </select>
-            <Button type="submit"><Search />Tìm kiếm</Button>
-          </form>
-
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[760px] border-separate border-spacing-0 text-left text-sm">
-              <thead>
-                <tr className="text-[#667892]">
-                  <th className="border-b border-[#e5ebf3] px-4 py-3 font-semibold">Tên khoa</th>
-                  <th className="border-b border-[#e5ebf3] px-4 py-3 font-semibold">Đường dẫn</th>
-                  <th className="border-b border-[#e5ebf3] px-4 py-3 font-semibold">Bác sĩ</th>
-                  <th className="border-b border-[#e5ebf3] px-4 py-3 font-semibold">Lịch hẹn</th>
-                  <th className="border-b border-[#e5ebf3] px-4 py-3 font-semibold">Trạng thái</th>
-                  <th className="border-b border-[#e5ebf3] px-4 py-3 text-right font-semibold">Thao tác</th>
-                </tr>
-              </thead>
-              <tbody>
-                {loading ? (
-                  <tr><td colSpan={6} className="px-4 py-10 text-center text-[#667892]">Đang tải danh sách...</td></tr>
-                ) : departments.length === 0 ? (
-                  <tr><td colSpan={6} className="px-4 py-10 text-center text-[#667892]">Chưa có chuyên khoa phù hợp</td></tr>
-                ) : departments.map((department) => (
-                  <tr key={department.id} className={`align-top transition-colors ${editing?.id === department.id || deleteTarget?.id === department.id ? "bg-primary/5" : "hover:bg-muted/30"}`}>
-                    <td className="border-b border-[#eef2f7] px-4 py-3">
-                      <p className="font-semibold text-[#172033]">{department.name}</p>
-                      <p className="mt-1 max-w-sm truncate text-xs text-[#667892]">{department.description || "Chưa có mô tả"}</p>
-                    </td>
-                    <td className="border-b border-[#eef2f7] px-4 py-3 text-[#42526b]">{department.slug || "-"}</td>
-                    <td className="border-b border-[#eef2f7] px-4 py-3">{department._count.doctors}</td>
-                    <td className="border-b border-[#eef2f7] px-4 py-3">{department._count.appointments}</td>
-                    <td className="border-b border-[#eef2f7] px-4 py-3">
-                      <DashboardStatusBadge tone={department.isActive ? "positive" : "neutral"}>{department.isActive ? "Hoạt động" : "Tạm ẩn"}</DashboardStatusBadge>
-                    </td>
-                    <td className="border-b border-[#eef2f7] px-4 py-3">
-                      <div className="flex justify-end gap-2">
-                        {canWrite ? <button onClick={() => startEdit(department)} className="rounded-md border border-[#cfd8e6] px-3 py-1.5 text-xs font-medium text-[#42526b] hover:bg-[#f6f8fb]">Sửa</button> : null}
-                        {canDelete ? <button onClick={() => startDelete(department)} className="rounded-md border border-[#f2b8b5] px-3 py-1.5 text-xs font-medium text-[#b3261e] hover:bg-[#fff3f2]">Xóa</button> : null}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          <div className="flex items-center justify-between border-t border-[#e5ebf3] px-4 py-3 text-sm text-[#667892]">
-            <span>{pagination.total} kết quả, trang {pagination.page}/{pagination.totalPages || 1}</span>
-            <div className="flex gap-2">
-              <button disabled={page <= 1} onClick={() => setPage((current) => Math.max(current - 1, 1))} className="rounded-md border border-[#cfd8e6] px-3 py-1.5 font-medium disabled:opacity-50">Trước</button>
-              <button disabled={page >= pagination.totalPages} onClick={() => setPage((current) => current + 1)} className="rounded-md border border-[#cfd8e6] px-3 py-1.5 font-medium disabled:opacity-50">Sau</button>
-            </div>
-          </div>
-        </DashboardSurface>
-      </section>
-
-      {workspaceOpen && canWrite ? (
-      <aside ref={formPanelRef} className="min-w-0 scroll-mt-24">
-        <DashboardWorkspace
-          open={workspaceOpen}
-          onOpenChange={setWorkspaceOpen}
-          title={editing ? `Chuyên khoa ${editing.name}` : "Công cụ chuyên khoa"}
-          description="Tạo và cập nhật thông tin hiển thị, điều hướng triệu chứng và trạng thái hoạt động."
-        >
-        {deleteTarget ? (
-          <div className="mb-5 rounded-md border border-[#f2b8b5] bg-[#fff3f2] p-4">
-            <h3 className="font-semibold text-[#b3261e]">Xác nhận xóa chuyên khoa</h3>
-            <p className="mt-2 text-sm text-[#5f2630]">{deleteTarget.name}</p>
-            <div className="mt-3 flex gap-2">
-              <button disabled={saving} onClick={() => void handleDelete()} className="rounded-md bg-[#b3261e] px-3 py-2 text-sm font-semibold text-white disabled:opacity-60">Xóa</button>
-              <button type="button" onClick={() => setDeleteTarget(null)} className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm font-medium text-[#42526b]">Hủy</button>
-            </div>
-          </div>
-        ) : null}
-
-        <h3 className="text-lg font-semibold">{editing ? "Cập nhật chuyên khoa" : "Tạo chuyên khoa"}</h3>
-        <p className="mt-2 text-sm leading-6 text-[#667892]">Đường dẫn tự sinh từ tên chuyên khoa nhưng vẫn có thể chỉnh thủ công.</p>
-
-        <form className="mt-5 space-y-4" onSubmit={handleSubmit}>
-          <label className="block"><span className="text-sm font-medium text-[#334155]">Tên chuyên khoa</span><input value={form.name} onChange={(event) => handleNameChange(event.target.value)} disabled={!canWrite} className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa] disabled:bg-[#f6f8fb]" required /></label>
-          <label className="block"><span className="text-sm font-medium text-[#334155]">Đường dẫn</span><input value={form.slug} onChange={(event) => { setSlugTouched(true); setForm((current) => ({ ...current, slug: createSlug(event.target.value) })); }} disabled={!canWrite} className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa] disabled:bg-[#f6f8fb]" /></label>
-          <label className="block"><span className="text-sm font-medium text-[#334155]">Mô tả</span><textarea value={form.description} onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))} disabled={!canWrite} rows={4} className="mt-1 w-full resize-none rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa] disabled:bg-[#f6f8fb]" /></label>
-          <label className="block">
-            <span className="text-sm font-medium text-[#334155]">Từ khóa triệu chứng</span>
-            <textarea
-              value={form.symptomKeywords}
-              onChange={(event) => setForm((current) => ({ ...current, symptomKeywords: event.target.value }))}
-              disabled={!canWrite}
-              rows={3}
-              placeholder="ngứa da, nổi mẩn, phát ban"
-              className="mt-1 w-full resize-none rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa] disabled:bg-[#f6f8fb]"
+  const list = (
+    <DsPanel flush>
+      <form onSubmit={(event) => event.preventDefault()} aria-label="Lọc chuyên khoa">
+        <DsToolbar>
+          <div style={{ minWidth: 180, flex: "1 1 240px" }}>
+            <DsInput
+              aria-label="Tìm chuyên khoa"
+              value={search}
+              onChange={(event) => {
+                setSearch(event.target.value);
+                setPage(1);
+              }}
+              placeholder="Gõ tên hoặc đường dẫn để lọc"
             />
-            <span className="mt-1 block text-xs text-[#667892]">Phân tách bằng dấu phẩy hoặc xuống dòng. Chatbot dùng dữ liệu này để gợi ý khoa.</span>
-          </label>
-          <label className="block">
-            <span className="text-sm font-medium text-[#334155]">Mô tả định hướng</span>
-            <textarea
-              value={form.triageDescription}
-              onChange={(event) => setForm((current) => ({ ...current, triageDescription: event.target.value }))}
-              disabled={!canWrite}
-              rows={3}
-              placeholder="Tiếp nhận các vấn đề về da, tóc, móng..."
-              className="mt-1 w-full resize-none rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa] disabled:bg-[#f6f8fb]"
-            />
-          </label>
-          <label className="flex items-center justify-between rounded-md border border-[#e5ebf3] px-3 py-2">
-            <span>
-              <span className="block text-sm font-medium text-[#334155]">Khoa tiếp nhận ban đầu</span>
-              <span className="mt-1 block text-xs text-[#667892]">Dùng khi chưa đủ dữ liệu để gợi ý khoa cụ thể.</span>
-            </span>
-            <input type="checkbox" checked={form.isTriageFallback} onChange={(event) => setForm((current) => ({ ...current, isTriageFallback: event.target.checked }))} disabled={!canWrite} className="h-4 w-4 accent-[#0d4f8b]" />
-          </label>
-          <label className="block"><span className="text-sm font-medium text-[#334155]">Đường dẫn hình ảnh</span><input value={form.image} onChange={(event) => setForm((current) => ({ ...current, image: event.target.value, imageAssetId: "" }))} disabled={!canWrite} placeholder="https://..." className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa] disabled:bg-[#f6f8fb]" /></label>
-          <label className="block">
-            <span className="text-sm font-medium text-[#334155]">Tải ảnh lên</span>
-            <input type="file" accept="image/jpeg,image/png,image/webp" disabled={!canWrite || uploading} onChange={(event) => void handleImageUpload(event.target.files?.[0])} className="mt-1 w-full rounded-md border border-dashed border-[#cfd8e6] bg-[#f8fafc] px-3 py-2 text-sm file:mr-3 file:rounded-md file:border-0 file:bg-[#0d4f8b] file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-white disabled:opacity-60" />
-            <p className="mt-1 text-xs text-[#667892]">Hỗ trợ JPG, PNG và WEBP. Ảnh được lưu trong thư mục chuyên khoa.</p>
-          </label>
-          {form.image ? (
-            <div className="rounded-md border border-[#e5ebf3] p-2">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={form.image} alt={form.name || "Ảnh chuyên khoa"} className="h-36 w-full rounded-md object-cover" />
-              <p className="mt-2 truncate text-xs text-[#667892]">{form.imageAssetId ? `Mã tài nguyên: ${form.imageAssetId}` : form.image}</p>
-            </div>
-          ) : null}
-          <label className="flex items-center justify-between rounded-md border border-[#e5ebf3] px-3 py-2"><span className="text-sm font-medium text-[#334155]">Đang hoạt động</span><input type="checkbox" checked={form.isActive} onChange={(event) => setForm((current) => ({ ...current, isActive: event.target.checked }))} disabled={!canWrite} className="h-4 w-4 accent-[#0d4f8b]" /></label>
-
+          </div>
           {canWrite ? (
-            <div className="flex gap-2">
-              <button disabled={saving || uploading} className="flex-1 rounded-md bg-[#0d4f8b] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#083d6d] disabled:opacity-60">{uploading ? "Đang tải lên..." : saving ? "Đang lưu..." : editing ? "Lưu thay đổi" : "Tạo mới"}</button>
-              {editing ? <button type="button" onClick={startCreate} className="rounded-md border border-[#cfd8e6] px-4 py-2.5 text-sm font-medium text-[#42526b] hover:bg-[#f6f8fb]">Hủy</button> : null}
-            </div>
+            <DsButton variant="primary" onClick={startCreate}>
+              <Plus aria-hidden="true" />
+              Tạo chuyên khoa
+            </DsButton>
           ) : null}
-        </form>
-        </DashboardWorkspace>
-      </aside>
-      ) : null}
-    </div>
+        </DsToolbar>
+      </form>
+      <DsTabs
+        label="Lọc chuyên khoa theo trạng thái"
+        items={statusTabs}
+        value={status}
+        onChange={(id) => {
+          setStatus(id);
+          setPage(1);
+        }}
+      />
+      {open ? (
+        departments.length ? (
+          <div role="listbox" aria-label="Danh sách chuyên khoa">
+            {departments.map((department) => (
+              <button key={department.id} type="button" role="option" className="ds-listrow" aria-selected={pane?.kind === "edit" && pane.id === department.id} onClick={() => startEdit(department)}>
+                <span className="ds-listrow__main">
+                  <strong>{department.name}</strong>
+                  <small>
+                    {department._count.doctors} bác sĩ · {department._count.appointments} lịch hẹn
+                  </small>
+                </span>
+                <DsStatusPill tone={department.isActive ? "good" : "neutral"}>{department.isActive ? "Hoạt động" : "Tạm ẩn"}</DsStatusPill>
+              </button>
+            ))}
+          </div>
+        ) : (
+          <DsEmptyState title="Chưa có chuyên khoa phù hợp" />
+        )
+      ) : (
+        <DsDataTable
+          caption="Danh sách chuyên khoa"
+          columns={columns}
+          rows={departments}
+          rowKey={(row) => row.id}
+          loading={departmentsQuery.isLoading}
+          emptyTitle="Chưa có chuyên khoa phù hợp"
+          emptyDescription={canWrite ? "Đổi bộ lọc hoặc bấm Tạo chuyên khoa." : undefined}
+          onRowClick={canWrite ? startEdit : undefined}
+        />
+      )}
+      <div className="ds-pager">
+        <span>
+          {pagination.total} chuyên khoa · trang {pagination.page}/{pagination.totalPages || 1}
+        </span>
+        <span style={{ display: "flex", gap: 8 }}>
+          <DsButton disabled={page <= 1} onClick={() => setPage((current) => Math.max(current - 1, 1))}>
+            Trước
+          </DsButton>
+          <DsButton disabled={page >= pagination.totalPages} onClick={() => setPage((current) => current + 1)}>
+            Sau
+          </DsButton>
+        </span>
+      </div>
+    </DsPanel>
+  );
+
+  const paneNode = open ? (
+    <DsPane
+      title={editing ? `Chuyên khoa ${editing.name}` : "Tạo chuyên khoa"}
+      badge={editing ? <DsStatusPill tone={editing.isActive ? "good" : "neutral"}>{editing.isActive ? "Hoạt động" : "Tạm ẩn"}</DsStatusPill> : undefined}
+      onClose={closePane}
+    >
+      <form onSubmit={handleSubmit} style={{ display: "grid", gap: 12 }} aria-label={editing ? "Cập nhật chuyên khoa" : "Tạo chuyên khoa"}>
+        <DsField label="Tên chuyên khoa" htmlFor="dep-name" required>
+          <DsInput id="dep-name" value={form.name} required onChange={(event) => handleNameChange(event.target.value)} />
+        </DsField>
+        <DsField label="Đường dẫn" htmlFor="dep-slug" hint="Tự sinh từ tên nhưng có thể chỉnh tay">
+          <DsInput
+            id="dep-slug"
+            value={form.slug}
+            onChange={(event) => {
+              setSlugTouched(true);
+              setForm((current) => ({ ...current, slug: createSlug(event.target.value) }));
+            }}
+          />
+        </DsField>
+        <DsField label="Mô tả" htmlFor="dep-desc">
+          <DsTextarea id="dep-desc" rows={3} value={form.description} onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))} />
+        </DsField>
+        <DsField label="Từ khóa triệu chứng" htmlFor="dep-keywords" hint="Phân tách bằng dấu phẩy hoặc xuống dòng. Chatbot dùng dữ liệu này để gợi ý khoa.">
+          <DsTextarea id="dep-keywords" rows={3} placeholder="ngứa da, nổi mẩn, phát ban" value={form.symptomKeywords} onChange={(event) => setForm((current) => ({ ...current, symptomKeywords: event.target.value }))} />
+        </DsField>
+        <DsField label="Mô tả định hướng" htmlFor="dep-triage">
+          <DsTextarea id="dep-triage" rows={2} placeholder="Tiếp nhận các vấn đề về da, tóc, móng..." value={form.triageDescription} onChange={(event) => setForm((current) => ({ ...current, triageDescription: event.target.value }))} />
+        </DsField>
+
+        <div className="ds-card">
+          <div className="ds-card__head">
+            <h3>Ảnh chuyên khoa</h3>
+          </div>
+          <div className="ds-card__body">
+            {form.image ? (
+              <div>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={form.image} alt={form.name || "Ảnh chuyên khoa"} style={{ width: "100%", height: 144, objectFit: "cover", borderRadius: 6 }} />
+                <DsButton variant="ghost" onClick={() => setForm((current) => ({ ...current, image: "", imageAssetId: "" }))}>
+                  Gỡ ảnh
+                </DsButton>
+              </div>
+            ) : null}
+            <div
+              className={`ds-drop${dragOver ? " is-over" : ""}`}
+              onDragOver={(event) => {
+                event.preventDefault();
+                setDragOver(true);
+              }}
+              onDragLeave={() => setDragOver(false)}
+              onDrop={(event) => {
+                event.preventDefault();
+                setDragOver(false);
+                void handleImageUpload(event.dataTransfer.files?.[0]);
+              }}
+            >
+              {uploading ? (
+                "Đang tải ảnh lên..."
+              ) : (
+                <>
+                  Kéo thả ảnh vào đây hoặc <label htmlFor="dep-image-file">chọn từ máy</label>
+                  <input
+                    id="dep-image-file"
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    className="sr-only"
+                    onChange={(event) => {
+                      void handleImageUpload(event.target.files?.[0]);
+                      event.target.value = "";
+                    }}
+                  />
+                  <div className="ds-hint" style={{ marginTop: 4 }}>
+                    JPG, PNG hoặc WEBP
+                  </div>
+                </>
+              )}
+            </div>
+            <DsField label="Hoặc dán đường dẫn ảnh" htmlFor="dep-image-url">
+              <DsInput id="dep-image-url" value={form.image} placeholder="https://..." onChange={(event) => setForm((current) => ({ ...current, image: event.target.value, imageAssetId: "" }))} />
+            </DsField>
+          </div>
+        </div>
+
+        <label className="ds-check" style={{ cursor: "pointer" }}>
+          <input type="checkbox" checked={form.isTriageFallback} onChange={(event) => setForm((current) => ({ ...current, isTriageFallback: event.target.checked }))} style={{ marginTop: 3 }} />
+          <span>
+            <strong>Khoa tiếp nhận ban đầu</strong>
+            <small style={{ display: "block", color: "var(--ds-muted)" }}>Dùng khi chưa đủ dữ liệu để gợi ý khoa cụ thể.</small>
+          </span>
+        </label>
+        <label className="ds-check" style={{ cursor: "pointer" }}>
+          <input type="checkbox" checked={form.isActive} onChange={(event) => setForm((current) => ({ ...current, isActive: event.target.checked }))} style={{ marginTop: 3 }} />
+          <span>
+            <strong>Đang hoạt động</strong>
+            <small style={{ display: "block", color: "var(--ds-muted)" }}>Chuyên khoa tạm ẩn không hiện trên website đặt lịch.</small>
+          </span>
+        </label>
+
+        <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", flexWrap: "wrap" }}>
+          <DsButton onClick={closePane}>Đóng</DsButton>
+          <DsButton type="submit" variant="primary" disabled={saving || uploading || !form.name.trim()}>
+            {uploading ? "Đang tải lên..." : saving ? "Đang lưu..." : editing ? "Lưu thay đổi" : "Tạo mới"}
+          </DsButton>
+        </div>
+
+        {editing && canDelete ? (
+          confirmDelete ? (
+            <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+              <span style={{ fontSize: 13 }}>Xóa chuyên khoa {editing.name}?</span>
+              <DsButton variant="danger" disabled={saving} onClick={() => void handleDelete()}>
+                Xóa
+              </DsButton>
+              <DsButton onClick={() => setConfirmDelete(false)}>Giữ lại</DsButton>
+            </div>
+          ) : (
+            <div>
+              <DsButton variant="ghost" onClick={() => setConfirmDelete(true)}>
+                Xóa chuyên khoa
+              </DsButton>
+            </div>
+          )
+        ) : null}
+      </form>
+    </DsPane>
+  ) : null;
+
+  return (
+    <>
+      <DsPageHeader title="Chuyên khoa" description="Khoa phòng dùng xuyên suốt hồ sơ bác sĩ, gói khám, chatbot và lịch hẹn" />
+      <div style={{ display: "grid", gap: 12, marginBottom: 16 }}>
+        {visibleError ? <DsNotice tone="bad">{visibleError}</DsNotice> : null}
+        {notice ? <DsNotice tone="good">{notice}</DsNotice> : null}
+      </div>
+      <DsSplit list={list} pane={paneNode} />
+    </>
   );
 }

@@ -1,20 +1,37 @@
 "use client";
 
-import { can } from "@/lib/permissions";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
-import { PanelRightOpen, Plus, Search } from "lucide-react";
-import { DashboardFeedback } from "@/components/dashboard/dashboard-feedback";
-import { DashboardPageHeader, DashboardStatusBadge, DashboardSurface } from "@/components/dashboard/dashboard-ui";
-import { DashboardWorkspace } from "@/components/dashboard/dashboard-workspace";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { Plus } from "lucide-react";
+import {
+  DsButton,
+  DsDataTable,
+  DsEmptyState,
+  DsField,
+  DsInput,
+  DsKeyValue,
+  DsNotice,
+  DsPageHeader,
+  DsPane,
+  DsPanel,
+  DsSelect,
+  DsSplit,
+  DsStatusPill,
+  DsTabs,
+  DsTextarea,
+  DsToolbar,
+  type DsColumn,
+} from "@/components/ds";
 import { apiRequest } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { useDashboardDepartments } from "@/lib/dashboard-departments-query";
 import { useDashboardPackages } from "@/lib/dashboard-packages-query";
+import { can } from "@/lib/permissions";
 import { queryKeys } from "@/lib/query-keys";
 import type { MedicalPackage, PackageItem } from "@/lib/types";
+import { useDebouncedValue } from "@/lib/use-debounced-value";
+
+// Gói khám: danh sách bên trái; chọn một gói thì khung bên phải gom thông tin gói (trái) và các hạng mục cấu thành (phải).
 
 type PackageForm = {
   name: string;
@@ -52,30 +69,18 @@ const emptyPackageForm: PackageForm = {
   isActive: true,
 };
 
-const emptyItemForm: ItemForm = {
-  name: "",
-  description: "",
-  price: "0",
-  included: true,
-  order: "0",
-};
+const emptyItemForm: ItemForm = { name: "", description: "", price: "0", included: true, order: "0" };
 
-const statusOptions = [
-  { label: "Tất cả", value: "" },
-  { label: "Đang hiển thị", value: "true" },
-  { label: "Tạm ẩn", value: "false" },
-];
-
-const popularOptions = [
-  { label: "Tất cả", value: "" },
-  { label: "Nổi bật", value: "true" },
-  { label: "Thường", value: "false" },
+const statusTabs = [
+  { id: "", label: "Tất cả" },
+  { id: "true", label: "Đang hiển thị" },
+  { id: "false", label: "Tạm ẩn" },
 ];
 
 const createSlug = (value: string) =>
   value
     .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[̀-ͯ]/g, "")
     .replace(/đ/g, "d")
     .replace(/Đ/g, "D")
     .toLowerCase()
@@ -91,14 +96,9 @@ const formatMoneyInput = (value: string) => {
 };
 
 const formatCurrency = (value: number) =>
-  new Intl.NumberFormat("vi-VN", {
-    style: "currency",
-    currency: "VND",
-    maximumFractionDigits: 0,
-  }).format(value);
+  new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND", maximumFractionDigits: 0 }).format(value);
 
-const getIncludedItemsTotal = (items: PackageItem[]) =>
-  items.filter((item) => item.included).reduce((total, item) => total + item.price, 0);
+const getIncludedItemsTotal = (items: PackageItem[]) => items.filter((item) => item.included).reduce((total, item) => total + item.price, 0);
 
 const toPackageForm = (item: MedicalPackage): PackageForm => ({
   name: item.name,
@@ -144,72 +144,44 @@ const buildItemPayload = (form: ItemForm) => ({
   order: Number(form.order || 0),
 });
 
+type PaneState = { kind: "new" } | { kind: "edit"; id: string } | null;
+
 export default function PackagesPage() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
-  const [appliedSearch, setAppliedSearch] = useState("");
   const [status, setStatus] = useState("");
   const [popular, setPopular] = useState("");
   const [page, setPage] = useState(1);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
-  const [workspaceOpen, setWorkspaceOpen] = useState(false);
-  const [editing, setEditing] = useState<MedicalPackage | null>(null);
-  const [deleteTarget, setDeleteTarget] = useState<MedicalPackage | null>(null);
+  const [pane, setPane] = useState<PaneState>(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const [form, setForm] = useState<PackageForm>(emptyPackageForm);
   const [slugTouched, setSlugTouched] = useState(false);
-  const [selectedPackageSnapshot, setSelectedPackage] = useState<MedicalPackage | null>(null);
+  const [itemOpen, setItemOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<PackageItem | null>(null);
   const [deleteItemTarget, setDeleteItemTarget] = useState<PackageItem | null>(null);
   const [itemForm, setItemForm] = useState<ItemForm>(emptyItemForm);
-  const listPanelRef = useRef<HTMLElement | null>(null);
-  const formPanelRef = useRef<HTMLElement | null>(null);
-  const itemPanelRef = useRef<HTMLElement | null>(null);
 
   const canWrite = can(user, "catalog.manage");
   const canDelete = can(user, "catalog.delete");
 
-  const query = useMemo(
-    () => ({
-      search: appliedSearch || undefined,
-      isActive: status || undefined,
-      isPopular: popular || undefined,
-      page,
-      limit: 10,
-    }),
-    [appliedSearch, page, popular, status],
-  );
+  // Gõ đến đâu lọc đến đó (chờ ngừng gõ một chút rồi mới gọi máy chủ).
+  const term = useDebouncedValue(search.trim());
+  const query = useMemo(() => ({ search: term || undefined, isActive: status || undefined, isPopular: popular || undefined, page, limit: 10 }), [page, popular, status, term]);
   const departmentQuery = useMemo(() => ({ isActive: "true", limit: 100 }), []);
   const packagesQuery = useDashboardPackages(query);
   const departmentsQuery = useDashboardDepartments(departmentQuery);
-  const loading = packagesQuery.isLoading;
   const packages = packagesQuery.data?.items ?? [];
   const departments = departmentsQuery.data?.items ?? [];
   const pagination = packagesQuery.data?.pagination ?? { page, limit: 10, total: 0, totalPages: 1 };
-  const selectedPackage = selectedPackageSnapshot
-    ? packages.find((item) => item.id === selectedPackageSnapshot.id) ?? selectedPackageSnapshot
-    : null;
   const queryError = packagesQuery.error || departmentsQuery.error;
-  const queryErrorMessage = queryError
-    ? queryError instanceof Error
-      ? queryError.message
-      : "Không tải được dữ liệu gói khám"
-    : "";
+  const queryErrorMessage = queryError ? (queryError instanceof Error ? queryError.message : "Không tải được dữ liệu gói khám") : "";
   const visibleError = error || queryErrorMessage;
-
-  const scrollToList = () => {
-    window.setTimeout(() => listPanelRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 0);
-  };
-
-  const scrollToForm = () => {
-    window.setTimeout(() => formPanelRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 0);
-  };
-
-  const scrollToItems = () => {
-    window.setTimeout(() => itemPanelRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 0);
-  };
+  const selected = pane?.kind === "edit" ? packages.find((item) => item.id === pane.id) ?? null : null;
+  const open = pane?.kind === "new" ? canWrite : pane?.kind === "edit" && Boolean(selected);
 
   const invalidatePackages = async () => {
     await Promise.all([
@@ -228,51 +200,41 @@ export default function PackagesPage() {
     return () => window.clearTimeout(timeoutId);
   }, [error, notice]);
 
-  const applySearch = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    setAppliedSearch(search.trim());
-    setPage(1);
+  const resetItemEditor = () => {
+    setItemOpen(false);
+    setEditingItem(null);
+    setDeleteItemTarget(null);
+    setItemForm(emptyItemForm);
   };
 
   const startCreate = () => {
-    setWorkspaceOpen(true);
-    setEditing(null);
-    setDeleteTarget(null);
     setForm(emptyPackageForm);
     setSlugTouched(false);
+    setConfirmDelete(false);
+    resetItemEditor();
     setError("");
-    setNotice("");
-    scrollToForm();
+    setPane({ kind: "new" });
   };
 
-  const startEdit = (item: MedicalPackage) => {
-    setWorkspaceOpen(true);
-    setEditing(item);
-    setDeleteTarget(null);
+  const openPackage = (item: MedicalPackage) => {
     setForm(toPackageForm(item));
     setSlugTouched(false);
+    setConfirmDelete(false);
+    resetItemEditor();
     setError("");
-    setNotice("");
-    scrollToForm();
+    setPane({ kind: "edit", id: item.id });
   };
 
-  const startDelete = (item: MedicalPackage) => {
-    setWorkspaceOpen(true);
-    setDeleteTarget(item);
-    setEditing(null);
-    setError("");
-    setNotice("");
-    scrollToForm();
+  const closePane = () => {
+    setPane(null);
+    setConfirmDelete(false);
+    resetItemEditor();
   };
 
   const handleNameChange = (name: string) => {
     setForm((current) => {
       const currentSlugWasAuto = !current.slug || current.slug === createSlug(current.name);
-      return {
-        ...current,
-        name,
-        slug: !slugTouched && currentSlugWasAuto ? createSlug(name) : current.slug,
-      };
+      return { ...current, name, slug: !slugTouched && currentSlugWasAuto ? createSlug(name) : current.slug };
     });
   };
 
@@ -285,25 +247,15 @@ export default function PackagesPage() {
     setNotice("");
 
     try {
-      if (editing) {
-        await apiRequest<MedicalPackage>(`/dashboard/packages/${editing.id}`, {
-          method: "PATCH",
-          body: buildPackagePayload(form),
-        });
+      if (pane?.kind === "edit") {
+        await apiRequest<MedicalPackage>(`/dashboard/packages/${pane.id}`, { method: "PATCH", body: buildPackagePayload(form) });
         setNotice("Đã cập nhật gói khám");
       } else {
-        await apiRequest<MedicalPackage>("/dashboard/packages", {
-          method: "POST",
-          body: buildPackagePayload(form),
-        });
+        await apiRequest<MedicalPackage>("/dashboard/packages", { method: "POST", body: buildPackagePayload(form) });
         setNotice("Đã tạo gói khám");
+        closePane();
       }
-
-      setEditing(null);
-      setForm(emptyPackageForm);
-      setSlugTouched(false);
       await invalidatePackages();
-      scrollToList();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Không lưu được gói khám");
     } finally {
@@ -312,19 +264,17 @@ export default function PackagesPage() {
   };
 
   const handleDelete = async () => {
-    if (!deleteTarget || !canDelete) return;
+    if (!selected || !canDelete) return;
 
     setSaving(true);
     setError("");
     setNotice("");
 
     try {
-      await apiRequest<MedicalPackage>(`/dashboard/packages/${deleteTarget.id}`, { method: "DELETE" });
+      await apiRequest<MedicalPackage>(`/dashboard/packages/${selected.id}`, { method: "DELETE" });
       setNotice("Đã xóa gói khám");
-      if (selectedPackage?.id === deleteTarget.id) setSelectedPackage(null);
-      setDeleteTarget(null);
+      closePane();
       await invalidatePackages();
-      scrollToList();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Không xóa được gói khám");
     } finally {
@@ -332,25 +282,23 @@ export default function PackagesPage() {
     }
   };
 
-  const openItems = (item: MedicalPackage) => {
-    setWorkspaceOpen(false);
-    setSelectedPackage(item);
+  const startAddItem = () => {
     setEditingItem(null);
     setDeleteItemTarget(null);
-    setItemForm({ ...emptyItemForm, order: String(item.items.length) });
-    scrollToItems();
+    setItemForm({ ...emptyItemForm, order: String(selected ? selected.items.length : 0) });
+    setItemOpen(true);
   };
 
   const startEditItem = (item: PackageItem) => {
     setEditingItem(item);
     setDeleteItemTarget(null);
     setItemForm(toItemForm(item));
-    scrollToItems();
+    setItemOpen(true);
   };
 
   const handleItemSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!canWrite || !selectedPackage) return;
+    if (!canWrite || !selected) return;
 
     setSaving(true);
     setError("");
@@ -358,21 +306,13 @@ export default function PackagesPage() {
 
     try {
       if (editingItem) {
-        await apiRequest<PackageItem>(`/dashboard/packages/${selectedPackage.id}/items/${editingItem.id}`, {
-          method: "PATCH",
-          body: buildItemPayload(itemForm),
-        });
+        await apiRequest<PackageItem>(`/dashboard/packages/${selected.id}/items/${editingItem.id}`, { method: "PATCH", body: buildItemPayload(itemForm) });
         setNotice("Đã cập nhật hạng mục");
       } else {
-        await apiRequest<PackageItem>(`/dashboard/packages/${selectedPackage.id}/items`, {
-          method: "POST",
-          body: buildItemPayload(itemForm),
-        });
+        await apiRequest<PackageItem>(`/dashboard/packages/${selected.id}/items`, { method: "POST", body: buildItemPayload(itemForm) });
         setNotice("Đã tạo hạng mục");
       }
-
-      setEditingItem(null);
-      setItemForm({ ...emptyItemForm, order: String(selectedPackage.items.length + 1) });
+      resetItemEditor();
       await invalidatePackages();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Không lưu được hạng mục");
@@ -382,16 +322,14 @@ export default function PackagesPage() {
   };
 
   const handleDeleteItem = async () => {
-    if (!canWrite || !selectedPackage || !deleteItemTarget) return;
+    if (!canWrite || !selected || !deleteItemTarget) return;
 
     setSaving(true);
     setError("");
     setNotice("");
 
     try {
-      await apiRequest<PackageItem>(`/dashboard/packages/${selectedPackage.id}/items/${deleteItemTarget.id}`, {
-        method: "DELETE",
-      });
+      await apiRequest<PackageItem>(`/dashboard/packages/${selected.id}/items/${deleteItemTarget.id}`, { method: "DELETE" });
       setNotice("Đã xóa hạng mục");
       setDeleteItemTarget(null);
       await invalidatePackages();
@@ -402,176 +340,351 @@ export default function PackagesPage() {
     }
   };
 
-  return (
-    <div className={`grid gap-6 transition-[grid-template-columns] duration-300 ${workspaceOpen && canWrite ? "xl:grid-cols-[minmax(0,1fr)_430px]" : "xl:grid-cols-1"}`}>
-      <DashboardFeedback error={visibleError} notice={notice} onDismiss={queryErrorMessage ? undefined : () => { setError(""); setNotice(""); }} />
+  const columns: DsColumn<MedicalPackage>[] = [
+    {
+      key: "name",
+      header: "Gói khám",
+      cell: (row) => (
+        <div>
+          <strong>{row.name}</strong>
+          <div style={{ color: "var(--ds-muted)", fontSize: 12, maxWidth: 320, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.summary || row.slug || "Chưa có tóm tắt"}</div>
+        </div>
+      ),
+    },
+    { key: "department", header: "Chuyên khoa", cell: (row) => row.department?.name || "Tất cả khoa" },
+    {
+      key: "price",
+      header: "Giá",
+      align: "num",
+      cell: (row) => {
+        const includedTotal = row.includedItemsTotal ?? getIncludedItemsTotal(row.items);
+        return (
+          <div>
+            <strong>{formatCurrency(row.finalPrice)}</strong>
+            <div style={{ color: "var(--ds-muted)", fontSize: 12 }}>
+              Hạng mục {formatCurrency(includedTotal || row.basePrice)} + phí {formatCurrency(row.serviceFee)}
+            </div>
+          </div>
+        );
+      },
+    },
+    {
+      key: "tags",
+      header: "Nhãn",
+      cell: (row) => (
+        <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+          {row.isPopular ? <DsStatusPill tone="warn">Nổi bật</DsStatusPill> : null}
+          {row.isBHYTSupport ? <DsStatusPill tone="good">BHYT</DsStatusPill> : null}
+          <DsStatusPill tone={row.isActive ? "good" : "neutral"}>{row.isActive ? "Hiển thị" : "Tạm ẩn"}</DsStatusPill>
+        </div>
+      ),
+    },
+    { key: "items", header: "Hạng mục", align: "num", cell: (row) => row.items.length },
+    { key: "appointments", header: "Lịch hẹn", align: "num", cell: (row) => row._count.appointments },
+  ];
 
-      <section ref={listPanelRef} className="min-w-0 scroll-mt-24 space-y-4">
-        <DashboardPageHeader eyebrow="Dữ liệu nền" title="Gói khám" description="Quản lý giá, phí dịch vụ, hỗ trợ BHYT và các hạng mục cấu thành từng gói."
-          actions={canWrite ? <><Button onClick={startCreate} size="lg"><Plus />Tạo gói khám</Button>{!workspaceOpen && (editing || deleteTarget) ? <Button variant="outline" size="lg" onClick={() => setWorkspaceOpen(true)}><PanelRightOpen />Mở lại biểu mẫu</Button> : null}</> : undefined}
+  const list = (
+    <DsPanel flush>
+      <form onSubmit={(event) => event.preventDefault()} aria-label="Lọc gói khám">
+        <DsToolbar>
+          <div style={{ minWidth: 180, flex: "1 1 240px" }}>
+            <DsInput
+              aria-label="Tìm gói khám"
+              value={search}
+              onChange={(event) => {
+                setSearch(event.target.value);
+                setPage(1);
+              }}
+              placeholder="Gõ tên, đường dẫn hoặc tóm tắt để lọc"
+            />
+          </div>
+          <div style={{ minWidth: 130, flex: "0 1 160px" }}>
+            <DsSelect
+              aria-label="Lọc gói nổi bật"
+              value={popular}
+              onChange={(event) => {
+                setPopular(event.target.value);
+                setPage(1);
+              }}
+            >
+              <option value="">Mọi gói</option>
+              <option value="true">Nổi bật</option>
+              <option value="false">Thường</option>
+            </DsSelect>
+          </div>
+          {canWrite ? (
+            <DsButton variant="primary" onClick={startCreate}>
+              <Plus aria-hidden="true" />
+              Tạo gói khám
+            </DsButton>
+          ) : null}
+        </DsToolbar>
+      </form>
+      <DsTabs
+        label="Lọc gói khám theo trạng thái"
+        items={statusTabs}
+        value={status}
+        onChange={(id) => {
+          setStatus(id);
+          setPage(1);
+        }}
+      />
+      {open ? (
+        packages.length ? (
+          <div role="listbox" aria-label="Danh sách gói khám">
+            {packages.map((item) => (
+              <button key={item.id} type="button" role="option" className="ds-listrow" aria-selected={pane?.kind === "edit" && pane.id === item.id} onClick={() => openPackage(item)}>
+                <span className="ds-listrow__main">
+                  <strong>{item.name}</strong>
+                  <small>
+                    {formatCurrency(item.finalPrice)} · {item.items.length} hạng mục
+                  </small>
+                </span>
+                <DsStatusPill tone={item.isActive ? "good" : "neutral"}>{item.isActive ? "Hiển thị" : "Tạm ẩn"}</DsStatusPill>
+              </button>
+            ))}
+          </div>
+        ) : (
+          <DsEmptyState title="Chưa có gói khám phù hợp" />
+        )
+      ) : (
+        <DsDataTable
+          caption="Danh sách gói khám"
+          columns={columns}
+          rows={packages}
+          rowKey={(row) => row.id}
+          loading={packagesQuery.isLoading}
+          emptyTitle="Chưa có gói khám phù hợp"
+          emptyDescription={canWrite ? "Đổi bộ lọc hoặc bấm Tạo gói khám." : undefined}
+          onRowClick={openPackage}
         />
+      )}
+      <div className="ds-pager">
+        <span>
+          {pagination.total} gói · trang {pagination.page}/{pagination.totalPages || 1}
+        </span>
+        <span style={{ display: "flex", gap: 8 }}>
+          <DsButton disabled={page <= 1} onClick={() => setPage((current) => Math.max(current - 1, 1))}>
+            Trước
+          </DsButton>
+          <DsButton disabled={page >= pagination.totalPages} onClick={() => setPage((current) => current + 1)}>
+            Sau
+          </DsButton>
+        </span>
+      </div>
+    </DsPanel>
+  );
 
-        <DashboardSurface>
-          <form onSubmit={applySearch} className="grid gap-3 border-b border-border p-4 lg:grid-cols-2 2xl:grid-cols-[minmax(0,1fr)_170px_150px_auto]">
-            <Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Tìm theo tên, đường dẫn hoặc tóm tắt" />
-            <select value={status} onChange={(event) => { setStatus(event.target.value); setPage(1); }} className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]">
-              {statusOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-            </select>
-            <select value={popular} onChange={(event) => { setPopular(event.target.value); setPage(1); }} className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]">
-              {popularOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-            </select>
-            <Button type="submit"><Search />Tìm kiếm</Button>
-          </form>
-
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[980px] border-separate border-spacing-0 text-left text-sm">
-              <thead>
-                <tr className="text-[#667892]">
-                  <th className="border-b border-[#e5ebf3] px-4 py-3 font-semibold">Gói khám</th>
-                  <th className="border-b border-[#e5ebf3] px-4 py-3 font-semibold">Chuyên khoa</th>
-                  <th className="border-b border-[#e5ebf3] px-4 py-3 font-semibold">Giá</th>
-                  <th className="border-b border-[#e5ebf3] px-4 py-3 font-semibold">Nhãn</th>
-                  <th className="border-b border-[#e5ebf3] px-4 py-3 font-semibold">Hạng mục</th>
-                  <th className="border-b border-[#e5ebf3] px-4 py-3 font-semibold">Lịch hẹn</th>
-                  <th className="border-b border-[#e5ebf3] px-4 py-3 text-right font-semibold">Thao tác</th>
-                </tr>
-              </thead>
-              <tbody>
-                {loading ? (
-                  <tr><td colSpan={7} className="px-4 py-10 text-center text-[#667892]">Đang tải danh sách...</td></tr>
-                ) : packages.length === 0 ? (
-                  <tr><td colSpan={7} className="px-4 py-10 text-center text-[#667892]">Chưa có gói khám phù hợp</td></tr>
-                ) : packages.map((item) => {
-                  const includedTotal = item.includedItemsTotal ?? getIncludedItemsTotal(item.items);
-
-                  return (
-                  <tr key={item.id} className={`align-top transition-colors ${editing?.id === item.id || deleteTarget?.id === item.id || selectedPackage?.id === item.id ? "bg-primary/5" : "hover:bg-muted/30"}`}>
-                    <td className="border-b border-[#eef2f7] px-4 py-3"><p className="font-semibold text-[#172033]">{item.name}</p><p className="mt-1 max-w-sm truncate text-xs text-[#667892]">{item.summary || item.slug || "Chưa có tóm tắt"}</p></td>
-                    <td className="border-b border-[#eef2f7] px-4 py-3">{item.department?.name || "Tất cả khoa"}</td>
-                    <td className="border-b border-[#eef2f7] px-4 py-3"><p className="font-semibold">{formatCurrency(item.finalPrice)}</p><p className="mt-1 text-xs text-[#667892]">Hạng mục {formatCurrency(includedTotal || item.basePrice)} + phí {formatCurrency(item.serviceFee)}</p></td>
-                    <td className="border-b border-[#eef2f7] px-4 py-3">
-                      <div className="flex flex-wrap gap-1">
-                        {item.isPopular ? <DashboardStatusBadge tone="warning">Nổi bật</DashboardStatusBadge> : null}
-                        {item.isBHYTSupport ? <DashboardStatusBadge tone="positive">BHYT</DashboardStatusBadge> : null}
-                        <DashboardStatusBadge tone={item.isActive ? "positive" : "neutral"}>{item.isActive ? "Hiển thị" : "Tạm ẩn"}</DashboardStatusBadge>
-                      </div>
-                    </td>
-                    <td className="border-b border-[#eef2f7] px-4 py-3">{item.items.length}</td>
-                    <td className="border-b border-[#eef2f7] px-4 py-3">{item._count.appointments}</td>
-                    <td className="border-b border-[#eef2f7] px-4 py-3">
-                      <div className="flex justify-end gap-2">
-                        <button onClick={() => openItems(item)} className="rounded-md border border-[#cfd8e6] px-3 py-1.5 text-xs font-medium text-[#42526b] hover:bg-[#f6f8fb]">Hạng mục</button>
-                        {canWrite ? <button onClick={() => startEdit(item)} className="rounded-md border border-[#cfd8e6] px-3 py-1.5 text-xs font-medium text-[#42526b] hover:bg-[#f6f8fb]">Sửa</button> : null}
-                        {canDelete ? <button onClick={() => startDelete(item)} className="rounded-md border border-[#f2b8b5] px-3 py-1.5 text-xs font-medium text-[#b3261e] hover:bg-[#fff3f2]">Xóa</button> : null}
-                      </div>
-                    </td>
-                  </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+  const packageForm = (
+    <form onSubmit={handleSubmit} className="ds-editor__col" aria-label={selected ? "Cập nhật gói khám" : "Tạo gói khám"}>
+      <div className="ds-card">
+        <div className="ds-card__head">
+          <h3>Thông tin gói</h3>
+        </div>
+        <div className="ds-card__body">
+          <DsField label="Tên gói khám" htmlFor="pk-name" required>
+            <DsInput id="pk-name" value={form.name} required disabled={!canWrite} onChange={(event) => handleNameChange(event.target.value)} />
+          </DsField>
+          <div className="ds-grid-fields">
+            <DsField label="Đường dẫn" htmlFor="pk-slug" hint="Tự sinh theo tên gói">
+              <DsInput
+                id="pk-slug"
+                value={form.slug}
+                disabled={!canWrite}
+                onChange={(event) => {
+                  setSlugTouched(true);
+                  setForm((current) => ({ ...current, slug: createSlug(event.target.value) }));
+                }}
+              />
+            </DsField>
+            <DsField label="Chuyên khoa" htmlFor="pk-dept">
+              <DsSelect id="pk-dept" value={form.departmentId} disabled={!canWrite} onChange={(event) => setForm((current) => ({ ...current, departmentId: event.target.value }))}>
+                <option value="">Tất cả khoa</option>
+                {departments.map((department) => (
+                  <option key={department.id} value={department.id}>
+                    {department.name}
+                  </option>
+                ))}
+              </DsSelect>
+            </DsField>
+            <DsField label="Giá nền khi chưa có hạng mục" htmlFor="pk-base">
+              <DsInput id="pk-base" inputMode="numeric" value={formatMoneyInput(form.basePrice)} disabled={!canWrite} onChange={(event) => setForm((current) => ({ ...current, basePrice: parseMoneyInput(event.target.value) }))} />
+            </DsField>
+            <DsField label="Phí dịch vụ" htmlFor="pk-fee">
+              <DsInput id="pk-fee" inputMode="numeric" value={formatMoneyInput(form.serviceFee)} disabled={!canWrite} onChange={(event) => setForm((current) => ({ ...current, serviceFee: parseMoneyInput(event.target.value) }))} />
+            </DsField>
           </div>
-
-          <div className="flex items-center justify-between border-t border-[#e5ebf3] px-4 py-3 text-sm text-[#667892]">
-            <span>{pagination.total} kết quả, trang {pagination.page}/{pagination.totalPages || 1}</span>
-            <div className="flex gap-2">
-              <button disabled={page <= 1} onClick={() => setPage((current) => Math.max(current - 1, 1))} className="rounded-md border border-[#cfd8e6] px-3 py-1.5 font-medium disabled:opacity-50">Trước</button>
-              <button disabled={page >= pagination.totalPages} onClick={() => setPage((current) => current + 1)} className="rounded-md border border-[#cfd8e6] px-3 py-1.5 font-medium disabled:opacity-50">Sau</button>
+          <p className="ds-hint" style={{ margin: 0 }}>
+            Khi gói có hạng mục “Đã bao gồm”, hệ thống tự lấy tổng giá hạng mục để tính giá gói. Giá nền chỉ dùng khi chưa có hạng mục.
+          </p>
+          <DsField label="Tóm tắt" htmlFor="pk-summary">
+            <DsInput id="pk-summary" value={form.summary} disabled={!canWrite} onChange={(event) => setForm((current) => ({ ...current, summary: event.target.value }))} />
+          </DsField>
+          <DsField label="Mô tả" htmlFor="pk-desc">
+            <DsTextarea id="pk-desc" rows={3} value={form.description} disabled={!canWrite} onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))} />
+          </DsField>
+          <DsField label="Ghi chú" htmlFor="pk-note">
+            <DsTextarea id="pk-note" rows={2} value={form.note} disabled={!canWrite} onChange={(event) => setForm((current) => ({ ...current, note: event.target.value }))} />
+          </DsField>
+          {(
+            [
+              ["isPopular", "Gói nổi bật", "Hiện ở nhóm nổi bật trên website."],
+              ["isBHYTSupport", "Hỗ trợ BHYT", "Cho phép tính giảm trừ BHYT khi lập hóa đơn."],
+              ["isActive", "Đang hiển thị", "Gói tạm ẩn không hiện khi đặt lịch."],
+            ] as const
+          ).map(([key, label, hint]) => (
+            <label key={key} className="ds-check" style={{ cursor: canWrite ? "pointer" : "default" }}>
+              <input type="checkbox" checked={form[key]} disabled={!canWrite} onChange={(event) => setForm((current) => ({ ...current, [key]: event.target.checked }))} style={{ marginTop: 3 }} />
+              <span>
+                <strong>{label}</strong>
+                <small style={{ display: "block", color: "var(--ds-muted)" }}>{hint}</small>
+              </span>
+            </label>
+          ))}
+          {canWrite ? (
+            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", flexWrap: "wrap" }}>
+              <DsButton onClick={closePane}>Đóng</DsButton>
+              <DsButton type="submit" variant="primary" disabled={saving || !form.name.trim()}>
+                {saving ? "Đang lưu..." : selected ? "Lưu thay đổi" : "Tạo gói"}
+              </DsButton>
             </div>
-          </div>
-        </DashboardSurface>
-
-        {selectedPackage ? (
-          <section ref={itemPanelRef} className="scroll-mt-24 rounded-md border border-[#dce3ee] bg-white p-5">
-            <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-              <div><p className="text-sm font-medium text-[#55708f]">Hạng mục gói khám</p><h3 className="mt-1 text-xl font-semibold">{selectedPackage.name}</h3></div>
-              <button type="button" onClick={() => { setSelectedPackage(null); setEditingItem(null); setDeleteItemTarget(null); }} className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm font-medium text-[#42526b] hover:bg-[#f6f8fb]">Đóng</button>
-            </div>
-
-            {deleteItemTarget ? (
-              <div className="mt-4 rounded-md border border-[#f2b8b5] bg-[#fff3f2] p-4">
-                <h4 className="font-semibold text-[#b3261e]">Xác nhận xóa hạng mục</h4>
-                <p className="mt-2 text-sm text-[#5f2630]">{deleteItemTarget.name}</p>
-                <div className="mt-3 flex gap-2"><button disabled={saving} onClick={() => void handleDeleteItem()} className="rounded-md bg-[#b3261e] px-3 py-2 text-sm font-semibold text-white disabled:opacity-60">Xóa</button><button type="button" onClick={() => setDeleteItemTarget(null)} className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm font-medium text-[#42526b]">Hủy</button></div>
+          ) : null}
+          {selected && canDelete ? (
+            confirmDelete ? (
+              <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                <span style={{ fontSize: 13 }}>Xóa gói {selected.name}?</span>
+                <DsButton variant="danger" disabled={saving} onClick={() => void handleDelete()}>
+                  Xóa
+                </DsButton>
+                <DsButton onClick={() => setConfirmDelete(false)}>Giữ lại</DsButton>
               </div>
-            ) : null}
-
-            <div className="mt-4 grid gap-4 lg:grid-cols-[1fr_320px]">
-              <div className="overflow-x-auto rounded-md border border-[#e5ebf3]">
-                <table className="w-full min-w-[680px] border-separate border-spacing-0 text-left text-sm">
-                  <thead><tr className="text-[#667892]"><th className="border-b border-[#e5ebf3] px-3 py-2 font-semibold">Thứ tự</th><th className="border-b border-[#e5ebf3] px-3 py-2 font-semibold">Hạng mục</th><th className="border-b border-[#e5ebf3] px-3 py-2 font-semibold">Giá</th><th className="border-b border-[#e5ebf3] px-3 py-2 font-semibold">Tính trong gói</th><th className="border-b border-[#e5ebf3] px-3 py-2 text-right font-semibold">Thao tác</th></tr></thead>
-                  <tbody>
-                    {selectedPackage.items.length === 0 ? (
-                      <tr><td colSpan={5} className="px-3 py-8 text-center text-[#667892]">Chưa có hạng mục</td></tr>
-                    ) : selectedPackage.items.map((item) => (
-                      <tr key={item.id}>
-                        <td className="border-b border-[#eef2f7] px-3 py-2">{item.order}</td>
-                        <td className="border-b border-[#eef2f7] px-3 py-2"><p className="font-semibold">{item.name}</p><p className="mt-1 text-xs text-[#667892]">{item.description || "Chưa có mô tả"}</p></td>
-                        <td className="border-b border-[#eef2f7] px-3 py-2">{formatCurrency(item.price)}</td>
-                        <td className="border-b border-[#eef2f7] px-3 py-2"><span className={`inline-flex w-fit whitespace-nowrap rounded-md px-2 py-1 text-xs font-semibold ${item.included ? "bg-[#e7f6ed] text-[#1f7a3a]" : "bg-[#fff4d6] text-[#8a5a00]"}`}>{item.included ? "Đã bao gồm" : "Tính riêng"}</span></td>
-                        <td className="border-b border-[#eef2f7] px-3 py-2"><div className="flex justify-end gap-2">{canWrite ? <><button onClick={() => startEditItem(item)} className="rounded-md border border-[#cfd8e6] px-2 py-1 text-xs text-[#42526b]">Sửa</button><button onClick={() => setDeleteItemTarget(item)} className="rounded-md border border-[#f2b8b5] px-2 py-1 text-xs text-[#b3261e]">Xóa</button></> : null}</div></td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+            ) : (
+              <div>
+                <DsButton variant="ghost" onClick={() => setConfirmDelete(true)}>
+                  Xóa gói khám
+                </DsButton>
               </div>
+            )
+          ) : null}
+        </div>
+      </div>
+    </form>
+  );
 
-              {canWrite ? (
-                <form className="space-y-3 rounded-md border border-[#e5ebf3] p-4" onSubmit={handleItemSubmit}>
-                  <h4 className="font-semibold">{editingItem ? "Sửa hạng mục" : "Thêm hạng mục"}</h4>
-                  <input value={itemForm.name} onChange={(event) => setItemForm((current) => ({ ...current, name: event.target.value }))} placeholder="Tên hạng mục" className="w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" required />
-                  <textarea value={itemForm.description} onChange={(event) => setItemForm((current) => ({ ...current, description: event.target.value }))} placeholder="Mô tả" rows={3} className="w-full resize-none rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" />
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <label className="block"><span className="text-xs font-medium text-[#667892]">Giá</span><input value={formatMoneyInput(itemForm.price)} onChange={(event) => setItemForm((current) => ({ ...current, price: parseMoneyInput(event.target.value) }))} placeholder="0" inputMode="numeric" className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" /></label>
-                    <label className="block"><span className="text-xs font-medium text-[#667892]">Thứ tự</span><input value={itemForm.order} onChange={(event) => setItemForm((current) => ({ ...current, order: event.target.value.replace(/\D/g, "") }))} inputMode="numeric" className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" /></label>
-                  </div>
-                  <label className="flex items-center justify-between gap-3 rounded-md border border-[#e5ebf3] px-3 py-2"><span className="min-w-0 text-sm font-medium text-[#334155]">Đã bao gồm trong giá gói</span><input type="checkbox" checked={itemForm.included} onChange={(event) => setItemForm((current) => ({ ...current, included: event.target.checked }))} className="h-4 w-4 shrink-0 accent-[#0d4f8b]" /></label>
-                  <div className="flex gap-2"><button disabled={saving} className="flex-1 rounded-md bg-[#0d4f8b] px-3 py-2 text-sm font-semibold text-white disabled:opacity-60">{saving ? "Đang lưu..." : editingItem ? "Lưu hạng mục" : "Thêm hạng mục"}</button>{editingItem ? <button type="button" onClick={() => { setEditingItem(null); setItemForm({ ...emptyItemForm, order: String(selectedPackage.items.length) }); }} className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm font-medium text-[#42526b]">Hủy</button> : null}</div>
-                </form>
+  const itemsColumn = selected ? (
+    <div className="ds-editor__col">
+      <div className="ds-card">
+        <div className="ds-card__head">
+          <h3>Hạng mục ({selected.items.length})</h3>
+          {canWrite && !itemOpen ? <DsButton onClick={startAddItem}>Thêm hạng mục</DsButton> : null}
+        </div>
+        <div className="ds-card__body">
+          <DsKeyValue
+            items={[
+              { label: "Tổng hạng mục đã bao gồm", value: formatCurrency(selected.includedItemsTotal ?? getIncludedItemsTotal(selected.items)) },
+              { label: "Giá gói", value: <strong>{formatCurrency(selected.finalPrice)}</strong> },
+            ]}
+          />
+        </div>
+        {selected.items.length === 0 && !itemOpen ? <p style={{ margin: 0, padding: 14, color: "var(--ds-muted)" }}>Chưa có hạng mục.</p> : null}
+        {selected.items.map((item) => (
+          <div key={item.id} className="ds-labrow">
+            <div className="ds-labrow__main">
+              <strong>
+                {item.order}. {item.name}
+              </strong>
+              <small>{formatCurrency(item.price)} · {item.included ? "Đã bao gồm trong giá gói" : "Không tính vào giá gói"}</small>
+              {item.description ? <small>{item.description}</small> : null}
+              {deleteItemTarget?.id === item.id ? (
+                <div style={{ display: "flex", gap: 8, marginTop: 8, alignItems: "center", flexWrap: "wrap" }}>
+                  <span style={{ fontSize: 13 }}>Xóa hạng mục này?</span>
+                  <DsButton variant="danger" disabled={saving} onClick={() => void handleDeleteItem()}>
+                    Xóa
+                  </DsButton>
+                  <DsButton onClick={() => setDeleteItemTarget(null)}>Giữ lại</DsButton>
+                </div>
               ) : null}
             </div>
-          </section>
-        ) : null}
-      </section>
-
-      {workspaceOpen && canWrite ? (
-      <aside ref={formPanelRef} className="min-w-0 scroll-mt-24">
-        <DashboardWorkspace
-          open={workspaceOpen}
-          onOpenChange={setWorkspaceOpen}
-          title={editing ? `Gói khám ${editing.name}` : "Công cụ gói khám"}
-          description="Quản lý giá, quyền lợi BHYT, nội dung hiển thị và trạng thái cung cấp dịch vụ."
-        >
-        {deleteTarget ? (
-          <div className="mb-5 rounded-md border border-[#f2b8b5] bg-[#fff3f2] p-4">
-            <h3 className="font-semibold text-[#b3261e]">Xác nhận xóa gói khám</h3>
-            <p className="mt-2 text-sm text-[#5f2630]">{deleteTarget.name}</p>
-            <div className="mt-3 flex gap-2"><button disabled={saving} onClick={() => void handleDelete()} className="rounded-md bg-[#b3261e] px-3 py-2 text-sm font-semibold text-white disabled:opacity-60">Xóa</button><button type="button" onClick={() => setDeleteTarget(null)} className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm font-medium text-[#42526b]">Hủy</button></div>
+            {canWrite && deleteItemTarget?.id !== item.id ? (
+              <span style={{ display: "flex", gap: 4 }}>
+                <DsButton variant="ghost" onClick={() => startEditItem(item)}>
+                  Sửa
+                </DsButton>
+                <DsButton
+                  variant="ghost"
+                  onClick={() => {
+                    setDeleteItemTarget(item);
+                    setItemOpen(false);
+                    setEditingItem(null);
+                  }}
+                >
+                  Xóa
+                </DsButton>
+              </span>
+            ) : null}
           </div>
+        ))}
+        {itemOpen && canWrite ? (
+          <form className="ds-card__body" onSubmit={handleItemSubmit} style={{ borderTop: "1px solid var(--ds-line)" }} aria-label={editingItem ? "Sửa hạng mục" : "Thêm hạng mục"}>
+            <DsField label="Tên hạng mục" htmlFor="it-name" required>
+              <DsInput id="it-name" value={itemForm.name} required onChange={(event) => setItemForm((current) => ({ ...current, name: event.target.value }))} />
+            </DsField>
+            <DsField label="Mô tả" htmlFor="it-desc">
+              <DsTextarea id="it-desc" rows={2} value={itemForm.description} onChange={(event) => setItemForm((current) => ({ ...current, description: event.target.value }))} />
+            </DsField>
+            <div className="ds-grid-fields">
+              <DsField label="Giá" htmlFor="it-price">
+                <DsInput id="it-price" inputMode="numeric" value={formatMoneyInput(itemForm.price)} onChange={(event) => setItemForm((current) => ({ ...current, price: parseMoneyInput(event.target.value) }))} />
+              </DsField>
+              <DsField label="Thứ tự" htmlFor="it-order">
+                <DsInput id="it-order" inputMode="numeric" value={itemForm.order} onChange={(event) => setItemForm((current) => ({ ...current, order: event.target.value.replace(/\D/g, "") }))} />
+              </DsField>
+            </div>
+            <label className="ds-check" style={{ cursor: "pointer" }}>
+              <input type="checkbox" checked={itemForm.included} onChange={(event) => setItemForm((current) => ({ ...current, included: event.target.checked }))} style={{ marginTop: 3 }} />
+              <span>
+                <strong>Đã bao gồm trong giá gói</strong>
+              </span>
+            </label>
+            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+              <DsButton onClick={resetItemEditor}>Hủy</DsButton>
+              <DsButton type="submit" variant="primary" disabled={saving || !itemForm.name.trim()}>
+                {saving ? "Đang lưu..." : editingItem ? "Lưu hạng mục" : "Thêm hạng mục"}
+              </DsButton>
+            </div>
+          </form>
         ) : null}
-
-        <h3 className="text-lg font-semibold">{editing ? "Cập nhật gói khám" : "Tạo gói khám"}</h3>
-        <p className="mt-2 text-sm leading-6 text-[#667892]">Đường dẫn tự sinh theo tên gói. Dữ liệu gói khám hiện chưa hỗ trợ trường hình ảnh nên màn này chưa có chức năng tải ảnh lên.</p>
-
-        <form className="mt-5 space-y-4" onSubmit={handleSubmit}>
-          <label className="block"><span className="text-sm font-medium text-[#334155]">Tên gói khám</span><input value={form.name} onChange={(event) => handleNameChange(event.target.value)} disabled={!canWrite} className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa] disabled:bg-[#f6f8fb]" required /></label>
-          <label className="block"><span className="text-sm font-medium text-[#334155]">Đường dẫn</span><input value={form.slug} onChange={(event) => { setSlugTouched(true); setForm((current) => ({ ...current, slug: createSlug(event.target.value) })); }} disabled={!canWrite} className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa] disabled:bg-[#f6f8fb]" /></label>
-          <label className="block"><span className="text-sm font-medium text-[#334155]">Chuyên khoa</span><select value={form.departmentId} onChange={(event) => setForm((current) => ({ ...current, departmentId: event.target.value }))} disabled={!canWrite} className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa] disabled:bg-[#f6f8fb]"><option value="">Tất cả khoa</option>{departments.map((department) => <option key={department.id} value={department.id}>{department.name}</option>)}</select></label>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <label className="block"><span className="text-sm font-medium text-[#334155]">Giá nền khi chưa có hạng mục</span><input value={formatMoneyInput(form.basePrice)} onChange={(event) => setForm((current) => ({ ...current, basePrice: parseMoneyInput(event.target.value) }))} disabled={!canWrite} placeholder="500.000" inputMode="numeric" className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa] disabled:bg-[#f6f8fb]" required /></label>
-            <label className="block"><span className="text-sm font-medium text-[#334155]">Phí dịch vụ</span><input value={formatMoneyInput(form.serviceFee)} onChange={(event) => setForm((current) => ({ ...current, serviceFee: parseMoneyInput(event.target.value) }))} disabled={!canWrite} placeholder="0" inputMode="numeric" className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa] disabled:bg-[#f6f8fb]" /></label>
-          </div>
-          <p className="text-xs leading-5 text-[#667892]">Khi gói có hạng mục “Đã bao gồm”, hệ thống tự lấy tổng giá hạng mục để tính giá gói. Giá nền chỉ dùng khi chưa có hạng mục.</p>
-          <label className="block"><span className="text-sm font-medium text-[#334155]">Tóm tắt</span><input value={form.summary} onChange={(event) => setForm((current) => ({ ...current, summary: event.target.value }))} disabled={!canWrite} className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa] disabled:bg-[#f6f8fb]" /></label>
-          <label className="block"><span className="text-sm font-medium text-[#334155]">Mô tả</span><textarea value={form.description} onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))} disabled={!canWrite} rows={3} className="mt-1 w-full resize-none rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa] disabled:bg-[#f6f8fb]" /></label>
-          <label className="block"><span className="text-sm font-medium text-[#334155]">Ghi chú</span><textarea value={form.note} onChange={(event) => setForm((current) => ({ ...current, note: event.target.value }))} disabled={!canWrite} rows={2} className="mt-1 w-full resize-none rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa] disabled:bg-[#f6f8fb]" /></label>
-          <div className="space-y-2">{[["isPopular", "Gói nổi bật"], ["isBHYTSupport", "Hỗ trợ BHYT"], ["isActive", "Đang hiển thị"]].map(([key, label]) => <label key={key} className="flex items-center justify-between rounded-md border border-[#e5ebf3] px-3 py-2"><span className="text-sm font-medium text-[#334155]">{label}</span><input type="checkbox" checked={Boolean(form[key as keyof PackageForm])} onChange={(event) => setForm((current) => ({ ...current, [key]: event.target.checked }))} disabled={!canWrite} className="h-4 w-4 accent-[#0d4f8b]" /></label>)}</div>
-
-          {canWrite ? <div className="flex gap-2"><button disabled={saving} className="flex-1 rounded-md bg-[#0d4f8b] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#083d6d] disabled:opacity-60">{saving ? "Đang lưu..." : editing ? "Lưu thay đổi" : "Tạo gói khám"}</button>{editing ? <button type="button" onClick={startCreate} className="rounded-md border border-[#cfd8e6] px-4 py-2.5 text-sm font-medium text-[#42526b] hover:bg-[#f6f8fb]">Hủy</button> : null}</div> : null}
-        </form>
-        </DashboardWorkspace>
-      </aside>
-      ) : null}
+      </div>
     </div>
+  ) : null;
+
+  const paneNode = open ? (
+    <DsPane
+      wide={Boolean(selected)}
+      bodyClassName={selected ? "ds-pane__body ds-pane__body--flush" : undefined}
+      title={selected ? selected.name : "Tạo gói khám"}
+      badge={selected ? <DsStatusPill tone={selected.isActive ? "good" : "neutral"}>{selected.isActive ? "Hiển thị" : "Tạm ẩn"}</DsStatusPill> : undefined}
+      onClose={closePane}
+    >
+      {selected ? (
+        <div className="ds-editor">
+          {packageForm}
+          {itemsColumn}
+        </div>
+      ) : (
+        packageForm
+      )}
+    </DsPane>
+  ) : null;
+
+  return (
+    <>
+      <DsPageHeader title="Gói khám" description="Giá, phí dịch vụ, hỗ trợ BHYT và các hạng mục cấu thành từng gói" />
+      <div style={{ display: "grid", gap: 12, marginBottom: 16 }}>
+        {visibleError ? <DsNotice tone="bad">{visibleError}</DsNotice> : null}
+        {notice ? <DsNotice tone="good">{notice}</DsNotice> : null}
+      </div>
+      <DsSplit wide={Boolean(selected)} list={list} pane={paneNode} />
+    </>
   );
 }
