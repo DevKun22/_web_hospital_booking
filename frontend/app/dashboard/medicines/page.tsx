@@ -2,13 +2,23 @@
 
 import { FormEvent, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { PackagePlus, RefreshCw } from "lucide-react";
-import { DashboardFeedback } from "@/components/dashboard/dashboard-feedback";
+import { Plus, RefreshCw, Search } from "lucide-react";
 import {
-  DashboardEmptyState,
-  DashboardPageHeader,
-  DashboardSurface,
-} from "@/components/dashboard/dashboard-ui";
+  DsButton,
+  DsDataTable,
+  DsEmptyState,
+  DsField,
+  DsInput,
+  DsNotice,
+  DsPageHeader,
+  DsPane,
+  DsPanel,
+  DsSplit,
+  DsStatusPill,
+  DsTabs,
+  DsToolbar,
+  type DsColumn,
+} from "@/components/ds";
 import { ExportCsvButton } from "@/components/dashboard/export-csv-button";
 import { ImportCsvPanel } from "@/components/dashboard/import-csv-panel";
 import { apiRequest } from "@/lib/api";
@@ -49,6 +59,23 @@ const CATALOG_TEMPLATE =
 const RECEIPT_TEMPLATE = "Mã thuốc,Số lượng,Lý do\r\nPARA500,200,Phiếu nhập 01\r\n";
 const emptyForm = { code: "", name: "", unit: "viên", strength: "", dosageForm: "", activeIngredient: "", minStock: "0" };
 
+const stockTabs = [
+  { id: "all", label: "Tất cả" },
+  { id: "low", label: "Sắp hết" },
+];
+
+const formFields = [
+  ["code", "Mã thuốc", true],
+  ["name", "Tên thuốc", true],
+  ["unit", "Đơn vị", true],
+  ["strength", "Hàm lượng", false],
+  ["dosageForm", "Dạng bào chế", false],
+  ["activeIngredient", "Hoạt chất", false],
+  ["minStock", "Mức tồn tối thiểu", false],
+] as const;
+
+// Kho thuốc: danh sách bên trái; chọn một thuốc thì khung bên phải cho nhập kho, điều chỉnh và xem sổ kho.
+// Thêm thuốc vào danh mục mở ở cùng khung đó, không chiếm chỗ cố định.
 export default function MedicinesPage() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -60,6 +87,7 @@ export default function MedicinesPage() {
   const [applied, setApplied] = useState("");
   const [lowOnly, setLowOnly] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [creating, setCreating] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [receiptQty, setReceiptQty] = useState("");
   const [adjustDelta, setAdjustDelta] = useState("");
@@ -72,13 +100,11 @@ export default function MedicinesPage() {
         query: { q: applied || undefined, lowStock: lowOnly ? "true" : undefined, limit: 100 },
       }),
   });
-  const selected = listQuery.data?.items.find((item) => item.id === selectedId) || null;
+  const items = listQuery.data?.items ?? [];
+  const selected = items.find((item) => item.id === selectedId) || null;
   const movementsQuery = useQuery({
     queryKey: ["dashboard", "pharmacy", "movements", selectedId],
-    queryFn: () =>
-      apiRequest<Paged<Movement>>(`/dashboard/pharmacy/medicines/${selectedId}/movements`, {
-        query: { limit: 30 },
-      }),
+    queryFn: () => apiRequest<Paged<Movement>>(`/dashboard/pharmacy/medicines/${selectedId}/movements`, { query: { limit: 30 } }),
     enabled: Boolean(selectedId),
   });
 
@@ -99,6 +125,7 @@ export default function MedicinesPage() {
       }),
     onSuccess: async () => {
       setForm(emptyForm);
+      setCreating(false);
       await refresh();
     },
   });
@@ -134,21 +161,254 @@ export default function MedicinesPage() {
     action();
   };
 
+  const resetMutations = () => mutations.forEach((item) => item.reset());
+  const selectMedicine = (id: string) => {
+    resetMutations();
+    setCreating(false);
+    setSelectedId(id);
+  };
+  const closePane = () => {
+    setSelectedId(null);
+    setCreating(false);
+  };
+
+  const open = Boolean(selected) || creating;
+
+  const columns: DsColumn<Medicine>[] = [
+    {
+      key: "name",
+      header: "Thuốc",
+      cell: (item) => (
+        <div>
+          <strong>
+            {item.name} {item.strength || ""}
+          </strong>
+          {!item.isActive ? <span style={{ marginLeft: 8, color: "var(--ds-muted)", fontSize: 12 }}>(ngừng dùng)</span> : null}
+          <div style={{ color: "var(--ds-muted)", fontSize: 12 }}>
+            <span className="ds-mono">{item.code}</span>
+            {item.dosageForm ? ` · ${item.dosageForm}` : ""}
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: "stock",
+      header: "Tồn kho",
+      align: "num",
+      cell: (item) => {
+        const low = item.stockQuantity <= item.minStock;
+        return (
+          <div>
+            <strong style={low ? { color: "var(--ds-bad)" } : undefined}>
+              {item.stockQuantity} {item.unit}
+            </strong>
+            {low ? <div style={{ fontSize: 12, color: "var(--ds-bad)" }}>Sắp hết (tối thiểu {item.minStock})</div> : null}
+          </div>
+        );
+      },
+    },
+  ];
+
+  const list = (
+    <DsPanel flush>
+      <form onSubmit={submit(() => setApplied(search.trim()))} aria-label="Tìm thuốc">
+        <DsToolbar>
+          <div style={{ minWidth: 160, flex: "1 1 200px" }}>
+            <DsInput aria-label="Tìm thuốc" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Tên, mã hoặc hoạt chất" />
+          </div>
+          <DsButton type="submit">
+            <Search aria-hidden="true" />
+            Tìm
+          </DsButton>
+          {canCatalog ? (
+            <DsButton
+              variant="primary"
+              onClick={() => {
+                resetMutations();
+                setSelectedId(null);
+                setCreating(true);
+              }}
+            >
+              <Plus aria-hidden="true" />
+              Thêm thuốc
+            </DsButton>
+          ) : null}
+        </DsToolbar>
+      </form>
+      <DsTabs label="Lọc theo tồn kho" items={stockTabs} value={lowOnly ? "low" : "all"} onChange={(id) => setLowOnly(id === "low")} />
+      {open ? (
+        items.length ? (
+          <div role="listbox" aria-label="Danh sách thuốc">
+            {items.map((item) => {
+              const low = item.stockQuantity <= item.minStock;
+              return (
+                <button key={item.id} type="button" role="option" className="ds-listrow" aria-selected={item.id === selectedId} onClick={() => selectMedicine(item.id)}>
+                  <span className="ds-listrow__main">
+                    <strong>
+                      {item.name} {item.strength || ""}
+                    </strong>
+                    <small>{item.code}</small>
+                  </span>
+                  <DsStatusPill tone={low ? "bad" : "neutral"}>
+                    {item.stockQuantity} {item.unit}
+                  </DsStatusPill>
+                </button>
+              );
+            })}
+          </div>
+        ) : (
+          <DsEmptyState title="Chưa có thuốc" />
+        )
+      ) : (
+        <DsDataTable
+          caption="Danh sách thuốc"
+          columns={columns}
+          rows={items}
+          rowKey={(item) => item.id}
+          loading={listQuery.isLoading}
+          emptyTitle="Chưa có thuốc"
+          emptyDescription="Thêm thuốc vào danh mục rồi nhập kho."
+          onRowClick={(item) => selectMedicine(item.id)}
+        />
+      )}
+    </DsPanel>
+  );
+
+  const createPane = creating ? (
+    <DsPane title="Thêm thuốc vào danh mục" onClose={closePane}>
+      <form onSubmit={submit(() => createMutation.mutate())} style={{ display: "grid", gap: 12 }} aria-label="Thêm thuốc">
+        <div className="ds-grid-fields">
+          {formFields.map(([key, label, required]) => (
+            <DsField key={key} label={label} htmlFor={`med-${key}`} required={required}>
+              <DsInput id={`med-${key}`} value={form[key]} onChange={(event) => setForm((current) => ({ ...current, [key]: event.target.value }))} />
+            </DsField>
+          ))}
+        </div>
+        <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+          <DsButton onClick={closePane}>Hủy</DsButton>
+          <DsButton type="submit" variant="primary" disabled={!form.code.trim() || !form.name.trim() || !form.unit.trim() || createMutation.isPending}>
+            Thêm thuốc
+          </DsButton>
+        </div>
+      </form>
+    </DsPane>
+  ) : null;
+
+  const adjustBlock = !adjustDelta || Number(adjustDelta) === 0 ? "Nhập số lượng khác 0" : !adjustReason.trim() ? "Cần ghi lý do điều chỉnh" : "";
+
+  const detailPane = selected ? (
+    <DsPane
+      wide
+      bodyClassName="ds-pane__body ds-pane__body--flush"
+      title={`${selected.name} ${selected.strength || ""}`.trim()}
+      badge={
+        <DsStatusPill tone={selected.stockQuantity <= selected.minStock ? "bad" : "good"}>
+          Tồn {selected.stockQuantity} {selected.unit}
+        </DsStatusPill>
+      }
+      onClose={closePane}
+    >
+      <div style={{ padding: "12px 16px 0", color: "var(--ds-muted)", fontSize: 13 }}>
+        {selected.code}
+        {selected.dosageForm ? ` · ${selected.dosageForm}` : ""}
+        {selected.activeIngredient ? ` · ${selected.activeIngredient}` : ""} · mức tối thiểu {selected.minStock}
+      </div>
+
+      <div className="ds-editor">
+        <div className="ds-editor__col">
+          {canReceive ? (
+            <div className="ds-card">
+              <div className="ds-card__head">
+                <h3>Nhập kho</h3>
+              </div>
+              <form className="ds-card__body" onSubmit={submit(() => receiveMutation.mutate())} aria-label="Nhập kho">
+                <DsField label={`Số lượng (${selected.unit})`} htmlFor="receipt-qty">
+                  <DsInput id="receipt-qty" type="number" min={1} value={receiptQty} onChange={(event) => setReceiptQty(event.target.value)} />
+                </DsField>
+                <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                  <DsButton type="submit" variant="primary" disabled={!receiptQty || receiveMutation.isPending}>
+                    Nhập kho
+                  </DsButton>
+                </div>
+              </form>
+            </div>
+          ) : null}
+
+          {canAdjust ? (
+            <div className="ds-card">
+              <div className="ds-card__head">
+                <h3>Điều chỉnh tồn</h3>
+              </div>
+              <form className="ds-card__body" onSubmit={submit(() => adjustMutation.mutate())} aria-label="Điều chỉnh tồn">
+                <p className="ds-hint" style={{ margin: 0 }}>
+                  Dùng khi kiểm kê hoặc huỷ thuốc hỏng. Số âm để trừ, số dương để cộng.
+                </p>
+                <div className="ds-grid-fields">
+                  <DsField label="Thay đổi (±)" htmlFor="adjust-delta">
+                    <DsInput id="adjust-delta" type="number" value={adjustDelta} onChange={(event) => setAdjustDelta(event.target.value)} />
+                  </DsField>
+                  <DsField label="Lý do" htmlFor="adjust-reason" required>
+                    <DsInput id="adjust-reason" value={adjustReason} onChange={(event) => setAdjustReason(event.target.value)} />
+                  </DsField>
+                </div>
+                <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", alignItems: "center" }}>
+                  {adjustDelta || adjustReason ? <span className="ds-hint">{adjustBlock}</span> : null}
+                  <DsButton type="submit" disabled={Boolean(adjustBlock) || adjustMutation.isPending}>
+                    Điều chỉnh
+                  </DsButton>
+                </div>
+              </form>
+            </div>
+          ) : null}
+        </div>
+
+        <div className="ds-editor__col">
+          <div className="ds-card">
+            <div className="ds-card__head">
+              <h3>Sổ kho gần đây</h3>
+            </div>
+            {movementsQuery.data && movementsQuery.data.items.length === 0 ? (
+              <p style={{ margin: 0, padding: 14, color: "var(--ds-muted)" }}>Chưa có biến động nào.</p>
+            ) : null}
+            {movementsQuery.data?.items.map((move) => (
+              <div key={move.id} className="ds-labrow">
+                <div className="ds-labrow__main">
+                  <strong>
+                    {movementLabel[move.type]}
+                    {move.prescriptionItem ? ` · đơn ${move.prescriptionItem.prescription.prescriptionCode}` : ""}
+                  </strong>
+                  {move.reason ? <small>{move.reason}</small> : null}
+                  <small>
+                    {formatVietnamDateTime(move.createdAt)} · {move.actor.fullName}
+                  </small>
+                </div>
+                <div style={{ textAlign: "right", whiteSpace: "nowrap" }}>
+                  <strong style={{ color: move.quantity > 0 ? "var(--ds-good)" : "var(--ds-bad)" }}>
+                    {move.quantity > 0 ? "+" : ""}
+                    {move.quantity}
+                  </strong>
+                  <div style={{ fontSize: 12, color: "var(--ds-muted)" }}>còn {move.balanceAfter}</div>
+                </div>
+              </div>
+            ))}
+            <p className="ds-hint" style={{ margin: 0, padding: "10px 14px" }}>
+              Sổ kho không sửa hay xoá được.
+            </p>
+          </div>
+        </div>
+      </div>
+    </DsPane>
+  ) : null;
+
   return (
-    <div className="space-y-6">
-      <DashboardFeedback
-        error={failed?.message}
-        notice={succeeded ? "Đã lưu thay đổi kho" : undefined}
-        onDismiss={() => mutations.forEach((item) => item.reset())}
-      />
-      <DashboardPageHeader
-        eyebrow="Khu làm việc dược sĩ"
+    <>
+      <DsPageHeader
         title="Kho thuốc"
-        description="Danh mục và tồn kho. Tồn chỉ thay đổi qua phiếu nhập, cấp thuốc theo đơn hoặc điều chỉnh có lý do; sổ kho không sửa hay xóa."
+        description="Tồn chỉ thay đổi qua phiếu nhập, cấp thuốc theo đơn hoặc điều chỉnh có lý do."
         actions={
-          <div className="flex min-w-0 flex-wrap items-start gap-3">
-            <ExportCsvButton path="/dashboard/pharmacy/medicines/export" fallbackName="ton-kho-thuoc.csv" ranged={false} label="Xuất tồn kho" />
-            <ExportCsvButton path="/dashboard/pharmacy/movements/export" fallbackName="so-kho-thuoc.csv" label="Xuất sổ kho" />
+          <>
+            <ExportCsvButton ds path="/dashboard/pharmacy/medicines/export" fallbackName="ton-kho-thuoc.csv" ranged={false} label="Xuất tồn kho" />
+            <ExportCsvButton ds path="/dashboard/pharmacy/movements/export" fallbackName="so-kho-thuoc.csv" label="Xuất sổ kho" />
             {canCatalog ? (
               <ImportCsvPanel
                 path="/dashboard/pharmacy/import/catalog"
@@ -169,195 +429,18 @@ export default function MedicinesPage() {
                 onDone={() => void refresh()}
               />
             ) : null}
-            <button
-              type="button"
-              onClick={() => void listQuery.refetch()}
-              className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-4 text-sm font-semibold hover:bg-[var(--surface-soft)]"
-            >
-              <RefreshCw className={`h-4 w-4 ${listQuery.isFetching ? "animate-spin" : ""}`} />
+            <DsButton onClick={() => void listQuery.refetch()}>
+              <RefreshCw aria-hidden="true" className={listQuery.isFetching ? "animate-spin" : undefined} />
               Làm mới
-            </button>
-          </div>
+            </DsButton>
+          </>
         }
       />
-
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,420px)]">
-        <DashboardSurface className="overflow-hidden">
-          <form
-            onSubmit={submit(() => setApplied(search.trim()))}
-            className="flex flex-wrap items-center gap-3 border-b border-[var(--border-soft)] p-4"
-          >
-            <input
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder="Tên, mã hoặc hoạt chất"
-              className="min-h-10 w-64 rounded-md border border-[var(--border)] px-3 text-sm"
-            />
-            <button type="submit" className="min-h-10 rounded-lg border border-[var(--border)] px-3 text-sm font-semibold hover:bg-[var(--surface-soft)]">
-              Tìm
-            </button>
-            <label className="flex items-center gap-2 text-sm">
-              <input type="checkbox" checked={lowOnly} onChange={(event) => setLowOnly(event.target.checked)} className="h-4 w-4" />
-              Chỉ thuốc sắp hết
-            </label>
-          </form>
-          {listQuery.isLoading ? <p className="p-4 text-sm text-[var(--text-muted)]">Đang tải...</p> : null}
-          {listQuery.data && listQuery.data.items.length === 0 ? (
-            <div className="p-4">
-              <DashboardEmptyState title="Chưa có thuốc" description="Thêm thuốc vào danh mục rồi nhập kho." />
-            </div>
-          ) : null}
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[560px] text-sm">
-              <tbody className="divide-y divide-[var(--border-soft)]">
-                {listQuery.data?.items.map((item) => {
-                  const low = item.stockQuantity <= item.minStock;
-                  return (
-                    <tr
-                      key={item.id}
-                      onClick={() => setSelectedId(item.id)}
-                      className={`cursor-pointer hover:bg-[var(--surface-soft)] ${selectedId === item.id ? "bg-[var(--surface-soft)]" : ""}`}
-                    >
-                      <td className="px-4 py-3">
-                        <p className="font-medium">
-                          {item.name} {item.strength || ""}
-                          {!item.isActive ? <span className="ml-2 text-xs text-[var(--text-muted)]">(ngừng dùng)</span> : null}
-                        </p>
-                        <p className="text-xs text-[var(--text-muted)]">
-                          {item.code}
-                          {item.dosageForm ? ` · ${item.dosageForm}` : ""}
-                        </p>
-                      </td>
-                      <td className={`px-4 py-3 text-right font-semibold ${low ? "text-red-700" : ""}`}>
-                        {item.stockQuantity} {item.unit}
-                        {low ? <span className="block text-xs font-normal">Sắp hết (mức tối thiểu {item.minStock})</span> : null}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </DashboardSurface>
-
-        <div className="space-y-6">
-          {selected ? (
-            <DashboardSurface className="space-y-4 p-5">
-              <div>
-                <h2 className="font-semibold">{selected.name}</h2>
-                <p className="text-sm text-[var(--text-muted)]">
-                  Tồn hiện tại: {selected.stockQuantity} {selected.unit}
-                </p>
-              </div>
-              {canReceive ? (
-                <form onSubmit={submit(() => receiveMutation.mutate())} className="flex items-end gap-2">
-                  <label className="block text-sm">
-                    <span className="font-medium">Nhập kho</span>
-                    <input
-                      type="number"
-                      min={1}
-                      value={receiptQty}
-                      onChange={(event) => setReceiptQty(event.target.value)}
-                      className="mt-1 w-28 rounded-md border border-[var(--border)] px-3 py-2 text-sm"
-                    />
-                  </label>
-                  <button type="submit" disabled={!receiptQty || receiveMutation.isPending} className="min-h-10 rounded-lg bg-[var(--primary)] px-4 text-sm font-semibold text-white disabled:opacity-60">
-                    Nhập
-                  </button>
-                </form>
-              ) : null}
-              {canAdjust ? (
-                <form onSubmit={submit(() => adjustMutation.mutate())} className="space-y-2">
-                  <p className="text-sm font-medium">Điều chỉnh tồn (kiểm kê, hủy thuốc hỏng)</p>
-                  <div className="flex gap-2">
-                    <input
-                      type="number"
-                      value={adjustDelta}
-                      onChange={(event) => setAdjustDelta(event.target.value)}
-                      placeholder="±SL"
-                      className="w-24 rounded-md border border-[var(--border)] px-3 py-2 text-sm"
-                    />
-                    <input
-                      value={adjustReason}
-                      onChange={(event) => setAdjustReason(event.target.value)}
-                      placeholder="Lý do (bắt buộc)"
-                      className="w-full rounded-md border border-[var(--border)] px-3 py-2 text-sm"
-                    />
-                  </div>
-                  <button
-                    type="submit"
-                    disabled={!adjustDelta || Number(adjustDelta) === 0 || !adjustReason.trim() || adjustMutation.isPending}
-                    className="min-h-10 rounded-lg border border-[var(--border)] px-4 text-sm font-semibold hover:bg-[var(--surface-soft)] disabled:opacity-60"
-                  >
-                    Điều chỉnh
-                  </button>
-                </form>
-              ) : null}
-              <div>
-                <p className="mb-2 text-sm font-medium">Sổ kho gần đây</p>
-                <ul className="divide-y divide-[var(--border-soft)] text-sm">
-                  {movementsQuery.data?.items.map((move) => (
-                    <li key={move.id} className="flex items-start justify-between gap-3 py-2">
-                      <span>
-                        {movementLabel[move.type]}
-                        {move.prescriptionItem ? ` · đơn ${move.prescriptionItem.prescription.prescriptionCode}` : ""}
-                        {move.reason ? ` · ${move.reason}` : ""}
-                        <span className="block text-xs text-[var(--text-muted)]">
-                          {formatVietnamDateTime(move.createdAt)} · {move.actor.fullName}
-                        </span>
-                      </span>
-                      <span className="text-right font-semibold whitespace-nowrap">
-                        {move.quantity > 0 ? "+" : ""}
-                        {move.quantity}
-                        <span className="block text-xs font-normal text-[var(--text-muted)]">còn {move.balanceAfter}</span>
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </DashboardSurface>
-          ) : null}
-
-          {canCatalog ? (
-            <DashboardSurface className="p-5">
-              <h2 className="mb-3 inline-flex items-center gap-2 font-semibold">
-                <PackagePlus className="h-4 w-4" /> Thêm thuốc vào danh mục
-              </h2>
-              <form onSubmit={submit(() => createMutation.mutate())} className="grid gap-3 sm:grid-cols-2">
-                {(
-                  [
-                    ["code", "Mã thuốc *"],
-                    ["name", "Tên thuốc *"],
-                    ["unit", "Đơn vị *"],
-                    ["strength", "Hàm lượng"],
-                    ["dosageForm", "Dạng bào chế"],
-                    ["activeIngredient", "Hoạt chất"],
-                    ["minStock", "Mức tồn tối thiểu"],
-                  ] as const
-                ).map(([key, label]) => (
-                  <label key={key} className="block text-sm">
-                    <span className="font-medium">{label}</span>
-                    <input
-                      value={form[key]}
-                      onChange={(event) => setForm((current) => ({ ...current, [key]: event.target.value }))}
-                      className="mt-1 w-full rounded-md border border-[var(--border)] px-3 py-2 text-sm"
-                    />
-                  </label>
-                ))}
-                <div className="sm:col-span-2">
-                  <button
-                    type="submit"
-                    disabled={!form.code.trim() || !form.name.trim() || !form.unit.trim() || createMutation.isPending}
-                    className="min-h-10 rounded-lg bg-[var(--primary)] px-4 text-sm font-semibold text-white disabled:opacity-60"
-                  >
-                    Thêm thuốc
-                  </button>
-                </div>
-              </form>
-            </DashboardSurface>
-          ) : null}
-        </div>
+      <div style={{ display: "grid", gap: 12, marginBottom: 16 }}>
+        {failed ? <DsNotice tone="bad">{failed.message}</DsNotice> : null}
+        {succeeded && !failed ? <DsNotice tone="good">Đã lưu thay đổi kho</DsNotice> : null}
       </div>
-    </div>
+      <DsSplit wide list={list} pane={detailPane ?? createPane} />
+    </>
   );
 }
