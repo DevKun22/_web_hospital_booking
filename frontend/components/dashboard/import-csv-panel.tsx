@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import { FileUp } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { DsButton, DsDataTable, DsNotice, DsPanel, type DsColumn } from "@/components/ds";
 import { apiRequest } from "@/lib/api";
 
 type ImportRow = {
@@ -34,6 +34,13 @@ const actionLabel: Record<ImportRow["action"], string> = {
   receive: "Nhập kho",
   error: "Lỗi",
 };
+
+const columns: DsColumn<ImportRow>[] = [
+  { key: "line", header: "Dòng", cell: (row) => row.line },
+  { key: "code", header: "Mã thuốc", cell: (row) => <span className="ds-mono">{row.code || "—"}</span> },
+  { key: "action", header: "Kết quả", cell: (row) => actionLabel[row.action] },
+  { key: "detail", header: "Chi tiết", cell: (row) => (row.errors.length > 0 ? row.errors.join("; ") : row.quantity ? `+${row.quantity}` : "") },
+];
 
 // Nhập CSV theo hai bước: chọn tệp -> kiểm tra (không ghi gì) -> xác nhận áp dụng.
 // Máy chủ kiểm tra lại toàn bộ tệp khi áp dụng và chỉ ghi khi không có dòng nào lỗi.
@@ -106,98 +113,74 @@ export function ImportCsvPanel({
 
   if (!open) {
     return (
-      <Button type="button" variant="outline" onClick={() => setOpen(true)}>
-        <FileUp className="size-4" aria-hidden="true" />
+      <DsButton onClick={() => setOpen(true)}>
+        <FileUp aria-hidden="true" />
         {title}
-      </Button>
+      </DsButton>
     );
   }
 
   const canApply = Boolean(result && !result.applied && result.summary.errors === 0 && result.rows.length > 0);
 
   return (
-    <div className="w-full space-y-3 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4 text-sm">
-      <div className="flex items-center justify-between gap-2">
-        <p className="font-semibold">{title}</p>
-        <Button
-          type="button"
-          variant="ghost"
-          onClick={() => {
-            reset();
-            setOpen(false);
-          }}
-        >
-          Đóng
-        </Button>
-      </div>
-      <p className="text-xs text-[var(--text-muted)]">{hint}</p>
-      <div className="flex flex-wrap items-center gap-2">
-        <input
-          ref={inputRef}
-          type="file"
-          accept=".csv,text/csv"
-          aria-label="Chọn tệp CSV"
-          onChange={(event) => void pick(event.target.files?.[0])}
-          className="text-xs"
-        />
-        <Button type="button" variant="ghost" onClick={downloadTemplate}>
-          Tải tệp mẫu
-        </Button>
-        <Button type="button" variant="outline" disabled={!csv || busy} onClick={() => void send(false)}>
-          {busy && !canApply ? "Đang kiểm tra..." : "Kiểm tra tệp"}
-        </Button>
-        {canApply ? (
-          <Button type="button" disabled={busy} onClick={() => void send(true)}>
-            {busy ? "Đang nhập..." : "Áp dụng"}
-          </Button>
-        ) : null}
-      </div>
-      {fileName ? <p className="text-xs text-[var(--text-muted)]">Tệp: {fileName}</p> : null}
-      {error ? (
-        <p role="alert" className="text-xs text-destructive">
-          {error}
-        </p>
-      ) : null}
-
-      {result ? (
-        <div className="space-y-2">
-          <p role="status" className={result.summary.errors > 0 ? "font-semibold text-destructive" : "font-semibold"}>
-            {result.applied
-              ? `Đã nhập ${result.summary.total} dòng.`
-              : result.summary.errors > 0
-                ? `Có ${result.summary.errors} dòng lỗi, chưa nhập gì. Sửa tệp rồi kiểm tra lại.`
-                : `Tệp hợp lệ: ${result.summary.create} thêm mới, ${result.summary.update} cập nhật, ${result.summary.unchanged} không đổi, ${result.summary.receive} nhập kho. Bấm Áp dụng để ghi.`}
+    <div style={{ flexBasis: "100%", width: "min(720px, 100%)" }}>
+      <DsPanel
+        title={title}
+        actions={
+          <DsButton
+            variant="ghost"
+            onClick={() => {
+              reset();
+              setOpen(false);
+            }}
+          >
+            Đóng
+          </DsButton>
+        }
+      >
+        <div style={{ display: "grid", gap: 12 }}>
+          <p className="ds-hint" style={{ margin: 0 }}>
+            {hint}
           </p>
-          <div className="max-h-64 overflow-auto rounded-lg border border-[var(--border)]">
-            <table className="w-full text-left text-xs">
-              <thead className="sticky top-0 bg-[var(--surface-soft)]">
-                <tr>
-                  <th className="px-2 py-1.5">Dòng</th>
-                  <th className="px-2 py-1.5">Mã thuốc</th>
-                  <th className="px-2 py-1.5">Kết quả</th>
-                  <th className="px-2 py-1.5">Chi tiết</th>
-                </tr>
-              </thead>
-              <tbody>
-                {result.rows.map((row) => (
-                  <tr key={row.line} className="border-t border-[var(--border)]">
-                    <td className="px-2 py-1.5">{row.line}</td>
-                    <td className="px-2 py-1.5 font-mono">{row.code || "—"}</td>
-                    <td className="px-2 py-1.5">{actionLabel[row.action]}</td>
-                    <td className="px-2 py-1.5">
-                      {row.errors.length > 0
-                        ? row.errors.join("; ")
-                        : row.quantity
-                          ? `+${row.quantity}`
-                          : ""}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8 }}>
+            <input
+              ref={inputRef}
+              type="file"
+              accept=".csv,text/csv"
+              aria-label="Chọn tệp CSV"
+              onChange={(event) => void pick(event.target.files?.[0])}
+              style={{ fontSize: 13 }}
+            />
+            <DsButton variant="ghost" onClick={downloadTemplate}>
+              Tải tệp mẫu
+            </DsButton>
+            <DsButton disabled={!csv || busy} onClick={() => void send(false)}>
+              {busy && !canApply ? "Đang kiểm tra..." : "Kiểm tra tệp"}
+            </DsButton>
+            {canApply ? (
+              <DsButton variant="primary" disabled={busy} onClick={() => void send(true)}>
+                {busy ? "Đang nhập..." : "Áp dụng"}
+              </DsButton>
+            ) : null}
           </div>
+          {fileName ? <p className="ds-hint" style={{ margin: 0 }}>Tệp: {fileName}</p> : null}
+          {error ? <DsNotice tone="bad">{error}</DsNotice> : null}
+          {result ? (
+            <>
+              <DsNotice tone={result.summary.errors > 0 ? "bad" : result.applied ? "good" : "info"}>
+                {result.applied
+                  ? `Đã nhập ${result.summary.total} dòng.`
+                  : result.summary.errors > 0
+                    ? `Có ${result.summary.errors} dòng lỗi, chưa nhập gì. Sửa tệp rồi kiểm tra lại.`
+                    : `Tệp hợp lệ: ${result.summary.create} thêm mới, ${result.summary.update} cập nhật, ${result.summary.unchanged} không đổi, ${result.summary.receive} nhập kho. Bấm Áp dụng để ghi.`}
+              </DsNotice>
+              <div style={{ maxHeight: 256, overflow: "auto" }}>
+                <DsDataTable caption="Kết quả kiểm tra tệp" columns={columns} rows={result.rows} rowKey={(row) => String(row.line)} />
+              </div>
+            </>
+          ) : null}
         </div>
-      ) : null}
+      </DsPanel>
     </div>
   );
 }
