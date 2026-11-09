@@ -11,6 +11,8 @@ export type DashboardInvoiceFilters = {
   phone?: string;
   invoiceCode?: string;
   barcode?: string;
+  /** Tìm gần đúng theo mã hóa đơn, mã vạch, mã lịch, SĐT hoặc tên người khám. */
+  q?: string;
   page?: number;
   limit?: number;
 };

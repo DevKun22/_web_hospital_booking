@@ -1,23 +1,42 @@
 "use client";
 
-import { can } from "@/lib/permissions";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
-import { PanelRightOpen, Search } from "lucide-react";
-import { DashboardFeedback } from "@/components/dashboard/dashboard-feedback";
-import { DashboardPageHeader, DashboardStatusBadge, DashboardSurface } from "@/components/dashboard/dashboard-ui";
+import { Plus } from "lucide-react";
+import {
+  DsButton,
+  DsDataTable,
+  DsEmptyState,
+  DsField,
+  DsInput,
+  DsKeyValue,
+  DsNotice,
+  DsPageHeader,
+  DsPane,
+  DsPanel,
+  DsSelect,
+  DsSplit,
+  DsStatusPill,
+  DsTabs,
+  DsTextarea,
+  DsToolbar,
+  type DsColumn,
+  type DsTone,
+} from "@/components/ds";
 import { ExportCsvButton } from "@/components/dashboard/export-csv-button";
-import { DashboardWorkspace } from "@/components/dashboard/dashboard-workspace";
 import { PrintButton, PrintableInvoice } from "@/components/dashboard/printable-documents";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { ApiError, apiRequest } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { useDashboardAppointments } from "@/lib/dashboard-appointments-query";
 import { useDashboardInvoice, useDashboardInvoices } from "@/lib/dashboard-invoices-query";
 import { formatVietnamDate, formatVietnamDateTime } from "@/lib/date";
+import { can } from "@/lib/permissions";
 import { queryKeys } from "@/lib/query-keys";
 import type { Appointment, InsuranceRouteType, Invoice, InvoiceStatus, PaymentMethod } from "@/lib/types";
+import { useDebouncedValue } from "@/lib/use-debounced-value";
+
+// Hóa đơn: danh sách bên trái; chọn một hóa đơn (hoặc bấm "Tạo hóa đơn") thì khung bên phải mở cạnh để xem chi tiết,
+// áp dụng BHYT, ghi nhận thu, hủy hoặc hoàn tiền.
 
 type InvoiceAction = "pay" | "cancel" | "refund" | "adjust";
 type InsuranceForm = {
@@ -27,16 +46,16 @@ type InsuranceForm = {
   note: string;
 };
 
-const statusOptions: { value: "" | InvoiceStatus; label: string }[] = [
-  { value: "", label: "Tất cả trạng thái" },
-  { value: "UNPAID", label: "Chưa thanh toán" },
-  { value: "PAID", label: "Đã thanh toán" },
-  { value: "CANCELLED", label: "Đã hủy" },
-  { value: "REFUNDED", label: "Đã hoàn tiền" },
+const statusTabs = [
+  { id: "", label: "Tất cả" },
+  { id: "UNPAID", label: "Chưa thanh toán" },
+  { id: "PAID", label: "Đã thanh toán" },
+  { id: "CANCELLED", label: "Đã hủy" },
+  { id: "REFUNDED", label: "Đã hoàn tiền" },
 ];
 
 const paymentOptions: { value: "" | PaymentMethod; label: string }[] = [
-  { value: "", label: "Tất cả phương thức" },
+  { value: "", label: "Mọi phương thức" },
   { value: "CASH", label: "Tiền mặt" },
   { value: "CARD", label: "Thẻ" },
   { value: "BANK_TRANSFER", label: "Chuyển khoản" },
@@ -61,12 +80,7 @@ const insuranceRouteOptions: { value: InsuranceRouteType; label: string }[] = [
   { value: "SERVICE", label: "Dịch vụ" },
 ];
 
-const defaultInsuranceForm: InsuranceForm = {
-  eligibleAmount: "",
-  coverageRate: "80",
-  routeType: "RIGHT_ROUTE",
-  note: "",
-};
+const defaultInsuranceForm: InsuranceForm = { eligibleAmount: "", coverageRate: "80", routeType: "RIGHT_ROUTE", note: "" };
 
 const insuranceRouteLabel: Record<InsuranceRouteType, string> = {
   RIGHT_ROUTE: "Đúng tuyến",
@@ -83,6 +97,13 @@ const statusLabel: Record<InvoiceStatus, string> = {
   REFUNDED: "Đã hoàn tiền",
 };
 
+const statusTone: Record<InvoiceStatus, DsTone> = {
+  UNPAID: "warn",
+  PAID: "good",
+  CANCELLED: "bad",
+  REFUNDED: "neutral",
+};
+
 const paymentLabel: Partial<Record<PaymentMethod, string>> = {
   CASH: "Tiền mặt",
   CARD: "Thẻ",
@@ -91,37 +112,17 @@ const paymentLabel: Partial<Record<PaymentMethod, string>> = {
   OTHER: "Khác",
 };
 
-const transactionStatusLabel = {
-  PENDING: "Đang chờ",
-  SUCCESS: "Thành công",
-  FAILED: "Thất bại",
-  CANCELLED: "Đã hủy",
-  EXPIRED: "Hết hạn",
-} as const;
-
-const transactionStatusClass = {
-  PENDING: "bg-[#fff4d6] text-[#8a5a00]",
-  SUCCESS: "bg-[#e7f6ed] text-[#1f7a3a]",
-  FAILED: "bg-[#fff3f2] text-[#b3261e]",
-  CANCELLED: "bg-[#eef2f7] text-[#667892]",
-  EXPIRED: "bg-[#eef2f7] text-[#667892]",
-} as const;
-
-const statusTone: Record<InvoiceStatus, "warning" | "positive" | "danger" | "neutral"> = {
-  UNPAID: "warning",
-  PAID: "positive",
-  CANCELLED: "danger",
-  REFUNDED: "neutral",
+const transactionStatusLabel = { PENDING: "Đang chờ", SUCCESS: "Thành công", FAILED: "Thất bại", CANCELLED: "Đã hủy", EXPIRED: "Hết hạn" } as const;
+const transactionTone: Record<keyof typeof transactionStatusLabel, DsTone> = {
+  PENDING: "warn",
+  SUCCESS: "good",
+  FAILED: "bad",
+  CANCELLED: "neutral",
+  EXPIRED: "neutral",
 };
 
 const formatCurrency = (value: number) =>
-  new Intl.NumberFormat("vi-VN", {
-    style: "currency",
-    currency: "VND",
-    maximumFractionDigits: 0,
-  }).format(value);
-
-const formatDate = (value: string) => formatVietnamDate(value);
+  new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND", maximumFractionDigits: 0 }).format(value);
 
 const parseMoneyInput = (value: string) => value.replace(/\D/g, "");
 
@@ -154,34 +155,72 @@ const buildInsurancePayload = (form: InsuranceForm) => {
 };
 
 const doctorName = (invoice: Invoice) =>
-  [invoice.appointment.doctor.title, invoice.appointment.doctor.user.fullName]
-    .filter(Boolean)
-    .join(" ");
+  [invoice.appointment.doctor.title, invoice.appointment.doctor.user.fullName].filter(Boolean).join(" ");
 
 const appointmentDoctorName = (appointment: Appointment) =>
-  [appointment.doctor.title, appointment.doctor.user.fullName]
-    .filter(Boolean)
-    .join(" ");
+  [appointment.doctor.title, appointment.doctor.user.fullName].filter(Boolean).join(" ");
+
+// Nhóm ô nhập tính BHYT dùng chung cho lúc tạo hóa đơn và lúc chỉnh giảm.
+function InsuranceFields({
+  idPrefix,
+  form,
+  onChange,
+}: {
+  idPrefix: string;
+  form: InsuranceForm;
+  onChange: (next: InsuranceForm) => void;
+}) {
+  return (
+    <>
+      <DsField label="Số tiền đủ điều kiện BHYT" htmlFor={`${idPrefix}-eligible`}>
+        <DsInput
+          id={`${idPrefix}-eligible`}
+          inputMode="numeric"
+          placeholder="0"
+          value={formatMoneyInput(form.eligibleAmount)}
+          onChange={(event) => onChange({ ...form, eligibleAmount: parseMoneyInput(event.target.value) })}
+        />
+      </DsField>
+      <div className="ds-grid-fields">
+        <DsField label="Mức hưởng" htmlFor={`${idPrefix}-rate`}>
+          <DsSelect id={`${idPrefix}-rate`} value={form.coverageRate} onChange={(event) => onChange({ ...form, coverageRate: event.target.value })}>
+            {insuranceCoverageOptions.map((rate) => (
+              <option key={rate} value={rate}>
+                {rate}%
+              </option>
+            ))}
+          </DsSelect>
+        </DsField>
+        <DsField label="Tuyến/loại" htmlFor={`${idPrefix}-route`}>
+          <DsSelect id={`${idPrefix}-route`} value={form.routeType} onChange={(event) => onChange({ ...form, routeType: event.target.value as InsuranceRouteType })}>
+            {insuranceRouteOptions.map((item) => (
+              <option key={item.value} value={item.value}>
+                {item.label}
+              </option>
+            ))}
+          </DsSelect>
+        </DsField>
+      </div>
+      <DsField label="Ghi chú BHYT" htmlFor={`${idPrefix}-note`}>
+        <DsTextarea id={`${idPrefix}-note`} rows={2} value={form.note} placeholder="Ví dụ: áp dụng đúng tuyến theo thẻ BHYT" onChange={(event) => onChange({ ...form, note: event.target.value })} />
+      </DsField>
+    </>
+  );
+}
 
 export default function InvoicesPage() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [status, setStatus] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("");
-  const [phone, setPhone] = useState("");
-  const [invoiceCode, setInvoiceCode] = useState("");
-  const [barcode, setBarcode] = useState("");
-  const [appliedPhone, setAppliedPhone] = useState("");
-  const [appliedInvoiceCode, setAppliedInvoiceCode] = useState("");
-  const [appliedBarcode, setAppliedBarcode] = useState("");
+  const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
-  const [workspaceOpen, setWorkspaceOpen] = useState(false);
+  const [creating, setCreating] = useState(false);
   const [selectedSnapshot, setSelected] = useState<Invoice | null>(null);
   const [appointmentId, setAppointmentId] = useState("");
-  const [appointmentLookupKey, setAppointmentLookupKey] = useState("");
   const [insuranceForm, setInsuranceForm] = useState<InsuranceForm>(defaultInsuranceForm);
   const [actionTarget, setActionTarget] = useState<{ type: InvoiceAction; invoice: Invoice } | null>(null);
   const [payMethod, setPayMethod] = useState<Exclude<PaymentMethod, "VNPAY">>("CASH");
@@ -189,38 +228,31 @@ export default function InvoicesPage() {
   const [adjustInsuranceForm, setAdjustInsuranceForm] = useState<InsuranceForm>(defaultInsuranceForm);
   const [refundReason, setRefundReason] = useState("");
   const [refundReference, setRefundReference] = useState("");
-  const listRef = useRef<HTMLElement | null>(null);
-  const createRef = useRef<HTMLElement | null>(null);
-  const detailRef = useRef<HTMLElement | null>(null);
 
   const canUse = can(user, "invoice.view");
   const canRefund = can(user, "invoice.refund");
   const createDiscount = calculateInsuranceDiscount(insuranceForm);
   const adjustedDiscount = calculateInsuranceDiscount(adjustInsuranceForm);
-  const adjustedFinalAmount = actionTarget?.type === "adjust"
-    ? Math.max(actionTarget.invoice.totalAmount - adjustedDiscount, 0)
-    : 0;
+  const adjustedFinalAmount = actionTarget?.type === "adjust" ? Math.max(actionTarget.invoice.totalAmount - adjustedDiscount, 0) : 0;
+
+  // Gõ đến đâu lọc đến đó; mã lịch khi tạo hóa đơn cũng tự tra sau khi ngừng gõ.
+  const term = useDebouncedValue(search.trim());
+  const appointmentLookupKey = useDebouncedValue(appointmentId.trim().toUpperCase());
 
   const query = useMemo(
     () => ({
       status: status || undefined,
       paymentMethod: paymentMethod || undefined,
-      phone: appliedPhone || undefined,
-      invoiceCode: appliedInvoiceCode || undefined,
-      barcode: appliedBarcode || undefined,
+      q: term || undefined,
       page,
       limit: 20,
     }),
-    [appliedBarcode, appliedInvoiceCode, appliedPhone, page, paymentMethod, status],
+    [page, paymentMethod, status, term],
   );
   const invoicesQuery = useDashboardInvoices(query);
   const appointmentPreviewQuery = useDashboardAppointments(
-    {
-      bookingCode: appointmentLookupKey || undefined,
-      page: 1,
-      limit: 1,
-    },
-    Boolean(appointmentLookupKey) && canUse,
+    { bookingCode: appointmentLookupKey || undefined, page: 1, limit: 1 },
+    Boolean(appointmentLookupKey) && creating && canUse,
   );
   const selectedInvoiceQuery = useDashboardInvoice(selectedSnapshot?.id);
   const loading = invoicesQuery.isLoading;
@@ -229,17 +261,10 @@ export default function InvoicesPage() {
   const selected = selectedInvoiceQuery.data ?? selectedSnapshot;
   const appointmentPreview = appointmentPreviewQuery.data?.items[0] ?? null;
   const queryError = invoicesQuery.error || selectedInvoiceQuery.error || appointmentPreviewQuery.error;
-  const queryErrorMessage = queryError
-    ? queryError instanceof Error
-      ? queryError.message
-      : "Không tải được dữ liệu hóa đơn"
-    : "";
+  const queryErrorMessage = queryError ? (queryError instanceof Error ? queryError.message : "Không tải được dữ liệu hóa đơn") : "";
   const visibleError = error || queryErrorMessage;
-  const appointmentReadyForInvoice = Boolean(
-    appointmentPreview &&
-    appointmentPreview.status === "COMPLETED" &&
-    !appointmentPreview.invoice,
-  );
+  const appointmentReadyForInvoice = Boolean(appointmentPreview && appointmentPreview.status === "COMPLETED" && !appointmentPreview.invoice);
+  const previewSettled = Boolean(appointmentLookupKey) && appointmentLookupKey === appointmentId.trim().toUpperCase() && !appointmentPreviewQuery.isFetching;
 
   const invalidateInvoices = async () => {
     await Promise.all([
@@ -258,12 +283,7 @@ export default function InvoicesPage() {
     return () => window.clearTimeout(timeoutId);
   }, [error, notice]);
 
-  const scrollTo = (ref: React.RefObject<HTMLElement | null>) => {
-    window.setTimeout(() => {
-      ref.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-    }, 0);
-  };
-
+  // Mở từ Lịch hẹn: ?appointment=MÃ LỊCH mở sẵn khung tạo hóa đơn; ?invoiceCode=MÃ lọc sẵn hóa đơn đó.
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
       const params = new URLSearchParams(window.location.search);
@@ -271,31 +291,64 @@ export default function InvoicesPage() {
       const initialInvoiceCode = params.get("invoiceCode");
 
       if (appointmentCode) {
-        const normalizedAppointmentCode = appointmentCode.trim().toUpperCase();
-        setWorkspaceOpen(true);
-        setAppointmentId(normalizedAppointmentCode);
-        setAppointmentLookupKey(normalizedAppointmentCode);
-        scrollTo(createRef);
+        setCreating(true);
+        setSelected(null);
+        setAppointmentId(appointmentCode.trim().toUpperCase());
       }
-
       if (initialInvoiceCode) {
-        const normalizedInvoiceCode = initialInvoiceCode.trim().toUpperCase();
-        setInvoiceCode(normalizedInvoiceCode);
-        setAppliedInvoiceCode(normalizedInvoiceCode);
+        setSearch(initialInvoiceCode.trim().toUpperCase());
         setPage(1);
-        scrollTo(listRef);
       }
     }, 0);
 
     return () => window.clearTimeout(timeoutId);
   }, []);
 
-  const applySearch = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    setAppliedPhone(phone.trim());
-    setAppliedInvoiceCode(invoiceCode.trim());
-    setAppliedBarcode(barcode.trim());
-    setPage(1);
+  const resetActionState = () => {
+    setActionTarget(null);
+    setRefundReason("");
+    setRefundReference("");
+    setPaymentReference("");
+    setAdjustInsuranceForm(defaultInsuranceForm);
+    setPayMethod("CASH");
+  };
+
+  const openDetail = (invoice: Invoice) => {
+    setCreating(false);
+    setSelected(invoice);
+    resetActionState();
+  };
+
+  const closePane = () => {
+    setSelected(null);
+    setCreating(false);
+    resetActionState();
+  };
+
+  const startCreate = () => {
+    setSelected(null);
+    resetActionState();
+    setCreating(true);
+  };
+
+  const startAction = (type: InvoiceAction, invoice: Invoice) => {
+    setCreating(false);
+    setSelected(invoice);
+    setActionTarget({ type, invoice });
+    setRefundReason("");
+    setRefundReference("");
+    setPaymentReference("");
+    setAdjustInsuranceForm(type === "adjust" ? buildInsuranceForm(invoice) : defaultInsuranceForm);
+    setPayMethod("CASH");
+    setError("");
+    setNotice("");
+  };
+
+  const updateSelectedInvoice = async (invoice: Invoice, message: string) => {
+    setSelected(invoice);
+    resetActionState();
+    setNotice(message);
+    await invalidateInvoices();
   };
 
   const createInvoice = async (event: FormEvent<HTMLFormElement>) => {
@@ -305,18 +358,16 @@ export default function InvoicesPage() {
     setError("");
     setNotice("");
     try {
-      const invoice = await apiRequest<Invoice>(`/dashboard/invoices/appointments/${appointmentId}`, {
+      const invoice = await apiRequest<Invoice>(`/dashboard/invoices/appointments/${appointmentId.trim().toUpperCase()}`, {
         method: "POST",
         body: buildInsurancePayload(insuranceForm),
       });
+      setCreating(false);
       setSelected(invoice);
-      setWorkspaceOpen(true);
       setAppointmentId("");
-      setAppointmentLookupKey("");
       setInsuranceForm(defaultInsuranceForm);
       setNotice("Đã phát hành hóa đơn");
       await invalidateInvoices();
-      scrollTo(detailRef);
     } catch (err) {
       if (err instanceof ApiError && err.status === 409) {
         try {
@@ -325,20 +376,14 @@ export default function InvoicesPage() {
           await invalidateInvoices();
 
           if (existingInvoiceId) {
-            const existingInvoice = await apiRequest<Invoice>(
-              `/dashboard/invoices/${existingInvoiceId}`,
-            );
+            const existingInvoice = await apiRequest<Invoice>(`/dashboard/invoices/${existingInvoiceId}`);
+            setCreating(false);
             setSelected(existingInvoice);
             setNotice("Hóa đơn đã được phát hành ở một thao tác khác. Đã mở hóa đơn hiện có.");
-            scrollTo(detailRef);
             return;
           }
         } catch (recoveryError) {
-          setError(
-            recoveryError instanceof Error
-              ? recoveryError.message
-              : "Hóa đơn đã được phát hành nhưng chưa thể tải lại dữ liệu",
-          );
+          setError(recoveryError instanceof Error ? recoveryError.message : "Hóa đơn đã được phát hành nhưng chưa thể tải lại dữ liệu");
           return;
         }
       }
@@ -346,52 +391,6 @@ export default function InvoicesPage() {
     } finally {
       setBusy(false);
     }
-  };
-
-  const inspectAppointment = () => {
-    const normalized = appointmentId.trim().toUpperCase();
-    setAppointmentId(normalized);
-    setAppointmentLookupKey(normalized);
-    setError("");
-    setNotice("");
-  };
-
-  const openDetail = (invoice: Invoice) => {
-    setSelected(invoice);
-    setWorkspaceOpen(true);
-    setActionTarget(null);
-    setRefundReason("");
-    setRefundReference("");
-    setPaymentReference("");
-    setAdjustInsuranceForm(defaultInsuranceForm);
-    setPayMethod("CASH");
-    scrollTo(detailRef);
-  };
-
-  const startAction = (type: InvoiceAction, invoice: Invoice) => {
-    setSelected(invoice);
-    setWorkspaceOpen(true);
-    setActionTarget({ type, invoice });
-    setRefundReason("");
-    setRefundReference("");
-    setPaymentReference("");
-    setAdjustInsuranceForm(type === "adjust" ? buildInsuranceForm(invoice) : defaultInsuranceForm);
-    setPayMethod("CASH");
-    setError("");
-    setNotice("");
-    scrollTo(detailRef);
-  };
-
-  const updateSelectedInvoice = async (invoice: Invoice, message: string) => {
-    setSelected(invoice);
-    setActionTarget(null);
-    setRefundReason("");
-    setRefundReference("");
-    setPaymentReference("");
-    setAdjustInsuranceForm(defaultInsuranceForm);
-    setNotice(message);
-    await invalidateInvoices();
-    scrollTo(detailRef);
   };
 
   const payInvoice = async () => {
@@ -406,10 +405,7 @@ export default function InvoicesPage() {
     try {
       const updated = await apiRequest<Invoice>(`/dashboard/invoices/${actionTarget.invoice.id}/pay`, {
         method: "PATCH",
-        body: {
-          paymentMethod: payMethod,
-          paymentReference: paymentReference.trim() || null,
-        },
+        body: { paymentMethod: payMethod, paymentReference: paymentReference.trim() || null },
       });
       await updateSelectedInvoice(updated, "Đã thanh toán hóa đơn");
     } catch (err) {
@@ -425,9 +421,7 @@ export default function InvoicesPage() {
     setError("");
     setNotice("");
     try {
-      const updated = await apiRequest<Invoice>(`/dashboard/invoices/${actionTarget.invoice.id}/cancel`, {
-        method: "PATCH",
-      });
+      const updated = await apiRequest<Invoice>(`/dashboard/invoices/${actionTarget.invoice.id}/cancel`, { method: "PATCH" });
       await updateSelectedInvoice(updated, "Đã hủy hóa đơn");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Không hủy được hóa đơn");
@@ -451,12 +445,7 @@ export default function InvoicesPage() {
         method: "PATCH",
         body: buildInsurancePayload(adjustInsuranceForm),
       });
-      await updateSelectedInvoice(
-        updated,
-        actionTarget.invoice.status === "CANCELLED"
-          ? "Đã điều chỉnh và mở lại hóa đơn"
-          : "Đã điều chỉnh hóa đơn",
-      );
+      await updateSelectedInvoice(updated, actionTarget.invoice.status === "CANCELLED" ? "Đã điều chỉnh và mở lại hóa đơn" : "Đã điều chỉnh hóa đơn");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Không điều chỉnh được hóa đơn");
     } finally {
@@ -470,10 +459,7 @@ export default function InvoicesPage() {
       setError("Lý do hoàn tiền phải có ít nhất 5 ký tự");
       return;
     }
-    if (
-      (actionTarget.invoice.paymentMethod === "VNPAY") &&
-      refundReference.trim().length < 3
-    ) {
+    if (actionTarget.invoice.paymentMethod === "VNPAY" && refundReference.trim().length < 3) {
       setError("Vui lòng nhập mã tham chiếu do cổng thanh toán trả về");
       return;
     }
@@ -484,10 +470,7 @@ export default function InvoicesPage() {
     try {
       const updated = await apiRequest<Invoice>(`/dashboard/invoices/${actionTarget.invoice.id}/refund`, {
         method: "PATCH",
-        body: {
-          refundReason: refundReason.trim(),
-          refundReference: refundReference.trim() || null,
-        },
+        body: { refundReason: refundReason.trim(), refundReference: refundReference.trim() || null },
       });
       await updateSelectedInvoice(updated, "Đã hoàn tiền hóa đơn");
     } catch (err) {
@@ -504,11 +487,7 @@ export default function InvoicesPage() {
       setError("Lý do hoàn tiền phải có ít nhất 5 ký tự");
       return;
     }
-    if (
-      !window.confirm(
-        `Gửi yêu cầu hoàn ${actionTarget.invoice.finalAmount.toLocaleString("vi-VN")} đ qua VNPay? Thao tác không thể hoàn tác.`,
-      )
-    ) {
+    if (!window.confirm(`Gửi yêu cầu hoàn ${actionTarget.invoice.finalAmount.toLocaleString("vi-VN")} đ qua VNPay? Thao tác không thể hoàn tác.`)) {
       return;
     }
 
@@ -528,394 +507,541 @@ export default function InvoicesPage() {
     }
   };
 
-  const renderActions = (invoice: Invoice) => (
-    <>
-      {invoice.status === "UNPAID" ? (
-        <>
-          <button disabled={busy} onClick={() => startAction("adjust", invoice)} className="rounded-md border border-[#cfe4fa] px-3 py-1.5 text-xs font-medium text-[#0d4f8b]">Chỉnh giảm</button>
-          <button disabled={busy} onClick={() => startAction("pay", invoice)} className="rounded-md border border-[#cfd8e6] px-3 py-1.5 text-xs font-medium text-[#42526b]">Ghi nhận thu tại quầy</button>
-          <button disabled={busy} onClick={() => startAction("cancel", invoice)} className="rounded-md border border-[#f2b8b5] px-3 py-1.5 text-xs font-medium text-[#b3261e]">Hủy</button>
-        </>
-      ) : null}
-      {invoice.status === "CANCELLED" ? (
-        <button disabled={busy} onClick={() => startAction("adjust", invoice)} className="rounded-md border border-[#cfe4fa] px-3 py-1.5 text-xs font-medium text-[#0d4f8b]">Chỉnh và mở lại</button>
-      ) : null}
-      {canRefund && invoice.status === "PAID" ? (
-        <button disabled={busy} onClick={() => startAction("refund", invoice)} className="rounded-md border border-[#cfd8e6] px-3 py-1.5 text-xs font-medium text-[#42526b]">Hoàn tiền</button>
-      ) : null}
-    </>
-  );
-
   if (!canUse) {
     return (
-      <DashboardPageHeader eyebrow="Tài chính" title="Hóa đơn" description="Phân hệ hóa đơn chỉ dành cho quản trị viên và nhân viên vận hành." />
+      <>
+        <DsPageHeader title="Hóa đơn" description="Phân hệ hóa đơn chỉ dành cho tài khoản được cấp quyền xem hóa đơn" />
+        <DsNotice tone="info">Tài khoản của bạn chưa được cấp quyền xem hóa đơn.</DsNotice>
+      </>
     );
   }
 
-  return (
-    <div className={`grid gap-6 transition-[grid-template-columns] duration-300 ${workspaceOpen ? "xl:grid-cols-[minmax(0,1fr)_410px]" : "xl:grid-cols-1"}`}>
-      <DashboardFeedback error={visibleError} notice={notice} onDismiss={queryErrorMessage ? undefined : () => { setError(""); setNotice(""); }} />
+  const columns: DsColumn<Invoice>[] = [
+    {
+      key: "invoice",
+      header: "Hóa đơn",
+      cell: (row) => (
+        <div>
+          <strong className="ds-mono">{row.invoiceCode}</strong>
+          <div style={{ color: "var(--ds-muted)", fontSize: 12 }}>{row.appointment.bookingCode}</div>
+        </div>
+      ),
+    },
+    {
+      key: "patient",
+      header: "Người khám",
+      cell: (row) => (
+        <div>
+          <strong>{row.patient.fullName}</strong>
+          <div style={{ color: "var(--ds-muted)", fontSize: 12 }}>{row.patient.phone || "-"}</div>
+        </div>
+      ),
+    },
+    {
+      key: "date",
+      header: "Ngày khám",
+      cell: (row) => (
+        <div>
+          {formatVietnamDate(row.appointment.appointmentDate)}
+          <div style={{ color: "var(--ds-muted)", fontSize: 12 }}>{row.appointment.startTime}</div>
+        </div>
+      ),
+    },
+    {
+      key: "amount",
+      header: "Số tiền",
+      align: "num",
+      cell: (row) => (
+        <div>
+          <strong>{formatCurrency(row.finalAmount)}</strong>
+          {row.bhytDiscount > 0 ? <div style={{ color: "var(--ds-muted)", fontSize: 12 }}>BHYT -{formatCurrency(row.bhytDiscount)}</div> : null}
+        </div>
+      ),
+    },
+    {
+      key: "status",
+      header: "Trạng thái",
+      cell: (row) => (
+        <div>
+          <DsStatusPill tone={statusTone[row.status]}>{statusLabel[row.status]}</DsStatusPill>
+          {row.paymentMethod ? <div style={{ color: "var(--ds-muted)", fontSize: 12 }}>{paymentLabel[row.paymentMethod] || row.paymentMethod}</div> : null}
+        </div>
+      ),
+    },
+    {
+      key: "action",
+      header: "Bước tiếp",
+      align: "num",
+      cell: (row) =>
+        row.status === "UNPAID" ? (
+          <DsButton
+            onClick={(event) => {
+              event.stopPropagation();
+              startAction("pay", row);
+            }}
+          >
+            Thu tiền
+          </DsButton>
+        ) : null,
+    },
+  ];
 
-      <section ref={listRef} className="min-w-0 scroll-mt-24 space-y-4">
-        <DashboardPageHeader
-          eyebrow="Tài chính"
-          title="Hóa đơn"
-          description="Tạo hóa đơn từ lịch hẹn hoàn thành, áp dụng BHYT và kiểm soát thanh toán, hủy hoặc hoàn tiền."
-          actions={
-            <div className="flex flex-wrap items-start gap-3">
-              <ExportCsvButton path="/dashboard/invoices/export" fallbackName="hoa-don.csv" params={{ status: status || undefined }} />
-              {!workspaceOpen ? <Button variant="outline" size="lg" onClick={() => setWorkspaceOpen(true)}><PanelRightOpen />Mở công cụ hóa đơn</Button> : null}
-            </div>
-          }
+  const open = creating || Boolean(selected);
+
+  const list = (
+    <DsPanel flush>
+      <form onSubmit={(event) => event.preventDefault()} aria-label="Lọc hóa đơn">
+        <DsToolbar>
+          <div style={{ minWidth: 180, flex: "1 1 220px" }}>
+            <DsInput
+              aria-label="Tìm hóa đơn"
+              value={search}
+              onChange={(event) => {
+                setSearch(event.target.value);
+                setPage(1);
+              }}
+              placeholder="Gõ mã hóa đơn, mã vạch, mã lịch, SĐT hoặc tên"
+            />
+          </div>
+          <div style={{ minWidth: 150, flex: "0 1 190px" }}>
+            <DsSelect
+              aria-label="Lọc theo phương thức thanh toán"
+              value={paymentMethod}
+              onChange={(event) => {
+                setPaymentMethod(event.target.value);
+                setPage(1);
+              }}
+            >
+              {paymentOptions.map((item) => (
+                <option key={item.value} value={item.value}>
+                  {item.label}
+                </option>
+              ))}
+            </DsSelect>
+          </div>
+        </DsToolbar>
+      </form>
+      <DsTabs
+        label="Lọc hóa đơn theo trạng thái"
+        items={statusTabs}
+        value={status}
+        onChange={(id) => {
+          setStatus(id);
+          setPage(1);
+        }}
+      />
+      {open ? (
+        invoices.length ? (
+          <div role="listbox" aria-label="Danh sách hóa đơn">
+            {invoices.map((invoice) => (
+              <button key={invoice.id} type="button" role="option" className="ds-listrow" aria-selected={invoice.id === selected?.id} onClick={() => openDetail(invoice)}>
+                <span className="ds-listrow__main">
+                  <strong>{invoice.patient.fullName}</strong>
+                  <small>
+                    {invoice.invoiceCode} · {formatCurrency(invoice.finalAmount)}
+                  </small>
+                </span>
+                <DsStatusPill tone={statusTone[invoice.status]}>{statusLabel[invoice.status]}</DsStatusPill>
+              </button>
+            ))}
+          </div>
+        ) : (
+          <DsEmptyState title="Chưa có hóa đơn phù hợp" />
+        )
+      ) : (
+        <DsDataTable
+          caption="Danh sách hóa đơn"
+          columns={columns}
+          rows={invoices}
+          rowKey={(row) => row.id}
+          loading={loading}
+          emptyTitle="Chưa có hóa đơn phù hợp"
+          emptyDescription="Đổi bộ lọc hoặc tạo hóa đơn từ một lịch hẹn đã hoàn thành."
+          onRowClick={openDetail}
         />
+      )}
+      <div className="ds-pager">
+        <span>
+          {pagination.total} hóa đơn · trang {pagination.page}/{pagination.totalPages || 1}
+        </span>
+        <span style={{ display: "flex", gap: 8 }}>
+          <DsButton disabled={page <= 1} onClick={() => setPage((current) => Math.max(current - 1, 1))}>
+            Trước
+          </DsButton>
+          <DsButton disabled={page >= pagination.totalPages} onClick={() => setPage((current) => current + 1)}>
+            Sau
+          </DsButton>
+        </span>
+      </div>
+    </DsPanel>
+  );
 
-        <DashboardSurface>
-          <form onSubmit={applySearch} className="grid gap-3 border-b border-border p-4 lg:grid-cols-2 2xl:grid-cols-[170px_170px_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_auto]">
-            <select value={status} onChange={(e) => { setStatus(e.target.value); setPage(1); }} className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]">
-              {statusOptions.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
-            </select>
-            <select value={paymentMethod} onChange={(e) => { setPaymentMethod(e.target.value); setPage(1); }} className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]">
-              {paymentOptions.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
-            </select>
-            <Input value={phone} inputMode="tel" onChange={(e) => setPhone(e.target.value)} placeholder="Số điện thoại" />
-            <Input value={invoiceCode} onChange={(e) => setInvoiceCode(e.target.value)} placeholder="Mã hóa đơn" />
-            <Input value={barcode} onChange={(e) => setBarcode(e.target.value)} placeholder="Mã vạch" />
-            <Button type="submit"><Search />Tìm kiếm</Button>
-          </form>
-
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[1000px] border-separate border-spacing-0 text-left text-sm">
-              <thead>
-                <tr className="text-[#667892]">
-                  <th className="border-b border-[#e5ebf3] px-4 py-3 font-semibold">Hóa đơn</th>
-                  <th className="border-b border-[#e5ebf3] px-4 py-3 font-semibold">Người khám</th>
-                  <th className="border-b border-[#e5ebf3] px-4 py-3 font-semibold">Lịch hẹn</th>
-                  <th className="border-b border-[#e5ebf3] px-4 py-3 font-semibold">Số tiền</th>
-                  <th className="border-b border-[#e5ebf3] px-4 py-3 font-semibold">Trạng thái</th>
-                  <th className="border-b border-[#e5ebf3] px-4 py-3 text-right font-semibold">Thao tác</th>
-                </tr>
-              </thead>
-              <tbody>
-                {loading ? (
-                  <tr><td colSpan={6} className="px-4 py-10 text-center text-[#667892]">Đang tải hóa đơn...</td></tr>
-                ) : invoices.length === 0 ? (
-                  <tr><td colSpan={6} className="px-4 py-10 text-center text-[#667892]">Chưa có hóa đơn phù hợp</td></tr>
-                ) : invoices.map((invoice) => (
-                  <tr key={invoice.id} className="align-top">
-                    <td className="border-b border-[#eef2f7] px-4 py-3">
-                      <button onClick={() => openDetail(invoice)} className="font-semibold text-[#0d4f8b] hover:underline">{invoice.invoiceCode}</button>
-                      <p className="mt-1 text-xs text-[#667892]">{invoice.barcode}</p>
-                    </td>
-                    <td className="border-b border-[#eef2f7] px-4 py-3"><p className="font-semibold">{invoice.patient.fullName}</p><p className="mt-1 text-xs text-[#667892]">{invoice.patient.phone}</p></td>
-                    <td className="border-b border-[#eef2f7] px-4 py-3"><p>{invoice.appointment.bookingCode}</p><p className="mt-1 text-xs text-[#667892]">{formatDate(invoice.appointment.appointmentDate)} {invoice.appointment.startTime}</p></td>
-                    <td className="border-b border-[#eef2f7] px-4 py-3"><p className="font-semibold">{formatCurrency(invoice.finalAmount)}</p><p className="mt-1 text-xs text-[#667892]">Giảm {formatCurrency(invoice.bhytDiscount)}</p></td>
-                    <td className="border-b border-[#eef2f7] px-4 py-3"><DashboardStatusBadge tone={statusTone[invoice.status]}>{statusLabel[invoice.status]}</DashboardStatusBadge><p className="mt-1 text-xs text-[#667892]">{invoice.paymentMethod ? paymentLabel[invoice.paymentMethod] || invoice.paymentMethod : "-"}</p></td>
-                    <td className="border-b border-[#eef2f7] px-4 py-3">
-                      <div className="flex flex-wrap justify-end gap-2">
-                        <button onClick={() => openDetail(invoice)} className="rounded-md border border-[#cfd8e6] px-3 py-1.5 text-xs font-medium text-[#42526b]">Chi tiết</button>
-                        {renderActions(invoice)}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          <div className="flex items-center justify-between border-t border-[#e5ebf3] px-4 py-3 text-sm text-[#667892]">
-            <span>{pagination.total} kết quả, trang {pagination.page}/{pagination.totalPages || 1}</span>
-            <div className="flex gap-2">
-              <button disabled={page <= 1} onClick={() => setPage((current) => Math.max(current - 1, 1))} className="rounded-md border border-[#cfd8e6] px-3 py-1.5 font-medium disabled:opacity-50">Trước</button>
-              <button disabled={page >= pagination.totalPages} onClick={() => setPage((current) => current + 1)} className="rounded-md border border-[#cfd8e6] px-3 py-1.5 font-medium disabled:opacity-50">Sau</button>
-            </div>
-          </div>
-        </DashboardSurface>
-      </section>
-
-      {workspaceOpen ? (
-      <aside className="min-w-0">
-        <DashboardWorkspace
-          open={workspaceOpen}
-          onOpenChange={setWorkspaceOpen}
-          title={selected ? `Hóa đơn ${selected.invoiceCode}` : "Công cụ hóa đơn"}
-          description="Tạo hóa đơn, áp dụng quyền lợi BHYT và xử lý thanh toán trong cùng một vùng làm việc."
-        >
-        <div className="space-y-4">
-        <section ref={createRef} className="scroll-mt-24 rounded-md border border-[#dce3ee] bg-white p-5">
-          <h3 className="text-lg font-semibold">Tạo hóa đơn</h3>
-          <p className="mt-2 text-sm leading-6 text-[#667892]">Nhập mã lịch đã hoàn thành khám để kiểm tra người khám, dịch vụ và quyền lợi BHYT trước khi phát hành.</p>
-          <form className="mt-5 space-y-4" onSubmit={createInvoice}>
-            <label className="block">
-              <span className="text-sm font-medium text-[#334155]">Mã lịch hẹn</span>
-              <span className="mt-1 flex gap-2">
-                <input value={appointmentId} onChange={(e) => { setAppointmentId(e.target.value); setAppointmentLookupKey(""); }} placeholder="Ví dụ: HB-8492" className="min-w-0 flex-1 rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" required />
-                <button type="button" disabled={!appointmentId.trim() || appointmentPreviewQuery.isFetching} onClick={inspectAppointment} className="shrink-0 rounded-md border border-[#cfd8e6] px-3 py-2 text-sm font-semibold text-[#42526b] disabled:opacity-50">
-                  {appointmentPreviewQuery.isFetching ? "Đang kiểm tra..." : "Kiểm tra"}
-                </button>
-              </span>
-            </label>
-            {appointmentLookupKey && !appointmentPreviewQuery.isFetching ? (
-              appointmentPreview ? (
-                <div className={`rounded-lg border p-4 ${appointmentReadyForInvoice ? "border-[#bde5c8] bg-[#f0fff4]" : "border-[#f4d7a1] bg-[#fff8eb]"}`}>
-                  <div className="flex flex-wrap items-start justify-between gap-2">
-                    <div>
-                      <p className="text-sm font-semibold text-[#172033]">{appointmentPreview.patientName}</p>
-                      <p className="mt-1 text-xs text-[#667892]">{appointmentPreview.bookingCode} · {appointmentPreview.patientPhone}</p>
-                    </div>
-                    <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${appointmentReadyForInvoice ? "bg-[#dff3e5] text-[#1f7a3a]" : "bg-[#fff0c2] text-[#8a5a00]"}`}>
-                      {appointmentPreview.invoice ? "Đã có hóa đơn" : appointmentPreview.status === "COMPLETED" ? "Sẵn sàng phát hành" : "Chưa hoàn tất khám"}
-                    </span>
-                  </div>
-                  <div className="mt-3 grid gap-2 text-sm sm:grid-cols-2">
-                    <p><span className="text-[#667892]">Dịch vụ:</span> {appointmentPreview.package?.name || appointmentPreview.department.name}</p>
-                    <p><span className="text-[#667892]">Bác sĩ:</span> {appointmentDoctorName(appointmentPreview)}</p>
-                    <p><span className="text-[#667892]">Giá khám:</span> {formatCurrency(appointmentPreview.estimatedPrice)}</p>
-                    <p><span className="text-[#667892]">Phí dịch vụ:</span> {formatCurrency(appointmentPreview.serviceFee)}</p>
-                    <p className="sm:col-span-2"><span className="text-[#667892]">BHYT:</span> {appointmentPreview.hasBHYT ? appointmentPreview.healthInsuranceCode || "Có đăng ký BHYT" : "Không sử dụng"}</p>
-                  </div>
-                  <div className="mt-3 flex items-center justify-between border-t border-black/5 pt-3 text-sm">
-                    <span className="font-medium">Tổng trước giảm trừ</span>
-                    <span className="font-semibold text-[#0d4f8b]">{formatCurrency(appointmentPreview.estimatedPrice + appointmentPreview.serviceFee)}</span>
-                  </div>
-                  {appointmentPreview.invoice ? (
-                    <button type="button" onClick={() => {
-                      setInvoiceCode(appointmentPreview.invoice?.invoiceCode || "");
-                      setAppliedInvoiceCode(appointmentPreview.invoice?.invoiceCode || "");
+  const createPane = creating ? (
+    <DsPane title="Tạo hóa đơn" onClose={closePane}>
+      <form onSubmit={createInvoice} style={{ display: "grid", gap: 12 }} aria-label="Tạo hóa đơn">
+        <DsField label="Mã lịch hẹn" htmlFor="create-appointment" hint="Lịch phải ở trạng thái hoàn thành khám và chưa có hóa đơn">
+          <DsInput id="create-appointment" value={appointmentId} placeholder="Ví dụ: HB-8492" required onChange={(event) => setAppointmentId(event.target.value)} />
+        </DsField>
+        {appointmentLookupKey && appointmentPreviewQuery.isFetching ? <p className="ds-hint">Đang kiểm tra lịch hẹn...</p> : null}
+        {previewSettled ? (
+          appointmentPreview ? (
+            <div className="ds-card">
+              <div className="ds-card__head">
+                <h3>{appointmentPreview.patientName}</h3>
+                <DsStatusPill tone={appointmentReadyForInvoice ? "good" : "warn"}>
+                  {appointmentPreview.invoice ? "Đã có hóa đơn" : appointmentPreview.status === "COMPLETED" ? "Sẵn sàng phát hành" : "Chưa hoàn tất khám"}
+                </DsStatusPill>
+              </div>
+              <div className="ds-card__body">
+                <DsKeyValue
+                  items={[
+                    { label: "Lịch hẹn", value: `${appointmentPreview.bookingCode} · ${appointmentPreview.patientPhone}` },
+                    { label: "Dịch vụ", value: appointmentPreview.package?.name || appointmentPreview.department.name },
+                    { label: "Bác sĩ", value: appointmentDoctorName(appointmentPreview) },
+                    { label: "Giá khám", value: formatCurrency(appointmentPreview.estimatedPrice) },
+                    { label: "Phí dịch vụ", value: formatCurrency(appointmentPreview.serviceFee) },
+                    { label: "BHYT", value: appointmentPreview.hasBHYT ? appointmentPreview.healthInsuranceCode || "Có đăng ký BHYT" : "Không sử dụng" },
+                    { label: "Tổng trước giảm trừ", value: <strong>{formatCurrency(appointmentPreview.estimatedPrice + appointmentPreview.serviceFee)}</strong> },
+                  ]}
+                />
+                {appointmentPreview.invoice ? (
+                  <DsButton
+                    onClick={() => {
+                      setCreating(false);
+                      setSearch(appointmentPreview.invoice?.invoiceCode || "");
                       setPage(1);
-                      setWorkspaceOpen(false);
-                      scrollTo(listRef);
-                    }} className="mt-3 text-sm font-semibold text-[#0d4f8b] hover:underline">
-                      Mở hóa đơn {appointmentPreview.invoice.invoiceCode}
-                    </button>
-                  ) : null}
-                </div>
-              ) : (
-                <div className="rounded-lg border border-[#f2b8b5] bg-[#fff3f2] p-3 text-sm text-[#b3261e]">
-                  Không tìm thấy lịch hẹn có mã {appointmentLookupKey}. Hãy kiểm tra lại mã lịch.
-                </div>
-              )
-            ) : null}
-            <div className="rounded-md border border-[#e5ebf3] bg-[#f8fafc] p-3">
-              <p className="text-sm font-semibold text-[#172033]">Tính BHYT</p>
-              <p className="mt-1 text-xs leading-5 text-[#667892]">Nhập phần tiền đủ điều kiện BHYT và mức hưởng, hệ thống sẽ tự tính giảm trừ.</p>
-              <label className="mt-3 block">
-                <span className="text-sm font-medium text-[#334155]">Số tiền đủ điều kiện</span>
-                <input value={formatMoneyInput(insuranceForm.eligibleAmount)} onChange={(event) => setInsuranceForm((current) => ({ ...current, eligibleAmount: parseMoneyInput(event.target.value) }))} placeholder="0" inputMode="numeric" className="mt-1 w-full rounded-md border border-[#cfd8e6] bg-white px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" />
-              </label>
-              <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                <label className="block">
-                  <span className="text-sm font-medium text-[#334155]">Mức hưởng</span>
-                  <select value={insuranceForm.coverageRate} onChange={(event) => setInsuranceForm((current) => ({ ...current, coverageRate: event.target.value }))} className="mt-1 w-full rounded-md border border-[#cfd8e6] bg-white px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]">
-                    {insuranceCoverageOptions.map((rate) => <option key={rate} value={rate}>{rate}%</option>)}
-                  </select>
-                </label>
-                <label className="block">
-                  <span className="text-sm font-medium text-[#334155]">Tuyến/loại</span>
-                  <select value={insuranceForm.routeType} onChange={(event) => setInsuranceForm((current) => ({ ...current, routeType: event.target.value as InsuranceRouteType }))} className="mt-1 w-full rounded-md border border-[#cfd8e6] bg-white px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]">
-                    {insuranceRouteOptions.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
-                  </select>
-                </label>
-              </div>
-              <label className="mt-3 block">
-                <span className="text-sm font-medium text-[#334155]">Ghi chú BHYT</span>
-                <textarea value={insuranceForm.note} onChange={(event) => setInsuranceForm((current) => ({ ...current, note: event.target.value }))} rows={2} placeholder="Ví dụ: áp dụng đúng tuyến theo thẻ BHYT" className="mt-1 w-full resize-none rounded-md border border-[#cfd8e6] bg-white px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" />
-              </label>
-              <div className="mt-3 flex justify-between rounded-md bg-white px-3 py-2 text-sm">
-                <span className="text-[#667892]">Giảm BHYT dự kiến</span>
-                <span className="font-semibold text-[#0d4f8b]">{formatCurrency(createDiscount)}</span>
-              </div>
-            </div>
-            <button disabled={busy || !appointmentReadyForInvoice} className="w-full rounded-md bg-[#0d4f8b] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#083d6d] disabled:cursor-not-allowed disabled:opacity-50">{busy ? "Đang phát hành..." : "Phát hành hóa đơn"}</button>
-          </form>
-        </section>
-
-        <section ref={detailRef} className="scroll-mt-24 rounded-md border border-[#dce3ee] bg-white p-5 xl:sticky xl:top-24">
-          {selected ? (
-            <div className="space-y-5">
-              <div>
-                <p className="text-sm font-medium text-[#55708f]">Chi tiết hóa đơn</p>
-                <h3 className="mt-1 text-xl font-semibold">{selected.invoiceCode}</h3>
-                <DashboardStatusBadge tone={statusTone[selected.status]} className="mt-3">{statusLabel[selected.status]}</DashboardStatusBadge>
-                <div className="mt-3"><PrintButton label="In hóa đơn" /><PrintableInvoice invoice={selected} /></div>
-              </div>
-              <div className="space-y-3 text-sm">
-                <div><p className="text-[#667892]">Mã vạch</p><p className="font-semibold">{selected.barcode}</p></div>
-                <div><p className="text-[#667892]">Người khám</p><p className="font-semibold">{selected.patient.fullName}</p><p>{selected.patient.phone || "-"}</p></div>
-                <div><p className="text-[#667892]">Lịch hẹn</p><p className="font-semibold">{selected.appointment.bookingCode}</p><p>{formatDate(selected.appointment.appointmentDate)} {selected.appointment.startTime} - {selected.appointment.endTime}</p></div>
-                <div><p className="text-[#667892]">Bác sĩ</p><p className="font-semibold">{doctorName(selected)}</p><p>{selected.appointment.department.name}</p></div>
-                <div><p className="text-[#667892]">Dịch vụ</p><p>{selected.appointment.package?.name || "Khám bác sĩ"}</p></div>
-                <div>
-                  <p className="text-[#667892]">Chi tiết khoản thu</p>
-                  <div className="mt-2 space-y-2 rounded-md border border-[#e5ebf3] bg-[#f8fafc] p-3">
-                    {selected.items?.length ? selected.items.map((item) => (
-                      <div key={item.id} className="flex items-start justify-between gap-3">
-                        <div>
-                          <p className="font-medium text-[#172033]">{item.description}</p>
-                          {item.quantity > 1 ? <p className="text-xs text-[#667892]">{item.quantity} × {formatCurrency(item.unitPrice)}</p> : null}
-                        </div>
-                        <p className="shrink-0 font-semibold">{formatCurrency(item.amount)}</p>
-                      </div>
-                    )) : (
-                      <p className="text-[#667892]">Hóa đơn cũ chưa có dữ liệu khoản thu chi tiết.</p>
-                    )}
-                    <div className="border-t border-[#dce3ee] pt-2">
-                      <div className="flex justify-between gap-3"><span>Tổng chi phí</span><span>{formatCurrency(selected.totalAmount)}</span></div>
-                      <div className="mt-1 flex justify-between gap-3 text-[#1f7a3a]"><span>Giảm BHYT</span><span>{selected.bhytDiscount > 0 ? `-${formatCurrency(selected.bhytDiscount)}` : formatCurrency(0)}</span></div>
-                      <div className="mt-2 flex justify-between gap-3 text-base font-semibold text-[#0d4f8b]"><span>Cần thu</span><span>{formatCurrency(selected.finalAmount)}</span></div>
-                    </div>
-                  </div>
-                </div>
-                <div className="rounded-md border border-[#e5ebf3] bg-[#f8fafc] p-3">
-                  <p className="font-semibold text-[#172033]">Tiêu chuẩn BHYT</p>
-                  <p className="mt-2">Phần đủ điều kiện: {formatCurrency(selected.insuranceEligibleAmount)}</p>
-                  <p>Mức hưởng: {selected.insuranceCoverageRate}%</p>
-                  <p>Tuyến/loại: {selected.insuranceRouteType ? insuranceRouteLabel[selected.insuranceRouteType] : "-"}</p>
-                  <p>Quỹ BHYT giảm: {formatCurrency(selected.insuranceDiscountAmount)}</p>
-                  {selected.insuranceNote ? <p className="mt-1 text-[#667892]">Ghi chú: {selected.insuranceNote}</p> : null}
-                </div>
-                {selected.status === "PAID" || selected.status === "REFUNDED" ? (
-                  <div className="rounded-md border border-[#b9dfc5] bg-[#f2fbf5] p-3">
-                    <p className="font-semibold text-[#195f31]">Biên nhận thanh toán</p>
-                    <p className="mt-2">Mã biên nhận: <span className="font-semibold">{selected.invoiceCode}</span></p>
-                    <p>Phương thức: {selected.paymentMethod ? paymentLabel[selected.paymentMethod] || selected.paymentMethod : "-"}</p>
-                    <p>Thời gian: {selected.paidAt ? formatVietnamDateTime(selected.paidAt) : "-"}</p>
-                    <p>Số tiền: <span className="font-semibold">{formatCurrency(selected.finalAmount)}</span></p>
-                    {selected.paymentReference ? <p className="break-all">Mã tham chiếu: {selected.paymentReference}</p> : null}
-                  </div>
-                ) : (
-                  <div><p className="text-[#667892]">Thanh toán</p><p>Chưa thanh toán</p></div>
-                )}
-                <div>
-                  <p className="text-[#667892]">Giao dịch trực tuyến gần nhất</p>
-                  {selected.paymentTransactions.length ? (
-                    <div className="mt-2 space-y-2">
-                      {selected.paymentTransactions.map((transaction) => (
-                        <div key={transaction.id} className="rounded-md border border-[#e5ebf3] bg-[#f8fafc] p-3">
-                          <div className="flex flex-wrap items-center justify-between gap-2">
-                            <p className="font-semibold text-[#172033]">{transaction.provider} · {transaction.transactionCode}</p>
-                            <span className={`rounded-md px-2 py-1 text-xs font-semibold ${transactionStatusClass[transaction.status]}`}>
-                              {transactionStatusLabel[transaction.status]}
-                            </span>
-                          </div>
-                          <p className="mt-1">{formatCurrency(transaction.amount)}</p>
-                          <p className="mt-1 text-xs text-[#667892]">
-                            Tạo lúc {formatVietnamDateTime(transaction.createdAt)} · Hết hạn {formatVietnamDateTime(transaction.expiredAt)}
-                          </p>
-                          {transaction.providerOrderId ? (
-                            <p className="mt-1 break-all text-xs text-[#667892]">Mã nhà cung cấp: {transaction.providerOrderId}</p>
-                          ) : null}
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="mt-1">Chưa có giao dịch trực tuyến.</p>
-                  )}
-                </div>
-                {selected.status === "REFUNDED" ? (
-                  <div><p className="text-[#667892]">Hoàn tiền</p><p>{selected.refundReason || "-"}</p>{selected.refundReference ? <p>Mã tham chiếu: {selected.refundReference}</p> : null}<p className="text-xs text-[#667892]">{selected.refundedAt ? formatVietnamDateTime(selected.refundedAt) : "-"}</p></div>
+                    }}
+                  >
+                    Mở hóa đơn {appointmentPreview.invoice.invoiceCode}
+                  </DsButton>
                 ) : null}
               </div>
-              <div className="flex flex-wrap gap-2 border-t border-[#e5ebf3] pt-4">{renderActions(selected)}</div>
-              {actionTarget?.invoice.id === selected.id ? (
-                <div className="rounded-md border border-[#e5ebf3] bg-[#f8fafc] p-4">
-                  {actionTarget.type === "pay" ? (
-                    <>
-                      <h4 className="font-semibold">Ghi nhận thu tại quầy</h4>
-                      <p className="mt-2 text-sm leading-6 text-[#667892]">Chỉ xác nhận sau khi nhân viên đã thực nhận tiền. VNPay được hệ thống tự ghi nhận qua cổng thanh toán.</p>
-                      {selected.paymentTransactions.some((transaction) => transaction.status === "PENDING") ? (
-                        <p className="mt-3 rounded-md border border-[#f0cf7a] bg-[#fff8e6] p-3 text-sm text-[#73510d]">Có giao dịch trực tuyến đang chờ hoặc chưa đồng bộ hết hạn. Máy chủ sẽ kiểm tra lại và chặn thu tại quầy nếu giao dịch còn hiệu lực để tránh thu hai lần.</p>
-                      ) : null}
-                      <label className="mt-3 block">
-                        <span className="text-sm font-medium text-[#334155]">Phương thức</span>
-                        <select value={payMethod} onChange={(e) => setPayMethod(e.target.value as Exclude<PaymentMethod, "VNPAY">)} className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]">
-                          {manualPayments.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
-                        </select>
-                      </label>
-                      {payMethod !== "CASH" ? (
-                        <label className="mt-3 block">
-                          <span className="text-sm font-medium text-[#334155]">Mã tham chiếu {payMethod === "CARD" || payMethod === "BANK_TRANSFER" ? "*" : ""}</span>
-                          <input value={paymentReference} onChange={(event) => setPaymentReference(event.target.value)} maxLength={100} placeholder="Mã giao dịch trên POS hoặc ngân hàng" className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" />
-                        </label>
-                      ) : null}
-                      <div className="mt-3 flex gap-2"><button disabled={busy} onClick={() => void payInvoice()} className="rounded-md bg-[#0d4f8b] px-3 py-2 text-sm font-semibold text-white disabled:opacity-60">Xác nhận đã thu</button><button type="button" onClick={() => setActionTarget(null)} className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm font-medium text-[#42526b]">Hủy</button></div>
-                    </>
-                  ) : null}
-                  {actionTarget.type === "cancel" ? (
-                    <>
-                      <h4 className="font-semibold text-[#b3261e]">Xác nhận hủy hóa đơn</h4>
-                      <p className="mt-2 text-sm text-[#667892]">Hóa đơn chưa thanh toán sẽ chuyển sang trạng thái đã hủy.</p>
-                      <div className="mt-3 flex gap-2"><button disabled={busy} onClick={() => void cancelInvoice()} className="rounded-md bg-[#b3261e] px-3 py-2 text-sm font-semibold text-white disabled:opacity-60">Xác nhận hủy</button><button type="button" onClick={() => setActionTarget(null)} className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm font-medium text-[#42526b]">Giữ hóa đơn</button></div>
-                    </>
-                  ) : null}
-                  {actionTarget.type === "adjust" ? (
-                    <>
-                      <h4 className="font-semibold">{actionTarget.invoice.status === "CANCELLED" ? "Chỉnh và mở lại hóa đơn" : "Chỉnh giảm BHYT"}</h4>
-                      <p className="mt-2 text-sm leading-6 text-[#667892]">Chỉ áp dụng cho hóa đơn chưa thanh toán. Nếu hóa đơn đang bị hủy, lưu điều chỉnh sẽ đưa hóa đơn về trạng thái chưa thanh toán.</p>
-                      <label className="mt-3 block">
-                        <span className="text-sm font-medium text-[#334155]">Số tiền đủ điều kiện BHYT</span>
-                        <input value={formatMoneyInput(adjustInsuranceForm.eligibleAmount)} onChange={(event) => setAdjustInsuranceForm((current) => ({ ...current, eligibleAmount: parseMoneyInput(event.target.value) }))} placeholder="0" inputMode="numeric" className="mt-1 w-full rounded-md border border-[#cfd8e6] bg-white px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" />
-                      </label>
-                      <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                        <label className="block">
-                          <span className="text-sm font-medium text-[#334155]">Mức hưởng</span>
-                          <select value={adjustInsuranceForm.coverageRate} onChange={(event) => setAdjustInsuranceForm((current) => ({ ...current, coverageRate: event.target.value }))} className="mt-1 w-full rounded-md border border-[#cfd8e6] bg-white px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]">
-                            {insuranceCoverageOptions.map((rate) => <option key={rate} value={rate}>{rate}%</option>)}
-                          </select>
-                        </label>
-                        <label className="block">
-                          <span className="text-sm font-medium text-[#334155]">Tuyến/loại</span>
-                          <select value={adjustInsuranceForm.routeType} onChange={(event) => setAdjustInsuranceForm((current) => ({ ...current, routeType: event.target.value as InsuranceRouteType }))} className="mt-1 w-full rounded-md border border-[#cfd8e6] bg-white px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]">
-                            {insuranceRouteOptions.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
-                          </select>
-                        </label>
-                      </div>
-                      <label className="mt-3 block">
-                        <span className="text-sm font-medium text-[#334155]">Ghi chú BHYT</span>
-                        <textarea value={adjustInsuranceForm.note} onChange={(event) => setAdjustInsuranceForm((current) => ({ ...current, note: event.target.value }))} rows={2} className="mt-1 w-full resize-none rounded-md border border-[#cfd8e6] bg-white px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" />
-                      </label>
-                      <div className="mt-3 rounded-md border border-[#e5ebf3] bg-white p-3 text-sm">
-                        <div className="flex justify-between gap-3"><span className="text-[#667892]">Tổng tiền</span><span className="font-medium">{formatCurrency(actionTarget.invoice.totalAmount)}</span></div>
-                        <div className="mt-2 flex justify-between gap-3"><span className="text-[#667892]">Phần đủ điều kiện</span><span className="font-medium">{formatCurrency(toMoneyNumber(adjustInsuranceForm.eligibleAmount))}</span></div>
-                        <div className="mt-2 flex justify-between gap-3"><span className="text-[#667892]">Mức hưởng</span><span className="font-medium">{adjustInsuranceForm.coverageRate}%</span></div>
-                        <div className="mt-2 flex justify-between gap-3"><span className="text-[#667892]">Giảm BHYT mới</span><span className="font-medium">{formatCurrency(adjustedDiscount)}</span></div>
-                        <div className="mt-2 flex justify-between gap-3 border-t border-[#e5ebf3] pt-2"><span className="font-semibold">Cần thu mới</span><span className="font-semibold text-[#0d4f8b]">{formatCurrency(adjustedFinalAmount)}</span></div>
-                      </div>
-                      <div className="mt-3 flex gap-2">
-                        <button disabled={busy || adjustedDiscount > actionTarget.invoice.totalAmount} onClick={() => void adjustInvoice()} className="rounded-md bg-[#0d4f8b] px-3 py-2 text-sm font-semibold text-white disabled:opacity-60">Lưu điều chỉnh</button>
-                        <button type="button" onClick={() => { setActionTarget(null); setAdjustInsuranceForm(defaultInsuranceForm); }} className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm font-medium text-[#42526b]">Đóng</button>
-                      </div>
-                    </>
-                  ) : null}
-                  {actionTarget.type === "refund" ? (
-                    <>
-                      <h4 className="font-semibold">Xác nhận hoàn tiền</h4>
-                      <label className="mt-3 block">
-                        <span className="text-sm font-medium text-[#334155]">Lý do hoàn tiền</span>
-                        <textarea value={refundReason} onChange={(e) => setRefundReason(e.target.value)} rows={3} placeholder="Ví dụ: người khám yêu cầu hoàn tiền" className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" />
-                      </label>
-                      <label className="mt-3 block">
-                        <span className="text-sm font-medium text-[#334155]">Mã tham chiếu hoàn tiền {actionTarget.invoice.paymentMethod === "VNPAY" ? "*" : ""}</span>
-                        <input value={refundReference} onChange={(event) => setRefundReference(event.target.value)} maxLength={100} placeholder="Mã hoàn tiền từ quầy hoặc cổng thanh toán" className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" />
-                      </label>
-                      {(actionTarget.invoice.paymentMethod === "VNPAY") ? <p className="mt-2 text-xs leading-5 text-[#8a5a00]">Dùng nút &quot;Hoàn tự động qua VNPay&quot; để hệ thống gửi yêu cầu hoàn toàn phần tới VNPay. Nếu đã hoàn trực tiếp trên cổng VNPay (hoặc hệ thống báo chưa xác nhận được kết quả), hãy nhập mã tham chiếu rồi bấm &quot;Hoàn tiền&quot; để chỉ đồng bộ trạng thái.</p> : null}
-                      <div className="mt-3 flex flex-wrap gap-2">{actionTarget.invoice.paymentMethod === "VNPAY" ? <button disabled={busy} onClick={() => void refundInvoiceViaVnpay()} className="rounded-md bg-[#b3261e] px-3 py-2 text-sm font-semibold text-white disabled:opacity-60">Hoàn tự động qua VNPay</button> : null}<button disabled={busy} onClick={() => void refundInvoice()} className="rounded-md bg-[#0d4f8b] px-3 py-2 text-sm font-semibold text-white disabled:opacity-60">Hoàn tiền</button><button type="button" onClick={() => { setActionTarget(null); setRefundReason(""); }} className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm font-medium text-[#42526b]">Hủy</button></div>
-                    </>
-                  ) : null}
-                </div>
-              ) : null}
             </div>
           ) : (
-            <div>
-              <p className="text-sm font-medium text-[#55708f]">Chi tiết hóa đơn</p>
-              <h3 className="mt-1 text-xl font-semibold">Chọn một hóa đơn</h3>
-              <p className="mt-2 text-sm leading-6 text-[#667892]">Bấm vào mã hóa đơn để xem mã vạch, số tiền và thao tác thanh toán.</p>
-            </div>
-          )}
-        </section>
+            <DsNotice tone="bad">Không tìm thấy lịch hẹn có mã {appointmentLookupKey}. Hãy kiểm tra lại mã lịch.</DsNotice>
+          )
+        ) : null}
+        <div className="ds-card">
+          <div className="ds-card__head">
+            <h3>Tính BHYT</h3>
+          </div>
+          <div className="ds-card__body">
+            <p className="ds-hint" style={{ margin: 0 }}>
+              Nhập phần tiền đủ điều kiện BHYT và mức hưởng, hệ thống tự tính giảm trừ.
+            </p>
+            <InsuranceFields idPrefix="create" form={insuranceForm} onChange={setInsuranceForm} />
+            <DsKeyValue items={[{ label: "Giảm BHYT dự kiến", value: <strong>{formatCurrency(createDiscount)}</strong> }]} />
+          </div>
         </div>
-        </DashboardWorkspace>
-      </aside>
-      ) : null}
-    </div>
+        <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", alignItems: "center", flexWrap: "wrap" }}>
+          {!appointmentReadyForInvoice ? <span className="ds-hint">Cần một lịch hẹn đã hoàn thành khám và chưa có hóa đơn.</span> : null}
+          <DsButton onClick={closePane}>Hủy</DsButton>
+          <DsButton type="submit" variant="primary" disabled={busy || !appointmentReadyForInvoice}>
+            {busy ? "Đang phát hành..." : "Phát hành hóa đơn"}
+          </DsButton>
+        </div>
+      </form>
+    </DsPane>
+  ) : null;
+
+  const activeAction = selected && actionTarget?.invoice.id === selected.id ? actionTarget : null;
+
+  const detailPane = selected ? (
+    <DsPane
+      wide
+      bodyClassName="ds-pane__body ds-pane__body--flush"
+      title={`${selected.invoiceCode} · ${selected.patient.fullName}`}
+      badge={<DsStatusPill tone={statusTone[selected.status]}>{statusLabel[selected.status]}</DsStatusPill>}
+      onClose={closePane}
+    >
+      <div style={{ padding: "12px 16px 0", color: "var(--ds-muted)", fontSize: 13 }}>
+        {selected.barcode} · {selected.patient.phone || "-"} · {selected.appointment.bookingCode} · {formatVietnamDate(selected.appointment.appointmentDate)} {selected.appointment.startTime} -{" "}
+        {selected.appointment.endTime} · {doctorName(selected)} · {selected.appointment.department.name} · {selected.appointment.package?.name || "Khám bác sĩ"}
+      </div>
+
+      <div className="ds-savebar" style={{ borderTop: 0, position: "static", paddingTop: 12 }}>
+        {selected.status === "UNPAID" ? (
+          <>
+            <DsButton variant="primary" disabled={busy} onClick={() => startAction("pay", selected)}>
+              Ghi nhận thu tại quầy
+            </DsButton>
+            <DsButton disabled={busy} onClick={() => startAction("adjust", selected)}>
+              Chỉnh giảm BHYT
+            </DsButton>
+          </>
+        ) : null}
+        {selected.status === "CANCELLED" ? (
+          <DsButton disabled={busy} onClick={() => startAction("adjust", selected)}>
+            Chỉnh và mở lại
+          </DsButton>
+        ) : null}
+        {canRefund && selected.status === "PAID" ? (
+          <DsButton disabled={busy} onClick={() => startAction("refund", selected)}>
+            Hoàn tiền
+          </DsButton>
+        ) : null}
+        <PrintButton label="In hóa đơn" />
+        <PrintableInvoice invoice={selected} />
+        <span style={{ flex: 1 }} />
+        {selected.status === "UNPAID" ? (
+          <DsButton variant="ghost" disabled={busy} onClick={() => startAction("cancel", selected)}>
+            Hủy hóa đơn
+          </DsButton>
+        ) : null}
+      </div>
+
+      <div className="ds-editor">
+        <div className="ds-editor__col">
+          {activeAction?.type === "pay" ? (
+            <div className="ds-card">
+              <div className="ds-card__head">
+                <h3>Ghi nhận thu tại quầy</h3>
+              </div>
+              <div className="ds-card__body">
+                <p className="ds-hint" style={{ margin: 0 }}>
+                  Chỉ xác nhận sau khi nhân viên đã thực nhận tiền. VNPay được hệ thống tự ghi nhận qua cổng thanh toán.
+                </p>
+                {selected.paymentTransactions.some((transaction) => transaction.status === "PENDING") ? (
+                  <DsNotice tone="warn">
+                    Có giao dịch trực tuyến đang chờ hoặc chưa đồng bộ hết hạn. Máy chủ sẽ kiểm tra lại và chặn thu tại quầy nếu giao dịch còn hiệu lực để tránh thu hai lần.
+                  </DsNotice>
+                ) : null}
+                <DsField label="Phương thức" htmlFor="pay-method">
+                  <DsSelect id="pay-method" value={payMethod} onChange={(event) => setPayMethod(event.target.value as Exclude<PaymentMethod, "VNPAY">)}>
+                    {manualPayments.map((item) => (
+                      <option key={item.value} value={item.value}>
+                        {item.label}
+                      </option>
+                    ))}
+                  </DsSelect>
+                </DsField>
+                {payMethod !== "CASH" ? (
+                  <DsField label="Mã tham chiếu" htmlFor="pay-reference" required={payMethod === "CARD" || payMethod === "BANK_TRANSFER"}>
+                    <DsInput id="pay-reference" value={paymentReference} maxLength={100} placeholder="Mã giao dịch trên POS hoặc ngân hàng" onChange={(event) => setPaymentReference(event.target.value)} />
+                  </DsField>
+                ) : null}
+                <DsKeyValue items={[{ label: "Số tiền cần thu", value: <strong>{formatCurrency(selected.finalAmount)}</strong> }]} />
+                <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+                  <DsButton onClick={() => setActionTarget(null)}>Đóng</DsButton>
+                  <DsButton variant="primary" disabled={busy} onClick={() => void payInvoice()}>
+                    Xác nhận đã thu
+                  </DsButton>
+                </div>
+              </div>
+            </div>
+          ) : null}
+
+          {activeAction?.type === "cancel" ? (
+            <div className="ds-card">
+              <div className="ds-card__head">
+                <h3>Xác nhận hủy hóa đơn</h3>
+              </div>
+              <div className="ds-card__body">
+                <p className="ds-hint" style={{ margin: 0 }}>
+                  Hóa đơn chưa thanh toán sẽ chuyển sang trạng thái đã hủy; có thể chỉnh và mở lại sau.
+                </p>
+                <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+                  <DsButton onClick={() => setActionTarget(null)}>Giữ hóa đơn</DsButton>
+                  <DsButton variant="danger" disabled={busy} onClick={() => void cancelInvoice()}>
+                    Xác nhận hủy
+                  </DsButton>
+                </div>
+              </div>
+            </div>
+          ) : null}
+
+          {activeAction?.type === "adjust" ? (
+            <div className="ds-card">
+              <div className="ds-card__head">
+                <h3>{activeAction.invoice.status === "CANCELLED" ? "Chỉnh và mở lại hóa đơn" : "Chỉnh giảm BHYT"}</h3>
+              </div>
+              <div className="ds-card__body">
+                <p className="ds-hint" style={{ margin: 0 }}>
+                  Chỉ áp dụng cho hóa đơn chưa thanh toán. Nếu hóa đơn đang bị hủy, lưu điều chỉnh sẽ đưa hóa đơn về trạng thái chưa thanh toán.
+                </p>
+                <InsuranceFields idPrefix="adjust" form={adjustInsuranceForm} onChange={setAdjustInsuranceForm} />
+                <DsKeyValue
+                  items={[
+                    { label: "Tổng tiền", value: formatCurrency(activeAction.invoice.totalAmount) },
+                    { label: "Giảm BHYT mới", value: formatCurrency(adjustedDiscount) },
+                    { label: "Cần thu mới", value: <strong>{formatCurrency(adjustedFinalAmount)}</strong> },
+                  ]}
+                />
+                {adjustedDiscount > activeAction.invoice.totalAmount ? <DsNotice tone="bad">Giảm trừ BHYT không được lớn hơn tổng tiền.</DsNotice> : null}
+                <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+                  <DsButton onClick={resetActionState}>Đóng</DsButton>
+                  <DsButton variant="primary" disabled={busy || adjustedDiscount > activeAction.invoice.totalAmount} onClick={() => void adjustInvoice()}>
+                    Lưu điều chỉnh
+                  </DsButton>
+                </div>
+              </div>
+            </div>
+          ) : null}
+
+          {activeAction?.type === "refund" ? (
+            <div className="ds-card">
+              <div className="ds-card__head">
+                <h3>Xác nhận hoàn tiền</h3>
+              </div>
+              <div className="ds-card__body">
+                <DsField label="Lý do hoàn tiền" htmlFor="refund-reason" required hint="Ít nhất 5 ký tự">
+                  <DsTextarea id="refund-reason" rows={3} value={refundReason} placeholder="Ví dụ: người khám yêu cầu hoàn tiền" onChange={(event) => setRefundReason(event.target.value)} />
+                </DsField>
+                <DsField label="Mã tham chiếu hoàn tiền" htmlFor="refund-reference" required={activeAction.invoice.paymentMethod === "VNPAY"}>
+                  <DsInput id="refund-reference" value={refundReference} maxLength={100} placeholder="Mã hoàn tiền từ quầy hoặc cổng thanh toán" onChange={(event) => setRefundReference(event.target.value)} />
+                </DsField>
+                {activeAction.invoice.paymentMethod === "VNPAY" ? (
+                  <DsNotice tone="warn">
+                    Dùng nút &quot;Hoàn tự động qua VNPay&quot; để hệ thống gửi yêu cầu hoàn toàn phần tới VNPay. Nếu đã hoàn trực tiếp trên cổng VNPay (hoặc hệ thống báo chưa xác nhận được kết quả), hãy nhập mã tham chiếu rồi bấm &quot;Hoàn tiền&quot; để chỉ đồng bộ trạng thái.
+                  </DsNotice>
+                ) : null}
+                <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", flexWrap: "wrap" }}>
+                  <DsButton onClick={() => { setActionTarget(null); setRefundReason(""); }}>Đóng</DsButton>
+                  {activeAction.invoice.paymentMethod === "VNPAY" ? (
+                    <DsButton variant="danger" disabled={busy || refundReason.trim().length < 5} onClick={() => void refundInvoiceViaVnpay()}>
+                      Hoàn tự động qua VNPay
+                    </DsButton>
+                  ) : null}
+                  <DsButton variant="primary" disabled={busy} onClick={() => void refundInvoice()}>
+                    Hoàn tiền
+                  </DsButton>
+                </div>
+              </div>
+            </div>
+          ) : null}
+
+          <div className="ds-card">
+            <div className="ds-card__head">
+              <h3>Chi tiết khoản thu</h3>
+            </div>
+            <div className="ds-card__body">
+              {selected.items?.length ? (
+                selected.items.map((item) => (
+                  <div key={item.id} style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
+                    <div>
+                      <strong style={{ fontSize: 13 }}>{item.description}</strong>
+                      {item.quantity > 1 ? (
+                        <div style={{ color: "var(--ds-muted)", fontSize: 12 }}>
+                          {item.quantity} × {formatCurrency(item.unitPrice)}
+                        </div>
+                      ) : null}
+                    </div>
+                    <strong style={{ flex: "none" }}>{formatCurrency(item.amount)}</strong>
+                  </div>
+                ))
+              ) : (
+                <p className="ds-hint" style={{ margin: 0 }}>
+                  Hóa đơn cũ chưa có dữ liệu khoản thu chi tiết.
+                </p>
+              )}
+              <DsKeyValue
+                items={[
+                  { label: "Tổng chi phí", value: formatCurrency(selected.totalAmount) },
+                  { label: "Giảm BHYT", value: selected.bhytDiscount > 0 ? `- ${formatCurrency(selected.bhytDiscount)}` : formatCurrency(0) },
+                  { label: "Cần thu", value: <strong>{formatCurrency(selected.finalAmount)}</strong> },
+                ]}
+              />
+            </div>
+          </div>
+
+          <div className="ds-card">
+            <div className="ds-card__head">
+              <h3>Tiêu chuẩn BHYT</h3>
+            </div>
+            <div className="ds-card__body">
+              <DsKeyValue
+                items={[
+                  { label: "Phần đủ điều kiện", value: formatCurrency(selected.insuranceEligibleAmount) },
+                  { label: "Mức hưởng", value: `${selected.insuranceCoverageRate}%` },
+                  { label: "Tuyến/loại", value: selected.insuranceRouteType ? insuranceRouteLabel[selected.insuranceRouteType] : "-" },
+                  { label: "Quỹ BHYT giảm", value: formatCurrency(selected.insuranceDiscountAmount) },
+                ]}
+              />
+              {selected.insuranceNote ? <p className="ds-hint" style={{ margin: 0 }}>Ghi chú: {selected.insuranceNote}</p> : null}
+            </div>
+          </div>
+        </div>
+
+        <div className="ds-editor__col">
+          <div className="ds-card">
+            <div className="ds-card__head">
+              <h3>Thanh toán</h3>
+            </div>
+            <div className="ds-card__body">
+              {selected.status === "PAID" || selected.status === "REFUNDED" ? (
+                <DsKeyValue
+                  items={[
+                    { label: "Mã biên nhận", value: selected.invoiceCode },
+                    { label: "Phương thức", value: selected.paymentMethod ? paymentLabel[selected.paymentMethod] || selected.paymentMethod : "-" },
+                    { label: "Thời gian", value: selected.paidAt ? formatVietnamDateTime(selected.paidAt) : "-" },
+                    { label: "Số tiền", value: <strong>{formatCurrency(selected.finalAmount)}</strong> },
+                    ...(selected.paymentReference ? [{ label: "Mã tham chiếu", value: selected.paymentReference }] : []),
+                  ]}
+                />
+              ) : (
+                <p style={{ margin: 0, color: "var(--ds-muted)" }}>Chưa thanh toán.</p>
+              )}
+              {selected.status === "REFUNDED" ? (
+                <DsKeyValue
+                  items={[
+                    { label: "Lý do hoàn", value: selected.refundReason || "-" },
+                    ...(selected.refundReference ? [{ label: "Tham chiếu hoàn", value: selected.refundReference }] : []),
+                    { label: "Hoàn lúc", value: selected.refundedAt ? formatVietnamDateTime(selected.refundedAt) : "-" },
+                  ]}
+                />
+              ) : null}
+            </div>
+          </div>
+
+          <div className="ds-card">
+            <div className="ds-card__head">
+              <h3>Giao dịch trực tuyến</h3>
+            </div>
+            {selected.paymentTransactions.length ? (
+              selected.paymentTransactions.map((transaction) => (
+                <div key={transaction.id} className="ds-labrow">
+                  <div className="ds-labrow__main">
+                    <strong>
+                      {transaction.provider} · {transaction.transactionCode}
+                    </strong>
+                    <small>{formatCurrency(transaction.amount)}</small>
+                    <small>
+                      Tạo lúc {formatVietnamDateTime(transaction.createdAt)} · hết hạn {formatVietnamDateTime(transaction.expiredAt)}
+                    </small>
+                    {transaction.providerOrderId ? <small>Mã nhà cung cấp: {transaction.providerOrderId}</small> : null}
+                  </div>
+                  <DsStatusPill tone={transactionTone[transaction.status]}>{transactionStatusLabel[transaction.status]}</DsStatusPill>
+                </div>
+              ))
+            ) : (
+              <p style={{ margin: 0, padding: 14, color: "var(--ds-muted)" }}>Chưa có giao dịch trực tuyến.</p>
+            )}
+          </div>
+        </div>
+      </div>
+    </DsPane>
+  ) : null;
+
+  return (
+    <>
+      <DsPageHeader
+        title="Hóa đơn"
+        description="Tạo hóa đơn từ lịch hẹn hoàn thành, áp dụng BHYT và kiểm soát thanh toán, hủy hoặc hoàn tiền"
+        actions={
+          <>
+            <ExportCsvButton ds path="/dashboard/invoices/export" fallbackName="hoa-don.csv" params={{ status: status || undefined }} />
+            <DsButton variant="primary" onClick={startCreate}>
+              <Plus aria-hidden="true" />
+              Tạo hóa đơn
+            </DsButton>
+          </>
+        }
+      />
+      <div style={{ display: "grid", gap: 12, marginBottom: 16 }}>
+        {visibleError ? <DsNotice tone="bad">{visibleError}</DsNotice> : null}
+        {notice ? <DsNotice tone="good">{notice}</DsNotice> : null}
+      </div>
+      <DsSplit wide list={list} pane={detailPane ?? createPane} />
+    </>
   );
 }
