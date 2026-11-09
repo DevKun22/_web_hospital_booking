@@ -4,7 +4,7 @@ import { ClipboardEvent, FormEvent, KeyboardEvent, useEffect, useRef, useState }
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Eye, EyeOff, Hospital, Loader2 } from "lucide-react";
-import { DsButton, DsField, DsInput, DsNotice, DsRoot, DsStatusPill, describedBy } from "@/components/ds";
+import { DsButton, DsField, DsInput, DsNotice, DsRoot, describedBy } from "@/components/ds";
 import { DebugOtpBox } from "@/components/ui/debug-otp-box";
 import { useAuth } from "@/lib/auth";
 import { usePublicSiteSettings } from "@/lib/public-home-query";
@@ -195,27 +195,6 @@ export default function LoginPage() {
 
   return (
     <DsRoot className="ds-login">
-      <aside className="ds-login__aside">
-        <Link href="/" className="ds-login__brand">
-          <span className="ds-brand-mark">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            {logo ? <img src={logo} alt="" /> : <Hospital aria-hidden="true" />}
-          </span>
-          <strong>{hospitalName}</strong>
-        </Link>
-        <div className="ds-login__pitch">
-          <h2>Làm việc theo đúng quyền của bạn</h2>
-          <p>Sau khi xác thực, hệ thống mở đúng phần việc của tài khoản: khám bệnh, cấp thuốc, tiếp nhận hay quản trị.</p>
-          <div className="ds-login__roles">
-            <DsStatusPill tone="info">Bác sĩ</DsStatusPill>
-            <DsStatusPill tone="info">Dược sĩ</DsStatusPill>
-            <DsStatusPill tone="info">Nhân viên</DsStatusPill>
-            <DsStatusPill tone="info">Quản trị</DsStatusPill>
-          </div>
-        </div>
-        <div className="ds-login__status">Đăng nhập hai bước: mật khẩu và mã OTP</div>
-      </aside>
-
       <main className="ds-login__main">
         <div className="ds-login__card">
           <div className="ds-login__top">
@@ -340,6 +319,7 @@ export default function LoginPage() {
 
           <p className="ds-login__foot">Không chia sẻ mã OTP với bất kỳ ai, kể cả người tự nhận là quản trị hệ thống.</p>
         </div>
+        <p className="ds-login__status">Đăng nhập hai bước: mật khẩu và mã OTP</p>
       </main>
     </DsRoot>
   );
