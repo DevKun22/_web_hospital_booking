@@ -6,6 +6,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import { usePathname, useRouter } from "next/navigation";
@@ -66,22 +67,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  const userRef = useRef<DashboardUser | null>(null);
   useEffect(() => {
-    const needsDashboardSession =
-      pathname === "/login" || pathname.startsWith("/dashboard");
+    userRef.current = user;
+  }, [user]);
 
+  // Phiên chỉ cần kiểm tra khi bước vào khu đăng nhập/quản trị, không phải ở mỗi lần đổi mục.
+  // Gọi lại theo từng đường dẫn làm khung quản trị bị thay bằng màn hình tải sau mỗi lần bấm.
+  const needsDashboardSession =
+    pathname === "/login" || pathname.startsWith("/dashboard");
+
+  useEffect(() => {
     const timeoutId = window.setTimeout(() => {
       if (!needsDashboardSession) {
         setLoading(false);
         return;
       }
 
-      setLoading(true);
+      // Đã có người dùng thì làm mới ngầm, giữ nguyên giao diện đang hiển thị.
+      if (!userRef.current) setLoading(true);
       void refreshUser();
     }, 0);
 
     return () => window.clearTimeout(timeoutId);
-  }, [pathname, refreshUser]);
+  }, [needsDashboardSession, refreshUser]);
 
   useEffect(() => {
     const handleAuthExpired = () => {

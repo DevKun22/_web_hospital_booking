@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell-production";
+import { DashboardContentSkeleton } from "@/components/dashboard/dashboard-content-skeleton";
 import { ForcePasswordChange } from "@/components/dashboard/force-password-change";
 import { useAuth } from "@/lib/auth";
 import { canAccessDashboardPath } from "@/lib/dashboard-navigation";
@@ -28,7 +29,8 @@ export function DashboardAuthLayout({
     }
   }, [loading, pathname, router, user]);
 
-  if (loading || !user || !canAccessDashboardPath(user, pathname)) {
+  // Màn hình toàn trang chỉ dành cho lần vào đầu tiên (chưa biết người dùng). Sau đó khung luôn giữ nguyên.
+  if (!user) {
     return (
       <div
         className="flex min-h-screen items-center justify-center bg-[var(--background)] text-sm text-[var(--muted-foreground)]"
@@ -49,5 +51,11 @@ export function DashboardAuthLayout({
     return <ForcePasswordChange />;
   }
 
-  return <DashboardShell>{children}</DashboardShell>;
+  const allowed = canAccessDashboardPath(user, pathname);
+
+  return (
+    <DashboardShell>
+      {allowed ? children : <DashboardContentSkeleton />}
+    </DashboardShell>
+  );
 }
