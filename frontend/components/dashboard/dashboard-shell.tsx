@@ -294,7 +294,8 @@ function ShellFrame({ children, collapsed }: { children: React.ReactNode; collap
   const [searchOpen, setSearchOpen] = useState(false);
 
   const items = useMemo(() => (user ? getListedDashboardItems(user) : []), [user]);
-  const currentItem = getDashboardNavItem(pathname);
+  const baseItem = getDashboardNavItem(pathname);
+  const currentItem = (baseItem && items.find((item) => item.key === baseItem.key)) || baseItem;
   const siteSettings = siteSettingsQuery.data || null;
   const hospitalName = siteSettings?.hospitalName?.trim() || "Hệ thống đặt khám";
   const logo = siteSettings?.logo?.trim();

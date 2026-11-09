@@ -266,7 +266,14 @@ export function getVisibleDashboardItems(user: DashboardUser) {
 
 // Mục hiện trong sidebar và tìm nhanh (bỏ các mục chỉ truy cập bằng đường dẫn).
 export function getListedDashboardItems(user: DashboardUser) {
-  return getVisibleDashboardItems(user).filter((item) => !("unlisted" in item && item.unlisted));
+  return getVisibleDashboardItems(user)
+    .filter((item) => !("unlisted" in item && item.unlisted))
+    .map((item) =>
+      // Bác sĩ có trang chủ riêng ("Việc của tôi") nên mục đầu của họ mang đúng tên đó.
+      item.href === "/dashboard" && user.role === "DOCTOR"
+        ? { ...item, label: "Việc của tôi", description: "Ca khám, hồ sơ và đơn thuốc cần xử lý" }
+        : item,
+    );
 }
 
 export function canAccessDashboardPath(user: DashboardUser, pathname: string) {
