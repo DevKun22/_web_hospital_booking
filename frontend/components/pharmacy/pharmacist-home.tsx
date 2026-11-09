@@ -22,6 +22,18 @@ type QueueItem = {
 
 type LowMedicine = { id: string; code: string; name: string; strength: string | null; unit: string; stockQuantity: number; minStock: number };
 
+type ExpiryAlert = {
+  id: string;
+  batchNumber: string;
+  expiryDate: string;
+  quantity: number;
+  status: "EXPIRED" | "EXPIRING" | "OK";
+  daysLeft: number;
+  medicine: { id: string; code: string; name: string; strength: string | null; unit: string };
+};
+
+type ExpiryAlerts = { items: ExpiryAlert[]; summary: { total: number; expired: number } };
+
 type Paged<T> = { items: T[]; pagination: { total: number } };
 
 export function PharmacistHome() {
@@ -40,12 +52,22 @@ export function PharmacistHome() {
     refetchInterval: 60_000,
   });
 
+  const expiry = useQuery({
+    queryKey: ["dashboard", "pharmacy", "home-expiry"],
+    queryFn: () => apiRequest<ExpiryAlerts>("/dashboard/pharmacy/medicines/expiry-alerts"),
+    enabled: canMedicines,
+    refetchInterval: 60_000,
+  });
+
   const waiting = queue.data?.items ?? [];
+  const expiryItems = expiry.data?.items ?? [];
+  const expiryTotal = expiry.data?.summary.total ?? 0;
+  const expiredCount = expiry.data?.summary.expired ?? 0;
   const waitingTotal = queue.data?.pagination.total ?? 0;
   const withAllergy = waiting.filter((item) => item.appointment.allergies).length;
   const lowItems = low.data?.items ?? [];
   const lowTotal = low.data?.pagination.total ?? 0;
-  const error = queue.error || low.error;
+  const error = queue.error || low.error || expiry.error;
 
   return (
     <>
@@ -57,6 +79,7 @@ export function PharmacistHome() {
             onClick={() => {
               void queue.refetch();
               void low.refetch();
+              void expiry.refetch();
             }}
           >
             <RefreshCw aria-hidden="true" className={queue.isFetching || low.isFetching ? "animate-spin" : undefined} />
@@ -81,6 +104,12 @@ export function PharmacistHome() {
             <Link href="/dashboard/medicines" className={`ds-attn${lowTotal > 0 ? " is-warn" : ""}`}>
               <span className="ds-attn__label">Thuốc sắp hết</span>
               <strong className="ds-attn__value ds-num">{low.isLoading ? "…" : lowTotal}</strong>
+            </Link>
+          ) : null}
+          {canMedicines ? (
+            <Link href="/dashboard/medicines" className={`ds-attn${expiredCount > 0 ? " is-warn" : expiryTotal > 0 ? " is-warn" : ""}`}>
+              <span className="ds-attn__label">Lô hết hạn hoặc sắp hết hạn</span>
+              <strong className="ds-attn__value ds-num">{expiry.isLoading ? "…" : expiryTotal}</strong>
             </Link>
           ) : null}
         </section>
@@ -111,6 +140,36 @@ export function PharmacistHome() {
               </Link>
             ))}
           </DsPanel>
+
+          {canMedicines ? (
+            <DsPanel
+              title="Lô sắp hết hạn"
+              flush
+              actions={
+                <Link href="/dashboard/medicines" className="ds-link">
+                  Mở kho thuốc
+                </Link>
+              }
+            >
+              {expiryItems.length === 0 && !expiry.isLoading ? <DsEmptyState title="Không có lô cần chú ý" description="Chưa có lô hết hạn hoặc sắp hết hạn trong 60 ngày tới." /> : null}
+              {expiryItems.slice(0, 8).map((item) => (
+                <Link key={item.id} href="/dashboard/medicines" className="ds-todo" style={{ color: "inherit", textDecoration: "none" }}>
+                  <span className="ds-todo__dot is-warn" aria-hidden="true" />
+                  <div className="ds-todo__text">
+                    <strong>
+                      {item.medicine.name} {item.medicine.strength || ""}
+                    </strong>
+                    <small>
+                      Lô {item.batchNumber} · {item.quantity} {item.medicine.unit} · hạn {item.expiryDate.split("-").reverse().join("/")}
+                    </small>
+                  </div>
+                  <DsStatusPill tone={item.status === "EXPIRED" ? "bad" : "warn"}>
+                    {item.status === "EXPIRED" ? `Quá hạn ${-item.daysLeft} ngày` : `Còn ${item.daysLeft} ngày`}
+                  </DsStatusPill>
+                </Link>
+              ))}
+            </DsPanel>
+          ) : null}
 
           {canMedicines ? (
             <DsPanel

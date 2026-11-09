@@ -23,7 +23,8 @@ import { ExportCsvButton } from "@/components/dashboard/export-csv-button";
 import { ImportCsvPanel } from "@/components/dashboard/import-csv-panel";
 import { apiRequest } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
-import { formatVietnamDateTime } from "@/lib/date";
+import { VietnamDateInput } from "@/components/ui/vietnam-date-input";
+import { formatVietnamDate, formatVietnamDateTime } from "@/lib/date";
 import { can } from "@/lib/permissions";
 
 type Medicine = {
@@ -37,6 +38,25 @@ type Medicine = {
   stockQuantity: number;
   minStock: number;
   isActive: boolean;
+  /** Tồn cấp được (không tính lô đã hết hạn). */
+  sellableQuantity: number;
+  expiredQuantity: number;
+  nearestExpiry: string | null;
+};
+
+type Batch = {
+  id: string;
+  batchNumber: string;
+  expiryDate: string;
+  receivedQuantity: number;
+  quantity: number;
+  status: "EXPIRED" | "EXPIRING" | "OK";
+  daysLeft: number;
+};
+
+type BatchList = {
+  items: Batch[];
+  summary: { stockQuantity: number; sellableQuantity: number; unbatchedQuantity: number };
 };
 
 type Movement = {
@@ -46,6 +66,7 @@ type Movement = {
   balanceAfter: number;
   reason: string | null;
   createdAt: string;
+  batch: { id: string; batchNumber: string; expiryDate: string } | null;
   actor: { fullName: string };
   prescriptionItem: { prescription: { prescriptionCode: string } } | null;
 };
@@ -53,6 +74,10 @@ type Movement = {
 type Paged<T> = { items: T[]; pagination: { total: number; totalPages?: number } };
 
 const PAGE_SIZE = 30;
+
+const batchTone = { EXPIRED: "bad", EXPIRING: "warn", OK: "good" } as const;
+const batchLabel = { EXPIRED: "Hết hạn", EXPIRING: "Sắp hết hạn", OK: "Còn hạn" } as const;
+const isoToDate = (iso: string) => formatVietnamDate(`${iso}T00:00:00+07:00`);
 
 const movementLabel = { RECEIPT: "Nhập kho", DISPENSE: "Cấp phát", ADJUSTMENT: "Điều chỉnh" } as const;
 // Tệp mẫu cho nhập CSV: đúng tiêu đề cột mà máy chủ yêu cầu.
@@ -93,6 +118,9 @@ export default function MedicinesPage() {
   const [creating, setCreating] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [receiptQty, setReceiptQty] = useState("");
+  const [receiptBatch, setReceiptBatch] = useState("");
+  const [receiptExpiry, setReceiptExpiry] = useState("");
+  const [writeOffTarget, setWriteOffTarget] = useState<Batch | null>(null);
   const [adjustDelta, setAdjustDelta] = useState("");
   const [adjustReason, setAdjustReason] = useState("");
 
@@ -108,6 +136,12 @@ export default function MedicinesPage() {
   const movementsQuery = useQuery({
     queryKey: ["dashboard", "pharmacy", "movements", selectedId],
     queryFn: () => apiRequest<Paged<Movement>>(`/dashboard/pharmacy/medicines/${selectedId}/movements`, { query: { limit: 30 } }),
+    enabled: Boolean(selectedId),
+  });
+
+  const batchesQuery = useQuery({
+    queryKey: ["dashboard", "pharmacy", "batches", selectedId],
+    queryFn: () => apiRequest<BatchList>(`/dashboard/pharmacy/medicines/${selectedId}/batches`),
     enabled: Boolean(selectedId),
   });
 
@@ -136,10 +170,17 @@ export default function MedicinesPage() {
     mutationFn: () =>
       apiRequest(`/dashboard/pharmacy/medicines/${selectedId}/receipts`, {
         method: "POST",
-        body: { quantity: Number(receiptQty), reason: "Nhập kho" },
+        body: {
+          quantity: Number(receiptQty),
+          reason: "Nhập kho",
+          batchNumber: receiptBatch.trim() || null,
+          expiryDate: receiptExpiry || null,
+        },
       }),
     onSuccess: async () => {
       setReceiptQty("");
+      setReceiptBatch("");
+      setReceiptExpiry("");
       await refresh();
     },
   });
@@ -156,7 +197,24 @@ export default function MedicinesPage() {
     },
   });
 
-  const mutations = [createMutation, receiveMutation, adjustMutation];
+  // Huỷ cả số còn lại của một lô (hết hạn hoặc hỏng): ghi vào sổ kho như một điều chỉnh theo lô.
+  const writeOffMutation = useMutation({
+    mutationFn: (batch: Batch) =>
+      apiRequest(`/dashboard/pharmacy/medicines/${selectedId}/adjustments`, {
+        method: "POST",
+        body: {
+          delta: -batch.quantity,
+          reason: batch.status === "EXPIRED" ? "Huỷ thuốc hết hạn" : "Huỷ thuốc theo lô",
+          batchId: batch.id,
+        },
+      }),
+    onSuccess: async () => {
+      setWriteOffTarget(null);
+      await refresh();
+    },
+  });
+
+  const mutations = [createMutation, receiveMutation, adjustMutation, writeOffMutation];
   const failed = mutations.find((item) => item.error instanceof Error)?.error as Error | undefined;
   const succeeded = mutations.some((item) => item.isSuccess);
   const submit = (action: () => void) => (event: FormEvent) => {
@@ -173,6 +231,7 @@ export default function MedicinesPage() {
       createMutation.reset();
       receiveMutation.reset();
       adjustMutation.reset();
+      writeOffMutation.reset();
     }, 4500);
     return () => window.clearTimeout(timeoutId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -182,6 +241,9 @@ export default function MedicinesPage() {
   const selectMedicine = (id: string) => {
     resetMutations();
     setCreating(false);
+    setWriteOffTarget(null);
+    setReceiptBatch("");
+    setReceiptExpiry("");
     setSelectedId(id);
   };
   const closePane = () => {
@@ -210,16 +272,18 @@ export default function MedicinesPage() {
     },
     {
       key: "stock",
-      header: "Tồn kho",
+      header: "Tồn cấp được",
       align: "num",
       cell: (item) => {
-        const low = item.stockQuantity <= item.minStock;
+        const low = item.sellableQuantity <= item.minStock;
         return (
           <div>
             <strong style={low ? { color: "var(--ds-bad)" } : undefined}>
-              {item.stockQuantity} {item.unit}
+              {item.sellableQuantity} {item.unit}
             </strong>
             {low ? <div style={{ fontSize: 12, color: "var(--ds-bad)" }}>Sắp hết (tối thiểu {item.minStock})</div> : null}
+            {item.expiredQuantity > 0 ? <div style={{ fontSize: 12, color: "var(--ds-bad)" }}>{item.expiredQuantity} đã hết hạn</div> : null}
+            {item.nearestExpiry ? <div style={{ fontSize: 12, color: "var(--ds-muted)" }}>Hạn gần nhất {isoToDate(item.nearestExpiry)}</div> : null}
           </div>
         );
       },
@@ -273,8 +337,8 @@ export default function MedicinesPage() {
                     </strong>
                     <small>{item.code}</small>
                   </span>
-                  <DsStatusPill tone={low ? "bad" : "neutral"}>
-                    {item.stockQuantity} {item.unit}
+                  <DsStatusPill tone={low || item.expiredQuantity > 0 ? "bad" : "neutral"}>
+                    {item.sellableQuantity} {item.unit}
                   </DsStatusPill>
                 </button>
               );
@@ -341,8 +405,8 @@ export default function MedicinesPage() {
       bodyClassName="ds-pane__body ds-pane__body--flush"
       title={`${selected.name} ${selected.strength || ""}`.trim()}
       badge={
-        <DsStatusPill tone={selected.stockQuantity <= selected.minStock ? "bad" : "good"}>
-          Tồn {selected.stockQuantity} {selected.unit}
+        <DsStatusPill tone={selected.sellableQuantity <= selected.minStock ? "bad" : "good"}>
+          Cấp được {selected.sellableQuantity} {selected.unit}
         </DsStatusPill>
       }
       onClose={closePane}
@@ -364,8 +428,21 @@ export default function MedicinesPage() {
                 <DsField label={`Số lượng (${selected.unit})`} htmlFor="receipt-qty">
                   <DsInput id="receipt-qty" type="number" min={1} value={receiptQty} onChange={(event) => setReceiptQty(event.target.value)} />
                 </DsField>
+                <div className="ds-grid-fields">
+                  <DsField label="Số lô" htmlFor="receipt-batch" hint="Khai cùng hạn dùng để theo dõi lô">
+                    <DsInput id="receipt-batch" value={receiptBatch} onChange={(event) => setReceiptBatch(event.target.value)} />
+                  </DsField>
+                  <DsField label="Hạn dùng" htmlFor="receipt-expiry">
+                    <VietnamDateInput value={receiptExpiry} onChange={setReceiptExpiry} ariaLabel="Hạn dùng" className="ds-input" />
+                  </DsField>
+                </div>
+                {Boolean(receiptBatch.trim()) !== Boolean(receiptExpiry) ? <p className="ds-hint" style={{ margin: 0 }}>Cần khai cả số lô và hạn dùng, hoặc bỏ trống cả hai.</p> : null}
                 <div style={{ display: "flex", justifyContent: "flex-end" }}>
-                  <DsButton type="submit" variant="primary" disabled={!receiptQty || receiveMutation.isPending}>
+                  <DsButton
+                    type="submit"
+                    variant="primary"
+                    disabled={!receiptQty || Boolean(receiptBatch.trim()) !== Boolean(receiptExpiry) || receiveMutation.isPending}
+                  >
                     Nhập kho
                   </DsButton>
                 </div>
@@ -404,6 +481,50 @@ export default function MedicinesPage() {
         <div className="ds-editor__col">
           <div className="ds-card">
             <div className="ds-card__head">
+              <h3>Lô thuốc</h3>
+              {batchesQuery.data ? (
+                <small style={{ color: "var(--ds-muted)" }}>
+                  Cấp được {batchesQuery.data.summary.sellableQuantity} · chưa gắn lô {batchesQuery.data.summary.unbatchedQuantity}
+                </small>
+              ) : null}
+            </div>
+            {batchesQuery.data && batchesQuery.data.items.length === 0 ? (
+              <p style={{ margin: 0, padding: 14, color: "var(--ds-muted)" }}>Chưa có lô nào được khai. Nhập kho kèm số lô và hạn dùng để theo dõi.</p>
+            ) : null}
+            {batchesQuery.data?.items.map((batch) => (
+              <div key={batch.id} className="ds-labrow">
+                <div className="ds-labrow__main">
+                  <strong>
+                    Lô {batch.batchNumber} · {batch.quantity} {selected.unit}
+                  </strong>
+                  <small>
+                    Hạn {isoToDate(batch.expiryDate)}
+                    {batch.status === "EXPIRED" ? ` · quá hạn ${-batch.daysLeft} ngày` : ` · còn ${batch.daysLeft} ngày`}
+                  </small>
+                  {writeOffTarget?.id === batch.id ? (
+                    <div style={{ display: "flex", gap: 8, marginTop: 8, alignItems: "center", flexWrap: "wrap" }}>
+                      <span style={{ fontSize: 13 }}>Huỷ {batch.quantity} {selected.unit} còn lại của lô này?</span>
+                      <DsButton variant="danger" disabled={writeOffMutation.isPending} onClick={() => writeOffMutation.mutate(batch)}>
+                        Huỷ lô
+                      </DsButton>
+                      <DsButton onClick={() => setWriteOffTarget(null)}>Giữ lại</DsButton>
+                    </div>
+                  ) : null}
+                </div>
+                <span style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                  <DsStatusPill tone={batchTone[batch.status]}>{batchLabel[batch.status]}</DsStatusPill>
+                  {canAdjust && writeOffTarget?.id !== batch.id ? (
+                    <DsButton variant="ghost" onClick={() => setWriteOffTarget(batch)}>
+                      Huỷ lô
+                    </DsButton>
+                  ) : null}
+                </span>
+              </div>
+            ))}
+          </div>
+
+          <div className="ds-card">
+            <div className="ds-card__head">
               <h3>Sổ kho gần đây</h3>
             </div>
             {movementsQuery.data && movementsQuery.data.items.length === 0 ? (
@@ -415,6 +536,7 @@ export default function MedicinesPage() {
                   <strong>
                     {movementLabel[move.type]}
                     {move.prescriptionItem ? ` · đơn ${move.prescriptionItem.prescription.prescriptionCode}` : ""}
+                    {move.batch ? ` · lô ${move.batch.batchNumber}` : ""}
                   </strong>
                   {move.reason ? <small>{move.reason}</small> : null}
                   <small>

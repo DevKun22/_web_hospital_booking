@@ -86,6 +86,7 @@ const resetDatabase = async () => {
     "OtpSecurityBlock",
     "OtpVerifyAttempt",
     "StockMovement",
+    "StockBatch",
     "AuditLog",
     "Medicine",
     "User",
@@ -5305,6 +5306,116 @@ test("CSV exports are permission-gated, audited, free of patient identity and sa
 });
 
 // ---- Nhập CSV kho thuốc ------------------------------------------------------------------
+const isoDateFromToday = (days: number) =>
+  new Date(Date.now() + 7 * 3_600_000 + days * 86_400_000).toISOString().slice(0, 10);
+
+test("batches: receipts by lot, FEFO dispensing and expired stock never dispensed", async () => {
+  const pharmacist = await createDashboardUser("PHARMACIST", "0900000012");
+  const cookie = await authCookie(pharmacist.id, "PHARMACIST");
+  const medicine = await createMedicineViaApi(cookie, { code: "MED-LOT", name: "Thuốc theo lô" });
+  const call = (path: string, method = "GET", body?: unknown) =>
+    http.request(`/api/dashboard/pharmacy${path}`, { method, headers: dashboardHeaders(cookie), body });
+  const receive = (body: Record<string, unknown>) => call(`/medicines/${medicine.id}/receipts`, "POST", body);
+
+  // Khai thiếu một nửa, lô đã hết hạn, và cùng số lô khác hạn dùng đều bị từ chối.
+  assert.equal((await receive({ quantity: 5, batchNumber: "L0" })).body.code, "BATCH_FIELDS_INCOMPLETE");
+  assert.equal(
+    (await receive({ quantity: 5, batchNumber: "L0", expiryDate: isoDateFromToday(-1) })).body.code,
+    "BATCH_ALREADY_EXPIRED",
+  );
+  assert.equal((await receive({ quantity: 10, batchNumber: "L1", expiryDate: isoDateFromToday(400) })).status, 201);
+  assert.equal((await receive({ quantity: 5, batchNumber: "L2", expiryDate: isoDateFromToday(100) })).status, 201);
+  assert.equal(
+    (await receive({ quantity: 1, batchNumber: "L1", expiryDate: isoDateFromToday(401) })).body.code,
+    "BATCH_EXPIRY_MISMATCH",
+  );
+  // Nhập thêm cùng lô cùng hạn thì cộng dồn.
+  assert.equal((await receive({ quantity: 2, batchNumber: "L1", expiryDate: isoDateFromToday(400) })).status, 201);
+
+  const batches = await call(`/medicines/${medicine.id}/batches`);
+  assert.equal(batches.status, 200);
+  assert.deepEqual(
+    batches.body.data.items.map((item: { batchNumber: string; quantity: number }) => [item.batchNumber, item.quantity]),
+    [["L2", 5], ["L1", 12]],
+  );
+  assert.equal(batches.body.data.summary.stockQuantity, 17);
+
+  // Lô đã hết hạn trong kho (giả lập lô nhập từ trước): không tính vào tồn cấp được.
+  const expired = await prisma.stockBatch.create({
+    data: {
+      medicineId: medicine.id,
+      batchNumber: "OLD",
+      expiryDate: new Date(`${isoDateFromToday(-10)}T00:00:00.000Z`),
+      receivedQuantity: 4,
+      quantity: 4,
+    },
+  });
+  await prisma.medicine.update({ where: { id: medicine.id }, data: { stockQuantity: { increment: 4 } } });
+  const listed = await call(`/medicines?limit=100`);
+  const row = listed.body.data.items.find((item: { id: string }) => item.id === medicine.id);
+  assert.equal(row.stockQuantity, 21);
+  assert.equal(row.sellableQuantity, 17);
+  assert.equal(row.expiredQuantity, 4);
+  assert.equal(row.nearestExpiry, isoDateFromToday(100));
+
+  const alerts = await call("/medicines/expiry-alerts");
+  assert.equal(alerts.status, 200);
+  assert.deepEqual(
+    alerts.body.data.items.map((item: { batchNumber: string; status: string }) => [item.batchNumber, item.status]),
+    [["OLD", "EXPIRED"]],
+  );
+
+  // Cần 18 nhưng chỉ có 17 còn hạn: cả đơn bị từ chối, không lô nào bị trừ.
+  const tooMuch = await createIssuedPrescription({
+    code: "RX-LOT-BIG",
+    phone: "0933333331",
+    timeSlotId: fixture.slotOne.id,
+    items: [{ medicineName: "Thuốc theo lô", quantity: 18, medicineId: medicine.id }],
+  });
+  const refused = await call(`/prescriptions/${tooMuch.prescription.id}/dispense`, "POST", { confirmed: true });
+  assert.equal(refused.status, 409);
+  assert.equal(refused.body.code, "INSUFFICIENT_STOCK");
+  assert.equal((await prisma.medicine.findUniqueOrThrow({ where: { id: medicine.id } })).stockQuantity, 21);
+
+  // Cần 8: lấy hết lô hết hạn sớm (L2 còn 5) rồi lấy 3 từ lô sau (L1).
+  const small = await createIssuedPrescription({
+    code: "RX-LOT-SMALL",
+    phone: "0933333332",
+    timeSlotId: fixture.slotTwo.id,
+    items: [{ medicineName: "Thuốc theo lô", quantity: 8, medicineId: medicine.id }],
+  });
+  const ok = await call(`/prescriptions/${small.prescription.id}/dispense`, "POST", { confirmed: true });
+  assert.equal(ok.status, 200);
+  const after = await prisma.stockBatch.findMany({ where: { medicineId: medicine.id }, orderBy: { batchNumber: "asc" } });
+  assert.deepEqual(
+    after.map((item) => [item.batchNumber, item.quantity]),
+    [["L1", 9], ["L2", 0], ["OLD", 4]],
+  );
+  const slices = await prisma.stockMovement.findMany({
+    where: { type: "DISPENSE" },
+    orderBy: { balanceAfter: "desc" },
+    include: { batch: true },
+  });
+  assert.deepEqual(
+    slices.map((item) => [item.batch?.batchNumber, item.quantity, item.balanceAfter]),
+    [["L2", -5, 16], ["L1", -3, 13]],
+  );
+  assert.equal((await prisma.medicine.findUniqueOrThrow({ where: { id: medicine.id } })).stockQuantity, 13);
+
+  // Hủy lô hết hạn bằng điều chỉnh theo lô; quá số còn lại thì bị từ chối.
+  const tooBig = await call(`/medicines/${medicine.id}/adjustments`, "POST", { delta: -5, reason: "Hủy", batchId: expired.id });
+  assert.equal(tooBig.status, 409);
+  assert.equal(tooBig.body.code, "INSUFFICIENT_BATCH_STOCK");
+  const written = await call(`/medicines/${medicine.id}/adjustments`, "POST", {
+    delta: -4,
+    reason: "Hủy thuốc hết hạn",
+    batchId: expired.id,
+  });
+  assert.equal(written.status, 201);
+  assert.equal(written.body.data.stockQuantity, 9);
+  assert.equal((await prisma.stockBatch.findUniqueOrThrow({ where: { id: expired.id } })).quantity, 0);
+});
+
 test("pharmacy CSV import previews first, applies all-or-nothing and never overwrites stock", async () => {
   const pharmacist = await createDashboardUser("PHARMACIST", "0900000411");
   const cookie = await authCookie(pharmacist.id, "PHARMACIST");

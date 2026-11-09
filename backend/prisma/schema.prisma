@@ -1180,12 +1180,38 @@ model Medicine {
 
   prescriptionItems PrescriptionItem[]
   stockMovements    StockMovement[]
+  batches           StockBatch[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([name])
   @@index([isActive])
+}
+
+// Lô thuốc có hạn dùng. stockQuantity của thuốc vẫn là tổng tồn; phần tồn chưa gắn lô (nhập trước khi có
+// quản lý lô, hoặc nhập không khai lô) bằng stockQuantity trừ tổng quantity của các lô. Cấp thuốc lấy lô
+// hết hạn sớm nhất còn hạn trước (FEFO) và không bao giờ lấy từ lô đã hết hạn.
+model StockBatch {
+  id String @id @default(uuid())
+
+  medicineId String
+  medicine   Medicine @relation(fields: [medicineId], references: [id], onDelete: Restrict)
+
+  batchNumber String
+  expiryDate  DateTime @db.Date
+
+  receivedQuantity Int // tổng đã nhập vào lô, không đổi sau khi nhập
+  quantity         Int // còn lại trong lô; CHECK quantity >= 0
+
+  stockMovements StockMovement[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([medicineId, batchNumber])
+  @@index([medicineId, expiryDate])
+  @@index([expiryDate])
 }
 
 // Sổ kho chỉ thêm dòng, không sửa hay xóa. Sửa sai bằng dòng ADJUSTMENT đối ứng.
@@ -1204,6 +1230,10 @@ model StockMovement {
   prescriptionItemId String?
   prescriptionItem   PrescriptionItem? @relation(fields: [prescriptionItemId], references: [id], onDelete: Restrict)
 
+  // Có giá trị khi dòng sổ tác động vào một lô cụ thể (nhập theo lô, cấp theo lô, hủy lô).
+  batchId String?
+  batch   StockBatch? @relation(fields: [batchId], references: [id], onDelete: Restrict)
+
   actorId String
   actor   User   @relation(fields: [actorId], references: [id], onDelete: Restrict)
 
@@ -1214,6 +1244,7 @@ model StockMovement {
   @@index([medicineId, createdAt])
   @@index([prescriptionItemId])
   @@index([actorId])
+  @@index([batchId])
 }
 
 // ===================== INVOICE / BARCODE LOGIN =====================
