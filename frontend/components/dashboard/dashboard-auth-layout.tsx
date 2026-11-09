@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import { DashboardContentSkeleton } from "@/components/dashboard/dashboard-content-skeleton";
@@ -17,8 +17,16 @@ export function DashboardAuthLayout({
   const pathname = usePathname();
   const { user, loading } = useAuth();
 
+  // Đã từng có người dùng trong khung này: mất người dùng nghĩa là đăng xuất chủ động (logout tự chuyển
+  // hướng) hoặc hết phiên (AuthProvider tự chuyển hướng kèm ?expired=1). Chuyển hướng ở đây nữa sẽ đè
+  // mất thông báo hết phiên, nên chỉ chuyển khi vào thẳng mà chưa đăng nhập.
+  const hadUserRef = useRef(false);
   useEffect(() => {
-    if (!loading && !user) {
+    if (user) hadUserRef.current = true;
+  }, [user]);
+
+  useEffect(() => {
+    if (!loading && !user && !hadUserRef.current) {
       router.replace("/login");
     }
   }, [loading, router, user]);
