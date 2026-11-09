@@ -1,12 +1,14 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import { DashboardContentSkeleton } from "@/components/dashboard/dashboard-content-skeleton";
 import { ForcePasswordChange } from "@/components/dashboard/force-password-change";
 import { useAuth } from "@/lib/auth";
-import { canAccessDashboardPath } from "@/lib/dashboard-navigation";
+import { DsEmptyState, DsPageHeader, DsPanel } from "@/components/ds";
+import { canAccessDashboardPath, getDashboardNavItem } from "@/lib/dashboard-navigation";
 
 export function DashboardAuthLayout({
   children,
@@ -30,12 +32,6 @@ export function DashboardAuthLayout({
       router.replace("/login");
     }
   }, [loading, router, user]);
-
-  useEffect(() => {
-    if (!loading && user && !canAccessDashboardPath(user, pathname)) {
-      router.replace("/dashboard");
-    }
-  }, [loading, pathname, router, user]);
 
   // Màn hình toàn trang chỉ dành cho lần vào đầu tiên (chưa biết người dùng). Sau đó khung luôn giữ nguyên.
   if (!user) {
@@ -63,7 +59,29 @@ export function DashboardAuthLayout({
 
   return (
     <DashboardShell>
-      {allowed ? children : <DashboardContentSkeleton />}
+      {allowed ? children : loading ? <DashboardContentSkeleton /> : <NoAccess pathname={pathname} />}
     </DashboardShell>
+  );
+}
+
+// Vào thẳng một mục mà tài khoản không được cấp: giữ nguyên địa chỉ và nói rõ lý do, không chuyển hướng lặng lẽ.
+function NoAccess({ pathname }: { pathname: string }) {
+  const item = getDashboardNavItem(pathname);
+
+  return (
+    <>
+      <DsPageHeader title={item?.label ?? "Không truy cập được"} />
+      <DsPanel>
+        <DsEmptyState
+          title="Tài khoản của bạn chưa được cấp quyền vào mục này"
+          description="Nếu cần dùng mục này, hãy nhờ quản trị viên cấp quyền tương ứng."
+          action={
+            <Link href="/dashboard" className="ds-btn">
+              Về trang chủ
+            </Link>
+          }
+        />
+      </DsPanel>
+    </>
   );
 }
