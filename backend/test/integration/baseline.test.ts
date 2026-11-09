@@ -2298,8 +2298,11 @@ const createIssuedPrescription = async (input: {
 
 test("dashboard list endpoints support partial, case-insensitive search with q", async () => {
   const adminCookie = await authCookie(fixture.adminUser.id, "ADMIN");
+  // Hồ sơ khám và đơn thuốc chỉ dành cho bác sĩ (quản trị không có quyền xem), nên dùng phiên bác sĩ cho hai danh sách đó.
+  const doctorCookie = await authCookie(fixture.doctorOneUser.id, "DOCTOR");
   const list = async (path: string) => {
-    const response = await http.request(path, { headers: dashboardHeaders(adminCookie) });
+    const cookie = path.startsWith("/api/dashboard/prescriptions") || path.startsWith("/api/dashboard/medical-records") ? doctorCookie : adminCookie;
+    const response = await http.request(path, { headers: dashboardHeaders(cookie) });
     assert.equal(response.status, 200, JSON.stringify(response.body));
     return response.body.data.items as unknown[];
   };
