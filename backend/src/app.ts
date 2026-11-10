@@ -4,6 +4,7 @@ import morgan from "morgan";
 import helmet from "helmet";
 import cookieParser from "cookie-parser";
 import { isProductionLike } from "./config/environment.js";
+import { responseCompression } from "./middlewares/responseCompression.middleware.js";
 
 import routes from "./routes/index.js";
 import { notFound } from "./middlewares/notFound.middleware.js";
@@ -72,6 +73,7 @@ export const createApp = (options: CreateAppOptions = {}) => {
 
   app.use(helmet());
   app.use(cors(corsOptions));
+  app.use(responseCompression);
   app.use(express.json({ limit: "1mb" }));
   app.use(express.urlencoded({ extended: true, limit: "1mb" }));
 
