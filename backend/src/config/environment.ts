@@ -154,6 +154,14 @@ export const getDatabaseTransactionMaxWaitMs = (
   env: NodeJS.ProcessEnv = process.env,
 ) => Math.min(positiveInteger(env.DATABASE_TRANSACTION_MAX_WAIT_MS, 5_000), 15_000);
 
+export const getReadinessTimeoutMs = (
+  env: NodeJS.ProcessEnv = process.env,
+) => Math.min(positiveInteger(env.READINESS_TIMEOUT_MS, 2_000), 5_000);
+
+export const getReadinessCacheMs = (
+  env: NodeJS.ProcessEnv = process.env,
+) => Math.min(positiveInteger(env.READINESS_CACHE_MS, 5_000), 30_000);
+
 export const getSlowRequestThresholdMs = (
   env: NodeJS.ProcessEnv = process.env,
 ) => Math.min(positiveInteger(env.SLOW_REQUEST_THRESHOLD_MS, 500), 60_000);

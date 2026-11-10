@@ -8,7 +8,7 @@ Hệ thống đặt lịch khám trực tuyến gồm **website cho bệnh nhân
 | --- | --- |
 | Website | https://hospital.ngoloi.dev |
 | Dashboard nhân sự | https://hospital.ngoloi.dev/dashboard (đăng nhập bằng tài khoản được cấp) |
-| API | https://hospital-api.ngoloi.dev (kiểm tra sống: `/health`) |
+| API | https://hospital-api.ngoloi.dev (liveness: `/health`, readiness: `/ready`) |
 
 > API chạy trên gói miễn phí của Render nên có thể mất khoảng 50 giây ở lần gọi đầu sau thời gian không có truy cập.
 
@@ -41,6 +41,7 @@ Web công khai / Dashboard (Next.js) ─┐
 - Web và mobile không truy cập cơ sở dữ liệu trực tiếp, chỉ gọi REST API. Web công khai và dashboard dùng các route `/api`; cổng bệnh nhân (web và mobile) dùng `/api/v1`; tất cả cùng một lớp nghiệp vụ.
 - Backend quyết định quyền truy cập, trạng thái lịch khám và tính hợp lệ của dữ liệu; PostgreSQL là nguồn dữ liệu duy nhất.
 - Hộp thư thông báo lưu trong PostgreSQL là dữ liệu chính, push chỉ là kênh chuyển phát.
+- `/health` chỉ xác nhận tiến trình API còn sống; `/ready` kiểm tra PostgreSQL với timeout và cache ngắn trước khi nhận lưu lượng.
 - Các việc nền (gửi OTP, nhắc lịch, hết hạn giữ chỗ, đối soát thanh toán, nhắc thanh toán hóa đơn, tự sinh khung giờ) chạy qua hàng đợi hoặc worker, có thể chạy ngay trong tiến trình API (`INLINE_WORKERS`). Chu kỳ mặc định được kéo dài để tiết kiệm lượt truy vấn trên gói miễn phí và chỉnh được bằng biến môi trường. Khi hàng đợi Redis lỗi hoặc hết hạn mức, OTP được gửi trực tiếp thay vì qua hàng đợi.
 - Khung giờ khám được tự sinh từ lịch mẫu theo tuần cho 14 ngày tới; đổi, tắt hoặc xóa lịch mẫu gỡ khung giờ còn trống và báo nhân viên về các lịch đã đặt bị ảnh hưởng (lịch đã đặt không bị hủy tự động).
 

@@ -302,6 +302,16 @@ const loginPatient = async (phone: string) => {
   };
 };
 
+test("readiness checks the dedicated PostgreSQL database", async () => {
+  const health = await http.request("/health");
+  const ready = await http.request("/ready");
+
+  assert.equal(health.status, 200);
+  assert.equal(health.body.status, "ok");
+  assert.equal(ready.status, 200);
+  assert.equal(ready.body.status, "ready");
+});
+
 test("v1 public content aliases preserve the legacy response contracts", async () => {
   const endpoints = [
     "banners",
