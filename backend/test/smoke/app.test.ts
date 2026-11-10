@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
+import express from "express";
 
 import { startHttpServer } from "../support/http.js";
 
@@ -11,6 +12,9 @@ process.env.JWT_SECRET = "phase0_test_jwt_secret_at_least_32_chars";
 process.env.OTP_SECRET = "phase0_test_otp_secret_at_least_32_chars";
 
 const { createApp } = await import("../../src/app.js");
+const { responseCompression } = await import(
+  "../../src/middlewares/responseCompression.middleware.js"
+);
 const {
   getAppointmentReminderLeadMinutes,
   getDatabaseTransactionMaxWaitMs,
@@ -123,6 +127,39 @@ test("local performance headers can be enabled without exposing database metrics
     assert.equal(response.headers.get("x-database-query-count"), null);
   } finally {
     await performanceHttp.close();
+  }
+});
+
+test("large API responses are compressed but downloadable content is left intact", async () => {
+  const compressionApp = express();
+  compressionApp.use(responseCompression);
+  compressionApp.get("/json", (_req, res) => {
+    res.json({ value: "x".repeat(4_096) });
+  });
+  compressionApp.get("/download", (_req, res) => {
+    res.setHeader("Content-Disposition", 'attachment; filename="report.txt"');
+    res.type("text/plain").send("x".repeat(4_096));
+  });
+  compressionApp.get("/no-transform", (_req, res) => {
+    res.setHeader("Cache-Control", "private, no-transform");
+    res.json({ value: "x".repeat(4_096) });
+  });
+  const compressionHttp = await startHttpServer(compressionApp);
+
+  try {
+    const compressed = await compressionHttp.request("/json");
+    assert.equal(compressed.status, 200);
+    assert.equal(compressed.headers.get("content-encoding"), "gzip");
+    assert.equal(compressed.body.value.length, 4_096);
+
+    const download = await compressionHttp.request("/download");
+    assert.equal(download.headers.get("content-encoding"), null);
+    assert.match(download.headers.get("content-disposition") || "", /report\.txt/);
+
+    const noTransform = await compressionHttp.request("/no-transform");
+    assert.equal(noTransform.headers.get("content-encoding"), null);
+  } finally {
+    await compressionHttp.close();
   }
 });
 
