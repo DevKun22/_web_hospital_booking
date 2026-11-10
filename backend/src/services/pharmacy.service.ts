@@ -30,6 +30,7 @@ const medicineSelect = {
   strength: true,
   dosageForm: true,
   unit: true,
+  unitPrice: true,
   stockQuantity: true,
   minStock: true,
   isActive: true,
@@ -175,6 +176,7 @@ class PharmacyService {
     strength?: string | null;
     dosageForm?: string | null;
     unit: string;
+    unitPrice?: number;
     minStock?: number;
     note?: string | null;
   }) {
@@ -187,6 +189,7 @@ class PharmacyService {
           strength: normalize(input.strength),
           dosageForm: normalize(input.dosageForm),
           unit: input.unit.trim(),
+          unitPrice: input.unitPrice ?? 0,
           minStock: input.minStock ?? 0,
           note: normalize(input.note),
         },
@@ -209,6 +212,7 @@ class PharmacyService {
       strength?: string | null;
       dosageForm?: string | null;
       unit?: string;
+      unitPrice?: number;
       minStock?: number;
       isActive?: boolean;
       note?: string | null;
@@ -224,6 +228,7 @@ class PharmacyService {
         strength: input.strength === undefined ? undefined : normalize(input.strength),
         dosageForm: input.dosageForm === undefined ? undefined : normalize(input.dosageForm),
         unit: input.unit?.trim(),
+        unitPrice: input.unitPrice,
         minStock: input.minStock,
         isActive: input.isActive,
         note: input.note === undefined ? undefined : normalize(input.note),

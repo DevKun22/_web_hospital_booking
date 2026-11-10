@@ -12,6 +12,7 @@ export const createMedicineSchema = z.object({
   dosageForm: nullableText(80),
   unit: text(30).min(1, "Đơn vị là bắt buộc"),
   minStock: z.number().int().min(0).max(1_000_000).optional(),
+  unitPrice: z.number().int().min(0).max(100_000_000).optional(),
   note: nullableText(500),
 });
 
@@ -22,6 +23,7 @@ export const updateMedicineSchema = z.object({
   dosageForm: nullableText(80),
   unit: text(30).min(1).optional(),
   minStock: z.number().int().min(0).max(1_000_000).optional(),
+  unitPrice: z.number().int().min(0).max(100_000_000).optional(),
   isActive: z.boolean().optional(),
   note: nullableText(500),
 });

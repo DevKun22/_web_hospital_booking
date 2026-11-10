@@ -13,6 +13,7 @@ import {
 import { getRedisConnectionOptions } from "../queues/redis.js";
 import AppointmentService from "../services/appointment.service.js";
 import AuthOtpService from "../services/authOtp.service.js";
+import InvoiceService from "../services/invoice.service.js";
 import ScheduleReconciliationService from "../services/scheduleReconciliation.service.js";
 import SlotPlannerService from "../services/slotPlanner.service.js";
 
@@ -52,6 +53,13 @@ const worker = new Worker<AppointmentLifecycleJobData>(
     });
     if (slotWindow && slotWindow.generatedCount > 0) {
       console.log(`[SLOT_PLANNER] generated=${slotWindow.generatedCount} doctors=${slotWindow.doctors}`);
+    }
+    const invoiceReminders = await InvoiceService.sendPaymentReminders().catch((error) => {
+      console.error("[INVOICE_REMINDER] sweep failed:", error);
+      return null;
+    });
+    if (invoiceReminders && invoiceReminders.reminded > 0) {
+      console.log(`[INVOICE_REMINDER] reminded=${invoiceReminders.reminded}`);
     }
     const [pendingOtp, pendingConfirm, noShows, otpCleanup] = await Promise.all([
       AppointmentService.reconcileExpiredPendingOtp(),

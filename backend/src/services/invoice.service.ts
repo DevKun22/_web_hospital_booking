@@ -65,7 +65,7 @@ type InvoiceItemSource = {
 };
 
 type InvoiceItemDraft = {
-  type: "CONSULTATION" | "PACKAGE" | "SERVICE_FEE" | "OTHER";
+  type: "CONSULTATION" | "PACKAGE" | "SERVICE_FEE" | "MEDICINE" | "OTHER";
   description: string;
   quantity: number;
   unitPrice: number;
@@ -416,6 +416,30 @@ class InvoiceService {
     }
 
     const invoiceItems = buildInvoiceItems(appointment);
+    // Tiền thuốc theo đơn đã phát hành: lấy giá bán hiện tại của thuốc trong kho và chụp lại vào dòng hóa đơn.
+    // Thuốc mua ngoài (không gắn kho) hoặc có giá 0 thì không tính tiền.
+    const prescribed = await prisma.prescriptionItem.findMany({
+      where: {
+        prescription: { appointmentId: appointment.id, status: "ISSUED" },
+        medicineId: { not: null },
+        quantity: { gt: 0 },
+      },
+      orderBy: [{ prescription: { issuedAt: "asc" } }, { sortOrder: "asc" }],
+      select: { medicineName: true, quantity: true, unit: true, medicine: { select: { unitPrice: true } } },
+    });
+    for (const line of prescribed) {
+      const unitPrice = line.medicine?.unitPrice ?? 0;
+      const quantity = line.quantity ?? 0;
+      if (unitPrice <= 0 || quantity <= 0) continue;
+      invoiceItems.push({
+        type: "MEDICINE",
+        description: `Thuốc: ${line.medicineName}${line.unit ? ` (${line.unit})` : ""}`,
+        quantity,
+        unitPrice,
+        amount: unitPrice * quantity,
+        sortOrder: invoiceItems.length,
+      });
+    }
     const totalAmount = invoiceItems.reduce(
       (sum, item) => sum + item.amount,
       0,
@@ -764,6 +788,59 @@ class InvoiceService {
       transition.notificationId,
     );
     return transition.paidInvoice;
+  }
+
+  /**
+   * Nhắc người khám các hóa đơn chưa thanh toán sau 24 giờ (mỗi hóa đơn đúng một lần, khóa chống trùng theo hóa đơn).
+   * Chỉ xét hóa đơn tạo trong 14 ngày gần đây để quét nhẹ; chạy định kỳ trong worker.
+   */
+  async sendPaymentReminders(options: { now?: Date; limit?: number } = {}) {
+    const now = options.now ?? new Date();
+    const olderThan = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    const newerThan = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
+    const candidates = await prisma.invoice.findMany({
+      where: { status: "UNPAID", createdAt: { lte: olderThan, gte: newerThan } },
+      orderBy: { createdAt: "asc" },
+      take: Math.min(Math.max(options.limit ?? 50, 1), 200),
+      select: {
+        id: true,
+        invoiceCode: true,
+        finalAmount: true,
+        patientId: true,
+        appointment: { select: { bookingCode: true } },
+      },
+    });
+    if (candidates.length === 0) return { scanned: 0, reminded: 0 };
+
+    const already = new Set(
+      (
+        await prisma.notification.findMany({
+          where: { dedupeKey: { in: candidates.map((item) => `invoice:${item.id}:reminder`) } },
+          select: { dedupeKey: true },
+        })
+      ).map((item) => item.dedupeKey),
+    );
+    let reminded = 0;
+    for (const invoice of candidates) {
+      if (already.has(`invoice:${invoice.id}:reminder`)) continue;
+      try {
+        const notification = await PatientEventNotificationService.createPaymentReminder(
+          {
+            userId: invoice.patientId,
+            invoiceId: invoice.id,
+            invoiceCode: invoice.invoiceCode,
+            bookingCode: invoice.appointment.bookingCode,
+            finalAmount: invoice.finalAmount,
+          },
+          prisma,
+        );
+        await PatientEventNotificationService.dispatchBestEffort(notification.id);
+        reminded += 1;
+      } catch (error) {
+        console.error(`[INVOICE_REMINDER] invoice=${invoice.id} failed:`, error);
+      }
+    }
+    return { scanned: candidates.length, reminded };
   }
 
   async cancel(id: string, actorId?: string) {

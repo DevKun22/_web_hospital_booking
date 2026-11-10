@@ -1744,6 +1744,12 @@ class AppointmentService {
     });
 
     await this.dispatchNotificationBestEffort(transition.notificationId);
+    // Lễ tân cần lập hóa đơn cho lịch vừa khám xong.
+    await StaffNotificationService.notifyAppointmentEvent(id, "COMPLETED", {
+      actorId: actor.userId,
+      includeDoctor: false,
+      includeReception: true,
+    });
     return transition.appointment;
   }
 

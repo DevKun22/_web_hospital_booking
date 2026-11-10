@@ -39,6 +39,7 @@ type Medicine = {
   unit: string;
   stockQuantity: number;
   minStock: number;
+  unitPrice: number;
   isActive: boolean;
   /** Tồn cấp được (không tính lô đã hết hạn). */
   sellableQuantity: number;
@@ -84,9 +85,9 @@ const isoToDate = (iso: string) => formatVietnamDate(`${iso}T00:00:00+07:00`);
 const movementLabel = { RECEIPT: "Nhập kho", DISPENSE: "Cấp phát", ADJUSTMENT: "Điều chỉnh" } as const;
 // Tệp mẫu cho nhập CSV: đúng tiêu đề cột mà máy chủ yêu cầu.
 const CATALOG_TEMPLATE =
-  "Mã thuốc,Tên thuốc,Đơn vị,Hoạt chất,Hàm lượng,Dạng bào chế,Mức tối thiểu,Ghi chú\r\nPARA500,Paracetamol 500mg,viên,Paracetamol,500mg,Viên nén,100,\r\n";
+  "Mã thuốc,Tên thuốc,Đơn vị,Hoạt chất,Hàm lượng,Dạng bào chế,Mức tối thiểu,Đơn giá,Ghi chú\r\nPARA500,Paracetamol 500mg,viên,Paracetamol,500mg,Viên nén,100,1500,\r\n";
 const RECEIPT_TEMPLATE = "Mã thuốc,Số lượng,Số lô,Hạn dùng,Lý do\r\nPARA500,200,PA2611A,31/12/2027,Phiếu nhập 01\r\n";
-const emptyForm = { code: "", name: "", unit: "viên", strength: "", dosageForm: "", activeIngredient: "", minStock: "0" };
+const emptyForm = { code: "", name: "", unit: "viên", strength: "", dosageForm: "", activeIngredient: "", minStock: "0", unitPrice: "0" };
 
 const stockTabs = [
   { id: "all", label: "Tất cả" },
@@ -101,6 +102,7 @@ const formFields = [
   ["dosageForm", "Dạng bào chế", false],
   ["activeIngredient", "Hoạt chất", false],
   ["minStock", "Mức tồn tối thiểu", false],
+  ["unitPrice", "Đơn giá bán (VND)", false],
 ] as const;
 
 // Kho thuốc: danh sách bên trái; chọn một thuốc thì khung bên phải cho nhập kho, điều chỉnh và xem sổ kho.
@@ -125,6 +127,7 @@ export default function MedicinesPage() {
   const [receiptExpiry, setReceiptExpiry] = useState("");
   const [writeOffTarget, setWriteOffTarget] = useState<Batch | null>(null);
   const [adjustDelta, setAdjustDelta] = useState("");
+  const [priceDraft, setPriceDraft] = useState<{ id: string; value: string } | null>(null);
   const [adjustReason, setAdjustReason] = useState("");
 
   const listQuery = useQuery({
@@ -162,6 +165,7 @@ export default function MedicinesPage() {
           dosageForm: form.dosageForm || null,
           activeIngredient: form.activeIngredient || null,
           minStock: Number(form.minStock) || 0,
+          unitPrice: Number(form.unitPrice) || 0,
         },
       }),
     onSuccess: async () => {
@@ -218,7 +222,16 @@ export default function MedicinesPage() {
     },
   });
 
-  const mutations = [createMutation, receiveMutation, adjustMutation, writeOffMutation];
+  const priceMutation = useMutation({
+    mutationFn: (value: number) =>
+      apiRequest(`/dashboard/pharmacy/medicines/${selectedId}`, { method: "PATCH", body: { unitPrice: value } }),
+    onSuccess: async () => {
+      setPriceDraft(null);
+      await refresh();
+    },
+  });
+
+  const mutations = [createMutation, receiveMutation, adjustMutation, writeOffMutation, priceMutation];
   const failed = mutations.find((item) => item.error instanceof Error)?.error as Error | undefined;
   const succeeded = mutations.some((item) => item.isSuccess);
   const submit = (action: () => void) => (event: FormEvent) => {
@@ -424,6 +437,41 @@ export default function MedicinesPage() {
 
       <div className="ds-editor">
         <div className="ds-editor__col">
+          <div className="ds-card">
+            <div className="ds-card__head">
+              <h3>Giá bán</h3>
+            </div>
+            <div className="ds-card__body">
+              <p className="ds-hint" style={{ margin: 0 }}>
+                Tiền thuốc được tính vào hóa đơn khi lễ tân lập hóa đơn cho lịch đã khám, theo đơn đã phát hành. Giá 0 nghĩa là không tính tiền.
+              </p>
+              {canCatalog ? (
+                <form
+                  onSubmit={submit(() => {
+                    const value = Number(priceDraft?.id === selected.id ? priceDraft.value : selected.unitPrice);
+                    if (Number.isInteger(value) && value >= 0) priceMutation.mutate(value);
+                  })}
+                  aria-label="Giá bán thuốc"
+                  style={{ display: "flex", gap: 8, alignItems: "flex-end", flexWrap: "wrap" }}
+                >
+                  <DsField label={`Đơn giá (VND / ${selected.unit})`} htmlFor="med-price">
+                    <DsInput
+                      id="med-price"
+                      type="number"
+                      min={0}
+                      value={priceDraft?.id === selected.id ? priceDraft.value : String(selected.unitPrice)}
+                      onChange={(event) => setPriceDraft({ id: selected.id, value: event.target.value })}
+                    />
+                  </DsField>
+                  <DsButton type="submit" disabled={priceDraft?.id !== selected.id || priceMutation.isPending}>
+                    Lưu giá
+                  </DsButton>
+                </form>
+              ) : (
+                <strong>{selected.unitPrice > 0 ? `${selected.unitPrice.toLocaleString("vi-VN")} đ / ${selected.unit}` : "Chưa có giá"}</strong>
+              )}
+            </div>
+          </div>
           {canReceive ? (
             <div className="ds-card">
               <div className="ds-card__head">
