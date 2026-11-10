@@ -82,6 +82,7 @@ enum InvoiceItemType {
   CONSULTATION
   PACKAGE
   SERVICE_FEE
+  MEDICINE
   OTHER
 }
 
@@ -1183,6 +1184,8 @@ model Medicine {
   strength         String?
   dosageForm       String?
   unit             String
+  // Đơn giá bán (VND) dùng để tính tiền thuốc trên hóa đơn; 0 = không tính tiền.
+  unitPrice        Int     @default(0)
 
   stockQuantity Int     @default(0)
   minStock      Int     @default(0)

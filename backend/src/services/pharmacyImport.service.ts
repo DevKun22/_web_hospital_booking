@@ -49,6 +49,7 @@ const HEADERS = {
   dosageForm: "Dạng bào chế",
   unit: "Đơn vị",
   minStock: "Mức tối thiểu",
+  unitPrice: "Đơn giá",
   note: "Ghi chú",
   quantity: "Số lượng",
   reason: "Lý do",
@@ -157,6 +158,7 @@ type CatalogPlan = {
     dosageForm?: string;
     unit?: string;
     minStock?: number;
+    unitPrice?: number;
     note?: string;
   };
   existingId?: string;
@@ -203,6 +205,7 @@ class PharmacyImportService {
         dosageForm: true,
         unit: true,
         minStock: true,
+        unitPrice: true,
         note: true,
       },
     });
@@ -218,7 +221,7 @@ class PharmacyImportService {
       seen.add(code);
 
       const data: CatalogPlan["data"] = { code };
-      const text = (name: string, field: keyof typeof LIMITS, target: Exclude<keyof CatalogPlan["data"], "code" | "minStock">) => {
+      const text = (name: string, field: keyof typeof LIMITS, target: Exclude<keyof CatalogPlan["data"], "code" | "minStock" | "unitPrice">) => {
         const value = cell(cells, name);
         tooLong(value, LIMITS[field], name, errors);
         if (value) data[target] = value;
@@ -231,6 +234,8 @@ class PharmacyImportService {
       text(HEADERS.note, "note", "note");
       const minStockRaw = cell(cells, HEADERS.minStock);
       if (minStockRaw) data.minStock = intField(minStockRaw, HEADERS.minStock, 0, errors);
+      const unitPriceRaw = cell(cells, HEADERS.unitPrice);
+      if (unitPriceRaw) data.unitPrice = intField(unitPriceRaw, HEADERS.unitPrice, 0, errors);
 
       const current = byCode.get(code);
       if (!current) {
@@ -270,6 +275,7 @@ class PharmacyImportService {
                 strength: plan.data.strength,
                 dosageForm: plan.data.dosageForm,
                 minStock: plan.data.minStock ?? 0,
+                unitPrice: plan.data.unitPrice ?? 0,
                 note: plan.data.note,
               },
             });

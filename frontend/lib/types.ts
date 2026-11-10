@@ -315,6 +315,7 @@ export type InvoiceItemType =
   | "CONSULTATION"
   | "PACKAGE"
   | "SERVICE_FEE"
+  | "MEDICINE"
   | "OTHER";
 export type InvoiceItem = {
   id: string;

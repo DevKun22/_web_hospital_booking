@@ -122,6 +122,28 @@ class PatientEventNotificationService {
     );
   }
 
+  createPaymentReminder(input: InvoiceEventInput, client: DatabaseClient) {
+    return NotificationService.create(
+      {
+        userId: input.userId,
+        type: "INVOICE_CREATED",
+        title: "Hóa đơn đang chờ thanh toán",
+        body: `Hóa đơn ${input.invoiceCode} của lịch ${input.bookingCode} (${formatCurrency(input.finalAmount)}) chưa được thanh toán.`,
+        entityType: "INVOICE",
+        entityId: input.invoiceId,
+        payload: {
+          invoiceCode: input.invoiceCode,
+          bookingCode: input.bookingCode,
+          finalAmount: input.finalAmount,
+          status: "UNPAID",
+          reminder: true,
+        },
+        dedupeKey: `invoice:${input.invoiceId}:reminder`,
+      },
+      client,
+    );
+  }
+
   createPaymentSucceeded(input: InvoiceEventInput, client: DatabaseClient) {
     return NotificationService.create(
       {

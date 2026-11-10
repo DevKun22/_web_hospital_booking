@@ -74,7 +74,7 @@ class StaffNotificationService {
   /** Lịch hẹn thay đổi: báo bác sĩ phụ trách, và (nếu cần) lễ tân. */
   async notifyAppointmentEvent(
     appointmentId: string,
-    event: "CREATED" | "CONFIRMED" | "CANCELLED" | "RESCHEDULED" | "CHECKED_IN",
+    event: "CREATED" | "CONFIRMED" | "CANCELLED" | "RESCHEDULED" | "CHECKED_IN" | "COMPLETED",
     options: { actorId?: string | null; includeReception?: boolean; includeDoctor?: boolean } = {},
   ) {
     try {
@@ -113,6 +113,11 @@ class StaffNotificationService {
           type: "APPOINTMENT_RESCHEDULED",
           title: "Lịch hẹn đã được đổi",
           body: `Lịch ${label} được đổi sang ${when}.`,
+        },
+        COMPLETED: {
+          type: "APPOINTMENT_COMPLETED",
+          title: "Lịch đã khám xong, chờ lập hóa đơn",
+          body: `Lịch ${label} đã hoàn thành khám. Vào Hóa đơn, tab Chờ lập hóa đơn để phát hành hóa đơn.`,
         },
         CHECKED_IN: {
           type: "APPOINTMENT_CHECKED_IN",

@@ -2230,7 +2230,7 @@ test("expired OTP codes are removed after a day while recent and live codes are 
 
 const createMedicineViaApi = async (
   cookie: string,
-  input: { code: string; name: string; unit?: string; minStock?: number },
+  input: { code: string; name: string; unit?: string; minStock?: number; unitPrice?: number },
 ) => {
   const response = await http.request("/api/dashboard/pharmacy/medicines", {
     method: "POST",
@@ -5849,4 +5849,70 @@ test("doctor schedule: rolling slots, schedule changes keep booked visits, range
   });
   assert.equal(reopened.status, 200);
   assert.equal(reopened.body.data.reopenedSlots, closed.body.data.lockedSlots);
+});
+
+test("invoices bill prescribed stock medicines, and unpaid invoices get exactly one reminder", async () => {
+  const { default: InvoiceService } = await import("../../src/services/invoice.service.js");
+  const staff = await createDashboardUser("STAFF", "0900000071");
+  const staffCookie = await authCookie(staff.id, "STAFF");
+
+  const pricedMedicine = await prisma.medicine.create({ data: { code: "BILL-PRICED", name: "Thuốc có giá", unit: "viên", unitPrice: 2500 } });
+  const freeMedicine = await prisma.medicine.create({ data: { code: "BILL-FREE", name: "Thuốc không giá", unit: "viên" } });
+
+  const { appointment } = await createIssuedPrescription({
+    code: "RX-BILL",
+    phone: "0944000071",
+    timeSlotId: fixture.slotOne.id,
+    items: [
+      { medicineName: "Thuốc có giá", quantity: 4, medicineId: pricedMedicine.id },
+      { medicineName: "Thuốc không giá", quantity: 3, medicineId: freeMedicine.id },
+      { medicineName: "Thuốc mua ngoài", quantity: 2 },
+    ],
+  });
+
+  const created = await http.request(`/api/dashboard/invoices/appointments/${appointment.id}`, {
+    method: "POST",
+    headers: dashboardHeaders(staffCookie),
+    body: {},
+  });
+  assert.equal(created.status, 201);
+  const items = created.body.data.items as { type: string; description: string; quantity: number; unitPrice: number; amount: number }[];
+  const medicineLines = items.filter((item) => item.type === "MEDICINE");
+  assert.equal(medicineLines.length, 1);
+  assert.equal(medicineLines[0].quantity, 4);
+  assert.equal(medicineLines[0].unitPrice, 2500);
+  assert.equal(medicineLines[0].amount, 10000);
+  const consultation = items.filter((item) => item.type !== "MEDICINE").reduce((sum, item) => sum + item.amount, 0);
+  assert.equal(created.body.data.totalAmount, consultation + 10000);
+
+  // Nhắc thanh toán: chưa đủ 24 giờ thì chưa nhắc, sau 24 giờ nhắc đúng một lần.
+  const early = await InvoiceService.sendPaymentReminders();
+  assert.equal(early.reminded, 0);
+  const later = new Date(Date.now() + 25 * 60 * 60 * 1000);
+  const first = await InvoiceService.sendPaymentReminders({ now: later });
+  assert.equal(first.reminded, 1);
+  const second = await InvoiceService.sendPaymentReminders({ now: later });
+  assert.equal(second.reminded, 0);
+  const reminders = await prisma.notification.count({
+    where: { userId: appointment.patientId, title: "Hóa đơn đang chờ thanh toán" },
+  });
+  assert.equal(reminders, 1);
+
+  // Hóa đơn đã thanh toán thì không nhắc nữa.
+  await prisma.invoice.update({ where: { id: created.body.data.id }, data: { status: "PAID", paidAt: new Date() } });
+  const afterPaid = await InvoiceService.sendPaymentReminders({ now: new Date(Date.now() + 49 * 60 * 60 * 1000) });
+  assert.equal(afterPaid.reminded, 0);
+});
+
+test("completing a visit tells reception to issue the invoice", async () => {
+  const staff = await createDashboardUser("STAFF", "0900000072");
+  const staffCookie = await authCookie(staff.id, "STAFF");
+  const doctorCookie = await authCookie(fixture.doctorOneUser.id, "DOCTOR");
+  const appointment = await createStoredAppointment({ status: "CHECKED_IN", bookingCode: "BK-COMPLETE-NOTE", phone: "0944000072", timeSlotId: fixture.slotTwo.id });
+  const started = await http.request(`/api/dashboard/appointments/${appointment.id}/start`, { method: "PATCH", headers: dashboardHeaders(doctorCookie) });
+  assert.equal(started.status, 200);
+  const finished = await http.request(`/api/dashboard/appointments/${appointment.id}/complete`, { method: "PATCH", headers: dashboardHeaders(doctorCookie) });
+  assert.equal(finished.status, 200);
+  const inbox = await http.request("/api/dashboard/inbox", { headers: dashboardHeaders(staffCookie) });
+  assert.ok(inbox.body.data.items.some((item: { title: string }) => item.title.includes("chờ lập hóa đơn")));
 });
