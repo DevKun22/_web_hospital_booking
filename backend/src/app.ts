@@ -3,7 +3,10 @@ import cors, { type CorsOptions } from "cors";
 import morgan from "morgan";
 import helmet from "helmet";
 import cookieParser from "cookie-parser";
-import { isProductionLike } from "./config/environment.js";
+import {
+  getTrustProxySetting,
+  isProductionLike,
+} from "./config/environment.js";
 import { responseCompression } from "./middlewares/responseCompression.middleware.js";
 
 import routes from "./routes/index.js";
@@ -50,7 +53,7 @@ export const createApp = (options: CreateAppOptions = {}) => {
   const readinessCheck = options.readinessCheck ?? checkReadiness;
 
   app.disable("x-powered-by");
-  app.set("trust proxy", 1);
+  app.set("trust proxy", getTrustProxySetting());
   app.use(requestContext);
 
   const corsOptions: CorsOptions = {
