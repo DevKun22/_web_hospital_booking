@@ -13,7 +13,6 @@ import DashboardLoginSecurityService from "./dashboardLoginSecurity.service.js";
 import { STAFF_ROLES, type StaffRole } from "../config/permissions.js";
 import { getRolePermissions } from "./rbac.service.js";
 import AuditLogService from "./auditLog.service.js";
-import { invalidateDashboardAuthSnapshot } from "./dashboardAuthCache.service.js";
 import { hashPassword } from "../utils/password.js";
 
 const DASHBOARD_ROLES: Role[] = [...STAFF_ROLES];
@@ -381,7 +380,6 @@ class DashboardAuthService {
         tx,
       );
     });
-    invalidateDashboardAuthSnapshot(input.userId);
   }
 }
 

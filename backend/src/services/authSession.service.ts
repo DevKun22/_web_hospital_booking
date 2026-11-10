@@ -449,25 +449,35 @@ class AuthSessionService {
     }));
   }
 
-  async assertActiveSession(input: {
+  async getActiveDashboardIdentity(input: {
     sessionId: string;
     userId: string;
-    kind: SessionKind;
   }) {
     const session = await prisma.dashboardSession.findFirst({
       where: {
         id: input.sessionId,
         userId: input.userId,
-        kind: input.kind,
+        kind: "DASHBOARD",
         revokedAt: null,
         expiresAt: { gt: new Date() },
       },
-      select: { id: true },
+      select: {
+        user: {
+          select: {
+            id: true,
+            role: true,
+            isActive: true,
+            mustChangePassword: true,
+          },
+        },
+      },
     });
 
     if (!session) {
       throw new AppError("Phiên đăng nhập không hợp lệ", 401, "SESSION_REVOKED");
     }
+
+    return session.user;
   }
 
   async assertActivePatientSession(input: {
