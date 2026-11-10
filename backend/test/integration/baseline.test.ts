@@ -5859,7 +5859,7 @@ test("invoices bill prescribed stock medicines, and unpaid invoices get exactly 
   const pricedMedicine = await prisma.medicine.create({ data: { code: "BILL-PRICED", name: "Thuốc có giá", unit: "viên", unitPrice: 2500 } });
   const freeMedicine = await prisma.medicine.create({ data: { code: "BILL-FREE", name: "Thuốc không giá", unit: "viên" } });
 
-  const { appointment } = await createIssuedPrescription({
+  const { appointment, prescription } = await createIssuedPrescription({
     code: "RX-BILL",
     phone: "0944000071",
     timeSlotId: fixture.slotOne.id,
@@ -5869,6 +5869,9 @@ test("invoices bill prescribed stock medicines, and unpaid invoices get exactly 
       { medicineName: "Thuốc mua ngoài", quantity: 2 },
     ],
   });
+  // Tiền thuốc tính theo số lượng thực cấp: đã cấp 4 viên thuốc có giá (kê 4), thuốc không giá cấp 3.
+  await prisma.prescriptionItem.updateMany({ where: { prescriptionId: prescription.id, medicineId: pricedMedicine.id }, data: { dispensedQuantity: 4 } });
+  await prisma.prescriptionItem.updateMany({ where: { prescriptionId: prescription.id, medicineId: freeMedicine.id }, data: { dispensedQuantity: 3 } });
 
   const created = await http.request(`/api/dashboard/invoices/appointments/${appointment.id}`, {
     method: "POST",
@@ -5915,4 +5918,81 @@ test("completing a visit tells reception to issue the invoice", async () => {
   assert.equal(finished.status, 200);
   const inbox = await http.request("/api/dashboard/inbox", { headers: dashboardHeaders(staffCookie) });
   assert.ok(inbox.body.data.items.some((item: { title: string }) => item.title.includes("chờ lập hóa đơn")));
+});
+
+test("dispensing after the invoice exists adds the medicine charge to an unpaid invoice", async () => {
+  const pharmacist = await createDashboardUser("PHARMACIST", "0900000081");
+  const staff = await createDashboardUser("STAFF", "0900000082");
+  const pharmacistCookie = await authCookie(pharmacist.id, "PHARMACIST");
+  const staffCookie = await authCookie(staff.id, "STAFF");
+  const medicine = await createMedicineViaApi(pharmacistCookie, { code: "BILL-LATE", name: "Thuốc cấp sau", unitPrice: 4000 });
+  await receiveViaApi(pharmacistCookie, medicine.id, 20);
+
+  const { appointment, prescription } = await createIssuedPrescription({
+    code: "RX-LATE",
+    phone: "0944000081",
+    timeSlotId: fixture.slotOne.id,
+    items: [{ medicineName: "Thuốc cấp sau", quantity: 5, medicineId: medicine.id }],
+  });
+  // Lễ tân lập hóa đơn trước khi dược sĩ cấp thuốc: chưa có dòng tiền thuốc.
+  const created = await http.request(`/api/dashboard/invoices/appointments/${appointment.id}`, {
+    method: "POST",
+    headers: dashboardHeaders(staffCookie),
+    body: {},
+  });
+  assert.equal(created.status, 201);
+  assert.equal((created.body.data.items as { type: string }[]).filter((item) => item.type === "MEDICINE").length, 0);
+  const baseTotal = created.body.data.totalAmount as number;
+  const baseFinal = created.body.data.finalAmount as number;
+
+  const dispensed = await http.request(`/api/dashboard/pharmacy/prescriptions/${prescription.id}/dispense`, {
+    method: "POST",
+    headers: dashboardHeaders(pharmacistCookie),
+    body: { confirmed: true },
+  });
+  assert.equal(dispensed.status, 200);
+
+  const invoice = await http.request(`/api/dashboard/invoices/${created.body.data.id}`, { headers: dashboardHeaders(staffCookie) });
+  assert.equal(invoice.status, 200);
+  const lines = (invoice.body.data.items as { type: string; quantity: number; amount: number }[]).filter((item) => item.type === "MEDICINE");
+  assert.equal(lines.length, 1);
+  assert.equal(lines[0].quantity, 5);
+  assert.equal(lines[0].amount, 20000);
+  assert.equal(invoice.body.data.totalAmount, baseTotal + 20000);
+  assert.equal(invoice.body.data.finalAmount, baseFinal + 20000);
+});
+
+test("a paid invoice is not changed by later dispensing, reception is told instead", async () => {
+  const pharmacist = await createDashboardUser("PHARMACIST", "0900000083");
+  const staff = await createDashboardUser("STAFF", "0900000084");
+  const pharmacistCookie = await authCookie(pharmacist.id, "PHARMACIST");
+  const staffCookie = await authCookie(staff.id, "STAFF");
+  const medicine = await createMedicineViaApi(pharmacistCookie, { code: "BILL-PAID", name: "Thuốc sau thanh toán", unitPrice: 1000 });
+  await receiveViaApi(pharmacistCookie, medicine.id, 10);
+  const { appointment, prescription } = await createIssuedPrescription({
+    code: "RX-PAID",
+    phone: "0944000083",
+    timeSlotId: fixture.slotTwo.id,
+    items: [{ medicineName: "Thuốc sau thanh toán", quantity: 2, medicineId: medicine.id }],
+  });
+  const created = await http.request(`/api/dashboard/invoices/appointments/${appointment.id}`, {
+    method: "POST",
+    headers: dashboardHeaders(staffCookie),
+    body: {},
+  });
+  assert.equal(created.status, 201);
+  await prisma.invoice.update({ where: { id: created.body.data.id }, data: { status: "PAID", paidAt: new Date() } });
+  const before = created.body.data.totalAmount as number;
+
+  const dispensed = await http.request(`/api/dashboard/pharmacy/prescriptions/${prescription.id}/dispense`, {
+    method: "POST",
+    headers: dashboardHeaders(pharmacistCookie),
+    body: { confirmed: true },
+  });
+  assert.equal(dispensed.status, 200);
+  const after = await prisma.invoice.findUniqueOrThrow({ where: { id: created.body.data.id }, include: { items: true } });
+  assert.equal(after.totalAmount, before);
+  assert.equal(after.items.filter((item) => item.type === "MEDICINE").length, 0);
+  const inbox = await http.request("/api/dashboard/inbox", { headers: dashboardHeaders(staffCookie) });
+  assert.ok(inbox.body.data.items.some((item: { title: string }) => item.title === "Tiền thuốc chưa tính vào hóa đơn"));
 });
