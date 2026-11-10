@@ -15,6 +15,10 @@ const {
   getAppointmentReminderLeadMinutes,
   getDatabaseTransactionMaxWaitMs,
   getDatabaseTransactionTimeoutMs,
+  getHttpHeadersTimeoutMs,
+  getHttpKeepAliveTimeoutMs,
+  getHttpMaxRequestsPerSocket,
+  getHttpRequestTimeoutMs,
   getReadinessCacheMs,
   getReadinessTimeoutMs,
   getSlowRequestThresholdMs,
@@ -27,6 +31,7 @@ const {
   validateNotificationWorkerEnvironment,
   validateRuntimeEnvironment,
 } = await import("../../src/config/environment.js");
+const { configureHttpServer } = await import("../../src/config/httpServer.js");
 const {
   getRequestPerformanceSnapshot,
   getSafeRequestPath,
@@ -386,6 +391,49 @@ test("readiness settings stay short and bounded", () => {
   assert.equal(getReadinessTimeoutMs({ READINESS_TIMEOUT_MS: "0" }), 2_000);
   assert.equal(getReadinessTimeoutMs({ READINESS_TIMEOUT_MS: "99999" }), 5_000);
   assert.equal(getReadinessCacheMs({ READINESS_CACHE_MS: "99999" }), 30_000);
+});
+
+test("HTTP server limits stay bounded and headers cannot outlive the request", () => {
+  assert.equal(
+    getHttpRequestTimeoutMs({ HTTP_REQUEST_TIMEOUT_MS: "0" }),
+    120_000,
+  );
+  assert.equal(
+    getHttpRequestTimeoutMs({ HTTP_REQUEST_TIMEOUT_MS: "999999" }),
+    300_000,
+  );
+  assert.equal(
+    getHttpHeadersTimeoutMs({ HTTP_HEADERS_TIMEOUT_MS: "1" }),
+    5_000,
+  );
+  assert.equal(
+    getHttpKeepAliveTimeoutMs({ HTTP_KEEP_ALIVE_TIMEOUT_MS: "999999" }),
+    30_000,
+  );
+  assert.equal(
+    getHttpMaxRequestsPerSocket({ HTTP_MAX_REQUESTS_PER_SOCKET: "1" }),
+    100,
+  );
+
+  const server = {
+    requestTimeout: 0,
+    headersTimeout: 0,
+    keepAliveTimeout: 0,
+    maxRequestsPerSocket: 0,
+  };
+  configureHttpServer(server, {
+    HTTP_REQUEST_TIMEOUT_MS: "10000",
+    HTTP_HEADERS_TIMEOUT_MS: "60000",
+    HTTP_KEEP_ALIVE_TIMEOUT_MS: "2500",
+    HTTP_MAX_REQUESTS_PER_SOCKET: "250",
+  });
+
+  assert.deepEqual(server, {
+    requestTimeout: 10_000,
+    headersTimeout: 10_000,
+    keepAliveTimeout: 2_500,
+    maxRequestsPerSocket: 250,
+  });
 });
 
 test("performance settings are opt-in and bounded", () => {
