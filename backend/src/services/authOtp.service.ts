@@ -3,6 +3,7 @@ import { prisma } from "../config/prisma.js";
 import { AppError } from "../utils/appError.js";
 import type { OtpChannel, OtpPurpose } from "../../generated/prisma/enums.js";
 import { enqueueOtpDeliveryJob } from "../queues/otp.queue.js";
+import OtpSenderService from "./otpSender.service.js";
 import {
   isProductionLike,
   resolveOtpSecret,
@@ -50,6 +51,32 @@ const timeout = (milliseconds: number) =>
     setTimeout(() => resolve({ status: "TIMEOUT" }), milliseconds);
   });
 
+
+// Hàng đợi (Redis) hỏng hoặc hết hạn mức thì vẫn phải gửi được OTP: gửi thẳng, không qua hàng đợi,
+// và ghi lại trạng thái giao như worker vẫn làm. Không ném lỗi: người dùng chỉ cần biết OTP đã gửi hay chưa.
+const deliverOtpDirectly = async (
+  otpCodeId: string,
+  job: { target: string; channel: OtpChannel; purpose: OtpPurpose; otp: string; expiresInSeconds: number },
+): Promise<"SENT" | "FAILED"> => {
+  try {
+    await OtpSenderService.send(job);
+    await prisma.otpCode.update({
+      where: { id: otpCodeId },
+      data: { deliveryStatus: "SENT", deliveryError: null, deliveredAt: new Date() },
+    });
+    return "SENT";
+  } catch (error) {
+    const message = getErrorMessage(error, "Không gửi được OTP");
+    console.error("[OTP_DIRECT] Cannot deliver OTP directly:", message);
+    await prisma.otpCode
+      .update({
+        where: { id: otpCodeId },
+        data: { deliveryStatus: "FAILED", deliveryError: message.slice(0, 1000) },
+      })
+      .catch(() => undefined);
+    return "FAILED";
+  }
+};
 
 const hashOtp = (otp: string) =>
   createHmac("sha256", OTP_SECRET).update(otp).digest("hex");
@@ -409,13 +436,7 @@ class AuthOtpService {
             message,
           );
 
-          await prisma.otpCode.update({
-            where: { id: otpRecord.id },
-            data: {
-              deliveryStatus: "FAILED",
-              deliveryError: message.slice(0, 1000),
-            },
-          });
+          await deliverOtpDirectly(otpRecord.id, deliveryJob);
         })
         .catch((error) => {
           console.error(
@@ -437,17 +458,8 @@ class AuthOtpService {
             )
           : "Chưa cấu hình hàng đợi gửi OTP";
 
-      console.error("[OTP_QUEUE] Cannot enqueue OTP delivery job:", message);
-
-      await prisma.otpCode.update({
-        where: { id: otpRecord.id },
-        data: {
-          deliveryStatus: "FAILED",
-          deliveryError: message.slice(0, 1000),
-        },
-      });
-
-      deliveryStatus = "FAILED";
+      console.error("[OTP_QUEUE] Cannot enqueue OTP delivery job, sending directly:", message);
+      deliveryStatus = await deliverOtpDirectly(otpRecord.id, deliveryJob);
     }
 
     if (!isProductionLike()) {
