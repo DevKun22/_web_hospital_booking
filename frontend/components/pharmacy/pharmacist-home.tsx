@@ -43,7 +43,7 @@ export function PharmacistHome() {
   const queue = useQuery({
     queryKey: ["dashboard", "pharmacy", "home-queue"],
     queryFn: () => apiRequest<Paged<QueueItem>>("/dashboard/pharmacy/prescriptions", { query: { dispenseStatus: "NOT_DISPENSED", limit: 8 } }),
-    refetchInterval: 30_000,
+    refetchInterval: 60_000,
   });
   const low = useQuery({
     queryKey: ["dashboard", "pharmacy", "home-low-stock"],

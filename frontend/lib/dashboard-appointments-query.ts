@@ -44,7 +44,7 @@ export function useDashboardAppointments(filters: DashboardAppointmentFilters, e
     enabled,
     placeholderData: keepPreviousData,
     staleTime: 15_000,
-    refetchInterval: 30_000,
+    refetchInterval: 60_000,
     refetchOnReconnect: true,
     refetchOnWindowFocus: true,
   });
@@ -63,7 +63,7 @@ export function useDashboardPendingInvoiceAppointments(enabled: boolean) {
     queryFn: () => fetchDashboardAppointments(filters),
     enabled,
     staleTime: 15_000,
-    refetchInterval: 30_000,
+    refetchInterval: 60_000,
     refetchOnReconnect: true,
     refetchOnWindowFocus: true,
   });

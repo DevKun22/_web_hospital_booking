@@ -395,10 +395,10 @@ test("performance telemetry does not expose query values or path identifiers", (
 });
 
 test("notification worker settings reject unsafe interval and batch values", () => {
-  assert.equal(getNotificationWorkerIntervalMs({}), 30_000);
+  assert.equal(getNotificationWorkerIntervalMs({}), 120_000);
   assert.equal(
     getNotificationWorkerIntervalMs({ NOTIFICATION_WORKER_INTERVAL_MS: "abc" }),
-    30_000,
+    120_000,
   );
   assert.equal(
     getNotificationWorkerIntervalMs({ NOTIFICATION_WORKER_INTERVAL_MS: "100" }),

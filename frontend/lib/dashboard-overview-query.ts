@@ -71,7 +71,7 @@ export function useDoctorDashboardOverview(date: string, enabled: boolean) {
     queryFn: () => fetchDoctorDashboardOverview(date),
     enabled,
     staleTime: 15_000,
-    refetchInterval: 30_000,
+    refetchInterval: 2 * 60_000,
     refetchOnReconnect: true,
     refetchOnWindowFocus: true,
   });
