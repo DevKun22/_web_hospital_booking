@@ -17,12 +17,12 @@ Hệ thống đặt lịch khám trực tuyến gồm **website cho bệnh nhân
 | Vai trò | Làm được gì |
 | --- | --- |
 | Bệnh nhân (web và mobile) | Xem chuyên khoa, bác sĩ, gói khám; đặt lịch có xác thực OTP qua email; xem và hủy lịch; đánh giá sau khám; xem kết quả khám, đơn thuốc, hóa đơn; thanh toán VNPay; quản lý hồ sơ người thân và đặt lịch cho người thân; nhận thông báo đẩy; hỏi chatbot |
-| Nhân viên | Tiếp đón (xác nhận, check-in, đổi lịch, ghi vắng mặt), lập và thu hóa đơn, quản lý danh mục, lịch làm việc và nội dung |
-| Bác sĩ | Xem lịch của mình, bắt đầu và kết thúc buổi khám, ghi bệnh án và kết quả xét nghiệm, kê đơn, gửi yêu cầu đổi lịch làm việc |
-| Dược sĩ | Cấp thuốc theo đơn đã phát hành, nhập kho, điều chỉnh tồn, quản lý danh mục thuốc |
+| Nhân viên | Tiếp đón (xác nhận, check-in, đổi lịch, ghi vắng mặt), lập và thu hóa đơn, quản lý danh mục, lịch làm việc (sinh khung giờ, đóng lịch khi bác sĩ nghỉ, duyệt yêu cầu đổi lịch) và nội dung, gửi thông báo nội bộ |
+| Bác sĩ | Xem lịch của mình, bắt đầu và kết thúc buổi khám, ghi bệnh án và kết quả xét nghiệm, kê đơn, gửi yêu cầu đổi lịch làm việc, đóng lịch khi nghỉ |
+| Dược sĩ | Cấp thuốc theo đơn đã phát hành, nhập kho (theo lô và hạn dùng), điều chỉnh tồn, quản lý danh mục và giá bán thuốc, nhận cảnh báo thuốc sắp hết hoặc hết hạn |
 | Quản trị | Quản lý tài khoản nhân sự và ma trận phân quyền, hoàn tiền, cấu hình hệ thống, xem nhật ký truy cập |
 
-Luồng chính: **đặt lịch** (chọn dịch vụ, ngày, khung giờ, OTP) → **tiếp đón** (xác nhận, check-in) → **khám** (bệnh án, đơn thuốc) → **cấp thuốc** → **hóa đơn và thanh toán** → **đánh giá**. Mỗi bước phát sinh thông báo trong ứng dụng và push tới thiết bị.
+Luồng chính: **đặt lịch** (chọn dịch vụ, ngày, khung giờ, OTP) → **tiếp đón** (xác nhận, check-in) → **khám** (bệnh án, đơn thuốc) → **cấp thuốc** → **hóa đơn và thanh toán** → **đánh giá**. Mỗi bước phát sinh thông báo trong ứng dụng và push tới thiết bị. Hóa đơn gồm phí khám hoặc gói khám, phí dịch vụ và tiền thuốc đã cấp (theo giá bán trong danh mục thuốc). Nhân sự có hộp thư riêng ("Thông báo của tôi"): bác sĩ nhận lịch mới, hủy, đổi và check-in; nhân viên tiếp nhận nhận lịch chờ xác nhận, yêu cầu đổi lịch và lịch đã khám xong chờ lập hóa đơn; dược sĩ nhận đơn chờ cấp và cảnh báo kho.
 
 ## Kiến trúc
 
@@ -41,7 +41,8 @@ Web công khai / Dashboard (Next.js) ─┐
 - Web và mobile không truy cập cơ sở dữ liệu trực tiếp, chỉ gọi REST API. Web công khai và dashboard dùng các route `/api`; cổng bệnh nhân (web và mobile) dùng `/api/v1`; tất cả cùng một lớp nghiệp vụ.
 - Backend quyết định quyền truy cập, trạng thái lịch khám và tính hợp lệ của dữ liệu; PostgreSQL là nguồn dữ liệu duy nhất.
 - Hộp thư thông báo lưu trong PostgreSQL là dữ liệu chính, push chỉ là kênh chuyển phát.
-- Các việc nền (gửi OTP, nhắc lịch, hết hạn giữ chỗ, đối soát thanh toán) chạy qua hàng đợi hoặc worker, có thể chạy ngay trong tiến trình API (`INLINE_WORKERS`).
+- Các việc nền (gửi OTP, nhắc lịch, hết hạn giữ chỗ, đối soát thanh toán, nhắc thanh toán hóa đơn, tự sinh khung giờ) chạy qua hàng đợi hoặc worker, có thể chạy ngay trong tiến trình API (`INLINE_WORKERS`). Chu kỳ mặc định được kéo dài để tiết kiệm lượt truy vấn trên gói miễn phí và chỉnh được bằng biến môi trường. Khi hàng đợi Redis lỗi hoặc hết hạn mức, OTP được gửi trực tiếp thay vì qua hàng đợi.
+- Khung giờ khám được tự sinh từ lịch mẫu theo tuần cho 14 ngày tới; đổi, tắt hoặc xóa lịch mẫu gỡ khung giờ còn trống và báo nhân viên về các lịch đã đặt bị ảnh hưởng (lịch đã đặt không bị hủy tự động).
 
 ## Công nghệ
 
@@ -52,7 +53,7 @@ Web công khai / Dashboard (Next.js) ─┐
 | Backend | Node.js 20 trở lên, Express 5, TypeScript, Prisma, PostgreSQL |
 | Hàng đợi | Redis, BullMQ |
 | Dịch vụ ngoài | Resend, Cloudinary, Firebase Cloud Messaging, Gemini, VNPay |
-| Triển khai | Vercel (web), Render (API), Upstash (Redis) |
+| Triển khai | Vercel (web), Render (API), Supabase (PostgreSQL), Upstash (Redis) |
 | Chất lượng | GitHub Actions, kiểm thử tích hợp trên PostgreSQL riêng, `flutter analyze` |
 
 ## Cấu trúc thư mục
@@ -120,13 +121,13 @@ npm run test:all            # kiểu, smoke, unit, tích hợp
 npm run test:unit           # chỉ unit, không cần cơ sở dữ liệu
 npm run test:integration    # cần TEST_DATABASE_URL (xem bên dưới)
 
-cd frontend && npx tsc --noEmit && npm run lint && npm run build
+cd frontend && npx tsc --noEmit && npm run lint && npm test && npm run build
 cd mobile   && flutter analyze && flutter test
 ```
 
 - Kiểm thử tích hợp chạy trên cơ sở dữ liệu **riêng** (`TEST_DATABASE_URL`, tên hoặc schema phải chứa `test` và khác `DATABASE_URL`); bộ chạy từ chối khởi động nếu không đúng để không xóa nhầm dữ liệu thật.
-- Tại 08/11/2026: 80 kiểm thử tích hợp và 39 kiểm thử đơn vị ở backend, 21 smoke test, 188 kiểm thử Flutter.
-- CI (`.github/workflows/phase0.yml`): các job `guard` (chặn tệp bí mật), `backend`, `frontend`, `mobile` chạy song song và chỉ chạy khi pull request có đổi phần tương ứng (đổi workflow hoặc chạy trên `main` thì chạy đủ); build APK chỉ khi đổi mobile hoặc trên `main`. Job `verify` gom kết quả: phần bị bỏ qua tính là đạt, phần lỗi thì lỗi. Backend: kiểm tra schema Prisma, kiểu, smoke, đơn vị, tích hợp, build. Frontend: kiểm tra kiểu, lint, build. Mobile: phân tích, kiểm thử Flutter, cảnh báo tệp Dart trên 800 dòng.
+- Tại 10/11/2026: 95 kiểm thử tích hợp, 58 kiểm thử đơn vị và 21 smoke test ở backend, 19 kiểm thử đơn vị ở frontend (`npm test`, chạy bằng `node:test` và `tsx`); 188 kiểm thử Flutter (số liệu ngày 08/11).
+- CI (`.github/workflows/phase0.yml`): các job `guard` (chặn tệp bí mật), `backend`, `frontend`, `mobile` chạy song song và chỉ chạy khi pull request có đổi phần tương ứng (đổi workflow hoặc chạy trên `main` thì chạy đủ); build APK chỉ khi đổi mobile hoặc trên `main`. Job `verify` gom kết quả: phần bị bỏ qua tính là đạt, phần lỗi thì lỗi. Backend: kiểm tra schema Prisma, kiểu, smoke, đơn vị, tích hợp, build. Frontend: kiểm tra kiểu, lint, kiểm thử đơn vị, build. Mobile: phân tích, kiểm thử Flutter, cảnh báo tệp Dart trên 800 dòng.
 
 ## Triển khai
 
@@ -135,7 +136,9 @@ cd mobile   && flutter analyze && flutter test
 | Web | Vercel, thư mục gốc `frontend` | Đặt `NEXT_PUBLIC_API_URL` và `NEXT_PUBLIC_SITE_URL` |
 | API | Render Web Service, thư mục gốc `backend` | Build `npm install && npm run render:build` (chạy migration rồi build), start `npm run start` |
 | Redis | Upstash | Dùng cho hàng đợi và bộ đếm giới hạn tần suất; nên đặt chính sách `noeviction` |
-| Cơ sở dữ liệu | PostgreSQL | Migration áp dụng khi build API |
+| Cơ sở dữ liệu | Supabase (PostgreSQL) | `DATABASE_URL` là chuỗi **Session pooler** (cổng 5432; mã hóa `@`, `#` trong mật khẩu thành `%40`, `%23`). Migration áp dụng khi build API. Nên tắt Data API (backend kết nối thẳng, không dùng) và bật RLS cho mọi bảng; có thể bật trigger tự bật RLS cho bảng mới |
+
+**Hạn mức gói miễn phí:** mỗi dịch vụ giới hạn theo cách riêng (Upstash giới hạn số lệnh Redis mỗi tháng, Supabase tự tạm dừng khi lâu không hoạt động, Render tự ngủ khi không có truy cập), nên các việc nền được giữ ở mức thưa. Đổi nhà cung cấp cơ sở dữ liệu chỉ cần đổi `DATABASE_URL` (dự án chỉ yêu cầu PostgreSQL; schema có trigger, ràng buộc CHECK và SQL thô đặc thù PostgreSQL); dùng `npx prisma migrate deploy` để dựng cấu trúc, rồi `npm run seed:demo-full` và `npm run seed:chatbot-faq` trong `backend` nếu cần dữ liệu demo (tài khoản demo dùng mật khẩu cố định trong mã nguồn, chỉ dành cho môi trường thử).
 
 Gói miễn phí của Render chỉ có một Web Service, nên các worker chạy ngay trong tiến trình API bằng biến `INLINE_WORKERS=otp,appointments,notifications,payments`. Có thể tách ra tiến trình riêng bằng các lệnh `npm run worker:*`.
 
@@ -147,7 +150,7 @@ Cấu hình (chỉ ở backend, biến mẫu trong `backend/.env.example`): `PAY
 
 ## Phân quyền và bảo vệ dữ liệu y tế
 
-- **Ma trận quyền động:** 41 mã quyền, 4 vai trò nhân sự. Mỗi quyền khai báo vai trò đủ điều kiện, vai trò cố định và mặc định; quản trị chỉ bật tắt trong tập đủ điều kiện. Quản trị không mặc định có mọi quyền và không đọc nội dung bệnh án, đơn thuốc.
+- **Ma trận quyền động:** 43 mã quyền, 4 vai trò nhân sự. Mỗi quyền khai báo vai trò đủ điều kiện, vai trò cố định và mặc định; quản trị chỉ bật tắt trong tập đủ điều kiện. Quản trị không mặc định có mọi quyền và không đọc nội dung bệnh án, đơn thuốc.
 - **Phạm vi dữ liệu:** bác sĩ chỉ thấy lịch, bệnh án, đơn thuốc của mình; dược sĩ chỉ thấy dữ liệu tối thiểu để cấp thuốc; bệnh nhân chỉ thấy dữ liệu của mình và người thân do mình quản lý.
 - **Tách người làm và người xác nhận:** bác sĩ kết thúc buổi khám, nhân viên thu tiền, quản trị hoàn tiền, dược sĩ cấp thuốc.
 - **Nhật ký truy cập** chỉ thêm dòng (cơ sở dữ liệu chặn sửa, xóa); quản trị đặt lại mật khẩu thì người dùng phải tự đổi; cần ghi nhận đồng ý khi lưu thông tin sức khỏe.
@@ -163,7 +166,10 @@ Cấu hình (chỉ ở backend, biến mẫu trong `backend/.env.example`): `PAY
 - Chatbot chỉ cung cấp thông tin và điều hướng, không chẩn đoán.
 - Chính sách BHYT dừng ở mức nhập thông tin và tính giảm trừ, chưa thay quy trình giám định.
 - Bác sĩ chỉ xem bệnh án do chính mình lập, chưa hỗ trợ xem lịch sử khám từ bác sĩ khác khi có lịch hiện hành.
-- Máy chủ gói miễn phí có độ trễ khi khởi động lại.
+- Máy chủ gói miễn phí có độ trễ khi khởi động lại; các việc nền chạy trong tiến trình API nên tạm dừng khi máy chủ ngủ.
+- Hạn mức gói miễn phí của Redis (Upstash) và cơ sở dữ liệu có thể làm hàng đợi hoặc truy vấn bị chặn khi dùng nhiều; OTP đã có đường gửi trực tiếp dự phòng, các việc nền khác chưa có.
+- Dữ liệu trên môi trường triển khai hiện là bộ dữ liệu demo; tài khoản demo có email giả nên không nhận được OTP, cần đặt email thật cho tài khoản dùng để đăng nhập.
+- Tiền thuốc tính theo thực cấp, thêm vào hóa đơn chưa thanh toán khi cấp thuốc; hóa đơn đã thanh toán hoặc đã hủy không tự đổi (nhân viên được báo xử lý); chưa có hoàn tiền một phần.
 
 **Hướng phát triển:** tích hợp SMS, chuyển VNPay sang production, quyền xem khẩn cấp có lý do bắt buộc cho quản trị, cho bác sĩ xem lịch sử khám khi có lịch hẹn hiện hành, báo cáo độ phủ kiểm thử, thông báo thời gian thực cho dashboard, khám từ xa qua video.
 
