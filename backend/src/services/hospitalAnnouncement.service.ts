@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { Prisma } from "../../generated/prisma/client.js";
+import type { Role } from "../../generated/prisma/enums.js";
 import { prisma } from "../config/prisma.js";
 import { AppError } from "../utils/appError.js";
 import NotificationDeliveryService from "./notificationDelivery.service.js";
@@ -14,7 +15,24 @@ const UPCOMING_APPOINTMENT_STATUSES = [
 export type HospitalAnnouncementAudience =
   | "ALL_PATIENTS"
   | "UPCOMING_APPOINTMENTS"
-  | "DEPARTMENT_APPOINTMENTS";
+  | "DEPARTMENT_APPOINTMENTS"
+  | "ALL_STAFF"
+  | "ROLE_DOCTOR"
+  | "ROLE_PHARMACIST"
+  | "ROLE_RECEPTION"
+  | "ONE_USER";
+
+const STAFF_AUDIENCE_ROLES: Partial<
+  Record<HospitalAnnouncementAudience, Role[]>
+> = {
+  ALL_STAFF: ["ADMIN", "STAFF", "DOCTOR", "PHARMACIST"],
+  ROLE_DOCTOR: ["DOCTOR"],
+  ROLE_PHARMACIST: ["PHARMACIST"],
+  ROLE_RECEPTION: ["STAFF"],
+};
+const isStaffAudience = (audience: HospitalAnnouncementAudience) =>
+  audience === "ONE_USER" || audience in STAFF_AUDIENCE_ROLES;
+
 
 export type CreateHospitalAnnouncementInput = {
   createdById: string;
@@ -24,6 +42,7 @@ export type CreateHospitalAnnouncementInput = {
   expiresAt?: Date;
   audience: HospitalAnnouncementAudience;
   departmentId?: string | null;
+  userId?: string | null;
 };
 
 const startOfToday = (value = new Date()) =>
@@ -38,7 +57,12 @@ const readAudiencePayload = (payload: Prisma.JsonValue) => {
   const rawAudience = payload.audience;
   const audience: HospitalAnnouncementAudience =
     rawAudience === "UPCOMING_APPOINTMENTS" ||
-    rawAudience === "DEPARTMENT_APPOINTMENTS"
+    rawAudience === "DEPARTMENT_APPOINTMENTS" ||
+    rawAudience === "ALL_STAFF" ||
+    rawAudience === "ROLE_DOCTOR" ||
+    rawAudience === "ROLE_PHARMACIST" ||
+    rawAudience === "ROLE_RECEPTION" ||
+    rawAudience === "ONE_USER"
       ? rawAudience
       : "ALL_PATIENTS";
   return {
@@ -87,17 +111,31 @@ class HospitalAnnouncementService {
               ...(department ? { departmentId: department.id } : {}),
             },
           };
+    const staffAudience = isStaffAudience(input.audience);
     const patients = await prisma.user.findMany({
-      where: {
-        role: "PATIENT",
-        isActive: true,
-        ...(appointmentAudience ? { appointments: appointmentAudience } : {}),
-      },
+      where: staffAudience
+        ? input.audience === "ONE_USER"
+          ? {
+              id: input.userId ?? "",
+              isActive: true,
+              role: { not: "PATIENT" },
+            }
+          : {
+              isActive: true,
+              role: { in: STAFF_AUDIENCE_ROLES[input.audience] },
+            }
+        : {
+            role: "PATIENT",
+            isActive: true,
+            ...(appointmentAudience ? { appointments: appointmentAudience } : {}),
+          },
       select: { id: true },
     });
     if (patients.length === 0) {
       throw new AppError(
-        "Chưa có người khám đang hoạt động để nhận thông báo",
+        staffAudience
+          ? "Chưa có nhân sự đang hoạt động để nhận thông báo"
+          : "Chưa có người khám đang hoạt động để nhận thông báo",
         409,
         "NO_ANNOUNCEMENT_RECIPIENTS",
       );

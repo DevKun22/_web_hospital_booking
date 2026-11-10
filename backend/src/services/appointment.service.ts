@@ -32,6 +32,7 @@ import {
 import MedicalRecordService from "./medicalRecord.service.js";
 import NotificationDeliveryService from "./notificationDelivery.service.js";
 import NotificationService from "./notification.service.js";
+import StaffNotificationService from "./staffNotification.service.js";
 import {
   signBookingHoldReleaseGrant,
   verifyBookingHoldReleaseGrant,
@@ -1024,6 +1025,11 @@ class AppointmentService {
       });
     });
 
+    void StaffNotificationService.notifyAppointmentEvent(
+      updatedAppointment.id,
+      "CREATED",
+      { includeReception: true },
+    );
     return updatedAppointment;
   }
 
@@ -1101,6 +1107,11 @@ class AppointmentService {
     });
 
     await this.dispatchNotificationBestEffort(transition.notificationId);
+    void StaffNotificationService.notifyAppointmentEvent(
+      transition.appointment.id,
+      "CANCELLED",
+      { includeReception: true },
+    );
     return transition.appointment;
   }
 
@@ -1409,6 +1420,9 @@ class AppointmentService {
     if (transition.dueReminderId) {
       await this.dispatchNotificationBestEffort(transition.dueReminderId);
     }
+    void StaffNotificationService.notifyAppointmentEvent(id, "CONFIRMED", {
+      actorId: actor.userId,
+    });
     return transition.appointment;
   }
 
@@ -1452,6 +1466,9 @@ class AppointmentService {
     });
 
     await this.dispatchNotificationBestEffort(transition.notificationId);
+    void StaffNotificationService.notifyAppointmentEvent(id, "CANCELLED", {
+      actorId: actor.userId,
+    });
     return transition.appointment;
   }
 
@@ -1635,6 +1652,11 @@ class AppointmentService {
     if (transition.dueReminderId) {
       await this.dispatchNotificationBestEffort(transition.dueReminderId);
     }
+    void StaffNotificationService.notifyAppointmentEvent(
+      transition.appointment.id,
+      "RESCHEDULED",
+      { actorId: actor.userId },
+    );
     return transition.appointment;
   }
 
@@ -1663,6 +1685,9 @@ class AppointmentService {
     });
 
     await this.dispatchNotificationBestEffort(transition.notificationId);
+    void StaffNotificationService.notifyAppointmentEvent(id, "CHECKED_IN", {
+      actorId: actor.userId,
+    });
     return transition.appointment;
   }
 

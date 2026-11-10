@@ -1,4 +1,5 @@
 import {
+  Bell,
   BellRing,
   Bot,
   Building2,
@@ -160,6 +161,15 @@ export const dashboardNavItems: readonly DashboardNavItem[] = [
     icon: Package,
     permissions: ["catalog.manage"],
     group: "catalog",
+  },
+  {
+    key: "inbox",
+    href: "/dashboard/inbox",
+    label: "Thông báo của tôi",
+    description: "Việc cần chú ý dành riêng cho bạn",
+    icon: Bell,
+    permissions: [],
+    group: "overview",
   },
   {
     key: "notifications",

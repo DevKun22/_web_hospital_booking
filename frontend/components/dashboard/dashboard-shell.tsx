@@ -16,6 +16,7 @@ import {
   Sun,
 } from "lucide-react";
 import Link from "next/link";
+import { useQuery } from "@tanstack/react-query";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { Dialog } from "radix-ui";
@@ -29,6 +30,7 @@ import {
   DsRoot,
   useDsRoot,
 } from "@/components/ds";
+import { apiRequest } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import {
   dashboardNavGroups,
@@ -38,7 +40,6 @@ import {
   isDashboardItemActive,
   type DashboardNavItem,
 } from "@/lib/dashboard-navigation";
-import { can } from "@/lib/permissions";
 import { usePublicSiteSettings } from "@/lib/public-home-query";
 import { useTheme } from "@/lib/theme";
 
@@ -288,6 +289,15 @@ function ShellFrame({ children, collapsed }: { children: React.ReactNode; collap
   const pathname = usePathname();
   const router = useRouter();
   const { user, logout } = useAuth();
+  const unreadQuery = useQuery({
+    queryKey: ["dashboard", "inbox", "unread-count"],
+    queryFn: () => apiRequest<{ unreadCount: number }>("/dashboard/inbox/unread-count"),
+    enabled: Boolean(user),
+    refetchInterval: 60_000,
+    refetchOnWindowFocus: true,
+    staleTime: 30_000,
+  });
+  const unreadCount = unreadQuery.data?.unreadCount ?? 0;
   const { theme, toggleTheme } = useTheme();
   const siteSettingsQuery = usePublicSiteSettings();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -404,9 +414,14 @@ function ShellFrame({ children, collapsed }: { children: React.ReactNode; collap
             <kbd className="ds-kbd">Ctrl K</kbd>
           </button>
 
-          {user && can(user, "content.manage") ? (
-            <Link href="/dashboard/notifications" className="ds-btn ds-btn--ghost ds-btn--icon" aria-label="Mở trung tâm thông báo" title="Trung tâm thông báo">
+          {user ? (
+            <Link href="/dashboard/inbox" className="ds-btn ds-btn--ghost ds-btn--icon" aria-label={unreadCount ? `Thông báo của tôi, ${unreadCount} chưa đọc` : "Thông báo của tôi"} title="Thông báo của tôi" style={{ position: "relative" }}>
               <Bell aria-hidden="true" />
+              {unreadCount ? (
+                <span aria-hidden="true" style={{ position: "absolute", top: 2, right: 2, minWidth: 16, height: 16, padding: "0 4px", borderRadius: 8, background: "var(--ds-bad, #c0392b)", color: "#fff", fontSize: 10, fontWeight: 700, lineHeight: "16px", textAlign: "center" }}>
+                  {unreadCount > 99 ? "99+" : unreadCount}
+                </span>
+              ) : null}
             </Link>
           ) : null}
 

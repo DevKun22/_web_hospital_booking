@@ -25,13 +25,25 @@ import {
 } from "@/components/ds";
 import { VietnamDateTimeInput } from "@/components/ui/vietnam-datetime-input";
 import { apiRequest } from "@/lib/api";
+import { useAuth } from "@/lib/auth";
 import { useDashboardDepartments } from "@/lib/dashboard-departments-query";
+import { useDashboardUsers } from "@/lib/dashboard-users-query";
+import { dashboardRoleLabels } from "@/lib/dashboard-navigation";
+import { can } from "@/lib/permissions";
 import { formatVietnamDateTime, fromVietnamDateTimeInput } from "@/lib/date";
 
 // Thông báo ứng dụng: lịch sử chiến dịch bên trái; chọn một chiến dịch hoặc bấm "Soạn thông báo" thì khung bên phải mở cạnh danh sách.
 // Bước xem lại trước khi gửi nằm ngay trong khung (không còn hộp thoại phủ màn hình).
 
-type AnnouncementAudience = "ALL_PATIENTS" | "UPCOMING_APPOINTMENTS" | "DEPARTMENT_APPOINTMENTS";
+type AnnouncementAudience =
+  | "ALL_PATIENTS"
+  | "UPCOMING_APPOINTMENTS"
+  | "DEPARTMENT_APPOINTMENTS"
+  | "ALL_STAFF"
+  | "ROLE_DOCTOR"
+  | "ROLE_PHARMACIST"
+  | "ROLE_RECEPTION"
+  | "ONE_USER";
 
 type Announcement = {
   campaignId: string;
@@ -56,7 +68,15 @@ const audienceLabels: Record<AnnouncementAudience, string> = {
   ALL_PATIENTS: "Tất cả người khám đang hoạt động",
   UPCOMING_APPOINTMENTS: "Người bệnh có lịch khám sắp tới",
   DEPARTMENT_APPOINTMENTS: "Người bệnh có lịch sắp tới theo chuyên khoa",
+  ALL_STAFF: "Tất cả nhân sự bệnh viện",
+  ROLE_DOCTOR: "Chỉ bác sĩ",
+  ROLE_PHARMACIST: "Chỉ dược sĩ",
+  ROLE_RECEPTION: "Chỉ nhân viên tiếp nhận",
+  ONE_USER: "Một nhân sự cụ thể",
 };
+
+const patientAudiences: AnnouncementAudience[] = ["ALL_PATIENTS", "UPCOMING_APPOINTMENTS", "DEPARTMENT_APPOINTMENTS"];
+const staffAudiences: AnnouncementAudience[] = ["ALL_STAFF", "ROLE_DOCTOR", "ROLE_PHARMACIST", "ROLE_RECEPTION", "ONE_USER"];
 
 type CampaignStatus = "PUBLISHED" | "SCHEDULED" | "CANCELLED";
 
@@ -81,6 +101,11 @@ export default function DashboardNotificationsPage() {
   const [expiresAt, setExpiresAt] = useState("");
   const [audience, setAudience] = useState<AnnouncementAudience>("ALL_PATIENTS");
   const [departmentId, setDepartmentId] = useState("");
+  const [userId, setUserId] = useState("");
+  const { user: currentUser } = useAuth();
+  const canPickUser = can(currentUser, "user.manage");
+  const usersQuery = useDashboardUsers(useMemo(() => ({ isActive: "true", limit: 100 }), []), canPickUser);
+  const staffUsers = usersQuery.data?.items ?? [];
   const [confirming, setConfirming] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [cancelling, setCancelling] = useState(false);
@@ -115,6 +140,7 @@ export default function DashboardNotificationsPage() {
     body.trim().length >= 5 &&
     (sendMode === "now" || Boolean(scheduledAt)) &&
     (audience !== "DEPARTMENT_APPOINTMENTS" || Boolean(departmentId)) &&
+    (audience !== "ONE_USER" || Boolean(userId)) &&
     (!expiresAt || sendMode === "now" || expiresAt > scheduledAt);
 
   const startCompose = () => {
@@ -152,6 +178,7 @@ export default function DashboardNotificationsPage() {
           expiresAt: expiresAt ? fromVietnamDateTimeInput(expiresAt) : undefined,
           audience,
           departmentId: audience === "DEPARTMENT_APPOINTMENTS" ? departmentId : undefined,
+          userId: audience === "ONE_USER" ? userId : undefined,
         },
       });
       setConfirming(false);
@@ -161,11 +188,12 @@ export default function DashboardNotificationsPage() {
       setExpiresAt("");
       setAudience("ALL_PATIENTS");
       setDepartmentId("");
+      setUserId("");
       setSendMode("now");
       closePane();
       setMessage({
         tone: "good",
-        text: result.publishedAt ? `Đã tạo thông báo cho ${result.recipientCount} người khám.` : `Đã lên lịch thông báo cho ${result.recipientCount} người khám.`,
+        text: result.publishedAt ? `Đã tạo thông báo cho ${result.recipientCount} người nhận.` : `Đã lên lịch thông báo cho ${result.recipientCount} người nhận.`,
       });
       await announcementsQuery.refetch();
     } catch (error) {
@@ -310,23 +338,42 @@ export default function DashboardNotificationsPage() {
           <form onSubmit={requestConfirmation} style={{ display: "grid", gap: 12 }} aria-label="Soạn thông báo mới">
             <fieldset style={{ border: 0, margin: 0, padding: 0, display: "grid", gap: 8 }}>
               <legend style={{ fontSize: 13, fontWeight: 600, marginBottom: 6 }}>Nhóm người nhận</legend>
-              {(Object.keys(audienceLabels) as AnnouncementAudience[]).map((value) => (
-                <label key={value} className="ds-check" style={{ cursor: "pointer" }}>
-                  <input
-                    type="radio"
-                    name="audience"
-                    checked={audience === value}
-                    style={{ marginTop: 3 }}
-                    onChange={() => {
-                      setAudience(value);
-                      if (value !== "DEPARTMENT_APPOINTMENTS") setDepartmentId("");
-                    }}
-                  />
-                  <span>
-                    <strong>{audienceLabels[value]}</strong>
-                  </span>
-                </label>
+              {[
+                { title: "Gửi cho người khám", values: patientAudiences },
+                { title: "Gửi cho nhân sự bệnh viện", values: staffAudiences.filter((value) => value !== "ONE_USER" || canPickUser) },
+              ].map((group) => (
+                <div key={group.title} style={{ display: "grid", gap: 8 }}>
+                  <span className="ds-hint" style={{ fontWeight: 600 }}>{group.title}</span>
+                  {group.values.map((value) => (
+                    <label key={value} className="ds-check" style={{ cursor: "pointer" }}>
+                      <input
+                        type="radio"
+                        name="audience"
+                        checked={audience === value}
+                        style={{ marginTop: 3 }}
+                        onChange={() => {
+                          setAudience(value);
+                          if (value !== "DEPARTMENT_APPOINTMENTS") setDepartmentId("");
+                          if (value !== "ONE_USER") setUserId("");
+                        }}
+                      />
+                      <span>
+                        <strong>{audienceLabels[value]}</strong>
+                      </span>
+                    </label>
+                  ))}
+                </div>
               ))}
+              {audience === "ONE_USER" ? (
+                <DsSelect aria-label="Chọn nhân sự nhận thông báo" value={userId} onChange={(event) => setUserId(event.target.value)}>
+                  <option value="">Chọn nhân sự</option>
+                  {staffUsers.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.fullName} ({dashboardRoleLabels[item.role as keyof typeof dashboardRoleLabels] ?? item.role})
+                    </option>
+                  ))}
+                </DsSelect>
+              ) : null}
               {audience === "DEPARTMENT_APPOINTMENTS" ? (
                 <DsSelect aria-label="Chọn chuyên khoa" value={departmentId} onChange={(event) => setDepartmentId(event.target.value)}>
                   <option value="">Chọn chuyên khoa</option>
@@ -413,7 +460,7 @@ export default function DashboardNotificationsPage() {
 
   return (
     <>
-      <DsPageHeader title="Thông báo ứng dụng" description="Soạn một lần, hệ thống lưu vào hộp thư của người khám và chuyển phát thông báo đẩy theo lựa chọn của từng tài khoản" />
+      <DsPageHeader title="Thông báo ứng dụng" description="Soạn một lần, gửi cho người khám (hộp thư và thông báo đẩy theo lựa chọn của từng tài khoản) hoặc cho nhân sự bệnh viện (hộp thư “Thông báo của tôi”)" />
       <div style={{ display: "grid", gap: 12, marginBottom: 16 }}>
         {queryErrorMessage ? <DsNotice tone="bad">{queryErrorMessage}</DsNotice> : null}
         {message ? <DsNotice tone={message.tone}>{message.text}</DsNotice> : null}

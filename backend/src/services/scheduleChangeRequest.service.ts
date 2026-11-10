@@ -1,4 +1,5 @@
 import { Prisma } from "../../generated/prisma/client.js";
+import StaffNotificationService from "./staffNotification.service.js";
 import type { Role, ScheduleChangeRequestStatus, ScheduleChangeRequestType } from "../../generated/prisma/enums.js";
 import { prisma } from "../config/prisma.js";
 import { AppError } from "../utils/appError.js";
@@ -107,7 +108,7 @@ class ScheduleChangeRequestService {
       });
     }
 
-    return prisma.scheduleChangeRequest.create({
+    const created = await prisma.scheduleChangeRequest.create({
       data: {
         doctorId: doctor.id,
         scheduleId,
@@ -124,6 +125,20 @@ class ScheduleChangeRequestService {
       },
       select: requestSelect,
     });
+    const doctorUser = await prisma.user.findUnique({
+      where: { id: actor.userId },
+      select: { fullName: true },
+    });
+    void StaffNotificationService.notifyRoles(["STAFF", "ADMIN"], {
+      type: "SCHEDULE_REQUEST_CREATED",
+      title: "Có yêu cầu đổi lịch cần duyệt",
+      body: `${doctorUser?.fullName || "Bác sĩ"} gửi yêu cầu đổi lịch làm việc, đang chờ duyệt.`,
+      entityType: "SCHEDULE_CHANGE_REQUEST",
+      entityId: created.id,
+      eventKey: `schedule-request:${created.id}:created`,
+      excludeUserId: actor.userId,
+    });
+    return created;
   }
 
   async review(id: string, input: { status: "APPROVED" | "REJECTED"; reviewerNote?: string | null }, actor: Actor) {
@@ -133,11 +148,13 @@ class ScheduleChangeRequestService {
     if (request.status !== "PENDING") throw new AppError("Yêu cầu này đã được xử lý", 409);
 
     if (input.status === "REJECTED") {
-      return prisma.scheduleChangeRequest.update({
+      const rejected = await prisma.scheduleChangeRequest.update({
         where: { id },
         data: { status: "REJECTED", reviewerNote: input.reviewerNote?.trim() || null, reviewedById: actor.userId, reviewedAt: new Date() },
         select: requestSelect,
       });
+      this.notifyReviewed(request.id, request.requestedById, "REJECTED", input.reviewerNote, actor.userId);
+      return rejected;
     }
 
     const today = parseDateOnly(new Intl.DateTimeFormat("sv-SE", { timeZone: "Asia/Ho_Chi_Minh" }).format(new Date()));
@@ -149,7 +166,7 @@ class ScheduleChangeRequestService {
       );
     }
 
-    return prisma.$transaction(async (tx) => {
+    const approved = await prisma.$transaction(async (tx) => {
       let scheduleId = request.scheduleId;
       if (request.type === "CREATE_WEEKLY_SCHEDULE") {
         if (request.isActive) {
@@ -192,6 +209,27 @@ class ScheduleChangeRequestService {
         data: { status: "APPROVED", scheduleId, reviewerNote: input.reviewerNote?.trim() || null, reviewedById: actor.userId, reviewedAt: new Date() },
         select: requestSelect,
       });
+    });
+    this.notifyReviewed(request.id, request.requestedById, "APPROVED", input.reviewerNote, actor.userId);
+    return approved;
+  }
+
+  private notifyReviewed(
+    requestId: string,
+    doctorUserId: string,
+    status: "APPROVED" | "REJECTED",
+    reviewerNote: string | null | undefined,
+    reviewerId: string,
+  ) {
+    const note = reviewerNote?.trim();
+    void StaffNotificationService.notifyUsers([doctorUserId], {
+      type: "SCHEDULE_REQUEST_REVIEWED",
+      title: status === "APPROVED" ? "Yêu cầu đổi lịch được duyệt" : "Yêu cầu đổi lịch bị từ chối",
+      body: `Yêu cầu đổi lịch làm việc của bạn đã ${status === "APPROVED" ? "được duyệt" : "bị từ chối"}${note ? `: ${note}` : "."}`,
+      entityType: "SCHEDULE_CHANGE_REQUEST",
+      entityId: requestId,
+      eventKey: `schedule-request:${requestId}:reviewed`,
+      excludeUserId: reviewerId,
     });
   }
 

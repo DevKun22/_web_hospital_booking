@@ -215,6 +215,10 @@ enum NotificationType {
   INVOICE_CREATED
   PAYMENT_SUCCEEDED
   PAYMENT_REFUNDED
+  // Thông báo nội bộ cho nhân sự
+  APPOINTMENT_CREATED
+  SCHEDULE_REQUEST_CREATED
+  SCHEDULE_REQUEST_REVIEWED
 }
 
 enum NotificationDeliveryStatus {

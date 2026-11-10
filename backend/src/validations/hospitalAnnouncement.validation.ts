@@ -6,6 +6,12 @@ export const hospitalAnnouncementAudienceValues = [
   "ALL_PATIENTS",
   "UPCOMING_APPOINTMENTS",
   "DEPARTMENT_APPOINTMENTS",
+  // Thông báo nội bộ cho nhân sự
+  "ALL_STAFF",
+  "ROLE_DOCTOR",
+  "ROLE_PHARMACIST",
+  "ROLE_RECEPTION",
+  "ONE_USER",
 ] as const;
 
 export const createHospitalAnnouncementSchema = z.object({
@@ -23,6 +29,7 @@ export const createHospitalAnnouncementSchema = z.object({
   expiresAt: optionalIsoDate,
   audience: z.enum(hospitalAnnouncementAudienceValues).default("ALL_PATIENTS"),
   departmentId: z.string().uuid().nullable().optional(),
+  userId: z.string().uuid().nullable().optional(),
 }).superRefine((value, context) => {
   if (value.audience === "DEPARTMENT_APPOINTMENTS" && !value.departmentId) {
     context.addIssue({
@@ -36,6 +43,20 @@ export const createHospitalAnnouncementSchema = z.object({
       code: "custom",
       path: ["departmentId"],
       message: "Chuyên khoa chỉ áp dụng cho nhóm có lịch theo chuyên khoa",
+    });
+  }
+  if (value.audience === "ONE_USER" && !value.userId) {
+    context.addIssue({
+      code: "custom",
+      path: ["userId"],
+      message: "Vui lòng chọn người nhận",
+    });
+  }
+  if (value.audience !== "ONE_USER" && value.userId) {
+    context.addIssue({
+      code: "custom",
+      path: ["userId"],
+      message: "Người nhận chỉ áp dụng khi gửi cho một nhân sự",
     });
   }
 });

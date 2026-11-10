@@ -5601,3 +5601,107 @@ test("pharmacy CSV import previews first, applies all-or-nothing and never overw
   assert.deepEqual(audits.map((row) => row.targetType), ["MEDICINE_CATALOG", "STOCK_RECEIPTS"]);
   assert.equal((audits[1].meta as { totalQuantity: number }).totalQuantity, 14);
 });
+
+test("staff inbox: announcements by role and internal appointment events", async () => {
+  const { default: StaffNotificationService } = await import(
+    "../../src/services/staffNotification.service.js"
+  );
+  const staff = await createDashboardUser("STAFF", "0900000031");
+  const pharmacist = await createDashboardUser("PHARMACIST", "0900000032");
+  const adminCookie = await authCookie(fixture.adminUser.id, "ADMIN");
+  const staffCookie = await authCookie(staff.id, "STAFF");
+  const doctorCookie = await authCookie(fixture.doctorOneUser.id, "DOCTOR");
+  const pharmacistCookie = await authCookie(pharmacist.id, "PHARMACIST");
+  const post = (cookie: string, body: unknown) =>
+    http.request("/api/dashboard/notifications", {
+      method: "POST",
+      headers: dashboardHeaders(cookie),
+      body,
+    });
+  const get = (path: string, cookie: string) =>
+    http.request(path, { headers: dashboardHeaders(cookie) });
+
+  // Gửi theo vai trò: chỉ bác sĩ nhận, nhân viên và dược sĩ không thấy.
+  const toDoctors = await post(adminCookie, {
+    title: "Họp khoa sáng mai",
+    body: "Toàn bộ bác sĩ họp khoa lúc 8 giờ sáng mai.",
+    audience: "ROLE_DOCTOR",
+  });
+  assert.equal(toDoctors.status, 201);
+  const doctorInbox = await get("/api/dashboard/inbox", doctorCookie);
+  assert.equal(doctorInbox.status, 200);
+  assert.equal(doctorInbox.body.data.items.length, 1);
+  assert.equal(doctorInbox.body.data.items[0].title, "Họp khoa sáng mai");
+  assert.equal(doctorInbox.body.data.meta.unreadCount, 1);
+  assert.equal((await get("/api/dashboard/inbox", staffCookie)).body.data.items.length, 0);
+  assert.equal((await get("/api/dashboard/inbox", pharmacistCookie)).body.data.items.length, 0);
+
+  // Gửi cho một nhân sự cụ thể; thiếu người nhận hoặc gửi nhầm người khám bị từ chối.
+  assert.equal((await post(adminCookie, { title: "Riêng tư", body: "Nội dung riêng cho một người", audience: "ONE_USER" })).status, 400);
+  const toOne = await post(adminCookie, {
+    title: "Nhắc riêng dược sĩ",
+    body: "Kiểm tra lô thuốc sắp hết hạn trong kho.",
+    audience: "ONE_USER",
+    userId: pharmacist.id,
+  });
+  assert.equal(toOne.status, 201);
+  assert.equal(toOne.body.data.recipientCount, 1);
+  assert.equal((await get("/api/dashboard/inbox/unread-count", pharmacistCookie)).body.data.unreadCount, 1);
+
+  // Đánh dấu đã đọc: chỉ trong hộp thư của chính mình.
+  const itemId = doctorInbox.body.data.items[0].id;
+  const foreign = await http.request(`/api/dashboard/inbox/${itemId}/read`, {
+    method: "PATCH",
+    headers: dashboardHeaders(staffCookie),
+  });
+  assert.equal(foreign.status, 404);
+  const read = await http.request(`/api/dashboard/inbox/${itemId}/read`, {
+    method: "PATCH",
+    headers: dashboardHeaders(doctorCookie),
+  });
+  assert.equal(read.status, 200);
+  assert.equal((await get("/api/dashboard/inbox/unread-count", doctorCookie)).body.data.unreadCount, 0);
+
+  // Sự kiện lịch hẹn: bác sĩ phụ trách và lễ tân nhận; người thực hiện thì không tự nhận.
+  const patient = await prisma.user.create({
+    data: { fullName: "Người khám sự kiện", phone: "0987000051", role: "PATIENT", isActive: true },
+  });
+  const appointment = await prisma.appointment.create({
+    data: {
+      bookingCode: "STAFF-EVENT-1",
+      appointmentDate: dateOnly(fixture.appointmentDate),
+      startTime: fixture.slotOne.startTime,
+      endTime: fixture.slotOne.endTime,
+      status: "PENDING_CONFIRM",
+      patientName: patient.fullName,
+      patientPhone: patient.phone!,
+      patientId: patient.id,
+      doctorId: fixture.doctorOne.id,
+      departmentId: fixture.department.id,
+      timeSlotId: fixture.slotOne.id,
+      estimatedPrice: 300000,
+      finalAmount: 300000,
+    },
+  });
+  await StaffNotificationService.notifyAppointmentEvent(appointment.id, "CREATED", {
+    includeReception: true,
+  });
+  const doctorEvents = await get("/api/dashboard/inbox", doctorCookie);
+  assert.ok(doctorEvents.body.data.items.some((item: { type: string }) => item.type === "APPOINTMENT_CREATED"));
+  const staffEvents = await get("/api/dashboard/inbox", staffCookie);
+  assert.equal(staffEvents.body.data.items.length, 1);
+  assert.equal(staffEvents.body.data.items[0].entityType, "APPOINTMENT");
+
+  // Gọi lại cùng sự kiện không tạo bản ghi trùng.
+  await StaffNotificationService.notifyAppointmentEvent(appointment.id, "CREATED", {
+    includeReception: true,
+  });
+  assert.equal((await get("/api/dashboard/inbox", staffCookie)).body.data.items.length, 1);
+
+  // Người tự xác nhận lịch của mình không nhận thông báo về chính thao tác đó.
+  await StaffNotificationService.notifyAppointmentEvent(appointment.id, "CONFIRMED", {
+    actorId: fixture.doctorOneUser.id,
+  });
+  const afterSelf = await get("/api/dashboard/inbox", doctorCookie);
+  assert.ok(!afterSelf.body.data.items.some((item: { type: string }) => item.type === "APPOINTMENT_CONFIRMED"));
+});
