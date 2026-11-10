@@ -1,17 +1,24 @@
 import { NextFunction, Request, Response } from "express";
 import type { Role } from "../../generated/prisma/enums.js";
-import { prisma } from "../config/prisma.js";
 import { verifyDashboardAccessToken } from "../utils/jwt.js";
-import {
-  cacheDashboardAuthSnapshot,
-  getCachedDashboardAuthSnapshot,
-} from "../services/dashboardAuthCache.service.js";
 import AuthSessionService from "../services/authSession.service.js";
 
 import { STAFF_ROLES, type PermissionCode } from "../config/permissions.js";
 import { roleHasAnyPermission } from "../services/rbac.service.js";
 
 const DASHBOARD_ROLES: Role[] = [...STAFF_ROLES];
+const SLOW_AUTH_LOOKUP_MS = 100;
+const SLOW_AUTH_WARN_INTERVAL_MS = 60_000;
+let lastSlowAuthWarnAt = 0;
+
+const warnSlowAuthLookup = (userId: string, durationMs: number) => {
+  if (durationMs < SLOW_AUTH_LOOKUP_MS) return;
+
+  const now = Date.now();
+  if (now - lastSlowAuthWarnAt < SLOW_AUTH_WARN_INTERVAL_MS) return;
+  lastSlowAuthWarnAt = now;
+  console.warn(`[SLOW_AUTH_LOOKUP] user=${userId} ${durationMs.toFixed(1)}ms`);
+};
 
 const createAuthDashboard =
   (options: { allowPasswordChange: boolean }) =>
@@ -28,41 +35,15 @@ const createAuthDashboard =
 
     const payload = verifyDashboardAccessToken(token);
 
-    await AuthSessionService.assertActiveSession({
+    const authLookupStartedAt = performance.now();
+    const user = await AuthSessionService.getActiveDashboardIdentity({
       sessionId: payload.sessionId!,
       userId: payload.userId,
-      kind: "DASHBOARD",
     });
+    const authLookupMs = performance.now() - authLookupStartedAt;
+    warnSlowAuthLookup(payload.userId, authLookupMs);
 
-    let user = getCachedDashboardAuthSnapshot(payload.userId);
-
-    if (!user) {
-      const userLookupStartedAt = performance.now();
-      user = await prisma.user.findUnique({
-        where: {
-          id: payload.userId,
-        },
-        select: {
-          id: true,
-          role: true,
-          isActive: true,
-          mustChangePassword: true,
-        },
-      });
-      const userLookupMs = performance.now() - userLookupStartedAt;
-
-      if (userLookupMs >= 100) {
-        console.warn(
-          `[SLOW_AUTH_LOOKUP] user=${payload.userId} ${userLookupMs.toFixed(1)}ms`,
-        );
-      }
-
-      if (user) {
-        cacheDashboardAuthSnapshot(user);
-      }
-    }
-
-    if (!user || !user.isActive || !DASHBOARD_ROLES.includes(user.role)) {
+    if (!user.isActive || !DASHBOARD_ROLES.includes(user.role)) {
       return res.status(401).json({
         success: false,
         message: "Phiên đăng nhập không hợp lệ",

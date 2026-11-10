@@ -1425,6 +1425,50 @@ test("dashboard rejects legacy access tokens without strict claims and an active
   assert.equal(response.body.message, "Token không hợp lệ");
 });
 
+test("dashboard authorization uses the current account state on every request", async () => {
+  const staff = await prisma.user.create({
+    data: {
+      fullName: "Current dashboard identity",
+      phone: "0900000004",
+      role: "STAFF",
+      isPhoneVerified: true,
+    },
+  });
+  const cookie = await authCookie(staff.id, "STAFF");
+
+  const appointments = () =>
+    http.request("/api/dashboard/appointments", {
+      headers: dashboardHeaders(cookie),
+    });
+  const pharmacy = () =>
+    http.request("/api/dashboard/pharmacy/medicines", {
+      headers: dashboardHeaders(cookie),
+    });
+
+  assert.equal((await appointments()).status, 200);
+
+  await prisma.user.update({
+    where: { id: staff.id },
+    data: { mustChangePassword: true },
+  });
+  const passwordChangeRequired = await appointments();
+  assert.equal(passwordChangeRequired.status, 403);
+  assert.equal(passwordChangeRequired.body.code, "PASSWORD_CHANGE_REQUIRED");
+
+  await prisma.user.update({
+    where: { id: staff.id },
+    data: { mustChangePassword: false, role: "PHARMACIST" },
+  });
+  assert.equal((await pharmacy()).status, 200);
+  assert.equal((await appointments()).status, 403);
+
+  await prisma.user.update({
+    where: { id: staff.id },
+    data: { isActive: false },
+  });
+  assert.equal((await pharmacy()).status, 401);
+});
+
 test("dashboard login limits repeated password failures by account and IP", async () => {
   for (let attempt = 0; attempt < 5; attempt += 1) {
     const rejected = await http.request("/api/auth/dashboard/login", {

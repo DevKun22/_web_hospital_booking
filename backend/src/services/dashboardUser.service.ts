@@ -5,7 +5,6 @@ import { prisma } from "../config/prisma.js";
 import { hashPassword } from "../utils/password.js";
 import { AppError } from "../utils/appError.js";
 import MediaAssetService from "./mediaAsset.service.js";
-import { invalidateDashboardAuthSnapshot } from "./dashboardAuthCache.service.js";
 import AccountChangeNoticeService from "./accountChangeNotice.service.js";
 import AuditLogService from "./auditLog.service.js";
 import type { AccountChangeKind } from "./emailTemplates/accountChange.template.js";
@@ -263,8 +262,6 @@ class DashboardUserService {
       );
     }
 
-    invalidateDashboardAuthSnapshot(id);
-
     // Đổi vai trò, email hoặc số điện thoại đăng nhập của người khác là thao tác nhạy cảm
     // (số điện thoại và email quyết định ai nhận mã OTP đăng nhập), nên luôn để lại dấu vết.
     await AuditLogService.record({
@@ -313,8 +310,6 @@ class DashboardUserService {
       select: dashboardUserSelect,
     });
 
-    invalidateDashboardAuthSnapshot(id);
-
     await AuditLogService.record({
       actor,
       action: "USER_STATUS_CHANGED",
@@ -362,7 +357,6 @@ class DashboardUserService {
       return updated;
     });
 
-    invalidateDashboardAuthSnapshot(id);
     if (forceChange) {
       await AccountChangeNoticeService.notify({ email: user.email, changes: ["PASSWORD_RESET"] });
     }
