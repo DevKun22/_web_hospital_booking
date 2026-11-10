@@ -1,4 +1,5 @@
 import { Prisma } from "../../generated/prisma/client.js";
+import SlotPlannerService from "./slotPlanner.service.js";
 import StaffNotificationService from "./staffNotification.service.js";
 import type { Role, ScheduleChangeRequestStatus, ScheduleChangeRequestType } from "../../generated/prisma/enums.js";
 import { prisma } from "../config/prisma.js";
@@ -210,8 +211,15 @@ class ScheduleChangeRequestService {
         select: requestSelect,
       });
     });
+    // Áp ca mới vào khung giờ: gỡ khung giờ trống của ca cũ, sinh lại cửa sổ ngày tới, báo lịch đã đặt bị ảnh hưởng.
+    const released =
+      request.scheduleId && request.type !== "CREATE_WEEKLY_SCHEDULE"
+        ? await SlotPlannerService.releaseSchedule(request.scheduleId)
+        : { removedSlots: 0, affected: [] };
+    const generated = request.type === "DEACTIVATE_WEEKLY_SCHEDULE" ? null : await SlotPlannerService.refreshDoctor(request.doctorId);
+    await SlotPlannerService.notifyAffected(request.doctorId, released.affected, "duyệt đổi lịch làm việc", actor);
     await this.notifyReviewed(request.id, request.requestedById, "APPROVED", input.reviewerNote, actor.userId);
-    return approved;
+    return { ...approved, impact: { generatedSlots: generated?.generatedCount ?? 0, ...released } };
   }
 
   private async notifyReviewed(

@@ -14,6 +14,7 @@ import { getRedisConnectionOptions } from "../queues/redis.js";
 import AppointmentService from "../services/appointment.service.js";
 import AuthOtpService from "../services/authOtp.service.js";
 import ScheduleReconciliationService from "../services/scheduleReconciliation.service.js";
+import SlotPlannerService from "../services/slotPlanner.service.js";
 
 validateRuntimeEnvironment();
 await ensurePendingOtpReconciliation();
@@ -44,6 +45,14 @@ const worker = new Worker<AppointmentLifecycleJobData>(
       return result;
     }
 
+    // Giữ cửa sổ khung giờ các ngày tới luôn đầy (có giới hạn tần suất bên trong).
+    const slotWindow = await SlotPlannerService.generateRollingWindow().catch((error) => {
+      console.error("[SLOT_PLANNER] rolling window failed:", error);
+      return null;
+    });
+    if (slotWindow && slotWindow.generatedCount > 0) {
+      console.log(`[SLOT_PLANNER] generated=${slotWindow.generatedCount} doctors=${slotWindow.doctors}`);
+    }
     const [pendingOtp, pendingConfirm, noShows, otpCleanup] = await Promise.all([
       AppointmentService.reconcileExpiredPendingOtp(),
       AppointmentService.reconcilePastPendingConfirmations(),

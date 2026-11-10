@@ -74,6 +74,7 @@ type PaneState =
   | { kind: "schedule"; id: string }
   | { kind: "newSchedule" }
   | { kind: "generate" }
+  | { kind: "timeOff" }
   | { kind: "reconcile" }
   | { kind: "request"; id: string }
   | { kind: "newRequest"; scheduleId?: string }
@@ -110,6 +111,30 @@ const requestStatusLabel: Record<ScheduleChangeRequestStatus, string> = { PENDIN
 const requestStatusTone: Record<ScheduleChangeRequestStatus, DsTone> = { PENDING: "warn", APPROVED: "good", REJECTED: "bad", CANCELLED: "neutral" };
 
 const today = () => getVietnamDateInput();
+
+const addDaysToInput = (value: string, days: number) => {
+  const date = new Date(`${value}T00:00:00.000Z`);
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
+};
+
+type ScheduleImpact = {
+  generatedSlots: number;
+  removedSlots: number;
+  affected: { appointmentId: string; bookingCode: string; patientName: string; date: string; startTime: string }[];
+};
+
+// Câu báo kết quả sau khi đổi/tắt/xóa/duyệt lịch mẫu: nói rõ bao nhiêu khung giờ được gỡ/sinh và bao nhiêu lịch đã đặt cần xử lý.
+const impactText = (impact?: ScheduleImpact | null) => {
+  if (!impact) return "";
+  const parts: string[] = [];
+  if (impact.removedSlots) parts.push(`gỡ ${impact.removedSlots} khung giờ trống`);
+  if (impact.generatedSlots) parts.push(`sinh ${impact.generatedSlots} khung giờ mới`);
+  if (impact.affected.length) parts.push(`${impact.affected.length} lịch đã đặt cần liên hệ người khám để đổi (nhân viên đã được báo)`);
+  return parts.length ? ` Hệ thống đã ${parts.join(", ")}.` : "";
+};
+
+type RangeResult = { lockedSlots?: number; reopenedSlots?: number; affected?: ScheduleImpact["affected"] };
 
 const doctorName = (doctor: DoctorSchedule["doctor"] | DoctorProfile | ScheduleChangeRequest["doctor"]) =>
   [doctor.title, doctor.user.fullName].filter(Boolean).join(" ");
@@ -165,7 +190,13 @@ export default function SchedulesPage() {
   const [lockOpen, setLockOpen] = useState(false);
   const [lockReason, setLockReason] = useState("");
   const [generateDoctorId, setGenerateDoctorId] = useState("");
-  const [generateDate, setGenerateDate] = useState(today());
+  const [generateFrom, setGenerateFrom] = useState(today());
+  const [generateTo, setGenerateTo] = useState(addDaysToInput(today(), 13));
+  const [offDoctorId, setOffDoctorId] = useState("");
+  const [offFrom, setOffFrom] = useState(today());
+  const [offTo, setOffTo] = useState(today());
+  const [offReason, setOffReason] = useState("");
+  const [offResult, setOffResult] = useState<RangeResult | null>(null);
   const [reviewerNote, setReviewerNote] = useState("");
   const [rejecting, setRejecting] = useState(false);
   const [reconciliationResult, setReconciliationResult] = useState<SlotReconciliationResult | null>(null);
@@ -175,6 +206,7 @@ export default function SchedulesPage() {
   const canReconcile = can(user, "schedule.reconcile");
   const isDoctor = user?.role === "DOCTOR";
   const canManageSlots = canWrite || isDoctor;
+  const canLockRange = can(user, "schedule.lock");
   const showRequests = canWrite || Boolean(isDoctor);
 
   const scheduleQuery = useMemo(
@@ -289,11 +321,13 @@ export default function SchedulesPage() {
     setNotice("");
     try {
       if (pane?.kind === "schedule") {
-        await apiRequest<DoctorSchedule>(`/dashboard/doctor-schedules/${pane.id}`, { method: "PATCH", body: buildUpdateSchedulePayload(scheduleForm) });
-        setNotice("Đã cập nhật lịch làm việc");
+        const updated = await apiRequest<DoctorSchedule & { impact?: ScheduleImpact }>(`/dashboard/doctor-schedules/${pane.id}`, { method: "PATCH", body: buildUpdateSchedulePayload(scheduleForm) });
+        setNotice(`Đã cập nhật lịch làm việc.${impactText(updated.impact)}`);
+        await invalidateSlots();
       } else {
-        await apiRequest<DoctorSchedule>("/dashboard/doctor-schedules", { method: "POST", body: buildCreateSchedulePayload(scheduleForm) });
-        setNotice("Đã tạo lịch làm việc");
+        const created = await apiRequest<DoctorSchedule & { impact?: ScheduleImpact }>("/dashboard/doctor-schedules", { method: "POST", body: buildCreateSchedulePayload(scheduleForm) });
+        setNotice(`Đã tạo lịch làm việc.${impactText(created.impact)}`);
+        await invalidateSlots();
         closePane();
       }
       await invalidateSchedules();
@@ -309,8 +343,9 @@ export default function SchedulesPage() {
     setError("");
     setNotice("");
     try {
-      await apiRequest<DoctorSchedule>(`/dashboard/doctor-schedules/${pane.id}`, { method: "DELETE" });
-      setNotice("Đã xoá lịch làm việc");
+      const removed = await apiRequest<DoctorSchedule & { impact?: ScheduleImpact }>(`/dashboard/doctor-schedules/${pane.id}`, { method: "DELETE" });
+      setNotice(`Đã xoá lịch làm việc.${impactText(removed.impact)}`);
+      await invalidateSlots();
       closePane();
       await invalidateSchedules();
     } catch (err) {
@@ -325,19 +360,49 @@ export default function SchedulesPage() {
     setError("");
     setNotice("");
     try {
-      const result = await apiRequest<{ items: DoctorTimeSlot[]; generatedCount: number; total: number }>("/dashboard/doctor-time-slots/generate", {
+      const result = await apiRequest<{ generatedCount: number; days: number }>("/dashboard/doctor-time-slots/generate-range", {
         method: "POST",
-        body: { doctorId: generateDoctorId, date: generateDate },
+        body: { doctorId: generateDoctorId, from: generateFrom, to: generateTo },
       });
       setView("slots");
       setSlotDoctorId(generateDoctorId);
-      setSlotDate(generateDate);
+      setSlotDate(generateFrom);
       setSlotPage(1);
-      setNotice(`Đã sinh ${result.generatedCount} khung giờ, tổng hiện có ${result.total}`);
+      setNotice(result.generatedCount ? `Đã sinh ${result.generatedCount} khung giờ trong ${result.days} ngày.` : `Không có khung giờ mới: các ngày này đã có đủ khung giờ.`);
       closePane();
       await invalidateSlots();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Không tạo được khung giờ");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Nghỉ phép/họp/việc đột xuất: đóng (hoặc mở lại) mọi khung giờ trống của bác sĩ trong khoảng ngày.
+  const ownDoctorId = schedules[0]?.doctor?.id ?? "";
+  const runRange = async (kind: "close" | "reopen") => {
+    const targetDoctorId = isDoctor ? ownDoctorId : offDoctorId;
+    if (!targetDoctorId) {
+      setError(isDoctor ? "Chưa có lịch mẫu nào gắn với tài khoản bác sĩ của bạn" : "Chọn bác sĩ");
+      return;
+    }
+    setSaving(true);
+    setError("");
+    setNotice("");
+    try {
+      const result = await apiRequest<RangeResult>(`/dashboard/doctor-time-slots/${kind === "close" ? "close-range" : "reopen-range"}`, {
+        method: "POST",
+        body: kind === "close" ? { doctorId: targetDoctorId, from: offFrom, to: offTo, reason: offReason.trim() } : { doctorId: targetDoctorId, from: offFrom, to: offTo },
+      });
+      setOffResult(result);
+      setNotice(
+        kind === "close"
+          ? `Đã đóng ${result.lockedSlots ?? 0} khung giờ trống.${result.affected?.length ? ` Có ${result.affected.length} lịch đã đặt cần liên hệ người khám (nhân viên đã được báo).` : ""}`
+          : `Đã mở lại ${result.reopenedSlots ?? 0} khung giờ.`,
+      );
+      await invalidateSlots();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Không xử lý được khoảng ngày");
     } finally {
       setSaving(false);
     }
@@ -435,11 +500,12 @@ export default function SchedulesPage() {
     setSaving(true);
     setError("");
     try {
-      await apiRequest<ScheduleChangeRequest>(`/dashboard/schedule-change-requests/${request.id}/review`, {
+      const reviewed = await apiRequest<ScheduleChangeRequest & { impact?: ScheduleImpact }>(`/dashboard/schedule-change-requests/${request.id}/review`, {
         method: "PATCH",
         body: { status, reviewerNote: reviewerNote.trim() || null },
       });
-      setNotice(status === "APPROVED" ? "Đã duyệt và áp dụng lịch mẫu. Khung giờ đã sinh/đặt không bị đổi tự động." : "Đã từ chối yêu cầu đổi lịch.");
+      if (status === "APPROVED") await invalidateSlots();
+      setNotice(status === "APPROVED" ? `Đã duyệt và áp dụng lịch mẫu.${impactText(reviewed.impact)}` : "Đã từ chối yêu cầu đổi lịch.");
       resetEditors();
       await invalidateSchedules();
     } catch (err) {
@@ -556,6 +622,8 @@ export default function SchedulesPage() {
         ? Boolean(selectedSchedule)
         : pane.kind === "request"
           ? Boolean(selectedRequest)
+          : pane.kind === "timeOff"
+            ? canLockRange
           : pane.kind === "newSchedule" || pane.kind === "generate"
             ? canWrite
             : pane.kind === "reconcile"
@@ -961,11 +1029,15 @@ export default function SchedulesPage() {
       </DsPane>
     );
   } else if (pane?.kind === "generate" && canWrite) {
+    const setRangeDays = (days: number) => {
+      setGenerateFrom(today());
+      setGenerateTo(addDaysToInput(today(), days - 1));
+    };
     paneNode = (
-      <DsPane title="Tạo khung giờ theo ngày" onClose={closePane}>
-        <form onSubmit={generateSlots} style={{ display: "grid", gap: 12 }} aria-label="Tạo khung giờ theo ngày">
+      <DsPane title="Sinh khung giờ" onClose={closePane}>
+        <form onSubmit={generateSlots} style={{ display: "grid", gap: 12 }} aria-label="Sinh khung giờ theo khoảng ngày">
           <p className="ds-hint" style={{ margin: 0 }}>
-            Chọn bác sĩ và ngày. Hệ thống tạo các khung giờ từ lịch mẫu tương ứng với ngày trong tuần.
+            Hệ thống đã tự sinh khung giờ cho 14 ngày tới. Dùng công cụ này khi cần mở xa hơn (tối đa 62 ngày một lần). Không tạo trùng khung giờ có sẵn.
           </p>
           <DsField label="Bác sĩ" htmlFor="gen-doctor" required>
             <DsSelect id="gen-doctor" value={generateDoctorId} required onChange={(event) => setGenerateDoctorId(event.target.value)}>
@@ -977,16 +1049,82 @@ export default function SchedulesPage() {
               ))}
             </DsSelect>
           </DsField>
-          <DsField label="Ngày tạo khung giờ" htmlFor="gen-date">
-            <VietnamDateInput value={generateDate} onChange={setGenerateDate} required ariaLabel="Ngày tạo khung giờ" className="ds-input" />
-          </DsField>
+          <div className="ds-grid-fields">
+            <DsField label="Từ ngày">
+              <VietnamDateInput value={generateFrom} onChange={setGenerateFrom} required ariaLabel="Từ ngày" className="ds-input" />
+            </DsField>
+            <DsField label="Đến ngày">
+              <VietnamDateInput value={generateTo} onChange={setGenerateTo} required ariaLabel="Đến ngày" className="ds-input" />
+            </DsField>
+          </div>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            {[7, 14, 30].map((days) => (
+              <DsButton key={days} onClick={() => setRangeDays(days)}>
+                {days} ngày tới
+              </DsButton>
+            ))}
+          </div>
           <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
             <DsButton onClick={closePane}>Đóng</DsButton>
-            <DsButton type="submit" variant="primary" disabled={saving || !generateDoctorId || !generateDate}>
-              {saving ? "Đang tạo..." : "Tạo khung giờ"}
+            <DsButton type="submit" variant="primary" disabled={saving || !generateDoctorId || !generateFrom || !generateTo}>
+              {saving ? "Đang sinh..." : "Sinh khung giờ"}
             </DsButton>
           </div>
         </form>
+      </DsPane>
+    );
+  } else if (pane?.kind === "timeOff" && canLockRange) {
+    paneNode = (
+      <DsPane title="Nghỉ phép / đóng lịch" onClose={closePane}>
+        <div style={{ display: "grid", gap: 12 }}>
+          <p className="ds-hint" style={{ margin: 0 }}>
+            Đóng mọi khung giờ còn trống của bác sĩ trong khoảng ngày (nghỉ phép, họp, việc đột xuất). Lịch đã đặt không bị hủy: hệ thống liệt kê để nhân viên liên hệ người khám đổi lịch.
+          </p>
+          {isDoctor ? null : (
+            <DsField label="Bác sĩ" htmlFor="off-doctor" required>
+              <DsSelect id="off-doctor" value={offDoctorId} onChange={(event) => setOffDoctorId(event.target.value)}>
+                <option value="">Chọn bác sĩ</option>
+                {doctors.map((doctor) => (
+                  <option key={doctor.id} value={doctor.id}>
+                    {doctorName(doctor)}
+                  </option>
+                ))}
+              </DsSelect>
+            </DsField>
+          )}
+          <div className="ds-grid-fields">
+            <DsField label="Từ ngày">
+              <VietnamDateInput value={offFrom} onChange={(value) => { setOffFrom(value); if (value > offTo) setOffTo(value); }} required ariaLabel="Nghỉ từ ngày" className="ds-input" />
+            </DsField>
+            <DsField label="Đến ngày">
+              <VietnamDateInput value={offTo} onChange={setOffTo} required ariaLabel="Nghỉ đến ngày" className="ds-input" />
+            </DsField>
+          </div>
+          <DsField label="Lý do" htmlFor="off-reason" hint="Hiện cho nhân viên và nhật ký, ví dụ: Nghỉ phép năm, Họp chuyên môn">
+            <DsInput id="off-reason" value={offReason} maxLength={200} onChange={(event) => setOffReason(event.target.value)} />
+          </DsField>
+          <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", flexWrap: "wrap" }}>
+            <DsButton disabled={saving} onClick={() => void runRange("reopen")}>
+              Mở lại khoảng này
+            </DsButton>
+            <DsButton variant="primary" disabled={saving || offReason.trim().length < 2 || !offFrom || !offTo} onClick={() => void runRange("close")}>
+              {saving ? "Đang xử lý..." : "Đóng lịch"}
+            </DsButton>
+          </div>
+          {offResult?.affected?.length ? (
+            <DsNotice tone="warn">
+              <div style={{ display: "grid", gap: 6 }}>
+                <strong>{offResult.affected.length} lịch đã đặt cần liên hệ người khám</strong>
+                {offResult.affected.slice(0, 10).map((item) => (
+                  <span key={item.appointmentId} className="ds-mono">
+                    {item.bookingCode} · {item.patientName} · {formatVietnamDate(item.date)} {item.startTime}
+                  </span>
+                ))}
+                {offResult.affected.length > 10 ? <span>Và {offResult.affected.length - 10} lịch khác. Xem đầy đủ ở trang Lịch hẹn.</span> : null}
+              </div>
+            </DsNotice>
+          ) : null}
+        </div>
       </DsPane>
     );
   } else if (pane?.kind === "reconcile" && canReconcile) {
@@ -1129,7 +1267,8 @@ export default function SchedulesPage() {
                 Tạo lịch mẫu
               </DsButton>
             ) : null}
-            {canWrite ? <DsButton onClick={() => openPane({ kind: "generate" })}>Tạo khung giờ</DsButton> : null}
+            {canWrite ? <DsButton onClick={() => openPane({ kind: "generate" })}>Sinh khung giờ</DsButton> : null}
+            {canLockRange ? <DsButton onClick={() => { setOffResult(null); openPane({ kind: "timeOff" }); }}>Nghỉ / đóng lịch</DsButton> : null}
             {canReconcile ? <DsButton onClick={() => openPane({ kind: "reconcile" })}>Đối soát</DsButton> : null}
             {isDoctor ? (
               <DsButton
@@ -1148,6 +1287,9 @@ export default function SchedulesPage() {
       <div style={{ display: "grid", gap: 12, marginBottom: 16 }}>
         {visibleError ? <DsNotice tone="bad">{visibleError}</DsNotice> : null}
         {notice ? <DsNotice tone="good">{notice}</DsNotice> : null}
+        {view !== "requests" && !pane ? (
+          <DsNotice tone="info">Khung giờ 14 ngày tới được hệ thống tự sinh từ lịch mẫu theo tuần. Đổi hoặc tắt lịch mẫu sẽ gỡ các khung giờ còn trống; lịch đã đặt được giữ và báo cho nhân viên xử lý.</DsNotice>
+        ) : null}
       </div>
       <DsSplit list={list} pane={paneNode} />
     </>

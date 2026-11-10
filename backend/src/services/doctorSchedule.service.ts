@@ -3,6 +3,7 @@ import type { Role } from "../../generated/prisma/enums.js";
 import { prisma } from "../config/prisma.js";
 import { AppError } from "../utils/appError.js";
 import { hasTimeOverlap, validateTimeRange } from "../utils/time.js";
+import SlotPlannerService from "./slotPlanner.service.js";
 
 type Actor = {
   userId: string;
@@ -157,7 +158,7 @@ class DoctorScheduleService {
       });
     }
 
-    return prisma.doctorSchedule.create({
+    const created = await prisma.doctorSchedule.create({
       data: {
         doctorId: input.doctorId,
         dayOfWeek: input.dayOfWeek,
@@ -169,6 +170,9 @@ class DoctorScheduleService {
       },
       select: doctorScheduleSelect,
     });
+    // Ca mới có hiệu lực ngay: sinh khung giờ cho các ngày tới để người khám đặt được.
+    const generated = created.isActive ? await SlotPlannerService.refreshDoctor(created.doctor.id) : null;
+    return { ...created, impact: { generatedSlots: generated?.generatedCount ?? 0, removedSlots: 0, affected: [] } };
   }
 
   async update(id: string, input: UpdateDoctorScheduleInput) {
@@ -197,21 +201,37 @@ class DoctorScheduleService {
       await this.ensureNoOverlap({ ...next, excludeId: id });
     }
 
-    return prisma.doctorSchedule.update({
+    const structural =
+      next.dayOfWeek !== current.dayOfWeek ||
+      next.startTime !== current.startTime ||
+      next.endTime !== current.endTime ||
+      next.isActive !== current.isActive ||
+      (input.slotDuration !== undefined && input.slotDuration !== current.slotDuration);
+    // Gỡ khung giờ trống của ca cũ trước khi đổi để người khám không đặt được giờ đã bỏ.
+    const released = structural
+      ? await SlotPlannerService.releaseSchedule(id)
+      : { removedSlots: 0, affected: [] };
+
+    const updated = await prisma.doctorSchedule.update({
       where: { id },
       data: input,
       select: doctorScheduleSelect,
     });
+    const generated = structural && updated.isActive ? await SlotPlannerService.refreshDoctor(updated.doctor.id) : null;
+    await SlotPlannerService.notifyAffected(updated.doctor.id, released.affected, "đổi lịch làm việc theo tuần");
+    return { ...updated, impact: { generatedSlots: generated?.generatedCount ?? 0, ...released } };
   }
 
   async delete(id: string) {
     const schedule = await this.getById(id, { userId: "", role: "ADMIN" });
 
+    const released = await SlotPlannerService.releaseSchedule(id);
     await prisma.doctorSchedule.delete({
       where: { id },
     });
+    await SlotPlannerService.notifyAffected(schedule.doctor.id, released.affected, "xóa lịch làm việc theo tuần");
 
-    return schedule;
+    return { ...schedule, impact: { generatedSlots: 0, ...released } };
   }
 
   private async ensureNoOverlap(input: {

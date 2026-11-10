@@ -1,6 +1,9 @@
 import { Router } from "express";
 import {
+  closeRangeHandler,
   deleteDoctorTimeSlotHandler,
+  generateRangeHandler,
+  reopenRangeHandler,
   generateDoctorTimeSlotsHandler,
   getDoctorTimeSlotHandler,
   listDoctorTimeSlotsHandler,
@@ -12,7 +15,10 @@ import {
 import { authDashboard, requirePermission } from "../middlewares/auth.middleware.js";
 import { validate } from "../middlewares/validate.middleware.js";
 import {
+  closeRangeSchema,
   generateDoctorTimeSlotsSchema,
+  generateRangeSchema,
+  reopenRangeSchema,
   lockDoctorTimeSlotSchema,
   updateDoctorTimeSlotStatusSchema,
 } from "../validations/doctorTimeSlot.validation.js";
@@ -31,6 +37,24 @@ router.post(
   requirePermission("schedule.manage"),
   validate(generateDoctorTimeSlotsSchema),
   generateDoctorTimeSlotsHandler,
+);
+router.post(
+  "/generate-range",
+  requirePermission("schedule.manage"),
+  validate(generateRangeSchema),
+  generateRangeHandler,
+);
+router.post(
+  "/close-range",
+  requirePermission("schedule.lock"),
+  validate(closeRangeSchema),
+  closeRangeHandler,
+);
+router.post(
+  "/reopen-range",
+  requirePermission("schedule.lock"),
+  validate(reopenRangeSchema),
+  reopenRangeHandler,
 );
 router.post(
   "/reconcile",

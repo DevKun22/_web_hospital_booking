@@ -1,3 +1,4 @@
+import SlotPlannerService from "../services/slotPlanner.service.js";
 import type { Request, Response, NextFunction } from "express";
 import type { Role, TimeSlotStatus } from "../../generated/prisma/enums.js";
 import DoctorTimeSlotService from "../services/doctorTimeSlot.service.js";
@@ -222,6 +223,38 @@ export const listPublicAvailableSlotsHandler = async (
       success: true,
       data: slots,
     });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const requireActor = (req: Request) => {
+  if (!req.user) throw new AppError("Vui lòng đăng nhập", 401);
+  return { userId: req.user.userId, role: req.user.role as Role };
+};
+
+export const generateRangeHandler = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const data = await SlotPlannerService.generateForRange(req.body);
+    return res.status(201).json({ success: true, message: "Đã sinh khung giờ", data });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const closeRangeHandler = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const data = await SlotPlannerService.closeRange(req.body, requireActor(req));
+    return res.json({ success: true, message: "Đã đóng lịch trong khoảng ngày", data });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const reopenRangeHandler = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const data = await SlotPlannerService.reopenRange(req.body, requireActor(req));
+    return res.json({ success: true, message: "Đã mở lại lịch trong khoảng ngày", data });
   } catch (error) {
     next(error);
   }

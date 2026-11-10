@@ -189,6 +189,7 @@ class DoctorTimeSlotService {
         schedule.slotDuration,
       ).map((slot) => ({
         doctorId: input.doctorId,
+        scheduleId: schedule.id,
         date,
         startTime: slot.startTime,
         endTime: slot.endTime,
