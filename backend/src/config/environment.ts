@@ -146,6 +146,13 @@ const positiveInteger = (value: string | undefined, fallback: number) => {
   return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : fallback;
 };
 
+const boundedPositiveInteger = (
+  value: string | undefined,
+  fallback: number,
+  minimum: number,
+  maximum: number,
+) => Math.min(Math.max(positiveInteger(value, fallback), minimum), maximum);
+
 export const getDatabaseTransactionTimeoutMs = (
   env: NodeJS.ProcessEnv = process.env,
 ) => Math.min(positiveInteger(env.DATABASE_TRANSACTION_TIMEOUT_MS, 15_000), 30_000);
@@ -161,6 +168,40 @@ export const getReadinessTimeoutMs = (
 export const getReadinessCacheMs = (
   env: NodeJS.ProcessEnv = process.env,
 ) => Math.min(positiveInteger(env.READINESS_CACHE_MS, 5_000), 30_000);
+
+export const getHttpRequestTimeoutMs = (
+  env: NodeJS.ProcessEnv = process.env,
+) =>
+  boundedPositiveInteger(
+    env.HTTP_REQUEST_TIMEOUT_MS,
+    120_000,
+    10_000,
+    300_000,
+  );
+
+export const getHttpHeadersTimeoutMs = (
+  env: NodeJS.ProcessEnv = process.env,
+) => boundedPositiveInteger(env.HTTP_HEADERS_TIMEOUT_MS, 30_000, 5_000, 60_000);
+
+export const getHttpKeepAliveTimeoutMs = (
+  env: NodeJS.ProcessEnv = process.env,
+) =>
+  boundedPositiveInteger(
+    env.HTTP_KEEP_ALIVE_TIMEOUT_MS,
+    5_000,
+    1_000,
+    30_000,
+  );
+
+export const getHttpMaxRequestsPerSocket = (
+  env: NodeJS.ProcessEnv = process.env,
+) =>
+  boundedPositiveInteger(
+    env.HTTP_MAX_REQUESTS_PER_SOCKET,
+    1_000,
+    100,
+    10_000,
+  );
 
 export const getSlowRequestThresholdMs = (
   env: NodeJS.ProcessEnv = process.env,

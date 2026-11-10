@@ -1,6 +1,7 @@
 import "dotenv/config";
 
 import { validateRuntimeEnvironment } from "./config/environment.js";
+import { configureHttpServer } from "./config/httpServer.js";
 
 validateRuntimeEnvironment();
 
@@ -16,6 +17,7 @@ const PORT = process.env.PORT || 4000;
 const server = app.listen(PORT, () => {
   console.log(`Server running on port http://localhost:${PORT}`);
 });
+configureHttpServer(server);
 
 // Gói free chỉ có một tiến trình: cho phép chạy worker OTP/lịch hẹn ngay tại đây.
 const { startInlineWorkers } = await import("./workers/inline.js");
