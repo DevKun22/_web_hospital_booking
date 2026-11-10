@@ -129,7 +129,7 @@ class ScheduleChangeRequestService {
       where: { id: actor.userId },
       select: { fullName: true },
     });
-    void StaffNotificationService.notifyRoles(["STAFF", "ADMIN"], {
+    await StaffNotificationService.notifyRoles(["STAFF", "ADMIN"], {
       type: "SCHEDULE_REQUEST_CREATED",
       title: "Có yêu cầu đổi lịch cần duyệt",
       body: `${doctorUser?.fullName || "Bác sĩ"} gửi yêu cầu đổi lịch làm việc, đang chờ duyệt.`,
@@ -153,7 +153,7 @@ class ScheduleChangeRequestService {
         data: { status: "REJECTED", reviewerNote: input.reviewerNote?.trim() || null, reviewedById: actor.userId, reviewedAt: new Date() },
         select: requestSelect,
       });
-      this.notifyReviewed(request.id, request.requestedById, "REJECTED", input.reviewerNote, actor.userId);
+      await this.notifyReviewed(request.id, request.requestedById, "REJECTED", input.reviewerNote, actor.userId);
       return rejected;
     }
 
@@ -210,11 +210,11 @@ class ScheduleChangeRequestService {
         select: requestSelect,
       });
     });
-    this.notifyReviewed(request.id, request.requestedById, "APPROVED", input.reviewerNote, actor.userId);
+    await this.notifyReviewed(request.id, request.requestedById, "APPROVED", input.reviewerNote, actor.userId);
     return approved;
   }
 
-  private notifyReviewed(
+  private async notifyReviewed(
     requestId: string,
     doctorUserId: string,
     status: "APPROVED" | "REJECTED",
@@ -222,7 +222,7 @@ class ScheduleChangeRequestService {
     reviewerId: string,
   ) {
     const note = reviewerNote?.trim();
-    void StaffNotificationService.notifyUsers([doctorUserId], {
+    await StaffNotificationService.notifyUsers([doctorUserId], {
       type: "SCHEDULE_REQUEST_REVIEWED",
       title: status === "APPROVED" ? "Yêu cầu đổi lịch được duyệt" : "Yêu cầu đổi lịch bị từ chối",
       body: `Yêu cầu đổi lịch làm việc của bạn đã ${status === "APPROVED" ? "được duyệt" : "bị từ chối"}${note ? `: ${note}` : "."}`,

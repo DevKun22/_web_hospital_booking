@@ -127,8 +127,8 @@ class StaffNotificationService {
         excludeUserId: options.actorId,
       };
 
-      if (options.includeDoctor !== false && appointment.doctor.userId) {
-        await this.notifyUsers([appointment.doctor.userId], {
+      if (options.includeDoctor !== false && appointment.doctor?.userId) {
+        await this.notifyUsers([appointment.doctor?.userId], {
           ...base,
           eventKey: `appointment:${appointment.id}:${event}:doctor`,
         });

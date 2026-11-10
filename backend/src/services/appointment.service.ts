@@ -1025,7 +1025,7 @@ class AppointmentService {
       });
     });
 
-    void StaffNotificationService.notifyAppointmentEvent(
+    await StaffNotificationService.notifyAppointmentEvent(
       updatedAppointment.id,
       "CREATED",
       { includeReception: true },
@@ -1107,7 +1107,7 @@ class AppointmentService {
     });
 
     await this.dispatchNotificationBestEffort(transition.notificationId);
-    void StaffNotificationService.notifyAppointmentEvent(
+    await StaffNotificationService.notifyAppointmentEvent(
       transition.appointment.id,
       "CANCELLED",
       { includeReception: true },
@@ -1420,7 +1420,7 @@ class AppointmentService {
     if (transition.dueReminderId) {
       await this.dispatchNotificationBestEffort(transition.dueReminderId);
     }
-    void StaffNotificationService.notifyAppointmentEvent(id, "CONFIRMED", {
+    await StaffNotificationService.notifyAppointmentEvent(id, "CONFIRMED", {
       actorId: actor.userId,
     });
     return transition.appointment;
@@ -1466,7 +1466,7 @@ class AppointmentService {
     });
 
     await this.dispatchNotificationBestEffort(transition.notificationId);
-    void StaffNotificationService.notifyAppointmentEvent(id, "CANCELLED", {
+    await StaffNotificationService.notifyAppointmentEvent(id, "CANCELLED", {
       actorId: actor.userId,
     });
     return transition.appointment;
@@ -1652,7 +1652,7 @@ class AppointmentService {
     if (transition.dueReminderId) {
       await this.dispatchNotificationBestEffort(transition.dueReminderId);
     }
-    void StaffNotificationService.notifyAppointmentEvent(
+    await StaffNotificationService.notifyAppointmentEvent(
       transition.appointment.id,
       "RESCHEDULED",
       { actorId: actor.userId },
@@ -1685,7 +1685,7 @@ class AppointmentService {
     });
 
     await this.dispatchNotificationBestEffort(transition.notificationId);
-    void StaffNotificationService.notifyAppointmentEvent(id, "CHECKED_IN", {
+    await StaffNotificationService.notifyAppointmentEvent(id, "CHECKED_IN", {
       actorId: actor.userId,
     });
     return transition.appointment;
