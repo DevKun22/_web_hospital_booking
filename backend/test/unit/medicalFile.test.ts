@@ -4,9 +4,11 @@ import test from "node:test";
 process.env.CLOUDINARY_URL ??= "cloudinary://unit_key:unit_secret@unit_cloud";
 
 const { sniffMedicalFile } = await import("../../src/utils/fileSignature.js");
-const { isAllowedMedicalFileUrl, signAuthenticatedMedicalUrl } = await import(
-  "../../src/services/secureMedicalFile.service.js"
-);
+const {
+  default: SecureMedicalFileService,
+  isAllowedMedicalFileUrl,
+  signAuthenticatedMedicalUrl,
+} = await import("../../src/services/secureMedicalFile.service.js");
 
 test("file type is taken from the real content, not from the declared type", () => {
   assert.equal(sniffMedicalFile(Buffer.from("%PDF-1.7\n..."))?.mime, "application/pdf");
@@ -50,4 +52,68 @@ test("private result links are signed when read, public links are left untouched
 
   const publicUrl = new URL("https://res.cloudinary.com/unit_cloud/image/upload/v1/hospital/x.png");
   assert.equal(signAuthenticatedMedicalUrl(publicUrl).href, publicUrl.href);
+});
+
+test("verified medical files are streamed without buffering the whole response", async () => {
+  const originalFetch = globalThis.fetch;
+  const chunks = [Buffer.from("%PDF-1.7\nabc"), Buffer.from("noi-dung-ket-qua")];
+  globalThis.fetch = (async () =>
+    new Response(
+      new ReadableStream({
+        start(controller) {
+          for (const chunk of chunks) controller.enqueue(new Uint8Array(chunk));
+          controller.close();
+        },
+      }),
+      { status: 200, headers: { "content-type": "application/octet-stream" } },
+    )) as typeof fetch;
+
+  try {
+    const file = await SecureMedicalFileService.fetch(
+      "https://res.cloudinary.com/unit_cloud/raw/upload/v1/result.pdf",
+    );
+    assert.equal(file.contentType, "application/pdf");
+    assert.equal(file.extension, "pdf");
+
+    const received: Buffer[] = [];
+    for await (const chunk of file.stream) received.push(Buffer.from(chunk));
+    assert.deepEqual(Buffer.concat(received), Buffer.concat(chunks));
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("streamed medical files are stopped when their real size exceeds the limit", async () => {
+  const originalFetch = globalThis.fetch;
+  const originalMaxBytes = process.env.MEDICAL_FILE_MAX_BYTES;
+  process.env.MEDICAL_FILE_MAX_BYTES = "12";
+  globalThis.fetch = (async () =>
+    new Response(
+      new ReadableStream({
+        start(controller) {
+          controller.enqueue(new TextEncoder().encode("%PDF-1.7\nabc"));
+          controller.enqueue(new TextEncoder().encode("x"));
+          controller.close();
+        },
+      }),
+      { status: 200, headers: { "content-type": "application/octet-stream" } },
+    )) as typeof fetch;
+
+  try {
+    const file = await SecureMedicalFileService.fetch(
+      "https://res.cloudinary.com/unit_cloud/raw/upload/v1/result.pdf",
+    );
+    await assert.rejects(
+      async () => {
+        for await (const _chunk of file.stream) {
+          // Tiêu thụ luồng để kiểm tra giới hạn cả khi nơi lưu không khai báo Content-Length.
+        }
+      },
+      /vượt quá giới hạn/,
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+    if (originalMaxBytes === undefined) delete process.env.MEDICAL_FILE_MAX_BYTES;
+    else process.env.MEDICAL_FILE_MAX_BYTES = originalMaxBytes;
+  }
 });
