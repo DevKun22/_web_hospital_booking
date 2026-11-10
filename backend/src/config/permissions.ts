@@ -80,6 +80,9 @@ export const PERMISSIONS = {
   "audit.view": { group: "Hệ thống", label: "Xem nhật ký truy cập và thao tác nhạy cảm", eligibleRoles: [A], fixedRoles: [A], defaultRoles: [A] },
   "rbac.manage": { group: "Hệ thống", label: "Quản lý phân quyền", eligibleRoles: [A], fixedRoles: [A], defaultRoles: [A] },
 
+  // Hộp thư cá nhân: mọi vai trò nhân sự đều có, không thể thu hồi
+  "inbox.view": { group: "Hệ thống", label: "Xem hộp thư thông báo của chính mình", eligibleRoles: [A, S, D, P], fixedRoles: [A, S, D, P], defaultRoles: [A, S, D, P] },
+
   // Kho thuốc: chỉ dược sĩ
   "pharmacy.view": { group: "Kho thuốc", label: "Xem kho thuốc và đơn chờ cấp", eligibleRoles: [P], fixedRoles: [P], defaultRoles: [P] },
   "pharmacy.catalog": { group: "Kho thuốc", label: "Quản lý danh mục thuốc", eligibleRoles: [P], fixedRoles: [P], defaultRoles: [P] },

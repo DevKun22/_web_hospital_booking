@@ -24,6 +24,7 @@ export const createHospitalAnnouncementHandler = async (
       expiresAt: parseOptionalDate(req.body.expiresAt),
       audience: req.body.audience,
       departmentId: req.body.departmentId,
+      userId: req.body.userId,
     });
     return res.status(201).json({
       success: true,
