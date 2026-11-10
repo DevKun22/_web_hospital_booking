@@ -1,4 +1,6 @@
 import type { Response } from "express";
+import { Readable } from "node:stream";
+import { pipeline } from "node:stream/promises";
 import { cloudinary } from "../config/cloudinary.js";
 import { AppError } from "../utils/appError.js";
 import { sniffMedicalFile } from "../utils/fileSignature.js";
@@ -78,24 +80,61 @@ class SecureMedicalFileService {
         throw new AppError("File kết quả vượt quá giới hạn cho phép", 413);
       }
 
-      const buffer = Buffer.from(await response.arrayBuffer());
-      if (buffer.byteLength > maxBytes) {
-        throw new AppError("File kết quả vượt quá giới hạn cho phép", 413);
+      if (!response.body) {
+        throw new AppError("Không thể tải file kết quả", 502);
+      }
+
+      const reader = response.body.getReader();
+      const initialChunks: Buffer[] = [];
+      let bytesRead = 0;
+      while (bytesRead < 12) {
+        const chunk = await reader.read();
+        if (chunk.done) break;
+        const buffer = Buffer.from(chunk.value);
+        bytesRead += buffer.byteLength;
+        if (bytesRead > maxBytes) {
+          await reader.cancel();
+          throw new AppError("File kết quả vượt quá giới hạn cho phép", 413);
+        }
+        initialChunks.push(buffer);
       }
 
       // Loại tệp lấy từ nội dung thật (tệp riêng tư thường được trả là octet-stream).
-      const kind = sniffMedicalFile(buffer);
+      const signature = Buffer.concat(initialChunks, Math.min(bytesRead, 12));
+      const kind = sniffMedicalFile(signature);
+      const stream = Readable.from(
+        (async function* () {
+          try {
+            yield* initialChunks;
+            while (true) {
+              const chunk = await reader.read();
+              if (chunk.done) return;
+              const buffer = Buffer.from(chunk.value);
+              bytesRead += buffer.byteLength;
+              if (bytesRead > maxBytes) {
+                controller.abort();
+                throw new AppError("File kết quả vượt quá giới hạn cho phép", 413);
+              }
+              yield buffer;
+            }
+          } finally {
+            clearTimeout(timeout);
+            controller.abort();
+          }
+        })(),
+      );
+
       return {
-        buffer,
+        stream,
         contentType:
           kind?.mime || response.headers.get("content-type") || "application/octet-stream",
         extension: kind?.extension ?? null,
       };
     } catch (error) {
+      clearTimeout(timeout);
+      controller.abort();
       if (error instanceof AppError) throw error;
       throw new AppError("Không thể tải file kết quả", 502);
-    } finally {
-      clearTimeout(timeout);
     }
   }
 }
@@ -103,7 +142,7 @@ class SecureMedicalFileService {
 // Trả tệp đã tải về cho người đã được xác thực quyền; không cache, không cho trình duyệt đoán loại tệp.
 export const sendMedicalFile = (
   res: Response,
-  file: { buffer: Buffer; contentType: string; extension: string | null },
+  file: { stream: Readable; contentType: string; extension: string | null },
   baseName: string,
 ) => {
   const safeName = baseName.replace(/[^a-zA-Z0-9._-]/g, "-");
@@ -115,7 +154,7 @@ export const sendMedicalFile = (
   res.setHeader("Content-Disposition", `inline; filename="${fileName}"`);
   res.setHeader("Cache-Control", "private, no-store, max-age=0");
   res.setHeader("X-Content-Type-Options", "nosniff");
-  return res.send(file.buffer);
+  return pipeline(file.stream, res);
 };
 
 export default new SecureMedicalFileService();

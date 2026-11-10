@@ -5342,6 +5342,7 @@ test("doctors upload private result files; content, size and role are enforced e
     assert.equal(file.status, 200);
     assert.equal(file.headers.get("content-type"), "application/pdf");
     assert.match(file.headers.get("content-disposition") ?? "", /\.pdf"/);
+    assert.deepEqual(Buffer.from(await file.arrayBuffer()), pdfBytes);
     assert.equal(requested.length, 1);
     assert.match(requested[0], /\/raw\/authenticated\/s--[^/]+--\/v1700000000\//);
 
@@ -5353,6 +5354,7 @@ test("doctors upload private result files; content, size and role are enforced e
     assert.equal(dashboardFile.status, 200);
     assert.equal(dashboardFile.headers.get("content-type"), "application/pdf");
     assert.equal(dashboardFile.headers.get("cache-control"), "private, no-store, max-age=0");
+    assert.deepEqual(Buffer.from(await dashboardFile.arrayBuffer()), pdfBytes);
     assert.equal(requested.length, 2);
     assert.match(requested[1], /\/raw\/authenticated\/s--[^/]+--\/v1700000000\//);
     const otherDoctorCookie = await authCookie(fixture.doctorTwoUser.id, "DOCTOR");

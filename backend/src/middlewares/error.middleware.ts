@@ -8,6 +8,11 @@ export const errorMiddleware = (
   res: Response,
   next: NextFunction,
 ) => {
+  if (res.headersSent) {
+    next(err);
+    return;
+  }
+
   const statusCode = err.statusCode || 500;
   const code =
     (err.statusCode ? err.code : undefined) ||
