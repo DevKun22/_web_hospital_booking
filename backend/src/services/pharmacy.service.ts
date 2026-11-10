@@ -13,6 +13,7 @@ import {
 import { getVietnamNowParts, parseDateOnly, toDateOnly } from "../utils/time.js";
 import { logClinicalAction } from "./clinicalLog.service.js";
 import PatientEventNotificationService from "./patientEventNotification.service.js";
+import InvoiceService from "./invoice.service.js";
 import StaffNotificationService from "./staffNotification.service.js";
 
 type Actor = { userId: string; role: string };
@@ -743,6 +744,10 @@ class PharmacyService {
     });
 
     await PatientEventNotificationService.dispatchBestEffort(result.notificationId);
+    // Tiền thuốc vào hóa đơn chưa thanh toán (nếu có). Lỗi ở đây không được làm hỏng việc cấp thuốc đã hoàn tất.
+    await InvoiceService.addDispensedMedicines(prescriptionId, actor.userId).catch((error) => {
+      console.error("[INVOICE_MEDICINE] cannot add dispensed medicines to invoice:", error);
+    });
     await this.notifyStockAlerts();
     return this.getPrescription(prescriptionId);
   }
