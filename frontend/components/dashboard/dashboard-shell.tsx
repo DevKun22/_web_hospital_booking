@@ -184,7 +184,8 @@ function Navigation({
   );
 }
 
-// Lệnh tìm nhanh (Ctrl K): lọc theo tên và mô tả, mũi tên lên/xuống di chuyển giữa các kết quả.
+// Lệnh tìm nhanh (Ctrl K): gõ để lọc theo tên, mô tả hoặc nhóm; mũi tên lên/xuống đổi mục đang chọn,
+// Enter mở mục đang chọn (mặc định là kết quả đầu tiên). Con trỏ luôn ở ô nhập.
 function CommandPalette({
   open,
   onOpenChange,
@@ -195,28 +196,52 @@ function CommandPalette({
   items: DashboardNavItem[];
 }) {
   const container = useDsRoot();
+  const router = useRouter();
   const [term, setTerm] = useState("");
+  const [active, setActive] = useState(0);
   const listRef = useRef<HTMLDivElement>(null);
+
+  const groupLabel = (key: string) => dashboardNavGroups.find((group) => group.key === key)?.label ?? "";
 
   const results = useMemo(() => {
     const normalized = term.trim().toLocaleLowerCase("vi");
-    if (!normalized) return items;
-    return items.filter((item) => `${item.label} ${item.description}`.toLocaleLowerCase("vi").includes(normalized));
+    const matched = normalized
+      ? items.filter((item) =>
+          `${item.label} ${item.description} ${groupLabel(item.group)}`.toLocaleLowerCase("vi").includes(normalized),
+        )
+      : items;
+    // Giữ thứ tự nhóm của thanh bên để kết quả dễ đoán.
+    return dashboardNavGroups.flatMap((group) => matched.filter((item) => item.group === group.key));
   }, [items, term]);
 
-  const moveFocus = (current: HTMLElement | null, delta: 1 | -1) => {
-    const links = Array.from(listRef.current?.querySelectorAll<HTMLElement>("a") ?? []);
-    if (links.length === 0) return;
-    const index = current ? links.indexOf(current) : -1;
-    const next = links[Math.min(Math.max(index + delta, 0), links.length - 1)];
-    next?.focus();
+  const activeIndex = Math.min(active, Math.max(results.length - 1, 0));
+
+  useEffect(() => {
+    listRef.current?.querySelector<HTMLElement>("[aria-selected='true']")?.scrollIntoView({ block: "nearest" });
+  }, [activeIndex, results]);
+
+  const close = () => {
+    setTerm("");
+    setActive(0);
+    onOpenChange(false);
   };
+
+  const openItem = (item: DashboardNavItem | undefined) => {
+    if (!item) return;
+    close();
+    router.push(item.href);
+  };
+
+  let lastGroup = "";
 
   return (
     <Dialog.Root
       open={open}
       onOpenChange={(next) => {
-        if (!next) setTerm("");
+        if (!next) {
+          setTerm("");
+          setActive(0);
+        }
         onOpenChange(next);
       }}
     >
@@ -231,48 +256,59 @@ function CommandPalette({
             <Search aria-hidden="true" />
             <input
               autoFocus
+              role="combobox"
+              aria-expanded="true"
+              aria-controls="ds-palette-list"
+              aria-activedescendant={results[activeIndex] ? `ds-palette-${results[activeIndex].key}` : undefined}
               value={term}
-              onChange={(event) => setTerm(event.target.value)}
+              onChange={(event) => {
+                setTerm(event.target.value);
+                setActive(0);
+              }}
               onKeyDown={(event) => {
                 if (event.key === "ArrowDown") {
                   event.preventDefault();
-                  moveFocus(null, 1);
+                  setActive(Math.min(activeIndex + 1, results.length - 1));
+                } else if (event.key === "ArrowUp") {
+                  event.preventDefault();
+                  setActive(Math.max(activeIndex - 1, 0));
+                } else if (event.key === "Enter") {
+                  event.preventDefault();
+                  openItem(results[activeIndex]);
                 }
               }}
-              placeholder="Nhập tên chức năng hoặc công việc cần làm"
+              placeholder="Gõ tên chức năng, ví dụ: lịch hẹn, kho thuốc"
               aria-label="Tìm chức năng"
             />
             <span className="ds-kbd">Esc</span>
           </div>
-          <div
-            className="ds-palette__list"
-            ref={listRef}
-            onKeyDown={(event) => {
-              if (event.key === "ArrowDown" || event.key === "ArrowUp") {
-                event.preventDefault();
-                moveFocus(event.target instanceof HTMLElement ? event.target.closest("a") : null, event.key === "ArrowDown" ? 1 : -1);
-              }
-            }}
-          >
+          <div className="ds-palette__list" id="ds-palette-list" role="listbox" aria-label="Kết quả" ref={listRef}>
             {results.length ? (
-              results.map((item) => {
+              results.map((item, index) => {
                 const Icon = item.icon;
+                const heading = item.group !== lastGroup ? groupLabel(item.group) : null;
+                lastGroup = item.group;
                 return (
-                  <Link
-                    key={item.key}
-                    href={item.href}
-                    className="ds-palette__item"
-                    onClick={() => {
-                      setTerm("");
-                      onOpenChange(false);
-                    }}
-                  >
-                    <Icon aria-hidden="true" />
-                    <span>
-                      <strong>{item.label}</strong>
-                      <small>{item.description}</small>
-                    </span>
-                  </Link>
+                  <div key={item.key}>
+                    {heading ? <div className="ds-palette__group">{heading}</div> : null}
+                    <Link
+                      id={`ds-palette-${item.key}`}
+                      role="option"
+                      aria-selected={index === activeIndex}
+                      href={item.href}
+                      className="ds-palette__item"
+                      tabIndex={-1}
+                      onMouseMove={() => setActive(index)}
+                      onClick={close}
+                    >
+                      <Icon aria-hidden="true" />
+                      <span>
+                        <strong>{item.label}</strong>
+                        <small>{item.description}</small>
+                      </span>
+                      {index === activeIndex ? <span className="ds-kbd ds-palette__enter">Enter</span> : null}
+                    </Link>
+                  </div>
                 );
               })
             ) : (
