@@ -14,6 +14,7 @@ import {
 import { refundVnpayTransaction } from "./paymentProviders/index.js";
 import AuditLogService from "./auditLog.service.js";
 import PatientEventNotificationService from "./patientEventNotification.service.js";
+import StaffNotificationService from "./staffNotification.service.js";
 
 type CreateInvoiceInput = {
   bhytDiscount?: number;
@@ -912,6 +913,15 @@ class InvoiceService {
         targetId: id,
         ipAddress,
         meta: { requestId: attempt.requestId },
+      });
+      await StaffNotificationService.notifyRoles(["ADMIN"], {
+        type: "SYSTEM_ANNOUNCEMENT",
+        title: "Hoàn tiền chưa xác nhận được kết quả",
+        body: "Một yêu cầu hoàn tiền VNPay chưa xác nhận được kết quả. Vui lòng đối soát hóa đơn trước khi thử lại.",
+        entityType: "INVOICE",
+        entityId: id,
+        eventKey: `invoice:${id}:refund-unverified:${attempt.requestId}`,
+        excludeUserId: actorId,
       });
       throw error;
     }

@@ -5,6 +5,7 @@ import { prisma } from "../config/prisma.js";
 import { AppError } from "../utils/appError.js";
 import { generatePrescriptionCode } from "../utils/prescriptionCode.js";
 import PatientEventNotificationService from "./patientEventNotification.service.js";
+import StaffNotificationService from "./staffNotification.service.js";
 
 type Actor = {
   userId: string;
@@ -287,6 +288,14 @@ class PrescriptionService {
     await PatientEventNotificationService.dispatchBestEffort(
       transition.notificationId,
     );
+    await StaffNotificationService.notifyRoles(["PHARMACIST"], {
+      type: "PRESCRIPTION_ISSUED",
+      title: "Có đơn thuốc mới chờ cấp",
+      body: `Đơn ${transition.updatedPrescription.prescriptionCode} vừa được phát hành, đang chờ cấp thuốc.`,
+      entityType: "PRESCRIPTION",
+      entityId: transition.updatedPrescription.id,
+      eventKey: `prescription:${transition.updatedPrescription.id}:issued`,
+    });
     return transition.updatedPrescription;
   }
 

@@ -177,7 +177,7 @@ export const dashboardNavItems: readonly DashboardNavItem[] = [
     label: "Thông báo ứng dụng",
     description: "Chiến dịch và lịch sử gửi",
     icon: BellRing,
-    permissions: ["content.manage"],
+    permissions: ["notification.broadcast"],
     group: "engagement",
   },
   {

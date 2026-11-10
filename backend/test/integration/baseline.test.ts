@@ -5705,3 +5705,42 @@ test("staff inbox: announcements by role and internal appointment events", async
   const afterSelf = await get("/api/dashboard/inbox", doctorCookie);
   assert.ok(!afterSelf.body.data.items.some((item: { type: string }) => item.type === "APPOINTMENT_CONFIRMED"));
 });
+
+test("pharmacy alerts reach pharmacists once a day and broadcast needs its own permission", async () => {
+  const { default: PharmacyService } = await import("../../src/services/pharmacy.service.js");
+  const pharmacist = await createDashboardUser("PHARMACIST", "0900000041");
+  const staff = await createDashboardUser("STAFF", "0900000042");
+  const pharmacistCookie = await authCookie(pharmacist.id, "PHARMACIST");
+  const staffCookie = await authCookie(staff.id, "STAFF");
+  const adminCookie = await authCookie(fixture.adminUser.id, "ADMIN");
+  const get = (path: string, cookie: string) =>
+    http.request(path, { headers: dashboardHeaders(cookie) });
+
+  await prisma.medicine.create({
+    data: { code: "LOWSTOCK1", name: "Thuốc sắp hết", unit: "viên", stockQuantity: 3, minStock: 10 },
+  });
+  await PharmacyService.notifyStockAlerts();
+  await PharmacyService.notifyStockAlerts();
+  const inbox = await get("/api/dashboard/inbox", pharmacistCookie);
+  const lowStock = inbox.body.data.items.filter((item: { title: string }) => item.title === "Thuốc sắp hết");
+  assert.equal(lowStock.length, 1);
+  assert.match(lowStock[0].body, /còn 3 viên/);
+  // Chỉ dược sĩ nhận; quản trị và nhân viên không.
+  assert.equal((await get("/api/dashboard/inbox", adminCookie)).body.data.items.length, 0);
+  assert.equal((await get("/api/dashboard/inbox", staffCookie)).body.data.items.length, 0);
+
+  // Gửi thông báo cần quyền riêng: nhân viên tiếp nhận được (mặc định), dược sĩ thì không.
+  const payload = { title: "Thông báo thử quyền", body: "Nội dung kiểm tra quyền gửi thông báo.", audience: "ROLE_DOCTOR" };
+  const asPharmacist = await http.request("/api/dashboard/notifications", {
+    method: "POST",
+    headers: dashboardHeaders(pharmacistCookie),
+    body: payload,
+  });
+  assert.equal(asPharmacist.status, 403);
+  const asStaff = await http.request("/api/dashboard/notifications", {
+    method: "POST",
+    headers: dashboardHeaders(staffCookie),
+    body: payload,
+  });
+  assert.equal(asStaff.status, 201);
+});
