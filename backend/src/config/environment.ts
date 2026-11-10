@@ -171,7 +171,7 @@ export const getBookingHoldMinutes = (env: NodeJS.ProcessEnv = process.env) =>
 
 export const getAppointmentReconciliationIntervalMs = (
   env: NodeJS.ProcessEnv = process.env,
-) => positiveInteger(env.APPOINTMENT_RECONCILIATION_INTERVAL_MS, 60_000);
+) => positiveInteger(env.APPOINTMENT_RECONCILIATION_INTERVAL_MS, 5 * 60_000);
 
 export const getAppointmentReconciliationBatchSize = (
   env: NodeJS.ProcessEnv = process.env,
@@ -179,7 +179,7 @@ export const getAppointmentReconciliationBatchSize = (
 
 export const getSlotReconciliationIntervalMs = (
   env: NodeJS.ProcessEnv = process.env,
-) => positiveInteger(env.SLOT_RECONCILIATION_INTERVAL_MS, 5 * 60_000);
+) => positiveInteger(env.SLOT_RECONCILIATION_INTERVAL_MS, 15 * 60_000);
 
 export const getSlotReconciliationBatchSize = (
   env: NodeJS.ProcessEnv = process.env,
@@ -193,7 +193,7 @@ export const getNotificationWorkerIntervalMs = (
   env: NodeJS.ProcessEnv = process.env,
 ) =>
   Math.max(
-    positiveInteger(env.NOTIFICATION_WORKER_INTERVAL_MS, 30_000),
+    positiveInteger(env.NOTIFICATION_WORKER_INTERVAL_MS, 2 * 60_000),
     5_000,
   );
 

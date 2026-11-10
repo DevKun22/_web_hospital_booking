@@ -31,7 +31,7 @@ export function PatientPortalShell({ children }: { children: React.ReactNode }) 
     queryFn: async () => (await patientPortalRequest<{ unreadCount: number }>("/thong-bao/so-chua-doc")).data.unreadCount,
     enabled: Boolean(user),
     staleTime: 30_000,
-    refetchInterval: 60_000,
+    refetchInterval: 3 * 60_000,
     refetchOnWindowFocus: true,
     refetchOnReconnect: true,
   });

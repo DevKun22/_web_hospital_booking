@@ -114,7 +114,7 @@ export default function PharmacyQueuePage() {
       apiRequest<Paged<QueuePrescription>>("/dashboard/pharmacy/prescriptions", {
         query: { dispenseStatus: status, q: appliedSearch || undefined, page, limit: QUEUE_PAGE_SIZE },
       }),
-    refetchInterval: 30_000,
+    refetchInterval: 60_000,
     placeholderData: keepPreviousData,
   });
   // Máy chủ trả tối đa 100 thuốc mỗi trang; lấy lần lượt các trang để ô chọn thuốc luôn đủ cả kho.

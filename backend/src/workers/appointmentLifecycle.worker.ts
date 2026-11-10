@@ -17,6 +17,9 @@ import InvoiceService from "../services/invoice.service.js";
 import ScheduleReconciliationService from "../services/scheduleReconciliation.service.js";
 import SlotPlannerService from "../services/slotPlanner.service.js";
 
+const INVOICE_REMINDER_EVERY_MS = 30 * 60 * 1000;
+let lastInvoiceReminderAt = 0;
+
 validateRuntimeEnvironment();
 await ensurePendingOtpReconciliation();
 const logNoop = shouldLogWorkerNoop();
@@ -54,10 +57,15 @@ const worker = new Worker<AppointmentLifecycleJobData>(
     if (slotWindow && slotWindow.generatedCount > 0) {
       console.log(`[SLOT_PLANNER] generated=${slotWindow.generatedCount} doctors=${slotWindow.doctors}`);
     }
-    const invoiceReminders = await InvoiceService.sendPaymentReminders().catch((error) => {
-      console.error("[INVOICE_REMINDER] sweep failed:", error);
-      return null;
-    });
+    // Nhắc thanh toán chỉ cần quét thưa (mỗi hóa đơn chỉ nhắc một lần): tránh tốn truy vấn mỗi chu kỳ.
+    const invoiceReminders =
+      Date.now() - lastInvoiceReminderAt >= INVOICE_REMINDER_EVERY_MS
+        ? await InvoiceService.sendPaymentReminders().catch((error) => {
+            console.error("[INVOICE_REMINDER] sweep failed:", error);
+            return null;
+          })
+        : null;
+    if (invoiceReminders) lastInvoiceReminderAt = Date.now();
     if (invoiceReminders && invoiceReminders.reminded > 0) {
       console.log(`[INVOICE_REMINDER] reminded=${invoiceReminders.reminded}`);
     }

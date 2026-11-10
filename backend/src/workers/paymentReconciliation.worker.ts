@@ -5,7 +5,7 @@ import PaymentService from "../services/payment.service.js";
 // tiến trình (không cần Redis) vì tác vụ idempotent và nhẹ; chạy nhiều bản cùng lúc
 // vẫn an toàn vì việc ghi nhận thanh toán đã khóa theo hóa đơn.
 const INTERVAL_MS = Math.max(
-  Number(process.env.PAYMENT_RECONCILIATION_INTERVAL_MS) || 5 * 60 * 1000,
+  Number(process.env.PAYMENT_RECONCILIATION_INTERVAL_MS) || 10 * 60 * 1000,
   60 * 1000,
 );
 
