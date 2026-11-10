@@ -820,9 +820,8 @@ model DoctorTimeSlot {
   updatedAt DateTime @updatedAt
 
   @@unique([doctorId, date, startTime])
-  @@index([doctorId])
   @@index([date])
-  @@index([status])
+  @@index([status, isActive, date, startTime])
   @@index([scheduleId])
 }
 
@@ -971,12 +970,13 @@ model Appointment {
   updatedAt DateTime @updatedAt
 
   @@index([patientId])
-  @@index([doctorId])
+  @@index([doctorId, appointmentDate])
   @@index([departmentId])
   @@index([appointmentDate])
   @@index([patientPhone])
-  @@index([status])
   @@index([status, holdExpiresAt])
+  @@index([status, appointmentDate])
+  @@index([status, createdAt])
   @@index([patientId, status, appointmentDate])
   @@index([dependentProfileId, appointmentDate])
   @@index([rescheduledFromId])
