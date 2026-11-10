@@ -4718,6 +4718,67 @@ test("password reset by an admin forces a change, revokes sessions and is audite
   );
 });
 
+test("password reset rolls back when session revocation fails", async () => {
+  const adminCookie = await authCookie(fixture.adminUser.id, "ADMIN");
+  const target = await createDashboardUser("STAFF", "0900000103");
+  const originalPasswordHash = await bcrypt.hash(fixture.password, 4);
+  await prisma.user.update({
+    where: { id: target.id },
+    data: { password: originalPasswordHash },
+  });
+  const targetCookie = await authCookie(target.id, "STAFF");
+  const triggerName = "reject_password_session_revoke_test";
+  const functionName = "reject_password_session_revoke_test_fn";
+
+  assert.match(target.id, /^[0-9a-f-]+$/i);
+  await prisma.$executeRawUnsafe(
+    `CREATE OR REPLACE FUNCTION "${activeDatabaseSchema}"."${functionName}"()
+     RETURNS trigger LANGUAGE plpgsql AS $$
+     BEGIN
+       IF OLD."userId" = TG_ARGV[0]
+          AND OLD."revokedAt" IS NULL
+          AND NEW."revokedAt" IS NOT NULL THEN
+         RAISE EXCEPTION 'forced session revoke failure';
+       END IF;
+       RETURN NEW;
+     END;
+     $$`,
+  );
+  await prisma.$executeRawUnsafe(
+    `CREATE TRIGGER "${triggerName}"
+     BEFORE UPDATE ON "${activeDatabaseSchema}"."DashboardSession"
+     FOR EACH ROW EXECUTE FUNCTION "${activeDatabaseSchema}"."${functionName}"('${target.id}')`,
+  );
+
+  try {
+    const reset = await dashboardCall(
+      "PATCH",
+      `/api/dashboard/users/${target.id}/password`,
+      adminCookie,
+      { password: "AtomicPass123" },
+    );
+    assert.equal(reset.status, 500);
+  } finally {
+    await prisma.$executeRawUnsafe(
+      `DROP TRIGGER IF EXISTS "${triggerName}" ON "${activeDatabaseSchema}"."DashboardSession"`,
+    );
+    await prisma.$executeRawUnsafe(
+      `DROP FUNCTION IF EXISTS "${activeDatabaseSchema}"."${functionName}"()`,
+    );
+  }
+
+  const stored = await prisma.user.findUniqueOrThrow({ where: { id: target.id } });
+  assert.equal(await bcrypt.compare(fixture.password, stored.password || ""), true);
+  assert.equal(await bcrypt.compare("AtomicPass123", stored.password || ""), false);
+  assert.equal((await dashboardCall("GET", "/api/dashboard/invoices", targetCookie)).status, 200);
+  assert.equal(
+    await prisma.auditLog.count({
+      where: { action: "USER_PASSWORD_RESET", targetId: target.id },
+    }),
+    0,
+  );
+});
+
 test("the audit log is append-only and only readable by users with audit.view", async () => {
   const adminCookie = await authCookie(fixture.adminUser.id, "ADMIN");
   const staff = await createDashboardUser("STAFF", "0900000102");

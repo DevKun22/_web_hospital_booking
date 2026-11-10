@@ -353,26 +353,35 @@ class DashboardAuthService {
       throw new AppError("Mật khẩu mới phải khác mật khẩu hiện tại", 400);
     }
 
-    await prisma.user.update({
-      where: { id: input.userId },
-      data: {
-        password: await hashPassword(input.newPassword),
-        mustChangePassword: false,
-      },
-    });
-    await AuthSessionService.revokeAllForUser({
-      userId: input.userId,
-      kind: "DASHBOARD",
-      exceptSessionId: input.sessionId,
+    const password = await hashPassword(input.newPassword);
+    await prisma.$transaction(async (tx) => {
+      await tx.user.update({
+        where: { id: input.userId },
+        data: {
+          password,
+          mustChangePassword: false,
+        },
+      });
+      await AuthSessionService.revokeAllForUser(
+        {
+          userId: input.userId,
+          kind: "DASHBOARD",
+          exceptSessionId: input.sessionId,
+        },
+        tx,
+      );
+      await AuditLogService.record(
+        {
+          actor: { userId: input.userId, role: input.role },
+          action: "PASSWORD_CHANGED",
+          targetType: "USER",
+          targetId: input.userId,
+          ipAddress: input.ipAddress,
+        },
+        tx,
+      );
     });
     invalidateDashboardAuthSnapshot(input.userId);
-    await AuditLogService.record({
-      actor: { userId: input.userId, role: input.role },
-      action: "PASSWORD_CHANGED",
-      targetType: "USER",
-      targetId: input.userId,
-      ipAddress: input.ipAddress,
-    });
   }
 }
 

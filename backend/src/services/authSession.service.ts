@@ -279,13 +279,16 @@ class AuthSessionService {
 
   // Thu hồi mọi phiên của một người dùng (trừ phiên được giữ lại), ví dụ khi đổi hoặc đặt lại
   // mật khẩu: bắt buộc đăng nhập lại bằng mật khẩu mới.
-  async revokeAllForUser(input: {
-    userId: string;
-    kind: SessionKind;
-    exceptSessionId?: string;
-  }) {
+  async revokeAllForUser(
+    input: {
+      userId: string;
+      kind: SessionKind;
+      exceptSessionId?: string;
+    },
+    client: Prisma.TransactionClient | typeof prisma = prisma,
+  ) {
     const now = new Date();
-    const sessions = await prisma.dashboardSession.findMany({
+    const sessions = await client.dashboardSession.findMany({
       where: {
         userId: input.userId,
         kind: input.kind,
@@ -297,11 +300,11 @@ class AuthSessionService {
     if (sessions.length === 0) return 0;
 
     const ids = sessions.map((session) => session.id);
-    await prisma.dashboardSession.updateMany({
+    await client.dashboardSession.updateMany({
       where: { id: { in: ids } },
       data: { revokedAt: now, pushToken: null, pushDisabledAt: now },
     });
-    await prisma.authRefreshToken.updateMany({
+    await client.authRefreshToken.updateMany({
       where: { sessionId: { in: ids }, revokedAt: null },
       data: { revokedAt: now },
     });
