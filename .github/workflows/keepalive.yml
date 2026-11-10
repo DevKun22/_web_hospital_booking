@@ -5,8 +5,8 @@ name: Giữ API thức
 # Workflow này gọi /health mỗi 10 phút để API không ngủ. GitHub có thể trễ hoặc bỏ một lượt chạy theo lịch,
 # nên đây là giảm thiểu chứ không phải bảo đảm tuyệt đối.
 on:
-  schedule:
-    - cron: "*/10 * * * *"
+  # Đã tắt lịch chạy tự động: giữ API thức làm worker BullMQ hỏi Redis liên tục, dễ vượt hạn mức gói miễn phí.
+  # Chỉ chạy tay khi cần. Muốn bật lại, thêm lại: schedule: [{ cron: "*/10 * * * *" }]
   workflow_dispatch:
 
 permissions: {}
