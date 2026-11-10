@@ -487,6 +487,7 @@ export default function SiteSettingsPage() {
     setNotice("");
     try {
       await apiRequest<Banner>(`/dashboard/banners/${banner.id}`, { method: "PATCH", body: { isActive: !banner.isActive } });
+      closePane();
       setNotice(banner.isActive ? "Đã tắt ảnh quảng bá" : "Đã bật ảnh quảng bá");
       await invalidateBanners();
     } catch (err) {
@@ -555,6 +556,7 @@ export default function SiteSettingsPage() {
     setNotice("");
     try {
       await apiRequest<DashboardFAQ>(`/dashboard/faqs/${faq.id}`, { method: "PATCH", body: { isActive: !faq.isActive } });
+      closePane();
       setNotice(faq.isActive ? "Đã tắt câu hỏi" : "Đã bật câu hỏi");
       await invalidateFAQs();
     } catch (err) {

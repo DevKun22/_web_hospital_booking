@@ -200,7 +200,7 @@ export const dashboardNavItems: readonly DashboardNavItem[] = [
   {
     key: "site-settings",
     href: "/dashboard/site-settings",
-    label: "Cấu hình trang người dùng",
+    label: "Cài đặt trang",
     description: "Nhận diện và nội dung công khai",
     icon: Settings,
     permissions: ["settings.view"],
