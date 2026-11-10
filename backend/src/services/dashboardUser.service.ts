@@ -332,30 +332,40 @@ class DashboardUserService {
   async updatePassword(id: string, password: string, actor: Actor, ipAddress?: string) {
     await this.getById(id);
     const forceChange = actor.userId !== id;
+    const passwordHash = await hashPassword(password);
 
-    const user = await prisma.user.update({
-      where: {
-        id,
-      },
-      data: {
-        password: await hashPassword(password),
-        mustChangePassword: forceChange,
-      },
-      select: dashboardUserSelect,
+    const user = await prisma.$transaction(async (tx) => {
+      const updated = await tx.user.update({
+        where: {
+          id,
+        },
+        data: {
+          password: passwordHash,
+          mustChangePassword: forceChange,
+        },
+        select: dashboardUserSelect,
+      });
+      await AuthSessionService.revokeAllForUser(
+        { userId: id, kind: "DASHBOARD" },
+        tx,
+      );
+      await AuditLogService.record(
+        {
+          actor,
+          action: "USER_PASSWORD_RESET",
+          targetType: "USER",
+          targetId: id,
+          ipAddress,
+        },
+        tx,
+      );
+      return updated;
     });
 
-    await AuthSessionService.revokeAllForUser({ userId: id, kind: "DASHBOARD" });
     invalidateDashboardAuthSnapshot(id);
     if (forceChange) {
       await AccountChangeNoticeService.notify({ email: user.email, changes: ["PASSWORD_RESET"] });
     }
-    await AuditLogService.record({
-      actor,
-      action: "USER_PASSWORD_RESET",
-      targetType: "USER",
-      targetId: id,
-      ipAddress,
-    });
 
     return user;
   }
