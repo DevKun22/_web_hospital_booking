@@ -24,7 +24,6 @@ const runWithTimeout = async (probe: ReadinessProbe, timeoutMs: number) => {
       probe().then(() => true, () => false),
       new Promise<boolean>((resolve) => {
         timer = setTimeout(() => resolve(false), timeoutMs);
-        timer.unref();
       }),
     ]);
   } finally {
