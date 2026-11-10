@@ -10,7 +10,7 @@ import {
   ensurePendingOtpReconciliation,
   type AppointmentLifecycleJobData,
 } from "../queues/appointmentLifecycle.queue.js";
-import { getRedisConnectionOptions } from "../queues/redis.js";
+import { getRedisConnectionOptions, idleRedisOptions } from "../queues/redis.js";
 import AppointmentService from "../services/appointment.service.js";
 import AuthOtpService from "../services/authOtp.service.js";
 import InvoiceService from "../services/invoice.service.js";
@@ -90,6 +90,7 @@ const worker = new Worker<AppointmentLifecycleJobData>(
     concurrency: Number(
       process.env.APPOINTMENT_LIFECYCLE_WORKER_CONCURRENCY || 5,
     ),
+    ...idleRedisOptions,
   },
 );
 

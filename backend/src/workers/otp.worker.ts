@@ -7,7 +7,7 @@ import {
   OTP_DELIVERY_QUEUE_NAME,
   type OtpDeliveryJobData,
 } from "../queues/otp.queue.js";
-import { getRedisConnectionOptions } from "../queues/redis.js";
+import { getRedisConnectionOptions, idleRedisOptions } from "../queues/redis.js";
 
 validateRuntimeEnvironment();
 
@@ -52,6 +52,7 @@ const worker = new Worker<OtpDeliveryJobData, void, "send-otp">(
   {
     connection: getRedisConnectionOptions(),
     concurrency: Number(process.env.OTP_WORKER_CONCURRENCY || 5),
+    ...idleRedisOptions,
   },
 );
 
