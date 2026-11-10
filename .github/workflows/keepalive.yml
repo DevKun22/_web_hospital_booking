@@ -1,0 +1,30 @@
+name: Giữ API thức
+
+# API chạy trên gói miễn phí của Render nên tự ngủ sau khoảng 15 phút không có truy cập, khi đó các việc nền
+# (nhắc lịch, hết hạn giữ chỗ, tự vắng mặt, đối soát thanh toán, tự sinh khung giờ) ngừng chạy.
+# Workflow này gọi /health mỗi 10 phút để API không ngủ. GitHub có thể trễ hoặc bỏ một lượt chạy theo lịch,
+# nên đây là giảm thiểu chứ không phải bảo đảm tuyệt đối.
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: keepalive
+  cancel-in-progress: true
+
+jobs:
+  ping:
+    name: Gọi /health
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Ping API
+        env:
+          HEALTH_URL: https://hospital-api.ngoloi.dev/health
+        run: |
+          # Lần gọi đầu sau khi ngủ có thể mất khoảng 50 giây nên cho phép chờ và thử lại.
+          curl --fail --silent --show-error --max-time 90 --retry 2 --retry-delay 5 "$HEALTH_URL"
+          echo
