@@ -14,6 +14,7 @@ import {
   getSafeRequestPath,
   requestPerformance,
 } from "./observability/requestPerformance.js";
+import { checkReadiness } from "./services/readiness.service.js";
 
 type CreateAppOptions = {
   requestLogging?: boolean;
@@ -21,6 +22,7 @@ type CreateAppOptions = {
   performanceHeaders?: boolean;
   queryMetricsEnabled?: boolean;
   slowRequestThresholdMs?: number;
+  readinessCheck?: () => Promise<boolean>;
 };
 
 const getAllowedOrigins = (isProduction: boolean) => {
@@ -44,6 +46,7 @@ export const createApp = (options: CreateAppOptions = {}) => {
   const allowedOrigins = getAllowedOrigins(isProduction);
   const requestLogging = options.requestLogging ?? true;
   const slowRequestLogging = options.slowRequestLogging ?? true;
+  const readinessCheck = options.readinessCheck ?? checkReadiness;
 
   app.disable("x-powered-by");
   app.set("trust proxy", 1);
@@ -110,6 +113,14 @@ export const createApp = (options: CreateAppOptions = {}) => {
     res.json({
       status: "ok",
       uptime: process.uptime(),
+      time: new Date().toISOString(),
+    });
+  });
+
+  app.get("/ready", async (req, res) => {
+    const ready = await readinessCheck();
+    res.status(ready ? 200 : 503).json({
+      status: ready ? "ready" : "not_ready",
       time: new Date().toISOString(),
     });
   });

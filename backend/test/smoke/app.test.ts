@@ -15,6 +15,8 @@ const {
   getAppointmentReminderLeadMinutes,
   getDatabaseTransactionMaxWaitMs,
   getDatabaseTransactionTimeoutMs,
+  getReadinessCacheMs,
+  getReadinessTimeoutMs,
   getSlowRequestThresholdMs,
   isDatabaseQueryMetricsEnabled,
   isPerformanceHeadersEnabled,
@@ -52,7 +54,11 @@ let http: Awaited<ReturnType<typeof startHttpServer>>;
 
 before(async () => {
   http = await startHttpServer(
-    createApp({ requestLogging: false, slowRequestLogging: false }),
+    createApp({
+      requestLogging: false,
+      slowRequestLogging: false,
+      readinessCheck: async () => true,
+    }),
   );
 });
 
@@ -63,6 +69,7 @@ after(async () => {
 test("health routes can be imported without opening the production port", async () => {
   const root = await http.request("/");
   const health = await http.request("/health");
+  const ready = await http.request("/ready");
 
   assert.equal(root.status, 200);
   assert.equal(root.body.status, "Medical Booking API Running...");
@@ -70,6 +77,27 @@ test("health routes can be imported without opening the production port", async 
   assert.equal(health.body.status, "ok");
   assert.equal(health.headers.get("x-powered-by"), null);
   assert.match(health.headers.get("x-request-id") || "", /^[0-9a-f-]{36}$/);
+  assert.equal(ready.status, 200);
+  assert.equal(ready.body.status, "ready");
+});
+
+test("readiness returns 503 without changing the liveness contract", async () => {
+  const unavailable = await startHttpServer(
+    createApp({
+      requestLogging: false,
+      slowRequestLogging: false,
+      readinessCheck: async () => false,
+    }),
+  );
+
+  try {
+    assert.equal((await unavailable.request("/health")).status, 200);
+    const ready = await unavailable.request("/ready");
+    assert.equal(ready.status, 503);
+    assert.equal(ready.body.status, "not_ready");
+  } finally {
+    await unavailable.close();
+  }
 });
 
 test("local performance headers can be enabled without exposing database metrics", async () => {
@@ -350,6 +378,14 @@ test("database transaction limits stay bounded for remote development databases"
     getDatabaseTransactionMaxWaitMs({ DATABASE_TRANSACTION_MAX_WAIT_MS: "60000" }),
     15_000,
   );
+});
+
+test("readiness settings stay short and bounded", () => {
+  assert.equal(getReadinessTimeoutMs({}), 2_000);
+  assert.equal(getReadinessCacheMs({}), 5_000);
+  assert.equal(getReadinessTimeoutMs({ READINESS_TIMEOUT_MS: "0" }), 2_000);
+  assert.equal(getReadinessTimeoutMs({ READINESS_TIMEOUT_MS: "99999" }), 5_000);
+  assert.equal(getReadinessCacheMs({ READINESS_CACHE_MS: "99999" }), 30_000);
 });
 
 test("performance settings are opt-in and bounded", () => {
