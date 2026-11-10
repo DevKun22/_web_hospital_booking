@@ -5744,3 +5744,109 @@ test("pharmacy alerts reach pharmacists once a day and broadcast needs its own p
   });
   assert.equal(asStaff.status, 201);
 });
+
+test("doctor schedule: rolling slots, schedule changes keep booked visits, range closing", async () => {
+  const { default: SlotPlannerService } = await import("../../src/services/slotPlanner.service.js");
+  const { default: DoctorScheduleService } = await import("../../src/services/doctorSchedule.service.js");
+  const staff = await createDashboardUser("STAFF", "0900000051");
+  const adminCookie = await authCookie(fixture.adminUser.id, "ADMIN");
+  const doctorCookie = await authCookie(fixture.doctorOneUser.id, "DOCTOR");
+  const staffCookie = await authCookie(staff.id, "STAFF");
+  const post = (path: string, cookie: string, body: unknown) =>
+    http.request(path, { method: "POST", headers: dashboardHeaders(cookie), body });
+
+  // Dọn lịch mẫu và khung giờ của fixture để đếm chính xác.
+  await prisma.doctorTimeSlot.deleteMany({ where: { doctorId: fixture.doctorOne.id, appointment: { is: null } } });
+  await prisma.doctorSchedule.deleteMany({ where: { doctorId: fixture.doctorOne.id } });
+
+  // Tạo ca mẫu cho cả 7 ngày trong tuần: cửa sổ 14 ngày phải có đúng 2 ngày mỗi thứ (trừ giờ đã qua hôm nay).
+  const created = [];
+  for (let day = 0; day < 7; day += 1) {
+    created.push(
+      await DoctorScheduleService.create({
+        doctorId: fixture.doctorOne.id,
+        dayOfWeek: day,
+        startTime: "08:00",
+        endTime: "09:00",
+        slotDuration: 30,
+      }),
+    );
+  }
+  const slots = await prisma.doctorTimeSlot.findMany({ where: { doctorId: fixture.doctorOne.id } });
+  assert.ok(slots.length >= 26 && slots.length <= 28, `expected about 28 slots, got ${slots.length}`);
+  assert.ok(slots.every((slot) => slot.scheduleId));
+
+  // Gọi lại không sinh trùng.
+  const again = await SlotPlannerService.refreshDoctor(fixture.doctorOne.id);
+  assert.equal(again.generatedCount, 0);
+
+  // Có một lịch đã đặt trong tương lai; đổi giờ ca đó phải gỡ khung giờ trống nhưng giữ lịch đã đặt.
+  const target = await prisma.doctorTimeSlot.findFirstOrThrow({
+    where: { doctorId: fixture.doctorOne.id, date: { gt: new Date() }, startTime: "08:00" },
+    orderBy: { date: "asc" },
+  });
+  const patient = await prisma.user.create({
+    data: { fullName: "Người khám lịch mẫu", phone: "0987000061", role: "PATIENT", isActive: true },
+  });
+  const appointment = await prisma.appointment.create({
+    data: {
+      bookingCode: "SCHEDULE-IMPACT-1",
+      appointmentDate: target.date,
+      startTime: target.startTime,
+      endTime: target.endTime,
+      status: "CONFIRMED",
+      patientName: patient.fullName,
+      patientPhone: patient.phone!,
+      patientId: patient.id,
+      doctorId: fixture.doctorOne.id,
+      departmentId: fixture.department.id,
+      timeSlotId: target.id,
+      estimatedPrice: 300000,
+      finalAmount: 300000,
+    },
+  });
+  await prisma.doctorTimeSlot.update({ where: { id: target.id }, data: { status: "BOOKED" } });
+  const bookedSchedule = created.find((item) => item.dayOfWeek === target.date.getUTCDay())!;
+  const deactivated = await DoctorScheduleService.update(bookedSchedule.id, { isActive: false });
+  assert.equal(deactivated.impact.affected.length, 1);
+  assert.equal(deactivated.impact.affected[0].bookingCode, "SCHEDULE-IMPACT-1");
+  assert.ok(deactivated.impact.removedSlots >= 1);
+  const kept = await prisma.doctorTimeSlot.findUnique({ where: { id: target.id } });
+  assert.equal(kept?.status, "BOOKED");
+  const stillBooked = await prisma.appointment.findUnique({ where: { id: appointment.id } });
+  assert.equal(stillBooked?.status, "CONFIRMED");
+  // Nhân viên tiếp nhận được báo để liên hệ người khám.
+  const staffInbox = await http.request("/api/dashboard/inbox", { headers: dashboardHeaders(staffCookie) });
+  assert.ok(staffInbox.body.data.items.some((item: { title: string }) => item.title.includes("cần xử lý")));
+
+  // Đóng lịch theo khoảng ngày: khóa khung giờ trống; bác sĩ khác không được thao tác.
+  const from = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  const to = new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  const closed = await post("/api/dashboard/doctor-time-slots/close-range", doctorCookie, {
+    doctorId: fixture.doctorOne.id,
+    from,
+    to,
+    reason: "Nghỉ phép năm",
+  });
+  assert.equal(closed.status, 200);
+  assert.ok(closed.body.data.lockedSlots >= 1);
+  const lockedSlots = await prisma.doctorTimeSlot.count({
+    where: { doctorId: fixture.doctorOne.id, status: "LOCKED", lockReason: "Nghỉ phép năm" },
+  });
+  assert.equal(lockedSlots, closed.body.data.lockedSlots);
+  const outsider = await post("/api/dashboard/doctor-time-slots/close-range", await authCookie(fixture.doctorTwoUser.id, "DOCTOR"), {
+    doctorId: fixture.doctorOne.id,
+    from,
+    to,
+    reason: "Nghỉ phép",
+  });
+  assert.equal(outsider.status, 403);
+
+  const reopened = await post("/api/dashboard/doctor-time-slots/reopen-range", adminCookie, {
+    doctorId: fixture.doctorOne.id,
+    from,
+    to,
+  });
+  assert.equal(reopened.status, 200);
+  assert.equal(reopened.body.data.reopenedSlots, closed.body.data.lockedSlots);
+});

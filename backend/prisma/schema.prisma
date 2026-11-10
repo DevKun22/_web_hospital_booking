@@ -730,6 +730,8 @@ model DoctorProfile {
 model DoctorSchedule {
   id       String        @id @default(uuid())
   changeRequests ScheduleChangeRequest[]
+  // Khung giờ cụ thể được sinh từ ca này; xóa ca thì khung giờ còn lịch đặt vẫn giữ (scheduleId về null).
+  timeSlots DoctorTimeSlot[]
 
   doctorId String
   doctor   DoctorProfile @relation(fields: [doctorId], references: [id], onDelete: Cascade)
@@ -807,6 +809,10 @@ model DoctorTimeSlot {
   // Lý do khóa/hủy slot, ví dụ: bác sĩ nghỉ đột xuất, họp chuyên môn
   lockReason String?
 
+  // Ca mẫu đã sinh ra khung giờ này (null: tạo tay hoặc ca mẫu đã bị xóa).
+  scheduleId String?
+  schedule   DoctorSchedule? @relation(fields: [scheduleId], references: [id], onDelete: SetNull)
+
   appointment Appointment?
 
   createdAt DateTime @default(now())
@@ -816,6 +822,7 @@ model DoctorTimeSlot {
   @@index([doctorId])
   @@index([date])
   @@index([status])
+  @@index([scheduleId])
 }
 
 // ===================== PACKAGES =====================
