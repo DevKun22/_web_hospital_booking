@@ -64,7 +64,8 @@ export const PERMISSIONS = {
   "schedule.review": { group: "Lịch làm việc", label: "Duyệt yêu cầu đổi lịch", eligibleRoles: [A, S], fixedRoles: [], defaultRoles: [A, S] },
 
   // Nội dung công khai và đánh giá
-  "content.manage": { group: "Nội dung", label: "Quản lý banner, FAQ, thông báo, ảnh", eligibleRoles: [A, S], fixedRoles: [], defaultRoles: [A, S] },
+  "content.manage": { group: "Nội dung", label: "Quản lý banner, FAQ, ảnh", eligibleRoles: [A, S], fixedRoles: [], defaultRoles: [A, S] },
+  "notification.broadcast": { group: "Nội dung", label: "Soạn và gửi thông báo cho người khám hoặc nhân sự", eligibleRoles: [A, S], fixedRoles: [], defaultRoles: [A, S] },
   "content.delete": { group: "Nội dung", label: "Xóa banner, FAQ, ảnh", eligibleRoles: [A], fixedRoles: [A], defaultRoles: [A] },
   "review.view": { group: "Đánh giá", label: "Xem đánh giá", eligibleRoles: [A, S, D], fixedRoles: [], defaultRoles: [A, S, D] },
   "review.moderate": { group: "Đánh giá", label: "Ẩn, hiện đánh giá", eligibleRoles: [A, S], fixedRoles: [], defaultRoles: [A, S] },

@@ -13,6 +13,7 @@ import {
 import { getVietnamNowParts, parseDateOnly, toDateOnly } from "../utils/time.js";
 import { logClinicalAction } from "./clinicalLog.service.js";
 import PatientEventNotificationService from "./patientEventNotification.service.js";
+import StaffNotificationService from "./staffNotification.service.js";
 
 type Actor = { userId: string; role: string };
 
@@ -287,9 +288,11 @@ class PharmacyService {
     if (Boolean(batchNumber) !== Boolean(expiry)) {
       throw new AppError("Số lô và hạn dùng phải khai cùng nhau", 400, "BATCH_FIELDS_INCOMPLETE");
     }
-    return this.moveStock(medicineId, quantity, "RECEIPT", normalize(reason), actor, {
+    const result = await this.moveStock(medicineId, quantity, "RECEIPT", normalize(reason), actor, {
       batch: batchNumber && expiry ? { batchNumber, expiryDate: expiry } : undefined,
     });
+    await this.notifyStockAlerts();
+    return result;
   }
 
   // Điều chỉnh tồn; có batchId thì điều chỉnh trong lô đó (ví dụ hủy lô hết hạn hoặc hỏng).
@@ -298,7 +301,9 @@ class PharmacyService {
     if (!trimmed) {
       throw new AppError("Điều chỉnh tồn kho phải có lý do", 400, "ADJUSTMENT_REASON_REQUIRED");
     }
-    return this.moveStock(medicineId, delta, "ADJUSTMENT", trimmed, actor, { batchId: batchId ?? undefined });
+    const result = await this.moveStock(medicineId, delta, "ADJUSTMENT", trimmed, actor, { batchId: batchId ?? undefined });
+    await this.notifyStockAlerts();
+    return result;
   }
 
   // Cập nhật tồn có điều kiện (không bao giờ âm) rồi ghi một dòng sổ trong cùng
@@ -733,7 +738,43 @@ class PharmacyService {
     });
 
     await PatientEventNotificationService.dispatchBestEffort(result.notificationId);
+    await this.notifyStockAlerts();
     return this.getPrescription(prescriptionId);
+  }
+
+  // Báo dược sĩ thuốc sắp hết hoặc sắp hết hạn. Mỗi thuốc nhiều nhất một lần mỗi ngày
+  // (khóa chống trùng theo ngày); chạy sau mỗi thay đổi tồn và không bao giờ làm hỏng thao tác gốc.
+  async notifyStockAlerts() {
+    try {
+      const today = getVietnamNowParts().date;
+      const medicines = await prisma.medicine.findMany({
+        where: { isActive: true, minStock: { gt: 0 } },
+        select: { id: true, name: true, unit: true, stockQuantity: true, minStock: true },
+      });
+      for (const medicine of medicines.filter((item) => item.stockQuantity <= item.minStock)) {
+        await StaffNotificationService.notifyRoles(["PHARMACIST"], {
+          type: "SYSTEM_ANNOUNCEMENT",
+          title: "Thuốc sắp hết",
+          body: `${medicine.name} còn ${medicine.stockQuantity} ${medicine.unit} (mức tối thiểu ${medicine.minStock}).`,
+          entityType: "MEDICINE",
+          entityId: medicine.id,
+          eventKey: `pharmacy:${medicine.id}:low-stock:${today}`,
+        });
+      }
+      const expiry = await this.expiryAlerts();
+      if (expiry.summary.total > 0) {
+        await StaffNotificationService.notifyRoles(["PHARMACIST"], {
+          type: "SYSTEM_ANNOUNCEMENT",
+          title: "Có lô thuốc sắp hoặc đã hết hạn",
+          body: `${expiry.summary.total} lô cần xử lý, trong đó ${expiry.summary.expired} lô đã hết hạn. Mở Kho thuốc để xem chi tiết.`,
+          entityType: "MEDICINE_EXPIRY",
+          entityId: today,
+          eventKey: `pharmacy:expiry:${today}`,
+        });
+      }
+    } catch (error) {
+      console.error("[STAFF_NOTIFICATION] stock alerts failed:", error);
+    }
   }
 }
 

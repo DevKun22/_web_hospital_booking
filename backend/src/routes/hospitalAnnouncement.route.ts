@@ -10,7 +10,7 @@ import { createHospitalAnnouncementSchema } from "../validations/hospitalAnnounc
 
 const router = Router();
 
-router.use(authDashboard, requirePermission("content.manage"));
+router.use(authDashboard, requirePermission("notification.broadcast"));
 router.get("/", listHospitalAnnouncementsHandler);
 router.post(
   "/",
