@@ -8,7 +8,10 @@ import {
 } from "../controllers/upload.controller.js";
 import { authDashboard, requirePermission } from "../middlewares/auth.middleware.js";
 import { uploadImages, uploadMedicalFile } from "../middlewares/upload.middleware.js";
-import { limitMedicalFileUpload } from "../middlewares/resourceConcurrency.middleware.js";
+import {
+  limitMedicalFileUpload,
+  limitPublicImageUpload,
+} from "../middlewares/resourceConcurrency.middleware.js";
 import { validate } from "../middlewares/validate.middleware.js";
 import { cleanupUnusedMediaAssetsSchema } from "../validations/mediaAsset.validation.js";
 
@@ -25,6 +28,7 @@ router.post(
   "/images",
   authDashboard,
   requirePermission("content.manage"),
+  limitPublicImageUpload,
   uploadImages,
   uploadImagesHandler,
 );

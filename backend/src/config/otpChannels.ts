@@ -22,8 +22,8 @@ export const isSmsProviderConfigured = () =>
 export const isLocalOtpDebugEnabled = () =>
   !isProductionLike() && getRuntimeConfig().otp.debugEnabled;
 
-// Demo trước hội đồng: chỉ các số trong DEMO_OTP_PHONES được nhận OTP SMS
-// hiển thị trên màn hình, kể cả khi deploy production. Số thật khác không bị ảnh hưởng.
+// Demo local: chỉ các số trong DEMO_OTP_PHONES được nhận OTP SMS hiển thị trên
+// màn hình. Production từ chối khởi động nếu cấu hình biến này.
 const getDemoOtpPhones = () =>
   new Set(
     getRuntimeConfig().otp.demoPhones
@@ -32,6 +32,7 @@ const getDemoOtpPhones = () =>
   );
 
 export const isDemoOtpPhone = (target: string) =>
+  !isProductionLike() &&
   getDemoOtpPhones().has(normalizeVietnamPhone(target));
 
 export const shouldExposeDebugOtp = (channel: OtpChannel, target: string) =>

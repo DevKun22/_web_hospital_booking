@@ -273,6 +273,20 @@ test("production startup rejects missing, weak or debug OTP secrets", () => {
       }),
     /OTP_DEBUG_ENABLED must be disabled/,
   );
+  assert.throws(
+    () =>
+      validateRuntimeEnvironment({
+        NODE_ENV: "production",
+        JWT_SECRET: "j".repeat(32),
+        OTP_SECRET: "o".repeat(32),
+        OTP_DEBUG_ENABLED: "false",
+        DEMO_OTP_PHONES: "0912345678",
+        DATABASE_URL: "postgresql://production.example.test/hospital",
+        FRONTEND_URLS: "https://hospital.example.test",
+        INLINE_WORKERS: "otp,appointments,notifications,payments",
+      }),
+    /DEMO_OTP_PHONES must not be configured in production/,
+  );
   assert.doesNotThrow(() =>
     validateRuntimeEnvironment({
       NODE_ENV: "production",
