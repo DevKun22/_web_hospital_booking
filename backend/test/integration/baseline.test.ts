@@ -4833,6 +4833,128 @@ test("password reset rolls back when session revocation fails", async () => {
   );
 });
 
+test("role changes revoke active sessions and write the audit atomically", async () => {
+  const adminCookie = await authCookie(fixture.adminUser.id, "ADMIN");
+  const target = await createDashboardUser("STAFF", "0900000104");
+  const targetCookie = await authCookie(target.id, "STAFF");
+
+  const changed = await dashboardCall(
+    "PATCH",
+    `/api/dashboard/users/${target.id}`,
+    adminCookie,
+    { role: "PHARMACIST" },
+  );
+  assert.equal(changed.status, 200, JSON.stringify(changed.body));
+  assert.equal(changed.body.data.role, "PHARMACIST");
+  assert.equal((await dashboardCall("GET", "/api/dashboard/invoices", targetCookie)).status, 401);
+
+  const audit = await prisma.auditLog.findFirstOrThrow({
+    where: { action: "USER_UPDATED", targetId: target.id },
+    orderBy: { createdAt: "desc" },
+  });
+  assert.deepEqual(audit.meta, { roleFrom: "STAFF", roleTo: "PHARMACIST" });
+});
+
+test("concurrent role changes cannot remove every active admin", async () => {
+  const [adminA, adminB] = await Promise.all([
+    prisma.user.create({
+      data: {
+        fullName: "Concurrent Admin A",
+        phone: "0900000106",
+        role: "ADMIN",
+        isPhoneVerified: true,
+      },
+    }),
+    prisma.user.create({
+      data: {
+        fullName: "Concurrent Admin B",
+        phone: "0900000107",
+        role: "ADMIN",
+        isPhoneVerified: true,
+      },
+    }),
+  ]);
+  const [cookieA, cookieB] = await Promise.all([
+    authCookie(adminA.id, "ADMIN"),
+    authCookie(adminB.id, "ADMIN"),
+  ]);
+  await prisma.user.update({
+    where: { id: fixture.adminUser.id },
+    data: { isActive: false },
+  });
+
+  const results = await Promise.all([
+    dashboardCall("PATCH", `/api/dashboard/users/${adminB.id}`, cookieA, { role: "STAFF" }),
+    dashboardCall("PATCH", `/api/dashboard/users/${adminA.id}`, cookieB, { role: "STAFF" }),
+  ]);
+
+  assert.deepEqual(
+    results.map((result) => result.status).sort(),
+    [200, 409],
+  );
+  assert.equal(
+    await prisma.user.count({ where: { role: "ADMIN", isActive: true } }),
+    1,
+  );
+});
+
+test("status changes roll back when session revocation fails", async () => {
+  const adminCookie = await authCookie(fixture.adminUser.id, "ADMIN");
+  const target = await createDashboardUser("STAFF", "0900000105");
+  const targetCookie = await authCookie(target.id, "STAFF");
+  const triggerName = "reject_status_session_revoke_test";
+  const functionName = "reject_status_session_revoke_test_fn";
+
+  assert.match(target.id, /^[0-9a-f-]+$/i);
+  await prisma.$executeRawUnsafe(
+    `CREATE OR REPLACE FUNCTION "${activeDatabaseSchema}"."${functionName}"()
+     RETURNS trigger LANGUAGE plpgsql AS $$
+     BEGIN
+       IF OLD."userId" = TG_ARGV[0]
+          AND OLD."revokedAt" IS NULL
+          AND NEW."revokedAt" IS NOT NULL THEN
+         RAISE EXCEPTION 'forced session revoke failure';
+       END IF;
+       RETURN NEW;
+     END;
+     $$`,
+  );
+  await prisma.$executeRawUnsafe(
+    `CREATE TRIGGER "${triggerName}"
+     BEFORE UPDATE ON "${activeDatabaseSchema}"."DashboardSession"
+     FOR EACH ROW EXECUTE FUNCTION "${activeDatabaseSchema}"."${functionName}"('${target.id}')`,
+  );
+
+  try {
+    const changed = await dashboardCall(
+      "PATCH",
+      `/api/dashboard/users/${target.id}/status`,
+      adminCookie,
+      { isActive: false },
+    );
+    assert.equal(changed.status, 500);
+  } finally {
+    await prisma.$executeRawUnsafe(
+      `DROP TRIGGER IF EXISTS "${triggerName}" ON "${activeDatabaseSchema}"."DashboardSession"`,
+    );
+    await prisma.$executeRawUnsafe(
+      `DROP FUNCTION IF EXISTS "${activeDatabaseSchema}"."${functionName}"()`,
+    );
+  }
+
+  assert.equal(
+    (await prisma.user.findUniqueOrThrow({ where: { id: target.id } })).isActive,
+    true,
+  );
+  assert.equal((await dashboardCall("GET", "/api/dashboard/invoices", targetCookie)).status, 200);
+  assert.equal(
+    await prisma.auditLog.count({
+      where: { action: "USER_STATUS_CHANGED", targetId: target.id },
+    }),
+    0,
+  );
+});
+
 test("the audit log is append-only and only readable by users with audit.view", async () => {
   const adminCookie = await authCookie(fixture.adminUser.id, "ADMIN");
   const staff = await createDashboardUser("STAFF", "0900000102");

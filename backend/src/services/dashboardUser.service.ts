@@ -50,6 +50,10 @@ const dashboardUserSelect = {
   updatedAt: true,
 } satisfies Prisma.UserSelect;
 
+type DashboardUser = Prisma.UserGetPayload<{
+  select: typeof dashboardUserSelect;
+}>;
+
 const ensureDashboardRole = (role: Role) => {
   if (!DASHBOARD_ROLES.includes(role)) {
     throw new AppError("Vai trò không hợp lệ cho dashboard", 400);
@@ -58,6 +62,21 @@ const ensureDashboardRole = (role: Role) => {
 
 const normalizeOptionalString = (value?: string | null) =>
   value === undefined ? undefined : value || null;
+
+const SERIALIZABLE_TRANSACTION_RETRIES = 3;
+
+const isTransactionConflict = (error: unknown) => {
+  if (typeof error !== "object" || error === null) return false;
+  if ("code" in error && error.code === "P2034") return true;
+
+  const cause = "cause" in error ? error.cause : undefined;
+  return (
+    typeof cause === "object" &&
+    cause !== null &&
+    "kind" in cause &&
+    cause.kind === "TransactionWriteConflict"
+  );
+};
 
 class DashboardUserService {
   async list(query: {
@@ -112,8 +131,11 @@ class DashboardUserService {
     };
   }
 
-  async getById(id: string) {
-    const user = await prisma.user.findFirst({
+  async getById(
+    id: string,
+    client: Prisma.TransactionClient | typeof prisma = prisma,
+  ): Promise<DashboardUser> {
+    const user = await client.user.findFirst({
       where: {
         id,
         role: {
@@ -194,13 +216,10 @@ class DashboardUserService {
     actor: Actor,
     ipAddress?: string,
   ) {
-    const currentUser = await this.getById(id);
-    this.assertSelfAdministration(id, input, actor);
-    await this.assertActiveAdminContinuity(currentUser, input);
-
     if (input.role) {
       ensureDashboardRole(input.role);
     }
+    this.assertSelfAdministration(id, input, actor);
 
     if (input.phone || input.email) {
       const existingUser = await prisma.user.findFirst({
@@ -234,24 +253,58 @@ class DashboardUserService {
             )
           : undefined;
 
-    const user = await prisma.user.update({
-      where: {
-        id,
-      },
-      data: {
-        fullName: input.fullName,
-        email: normalizeOptionalString(input.email),
-        phone: input.phone,
-        role: input.role,
-        avatar:
-          input.avatarAssetId === null
-            ? null
-            : avatarAsset
-              ? avatarAsset.url
-              : normalizeOptionalString(input.avatar),
-        isActive: input.isActive,
-      },
-      select: dashboardUserSelect,
+    const { currentUser, user } = await this.runSerializable(async (tx) => {
+      const current = await this.getById(id, tx);
+      await this.assertActiveAdminContinuity(current, input, tx);
+
+      const updated = await tx.user.update({
+        where: { id },
+        data: {
+          fullName: input.fullName,
+          email: normalizeOptionalString(input.email),
+          phone: input.phone,
+          role: input.role,
+          avatar:
+            input.avatarAssetId === null
+              ? null
+              : avatarAsset
+                ? avatarAsset.url
+                : normalizeOptionalString(input.avatar),
+          isActive: input.isActive,
+        },
+        select: dashboardUserSelect,
+      });
+
+      const roleChanged = input.role !== undefined && input.role !== current.role;
+      const deactivated = input.isActive === false && current.isActive;
+      if (roleChanged || deactivated) {
+        await AuthSessionService.revokeAllForUser(
+          { userId: id, kind: "DASHBOARD" },
+          tx,
+        );
+      }
+
+      await AuditLogService.record(
+        {
+          actor,
+          action: "USER_UPDATED",
+          targetType: "USER",
+          targetId: id,
+          ipAddress,
+          meta: {
+            ...(roleChanged ? { roleFrom: current.role, roleTo: input.role } : {}),
+            ...(input.email !== undefined && input.email !== current.email
+              ? { emailChanged: true }
+              : {}),
+            ...(input.phone !== undefined && input.phone !== current.phone
+              ? { phoneChanged: true }
+              : {}),
+          },
+        },
+        tx,
+      );
+
+      return { currentUser: current, user: updated };
     });
 
     if (avatarAsset || input.avatarAssetId === null) {
@@ -261,27 +314,6 @@ class DashboardUserService {
         avatarAsset?.id,
       );
     }
-
-    // Đổi vai trò, email hoặc số điện thoại đăng nhập của người khác là thao tác nhạy cảm
-    // (số điện thoại và email quyết định ai nhận mã OTP đăng nhập), nên luôn để lại dấu vết.
-    await AuditLogService.record({
-      actor,
-      action: "USER_UPDATED",
-      targetType: "USER",
-      targetId: id,
-      ipAddress,
-      meta: {
-        ...(input.role && input.role !== currentUser.role
-          ? { roleFrom: currentUser.role, roleTo: input.role }
-          : {}),
-        ...(input.email !== undefined && input.email !== currentUser.email
-          ? { emailChanged: true }
-          : {}),
-        ...(input.phone !== undefined && input.phone !== currentUser.phone
-          ? { phoneChanged: true }
-          : {}),
-      },
-    });
 
     // Chỉ báo khi người khác sửa tài khoản của mình; tự sửa hồ sơ của chính mình thì không cần.
     if (actor.userId !== id) {
@@ -296,30 +328,38 @@ class DashboardUserService {
   }
 
   async updateStatus(id: string, isActive: boolean, actor: Actor, ipAddress?: string) {
-    const currentUser = await this.getById(id);
     this.assertSelfAdministration(id, { isActive }, actor);
-    await this.assertActiveAdminContinuity(currentUser, { isActive });
+    return this.runSerializable(async (tx) => {
+      const currentUser = await this.getById(id, tx);
+      await this.assertActiveAdminContinuity(currentUser, { isActive }, tx);
 
-    const user = await prisma.user.update({
-      where: {
-        id,
-      },
-      data: {
-        isActive,
-      },
-      select: dashboardUserSelect,
+      const user = await tx.user.update({
+        where: { id },
+        data: { isActive },
+        select: dashboardUserSelect,
+      });
+
+      if (!isActive && currentUser.isActive) {
+        await AuthSessionService.revokeAllForUser(
+          { userId: id, kind: "DASHBOARD" },
+          tx,
+        );
+      }
+
+      await AuditLogService.record(
+        {
+          actor,
+          action: "USER_STATUS_CHANGED",
+          targetType: "USER",
+          targetId: id,
+          ipAddress,
+          meta: { isActive },
+        },
+        tx,
+      );
+
+      return user;
     });
-
-    await AuditLogService.record({
-      actor,
-      action: "USER_STATUS_CHANGED",
-      targetType: "USER",
-      targetId: id,
-      ipAddress,
-      meta: { isActive },
-    });
-
-    return user;
   }
 
   // Quản trị đặt lại mật khẩu thay người khác: người đó phải tự đổi ở lần đăng nhập kế tiếp,
@@ -386,6 +426,7 @@ class DashboardUserService {
   private async assertActiveAdminContinuity(
     currentUser: { id: string; role: Role; isActive: boolean },
     input: UpdateDashboardUserInput,
+    client: Prisma.TransactionClient = prisma,
   ) {
     const removesActiveAdmin =
       currentUser.role === "ADMIN" &&
@@ -395,7 +436,7 @@ class DashboardUserService {
 
     if (!removesActiveAdmin) return;
 
-    const otherActiveAdmins = await prisma.user.count({
+    const otherActiveAdmins = await client.user.count({
       where: { id: { not: currentUser.id }, role: "ADMIN", isActive: true },
     });
 
@@ -405,6 +446,23 @@ class DashboardUserService {
         409,
       );
     }
+  }
+
+  private async runSerializable<T>(
+    operation: (tx: Prisma.TransactionClient) => Promise<T>,
+  ): Promise<T> {
+    for (let attempt = 1; attempt <= SERIALIZABLE_TRANSACTION_RETRIES; attempt += 1) {
+      try {
+        return await prisma.$transaction(operation, {
+          isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+        });
+      } catch (error) {
+        if (!isTransactionConflict(error) || attempt === SERIALIZABLE_TRANSACTION_RETRIES) {
+          throw error;
+        }
+      }
+    }
+    throw new Error("Serializable transaction retry limit reached");
   }
 }
 
