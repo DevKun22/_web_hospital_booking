@@ -120,6 +120,7 @@ export const validateRuntimeEnvironment = (
   validateTrustProxyHops(env);
   validateProductionVnpay(env);
   validateProductionRedis(env);
+  validateDatabasePoolBudget(env);
   if (env.DEMO_OTP_PHONES?.trim()) {
     console.warn(
       "[DEMO_OTP] DEMO_OTP_PHONES is set: OTP for these phone numbers is shown on screen.",
@@ -176,6 +177,135 @@ const boundedPositiveInteger = (
   minimum: number,
   maximum: number,
 ) => Math.min(Math.max(positiveInteger(value, fallback), minimum), maximum);
+
+const boundedNonNegativeInteger = (
+  value: string | undefined,
+  fallback: number,
+  maximum: number,
+) => {
+  const parsed = Number(value);
+  const resolved =
+    Number.isSafeInteger(parsed) && parsed >= 0 ? parsed : fallback;
+  return Math.min(resolved, maximum);
+};
+
+export const getDatabaseApiReplicaCount = (
+  env: NodeJS.ProcessEnv = process.env,
+) => boundedPositiveInteger(env.DATABASE_API_REPLICA_COUNT, 1, 1, 100);
+
+export const getDatabaseWorkerReplicaCount = (
+  env: NodeJS.ProcessEnv = process.env,
+) => boundedNonNegativeInteger(env.DATABASE_WORKER_REPLICA_COUNT, 0, 100);
+
+export const getDatabaseTotalConnectionBudget = (
+  env: NodeJS.ProcessEnv = process.env,
+) =>
+  boundedPositiveInteger(
+    env.DATABASE_TOTAL_CONNECTION_BUDGET,
+    15,
+    2,
+    1_000,
+  );
+
+export const getDatabaseConnectionReserve = (
+  env: NodeJS.ProcessEnv = process.env,
+) => {
+  const budget = getDatabaseTotalConnectionBudget(env);
+  return Math.min(
+    boundedNonNegativeInteger(env.DATABASE_CONNECTION_RESERVE, 3, 100),
+    budget - 1,
+  );
+};
+
+export const getDatabasePoolSize = (
+  env: NodeJS.ProcessEnv = process.env,
+) => {
+  const configured = Number(env.DATABASE_POOL_SIZE);
+  if (Number.isSafeInteger(configured) && configured > 0) {
+    return Math.min(configured, 100);
+  }
+
+  const processCount =
+    getDatabaseApiReplicaCount(env) + getDatabaseWorkerReplicaCount(env);
+  const usableConnections =
+    getDatabaseTotalConnectionBudget(env) - getDatabaseConnectionReserve(env);
+  return Math.max(
+    1,
+    Math.min(Math.floor(usableConnections / processCount), 10),
+  );
+};
+
+export const getDatabasePoolConnectionTimeoutMs = (
+  env: NodeJS.ProcessEnv = process.env,
+) =>
+  boundedPositiveInteger(
+    env.DATABASE_POOL_CONNECTION_TIMEOUT_MS,
+    5_000,
+    1_000,
+    30_000,
+  );
+
+export const getDatabasePoolIdleTimeoutMs = (
+  env: NodeJS.ProcessEnv = process.env,
+) =>
+  boundedPositiveInteger(
+    env.DATABASE_POOL_IDLE_TIMEOUT_MS,
+    30_000,
+    5_000,
+    300_000,
+  );
+
+export const getDatabasePoolBudget = (
+  env: NodeJS.ProcessEnv = process.env,
+) => {
+  const apiReplicas = getDatabaseApiReplicaCount(env);
+  const workerReplicas = getDatabaseWorkerReplicaCount(env);
+  const poolSize = getDatabasePoolSize(env);
+  const reserve = getDatabaseConnectionReserve(env);
+  const totalBudget = getDatabaseTotalConnectionBudget(env);
+  return {
+    apiReplicas,
+    workerReplicas,
+    processCount: apiReplicas + workerReplicas,
+    poolSize,
+    reserve,
+    totalBudget,
+    plannedConnections:
+      poolSize * (apiReplicas + workerReplicas) + reserve,
+  };
+};
+
+export const validateDatabasePoolBudget = (
+  env: NodeJS.ProcessEnv = process.env,
+) => {
+  const budget = getDatabasePoolBudget(env);
+  if (budget.plannedConnections > budget.totalBudget) {
+    throw new Error(
+      `Database pool plan needs ${budget.plannedConnections} connections but ` +
+        `DATABASE_TOTAL_CONNECTION_BUDGET is ${budget.totalBudget}.`,
+    );
+  }
+  return budget;
+};
+
+export const isRuntimeMetricsEnabled = (
+  env: NodeJS.ProcessEnv = process.env,
+) => {
+  if (env.RUNTIME_METRICS_ENABLED?.trim()) {
+    return isEnabled(env.RUNTIME_METRICS_ENABLED);
+  }
+  return isProductionLike(env);
+};
+
+export const getRuntimeMetricsIntervalMs = (
+  env: NodeJS.ProcessEnv = process.env,
+) =>
+  boundedPositiveInteger(
+    env.RUNTIME_METRICS_INTERVAL_MS,
+    60_000,
+    15_000,
+    15 * 60_000,
+  );
 
 export const getDatabaseTransactionTimeoutMs = (
   env: NodeJS.ProcessEnv = process.env,

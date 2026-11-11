@@ -31,7 +31,7 @@
     "prisma:migrate:deploy": "prisma migrate deploy",
     "prisma:reset": "prisma migrate reset",
     "render:build": "npm run prisma:migrate:deploy && npm run build",
-    "test:unit": "tsx --test test/unit/patientSessionPolicy.test.ts test/unit/requestParsers.test.ts test/unit/vnpayProvider.test.ts test/unit/bookingIdentity.test.ts test/unit/rateLimit.test.ts test/unit/permissions.test.ts test/unit/inlineWorkers.test.ts test/unit/routePermissions.test.ts test/unit/medicalFile.test.ts test/unit/concurrency.test.ts test/unit/csvExport.test.ts test/unit/csvParse.test.ts test/unit/maskContact.test.ts test/unit/stockBatch.test.ts test/unit/readiness.test.ts"
+    "test:unit": "tsx --test test/unit/patientSessionPolicy.test.ts test/unit/requestParsers.test.ts test/unit/vnpayProvider.test.ts test/unit/bookingIdentity.test.ts test/unit/rateLimit.test.ts test/unit/permissions.test.ts test/unit/inlineWorkers.test.ts test/unit/routePermissions.test.ts test/unit/medicalFile.test.ts test/unit/concurrency.test.ts test/unit/runtimeMetrics.test.ts test/unit/csvExport.test.ts test/unit/csvParse.test.ts test/unit/maskContact.test.ts test/unit/stockBatch.test.ts test/unit/readiness.test.ts"
   },
   "keywords": [],
   "author": "",
@@ -68,6 +68,7 @@
     "@types/morgan": "^1.9.10",
     "@types/multer": "^2.1.0",
     "@types/node": "^25.8.0",
+    "@types/pg": "^8.20.0",
     "prisma": "^7.8.0",
     "tsx": "^4.22.0",
     "typescript": "^6.0.3"

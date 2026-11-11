@@ -16,12 +16,17 @@ import AuthOtpService from "../services/authOtp.service.js";
 import InvoiceService from "../services/invoice.service.js";
 import ScheduleReconciliationService from "../services/scheduleReconciliation.service.js";
 import SlotPlannerService from "../services/slotPlanner.service.js";
+import {
+  startRuntimeMetrics,
+  stopRuntimeMetrics,
+} from "../observability/runtimeMetrics.js";
 
 const INVOICE_REMINDER_EVERY_MS = 30 * 60 * 1000;
 let lastInvoiceReminderAt = 0;
 
 validateRuntimeEnvironment();
 await ensurePendingOtpReconciliation();
+startRuntimeMetrics("appointment-worker");
 const logNoop = shouldLogWorkerNoop();
 
 const worker = new Worker<AppointmentLifecycleJobData>(
@@ -121,6 +126,7 @@ worker.on("error", (error) => {
 
 const shutdown = async (signal: string) => {
   console.log(`${signal} received, closing appointment lifecycle worker...`);
+  stopRuntimeMetrics();
   await worker.close();
   await prisma.$disconnect();
   process.exit(0);

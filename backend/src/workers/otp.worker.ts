@@ -8,8 +8,13 @@ import {
   type OtpDeliveryJobData,
 } from "../queues/otp.queue.js";
 import { getRedisConnectionOptions, idleRedisOptions } from "../queues/redis.js";
+import {
+  startRuntimeMetrics,
+  stopRuntimeMetrics,
+} from "../observability/runtimeMetrics.js";
 
 validateRuntimeEnvironment();
+startRuntimeMetrics("otp-worker");
 
 const worker = new Worker<OtpDeliveryJobData, void, "send-otp">(
   OTP_DELIVERY_QUEUE_NAME,
@@ -78,6 +83,7 @@ worker.on("error", (error) => {
 
 const shutdown = async (signal: string) => {
   console.log(`${signal} received, closing OTP worker...`);
+  stopRuntimeMetrics();
   await worker.close();
   await prisma.$disconnect();
   process.exit(0);

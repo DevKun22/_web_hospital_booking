@@ -144,6 +144,12 @@ cd mobile   && flutter analyze && flutter test
 
 Gói miễn phí của Render chỉ có một Web Service, nên các worker chạy ngay trong tiến trình API bằng biến `INLINE_WORKERS=otp,appointments,notifications,payments`. Có thể tách ra tiến trình riêng bằng các lệnh `npm run worker:*`.
 
+### Năng lực tải backend
+
+- Pool PostgreSQL được tính theo `DATABASE_TOTAL_CONNECTION_BUDGET`, phần dự phòng và tổng số replica API/worker. Inline worker dùng chung process/pool với API nên không tính vào `DATABASE_WORKER_REPLICA_COUNT`; worker chạy thành service riêng phải được tính.
+- Production mặc định ghi `[RUNTIME_METRICS]` mỗi 60 giây gồm memory, pool PostgreSQL, request/DB query và backlog BullMQ. Bật `DATABASE_QUERY_METRICS_ENABLED=true` trong một khoảng quan sát có kiểm soát khi cần số liệu query chi tiết; không bật `PERFORMANCE_HEADERS_ENABLED` ở production.
+- Không thêm index dựa trên phỏng đoán. Trước mỗi migration index, chạy truy vấn đại diện trên staging/test bằng `EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON)`, lưu kế hoạch trong ticket/PR (không commit file export), so sánh rows estimated/actual, scan type và thời gian trước/sau. Không chạy `ANALYZE` với câu lệnh ghi dữ liệu production.
+
 ## Thanh toán VNPay
 
 VNPay là cổng thanh toán trực tuyến duy nhất. Return URL và IPN dùng chung một xử lý không ghi nhận hai lần; có đối soát giao dịch bị lỡ bằng API `querydr` (worker và khi người dùng mở lại giao dịch) và hoàn tiền toàn phần qua API cho quản trị. Hiện chạy ở môi trường sandbox; đối soát và hoàn tiền mới được kiểm thử bằng phản hồi giả ký đúng đặc tả, chưa thử với sandbox thật.

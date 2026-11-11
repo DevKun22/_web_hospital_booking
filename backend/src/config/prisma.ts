@@ -1,7 +1,11 @@
 import "dotenv/config";
 import { PrismaPg } from "@prisma/adapter-pg";
+import { Pool } from "pg";
 import { PrismaClient } from "../../generated/prisma/client.js";
 import {
+  getDatabasePoolConnectionTimeoutMs,
+  getDatabasePoolIdleTimeoutMs,
+  getDatabasePoolSize,
   getDatabaseTransactionMaxWaitMs,
   getDatabaseTransactionTimeoutMs,
   isDatabaseQueryMetricsEnabled,
@@ -22,10 +26,20 @@ if (configuredSchema && !/^[A-Za-z_][A-Za-z0-9_]*$/.test(configuredSchema)) {
 
 export const databaseSchema = configuredSchema || "public";
 
-const adapter = new PrismaPg(
-  { connectionString },
-  configuredSchema ? { schema: configuredSchema } : undefined,
-);
+export const databasePool = new Pool({
+  connectionString,
+  max: getDatabasePoolSize(),
+  connectionTimeoutMillis: getDatabasePoolConnectionTimeoutMs(),
+  idleTimeoutMillis: getDatabasePoolIdleTimeoutMs(),
+});
+
+const adapter = new PrismaPg(databasePool, {
+  ...(configuredSchema ? { schema: configuredSchema } : {}),
+  disposeExternalPool: true,
+  onPoolError(error) {
+    console.error("[DATABASE_POOL] idle client error:", error);
+  },
+});
 const queryMetricsEnabled = isDatabaseQueryMetricsEnabled();
 const prisma = new PrismaClient({
   adapter,
@@ -43,5 +57,12 @@ if (queryMetricsEnabled) {
     recordDatabaseQuery(event.duration);
   });
 }
+
+export const getDatabasePoolSnapshot = () => ({
+  max: databasePool.options.max,
+  total: databasePool.totalCount,
+  idle: databasePool.idleCount,
+  waiting: databasePool.waitingCount,
+});
 
 export { prisma };
