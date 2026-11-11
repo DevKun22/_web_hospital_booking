@@ -6,7 +6,9 @@ import type {
   PaymentMethod,
 } from "../../generated/prisma/enums.js";
 import { prisma } from "../config/prisma.js";
+import { getReminderDispatchConcurrency } from "../config/environment.js";
 import { AppError } from "../utils/appError.js";
+import { mapWithConcurrency } from "../utils/concurrency.js";
 import {
   generateInvoiceBarcode,
   generateInvoiceCode,
@@ -920,26 +922,34 @@ class InvoiceService {
         })
       ).map((item) => item.dedupeKey),
     );
-    let reminded = 0;
-    for (const invoice of candidates) {
-      if (already.has(`invoice:${invoice.id}:reminder`)) continue;
-      try {
-        const notification = await PatientEventNotificationService.createPaymentReminder(
-          {
-            userId: invoice.patientId,
-            invoiceId: invoice.id,
-            invoiceCode: invoice.invoiceCode,
-            bookingCode: invoice.appointment.bookingCode,
-            finalAmount: invoice.finalAmount,
-          },
-          prisma,
-        );
-        await PatientEventNotificationService.dispatchBestEffort(notification.id);
-        reminded += 1;
-      } catch (error) {
-        console.error(`[INVOICE_REMINDER] invoice=${invoice.id} failed:`, error);
-      }
-    }
+    const results = await mapWithConcurrency(
+      candidates,
+      getReminderDispatchConcurrency(),
+      async (invoice) => {
+        if (already.has(`invoice:${invoice.id}:reminder`)) return false;
+        try {
+          const notification =
+            await PatientEventNotificationService.createPaymentReminder(
+              {
+                userId: invoice.patientId,
+                invoiceId: invoice.id,
+                invoiceCode: invoice.invoiceCode,
+                bookingCode: invoice.appointment.bookingCode,
+                finalAmount: invoice.finalAmount,
+              },
+              prisma,
+            );
+          await PatientEventNotificationService.dispatchBestEffort(
+            notification.id,
+          );
+          return true;
+        } catch (error) {
+          console.error(`[INVOICE_REMINDER] invoice=${invoice.id} failed:`, error);
+          return false;
+        }
+      },
+    );
+    const reminded = results.filter(Boolean).length;
     return { scanned: candidates.length, reminded };
   }
 

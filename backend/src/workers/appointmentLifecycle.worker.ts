@@ -69,12 +69,12 @@ const worker = new Worker<AppointmentLifecycleJobData>(
     if (invoiceReminders && invoiceReminders.reminded > 0) {
       console.log(`[INVOICE_REMINDER] reminded=${invoiceReminders.reminded}`);
     }
-    const [pendingOtp, pendingConfirm, noShows, otpCleanup] = await Promise.all([
-      AppointmentService.reconcileExpiredPendingOtp(),
-      AppointmentService.reconcilePastPendingConfirmations(),
-      AppointmentService.reconcileNoShows(),
-      AuthOtpService.cleanupExpired(),
-    ]);
+    // Chạy tuần tự các nhóm để RECONCILIATION_CONCURRENCY là trần chung của sweep,
+    // không bị nhân lên bởi ba batch cùng khởi động một lúc.
+    const pendingOtp = await AppointmentService.reconcileExpiredPendingOtp();
+    const pendingConfirm = await AppointmentService.reconcilePastPendingConfirmations();
+    const noShows = await AppointmentService.reconcileNoShows();
+    const otpCleanup = await AuthOtpService.cleanupExpired();
     if (noShows.marked > 0 || otpCleanup.deleted > 0) {
       console.log(
         `[LIFECYCLE_MAINTENANCE] noShowMarked=${noShows.marked} otpDeleted=${otpCleanup.deleted}`,

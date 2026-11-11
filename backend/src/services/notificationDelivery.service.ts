@@ -1,6 +1,10 @@
 import { Prisma } from "../../generated/prisma/client.js";
-import { getNotificationMaxDeliveryAttempts } from "../config/environment.js";
+import {
+  getNotificationDispatchConcurrency,
+  getNotificationMaxDeliveryAttempts,
+} from "../config/environment.js";
 import { prisma } from "../config/prisma.js";
+import { mapWithConcurrency } from "../utils/concurrency.js";
 import FcmPushService from "./fcmPush.service.js";
 import { isNotificationPushEnabled } from "./notificationPreference.service.js";
 
@@ -247,20 +251,34 @@ class NotificationDeliveryService {
 
     if (!summary.configured) return summary;
 
-    for (const item of due) {
-      try {
-        const result = await this.dispatchNotification(item.notificationId);
+    const results = await mapWithConcurrency(
+      due,
+      getNotificationDispatchConcurrency(),
+      async (item) => {
+        try {
+          return {
+            result: await this.dispatchNotification(item.notificationId),
+            error: null,
+          };
+        } catch (error) {
+          console.error(
+            `[NOTIFICATION_WORKER] notification=${item.notificationId} dispatch failed:`,
+            error,
+          );
+          return { result: null, error };
+        }
+      },
+    );
+
+    for (const { result, error } of results) {
+      if (result) {
         summary.sent += result.sent;
         summary.failed += result.failed;
         summary.exhausted += result.exhausted;
         summary.invalid += result.invalid;
         summary.cancelled += result.cancelled;
-      } catch (error) {
+      } else if (error) {
         summary.errors += 1;
-        console.error(
-          `[NOTIFICATION_WORKER] notification=${item.notificationId} dispatch failed:`,
-          error,
-        );
       }
     }
     return summary;

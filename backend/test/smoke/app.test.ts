@@ -31,8 +31,13 @@ const {
   isDatabaseQueryMetricsEnabled,
   isPerformanceHeadersEnabled,
   getNotificationDispatchBatchSize,
+  getNotificationDispatchConcurrency,
   getNotificationMaxDeliveryAttempts,
   getNotificationWorkerIntervalMs,
+  getMedicalFileDownloadConcurrency,
+  getMedicalFileUploadConcurrency,
+  getReconciliationConcurrency,
+  getReminderDispatchConcurrency,
   shouldLogWorkerNoop,
   validateNotificationWorkerEnvironment,
   validateRuntimeEnvironment,
@@ -587,6 +592,42 @@ test("notification worker settings reject unsafe interval and batch values", () 
   assert.equal(
     getNotificationDispatchBatchSize({ NOTIFICATION_DISPATCH_BATCH_SIZE: "1000" }),
     500,
+  );
+});
+
+test("I/O and batch concurrency settings have conservative bounded defaults", () => {
+  assert.equal(getMedicalFileUploadConcurrency({}), 2);
+  assert.equal(
+    getMedicalFileUploadConcurrency({ MEDICAL_FILE_UPLOAD_CONCURRENCY: "99" }),
+    16,
+  );
+  assert.equal(getMedicalFileDownloadConcurrency({}), 8);
+  assert.equal(
+    getMedicalFileDownloadConcurrency({
+      MEDICAL_FILE_DOWNLOAD_CONCURRENCY: "999",
+    }),
+    64,
+  );
+  assert.equal(getNotificationDispatchConcurrency({}), 4);
+  assert.equal(
+    getNotificationDispatchConcurrency({
+      NOTIFICATION_DISPATCH_CONCURRENCY: "0",
+    }),
+    4,
+  );
+  assert.equal(
+    getNotificationDispatchConcurrency({
+      NOTIFICATION_DISPATCH_CONCURRENCY: "99",
+    }),
+    32,
+  );
+  assert.equal(
+    getReminderDispatchConcurrency({ REMINDER_DISPATCH_CONCURRENCY: "99" }),
+    16,
+  );
+  assert.equal(
+    getReconciliationConcurrency({ RECONCILIATION_CONCURRENCY: "99" }),
+    16,
   );
 });
 

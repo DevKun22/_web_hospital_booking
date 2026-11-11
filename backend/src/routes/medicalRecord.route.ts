@@ -13,6 +13,7 @@ import {
 import { createPrescriptionHandler as createPrescriptionFromRecordHandler } from "../controllers/prescription.controller.js";
 import { authDashboard, requirePermission } from "../middlewares/auth.middleware.js";
 import { validate } from "../middlewares/validate.middleware.js";
+import { limitMedicalFileDownload } from "../middlewares/resourceConcurrency.middleware.js";
 import {
   createLabResultSchema,
   updateLabResultSchema,
@@ -32,11 +33,13 @@ router.get(
 router.get(
   "/:id/file",
   requirePermission("record.view"),
+  limitMedicalFileDownload,
   downloadMedicalFileHandler,
 );
 router.get(
   "/:id/lab-results/:labResultId/file",
   requirePermission("record.view"),
+  limitMedicalFileDownload,
   downloadMedicalFileHandler,
 );
 router.get(

@@ -38,6 +38,7 @@ import {
   getPatientAppointmentReviewHandler,
 } from "../controllers/review.controller.js";
 import { createAppointmentReviewSchema } from "../validations/review.validation.js";
+import { limitMedicalFileDownload } from "../middlewares/resourceConcurrency.middleware.js";
 
 const router = Router();
 router.use(authPatient);
@@ -67,8 +68,16 @@ router.post(
 );
 router.get("/medical-records", listPatientMedicalRecordsHandler);
 router.get("/medical-records/:id", getPatientMedicalRecordHandler);
-router.get("/medical-records/:id/file", downloadPatientMedicalFileHandler);
-router.get("/medical-records/:id/lab-results/:labResultId/file", downloadPatientMedicalFileHandler);
+router.get(
+  "/medical-records/:id/file",
+  limitMedicalFileDownload,
+  downloadPatientMedicalFileHandler,
+);
+router.get(
+  "/medical-records/:id/lab-results/:labResultId/file",
+  limitMedicalFileDownload,
+  downloadPatientMedicalFileHandler,
+);
 router.get("/prescriptions", listPatientPrescriptionsHandler);
 router.get("/prescriptions/:id", getPatientPrescriptionHandler);
 router.get("/invoices", listPatientInvoicesHandler);

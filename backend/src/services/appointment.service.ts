@@ -13,6 +13,7 @@ import { prisma } from "../config/prisma.js";
 import {
   getAppointmentReconciliationBatchSize,
   getBookingHoldMinutes,
+  getReconciliationConcurrency,
 } from "../config/environment.js";
 import { enqueuePendingOtpExpiry } from "../queues/appointmentLifecycle.queue.js";
 import AuthOtpService from "./authOtp.service.js";
@@ -23,6 +24,7 @@ import {
 } from "./bookingIdentity.js";
 import { canDeliverSms } from "../config/otpChannels.js";
 import { AppError } from "../utils/appError.js";
+import { mapWithConcurrency } from "../utils/concurrency.js";
 import { generateBookingCode } from "../utils/bookingCode.js";
 import {
   getVietnamNowParts,
@@ -1807,24 +1809,27 @@ class AppointmentService {
         now.getTime(),
     );
 
-    let marked = 0;
-    let noop = 0;
-    for (const item of due) {
-      try {
-        await this.markNoShow(
-          item.id,
-          undefined,
-          `Tự động đánh dấu vắng mặt: quá ${noShowGraceMinutes} phút chưa check-in`,
-        );
-        marked += 1;
-      } catch (error) {
-        if (error instanceof AppError && error.code === "APPOINTMENT_STATE_CONFLICT") {
-          noop += 1;
-          continue;
+    const outcomes = await mapWithConcurrency(
+      due,
+      getReconciliationConcurrency(),
+      async (item) => {
+        try {
+          await this.markNoShow(
+            item.id,
+            undefined,
+            `Tự động đánh dấu vắng mặt: quá ${noShowGraceMinutes} phút chưa check-in`,
+          );
+          return "MARKED" as const;
+        } catch (error) {
+          if (error instanceof AppError && error.code === "APPOINTMENT_STATE_CONFLICT") {
+            return "NOOP" as const;
+          }
+          throw error;
         }
-        throw error;
-      }
-    }
+      },
+    );
+    const marked = outcomes.filter((outcome) => outcome === "MARKED").length;
+    const noop = outcomes.length - marked;
     return { scanned: due.length, marked, noop };
   }
 
@@ -1924,17 +1929,20 @@ class AppointmentService {
       ),
     });
 
-    let expired = 0;
-    let noop = 0;
-    for (const candidate of candidates) {
-      const result = await this.expirePendingOtpAppointment(candidate.id, {
-        actor: options.actor,
-        now,
-        fallbackExpireMinutes,
-      });
-      if (result.outcome === "EXPIRED") expired += 1;
-      else noop += 1;
-    }
+    const outcomes = await mapWithConcurrency(
+      candidates,
+      getReconciliationConcurrency(),
+      async (candidate) =>
+        this.expirePendingOtpAppointment(candidate.id, {
+          actor: options.actor,
+          now,
+          fallbackExpireMinutes,
+        }),
+    );
+    const expired = outcomes.filter(
+      (result) => result.outcome === "EXPIRED",
+    ).length;
+    const noop = outcomes.length - expired;
 
     return {
       expiredBefore,
@@ -2036,16 +2044,19 @@ class AppointmentService {
       ),
     });
 
-    let expired = 0;
-    let noop = 0;
-    for (const candidate of candidates) {
-      const result = await this.expirePastPendingConfirmation(candidate.id, {
-        actor: options.actor,
-        now,
-      });
-      if (result.outcome === "EXPIRED") expired += 1;
-      else noop += 1;
-    }
+    const outcomes = await mapWithConcurrency(
+      candidates,
+      getReconciliationConcurrency(),
+      async (candidate) =>
+        this.expirePastPendingConfirmation(candidate.id, {
+          actor: options.actor,
+          now,
+        }),
+    );
+    const expired = outcomes.filter(
+      (result) => result.outcome === "EXPIRED",
+    ).length;
+    const noop = outcomes.length - expired;
 
     return { scanned: candidates.length, expired, noop };
   }
