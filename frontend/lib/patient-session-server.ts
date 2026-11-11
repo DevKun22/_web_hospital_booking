@@ -6,7 +6,7 @@ import { NextResponse } from "next/server";
 const API_BASE_URL = (
   process.env.INTERNAL_API_URL ||
   process.env.NEXT_PUBLIC_API_URL ||
-  "http://localhost:4000/api"
+  "http://localhost:4000/api/v1"
 ).replace(/\/$/, "");
 
 const ACCESS_COOKIE = "hb_patient_access";
@@ -75,7 +75,7 @@ export async function getAuthorizedPatientRequest<T>(
 
   let result = await request(accessToken);
   if (result.response.status === 401 && refreshToken) {
-    const refresh = await backendRequest<PatientSessionTokens>("/v1/auth/refresh", {
+    const refresh = await backendRequest<PatientSessionTokens>("/auth/refresh", {
       method: "POST",
       body: JSON.stringify({
         refreshToken,
@@ -109,7 +109,7 @@ export async function getAuthorizedPatientRawRequest(path: string) {
 
   let response = await request(accessToken);
   if (response.status === 401 && refreshToken) {
-    const refresh = await backendRequest<PatientSessionTokens>("/v1/auth/refresh", {
+    const refresh = await backendRequest<PatientSessionTokens>("/auth/refresh", {
       method: "POST",
       body: JSON.stringify({ refreshToken, platform: "web", deviceName: "Trình duyệt Web" }),
     });

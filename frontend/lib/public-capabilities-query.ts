@@ -14,7 +14,7 @@ export type PublicCapabilities = {
 export function usePublicCapabilities() {
   return useQuery({
     queryKey: ["public", "capabilities"],
-    queryFn: () => apiRequest<PublicCapabilities>("/v1/capabilities"),
+    queryFn: () => apiRequest<PublicCapabilities>("/capabilities"),
     staleTime: 5 * 60 * 1000,
     refetchOnWindowFocus: false,
   });

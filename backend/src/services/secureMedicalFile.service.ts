@@ -4,19 +4,12 @@ import { pipeline } from "node:stream/promises";
 import { cloudinary } from "../config/cloudinary.js";
 import { AppError } from "../utils/appError.js";
 import { sniffMedicalFile } from "../utils/fileSignature.js";
-
-const DEFAULT_ALLOWED_HOSTS = ["res.cloudinary.com"];
+import { getRuntimeConfig } from "../config/runtimeConfig.js";
 
 const getAllowedHosts = () =>
-  (process.env.MEDICAL_FILE_ALLOWED_HOSTS || DEFAULT_ALLOWED_HOSTS.join(","))
-    .split(",")
-    .map((host) => host.trim().toLowerCase())
-    .filter(Boolean);
+  getRuntimeConfig().medicalFile.allowedHosts;
 
-const getMaxBytes = () => {
-  const value = Number(process.env.MEDICAL_FILE_MAX_BYTES || 20 * 1024 * 1024);
-  return Number.isSafeInteger(value) && value > 0 ? value : 20 * 1024 * 1024;
-};
+const getMaxBytes = () => getRuntimeConfig().medicalFile.maxBytes;
 
 // Đường dẫn tệp riêng tư của Cloudinary: /<cloud>/raw/authenticated/[s--chữ ký--/]v<phiên bản>/<public_id>
 const AUTHENTICATED_RAW_PATH = /^\/[^/]+\/raw\/authenticated\/(?:s--[^/]+--\/)?v(\d+)\/(.+)$/;

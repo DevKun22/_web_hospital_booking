@@ -38,8 +38,9 @@ Web công khai / Dashboard (Next.js) ─┐
                                                       └── VNPay (thanh toán, IPN)
 ```
 
-- Web và mobile không truy cập cơ sở dữ liệu trực tiếp, chỉ gọi REST API. Web công khai và dashboard dùng các route `/api`; cổng bệnh nhân (web và mobile) dùng `/api/v1`; tất cả cùng một lớp nghiệp vụ.
+- Web và mobile không truy cập cơ sở dữ liệu trực tiếp, chỉ gọi REST API. Mọi client dùng duy nhất namespace `/api/v1`; không duy trì route legacy song song.
 - Backend quyết định quyền truy cập, trạng thái lịch khám và tính hợp lệ của dữ liệu; PostgreSQL là nguồn dữ liệu duy nhất.
+- Cấu hình runtime của controller, service và worker được parse/default tập trung tại `backend/src/config/runtimeConfig.ts`; validation an toàn khi khởi động nằm trong các module `backend/src/config`.
 - Hộp thư thông báo lưu trong PostgreSQL là dữ liệu chính, push chỉ là kênh chuyển phát.
 - `/health` chỉ xác nhận tiến trình API còn sống; `/ready` báo riêng PostgreSQL và Redis. PostgreSQL lỗi luôn trả `503`; Redis lỗi mặc định trả trạng thái `degraded` để hệ thống tiếp tục bằng policy dự phòng, hoặc trả `503` khi bật `REDIS_REQUIRED_FOR_READINESS=true`.
 - Các việc nền (gửi OTP, nhắc lịch, hết hạn giữ chỗ, đối soát thanh toán, nhắc thanh toán hóa đơn, tự sinh khung giờ) chạy qua hàng đợi hoặc worker, có thể chạy ngay trong tiến trình API (`INLINE_WORKERS`). Chu kỳ mặc định được kéo dài để tiết kiệm lượt truy vấn trên gói miễn phí và chỉnh được bằng biến môi trường. Khi hàng đợi Redis lỗi hoặc hết hạn mức, OTP được gửi trực tiếp thay vì qua hàng đợi.
@@ -84,7 +85,7 @@ npm run dev
 
 # Frontend (cổng 3000)
 cd frontend
-cp .env.example .env.local  # NEXT_PUBLIC_API_URL=http://localhost:4000/api
+cp .env.example .env.local  # NEXT_PUBLIC_API_URL=http://localhost:4000/api/v1
 npm install
 npm run dev
 ```
@@ -128,7 +129,7 @@ cd mobile   && flutter analyze && flutter test
 ```
 
 - Kiểm thử tích hợp chạy trên cơ sở dữ liệu **riêng** (`TEST_DATABASE_URL`, tên hoặc schema phải chứa `test` và khác `DATABASE_URL`); bộ chạy từ chối khởi động nếu không đúng để không xóa nhầm dữ liệu thật.
-- Tại 10/11/2026: 95 kiểm thử tích hợp, 58 kiểm thử đơn vị và 21 smoke test ở backend, 19 kiểm thử đơn vị ở frontend (`npm test`, chạy bằng `node:test` và `tsx`); 188 kiểm thử Flutter (số liệu ngày 08/11).
+- Tại 11/11/2026: 101 kiểm thử tích hợp được chia theo 5 bounded context và chạy tuần tự trên schema riêng; các kiểm thử backend còn lại, frontend và Flutter được CI kiểm đếm khi chạy.
 - CI (`.github/workflows/phase0.yml`): các job `guard` (chặn tệp bí mật), `backend`, `frontend`, `mobile` chạy song song và chỉ chạy khi pull request có đổi phần tương ứng (đổi workflow hoặc chạy trên `main` thì chạy đủ); build APK chỉ khi đổi mobile hoặc trên `main`. Job `verify` gom kết quả: phần bị bỏ qua tính là đạt, phần lỗi thì lỗi. Backend: kiểm tra schema Prisma, kiểu, smoke, đơn vị, tích hợp, build. Frontend: kiểm tra kiểu, lint, kiểm thử đơn vị, build. Mobile: phân tích, kiểm thử Flutter, cảnh báo tệp Dart trên 800 dòng.
 
 ## Triển khai
@@ -154,7 +155,7 @@ Production dùng duy nhất một topology: API và toàn bộ worker chạy tro
 
 VNPay là cổng thanh toán trực tuyến duy nhất. Return URL và IPN dùng chung một xử lý không ghi nhận hai lần; có đối soát giao dịch bị lỡ bằng API `querydr` (worker và khi người dùng mở lại giao dịch) và hoàn tiền toàn phần qua API cho quản trị. Hiện chạy ở môi trường sandbox; đối soát và hoàn tiền mới được kiểm thử bằng phản hồi giả ký đúng đặc tả, chưa thử với sandbox thật.
 
-Cấu hình (chỉ ở backend, biến mẫu trong `backend/.env.example`): `PAYMENT_VNPAY_ENABLED`, `VNPAY_TMN_CODE`, `VNPAY_HASH_SECRET`, `VNPAY_PAYMENT_URL`, `VNPAY_RETURN_URL` (HTTPS, trỏ về `/api/payments/vnpay/return`), `PAYMENT_RESULT_URL`. Địa chỉ IPN `/api/payments/vnpay/ipn` được đăng ký trong cổng quản trị merchant của VNPay. Thiếu khóa thì VNPay tự ẩn khỏi ứng dụng.
+Cấu hình (chỉ ở backend, biến mẫu trong `backend/.env.example`): `PAYMENT_VNPAY_ENABLED`, `VNPAY_TMN_CODE`, `VNPAY_HASH_SECRET`, `VNPAY_PAYMENT_URL`, `VNPAY_RETURN_URL` (HTTPS, trỏ về `/api/v1/payments/vnpay/return`), `PAYMENT_RESULT_URL`. Địa chỉ IPN `/api/v1/payments/vnpay/ipn` được đăng ký trong cổng quản trị merchant của VNPay. Thiếu khóa thì VNPay tự ẩn khỏi ứng dụng.
 
 ## Phân quyền và bảo vệ dữ liệu y tế
 

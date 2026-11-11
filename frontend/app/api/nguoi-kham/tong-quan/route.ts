@@ -21,7 +21,7 @@ type Envelope<T> = { data?: T; meta?: { total?: number } };
 
 async function authorized<T>(path: string, accessToken: string) {
   const response = await fetch(
-    `${(process.env.INTERNAL_API_URL || process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api").replace(/\/$/, "")}${path}`,
+    `${(process.env.INTERNAL_API_URL || process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api/v1").replace(/\/$/, "")}${path}`,
     {
       cache: "no-store",
       headers: { Accept: "application/json", Authorization: `Bearer ${accessToken}` },
@@ -31,7 +31,7 @@ async function authorized<T>(path: string, accessToken: string) {
 }
 
 export async function GET() {
-  const profile = await getAuthorizedPatientRequest<PatientUser>("/v1/me");
+  const profile = await getAuthorizedPatientRequest<PatientUser>("/me");
   if (!profile.response.ok || !profile.payload?.data) {
     const response = patientErrorResponse(profile.payload, profile.response.status || 401);
     if (profile.response.status === 401) clearPatientSessionCookies(response);
@@ -43,12 +43,12 @@ export async function GET() {
   if (!token) return NextResponse.json({ success: false, message: "Vui lòng đăng nhập." }, { status: 401 });
 
   const [appointments, records, prescriptions, invoices, dependents, sessions] = await Promise.all([
-    authorized<PatientAppointment[]>("/v1/me/appointments?page=1&limit=10", token),
-    authorized<PatientMedicalRecord[]>("/v1/me/medical-records?page=1&limit=3", token),
-    authorized<PatientPrescription[]>("/v1/me/prescriptions?page=1&limit=3", token),
-    authorized<PatientInvoice[]>("/v1/me/invoices?page=1&limit=3", token),
-    authorized<PatientDependent[]>("/v1/me/dependents", token),
-    authorized<PatientSession[]>("/v1/auth/sessions", token),
+    authorized<PatientAppointment[]>("/me/appointments?page=1&limit=10", token),
+    authorized<PatientMedicalRecord[]>("/me/medical-records?page=1&limit=3", token),
+    authorized<PatientPrescription[]>("/me/prescriptions?page=1&limit=3", token),
+    authorized<PatientInvoice[]>("/me/invoices?page=1&limit=3", token),
+    authorized<PatientDependent[]>("/me/dependents", token),
+    authorized<PatientSession[]>("/auth/sessions", token),
   ]);
 
   const failed = [appointments, records, prescriptions, invoices, dependents, sessions].find(

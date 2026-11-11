@@ -1,4 +1,4 @@
-# Backend Phase 0 tests
+# Backend tests
 
 ## Fast checks
 
@@ -9,7 +9,7 @@ npm test
 npm run test:types
 ```
 
-## Integration baseline
+## Integration suites
 
 Set `TEST_DATABASE_URL` to a dedicated PostgreSQL database or schema. Its
 database name (or `schema` query parameter) must contain `test`, and it must
@@ -22,12 +22,18 @@ already has query parameters).
 npm run test:integration
 ```
 
-The integration runner applies committed Prisma migrations, truncates test
-fixtures between cases, and verifies the booking, OTP, dashboard session,
-doctor ownership, lookup grant, atomic appointment transitions, pending-booking
-expiry, patient canonical-data protection, invoice, payment idempotency, and
-legacy response contracts. Never point `TEST_DATABASE_URL` at development or
-production data.
+The integration runner applies committed Prisma migrations and runs the
+bounded-context suites serially because every case resets the same isolated
+schema:
+
+- `booking-platform.test.ts`: public API, booking and appointment lifecycle.
+- `auth-access.test.ts`: dashboard authentication, RBAC, audit and data access.
+- `billing-payments.test.ts`: invoices, payments, VNPay and reconciliation.
+- `patient-experience.test.ts`: patient portal, notifications and care journey.
+- `pharmacy-operations.test.ts`: inventory, dispensing and pharmacy workflows.
+
+Shared fixture and lifecycle setup lives in `integration/support/context.ts`.
+Never point `TEST_DATABASE_URL` at development or production data.
 
 Run the whole quality gate (types, smoke, unit, integration) with:
 

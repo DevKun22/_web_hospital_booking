@@ -22,6 +22,7 @@ import {
   checkReadiness,
   type ReadinessReport,
 } from "./services/readiness.service.js";
+import { getRuntimeConfig } from "./config/runtimeConfig.js";
 
 type CreateAppOptions = {
   requestLogging?: boolean;
@@ -33,13 +34,13 @@ type CreateAppOptions = {
 };
 
 const getAllowedOrigins = (isProduction: boolean) => {
+  const { frontendUrls } = getRuntimeConfig().server;
   const defaultFrontendOrigins = isProduction
     ? ""
     : "http://localhost:3000,http://localhost:3001,http://localhost:5173";
 
   return (
-    process.env.FRONTEND_URLS ||
-    process.env.FRONTEND_URL ||
+    frontendUrls ||
     defaultFrontendOrigins
   )
     .split(",")
@@ -146,7 +147,7 @@ export const createApp = (options: CreateAppOptions = {}) => {
     });
   });
 
-  app.use("/api", routes);
+  app.use("/api/v1", routes);
 
   app.use(notFound);
   app.use(errorMiddleware);

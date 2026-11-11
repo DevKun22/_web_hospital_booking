@@ -1,3 +1,5 @@
+import { getRuntimeConfig } from "../../config/runtimeConfig.js";
+
 export type AccountChangeKind =
   | "PASSWORD_RESET"
   | "EMAIL_CHANGED"
@@ -10,7 +12,6 @@ const changeLabel: Record<AccountChangeKind, string> = {
   PHONE_CHANGED: "Số điện thoại đăng nhập của tài khoản đã được thay đổi",
   ROLE_CHANGED: "Vai trò của tài khoản đã được thay đổi",
 };
-
 const escapeHtml = (value: string) =>
   value
     .replace(/&/g, "&amp;")
@@ -25,7 +26,7 @@ export const buildAccountChangeEmailTemplate = (input: {
   changes: AccountChangeKind[];
   at: Date;
 }) => {
-  const brandName = process.env.MAIL_BRAND_NAME || "Hospital Booking";
+  const brandName = getRuntimeConfig().email.brandName;
   const time = new Intl.DateTimeFormat("vi-VN", {
     dateStyle: "short",
     timeStyle: "short",

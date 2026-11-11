@@ -1,5 +1,6 @@
 import { Resend } from "resend";
 import { AppError } from "../utils/appError.js";
+import { getRuntimeConfig } from "../config/runtimeConfig.js";
 
 type SendMailInput = {
   to: string;
@@ -10,7 +11,7 @@ type SendMailInput = {
 
 class EmailService {
   private getResendClient() {
-    const apiKey = process.env.RESEND_API_KEY;
+    const apiKey = getRuntimeConfig().email.resendApiKey;
 
     if (!apiKey) {
       throw new AppError(
@@ -25,9 +26,7 @@ class EmailService {
   async sendMail(input: SendMailInput) {
     const resend = this.getResendClient();
 
-    const from =
-      process.env.RESEND_FROM ||
-      "Hospital Booking <onboarding@resend.dev>";
+    const from = getRuntimeConfig().email.from;
 
     const { error } = await resend.emails.send({
       from,

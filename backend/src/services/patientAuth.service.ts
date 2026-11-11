@@ -13,11 +13,12 @@ import {
 import AuthSessionService, {
   type SessionMeta,
 } from "./authSession.service.js";
+import { getRuntimeConfig } from "../config/runtimeConfig.js";
 
 const MAX_CHALLENGE_ATTEMPTS = 5;
 const CHALLENGE_EXPIRES_SECONDS = 5 * 60;
-const ACCESS_TOKEN_EXPIRES_IN = (process.env
-  .PATIENT_ACCESS_TOKEN_EXPIRES_IN || "15m") as SignOptions["expiresIn"];
+const ACCESS_TOKEN_EXPIRES_IN = getRuntimeConfig().patientSession
+  .accessTokenExpiresIn as SignOptions["expiresIn"];
 
 const toPatientUser = (user: {
   id: string;

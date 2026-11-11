@@ -1,30 +1,21 @@
 import { AppError } from "../../../utils/appError.js";
 import type { AIAdapter, GenerateReplyInput } from "./ai.adapter.js";
+import { getRuntimeConfig } from "../../../config/runtimeConfig.js";
 
 const getModel = (model?: string) =>
-  model || process.env.GEMINI_MODEL || "gemini-2.5-flash";
+  model || getRuntimeConfig().chatbot.model;
 
-const DEFAULT_AI_TIMEOUT_MS = 8_000;
-const MIN_AI_TIMEOUT_MS = 1_000;
-// Keep the server-side AI budget below the mobile client's default 15-second
-// receive timeout so the deterministic chatbot fallback can still respond.
-const MAX_AI_TIMEOUT_MS = 12_000;
-
-const getAIRequestTimeoutMs = () => {
-  const configured = Number(process.env.CHATBOT_AI_TIMEOUT_MS);
-  if (!Number.isFinite(configured)) return DEFAULT_AI_TIMEOUT_MS;
-  return Math.min(
-    MAX_AI_TIMEOUT_MS,
-    Math.max(MIN_AI_TIMEOUT_MS, Math.trunc(configured)),
-  );
-};
+// Giữ ngân sách AI phía server thấp hơn timeout nhận mặc định 15 giây của mobile
+// để chatbot vẫn có thể trả lời bằng fallback xác định.
+const getAIRequestTimeoutMs = () => getRuntimeConfig().chatbot.aiTimeoutMs;
 
 // Gọi REST trực tiếp thay vì kéo cả Firebase client SDK vào backend.
 // - GEMINI_API_KEY: Gemini Developer API (generativelanguage.googleapis.com).
 // - Nếu không có, dùng proxy Firebase AI Logic với FIREBASE_API_KEY +
 //   FIREBASE_PROJECT_ID (cùng endpoint mà SDK firebase/ai đã dùng trước đây).
 const resolveEndpoint = (model: string) => {
-  const geminiKey = process.env.GEMINI_API_KEY?.trim();
+  const config = getRuntimeConfig().chatbot;
+  const geminiKey = config.geminiApiKey;
   if (geminiKey) {
     return {
       url: `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
@@ -32,8 +23,8 @@ const resolveEndpoint = (model: string) => {
     };
   }
 
-  const firebaseKey = (process.env.FIREBASE_API_KEY || process.env.API_KEY)?.trim();
-  const projectId = (process.env.FIREBASE_PROJECT_ID || process.env.PROJECT_ID)?.trim();
+  const firebaseKey = config.firebaseApiKey;
+  const projectId = config.projectId;
   if (!firebaseKey || !projectId) {
     throw new AppError(
       "Chưa cấu hình GEMINI_API_KEY hoặc FIREBASE_API_KEY + FIREBASE_PROJECT_ID",

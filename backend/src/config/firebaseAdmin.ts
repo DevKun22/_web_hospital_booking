@@ -5,6 +5,7 @@ import {
   initializeApp,
   type App,
 } from "firebase-admin/app";
+import { getRuntimeConfig } from "./runtimeConfig.js";
 
 const FIREBASE_ADMIN_APP_NAME = "hospital-booking-notifications";
 
@@ -39,11 +40,10 @@ const decodeServiceAccount = (value: string) => {
 
 export const isFirebaseAdminConfigured = (
   env: NodeJS.ProcessEnv = process.env,
-) =>
-  Boolean(
-    env.FIREBASE_SERVICE_ACCOUNT_BASE64?.trim() ||
-      env.GOOGLE_APPLICATION_CREDENTIALS?.trim(),
-  );
+) => {
+  const config = getRuntimeConfig(env).firebase;
+  return Boolean(config.serviceAccountBase64 || config.applicationCredentials);
+};
 
 export const getFirebaseAdminApp = (): App => {
   const existing = getApps().find(
@@ -51,8 +51,8 @@ export const getFirebaseAdminApp = (): App => {
   );
   if (existing) return existing;
 
-  const encodedServiceAccount =
-    process.env.FIREBASE_SERVICE_ACCOUNT_BASE64?.trim();
+  const config = getRuntimeConfig().firebase;
+  const encodedServiceAccount = config.serviceAccountBase64;
   const credential = encodedServiceAccount
     ? cert(decodeServiceAccount(encodedServiceAccount))
     : applicationDefault();
@@ -60,7 +60,7 @@ export const getFirebaseAdminApp = (): App => {
   return initializeApp(
     {
       credential,
-      projectId: process.env.FIREBASE_PROJECT_ID?.trim() || undefined,
+      projectId: config.projectId,
     },
     FIREBASE_ADMIN_APP_NAME,
   );

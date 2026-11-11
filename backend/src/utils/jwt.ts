@@ -1,6 +1,7 @@
 import jwt, { JwtPayload, SignOptions } from "jsonwebtoken";
+import { getRuntimeConfig } from "../config/runtimeConfig.js";
 
-const JWT_SECRET = process.env.JWT_SECRET!;
+const getJwtSecret = () => getRuntimeConfig().jwt.secret;
 const PATIENT_TOKEN_AUDIENCE = "hospital-patient-api";
 const DASHBOARD_TOKEN_AUDIENCE = "hospital-dashboard-api";
 const TOKEN_ISSUER = "hospital-booking-api";
@@ -21,7 +22,7 @@ export const generateDashboardAccessToken = (
       ...payload,
       tokenType: "DASHBOARD_ACCESS",
     },
-    JWT_SECRET,
+    getJwtSecret(),
     {
       expiresIn,
       audience: DASHBOARD_TOKEN_AUDIENCE,
@@ -31,7 +32,7 @@ export const generateDashboardAccessToken = (
   );
 
 export const verifyDashboardAccessToken = (token: string): TokenPayload => {
-  const payload = jwt.verify(token, JWT_SECRET, {
+  const payload = jwt.verify(token, getJwtSecret(), {
     audience: DASHBOARD_TOKEN_AUDIENCE,
     issuer: TOKEN_ISSUER,
   }) as TokenPayload;
@@ -59,7 +60,7 @@ export const generatePatientAccessToken = (
       role: "PATIENT",
       tokenType: "PATIENT_ACCESS",
     },
-    JWT_SECRET,
+    getJwtSecret(),
     {
       expiresIn,
       audience: PATIENT_TOKEN_AUDIENCE,
@@ -69,7 +70,7 @@ export const generatePatientAccessToken = (
   );
 
 export const verifyPatientAccessToken = (token: string): TokenPayload => {
-  const payload = jwt.verify(token, JWT_SECRET, {
+  const payload = jwt.verify(token, getJwtSecret(), {
     audience: PATIENT_TOKEN_AUDIENCE,
     issuer: TOKEN_ISSUER,
   }) as TokenPayload;

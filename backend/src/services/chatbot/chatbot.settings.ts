@@ -1,5 +1,6 @@
 import type { Prisma } from "../../../generated/prisma/client.js";
 import { prisma } from "../../config/prisma.js";
+import { getRuntimeConfig } from "../../config/runtimeConfig.js";
 
 export const CHATBOT_RUNTIME_SETTING_KEY = "chatbot_runtime";
 
@@ -92,12 +93,7 @@ type RuntimeSettingsRecord = {
   updatedAt: Date;
 };
 
-const rawSettingsCacheTtl = Number(
-  process.env.CHATBOT_SETTINGS_CACHE_TTL_MS || 60000,
-);
-const settingsCacheTtlMs = Number.isFinite(rawSettingsCacheTtl)
-  ? Math.min(Math.max(rawSettingsCacheTtl, 0), 10 * 60 * 1000)
-  : 60000;
+const settingsCacheTtlMs = getRuntimeConfig().chatbot.settingsCacheTtlMs;
 
 let runtimeSettingsCache: { expiresAt: number; data: RuntimeSettingsRecord } | null = null;
 

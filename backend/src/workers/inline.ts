@@ -4,6 +4,7 @@
 // Local/test có thể để trống hoặc chọn một phần để chẩn đoán.
 
 import { isProductionLike } from "../config/environment.js";
+import { getRuntimeConfig } from "../config/runtimeConfig.js";
 
 export const INLINE_WORKER_NAMES = ["otp", "appointments", "notifications", "payments"] as const;
 export type InlineWorkerName = (typeof INLINE_WORKER_NAMES)[number];
@@ -32,7 +33,7 @@ const loaders: Record<InlineWorkerName, () => Promise<unknown>> = {
   payments: () => import("./paymentReconciliation.worker.js"),
 };
 
-export const startInlineWorkers = async (value = process.env.INLINE_WORKERS) => {
+export const startInlineWorkers = async (value = getRuntimeConfig().workers.inline) => {
   let names: InlineWorkerName[];
   try {
     names = parseInlineWorkers(value);

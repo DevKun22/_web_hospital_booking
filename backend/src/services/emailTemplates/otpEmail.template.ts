@@ -1,4 +1,5 @@
 import type { OtpPurpose } from "../../../generated/prisma/enums.js";
+import { getRuntimeConfig } from "../../config/runtimeConfig.js";
 
 type OtpEmailTemplateInput = {
   otp: string;
@@ -24,7 +25,7 @@ const escapeHtml = (value: string) =>
     .replace(/'/g, "&#039;");
 
 export const buildOtpEmailTemplate = (input: OtpEmailTemplateInput) => {
-  const brandName = process.env.MAIL_BRAND_NAME || "Hospital Booking";
+  const brandName = getRuntimeConfig().email.brandName;
   const expiresInMinutes = Math.max(Math.floor(input.expiresInSeconds / 60), 1);
   const purpose = purposeLabel[input.purpose];
   const safeBrandName = escapeHtml(brandName);

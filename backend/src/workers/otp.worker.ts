@@ -12,6 +12,7 @@ import {
   startRuntimeMetrics,
   stopRuntimeMetrics,
 } from "../observability/runtimeMetrics.js";
+import { getRuntimeConfig } from "../config/runtimeConfig.js";
 
 validateRuntimeEnvironment();
 startRuntimeMetrics("otp-worker");
@@ -56,7 +57,7 @@ const worker = new Worker<OtpDeliveryJobData, void, "send-otp">(
   },
   {
     connection: getRedisConnectionOptions(),
-    concurrency: Number(process.env.OTP_WORKER_CONCURRENCY || 5),
+    concurrency: getRuntimeConfig().workers.otpConcurrency,
     ...idleRedisOptions,
   },
 );

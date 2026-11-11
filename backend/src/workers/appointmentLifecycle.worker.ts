@@ -20,6 +20,7 @@ import {
   startRuntimeMetrics,
   stopRuntimeMetrics,
 } from "../observability/runtimeMetrics.js";
+import { getRuntimeConfig } from "../config/runtimeConfig.js";
 
 const INVOICE_REMINDER_EVERY_MS = 30 * 60 * 1000;
 let lastInvoiceReminderAt = 0;
@@ -100,9 +101,7 @@ const worker = new Worker<AppointmentLifecycleJobData>(
   },
   {
     connection: getRedisConnectionOptions(),
-    concurrency: Number(
-      process.env.APPOINTMENT_LIFECYCLE_WORKER_CONCURRENCY || 5,
-    ),
+    concurrency: getRuntimeConfig().workers.appointmentLifecycleConcurrency,
     ...idleRedisOptions,
   },
 );
