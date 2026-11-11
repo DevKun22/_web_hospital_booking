@@ -16,9 +16,10 @@ const isEnabled = (value?: string) =>
 export const isProductionLike = (env: NodeJS.ProcessEnv = process.env) =>
   env.NODE_ENV === "production" || isEnabled(env.RENDER);
 
-// Giới hạn tần suất mặc định bật, trừ môi trường test (test tích hợp gọi API
-// hàng loạt từ một IP). Đặt RATE_LIMIT_ENABLED=true/false để ghi đè.
+// Production luôn bật giới hạn tần suất. Local/test có thể ghi đè để test tích
+// hợp gọi API hàng loạt từ một IP mà không làm yếu cấu hình production.
 export const isRateLimitEnabled = (env: NodeJS.ProcessEnv = process.env) => {
+  if (isProductionLike(env)) return true;
   const configured = env.RATE_LIMIT_ENABLED?.trim();
   if (configured) return isEnabled(configured);
   return env.NODE_ENV !== "test";
@@ -125,6 +126,12 @@ export const validateRuntimeEnvironment = (
   validateProductionFrontendOrigins(env);
   validateTrustProxyHops(env);
   validateProductionVnpay(env);
+  if (
+    env.RATE_LIMIT_ENABLED?.trim() &&
+    !isEnabled(env.RATE_LIMIT_ENABLED)
+  ) {
+    throw new Error("RATE_LIMIT_ENABLED must not be disabled in production.");
+  }
   validateProductionRedis(env);
   validateDatabasePoolBudget(env);
   validateProductionWorkerTopology(env);
