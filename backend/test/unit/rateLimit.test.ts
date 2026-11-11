@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import type { Request, Response } from "express";
+import type { RateLimitStore } from "../../src/middlewares/rateLimit.middleware.js";
 
 const {
   createFallbackRateLimitStore,
@@ -127,8 +128,40 @@ test("the fallback store switches to memory counters when the primary fails", as
     createMemoryRateLimitStore(clock.now),
   );
 
-  assert.equal((await store.hit("k", 60_000)).count, 1);
-  assert.equal((await store.hit("k", 60_000)).count, 2);
+  const first = await store.hit("k", 60_000);
+  const second = await store.hit("k", 60_000);
+  assert.equal(first.count, 1);
+  assert.equal(first.degraded, true);
+  assert.equal(second.count, 2);
+  assert.equal(second.degraded, true);
+});
+
+test("degraded policies tighten sensitive endpoints and keep low-risk reads available", async () => {
+  const clock = fakeClock();
+  const degradedStore: RateLimitStore = {
+    hit: async () => ({ count: 2, resetAt: clock.now() + 60_000, degraded: true }),
+  };
+  const strict = limiter(clock, {
+    max: 10,
+    store: degradedStore,
+    degraded: { mode: "enforce", max: 1 },
+  });
+  const available = limiter(clock, {
+    max: 1,
+    store: degradedStore,
+    degraded: { mode: "allow" },
+  });
+  const healthy = limiter(clock, {
+    max: 2,
+    store: {
+      hit: async () => ({ count: 2, resetAt: clock.now() + 60_000 }),
+    },
+    degraded: { mode: "enforce", max: 1 },
+  });
+
+  assert.ok((await run(strict)).error instanceof AppError);
+  assert.equal((await run(available)).error, undefined);
+  assert.equal((await run(healthy)).error, undefined);
 });
 
 test("the Redis store sets a TTL on a new key and repairs a key without TTL", async () => {

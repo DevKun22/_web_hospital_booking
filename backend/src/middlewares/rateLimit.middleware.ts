@@ -1,15 +1,23 @@
 import type { Request, RequestHandler } from "express";
-import { Redis } from "ioredis";
+import type { Redis } from "ioredis";
 
 import { isRateLimitEnabled } from "../config/environment.js";
-import { getRedisConnectionOptions, hasRedisUrl } from "../queues/redis.js";
+import { getCacheRedisClient } from "../services/cacheRedis.service.js";
+import {
+  reportRedisAvailable,
+  reportRedisUnavailable,
+} from "../services/redisHealth.service.js";
 import { AppError } from "../utils/appError.js";
 
 // Giới hạn tần suất theo cửa sổ cố định. Đếm bằng Redis khi có (dùng chung giữa
-// các tiến trình), nếu không có hoặc Redis lỗi thì đếm trong bộ nhớ tiến trình.
-// Lỗi hạ tầng không bao giờ chặn người dùng thật: limiter luôn "mở" khi lỗi.
+// các tiến trình), nếu không có hoặc Redis lỗi thì đếm trong bộ nhớ tiến trình
+// theo policy degraded riêng của từng endpoint.
 
-export type RateLimitHit = { count: number; resetAt: number };
+export type RateLimitHit = {
+  count: number;
+  resetAt: number;
+  degraded?: boolean;
+};
 
 export type RateLimitStore = {
   hit(key: string, windowMs: number): Promise<RateLimitHit>;
@@ -101,11 +109,20 @@ export const createFallbackRateLimitStore = (
 ): RateLimitStore => ({
   async hit(key, windowMs) {
     try {
-      return await primary.hit(key, windowMs);
+      const hit = await primary.hit(key, windowMs);
+      reportRedisAvailable("cache", "rate-limit");
+      return hit;
     } catch (error) {
       warnStoreFailure(error);
-      return fallback.hit(key, windowMs);
+      reportRedisUnavailable("cache", "rate-limit", error);
+      return { ...(await fallback.hit(key, windowMs)), degraded: true };
     }
+  },
+});
+
+const createDegradedRateLimitStore = (store: RateLimitStore): RateLimitStore => ({
+  async hit(key, windowMs) {
+    return { ...(await store.hit(key, windowMs)), degraded: true };
   },
 });
 
@@ -115,18 +132,11 @@ const getDefaultStore = (): RateLimitStore => {
   if (defaultStore) return defaultStore;
 
   const memory = createMemoryRateLimitStore();
-  if (!hasRedisUrl()) {
-    defaultStore = memory;
+  const client = getCacheRedisClient();
+  if (!client) {
+    defaultStore = createDegradedRateLimitStore(memory);
     return defaultStore;
   }
-
-  const client = new Redis({
-    ...getRedisConnectionOptions(),
-    // Hỏng thì báo lỗi ngay để chuyển sang bộ nhớ, không xếp hàng chờ.
-    maxRetriesPerRequest: 1,
-    enableOfflineQueue: false,
-  });
-  client.on("error", warnStoreFailure);
 
   defaultStore = createFallbackRateLimitStore(
     createRedisRateLimitStore(client),
@@ -146,6 +156,9 @@ export type RateLimitOptions = {
   store?: RateLimitStore;
   enabled?: () => boolean;
   now?: () => number;
+  // Khi Redis lỗi, mỗi instance đếm riêng. `max` thấp hơn giữ tổng hạn mức
+  // gần chính sách gốc; `allow` chỉ dùng cho endpoint ưu tiên khả dụng.
+  degraded?: { mode: "enforce"; max: number } | { mode: "allow" };
 };
 
 export const RATE_LIMIT_CODE = "RATE_LIMITED";
@@ -167,8 +180,13 @@ export const rateLimit = (options: RateLimitOptions): RequestHandler => {
         `rl:${options.name}:${identity}`,
         options.windowMs,
       );
+      const effectiveMax = hit.degraded
+        ? options.degraded?.mode === "allow"
+          ? Number.POSITIVE_INFINITY
+          : options.degraded?.max ?? options.max
+        : options.max;
 
-      if (hit.count > options.max) {
+      if (hit.count > effectiveMax) {
         const retryAfterSeconds = Math.max(
           1,
           Math.ceil((hit.resetAt - now()) / 1000),

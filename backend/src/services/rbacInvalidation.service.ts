@@ -1,8 +1,8 @@
 import { Redis } from "ioredis";
 import {
-  getRedisConnectionOptions,
-  hasRedisUrl,
-} from "../queues/redis.js";
+  getCacheRedisConnectionOptions,
+  hasCacheRedisUrl,
+} from "../config/redis.js";
 
 const RBAC_INVALIDATION_CHANNEL = "rbac:matrix:invalidated";
 const RETRY_DELAY_MS = 60_000;
@@ -26,9 +26,10 @@ const warnDegraded = (error: unknown) => {
 
 const createClient = (name: string) =>
   new Redis({
-    ...getRedisConnectionOptions(),
+    ...getCacheRedisConnectionOptions(),
     connectionName: name,
     lazyConnect: true,
+    enableOfflineQueue: true,
     connectTimeout: 2_000,
     maxRetriesPerRequest: 1,
     retryStrategy: (attempt) => (attempt <= 2 ? attempt * 200 : null),
@@ -37,7 +38,7 @@ const createClient = (name: string) =>
 export const ensureRbacInvalidationSubscriber = (
   invalidateLocalCache: () => void,
 ) => {
-  if (!hasRedisUrl() || subscriber || subscriberStart || Date.now() < retryAfter) return;
+  if (!hasCacheRedisUrl() || subscriber || subscriberStart || Date.now() < retryAfter) return;
 
   const client = createClient("rbac-invalidation-subscriber");
   client.on("message", (channel) => {
@@ -66,7 +67,7 @@ export const ensureRbacInvalidationSubscriber = (
 };
 
 export const publishRbacInvalidation = async () => {
-  if (!hasRedisUrl()) return;
+  if (!hasCacheRedisUrl()) return;
 
   try {
     publisher ||= createClient("rbac-invalidation-publisher");

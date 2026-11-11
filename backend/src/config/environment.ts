@@ -1,3 +1,5 @@
+import { validateProductionRedis } from "./redis.js";
+
 const MIN_SECRET_LENGTH = 32;
 const TRUE_VALUES = new Set(["true", "1", "yes", "on"]);
 const MAX_TRUST_PROXY_HOPS = 10;
@@ -117,6 +119,7 @@ export const validateRuntimeEnvironment = (
   validateProductionFrontendOrigins(env);
   validateTrustProxyHops(env);
   validateProductionVnpay(env);
+  validateProductionRedis(env);
   if (env.DEMO_OTP_PHONES?.trim()) {
     console.warn(
       "[DEMO_OTP] DEMO_OTP_PHONES is set: OTP for these phone numbers is shown on screen.",

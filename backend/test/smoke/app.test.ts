@@ -8,6 +8,7 @@ process.env.NODE_ENV = "test";
 process.env.DATABASE_URL =
   "postgresql://phase0:phase0@127.0.0.1:5432/hospital_booking_test";
 process.env.REDIS_URL = "";
+process.env.QUEUE_REDIS_URL = "";
 process.env.JWT_SECRET = "phase0_test_jwt_secret_at_least_32_chars";
 process.env.OTP_SECRET = "phase0_test_otp_secret_at_least_32_chars";
 
@@ -44,6 +45,11 @@ const {
   runWithRequestPerformance,
 } = await import("../../src/observability/requestPerformance.js");
 const { resolveQueueRedisUrl } = await import("../../src/queues/redis.js");
+const {
+  getRedisSecurityWarnings,
+  resolveCacheRedisUrl,
+  validateProductionRedis,
+} = await import("../../src/config/redis.js");
 const {
   defaultNotificationPushPreferences,
   isNotificationPushEnabled,
@@ -89,6 +95,11 @@ test("health routes can be imported without opening the production port", async 
   assert.match(health.headers.get("x-request-id") || "", /^[0-9a-f-]{36}$/);
   assert.equal(ready.status, 200);
   assert.equal(ready.body.status, "ready");
+  assert.deepEqual(ready.body.checks, {
+    database: "up",
+    redis: "not_configured",
+    queueRedis: "not_configured",
+  });
 });
 
 test("readiness returns 503 without changing the liveness contract", async () => {
@@ -643,6 +654,40 @@ test("queue Redis prefers its dedicated connection and keeps the legacy fallback
   assert.equal(
     resolveQueueRedisUrl({ REDIS_URL: "redis://127.0.0.1:6379" }),
     "redis://127.0.0.1:6379",
+  );
+  assert.equal(
+    resolveCacheRedisUrl({
+      QUEUE_REDIS_URL: "rediss://queue.example.test:6380",
+      REDIS_URL: "rediss://api.example.test:6380",
+    }),
+    "rediss://api.example.test:6380",
+  );
+});
+
+test("production Redis security distinguishes TLS, private network and ACL users", () => {
+  assert.deepEqual(
+    getRedisSecurityWarnings({
+      REDIS_URL: "rediss://api-user:api-pass@redis.example.test:6380",
+      QUEUE_REDIS_URL: "rediss://queue-user:queue-pass@redis.example.test:6380",
+    }),
+    [],
+  );
+
+  const shared = {
+    REDIS_URL: "redis://shared@redis.example.test:6379",
+  };
+  assert.ok(getRedisSecurityWarnings(shared).some((warning) => warning.includes("rediss://")));
+  assert.ok(getRedisSecurityWarnings(shared).some((warning) => warning.includes("ACL")));
+  assert.doesNotThrow(() =>
+    validateProductionRedis({
+      ...shared,
+      REDIS_PRIVATE_NETWORK: "true",
+      REDIS_SECURITY_MODE: "warn",
+    }),
+  );
+  assert.throws(
+    () => validateProductionRedis({ ...shared, REDIS_SECURITY_MODE: "strict" }),
+    /Unsafe Redis production configuration/,
   );
 });
 
