@@ -41,3 +41,10 @@ export const limitMedicalFileDownload = createConcurrencyLimit({
   limit: getMedicalFileDownloadConcurrency(),
   message: "Hệ thống đang phục vụ nhiều tệp, vui lòng thử lại sau",
 });
+
+// Ảnh nội dung dùng memoryStorage và có thể giữ tối đa 50 MiB mỗi request.
+// Chặn trước Multer để không nhận thêm buffer khi tiến trình đang bận.
+export const limitPublicImageUpload = createConcurrencyLimit({
+  limit: 2,
+  message: "Hệ thống đang xử lý nhiều ảnh, vui lòng thử lại sau",
+});

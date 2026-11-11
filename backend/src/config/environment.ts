@@ -129,9 +129,7 @@ export const validateRuntimeEnvironment = (
   validateDatabasePoolBudget(env);
   validateProductionWorkerTopology(env);
   if (env.DEMO_OTP_PHONES?.trim()) {
-    console.warn(
-      "[DEMO_OTP] DEMO_OTP_PHONES is set: OTP for these phone numbers is shown on screen.",
-    );
+    throw new Error("DEMO_OTP_PHONES must not be configured in production.");
   }
 
   if (

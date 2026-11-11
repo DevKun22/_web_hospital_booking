@@ -6,6 +6,7 @@ import { cloudinary } from "../config/cloudinary.js";
 import { prisma } from "../config/prisma.js";
 import { AppError } from "../utils/appError.js";
 import { sniffMedicalFile } from "../utils/fileSignature.js";
+import { mapWithConcurrency } from "../utils/concurrency.js";
 
 type UploadFolder =
   | "departments"
@@ -159,8 +160,10 @@ class MediaAssetService {
 
     const cloudinaryFolder = folderMap[folder];
 
-    const uploadedItems = await Promise.all(
-      files.map(async (file) => {
+    const uploadedItems = await mapWithConcurrency(
+      files,
+      3,
+      async (file) => {
         const result = await uploadBufferToCloudinary(file, cloudinaryFolder);
 
         return prisma.mediaAsset.create({
@@ -177,7 +180,7 @@ class MediaAssetService {
           },
           select: mediaAssetSelect,
         });
-      }),
+      },
     );
 
     return uploadedItems;
