@@ -13,6 +13,10 @@ import {
   type StaffRole,
 } from "../config/permissions.js";
 import { AppError } from "../utils/appError.js";
+import {
+  ensureRbacInvalidationSubscriber,
+  publishRbacInvalidation,
+} from "./rbacInvalidation.service.js";
 
 export const RBAC_MATRIX_KEY = "rbac.matrix";
 const CACHE_TTL_MS = 15_000;
@@ -23,8 +27,8 @@ export const invalidateRbacCache = () => {
   cache = null;
 };
 
-// Nhiều instance chỉ đồng bộ sau tối đa CACHE_TTL_MS; instance vừa ghi thì có hiệu lực ngay.
 export const loadGrants = async (): Promise<PermissionGrants> => {
+  ensureRbacInvalidationSubscriber(invalidateRbacCache);
   if (cache && cache.expiresAt > Date.now()) return cache.grants;
 
   const setting = await prisma.siteSetting.findUnique({
@@ -106,31 +110,43 @@ class RbacService {
       updatedAt: new Date().toISOString(),
     } as unknown as Prisma.InputJsonValue;
 
-    await prisma.siteSetting.upsert({
-      where: { key: RBAC_MATRIX_KEY },
-      create: { key: RBAC_MATRIX_KEY, value, description: "Ma trận phân quyền động" },
-      update: { value, isActive: true },
+    await prisma.$transaction(async (tx) => {
+      await tx.siteSetting.upsert({
+        where: { key: RBAC_MATRIX_KEY },
+        create: { key: RBAC_MATRIX_KEY, value, description: "Ma trận phân quyền động" },
+        update: { value, isActive: true },
+      });
+      await AuditLogService.record(
+        {
+          actor,
+          action: "RBAC_MATRIX_UPDATED",
+          targetType: "RBAC_MATRIX",
+          ipAddress,
+          meta: { changes } as Prisma.InputJsonObject,
+        },
+        tx,
+      );
     });
     invalidateRbacCache();
-    await AuditLogService.record({
-      actor,
-      action: "RBAC_MATRIX_UPDATED",
-      targetType: "RBAC_MATRIX",
-      ipAddress,
-      meta: { changes } as Prisma.InputJsonObject,
-    });
+    await publishRbacInvalidation();
     return this.getMatrix();
   }
 
   async resetMatrix(actor?: { userId: string; role: string }, ipAddress?: string) {
-    await prisma.siteSetting.deleteMany({ where: { key: RBAC_MATRIX_KEY } });
-    invalidateRbacCache();
-    await AuditLogService.record({
-      actor,
-      action: "RBAC_MATRIX_RESET",
-      targetType: "RBAC_MATRIX",
-      ipAddress,
+    await prisma.$transaction(async (tx) => {
+      await tx.siteSetting.deleteMany({ where: { key: RBAC_MATRIX_KEY } });
+      await AuditLogService.record(
+        {
+          actor,
+          action: "RBAC_MATRIX_RESET",
+          targetType: "RBAC_MATRIX",
+          ipAddress,
+        },
+        tx,
+      );
     });
+    invalidateRbacCache();
+    await publishRbacInvalidation();
     return this.getMatrix();
   }
 }

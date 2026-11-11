@@ -9,6 +9,9 @@ const [{ createApp }, { prisma }] = await Promise.all([
   import("./app.js"),
   import("./config/prisma.js"),
 ]);
+const { closeRbacInvalidation } = await import(
+  "./services/rbacInvalidation.service.js"
+);
 
 const app = createApp();
 
@@ -27,6 +30,7 @@ const shutdown = (signal: string) => {
   console.log(`${signal} received, shutting down gracefully...`);
 
   server.close(async () => {
+    await closeRbacInvalidation();
     await prisma.$disconnect();
     process.exit(0);
   });
