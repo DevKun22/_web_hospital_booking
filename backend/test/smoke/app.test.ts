@@ -20,16 +20,22 @@ const {
   getAppointmentReminderLeadMinutes,
   getDatabaseTransactionMaxWaitMs,
   getDatabaseTransactionTimeoutMs,
+  getDatabasePoolBudget,
+  getDatabasePoolConnectionTimeoutMs,
+  getDatabasePoolIdleTimeoutMs,
+  getDatabasePoolSize,
   getHttpHeadersTimeoutMs,
   getHttpKeepAliveTimeoutMs,
   getHttpMaxRequestsPerSocket,
   getHttpRequestTimeoutMs,
   getReadinessCacheMs,
   getReadinessTimeoutMs,
+  getRuntimeMetricsIntervalMs,
   getSlowRequestThresholdMs,
   getTrustProxySetting,
   isDatabaseQueryMetricsEnabled,
   isPerformanceHeadersEnabled,
+  isRuntimeMetricsEnabled,
   getNotificationDispatchBatchSize,
   getNotificationDispatchConcurrency,
   getNotificationMaxDeliveryAttempts,
@@ -40,6 +46,7 @@ const {
   getReminderDispatchConcurrency,
   shouldLogWorkerNoop,
   validateNotificationWorkerEnvironment,
+  validateDatabasePoolBudget,
   validateRuntimeEnvironment,
 } = await import("../../src/config/environment.js");
 const { configureHttpServer } = await import("../../src/config/httpServer.js");
@@ -478,6 +485,68 @@ test("database transaction limits stay bounded for remote development databases"
   assert.equal(
     getDatabaseTransactionMaxWaitMs({ DATABASE_TRANSACTION_MAX_WAIT_MS: "60000" }),
     15_000,
+  );
+});
+
+test("database pool sizing respects the total API and worker replica budget", () => {
+  assert.deepEqual(getDatabasePoolBudget({}), {
+    apiReplicas: 1,
+    workerReplicas: 0,
+    processCount: 1,
+    poolSize: 10,
+    reserve: 3,
+    totalBudget: 15,
+    plannedConnections: 13,
+  });
+  assert.equal(
+    getDatabasePoolSize({
+      DATABASE_TOTAL_CONNECTION_BUDGET: "30",
+      DATABASE_CONNECTION_RESERVE: "6",
+      DATABASE_API_REPLICA_COUNT: "2",
+      DATABASE_WORKER_REPLICA_COUNT: "4",
+    }),
+    4,
+  );
+  assert.throws(
+    () =>
+      validateDatabasePoolBudget({
+        DATABASE_TOTAL_CONNECTION_BUDGET: "10",
+        DATABASE_CONNECTION_RESERVE: "1",
+        DATABASE_API_REPLICA_COUNT: "1",
+        DATABASE_WORKER_REPLICA_COUNT: "1",
+        DATABASE_POOL_SIZE: "6",
+      }),
+    /needs 13 connections.*is 10/,
+  );
+  assert.equal(
+    getDatabasePoolConnectionTimeoutMs({
+      DATABASE_POOL_CONNECTION_TIMEOUT_MS: "99999",
+    }),
+    30_000,
+  );
+  assert.equal(
+    getDatabasePoolIdleTimeoutMs({ DATABASE_POOL_IDLE_TIMEOUT_MS: "1" }),
+    5_000,
+  );
+});
+
+test("runtime metrics default to production and use a bounded interval", () => {
+  assert.equal(isRuntimeMetricsEnabled({ NODE_ENV: "test" }), false);
+  assert.equal(isRuntimeMetricsEnabled({ NODE_ENV: "production" }), true);
+  assert.equal(
+    isRuntimeMetricsEnabled({
+      NODE_ENV: "production",
+      RUNTIME_METRICS_ENABLED: "false",
+    }),
+    false,
+  );
+  assert.equal(
+    getRuntimeMetricsIntervalMs({ RUNTIME_METRICS_INTERVAL_MS: "1" }),
+    15_000,
+  );
+  assert.equal(
+    getRuntimeMetricsIntervalMs({ RUNTIME_METRICS_INTERVAL_MS: "9999999" }),
+    15 * 60_000,
   );
 });
 

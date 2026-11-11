@@ -5,9 +5,14 @@ import { configureHttpServer } from "./config/httpServer.js";
 
 validateRuntimeEnvironment();
 
-const [{ createApp }, { prisma }] = await Promise.all([
+const [
+  { createApp },
+  { prisma },
+  { startRuntimeMetrics, stopRuntimeMetrics },
+] = await Promise.all([
   import("./app.js"),
   import("./config/prisma.js"),
+  import("./observability/runtimeMetrics.js"),
 ]);
 const { closeRbacInvalidation } = await import(
   "./services/rbacInvalidation.service.js"
@@ -22,6 +27,7 @@ const server = app.listen(PORT, () => {
   console.log(`Server running on port http://localhost:${PORT}`);
 });
 configureHttpServer(server);
+startRuntimeMetrics("api");
 
 // Gói free chỉ có một tiến trình: cho phép chạy worker OTP/lịch hẹn ngay tại đây.
 const { startInlineWorkers } = await import("./workers/inline.js");
@@ -31,6 +37,7 @@ const shutdown = (signal: string) => {
   console.log(`${signal} received, shutting down gracefully...`);
 
   server.close(async () => {
+    stopRuntimeMetrics();
     await closeRbacInvalidation();
     closeCacheRedis();
     await prisma.$disconnect();

@@ -23,6 +23,28 @@ type RequestPerformanceOptions = {
 const requestPerformanceStorage =
   new AsyncLocalStorage<RequestPerformanceContext>();
 
+let aggregate = {
+  requests: 0,
+  errors: 0,
+  slowRequests: 0,
+  durationMs: 0,
+  databaseQueries: 0,
+  databaseDurationMs: 0,
+};
+
+export const takeRequestPerformanceMetrics = () => {
+  const snapshot = aggregate;
+  aggregate = {
+    requests: 0,
+    errors: 0,
+    slowRequests: 0,
+    durationMs: 0,
+    databaseQueries: 0,
+    databaseDurationMs: 0,
+  };
+  return snapshot;
+};
+
 export const recordDatabaseQuery = (durationMs: number) => {
   const context = requestPerformanceStorage.getStore();
   if (!context || !Number.isFinite(durationMs) || durationMs < 0) return;
@@ -113,6 +135,18 @@ export const requestPerformance = (
         const snapshot = getRequestPerformanceSnapshot();
         const durationMs =
           finalizedDurationMs ?? snapshot?.durationMs ?? Number.NaN;
+
+        if (Number.isFinite(durationMs)) {
+          aggregate.requests += 1;
+          aggregate.durationMs += durationMs;
+          aggregate.errors += res.statusCode >= 500 ? 1 : 0;
+          aggregate.slowRequests +=
+            durationMs >= slowRequestThresholdMs ? 1 : 0;
+          if (queryMetricsEnabled && snapshot) {
+            aggregate.databaseQueries += snapshot.databaseQueryCount;
+            aggregate.databaseDurationMs += snapshot.databaseDurationMs;
+          }
+        }
 
         if (!Number.isFinite(durationMs) || durationMs < slowRequestThresholdMs) {
           return;

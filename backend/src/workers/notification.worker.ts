@@ -9,8 +9,13 @@ import {
 import { prisma } from "../config/prisma.js";
 import NotificationDeliveryService from "../services/notificationDelivery.service.js";
 import NotificationService from "../services/notification.service.js";
+import {
+  startRuntimeMetrics,
+  stopRuntimeMetrics,
+} from "../observability/runtimeMetrics.js";
 
 validateNotificationWorkerEnvironment();
+startRuntimeMetrics("notification-worker");
 
 const intervalMs = getNotificationWorkerIntervalMs();
 const batchSize = getNotificationDispatchBatchSize();
@@ -69,6 +74,7 @@ console.log(
 const shutdown = async (signal: string) => {
   console.log(`${signal} received, closing notification worker...`);
   clearInterval(timer);
+  stopRuntimeMetrics();
   await prisma.$disconnect();
   process.exit(0);
 };

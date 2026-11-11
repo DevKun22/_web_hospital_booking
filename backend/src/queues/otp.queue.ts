@@ -15,7 +15,7 @@ export type OtpDeliveryJobData = {
 
 let otpDeliveryQueue: Queue<OtpDeliveryJobData> | null = null;
 
-const getOtpDeliveryQueue = () => {
+export const getOtpDeliveryQueue = () => {
   if (!otpDeliveryQueue) {
     otpDeliveryQueue = new Queue<OtpDeliveryJobData>(OTP_DELIVERY_QUEUE_NAME, {
       connection: getRedisConnectionOptions(),
