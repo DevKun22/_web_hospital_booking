@@ -3,9 +3,6 @@ import { Prisma } from "../../generated/prisma/client.js";
 import type { Role } from "../../generated/prisma/enums.js";
 import { prisma } from "../config/prisma.js";
 import { AppError } from "../utils/appError.js";
-import NotificationDeliveryService from "./notificationDelivery.service.js";
-
-const DISPATCH_CONCURRENCY = 10;
 const UPCOMING_APPOINTMENT_STATUSES = [
   "PENDING_CONFIRM",
   "CONFIRMED",
@@ -197,10 +194,6 @@ class HospitalAnnouncementService {
       return deliveries.length;
     });
 
-    if (publishedAt && deliveryCount > 0) {
-      void this.dispatchBestEffort(notifications.map((item) => item.id));
-    }
-
     return {
       campaignId,
       title: input.title.trim(),
@@ -315,16 +308,6 @@ class HospitalAnnouncementService {
     return { campaignId, cancelledAt: now };
   }
 
-  private async dispatchBestEffort(notificationIds: string[]) {
-    for (let index = 0; index < notificationIds.length; index += DISPATCH_CONCURRENCY) {
-      const batch = notificationIds.slice(index, index + DISPATCH_CONCURRENCY);
-      await Promise.allSettled(
-        batch.map((notificationId) =>
-          NotificationDeliveryService.dispatchNotification(notificationId),
-        ),
-      );
-    }
-  }
 }
 
 export default new HospitalAnnouncementService();

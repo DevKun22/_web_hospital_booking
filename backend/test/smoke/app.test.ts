@@ -40,6 +40,11 @@ const {
   getNotificationDispatchConcurrency,
   getNotificationMaxDeliveryAttempts,
   getNotificationWorkerIntervalMs,
+  getOutboxDispatchBatchSize,
+  getOutboxDispatchConcurrency,
+  getOutboxLeaseMs,
+  getOutboxMaxAttempts,
+  getOutboxRetentionDays,
   getMedicalFileDownloadConcurrency,
   getMedicalFileUploadConcurrency,
   getReconciliationConcurrency,
@@ -48,6 +53,7 @@ const {
   validateNotificationWorkerEnvironment,
   validateDatabasePoolBudget,
   validateRuntimeEnvironment,
+  validateProductionWorkerTopology,
 } = await import("../../src/config/environment.js");
 const { configureHttpServer } = await import("../../src/config/httpServer.js");
 const {
@@ -276,6 +282,7 @@ test("production startup rejects missing, weak or debug OTP secrets", () => {
       OTP_DEBUG_ENABLED: "false",
       DATABASE_URL: "postgresql://production.example.test/hospital",
       FRONTEND_URLS: "https://hospital.example.test",
+      INLINE_WORKERS: "otp,appointments,notifications,payments",
     }),
   );
 });
@@ -288,6 +295,7 @@ test("production startup rejects unsafe data and browser configuration", () => {
     OTP_DEBUG_ENABLED: "false",
     DATABASE_URL: "postgresql://production.example.test/hospital",
     FRONTEND_URLS: "https://hospital.example.test",
+    INLINE_WORKERS: "otp,appointments,notifications,payments",
   };
 
   assert.throws(
@@ -358,6 +366,7 @@ test("production startup requires complete HTTPS VNPay configuration when enable
     DATABASE_URL: "postgresql://production.example.test/hospital",
     FRONTEND_URLS: "https://hospital.example.test",
     PAYMENT_VNPAY_ENABLED: "true",
+    INLINE_WORKERS: "otp,appointments,notifications,payments",
   };
 
   assert.throws(
@@ -432,6 +441,7 @@ test("production notification worker requires one Firebase credential", () => {
     DATABASE_URL: "postgresql://production.example.test/hospital",
     FRONTEND_URLS: "https://hospital.example.test",
     FIREBASE_PROJECT_ID: "hospital-production",
+    INLINE_WORKERS: "otp,appointments,notifications,payments",
   };
 
   assert.throws(
@@ -453,6 +463,50 @@ test("production notification worker requires one Firebase credential", () => {
       }),
     /only one Firebase Admin credential method/,
   );
+});
+
+test("production requires exactly one complete inline worker topology", () => {
+  assert.doesNotThrow(() =>
+    validateProductionWorkerTopology({
+      NODE_ENV: "production",
+      INLINE_WORKERS: "notifications,otp,payments,appointments",
+    }),
+  );
+  assert.throws(
+    () =>
+      validateProductionWorkerTopology({
+        NODE_ENV: "production",
+        INLINE_WORKERS: "otp,appointments,notifications",
+      }),
+    /requires exactly INLINE_WORKERS=otp,appointments,notifications,payments/,
+  );
+  assert.throws(
+    () =>
+      validateProductionWorkerTopology({
+        NODE_ENV: "production",
+        INLINE_WORKERS: "otp,appointments,notifications,payments,other",
+      }),
+    /requires exactly INLINE_WORKERS=otp,appointments,notifications,payments/,
+  );
+  assert.doesNotThrow(() =>
+    validateProductionWorkerTopology({
+      NODE_ENV: "development",
+      INLINE_WORKERS: "otp",
+    }),
+  );
+});
+
+test("outbox limits stay bounded", () => {
+  assert.equal(getOutboxDispatchBatchSize({}), 50);
+  assert.equal(getOutboxDispatchBatchSize({ OUTBOX_DISPATCH_BATCH_SIZE: "500" }), 200);
+  assert.equal(getOutboxDispatchConcurrency({}), 4);
+  assert.equal(getOutboxDispatchConcurrency({ OUTBOX_DISPATCH_CONCURRENCY: "16" }), 16);
+  assert.equal(getOutboxMaxAttempts({}), 8);
+  assert.equal(getOutboxMaxAttempts({ OUTBOX_MAX_ATTEMPTS: "21" }), 20);
+  assert.equal(getOutboxLeaseMs({}), 60_000);
+  assert.equal(getOutboxLeaseMs({ OUTBOX_LEASE_MS: "9999" }), 10_000);
+  assert.equal(getOutboxRetentionDays({}), 30);
+  assert.equal(getOutboxRetentionDays({ OUTBOX_RETENTION_DAYS: "365" }), 365);
 });
 
 test("notification delivery attempts use a safe positive limit", () => {

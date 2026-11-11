@@ -502,6 +502,29 @@ model AuditLog {
   @@index([actorId, createdAt])
 }
 
+// Side effect ra hệ thống ngoài được ghi cùng transaction nghiệp vụ rồi worker xử lý.
+// Payload không chứa secret; dedupeKey bảo đảm một sự kiện nghiệp vụ chỉ được xếp một lần.
+model OutboxEvent {
+  id String @id @default(uuid())
+
+  type      String
+  dedupeKey String @unique
+  payload   Json
+
+  status      String   @default("PENDING")
+  attempts    Int      @default(0)
+  availableAt DateTime @default(now())
+  lockedAt    DateTime?
+  processedAt DateTime?
+  lastError   String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status, availableAt])
+  @@index([processedAt])
+}
+
 model DashboardSession {
   id String @id @default(uuid())
 

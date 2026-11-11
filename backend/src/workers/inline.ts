@@ -1,7 +1,9 @@
-// Chạy worker ngay trong tiến trình API khi không có tiến trình worker riêng
-// (ví dụ Render gói free chỉ có một Web Service). Bật bằng biến môi trường:
+// Production chỉ chạy worker ngay trong tiến trình API để có một topology duy nhất.
+// Bật toàn bộ bằng biến môi trường:
 //   INLINE_WORKERS=otp,appointments,notifications,payments
-// Để trống thì API không chạy worker nào (dùng `npm run worker:*` như trước).
+// Local/test có thể để trống hoặc chọn một phần để chẩn đoán.
+
+import { isProductionLike } from "../config/environment.js";
 
 export const INLINE_WORKER_NAMES = ["otp", "appointments", "notifications", "payments"] as const;
 export type InlineWorkerName = (typeof INLINE_WORKER_NAMES)[number];
@@ -36,6 +38,7 @@ export const startInlineWorkers = async (value = process.env.INLINE_WORKERS) => 
     names = parseInlineWorkers(value);
   } catch (error) {
     console.error("[INLINE_WORKER]", error instanceof Error ? error.message : error);
+    if (isProductionLike()) throw error;
     return [];
   }
   for (const name of names) {
@@ -43,8 +46,10 @@ export const startInlineWorkers = async (value = process.env.INLINE_WORKERS) => 
       await loaders[name]();
       console.log(`[INLINE_WORKER] started: ${name}`);
     } catch (error) {
-      // Một worker lỗi không được làm sập API đang phục vụ người dùng.
       console.error(`[INLINE_WORKER] cannot start ${name}:`, error);
+      // Production phải fail-fast để readiness/host khởi động lại thay vì chạy
+      // âm thầm thiếu một tác vụ nền. Local vẫn cho phép chẩn đoán từng worker.
+      if (isProductionLike()) throw error;
     }
   }
   return names;

@@ -1,6 +1,5 @@
 import { Prisma } from "../../generated/prisma/client.js";
 import { prisma } from "../config/prisma.js";
-import NotificationDeliveryService from "./notificationDelivery.service.js";
 import NotificationService from "./notification.service.js";
 
 type DatabaseClient = Prisma.TransactionClient | typeof prisma;
@@ -186,16 +185,6 @@ class PatientEventNotificationService {
     );
   }
 
-  async dispatchBestEffort(notificationId: string) {
-    try {
-      await NotificationDeliveryService.dispatchNotification(notificationId);
-    } catch (error) {
-      console.error(
-        `[NOTIFICATION_DELIVERY] notification=${notificationId} dispatch failed:`,
-        error,
-      );
-    }
-  }
 }
 
 export default new PatientEventNotificationService();

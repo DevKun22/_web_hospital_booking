@@ -142,7 +142,7 @@ cd mobile   && flutter analyze && flutter test
 
 **Hạn mức gói miễn phí:** mỗi dịch vụ giới hạn theo cách riêng (Upstash giới hạn số lệnh Redis mỗi tháng, Supabase tự tạm dừng khi lâu không hoạt động, Render tự ngủ khi không có truy cập), nên các việc nền được giữ ở mức thưa. Đổi nhà cung cấp cơ sở dữ liệu chỉ cần đổi `DATABASE_URL` (dự án chỉ yêu cầu PostgreSQL; schema có trigger, ràng buộc CHECK và SQL thô đặc thù PostgreSQL); dùng `npx prisma migrate deploy` để dựng cấu trúc, rồi `npm run seed:demo-full` và `npm run seed:chatbot-faq` trong `backend` nếu cần dữ liệu demo (tài khoản demo dùng mật khẩu cố định trong mã nguồn, chỉ dành cho môi trường thử).
 
-Gói miễn phí của Render chỉ có một Web Service, nên các worker chạy ngay trong tiến trình API bằng biến `INLINE_WORKERS=otp,appointments,notifications,payments`. Có thể tách ra tiến trình riêng bằng các lệnh `npm run worker:*`.
+Production dùng duy nhất một topology: API và toàn bộ worker chạy trong cùng Web Service với `INLINE_WORKERS=otp,appointments,notifications,payments`. Các lệnh `worker:*:dev` chỉ dùng để chẩn đoán cục bộ, không phải đường triển khai production.
 
 ### Năng lực tải backend
 

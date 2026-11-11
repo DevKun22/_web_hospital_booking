@@ -32,7 +32,6 @@ import {
   parseDateOnly,
 } from "../utils/time.js";
 import MedicalRecordService from "./medicalRecord.service.js";
-import NotificationDeliveryService from "./notificationDelivery.service.js";
 import NotificationService from "./notification.service.js";
 import StaffNotificationService from "./staffNotification.service.js";
 import {
@@ -1108,7 +1107,6 @@ class AppointmentService {
       return { appointment: updatedAppointment, notificationId: notification.id };
     });
 
-    await this.dispatchNotificationBestEffort(transition.notificationId);
     await StaffNotificationService.notifyAppointmentEvent(
       transition.appointment.id,
       "CANCELLED",
@@ -1418,10 +1416,6 @@ class AppointmentService {
       };
     });
 
-    await this.dispatchNotificationBestEffort(transition.notificationId);
-    if (transition.dueReminderId) {
-      await this.dispatchNotificationBestEffort(transition.dueReminderId);
-    }
     await StaffNotificationService.notifyAppointmentEvent(id, "CONFIRMED", {
       actorId: actor.userId,
     });
@@ -1467,7 +1461,6 @@ class AppointmentService {
       return { appointment, notificationId: notification.id };
     });
 
-    await this.dispatchNotificationBestEffort(transition.notificationId);
     await StaffNotificationService.notifyAppointmentEvent(id, "CANCELLED", {
       actorId: actor.userId,
     });
@@ -1650,10 +1643,6 @@ class AppointmentService {
       };
     });
 
-    await this.dispatchNotificationBestEffort(transition.notificationId);
-    if (transition.dueReminderId) {
-      await this.dispatchNotificationBestEffort(transition.dueReminderId);
-    }
     await StaffNotificationService.notifyAppointmentEvent(
       transition.appointment.id,
       "RESCHEDULED",
@@ -1686,7 +1675,6 @@ class AppointmentService {
       return { appointment, notificationId: notification.id };
     });
 
-    await this.dispatchNotificationBestEffort(transition.notificationId);
     await StaffNotificationService.notifyAppointmentEvent(id, "CHECKED_IN", {
       actorId: actor.userId,
     });
@@ -1717,7 +1705,6 @@ class AppointmentService {
       return { appointment, notificationId: notification.id };
     });
 
-    await this.dispatchNotificationBestEffort(transition.notificationId);
     return transition.appointment;
   }
 
@@ -1745,7 +1732,6 @@ class AppointmentService {
       return { appointment, notificationId: notification.id };
     });
 
-    await this.dispatchNotificationBestEffort(transition.notificationId);
     // Lễ tân cần lập hóa đơn cho lịch vừa khám xong.
     await StaffNotificationService.notifyAppointmentEvent(id, "COMPLETED", {
       actorId: actor.userId,
@@ -1781,7 +1767,6 @@ class AppointmentService {
       return { appointment, notificationId: notification.id };
     });
 
-    await this.dispatchNotificationBestEffort(transition.notificationId);
     return transition.appointment;
   }
 
@@ -2016,9 +2001,6 @@ class AppointmentService {
       };
     });
 
-    if (transition.outcome === "EXPIRED") {
-      await this.dispatchNotificationBestEffort(transition.notificationId);
-    }
     return transition;
   }
 
@@ -2428,16 +2410,6 @@ class AppointmentService {
     }).format(date);
   }
 
-  private async dispatchNotificationBestEffort(notificationId: string) {
-    try {
-      await NotificationDeliveryService.dispatchNotification(notificationId);
-    } catch (error) {
-      console.error(
-        `[NOTIFICATION_DELIVERY] notification=${notificationId} dispatch failed:`,
-        error,
-      );
-    }
-  }
 
   private getTransitionResult(tx: Prisma.TransactionClient, id: string) {
     return tx.appointment.findUniqueOrThrow({

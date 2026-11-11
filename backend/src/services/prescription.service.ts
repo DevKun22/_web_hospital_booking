@@ -285,9 +285,6 @@ class PrescriptionService {
       return { updatedPrescription, notificationId: notification.id };
     });
 
-    await PatientEventNotificationService.dispatchBestEffort(
-      transition.notificationId,
-    );
     await StaffNotificationService.notifyRoles(["PHARMACIST"], {
       type: "PRESCRIPTION_ISSUED",
       title: "Có đơn thuốc mới chờ cấp",

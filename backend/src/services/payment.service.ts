@@ -474,11 +474,6 @@ class PaymentService {
       return { notificationId: notification.id };
     });
 
-    if (transition.notificationId) {
-      await PatientEventNotificationService.dispatchBestEffort(
-        transition.notificationId,
-      );
-    }
     return this.getById(transaction.id, transaction.invoice.patientId);
   }
 

@@ -4786,6 +4786,7 @@ test("password reset rolls back when session revocation fails", async () => {
     data: { password: originalPasswordHash },
   });
   const targetCookie = await authCookie(target.id, "STAFF");
+  const outboxCountBefore = await prisma.outboxEvent.count();
   const triggerName = "reject_password_session_revoke_test";
   const functionName = "reject_password_session_revoke_test_fn";
 
@@ -4836,6 +4837,7 @@ test("password reset rolls back when session revocation fails", async () => {
     }),
     0,
   );
+  assert.equal(await prisma.outboxEvent.count(), outboxCountBefore);
 });
 
 test("role changes revoke active sessions and write the audit atomically", async () => {
@@ -5264,6 +5266,9 @@ test("a patient cannot read or change another patient's data, nor unpublished cl
 // ---- Báo cho chủ tài khoản khi người khác đổi thông tin đăng nhập -----------------
 test("the account owner is warned when an admin changes their email, phone, role or password", async () => {
   const { default: EmailService } = await import("../../src/services/email.service.js");
+  const { default: OutboxEventService } = await import(
+    "../../src/services/outboxEvent.service.js"
+  );
   const sent: Array<{ to: string; subject: string; text: string }> = [];
   const originalSend = EmailService.sendMail.bind(EmailService);
   EmailService.sendMail = async (input) => {
@@ -5271,6 +5276,7 @@ test("the account owner is warned when an admin changes their email, phone, role
   };
 
   try {
+    await prisma.outboxEvent.deleteMany();
     const adminCookie = await authCookie(fixture.adminUser.id, "ADMIN");
     const staff = await prisma.user.create({
       data: {
@@ -5287,6 +5293,13 @@ test("the account owner is warned when an admin changes their email, phone, role
     // Đổi email: thư tới email CŨ, không lộ email mới.
     const emailChange = await patch({ email: "attacker.new@example.test" });
     assert.equal(emailChange.status, 200, JSON.stringify(emailChange.body));
+    assert.equal(sent.length, 0);
+    assert.deepEqual(await OutboxEventService.dispatchDue(20), {
+      scanned: 1,
+      processed: 1,
+      retrying: 0,
+      failed: 0,
+    });
     assert.equal(sent.length, 1);
     assert.equal(sent[0].to, "owner.old@example.test");
     assert.match(sent[0].text, /Email nhận mã đăng nhập/);
@@ -5295,6 +5308,8 @@ test("the account owner is warned when an admin changes their email, phone, role
     // Đổi số điện thoại và vai trò: thư tới email hiện tại (đã là email mới sau lần đổi trước).
     const phoneAndRole = await patch({ phone: "0900000202", role: "PHARMACIST" });
     assert.equal(phoneAndRole.status, 200, JSON.stringify(phoneAndRole.body));
+    assert.equal(sent.length, 1);
+    await OutboxEventService.dispatchDue(20);
     assert.equal(sent.length, 2);
     assert.equal(sent[1].to, "attacker.new@example.test");
     assert.match(sent[1].text, /Số điện thoại đăng nhập/);
@@ -5308,6 +5323,8 @@ test("the account owner is warned when an admin changes their email, phone, role
       { password: "SecretTemp99" },
     );
     assert.equal(reset.status, 200);
+    assert.equal(sent.length, 2);
+    await OutboxEventService.dispatchDue(20);
     assert.equal(sent.length, 3);
     assert.match(sent[2].text, /Mật khẩu tài khoản đã được quản trị đặt lại/);
     assert.ok(!sent[2].text.includes("SecretTemp99"));
@@ -5336,6 +5353,13 @@ test("the account owner is warned when an admin changes their email, phone, role
       (await prisma.user.findUniqueOrThrow({ where: { id: staff.id } })).email,
       "owner.third@example.test",
     );
+    const failedDispatch = await OutboxEventService.dispatchDue(20);
+    assert.equal(failedDispatch.retrying, 1);
+    const retryingEvent = await prisma.outboxEvent.findFirstOrThrow({
+      where: { status: "PENDING", attempts: 1 },
+      orderBy: { createdAt: "desc" },
+    });
+    assert.match(retryingEvent.lastError || "", /mail provider down/);
   } finally {
     EmailService.sendMail = originalSend;
   }
