@@ -18,7 +18,10 @@ import {
   getSafeRequestPath,
   requestPerformance,
 } from "./observability/requestPerformance.js";
-import { checkReadiness } from "./services/readiness.service.js";
+import {
+  checkReadiness,
+  type ReadinessReport,
+} from "./services/readiness.service.js";
 
 type CreateAppOptions = {
   requestLogging?: boolean;
@@ -26,7 +29,7 @@ type CreateAppOptions = {
   performanceHeaders?: boolean;
   queryMetricsEnabled?: boolean;
   slowRequestThresholdMs?: number;
-  readinessCheck?: () => Promise<boolean>;
+  readinessCheck?: () => Promise<boolean | ReadinessReport>;
 };
 
 const getAllowedOrigins = (isProduction: boolean) => {
@@ -123,9 +126,22 @@ export const createApp = (options: CreateAppOptions = {}) => {
   });
 
   app.get("/ready", async (req, res) => {
-    const ready = await readinessCheck();
-    res.status(ready ? 200 : 503).json({
-      status: ready ? "ready" : "not_ready",
+    const result = await readinessCheck();
+    const report: ReadinessReport =
+      typeof result === "boolean"
+        ? {
+            ready: result,
+            status: result ? "ready" : "not_ready",
+            checks: {
+              database: result ? "up" : "down",
+              redis: "not_configured",
+              queueRedis: "not_configured",
+            },
+          }
+        : result;
+    res.status(report.ready ? 200 : 503).json({
+      status: report.status,
+      checks: report.checks,
       time: new Date().toISOString(),
     });
   });

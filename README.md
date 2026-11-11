@@ -41,8 +41,9 @@ Web công khai / Dashboard (Next.js) ─┐
 - Web và mobile không truy cập cơ sở dữ liệu trực tiếp, chỉ gọi REST API. Web công khai và dashboard dùng các route `/api`; cổng bệnh nhân (web và mobile) dùng `/api/v1`; tất cả cùng một lớp nghiệp vụ.
 - Backend quyết định quyền truy cập, trạng thái lịch khám và tính hợp lệ của dữ liệu; PostgreSQL là nguồn dữ liệu duy nhất.
 - Hộp thư thông báo lưu trong PostgreSQL là dữ liệu chính, push chỉ là kênh chuyển phát.
-- `/health` chỉ xác nhận tiến trình API còn sống; `/ready` kiểm tra PostgreSQL với timeout và cache ngắn trước khi nhận lưu lượng.
+- `/health` chỉ xác nhận tiến trình API còn sống; `/ready` báo riêng PostgreSQL và Redis. PostgreSQL lỗi luôn trả `503`; Redis lỗi mặc định trả trạng thái `degraded` để hệ thống tiếp tục bằng policy dự phòng, hoặc trả `503` khi bật `REDIS_REQUIRED_FOR_READINESS=true`.
 - Các việc nền (gửi OTP, nhắc lịch, hết hạn giữ chỗ, đối soát thanh toán, nhắc thanh toán hóa đơn, tự sinh khung giờ) chạy qua hàng đợi hoặc worker, có thể chạy ngay trong tiến trình API (`INLINE_WORKERS`). Chu kỳ mặc định được kéo dài để tiết kiệm lượt truy vấn trên gói miễn phí và chỉnh được bằng biến môi trường. Khi hàng đợi Redis lỗi hoặc hết hạn mức, OTP được gửi trực tiếp thay vì qua hàng đợi.
+- Production nên tách `REDIS_URL` (rate limit, RBAC, readiness) và `QUEUE_REDIS_URL` (BullMQ) bằng hai ACL user. Dùng `rediss://` qua mạng công khai hoặc khai báo `REDIS_PRIVATE_NETWORK=true` cho endpoint nội bộ; sau khi cấu hình xong, bật `REDIS_SECURITY_MODE=strict` để chặn khởi động sai cấu hình.
 - Khung giờ khám được tự sinh từ lịch mẫu theo tuần cho 14 ngày tới; đổi, tắt hoặc xóa lịch mẫu gỡ khung giờ còn trống và báo nhân viên về các lịch đã đặt bị ảnh hưởng (lịch đã đặt không bị hủy tự động).
 
 ## Công nghệ

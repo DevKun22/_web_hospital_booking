@@ -19,6 +19,7 @@ export const bookingCreateIpLimiter = rateLimit({
   name: "booking-create-ip",
   windowMs: 10 * MINUTE_MS,
   max: 10,
+  degraded: { mode: "enforce", max: 5 },
   key: (req) => getClientIp(req),
   message:
     "Bạn đã gửi quá nhiều yêu cầu đặt lịch. Vui lòng thử lại sau ít phút.",
@@ -28,6 +29,7 @@ export const bookingCreatePhoneLimiter = rateLimit({
   name: "booking-create-phone",
   windowMs: 10 * MINUTE_MS,
   max: 5,
+  degraded: { mode: "enforce", max: 3 },
   key: (req) => bodyPhone(req.body),
   message:
     "Số điện thoại này đã đặt lịch quá nhiều lần. Vui lòng thử lại sau ít phút.",
@@ -37,6 +39,7 @@ export const searchLimiter = rateLimit({
   name: "search",
   windowMs: MINUTE_MS,
   max: 60,
+  degraded: { mode: "allow" },
   key: (req) => getClientIp(req),
 });
 
@@ -45,5 +48,6 @@ export const chatbotMessageLimiter = rateLimit({
   name: "chatbot-message",
   windowMs: MINUTE_MS,
   max: 30,
+  degraded: { mode: "enforce", max: 10 },
   key: (req) => getClientIp(req),
 });

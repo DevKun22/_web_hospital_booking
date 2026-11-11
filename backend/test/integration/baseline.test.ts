@@ -310,6 +310,11 @@ test("readiness checks the dedicated PostgreSQL database", async () => {
   assert.equal(health.body.status, "ok");
   assert.equal(ready.status, 200);
   assert.equal(ready.body.status, "ready");
+  assert.deepEqual(ready.body.checks, {
+    database: "up",
+    redis: "not_configured",
+    queueRedis: "not_configured",
+  });
 });
 
 test("v1 public content aliases preserve the legacy response contracts", async () => {
@@ -861,13 +866,13 @@ test("an account claimed between booking and verification blocks the second clai
   );
 });
 
-test("public booking is rate limited per phone with a Retry-After header", async () => {
+test("public booking uses the conservative phone limit while Redis is degraded", async () => {
   // The limiter is off in the test environment so the suite can call the API in
   // bulk; this test turns it on for its own requests only.
   process.env.RATE_LIMIT_ENABLED = "true";
   try {
     const responses = [];
-    for (let attempt = 0; attempt < 6; attempt += 1) {
+    for (let attempt = 0; attempt < 4; attempt += 1) {
       responses.push(
         await http.request("/api/appointments", {
           method: "POST",
@@ -876,9 +881,9 @@ test("public booking is rate limited per phone with a Retry-After header", async
       );
     }
 
-    assert.ok(responses.slice(0, 5).every((item) => item.status !== 429));
+    assert.ok(responses.slice(0, 3).every((item) => item.status !== 429));
 
-    const limited = responses[5];
+    const limited = responses[3];
     assert.equal(limited.status, 429);
     assert.equal(limited.body.code, "RATE_LIMITED");
     assert.ok(Number(limited.headers.get("retry-after")) > 0);

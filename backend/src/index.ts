@@ -12,6 +12,7 @@ const [{ createApp }, { prisma }] = await Promise.all([
 const { closeRbacInvalidation } = await import(
   "./services/rbacInvalidation.service.js"
 );
+const { closeCacheRedis } = await import("./services/cacheRedis.service.js");
 
 const app = createApp();
 
@@ -31,6 +32,7 @@ const shutdown = (signal: string) => {
 
   server.close(async () => {
     await closeRbacInvalidation();
+    closeCacheRedis();
     await prisma.$disconnect();
     process.exit(0);
   });
