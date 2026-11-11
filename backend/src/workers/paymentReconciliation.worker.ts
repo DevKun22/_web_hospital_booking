@@ -1,12 +1,13 @@
 import "dotenv/config";
 import PaymentService from "../services/payment.service.js";
 import { startRuntimeMetrics } from "../observability/runtimeMetrics.js";
+import { getRuntimeConfig } from "../config/runtimeConfig.js";
 
 // Đối soát định kỳ giao dịch VNPAY treo PENDING bằng API querydr. Dùng vòng lặp trong
 // tiến trình (không cần Redis) vì tác vụ idempotent và nhẹ; chạy nhiều bản cùng lúc
 // vẫn an toàn vì việc ghi nhận thanh toán đã khóa theo hóa đơn.
 const INTERVAL_MS = Math.max(
-  Number(process.env.PAYMENT_RECONCILIATION_INTERVAL_MS) || 10 * 60 * 1000,
+  getRuntimeConfig().workers.paymentReconciliationIntervalMs,
   60 * 1000,
 );
 startRuntimeMetrics("payment-worker");

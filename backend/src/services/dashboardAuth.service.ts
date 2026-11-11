@@ -14,20 +14,15 @@ import { STAFF_ROLES, type StaffRole } from "../config/permissions.js";
 import { getRolePermissions } from "./rbac.service.js";
 import AuditLogService from "./auditLog.service.js";
 import { hashPassword } from "../utils/password.js";
+import { getRuntimeConfig } from "../config/runtimeConfig.js";
 
 const DASHBOARD_ROLES: Role[] = [...STAFF_ROLES];
 const MAX_CHALLENGE_ATTEMPTS = 5;
 const CHALLENGE_EXPIRES_SECONDS = 5 * 60;
-const ACCESS_TOKEN_EXPIRES_IN = (process.env
-  .DASHBOARD_ACCESS_TOKEN_EXPIRES_IN || "15m") as SignOptions["expiresIn"];
-const readRefreshTokenDays = () => {
-  const value = process.env.DASHBOARD_REFRESH_TOKEN_DAYS || "7";
-  const match = value.match(/^(\d+)\s*d?$/i);
-
-  return match ? Number(match[1]) : 7;
-};
-
-const REFRESH_TOKEN_DAYS = readRefreshTokenDays();
+const dashboardAuthConfig = getRuntimeConfig().dashboardAuth;
+const ACCESS_TOKEN_EXPIRES_IN =
+  dashboardAuthConfig.accessTokenExpiresIn as SignOptions["expiresIn"];
+const REFRESH_TOKEN_DAYS = dashboardAuthConfig.refreshTokenDays;
 // Giữ thời gian so sánh mật khẩu tương đương khi tài khoản không tồn tại để
 // hạn chế suy đoán số điện thoại đã đăng ký qua chênh lệch thời gian phản hồi.
 const DUMMY_PASSWORD_HASH = bcrypt.hashSync(

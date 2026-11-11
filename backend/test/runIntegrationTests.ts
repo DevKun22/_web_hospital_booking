@@ -1,11 +1,18 @@
 import "dotenv/config";
 
 import { spawnSync } from "node:child_process";
+import { readdirSync } from "node:fs";
 import path from "node:path";
 
 import { buildIntegrationEnvironment } from "./support/testDatabase.js";
 
 const environment = buildIntegrationEnvironment();
+const integrationSuitePaths = readdirSync(
+  path.resolve(process.cwd(), "test/integration"),
+)
+  .filter((file) => file.endsWith(".test.ts"))
+  .sort()
+  .map((file) => `test/integration/${file}`);
 const cliEntry = (name: "prisma" | "tsx") =>
   path.resolve(
     process.cwd(),
@@ -35,7 +42,7 @@ const run = (command: string, args: string[]) => {
 console.log("[integration-test] Applying migrations to the dedicated test database...");
 run(process.execPath, [cliEntry("prisma"), "migrate", "deploy"]);
 
-console.log("[integration-test] Running Phase 0 + Phase 1 integration contracts...");
+console.log("[integration-test] Running bounded-context integration contracts...");
 const testNamePattern = process.argv.slice(2).join(" ").trim();
 run(process.execPath, [
   cliEntry("tsx"),
@@ -46,5 +53,5 @@ run(process.execPath, [
   ...(testNamePattern
     ? [`--test-name-pattern=${testNamePattern}`]
     : []),
-  "test/integration/baseline.test.ts",
+  ...integrationSuitePaths,
 ]);

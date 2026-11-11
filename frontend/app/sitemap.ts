@@ -23,7 +23,7 @@ type PublicPackage = {
   updatedAt?: string;
 };
 
-const apiBaseUrl = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api").replace(/\/$/, "");
+const apiBaseUrl = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api/v1").replace(/\/$/, "");
 
 const parseLastModified = (value?: string) => {
   if (!value) return undefined;

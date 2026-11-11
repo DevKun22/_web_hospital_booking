@@ -1,12 +1,9 @@
 import type { OtpChannel } from "../../generated/prisma/enums.js";
 import { isProductionLike } from "./environment.js";
+import { getRuntimeConfig } from "./runtimeConfig.js";
 
 // Nguồn sự thật duy nhất về kênh OTP đang dùng được. Backend, web và mobile
 // (qua /api/v1/capabilities) cùng dựa vào đây để không hiện kênh không gửi được.
-
-const TRUE_VALUES = new Set(["true", "1", "yes", "on"]);
-const isEnabled = (value?: string) =>
-  TRUE_VALUES.has((value || "").trim().toLowerCase());
 
 export const normalizeVietnamPhone = (value: string) => {
   const digits = value.replace(/\D/g, "");
@@ -14,23 +11,22 @@ export const normalizeVietnamPhone = (value: string) => {
 };
 
 export const getSmsProvider = () =>
-  (process.env.SMS_PROVIDER || "").trim().toLowerCase();
+  getRuntimeConfig().otp.smsProvider;
 
 export const isSmsProviderConfigured = () =>
   getSmsProvider() === "textbee" &&
-  Boolean(process.env.TEXTBEE_API_KEY?.trim()) &&
-  Boolean(process.env.TEXTBEE_DEVICE_ID?.trim());
+  Boolean(getRuntimeConfig().otp.textbeeApiKey) &&
+  Boolean(getRuntimeConfig().otp.textbeeDeviceId);
 
 // Local/dev: OTP_DEBUG_ENABLED in OTP ra log và trả debugOtp cho mọi số.
 export const isLocalOtpDebugEnabled = () =>
-  !isProductionLike() && isEnabled(process.env.OTP_DEBUG_ENABLED);
+  !isProductionLike() && getRuntimeConfig().otp.debugEnabled;
 
 // Demo trước hội đồng: chỉ các số trong DEMO_OTP_PHONES được nhận OTP SMS
 // hiển thị trên màn hình, kể cả khi deploy production. Số thật khác không bị ảnh hưởng.
 const getDemoOtpPhones = () =>
   new Set(
-    (process.env.DEMO_OTP_PHONES || "")
-      .split(",")
+    getRuntimeConfig().otp.demoPhones
       .map((item) => normalizeVietnamPhone(item))
       .filter(Boolean),
   );
@@ -47,7 +43,7 @@ export const canDeliverSms = (target?: string) =>
   (target ? isDemoOtpPhone(target) : false);
 
 export const isEmailOtpConfigured = () =>
-  Boolean(process.env.RESEND_API_KEY?.trim()) || !isProductionLike();
+  Boolean(getRuntimeConfig().otp.resendApiKey) || !isProductionLike();
 
 // Kênh hiển thị cho người dùng phổ thông (không tính số demo).
 export const getOtpCapabilities = () => {

@@ -1,5 +1,6 @@
 import { AppError } from "../utils/appError.js";
 import { getSmsProvider } from "../config/otpChannels.js";
+import { getRuntimeConfig } from "../config/runtimeConfig.js";
 
 // Adapter gửi SMS. Hiện hỗ trợ TextBee (gateway Android); có thể thêm
 // eSMS/SpeedSMS... bằng cách viết thêm một nhánh cùng chữ ký sendSms.
@@ -12,9 +13,7 @@ const toE164Vietnam = (phone: string) => {
 };
 
 const sendViaTextbee = async (to: string, message: string) => {
-  const baseUrl = (process.env.TEXTBEE_API_URL || "https://api.textbee.dev").replace(/\/$/, "");
-  const deviceId = process.env.TEXTBEE_DEVICE_ID?.trim();
-  const apiKey = process.env.TEXTBEE_API_KEY?.trim();
+  const { baseUrl, deviceId, apiKey } = getRuntimeConfig().sms;
   if (!deviceId || !apiKey) {
     throw new AppError("Chưa cấu hình TEXTBEE_API_KEY / TEXTBEE_DEVICE_ID", 500);
   }

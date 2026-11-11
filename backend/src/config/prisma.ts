@@ -11,12 +11,14 @@ import {
   isDatabaseQueryMetricsEnabled,
 } from "./environment.js";
 import { recordDatabaseQuery } from "../observability/requestPerformance.js";
+import { getRuntimeConfig } from "./runtimeConfig.js";
 
-if (!process.env.DATABASE_URL) {
+const configuredDatabaseUrl = getRuntimeConfig().database.url;
+if (!configuredDatabaseUrl) {
   throw new Error("DATABASE_URL is missing");
 }
 
-const connectionString = `${process.env.DATABASE_URL}`;
+const connectionString = configuredDatabaseUrl;
 const configuredSchema =
   new URL(connectionString).searchParams.get("schema")?.trim() || undefined;
 

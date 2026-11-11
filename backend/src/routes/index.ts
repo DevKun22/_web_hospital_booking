@@ -36,12 +36,17 @@ import {
   publicSiteSettingsRouter,
 } from "./siteSettings.route.js";
 import uploadRouter from "./upload.route.js";
-import v1Router from "./v1.route.js";
+import { patientCapabilitiesHandler } from "../controllers/patientPortalV1.controller.js";
+import patientAuthRouter from "./patientAuthV1.route.js";
+import patientNotificationRouter from "./patientNotification.route.js";
+import patientPortalRouter from "./patientPortalV1.route.js";
 
 const router = Router();
 
-router.use("/v1", v1Router);
-
+router.get("/capabilities", patientCapabilitiesHandler);
+router.use("/auth", patientAuthRouter);
+router.use("/me/notifications", patientNotificationRouter);
+router.use("/me", patientPortalRouter);
 router.use("/chatbot", chatbotRouter);
 router.use("/auth/dashboard", dashboardAuthRouter);
 router.use("/appointments", appointmentRouter);

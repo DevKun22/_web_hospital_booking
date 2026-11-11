@@ -9,6 +9,7 @@ import {
   resolveOtpSecret,
 } from "../config/environment.js";
 import { canDeliverSms, shouldExposeDebugOtp } from "../config/otpChannels.js";
+import { getRuntimeConfig } from "../config/runtimeConfig.js";
 
 type SendOtpOptions = {
   channel?: OtpChannel;
@@ -33,9 +34,7 @@ const OTP_EXPIRES_SECONDS = 5 * 60;
 const VERIFY_WINDOW_MINUTES = 15;
 const MAX_VERIFY_FAILS_PER_PHONE_WINDOW = 5;
 const MAX_VERIFY_FAILS_PER_IP_WINDOW = 20;
-const OTP_ENQUEUE_TIMEOUT_MS = Number(
-  process.env.OTP_ENQUEUE_TIMEOUT_MS || 1000,
-);
+const OTP_ENQUEUE_TIMEOUT_MS = getRuntimeConfig().otp.enqueueTimeoutMs;
 
 type QueueAttemptResult =
   | { status: "QUEUED" }

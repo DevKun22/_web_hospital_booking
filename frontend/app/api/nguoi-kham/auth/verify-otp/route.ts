@@ -25,7 +25,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const result = await backendRequest<VerifyResult>("/v1/auth/patient/verify-otp", {
+  const result = await backendRequest<VerifyResult>("/auth/patient/verify-otp", {
     method: "POST",
     body: JSON.stringify({
       challengeId: body.challengeId,

@@ -193,32 +193,31 @@ test("large API responses are compressed but downloadable content is left intact
   }
 });
 
-test("unknown routes preserve the legacy error envelope", async () => {
-  const response = await http.request("/api/phase-0-not-found");
+test("unknown routes preserve the error envelope", async () => {
+  const response = await http.request("/api/v1/phase-0-not-found");
 
   assert.equal(response.status, 404);
   assert.equal(response.body.success, false);
   assert.equal(response.body.code, "ROUTE_NOT_FOUND");
-  assert.equal(response.body.message, "Route /api/phase-0-not-found not found");
+  assert.equal(response.body.message, "Route /api/v1/phase-0-not-found not found");
   assert.equal(typeof response.body.requestId, "string");
   assert.deepEqual(response.body.errors, []);
 });
 
-test("request validation preserves success, message and errors", async () => {
-  for (const path of ["/api/appointments", "/api/v1/appointments"]) {
-    const response = await http.request(path, {
-      method: "POST",
-      body: {},
-    });
+test("only /api/v1 is mounted and validation keeps its envelope", async () => {
+  assert.equal((await http.request("/api/appointments")).status, 404);
 
-    assert.equal(response.status, 400);
-    assert.equal(response.body.success, false);
-    assert.equal(response.body.code, "VALIDATION_ERROR");
-    assert.equal(typeof response.body.requestId, "string");
-    assert.equal(response.body.message, "Dữ liệu không hợp lệ");
-    assert.ok(Array.isArray(response.body.errors));
-    assert.ok(response.body.errors.length > 0);
-  }
+  const response = await http.request("/api/v1/appointments", {
+    method: "POST",
+    body: {},
+  });
+  assert.equal(response.status, 400);
+  assert.equal(response.body.success, false);
+  assert.equal(response.body.code, "VALIDATION_ERROR");
+  assert.equal(typeof response.body.requestId, "string");
+  assert.equal(response.body.message, "Dữ liệu không hợp lệ");
+  assert.ok(Array.isArray(response.body.errors));
+  assert.ok(response.body.errors.length > 0);
 });
 
 test("home page configuration stays bounded and requires dashboard authentication", async () => {
@@ -242,7 +241,7 @@ test("home page configuration stays bounded and requires dashboard authenticatio
   );
 
   for (const method of ["GET", "PATCH"] as const) {
-    const response = await http.request("/api/dashboard/homepage-config", {
+    const response = await http.request("/api/v1/dashboard/homepage-config", {
       method,
       ...(method === "PATCH" ? { body: {} } : {}),
     });
@@ -379,7 +378,7 @@ test("production startup requires complete HTTPS VNPay configuration when enable
         ...validProduction,
         VNPAY_TMN_CODE: "TESTTMN1",
         VNPAY_HASH_SECRET: "s".repeat(32),
-        VNPAY_RETURN_URL: "http://api.example.test/api/payments/vnpay/return",
+        VNPAY_RETURN_URL: "http://api.example.test/api/v1/payments/vnpay/return",
       }),
     /VNPAY_RETURN_URL must be a valid HTTPS URL/,
   );
@@ -388,7 +387,7 @@ test("production startup requires complete HTTPS VNPay configuration when enable
       ...validProduction,
       VNPAY_TMN_CODE: "TESTTMN1",
       VNPAY_HASH_SECRET: "s".repeat(32),
-      VNPAY_RETURN_URL: "https://api.example.test/api/payments/vnpay/return",
+      VNPAY_RETURN_URL: "https://api.example.test/api/v1/payments/vnpay/return",
     }),
   );
 });
@@ -410,7 +409,7 @@ test("VNPay capability needs both feature flag and complete credentials", () => 
   try {
     process.env.VNPAY_TMN_CODE = "TESTTMN1";
     process.env.VNPAY_HASH_SECRET = "s".repeat(32);
-    process.env.VNPAY_RETURN_URL = "https://api.example.test/api/payments/vnpay/return";
+    process.env.VNPAY_RETURN_URL = "https://api.example.test/api/v1/payments/vnpay/return";
 
     // Credentials alone do not advertise the provider.
     process.env.PAYMENT_VNPAY_ENABLED = "false";
@@ -682,8 +681,8 @@ test("performance telemetry does not expose query values or path identifiers", (
     "/api/v1/me/appointments/:id",
   );
   assert.equal(
-    getSafeRequestPath("/api/appointments/HB-8492?keyword=dau%20bung"),
-    "/api/appointments/:id",
+    getSafeRequestPath("/api/v1/appointments/HB-8492?keyword=dau%20bung"),
+    "/api/v1/appointments/:id",
   );
 
   runWithRequestPerformance("request-test", () => {

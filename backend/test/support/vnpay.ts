@@ -6,7 +6,7 @@ import crypto from "node:crypto";
 
 export const VNPAY_TEST_TMN_CODE = "TESTTMN1";
 export const VNPAY_TEST_HASH_SECRET = "TESTSECRETTESTSECRETTESTSECRET12";
-export const VNPAY_TEST_RETURN_URL = "https://api.example.test/api/payments/vnpay/return";
+export const VNPAY_TEST_RETURN_URL = "https://api.example.test/api/v1/payments/vnpay/return";
 export const VNPAY_TEST_RESULT_URL = "https://web.example.test/thanh-toan/ket-qua";
 
 export const vnpayTestEnvironment = {

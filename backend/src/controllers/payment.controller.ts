@@ -1,10 +1,9 @@
 import type { Request, Response } from "express";
 import PaymentService from "../services/payment.service.js";
 import { AppError } from "../utils/appError.js";
+import { getRuntimeConfig } from "../config/runtimeConfig.js";
 
-const getPaymentResultUrl = () =>
-  process.env.PAYMENT_RESULT_URL?.trim() ||
-  `${(process.env.FRONTEND_URL || "http://localhost:3000").split(",")[0].trim()}/thanh-toan/ket-qua`;
+const getPaymentResultUrl = () => getRuntimeConfig().payment.resultUrl;
 
 // Trình duyệt người dùng được VNPAY chuyển về đây. Dữ liệu có chữ ký nên
 // backend xác thực và ghi nhận ngay, sau đó chuyển sang trang kết quả web.

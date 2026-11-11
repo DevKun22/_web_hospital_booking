@@ -5,14 +5,16 @@ import {
   isSlotStartInPastVietnamTime,
 } from "../utils/time.js";
 import ScheduleReconciliationService from "../services/scheduleReconciliation.service.js";
+import { getRuntimeConfig } from "../config/runtimeConfig.js";
 
 const PASSWORD = "@DevKun2212";
 const SLOT_DAYS = 14;
 const DEMO_INSURANCE_COVERAGE_RATE = 80;
 const DEMO_INSURANCE_ELIGIBLE_LIMIT = 62_500;
 
-const resetRequested = process.env.RESET_DATABASE === "true";
-const resetAllowed = process.env.ALLOW_DATABASE_RESET === "true";
+const runtimeConfig = getRuntimeConfig();
+const resetRequested = runtimeConfig.demoSeed.resetRequested;
+const resetAllowed = runtimeConfig.demoSeed.resetAllowed;
 
 const toSlug = (value: string) =>
   value
@@ -470,7 +472,7 @@ async function upsertChatbotContent() {
         aiEnabled: false,
         fallbackEnabled: true,
         faqEnabled: true,
-        model: process.env.GEMINI_MODEL || "gemini-2.5-flash",
+        model: runtimeConfig.chatbot.model,
         maxSuggestedActions: 4,
         sessionExpiresDays: 7,
       },
@@ -482,7 +484,7 @@ async function upsertChatbotContent() {
         aiEnabled: false,
         fallbackEnabled: true,
         faqEnabled: true,
-        model: process.env.GEMINI_MODEL || "gemini-2.5-flash",
+        model: runtimeConfig.chatbot.model,
         maxSuggestedActions: 4,
         sessionExpiresDays: 7,
       },

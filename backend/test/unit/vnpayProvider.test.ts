@@ -3,7 +3,7 @@ import { test } from "node:test";
 
 process.env.VNPAY_TMN_CODE = "TESTTMN1";
 process.env.VNPAY_HASH_SECRET = "TESTSECRETTESTSECRETTESTSECRET12";
-process.env.VNPAY_RETURN_URL = "https://api.example.test/api/payments/vnpay/return";
+process.env.VNPAY_RETURN_URL = "https://api.example.test/api/v1/payments/vnpay/return";
 
 const { vnpayPaymentProvider, parseVerifiedVnpayCallback } = await import(
   "../../src/services/paymentProviders/vnpay.provider.js"

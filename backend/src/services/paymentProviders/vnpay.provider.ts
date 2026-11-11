@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import { AppError } from "../../utils/appError.js";
 import type { PaymentProviderAdapter } from "./types.js";
+import { getRuntimeConfig } from "../../config/runtimeConfig.js";
 
 // Tích hợp VNPAY Payment Gateway v2.1.0 (sandbox/production theo env).
 // Tài liệu: https://sandbox.vnpayment.vn/apis/docs/thanh-toan-pay/pay.html
@@ -13,24 +14,31 @@ const vnpayRequiredConfigurationKeys = [
   "VNPAY_RETURN_URL",
 ] as const;
 
-const isEnabled = (value?: string) =>
-  ["true", "1", "yes", "on"].includes((value || "").toLowerCase());
-
 export const getVnpayConfigurationStatus = (
   env: NodeJS.ProcessEnv = process.env,
 ) => {
-  const missing = vnpayRequiredConfigurationKeys.filter(
-    (key) => !env[key]?.trim(),
-  );
+  const payment = getRuntimeConfig(env).payment;
+  const values = {
+    VNPAY_TMN_CODE: payment.vnpayTmnCode,
+    VNPAY_HASH_SECRET: payment.vnpayHashSecret,
+    VNPAY_RETURN_URL: payment.vnpayReturnUrl,
+  };
+  const missing = vnpayRequiredConfigurationKeys.filter((key) => !values[key]);
   return {
-    enabled: isEnabled(env.PAYMENT_VNPAY_ENABLED),
+    enabled: payment.vnpayEnabled,
     configured: missing.length === 0,
     missing,
   };
 };
 
 const requiredEnv = (key: (typeof vnpayRequiredConfigurationKeys)[number]) => {
-  const value = process.env[key]?.trim();
+  const payment = getRuntimeConfig().payment;
+  const values = {
+    VNPAY_TMN_CODE: payment.vnpayTmnCode,
+    VNPAY_HASH_SECRET: payment.vnpayHashSecret,
+    VNPAY_RETURN_URL: payment.vnpayReturnUrl,
+  };
+  const value = values[key];
   if (!value) throw new AppError(`Chưa cấu hình biến môi trường ${key}`, 500);
   return value;
 };
@@ -92,7 +100,7 @@ export const vnpayPaymentProvider: PaymentProviderAdapter = {
     const tmnCode = requiredEnv("VNPAY_TMN_CODE");
     const secret = requiredEnv("VNPAY_HASH_SECRET");
     const returnUrl = requiredEnv("VNPAY_RETURN_URL");
-    const paymentUrl = process.env.VNPAY_PAYMENT_URL?.trim() || DEFAULT_PAYMENT_URL;
+    const paymentUrl = getRuntimeConfig().payment.vnpayPaymentUrl || DEFAULT_PAYMENT_URL;
 
     const params: Record<string, string> = {
       vnp_Version: "2.1.0",
@@ -227,7 +235,7 @@ export const queryVnpayTransaction = async (
 ): Promise<VerifiedVnpayQuery> => {
   const tmnCode = requiredEnv("VNPAY_TMN_CODE");
   const secret = requiredEnv("VNPAY_HASH_SECRET");
-  const url = process.env.VNPAY_QUERY_URL?.trim() || DEFAULT_QUERY_URL;
+  const url = getRuntimeConfig().payment.vnpayQueryUrl || DEFAULT_QUERY_URL;
 
   const requestId = crypto.randomUUID().replace(/-/g, "");
   const orderInfo = toAsciiOrderInfo(`Truy van giao dich ${input.txnRef}`);
@@ -364,7 +372,7 @@ export const refundVnpayTransaction = async (
 ): Promise<VnpayRefundResult> => {
   const tmnCode = requiredEnv("VNPAY_TMN_CODE");
   const secret = requiredEnv("VNPAY_HASH_SECRET");
-  const url = process.env.VNPAY_QUERY_URL?.trim() || DEFAULT_QUERY_URL;
+  const url = getRuntimeConfig().payment.vnpayQueryUrl || DEFAULT_QUERY_URL;
 
   const orderInfo = toAsciiOrderInfo(input.reason) || "Hoan tien";
   const createDate = formatVnpayDate(new Date());

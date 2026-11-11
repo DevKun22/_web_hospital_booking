@@ -1,6 +1,7 @@
 import { v2 as cloudinary } from "cloudinary";
+import { getRuntimeConfig } from "./runtimeConfig.js";
 
-if (!process.env.CLOUDINARY_URL) {
+if (!getRuntimeConfig().cloudinary.url) {
   throw new Error("CLOUDINARY_URL is missing");
 }
 

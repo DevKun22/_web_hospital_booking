@@ -6,6 +6,7 @@ import type {
 } from "./search.types.js";
 import { SEARCH_DOCUMENT_TYPES } from "./search.types.js";
 import { resolveSupportSearchUrl } from "./search.urls.js";
+import { getRuntimeConfig } from "../../config/runtimeConfig.js";
 
 const normalizeLimit = (limit?: number) =>
   Math.min(Math.max(limit || 12, 1), 30);
@@ -26,10 +27,7 @@ type SearchResponse = {
   source: "empty" | "postgres";
 };
 
-const rawSearchCacheTtl = Number(process.env.PUBLIC_SEARCH_CACHE_TTL_MS || 30000);
-const searchCacheTtlMs = Number.isFinite(rawSearchCacheTtl)
-  ? Math.min(Math.max(rawSearchCacheTtl, 0), 5 * 60 * 1000)
-  : 30000;
+const searchCacheTtlMs = getRuntimeConfig().publicSearch.cacheTtlMs;
 const searchCache = new Map<string, { expiresAt: number; data: SearchResponse }>();
 
 const makeSearchCacheKey = (input: {

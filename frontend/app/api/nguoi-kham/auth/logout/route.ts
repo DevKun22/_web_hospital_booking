@@ -8,7 +8,7 @@ import {
 export async function POST() {
   const refreshToken = await getRefreshToken();
   if (refreshToken) {
-    await backendRequest("/v1/auth/logout", {
+    await backendRequest("/auth/logout", {
       method: "POST",
       body: JSON.stringify({ refreshToken }),
     }).catch(() => null);

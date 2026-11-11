@@ -6,6 +6,7 @@ import {
 } from "../../utils/time.js";
 import type { ChatBookingDraft, ChatIntent } from "./chatbot.types.js";
 import type { NLUCatalog } from "./ai/nlu.service.js";
+import { getRuntimeConfig } from "../../config/runtimeConfig.js";
 
 export type ChatbotContext = {
   departments: {
@@ -74,12 +75,7 @@ let nluCatalogCache:
   | { value: NLUCatalog; expiresAt: number }
   | undefined;
 
-const rawContextCacheTtl = Number(
-  process.env.CHATBOT_CONTEXT_CACHE_TTL_MS || 30_000,
-);
-const contextCacheTtlMs = Number.isFinite(rawContextCacheTtl)
-  ? Math.min(Math.max(rawContextCacheTtl, 0), 5 * 60_000)
-  : 30_000;
+const contextCacheTtlMs = getRuntimeConfig().chatbot.contextCacheTtlMs;
 
 type ContextCacheEntry<T> = { value: T; expiresAt: number };
 const contextCache = new Map<string, ContextCacheEntry<unknown>>();

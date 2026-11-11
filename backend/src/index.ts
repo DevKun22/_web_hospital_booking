@@ -2,6 +2,7 @@ import "dotenv/config";
 
 import { validateRuntimeEnvironment } from "./config/environment.js";
 import { configureHttpServer } from "./config/httpServer.js";
+import { getRuntimeConfig } from "./config/runtimeConfig.js";
 
 validateRuntimeEnvironment();
 
@@ -21,7 +22,7 @@ const { closeCacheRedis } = await import("./services/cacheRedis.service.js");
 
 const app = createApp();
 
-const PORT = process.env.PORT || 4000;
+const PORT = getRuntimeConfig().server.port;
 
 const server = app.listen(PORT, () => {
   console.log(`Server running on port http://localhost:${PORT}`);

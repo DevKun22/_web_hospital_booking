@@ -12,7 +12,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const result = await backendRequest("/v1/auth/patient/request-otp", {
+  const result = await backendRequest("/auth/patient/request-otp", {
     method: "POST",
     body: JSON.stringify(email ? { email } : { phone }),
   });

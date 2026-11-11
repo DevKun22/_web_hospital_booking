@@ -2,11 +2,12 @@ import { isProductionLike } from "../config/environment.js";
 import { Request, Response, NextFunction } from "express";
 import DashboardAuthService from "../services/dashboardAuth.service.js";
 import { getClientIp } from "../utils/clientIp.js";
+import { getRuntimeConfig } from "../config/runtimeConfig.js";
 
 type CookieSameSite = "strict" | "lax" | "none";
 
 const readSameSite = (): CookieSameSite => {
-  const value = (process.env.DASHBOARD_COOKIE_SAME_SITE || "").toLowerCase();
+  const value = getRuntimeConfig().dashboardAuth.cookieSameSite;
 
   if (value === "strict" || value === "lax" || value === "none") {
     return value as CookieSameSite;
@@ -22,16 +23,10 @@ const dashboardCookieOptions = {
   path: "/",
 };
 
-const readRefreshCookieDays = () => {
-  const value = process.env.DASHBOARD_REFRESH_TOKEN_DAYS || "7";
-  const match = value.match(/^(\d+)\s*d?$/i);
-
-  return match ? Number(match[1]) : 7;
-};
-
 const ACCESS_COOKIE_MAX_AGE =
-  Number(process.env.DASHBOARD_ACCESS_COOKIE_MAX_AGE_SECONDS || 15 * 60) * 1000;
-const REFRESH_COOKIE_MAX_AGE = readRefreshCookieDays() * 24 * 60 * 60 * 1000;
+  getRuntimeConfig().dashboardAuth.accessCookieMaxAgeSeconds * 1000;
+const REFRESH_COOKIE_MAX_AGE =
+  getRuntimeConfig().dashboardAuth.refreshTokenDays * 24 * 60 * 60 * 1000;
 
 const getRequestMeta = (req: Request) => ({
   ipAddress: getClientIp(req),
