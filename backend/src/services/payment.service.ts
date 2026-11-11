@@ -4,7 +4,9 @@ import type {
   PaymentProvider,
 } from "../../generated/prisma/enums.js";
 import { prisma } from "../config/prisma.js";
+import { getReconciliationConcurrency } from "../config/environment.js";
 import { AppError } from "../utils/appError.js";
+import { mapWithConcurrency } from "../utils/concurrency.js";
 import { generatePaymentTransactionCode } from "../utils/paymentCode.js";
 import {
   assertPaymentProviderAvailable,
@@ -588,21 +590,33 @@ class PaymentService {
       select: { id: true },
     });
 
-    for (const candidate of candidates) {
-      summary.scanned += 1;
-      try {
-        const { outcome } = await this.reconcileVnpayTransaction(candidate.id, now);
+    const results = await mapWithConcurrency(
+      candidates,
+      getReconciliationConcurrency(),
+      async (candidate) => {
+        try {
+          const { outcome } = await this.reconcileVnpayTransaction(candidate.id, now);
+          return { outcome, error: false };
+        } catch (error) {
+          console.error(
+            "[PAYMENT_RECONCILIATION]",
+            candidate.id,
+            error instanceof AppError ? (error.code ?? error.message) : error,
+          );
+          return { outcome: "UNKNOWN" as const, error: true };
+        }
+      },
+    );
+
+    summary.scanned = results.length;
+    for (const { outcome, error } of results) {
+      if (error) {
+        summary.errors += 1;
+      } else {
         if (outcome === "PAID") summary.paid += 1;
         else if (outcome === "FAILED") summary.failed += 1;
         else if (outcome === "EXPIRED") summary.expired += 1;
         else summary.pending += 1;
-      } catch (error) {
-        summary.errors += 1;
-        console.error(
-          "[PAYMENT_RECONCILIATION]",
-          candidate.id,
-          error instanceof AppError ? (error.code ?? error.message) : error,
-        );
       }
     }
     return summary;

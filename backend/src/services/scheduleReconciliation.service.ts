@@ -1,7 +1,11 @@
 import type { AppointmentStatus } from "../../generated/prisma/enums.js";
 import { Prisma } from "../../generated/prisma/client.js";
-import { getSlotReconciliationBatchSize } from "../config/environment.js";
+import {
+  getReconciliationConcurrency,
+  getSlotReconciliationBatchSize,
+} from "../config/environment.js";
 import { prisma } from "../config/prisma.js";
+import { mapWithConcurrency } from "../utils/concurrency.js";
 
 const RELEASED_APPOINTMENT_STATUSES = new Set<AppointmentStatus>([
   "RESCHEDULED",
@@ -16,6 +20,13 @@ type FindingType =
   | "LINKED_SLOT_NOT_BOOKED"
   | "TERMINAL_APPOINTMENT_STILL_LINKED"
   | "APPOINTMENT_SLOT_MISMATCH";
+
+type ReconciliationFinding = {
+  type: FindingType;
+  slotId: string;
+  appointmentId: string | null;
+  repaired: boolean;
+};
 
 class ScheduleReconciliationService {
   async reconcile(options: { repair?: boolean; batchSize?: number } = {}) {
@@ -84,73 +95,67 @@ class ScheduleReconciliationService {
       },
     });
 
-    const findings: Array<{
-      type: FindingType;
-      slotId: string;
-      appointmentId: string | null;
-      repaired: boolean;
-    }> = [];
+    const results = await mapWithConcurrency(
+      slots,
+      getReconciliationConcurrency(),
+      async (slot): Promise<ReconciliationFinding | null> => {
+        const appointment = slot.appointment;
+        const mismatched = Boolean(
+          appointment &&
+            (appointment.doctorId !== slot.doctorId ||
+              appointment.appointmentDate.getTime() !== slot.date.getTime() ||
+              appointment.startTime !== slot.startTime ||
+              appointment.endTime !== slot.endTime),
+        );
 
-    for (const slot of slots) {
-      const appointment = slot.appointment;
-      const mismatched = Boolean(
-        appointment &&
-          (appointment.doctorId !== slot.doctorId ||
-            appointment.appointmentDate.getTime() !== slot.date.getTime() ||
-            appointment.startTime !== slot.startTime ||
-            appointment.endTime !== slot.endTime),
-      );
+        if (mismatched) {
+          return {
+            type: "APPOINTMENT_SLOT_MISMATCH",
+            slotId: slot.id,
+            appointmentId: appointment?.id || null,
+            repaired: false,
+          };
+        }
 
-      if (mismatched) {
-        findings.push({
-          type: "APPOINTMENT_SLOT_MISMATCH",
-          slotId: slot.id,
-          appointmentId: appointment?.id || null,
-          repaired: false,
-        });
-        continue;
-      }
+        if (!appointment && slot.status === "BOOKED") {
+          return {
+            type: "ORPHAN_BOOKED_SLOT",
+            slotId: slot.id,
+            appointmentId: null,
+            repaired: repair ? await this.releaseOrphanSlot(slot.id) : false,
+          };
+        }
 
-      if (!appointment && slot.status === "BOOKED") {
-        const repaired = repair
-          ? await this.releaseOrphanSlot(slot.id)
-          : false;
-        findings.push({
-          type: "ORPHAN_BOOKED_SLOT",
-          slotId: slot.id,
-          appointmentId: null,
-          repaired,
-        });
-        continue;
-      }
+        if (!appointment) return null;
 
-      if (!appointment) continue;
+        if (RELEASED_APPOINTMENT_STATUSES.has(appointment.status)) {
+          return {
+            type: "TERMINAL_APPOINTMENT_STILL_LINKED",
+            slotId: slot.id,
+            appointmentId: appointment.id,
+            repaired: repair
+              ? await this.detachTerminalAppointment(slot.id, appointment.id)
+              : false,
+          };
+        }
 
-      if (RELEASED_APPOINTMENT_STATUSES.has(appointment.status)) {
-        const repaired = repair
-          ? await this.detachTerminalAppointment(slot.id, appointment.id)
-          : false;
-        findings.push({
-          type: "TERMINAL_APPOINTMENT_STILL_LINKED",
-          slotId: slot.id,
-          appointmentId: appointment.id,
-          repaired,
-        });
-        continue;
-      }
+        if (slot.status !== "BOOKED" || !slot.isActive) {
+          return {
+            type: "LINKED_SLOT_NOT_BOOKED",
+            slotId: slot.id,
+            appointmentId: appointment.id,
+            repaired: repair
+              ? await this.markLinkedSlotBooked(slot.id, appointment.id)
+              : false,
+          };
+        }
 
-      if (slot.status !== "BOOKED" || !slot.isActive) {
-        const repaired = repair
-          ? await this.markLinkedSlotBooked(slot.id, appointment.id)
-          : false;
-        findings.push({
-          type: "LINKED_SLOT_NOT_BOOKED",
-          slotId: slot.id,
-          appointmentId: appointment.id,
-          repaired,
-        });
-      }
-    }
+        return null;
+      },
+    );
+    const findings = results.filter(
+      (finding): finding is ReconciliationFinding => finding !== null,
+    );
 
     return {
       policy: {

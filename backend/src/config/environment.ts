@@ -260,6 +260,10 @@ export const getAppointmentReconciliationBatchSize = (
   env: NodeJS.ProcessEnv = process.env,
 ) => positiveInteger(env.APPOINTMENT_RECONCILIATION_BATCH_SIZE, 100);
 
+export const getReconciliationConcurrency = (
+  env: NodeJS.ProcessEnv = process.env,
+) => boundedPositiveInteger(env.RECONCILIATION_CONCURRENCY, 4, 1, 16);
+
 export const getSlotReconciliationIntervalMs = (
   env: NodeJS.ProcessEnv = process.env,
 ) => positiveInteger(env.SLOT_RECONCILIATION_INTERVAL_MS, 15 * 60_000);
@@ -283,6 +287,22 @@ export const getNotificationWorkerIntervalMs = (
 export const getNotificationDispatchBatchSize = (
   env: NodeJS.ProcessEnv = process.env,
 ) => Math.min(positiveInteger(env.NOTIFICATION_DISPATCH_BATCH_SIZE, 100), 500);
+
+export const getNotificationDispatchConcurrency = (
+  env: NodeJS.ProcessEnv = process.env,
+) => boundedPositiveInteger(env.NOTIFICATION_DISPATCH_CONCURRENCY, 4, 1, 32);
+
+export const getReminderDispatchConcurrency = (
+  env: NodeJS.ProcessEnv = process.env,
+) => boundedPositiveInteger(env.REMINDER_DISPATCH_CONCURRENCY, 4, 1, 16);
+
+export const getMedicalFileUploadConcurrency = (
+  env: NodeJS.ProcessEnv = process.env,
+) => boundedPositiveInteger(env.MEDICAL_FILE_UPLOAD_CONCURRENCY, 2, 1, 16);
+
+export const getMedicalFileDownloadConcurrency = (
+  env: NodeJS.ProcessEnv = process.env,
+) => boundedPositiveInteger(env.MEDICAL_FILE_DOWNLOAD_CONCURRENCY, 8, 1, 64);
 
 export const getNotificationRetentionDays = (
   env: NodeJS.ProcessEnv = process.env,
