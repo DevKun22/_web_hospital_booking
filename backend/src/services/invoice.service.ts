@@ -558,9 +558,6 @@ class InvoiceService {
       throw error;
     }
 
-    await PatientEventNotificationService.dispatchBestEffort(
-      transition.notificationId,
-    );
     return transition.createdInvoice;
   }
 
@@ -806,9 +803,6 @@ class InvoiceService {
       return { paidInvoice, notificationId: notification.id };
     });
 
-    await PatientEventNotificationService.dispatchBestEffort(
-      transition.notificationId,
-    );
     return transition.paidInvoice;
   }
 
@@ -939,9 +933,6 @@ class InvoiceService {
               },
               prisma,
             );
-          await PatientEventNotificationService.dispatchBestEffort(
-            notification.id,
-          );
           return true;
         } catch (error) {
           console.error(`[INVOICE_REMINDER] invoice=${invoice.id} failed:`, error);
@@ -1219,9 +1210,6 @@ class InvoiceService {
       return { refundedInvoice, notificationId: notification.id };
     });
 
-    await PatientEventNotificationService.dispatchBestEffort(
-      transition.notificationId,
-    );
     return transition.refundedInvoice;
   }
 

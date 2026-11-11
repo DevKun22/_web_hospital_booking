@@ -5,10 +5,10 @@ import { prisma } from "../config/prisma.js";
 import { hashPassword } from "../utils/password.js";
 import { AppError } from "../utils/appError.js";
 import MediaAssetService from "./mediaAsset.service.js";
-import AccountChangeNoticeService from "./accountChangeNotice.service.js";
 import AuditLogService from "./auditLog.service.js";
 import type { AccountChangeKind } from "./emailTemplates/accountChange.template.js";
 import AuthSessionService from "./authSession.service.js";
+import OutboxEventService from "./outboxEvent.service.js";
 
 type DashboardRole = StaffRole;
 type Actor = { userId: string; role: Role };
@@ -253,7 +253,7 @@ class DashboardUserService {
             )
           : undefined;
 
-    const { currentUser, user } = await this.runSerializable(async (tx) => {
+    const user = await this.runSerializable(async (tx) => {
       const current = await this.getById(id, tx);
       await this.assertActiveAdminContinuity(current, input, tx);
 
@@ -284,7 +284,7 @@ class DashboardUserService {
         );
       }
 
-      await AuditLogService.record(
+      const audit = await AuditLogService.record(
         {
           actor,
           action: "USER_UPDATED",
@@ -304,7 +304,29 @@ class DashboardUserService {
         tx,
       );
 
-      return { currentUser: current, user: updated };
+      // Ghi side effect cùng transaction; worker gửi email theo cơ chế at-least-once.
+      if (actor.userId !== id) {
+        const changes: AccountChangeKind[] = [];
+        if (input.email !== undefined && input.email !== current.email) {
+          changes.push("EMAIL_CHANGED");
+        }
+        if (input.phone !== undefined && input.phone !== current.phone) {
+          changes.push("PHONE_CHANGED");
+        }
+        if (input.role && input.role !== current.role) {
+          changes.push("ROLE_CHANGED");
+        }
+        await OutboxEventService.enqueueAccountChangeNotice(
+          {
+            email: current.email,
+            changes,
+            dedupeKey: `audit:${audit.id}:account-change-notice`,
+          },
+          tx,
+        );
+      }
+
+      return updated;
     });
 
     if (avatarAsset || input.avatarAssetId === null) {
@@ -313,15 +335,6 @@ class DashboardUserService {
         id,
         avatarAsset?.id,
       );
-    }
-
-    // Chỉ báo khi người khác sửa tài khoản của mình; tự sửa hồ sơ của chính mình thì không cần.
-    if (actor.userId !== id) {
-      const changes: AccountChangeKind[] = [];
-      if (input.email !== undefined && input.email !== currentUser.email) changes.push("EMAIL_CHANGED");
-      if (input.phone !== undefined && input.phone !== currentUser.phone) changes.push("PHONE_CHANGED");
-      if (input.role && input.role !== currentUser.role) changes.push("ROLE_CHANGED");
-      await AccountChangeNoticeService.notify({ email: currentUser.email, changes });
     }
 
     return user;
@@ -384,7 +397,7 @@ class DashboardUserService {
         { userId: id, kind: "DASHBOARD" },
         tx,
       );
-      await AuditLogService.record(
+      const audit = await AuditLogService.record(
         {
           actor,
           action: "USER_PASSWORD_RESET",
@@ -394,12 +407,18 @@ class DashboardUserService {
         },
         tx,
       );
+      if (forceChange) {
+        await OutboxEventService.enqueueAccountChangeNotice(
+          {
+            email: updated.email,
+            changes: ["PASSWORD_RESET"],
+            dedupeKey: `audit:${audit.id}:account-change-notice`,
+          },
+          tx,
+        );
+      }
       return updated;
     });
-
-    if (forceChange) {
-      await AccountChangeNoticeService.notify({ email: user.email, changes: ["PASSWORD_RESET"] });
-    }
 
     return user;
   }

@@ -567,7 +567,7 @@ class PharmacyService {
       );
     }
 
-    const result = await prisma.$transaction(async (tx) => {
+    await prisma.$transaction(async (tx) => {
       // Giành quyền cấp đơn: chỉ một yêu cầu thắng, yêu cầu thứ hai nhận 409.
       const claimed = await tx.prescription.updateMany({
         where: { id: prescriptionId, status: "ISSUED", dispenseStatus: "NOT_DISPENSED" },
@@ -729,21 +729,17 @@ class PharmacyService {
         prescriptionId,
         note: "Cấp phát thuốc theo đơn",
       });
-      const notification =
-        await PatientEventNotificationService.createPrescriptionDispensed(
-          {
-            userId: prescription.patientId,
-            prescriptionId,
-            prescriptionCode: prescription.prescriptionCode,
-            bookingCode: prescription.appointment.bookingCode,
-          },
-          tx,
-        );
-
-      return { notificationId: notification.id };
+      await PatientEventNotificationService.createPrescriptionDispensed(
+        {
+          userId: prescription.patientId,
+          prescriptionId,
+          prescriptionCode: prescription.prescriptionCode,
+          bookingCode: prescription.appointment.bookingCode,
+        },
+        tx,
+      );
     });
 
-    await PatientEventNotificationService.dispatchBestEffort(result.notificationId);
     // Tiền thuốc vào hóa đơn chưa thanh toán (nếu có). Lỗi ở đây không được làm hỏng việc cấp thuốc đã hoàn tất.
     await InvoiceService.addDispensedMedicines(prescriptionId, actor.userId).catch((error) => {
       console.error("[INVOICE_MEDICINE] cannot add dispensed medicines to invoice:", error);

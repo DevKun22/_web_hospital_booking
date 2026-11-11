@@ -40,9 +40,10 @@ npm run test:e2e
 
 ## Runtime checks
 
-Production must run `worker:otp`, `worker:appointments` and
-`worker:notifications`. The OTP and appointment workers require a valid
-`QUEUE_REDIS_URL` (or legacy `REDIS_URL`). The notification worker reads pending
-deliveries from PostgreSQL and requires one Firebase Admin credential method.
+Production runs one API process with
+`INLINE_WORKERS=otp,appointments,notifications,payments`. The OTP and
+appointment workers require a valid `QUEUE_REDIS_URL` (or legacy `REDIS_URL`).
+The notification worker reads pending deliveries and outbox events from
+PostgreSQL and requires one Firebase Admin credential method.
 The appointment worker owns delayed expiry jobs and periodic reconciliation;
 the dashboard cleanup endpoint remains an operational fallback.

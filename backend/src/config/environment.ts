@@ -3,6 +3,12 @@ import { validateProductionRedis } from "./redis.js";
 const MIN_SECRET_LENGTH = 32;
 const TRUE_VALUES = new Set(["true", "1", "yes", "on"]);
 const MAX_TRUST_PROXY_HOPS = 10;
+const PRODUCTION_INLINE_WORKERS = [
+  "otp",
+  "appointments",
+  "notifications",
+  "payments",
+] as const;
 
 const isEnabled = (value?: string) =>
   TRUE_VALUES.has((value || "").trim().toLowerCase());
@@ -121,6 +127,7 @@ export const validateRuntimeEnvironment = (
   validateProductionVnpay(env);
   validateProductionRedis(env);
   validateDatabasePoolBudget(env);
+  validateProductionWorkerTopology(env);
   if (env.DEMO_OTP_PHONES?.trim()) {
     console.warn(
       "[DEMO_OTP] DEMO_OTP_PHONES is set: OTP for these phone numbers is shown on screen.",
@@ -307,6 +314,27 @@ export const getRuntimeMetricsIntervalMs = (
     15 * 60_000,
   );
 
+export const validateProductionWorkerTopology = (
+  env: NodeJS.ProcessEnv = process.env,
+) => {
+  if (!isProductionLike(env)) return;
+  const configured = new Set(
+    (env.INLINE_WORKERS || "")
+      .split(",")
+      .map((item) => item.trim().toLowerCase())
+      .filter(Boolean),
+  );
+  const expected = new Set<string>(PRODUCTION_INLINE_WORKERS);
+  const missing = [...expected].filter((name) => !configured.has(name));
+  const extra = [...configured].filter((name) => !expected.has(name));
+  if (missing.length > 0 || extra.length > 0) {
+    throw new Error(
+      "Production worker topology requires exactly " +
+        `INLINE_WORKERS=${PRODUCTION_INLINE_WORKERS.join(",")}.`,
+    );
+  }
+};
+
 export const getDatabaseTransactionTimeoutMs = (
   env: NodeJS.ProcessEnv = process.env,
 ) => Math.min(positiveInteger(env.DATABASE_TRANSACTION_TIMEOUT_MS, 15_000), 30_000);
@@ -417,6 +445,26 @@ export const getNotificationWorkerIntervalMs = (
 export const getNotificationDispatchBatchSize = (
   env: NodeJS.ProcessEnv = process.env,
 ) => Math.min(positiveInteger(env.NOTIFICATION_DISPATCH_BATCH_SIZE, 100), 500);
+
+export const getOutboxDispatchBatchSize = (
+  env: NodeJS.ProcessEnv = process.env,
+) => boundedPositiveInteger(env.OUTBOX_DISPATCH_BATCH_SIZE, 50, 1, 200);
+
+export const getOutboxDispatchConcurrency = (
+  env: NodeJS.ProcessEnv = process.env,
+) => boundedPositiveInteger(env.OUTBOX_DISPATCH_CONCURRENCY, 4, 1, 16);
+
+export const getOutboxMaxAttempts = (
+  env: NodeJS.ProcessEnv = process.env,
+) => boundedPositiveInteger(env.OUTBOX_MAX_ATTEMPTS, 8, 1, 20);
+
+export const getOutboxLeaseMs = (
+  env: NodeJS.ProcessEnv = process.env,
+) => boundedPositiveInteger(env.OUTBOX_LEASE_MS, 60_000, 10_000, 10 * 60_000);
+
+export const getOutboxRetentionDays = (
+  env: NodeJS.ProcessEnv = process.env,
+) => boundedPositiveInteger(env.OUTBOX_RETENTION_DAYS, 30, 1, 365);
 
 export const getNotificationDispatchConcurrency = (
   env: NodeJS.ProcessEnv = process.env,

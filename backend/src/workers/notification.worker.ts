@@ -9,6 +9,7 @@ import {
 import { prisma } from "../config/prisma.js";
 import NotificationDeliveryService from "../services/notificationDelivery.service.js";
 import NotificationService from "../services/notification.service.js";
+import OutboxEventService from "../services/outboxEvent.service.js";
 import {
   startRuntimeMetrics,
   stopRuntimeMetrics,
@@ -29,15 +30,19 @@ const dispatch = async () => {
   if (running) return;
   running = true;
   try {
-    const result = await NotificationDeliveryService.dispatchDue(batchSize);
+    const [result, outbox] = await Promise.all([
+      NotificationDeliveryService.dispatchDue(batchSize),
+      OutboxEventService.dispatchDue(),
+    ]);
     if (Date.now() - lastCleanupAt >= cleanupIntervalMs) {
-      const cleanup = await NotificationService.cleanupExpiredAndRead(
-        retentionDays,
-      );
+      const [cleanup, outboxCleanup] = await Promise.all([
+        NotificationService.cleanupExpiredAndRead(retentionDays),
+        OutboxEventService.cleanupProcessed(),
+      ]);
       lastCleanupAt = Date.now();
-      if (cleanup.deletedCount > 0) {
+      if (cleanup.deletedCount > 0 || outboxCleanup.deletedCount > 0) {
         console.log(
-          `[NOTIFICATION_WORKER] cleaned=${cleanup.deletedCount} retentionDays=${retentionDays}`,
+          `[NOTIFICATION_WORKER] cleaned=${cleanup.deletedCount} outboxCleaned=${outboxCleanup.deletedCount} retentionDays=${retentionDays}`,
         );
       }
     }
@@ -55,6 +60,11 @@ const dispatch = async () => {
     ) {
       console.log(
         `[NOTIFICATION_WORKER] published=${result.published} scanned=${result.scanned} sent=${result.sent} retryable=${result.failed} exhausted=${result.exhausted} invalid=${result.invalid} cancelled=${result.cancelled} errors=${result.errors}`,
+      );
+    }
+    if (outbox.scanned > 0) {
+      console.log(
+        `[OUTBOX] scanned=${outbox.scanned} processed=${outbox.processed} retrying=${outbox.retrying} failed=${outbox.failed}`,
       );
     }
   } catch (error) {

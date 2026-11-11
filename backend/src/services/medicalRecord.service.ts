@@ -344,9 +344,6 @@ class MedicalRecordService {
       return { updatedRecord, notificationId: notification.id };
     });
 
-    await PatientEventNotificationService.dispatchBestEffort(
-      transition.notificationId,
-    );
     return transition.updatedRecord;
   }
 
