@@ -1,5 +1,6 @@
 const MIN_SECRET_LENGTH = 32;
 const TRUE_VALUES = new Set(["true", "1", "yes", "on"]);
+const MAX_TRUST_PROXY_HOPS = 10;
 
 const isEnabled = (value?: string) =>
   TRUE_VALUES.has((value || "").trim().toLowerCase());
@@ -65,6 +66,25 @@ const validateProductionFrontendOrigins = (env: NodeJS.ProcessEnv) => {
   }
 };
 
+const parseTrustProxyHops = (value?: string) => {
+  if (!value?.trim()) return null;
+  const parsed = Number(value);
+  return Number.isSafeInteger(parsed) && parsed >= 0 && parsed <= MAX_TRUST_PROXY_HOPS
+    ? parsed
+    : null;
+};
+
+const validateTrustProxyHops = (env: NodeJS.ProcessEnv) => {
+  if (
+    env.TRUST_PROXY_HOPS?.trim() &&
+    parseTrustProxyHops(env.TRUST_PROXY_HOPS) === null
+  ) {
+    throw new Error(
+      `TRUST_PROXY_HOPS must be an integer from 0 to ${MAX_TRUST_PROXY_HOPS}.`,
+    );
+  }
+};
+
 const validateProductionVnpay = (env: NodeJS.ProcessEnv) => {
   if (!isEnabled(env.PAYMENT_VNPAY_ENABLED)) return;
   for (const name of ["VNPAY_TMN_CODE", "VNPAY_HASH_SECRET", "VNPAY_RETURN_URL"] as const) {
@@ -95,6 +115,7 @@ export const validateRuntimeEnvironment = (
   }
 
   validateProductionFrontendOrigins(env);
+  validateTrustProxyHops(env);
   validateProductionVnpay(env);
   if (env.DEMO_OTP_PHONES?.trim()) {
     console.warn(
@@ -168,6 +189,16 @@ export const getReadinessTimeoutMs = (
 export const getReadinessCacheMs = (
   env: NodeJS.ProcessEnv = process.env,
 ) => Math.min(positiveInteger(env.READINESS_CACHE_MS, 5_000), 30_000);
+
+// Render đặt đúng một reverse proxy trước web service. Local/test không có
+// proxy nên mặc định không tin X-Forwarded-For do client tự gửi.
+export const getTrustProxySetting = (
+  env: NodeJS.ProcessEnv = process.env,
+): number | false => {
+  const configured = parseTrustProxyHops(env.TRUST_PROXY_HOPS);
+  if (configured !== null) return configured || false;
+  return isProductionLike(env) ? 1 : false;
+};
 
 export const getHttpRequestTimeoutMs = (
   env: NodeJS.ProcessEnv = process.env,

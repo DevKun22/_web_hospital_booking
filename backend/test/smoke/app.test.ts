@@ -26,6 +26,7 @@ const {
   getReadinessCacheMs,
   getReadinessTimeoutMs,
   getSlowRequestThresholdMs,
+  getTrustProxySetting,
   isDatabaseQueryMetricsEnabled,
   isPerformanceHeadersEnabled,
   getNotificationDispatchBatchSize,
@@ -282,6 +283,48 @@ test("production startup rejects unsafe data and browser configuration", () => {
       }),
     /must be HTTPS origins/,
   );
+  assert.throws(
+    () =>
+      validateRuntimeEnvironment({
+        ...validProduction,
+        TRUST_PROXY_HOPS: "unlimited",
+      }),
+    /TRUST_PROXY_HOPS must be an integer from 0 to 10/,
+  );
+});
+
+test("proxy trust follows the deployment topology and stays bounded", async () => {
+  assert.equal(getTrustProxySetting({ NODE_ENV: "test" }), false);
+  assert.equal(getTrustProxySetting({ NODE_ENV: "development" }), false);
+  assert.equal(getTrustProxySetting({ NODE_ENV: "production" }), 1);
+  assert.equal(getTrustProxySetting({ RENDER: "true" }), 1);
+  assert.equal(getTrustProxySetting({ TRUST_PROXY_HOPS: "0" }), false);
+  assert.equal(getTrustProxySetting({ TRUST_PROXY_HOPS: "2" }), 2);
+
+  const directApp = createApp({
+    requestLogging: false,
+    slowRequestLogging: false,
+  });
+  assert.equal(directApp.get("trust proxy"), false);
+
+  const ipApp = (trustProxy: number | false) => {
+    const app = express();
+    app.set("trust proxy", trustProxy);
+    app.get("/", (req, res) => res.json({ ip: req.ip }));
+    return app;
+  };
+  const directHttp = await startHttpServer(ipApp(false));
+  const proxiedHttp = await startHttpServer(ipApp(1));
+  const spoofedHeaders = { "x-forwarded-for": "203.0.113.10" };
+
+  try {
+    const direct = await directHttp.request("/", { headers: spoofedHeaders });
+    const proxied = await proxiedHttp.request("/", { headers: spoofedHeaders });
+    assert.notEqual(direct.body.ip, "203.0.113.10");
+    assert.equal(proxied.body.ip, "203.0.113.10");
+  } finally {
+    await Promise.all([directHttp.close(), proxiedHttp.close()]);
+  }
 });
 
 test("production startup requires complete HTTPS VNPay configuration when enabled", () => {
