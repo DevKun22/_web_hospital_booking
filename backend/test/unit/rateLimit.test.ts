@@ -117,6 +117,24 @@ test("a failing store fails open instead of blocking real users", async () => {
   assert.equal((await run(handler)).error, undefined);
 });
 
+test("a sensitive endpoint fails closed when every rate-limit store fails", async () => {
+  const clock = fakeClock();
+  const handler = limiter(clock, {
+    store: {
+      hit: async () => {
+        throw new Error("all counters unavailable");
+      },
+    },
+    failureMode: "deny",
+  });
+
+  const blocked = await run(handler);
+  assert.ok(blocked.error instanceof AppError);
+  assert.equal(blocked.error.statusCode, 503);
+  assert.equal(blocked.error.code, "RATE_LIMIT_UNAVAILABLE");
+  assert.equal(blocked.headers["Retry-After"], "60");
+});
+
 test("the fallback store switches to memory counters when the primary fails", async () => {
   const clock = fakeClock();
   const store = createFallbackRateLimitStore(

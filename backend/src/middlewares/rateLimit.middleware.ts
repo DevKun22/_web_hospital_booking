@@ -159,10 +159,16 @@ export type RateLimitOptions = {
   // Khi Redis lỗi, mỗi instance đếm riêng. `max` thấp hơn giữ tổng hạn mức
   // gần chính sách gốc; `allow` chỉ dùng cho endpoint ưu tiên khả dụng.
   degraded?: { mode: "enforce"; max: number } | { mode: "allow" };
+  // Nếu cả Redis lẫn bộ đếm dự phòng cùng lỗi, endpoint nhạy cảm có thể chặn
+  // yêu cầu thay vì vô tình chạy không còn lớp bảo vệ.
+  failureMode?: "allow" | "deny";
 };
 
 export const RATE_LIMIT_CODE = "RATE_LIMITED";
+export const RATE_LIMIT_UNAVAILABLE_CODE = "RATE_LIMIT_UNAVAILABLE";
 const DEFAULT_MESSAGE = "Bạn thao tác quá nhanh. Vui lòng thử lại sau ít phút.";
+const UNAVAILABLE_MESSAGE =
+  "Hệ thống bảo vệ đang tạm thời gián đoạn. Vui lòng thử lại sau ít phút.";
 
 export const rateLimit = (options: RateLimitOptions): RequestHandler => {
   const now = options.now ?? Date.now;
@@ -198,6 +204,16 @@ export const rateLimit = (options: RateLimitOptions): RequestHandler => {
       }
     } catch (error) {
       warnStoreFailure(error);
+      if (options.failureMode === "deny") {
+        res.setHeader("Retry-After", "60");
+        return next(
+          new AppError(
+            UNAVAILABLE_MESSAGE,
+            503,
+            RATE_LIMIT_UNAVAILABLE_CODE,
+          ),
+        );
+      }
     }
 
     return next();

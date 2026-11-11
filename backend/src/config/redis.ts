@@ -118,19 +118,18 @@ export const getRedisSecurityWarnings = (
 export const validateProductionRedis = (
   env: NodeJS.ProcessEnv = process.env,
 ) => {
-  const mode = (env.REDIS_SECURITY_MODE || "warn").trim().toLowerCase();
+  const mode = (env.REDIS_SECURITY_MODE || "strict").trim().toLowerCase();
   if (mode !== "warn" && mode !== "strict") {
     throw new Error("REDIS_SECURITY_MODE must be warn or strict");
   }
+  if (mode === "warn") {
+    throw new Error("REDIS_SECURITY_MODE=warn is not allowed in production");
+  }
   const warnings = getRedisSecurityWarnings(env);
   if (warnings.length === 0) return;
-
-  if (mode === "strict") {
-    throw new Error(
-      `Unsafe Redis production configuration: ${warnings.join("; ")}`,
-    );
-  }
-  console.warn(`[REDIS_SECURITY] ${warnings.join("; ")}`);
+  throw new Error(
+    `Unsafe Redis production configuration: ${warnings.join("; ")}`,
+  );
 };
 
 export const isRedisRequiredForReadiness = (

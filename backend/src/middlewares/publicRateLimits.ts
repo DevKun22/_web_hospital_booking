@@ -20,6 +20,7 @@ export const bookingCreateIpLimiter = rateLimit({
   windowMs: 10 * MINUTE_MS,
   max: 10,
   degraded: { mode: "enforce", max: 5 },
+  failureMode: "deny",
   key: (req) => getClientIp(req),
   message:
     "Bạn đã gửi quá nhiều yêu cầu đặt lịch. Vui lòng thử lại sau ít phút.",
@@ -30,6 +31,7 @@ export const bookingCreatePhoneLimiter = rateLimit({
   windowMs: 10 * MINUTE_MS,
   max: 5,
   degraded: { mode: "enforce", max: 3 },
+  failureMode: "deny",
   key: (req) => bodyPhone(req.body),
   message:
     "Số điện thoại này đã đặt lịch quá nhiều lần. Vui lòng thử lại sau ít phút.",
@@ -49,5 +51,6 @@ export const chatbotMessageLimiter = rateLimit({
   windowMs: MINUTE_MS,
   max: 30,
   degraded: { mode: "enforce", max: 10 },
+  failureMode: "deny",
   key: (req) => getClientIp(req),
 });

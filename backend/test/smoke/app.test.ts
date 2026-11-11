@@ -35,6 +35,7 @@ const {
   getTrustProxySetting,
   isDatabaseQueryMetricsEnabled,
   isPerformanceHeadersEnabled,
+  isRateLimitEnabled,
   isRuntimeMetricsEnabled,
   getNotificationDispatchBatchSize,
   getNotificationDispatchConcurrency,
@@ -83,6 +84,11 @@ const { assertSafeTestDatabase, buildIntegrationEnvironment } = await import(
 const { updateHomePageConfigSchema } = await import(
   "../../src/validations/siteConfig.validation.js"
 );
+
+const productionRedisEnvironment = {
+  REDIS_URL: "rediss://api-user:api-pass@cache.example.test:6380",
+  QUEUE_REDIS_URL: "rediss://queue-user:queue-pass@queue.example.test:6380",
+};
 
 let http: Awaited<ReturnType<typeof startHttpServer>>;
 
@@ -284,6 +290,7 @@ test("production startup rejects missing, weak or debug OTP secrets", () => {
         DATABASE_URL: "postgresql://production.example.test/hospital",
         FRONTEND_URLS: "https://hospital.example.test",
         INLINE_WORKERS: "otp,appointments,notifications,payments",
+        ...productionRedisEnvironment,
       }),
     /DEMO_OTP_PHONES must not be configured in production/,
   );
@@ -296,6 +303,7 @@ test("production startup rejects missing, weak or debug OTP secrets", () => {
       DATABASE_URL: "postgresql://production.example.test/hospital",
       FRONTEND_URLS: "https://hospital.example.test",
       INLINE_WORKERS: "otp,appointments,notifications,payments",
+      ...productionRedisEnvironment,
     }),
   );
 });
@@ -309,7 +317,17 @@ test("production startup rejects unsafe data and browser configuration", () => {
     DATABASE_URL: "postgresql://production.example.test/hospital",
     FRONTEND_URLS: "https://hospital.example.test",
     INLINE_WORKERS: "otp,appointments,notifications,payments",
+    ...productionRedisEnvironment,
   };
+
+  assert.throws(
+    () =>
+      validateRuntimeEnvironment({
+        ...validProduction,
+        RATE_LIMIT_ENABLED: "false",
+      }),
+    /RATE_LIMIT_ENABLED must not be disabled in production/,
+  );
 
   assert.throws(
     () =>
@@ -371,6 +389,21 @@ test("proxy trust follows the deployment topology and stays bounded", async () =
   }
 });
 
+test("rate limiting cannot be disabled in production", () => {
+  assert.equal(
+    isRateLimitEnabled({ NODE_ENV: "production", RATE_LIMIT_ENABLED: "false" }),
+    true,
+  );
+  assert.equal(
+    isRateLimitEnabled({ RENDER: "true", RATE_LIMIT_ENABLED: "false" }),
+    true,
+  );
+  assert.equal(
+    isRateLimitEnabled({ NODE_ENV: "test", RATE_LIMIT_ENABLED: "false" }),
+    false,
+  );
+});
+
 test("production startup requires complete HTTPS VNPay configuration when enabled", () => {
   const validProduction = {
     NODE_ENV: "production",
@@ -380,6 +413,7 @@ test("production startup requires complete HTTPS VNPay configuration when enable
     FRONTEND_URLS: "https://hospital.example.test",
     PAYMENT_VNPAY_ENABLED: "true",
     INLINE_WORKERS: "otp,appointments,notifications,payments",
+    ...productionRedisEnvironment,
   };
 
   assert.throws(
@@ -455,6 +489,7 @@ test("production notification worker requires one Firebase credential", () => {
     FRONTEND_URLS: "https://hospital.example.test",
     FIREBASE_PROJECT_ID: "hospital-production",
     INLINE_WORKERS: "otp,appointments,notifications,payments",
+    ...productionRedisEnvironment,
   };
 
   assert.throws(
@@ -853,17 +888,29 @@ test("production Redis security distinguishes TLS, private network and ACL users
   const shared = {
     REDIS_URL: "redis://shared@redis.example.test:6379",
   };
-  assert.ok(getRedisSecurityWarnings(shared).some((warning) => warning.includes("rediss://")));
-  assert.ok(getRedisSecurityWarnings(shared).some((warning) => warning.includes("ACL")));
-  assert.doesNotThrow(() =>
-    validateProductionRedis({
-      ...shared,
-      REDIS_PRIVATE_NETWORK: "true",
-      REDIS_SECURITY_MODE: "warn",
-    }),
+  assert.ok(
+    getRedisSecurityWarnings(shared).some((warning) =>
+      warning.includes("rediss://"),
+    ),
+  );
+  assert.ok(
+    getRedisSecurityWarnings(shared).some((warning) => warning.includes("ACL")),
+  );
+  assert.throws(
+    () =>
+      validateProductionRedis({
+        ...shared,
+        REDIS_PRIVATE_NETWORK: "true",
+        REDIS_SECURITY_MODE: "warn",
+      }),
+    /warn is not allowed in production/,
   );
   assert.throws(
     () => validateProductionRedis({ ...shared, REDIS_SECURITY_MODE: "strict" }),
+    /Unsafe Redis production configuration/,
+  );
+  assert.throws(
+    () => validateProductionRedis(shared),
     /Unsafe Redis production configuration/,
   );
 });
