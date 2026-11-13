@@ -1,18 +1,16 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { ArrowLeft, CalendarDays, Clock3, Pill, Stethoscope } from "lucide-react";
 import { PatientPageError, PatientPageLoading } from "@/components/patient/patient-page-ui";
-import { patientPortalRequest } from "@/lib/patient-portal-api";
-import type { PatientPrescription } from "@/lib/patient-portal-types";
 
 
 import { formatLongDate } from "@/lib/format";
+import { usePrescription } from "@/features/portal/hooks";
 export default function PrescriptionDetailPage() {
   const id = String(useParams<{ id: string }>().id || "");
-  const query = useQuery({ queryKey: ["patient-prescription", id], queryFn: async () => (await patientPortalRequest<PatientPrescription>(`/don-thuoc/${id}`)).data, enabled: Boolean(id), staleTime: 60_000 });
+  const query = usePrescription(id);
   if (query.isLoading) return <PatientPageLoading label="Đang tải đơn thuốc..." />;
   if (query.isError || !query.data) return <PatientPageError message={query.error instanceof Error ? query.error.message : "Không tìm thấy đơn thuốc."} onRetry={() => query.refetch()} />;
   const item = query.data;

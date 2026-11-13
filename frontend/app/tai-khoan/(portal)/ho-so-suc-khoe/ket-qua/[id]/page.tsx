@@ -1,18 +1,16 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { ArrowLeft, CalendarDays, Download, FileHeart, FlaskConical, Stethoscope } from "lucide-react";
 import { PatientPageError, PatientPageLoading } from "@/components/patient/patient-page-ui";
-import { patientPortalRequest } from "@/lib/patient-portal-api";
-import type { PatientMedicalRecord } from "@/lib/patient-portal-types";
 
 
 import { formatLongDate } from "@/lib/format";
+import { useMedicalRecord } from "@/features/portal/hooks";
 export default function MedicalRecordDetailPage() {
   const id = String(useParams<{ id: string }>().id || "");
-  const query = useQuery({ queryKey: ["patient-medical-record", id], queryFn: async () => (await patientPortalRequest<PatientMedicalRecord>(`/ket-qua/${id}`)).data, enabled: Boolean(id), staleTime: 60_000 });
+  const query = useMedicalRecord(id);
   if (query.isLoading) return <PatientPageLoading label="Đang tải hồ sơ khám..." />;
   if (query.isError || !query.data) return <PatientPageError message={query.error instanceof Error ? query.error.message : "Không tìm thấy hồ sơ khám."} onRetry={() => query.refetch()} />;
   const record = query.data;

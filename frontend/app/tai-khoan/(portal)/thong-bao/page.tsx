@@ -1,6 +1,5 @@
 "use client";
 
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useState } from "react";
 import {
@@ -25,11 +24,11 @@ import {
   PatientPageHeader,
   PatientPageLoading,
 } from "@/components/patient/patient-page-ui";
-import { patientPortalRequest } from "@/lib/patient-portal-api";
 import type { PatientNotification } from "@/lib/patient-portal-types";
 
-type NotificationFilter = "all" | "unread";
 
+import { type NotificationFilter } from "@/features/portal/api";
+import { useNotificationMutations, usePatientNotifications } from "@/features/portal/hooks";
 const typeConfig: Record<string, { label: string; icon: typeof Bell; tone: string }> = {
   SYSTEM_ANNOUNCEMENT: { label: "Thông báo bệnh viện", icon: Megaphone, tone: "bg-teal-50 text-teal-700" },
   APPOINTMENT_CONFIRMED: { label: "Lịch hẹn", icon: CalendarClock, tone: "bg-emerald-50 text-emerald-700" },
@@ -74,32 +73,10 @@ function notificationDestination(item: PatientNotification) {
 }
 
 export default function PatientNotificationsPage() {
-  const queryClient = useQueryClient();
   const [filter, setFilter] = useState<NotificationFilter>("all");
   const [page, setPage] = useState(1);
-  const query = useQuery({
-    queryKey: ["patient-notifications", filter, page],
-    queryFn: () => patientPortalRequest<PatientNotification[]>(`/thong-bao?page=${page}&limit=10${filter === "unread" ? "&unread=true" : ""}`),
-    staleTime: 20_000,
-    refetchOnWindowFocus: true,
-    refetchOnReconnect: true,
-  });
-
-  const refreshNotificationState = async () => {
-    await Promise.all([
-      queryClient.invalidateQueries({ queryKey: ["patient-notifications"] }),
-      queryClient.invalidateQueries({ queryKey: ["patient-notifications-unread-count"] }),
-    ]);
-  };
-
-  const markReadMutation = useMutation({
-    mutationFn: (id: string) => patientPortalRequest<PatientNotification>(`/thong-bao/${id}/da-doc`, { method: "PATCH" }),
-    onSuccess: refreshNotificationState,
-  });
-  const markAllMutation = useMutation({
-    mutationFn: () => patientPortalRequest<{ updatedCount: number; unreadCount: number }>("/thong-bao/doc-tat-ca", { method: "PATCH" }),
-    onSuccess: refreshNotificationState,
-  });
+  const query = usePatientNotifications(filter, page);
+  const { markRead: markReadMutation, markAll: markAllMutation } = useNotificationMutations();
 
   const items = query.data?.data || [];
   const meta = query.data?.meta;

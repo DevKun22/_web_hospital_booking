@@ -3,14 +3,13 @@
 import { VietnamDateInput } from "@/components/ui/vietnam-date-input";
 
 import { FormEvent, useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft, CheckCircle2, Loader2, Save } from "lucide-react";
 import { PatientEmptyState, PatientPageError, PatientPageHeader, PatientPageLoading } from "@/components/patient/patient-page-ui";
-import { patientPortalRequest } from "@/lib/patient-portal-api";
 import type { PatientDependent } from "@/lib/patient-portal-types";
 
+import { usePatientDependent, useUpdateDependent } from "@/features/portal/hooks";
 type Draft = {
   fullName: string; relationship: string; phone: string; email: string; dateOfBirth: string;
   gender: string; cccd: string; address: string; hasBHYT: boolean; healthInsuranceCode: string;
@@ -24,23 +23,19 @@ const draftFromDependent = (dependent: PatientDependent): Draft => ({ fullName: 
 export default function PatientDependentEditPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
-  const client = useQueryClient();
   const [editedDraft, setEditedDraft] = useState<Draft | null>(null);
   const [saved, setSaved] = useState(false);
-  const query = useQuery({ queryKey: ["patient-dependent", id], queryFn: async () => { const result = await patientPortalRequest<PatientDependent[]>("/nguoi-than"); return result.data.find((item) => item.id === id) || null; }, staleTime: 30_000 });
+  const query = usePatientDependent(id);
   const draft = editedDraft ?? (query.data ? draftFromDependent(query.data) : emptyDraft);
 
-  const mutation = useMutation({
-    mutationFn: () => patientPortalRequest(`/nguoi-than/${id}`, { method: "PATCH", body: JSON.stringify({ ...draft, phone: nullable(draft.phone), email: nullable(draft.email), dateOfBirth: nullable(draft.dateOfBirth), gender: draft.gender || null, cccd: nullable(draft.cccd), address: nullable(draft.address), healthInsuranceCode: draft.hasBHYT ? nullable(draft.healthInsuranceCode) : null, registeredHospital: draft.hasBHYT ? nullable(draft.registeredHospital) : null, allergies: nullable(draft.allergies), medicalHistory: nullable(draft.medicalHistory), familyHistory: nullable(draft.familyHistory) }) }),
-    onSuccess: async () => { setSaved(true); await Promise.all([client.invalidateQueries({ queryKey: ["patient-dependent", id] }), client.invalidateQueries({ queryKey: ["patient-profile-data"] })]); window.setTimeout(() => setSaved(false), 3000); },
-  });
+  const mutation = useUpdateDependent(id, () => { setSaved(true); window.setTimeout(() => setSaved(false), 3000); });
   const set = <K extends keyof Draft>(key: K, value: Draft[K]) => setEditedDraft((current) => ({ ...(current ?? draft), [key]: value }));
   const input = "mt-2 min-h-11 w-full rounded-xl border border-[var(--public-border)] bg-white px-3 text-sm outline-none focus:border-[var(--public-primary)] focus:ring-4 focus:ring-blue-100";
 
   return <div className="space-y-6">
     <Link href="/tai-khoan/ho-so" className="inline-flex min-h-11 items-center gap-2 text-sm font-bold text-[var(--public-primary)]"><ArrowLeft className="h-4 w-4" /> Quay lại hồ sơ</Link>
     <PatientPageHeader eyebrow="Hồ sơ người thân" title="Chỉnh sửa thông tin" description="Thông tin đã lưu sẽ được dùng để tự điền khi bạn đặt lịch thay cho người thân." />
-    {query.isLoading ? <PatientPageLoading /> : query.isError ? <PatientPageError message={query.error instanceof Error ? query.error.message : "Không tải được hồ sơ người thân."} onRetry={() => query.refetch()} /> : !query.data ? <PatientEmptyState title="Không tìm thấy hồ sơ" description="Hồ sơ có thể đã ngừng được quản lý hoặc không thuộc tài khoản này." action={<button type="button" onClick={() => router.replace("/tai-khoan/ho-so")} className="public-button-secondary min-h-11 rounded-xl px-4 text-sm font-bold">Về trang hồ sơ</button>} /> : <form onSubmit={(event: FormEvent) => { event.preventDefault(); mutation.mutate(); }} className="rounded-3xl border border-[var(--public-border)] bg-white p-5 shadow-sm sm:p-6">
+    {query.isLoading ? <PatientPageLoading /> : query.isError ? <PatientPageError message={query.error instanceof Error ? query.error.message : "Không tải được hồ sơ người thân."} onRetry={() => query.refetch()} /> : !query.data ? <PatientEmptyState title="Không tìm thấy hồ sơ" description="Hồ sơ có thể đã ngừng được quản lý hoặc không thuộc tài khoản này." action={<button type="button" onClick={() => router.replace("/tai-khoan/ho-so")} className="public-button-secondary min-h-11 rounded-xl px-4 text-sm font-bold">Về trang hồ sơ</button>} /> : <form onSubmit={(event: FormEvent) => { event.preventDefault(); mutation.mutate({ ...draft, phone: nullable(draft.phone), email: nullable(draft.email), dateOfBirth: nullable(draft.dateOfBirth), gender: draft.gender || null, cccd: nullable(draft.cccd), address: nullable(draft.address), healthInsuranceCode: draft.hasBHYT ? nullable(draft.healthInsuranceCode) : null, registeredHospital: draft.hasBHYT ? nullable(draft.registeredHospital) : null, allergies: nullable(draft.allergies), medicalHistory: nullable(draft.medicalHistory), familyHistory: nullable(draft.familyHistory) }); }} className="rounded-3xl border border-[var(--public-border)] bg-white p-5 shadow-sm sm:p-6">
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <label className="text-sm font-semibold">Họ và tên <span className="text-red-600">*</span><input className={input} value={draft.fullName} onChange={(event) => set("fullName", event.target.value)} required minLength={2} /></label>
         <label className="text-sm font-semibold">Mối quan hệ<select className={input} value={draft.relationship} onChange={(event) => set("relationship", event.target.value)}><option value="CHILD">Con</option><option value="SPOUSE">Vợ/chồng</option><option value="PARENT">Cha/mẹ</option><option value="SIBLING">Anh/chị/em</option><option value="OTHER">Khác</option></select></label>

@@ -1,19 +1,8 @@
 "use client";
 
 import { FormEvent, useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Loader2, Star } from "lucide-react";
-import { patientPortalRequest } from "@/lib/patient-portal-api";
-
-type Review = {
-  id: string;
-  rating: number;
-  doctorRating: number;
-  serviceRating: number;
-  facilityRating: number;
-  comment: string | null;
-  createdAt: string;
-};
+import { useAppointmentReview, useSubmitReview } from "@/features/portal/hooks";
 
 const criteria = [
   { key: "doctorRating", label: "Bác sĩ" },
@@ -47,27 +36,14 @@ function StarInput({ value, onChange, label }: { value: number; onChange: (value
 }
 
 export function AppointmentReviewCard({ appointmentId }: { appointmentId: string }) {
-  const client = useQueryClient();
-  const queryKey = ["patient-appointment-review", appointmentId];
-  const review = useQuery({
-    queryKey,
-    queryFn: async () => (await patientPortalRequest<Review | null>(`/lich-hen/${appointmentId}/danh-gia`)).data,
-    staleTime: 60_000,
-  });
+  const review = useAppointmentReview(appointmentId);
   const [scores, setScores] = useState<Scores>({ doctorRating: 0, serviceRating: 0, facilityRating: 0 });
   const [comment, setComment] = useState("");
-  const submit = useMutation({
-    mutationFn: () =>
-      patientPortalRequest<Review>(`/lich-hen/${appointmentId}/danh-gia`, {
-        method: "POST",
-        body: JSON.stringify({ ...scores, comment: comment.trim() || null }),
-      }),
-    onSuccess: (result) => client.setQueryData(queryKey, result.data),
-  });
+  const submit = useSubmitReview(appointmentId);
 
   const handleSubmit = (event: FormEvent) => {
     event.preventDefault();
-    submit.mutate();
+    submit.mutate({ ...scores, comment: comment.trim() || null });
   };
 
   const isComplete = Object.values(scores).every((score) => score > 0);

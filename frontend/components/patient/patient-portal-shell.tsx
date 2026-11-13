@@ -1,16 +1,15 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { Bell, CalendarDays, FileHeart, Home, Loader2, LogOut, Menu, ReceiptText, ShieldCheck, UsersRound } from "lucide-react";
 import { usePatientAuth } from "@/lib/patient-auth";
-import { patientPortalRequest } from "@/lib/patient-portal-api";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 
 import { BrandLogo } from "@/components/branding/brand-logo";
 import { BRAND_NAME } from "@/lib/brand";
+import { useUnreadNotificationCount } from "@/features/portal/hooks";
 const nav = [
   { href: "/tai-khoan", label: "Tổng quan", icon: Home },
   { href: "/tai-khoan/lich-hen", label: "Lịch hẹn", icon: CalendarDays },
@@ -25,15 +24,7 @@ export function PatientPortalShell({ children }: { children: React.ReactNode }) 
   const router = useRouter();
   const pathname = usePathname();
   const { user, loading, logout } = usePatientAuth();
-  const unreadQuery = useQuery({
-    queryKey: ["patient-notifications-unread-count"],
-    queryFn: async () => (await patientPortalRequest<{ unreadCount: number }>("/thong-bao/so-chua-doc")).data.unreadCount,
-    enabled: Boolean(user),
-    staleTime: 30_000,
-    refetchInterval: 3 * 60_000,
-    refetchOnWindowFocus: true,
-    refetchOnReconnect: true,
-  });
+  const unreadQuery = useUnreadNotificationCount(Boolean(user));
   const [mobileOpen, setMobileOpen] = useState(false);
   const isActive = (href: string) => href === "/tai-khoan" ? pathname === href : pathname === href || pathname.startsWith(`${href}/`);
 
