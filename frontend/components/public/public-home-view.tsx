@@ -5,7 +5,7 @@ import { BackToTopButton } from "@/components/public/back-to-top-button";
 import { PublicBottomNav } from "@/components/public/public-bottom-nav";
 import { PublicSiteFooter } from "@/components/public/public-site-footer";
 import { PublicSiteHeader } from "@/components/public/public-site-header";
-import { DepartmentsSection, DoctorsSection, Hero, Notice, PackagesSection, Partners, Shortcuts } from "@/features/home/home-sections";
+import { Benefits, ClosingCta, DepartmentsSection, DoctorsSection, FaqSection, Hero, Notice, PackagesSection, Partners, Steps } from "@/features/home/home-sections";
 import type { PublicHomeData } from "./public-home-types";
 
 type PublicHomeViewProps = {
@@ -26,7 +26,7 @@ export function PublicHomeView({ data, loading, error }: PublicHomeViewProps) {
   const limit = (value: number | undefined, fallback: number) => (value && value > 0 ? value : fallback);
 
   return (
-    <main id="main-content" tabIndex={-1} className="public-site public-has-bottom-nav min-h-screen bg-[var(--public-canvas)] text-[var(--public-ink)]">
+    <main id="main-content" tabIndex={-1} className="public-site public-has-bottom-nav min-h-screen bg-[var(--public-surface)] text-[var(--public-ink)]">
       <a className="ui-skip-link" href="#home-content">Bỏ qua điều hướng</a>
       <PublicSiteHeader settings={data.settings} />
       <Notice announcement={config?.announcement} />
@@ -38,8 +38,8 @@ export function PublicHomeView({ data, loading, error }: PublicHomeViewProps) {
           </div>
         ) : null}
 
-        <Hero settings={data.settings} banner={data.heroBanners[0]} />
-        {sections?.serviceHub.enabled !== false ? <Shortcuts /> : null}
+        <Hero settings={data.settings} banner={data.heroBanners[0]} departments={data.departments} />
+        {sections?.serviceHub.enabled !== false ? <Benefits /> : null}
         {sections?.doctors.enabled !== false ? (
           <DoctorsSection doctors={data.doctors.slice(0, limit(sections?.doctors.limit, 4))} config={sections?.doctors} loading={loading} />
         ) : null}
@@ -49,7 +49,10 @@ export function PublicHomeView({ data, loading, error }: PublicHomeViewProps) {
         {sections?.packages.enabled !== false ? (
           <PackagesSection packages={data.packages.slice(0, limit(sections?.packages.limit, 4))} config={sections?.packages} loading={loading} />
         ) : null}
+        <Steps />
+        <FaqSection faqs={data.faqs} />
         {sections?.partners.enabled !== false ? <Partners banners={data.partnerBanners} config={sections?.partners} /> : null}
+        <ClosingCta settings={data.settings} />
       </div>
 
       <PublicSiteFooter settings={data.settings} />
