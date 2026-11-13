@@ -3,6 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import type { PatientUser } from "@/lib/patient-portal-types";
+import { portalKeys } from "@/features/portal/keys";
 import { patientApiRequest } from "@/lib/patient-portal-api";
 import { patientSessionQueryKey } from "@/lib/patient-session-client";
 
@@ -87,6 +88,8 @@ export function PatientAuthProvider({ children }: { children: React.ReactNode })
     setUser(null);
     setIdleWarning(false);
     queryClient.setQueryData(patientSessionQueryKey, null);
+    // Máy dùng chung: người đăng nhập kế tiếp không được thấy dữ liệu của người trước.
+    queryClient.removeQueries({ queryKey: portalKeys.all });
   }, [queryClient]);
 
   useEffect(() => {

@@ -1,20 +1,18 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { ArrowLeft, CalendarDays, CheckCircle2, Clock3, CreditCard, MapPin, ShieldCheck, Stethoscope, UserRound } from "lucide-react";
 import { AppointmentReviewCard } from "@/components/patient/appointment-review-card";
 import { PatientPageError, PatientPageLoading } from "@/components/patient/patient-page-ui";
-import { patientPortalRequest } from "@/lib/patient-portal-api";
-import type { PatientAppointment } from "@/lib/patient-portal-types";
 
 import { formatWeekdayDate, formatMoney } from "@/lib/format";
 
 import { APPOINTMENT_PROGRESS, APPOINTMENT_STATUS_DETAIL } from "@/lib/patient-status";
+import { usePatientAppointment } from "@/features/portal/hooks";
 export default function AppointmentDetailPage() {
   const id = String(useParams<{ id: string }>().id || "");
-  const query = useQuery({ queryKey: ["patient-appointment", id], queryFn: async () => (await patientPortalRequest<PatientAppointment>(`/lich-hen/${id}`)).data, enabled: Boolean(id), staleTime: 15_000 });
+  const query = usePatientAppointment(id);
   if (query.isLoading) return <PatientPageLoading label="Đang tải chi tiết lịch hẹn..." />;
   if (query.isError || !query.data) return <PatientPageError message={query.error instanceof Error ? query.error.message : "Không tìm thấy lịch hẹn."} onRetry={() => query.refetch()} />;
   const item = query.data;

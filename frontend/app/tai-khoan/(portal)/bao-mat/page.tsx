@@ -1,18 +1,16 @@
 "use client";
 
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CheckCircle2, Loader2, LogOut, MonitorSmartphone, ShieldCheck, Smartphone } from "lucide-react";
 import { PatientEmptyState, PatientPageError, PatientPageHeader, PatientPageLoading } from "@/components/patient/patient-page-ui";
-import { patientPortalRequest } from "@/lib/patient-portal-api";
 import type { PatientSession } from "@/lib/patient-portal-types";
 
 import { formatShortDateTime } from "@/lib/format";
+import { usePatientSessions, useRevokeSession } from "@/features/portal/hooks";
 const deviceLabel = (session: PatientSession) => session.deviceName || (session.platform === "web" ? "Trình duyệt Web" : session.platform === "android" ? "Thiết bị Android" : session.platform === "ios" ? "Thiết bị iOS" : "Thiết bị đăng nhập");
 
 export default function PatientSecurityPage() {
-  const client = useQueryClient();
-  const query = useQuery({ queryKey: ["patient-sessions"], queryFn: async () => (await patientPortalRequest<PatientSession[]>("/phien")).data, staleTime: 15_000 });
-  const revoke = useMutation({ mutationFn: (id: string) => patientPortalRequest(`/phien/${id}`, { method: "DELETE" }), onSuccess: () => client.invalidateQueries({ queryKey: ["patient-sessions"] }) });
+  const query = usePatientSessions();
+  const revoke = useRevokeSession();
   return <div className="space-y-6">
     <PatientPageHeader eyebrow="Bảo mật tài khoản" title="Thiết bị và phiên đăng nhập" description="Kiểm tra các thiết bị còn hiệu lực và chủ động thu hồi những phiên bạn không nhận ra." />
     <section className="grid gap-4 sm:grid-cols-3"><div className="rounded-2xl border border-[var(--public-border)] bg-white p-4 shadow-sm"><ShieldCheck className="h-5 w-5 text-emerald-600" /><strong className="mt-3 block">OTP và phiên xoay vòng</strong><p className="mt-1 text-xs leading-5 text-[var(--public-muted)]">Mỗi phiên có refresh token riêng và được thu hồi độc lập.</p></div><div className="rounded-2xl border border-[var(--public-border)] bg-white p-4 shadow-sm"><MonitorSmartphone className="h-5 w-5 text-[var(--public-primary)]" /><strong className="mt-3 block">Đồng bộ đa thiết bị</strong><p className="mt-1 text-xs leading-5 text-[var(--public-muted)]">Web và Mobile dùng chung tài khoản nhưng không dùng chung token.</p></div><div className="rounded-2xl border border-[var(--public-border)] bg-white p-4 shadow-sm"><LogOut className="h-5 w-5 text-red-600" /><strong className="mt-3 block">Thu hồi chủ động</strong><p className="mt-1 text-xs leading-5 text-[var(--public-muted)]">Đăng xuất thiết bị lạ mà không ảnh hưởng phiên hiện tại.</p></div></section>

@@ -1,19 +1,17 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { useState } from "react";
 import { Activity, CalendarDays, FileHeart, FlaskConical, Pill, Stethoscope } from "lucide-react";
 import { PatientEmptyState, PatientPageError, PatientPageHeader, PatientPageLoading } from "@/components/patient/patient-page-ui";
-import { patientPortalRequest } from "@/lib/patient-portal-api";
-import type { PatientMedicalRecord, PatientPrescription } from "@/lib/patient-portal-types";
 
 import { formatShortDate } from "@/lib/format";
+import { useHealthRecords } from "@/features/portal/hooks";
 type Tab = "records" | "prescriptions";
 
 export default function HealthRecordsPage() {
   const [tab, setTab] = useState<Tab>("records");
-  const query = useQuery({ queryKey: ["patient-health-records"], queryFn: async () => { const [records, prescriptions] = await Promise.all([patientPortalRequest<PatientMedicalRecord[]>("/ket-qua?page=1&limit=50"), patientPortalRequest<PatientPrescription[]>("/don-thuoc?page=1&limit=50")]); return { records: records.data, prescriptions: prescriptions.data }; }, staleTime: 30_000 });
+  const query = useHealthRecords();
   return <div className="space-y-6">
     <PatientPageHeader eyebrow="Hồ sơ sức khỏe" title="Kết quả khám và đơn thuốc" description="Chỉ hiển thị hồ sơ đã được bệnh viện công bố. Thông tin được đồng bộ với ứng dụng Mobile." />
     <div role="tablist" aria-label="Loại hồ sơ" className="flex gap-2 overflow-x-auto rounded-2xl border border-[var(--public-border)] bg-white p-2 shadow-sm"><button role="tab" aria-selected={tab === "records"} onClick={() => setTab("records")} className={`inline-flex min-h-11 items-center gap-2 rounded-xl px-4 text-sm font-bold ${tab === "records" ? "bg-[var(--public-primary)] text-white" : "text-[var(--public-text-soft)]"}`}><FileHeart className="h-4 w-4" /> Kết quả khám</button><button role="tab" aria-selected={tab === "prescriptions"} onClick={() => setTab("prescriptions")} className={`inline-flex min-h-11 items-center gap-2 rounded-xl px-4 text-sm font-bold ${tab === "prescriptions" ? "bg-[var(--public-primary)] text-white" : "text-[var(--public-text-soft)]"}`}><Pill className="h-4 w-4" /> Đơn thuốc</button></div>

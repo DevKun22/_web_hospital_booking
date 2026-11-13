@@ -1,16 +1,13 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { ArrowRight, CalendarClock, CalendarPlus, CheckCircle2, CircleAlert, FileHeart, Loader2, Pill, ReceiptText, RefreshCw, ShieldCheck, Smartphone, UserRound, UsersRound } from "lucide-react";
-import { patientApiRequest } from "@/lib/patient-portal-api";
-import type { PatientAppointment, PatientPortalOverview } from "@/lib/patient-portal-types";
+import type { PatientAppointment } from "@/lib/patient-portal-types";
 
 import { formatShortDate, formatMoney } from "@/lib/format";
 
 import { ACTIVE_APPOINTMENT_STATUSES, appointmentStatusDisplay } from "@/lib/patient-status";
-const fetchOverview = async () => (await patientApiRequest<PatientPortalOverview>("/tong-quan")).data;
-
+import { usePortalOverview } from "@/features/portal/hooks";
 function findUpcoming(items: PatientAppointment[]) {
   const active = ACTIVE_APPOINTMENT_STATUSES;
   const now = new Date();
@@ -18,7 +15,7 @@ function findUpcoming(items: PatientAppointment[]) {
 }
 
 export default function PatientPortalPage() {
-  const query = useQuery({ queryKey: ["patient-portal-overview"], queryFn: fetchOverview, staleTime: 30_000, refetchOnWindowFocus: true, refetchOnReconnect: true });
+  const query = usePortalOverview();
   if (query.isLoading) return <div className="flex min-h-[60vh] items-center justify-center gap-3 text-sm font-semibold text-[var(--public-text-soft)]"><Loader2 className="h-5 w-5 animate-spin text-[var(--public-primary)]" /> Đang đồng bộ thông tin...</div>;
   if (query.isError || !query.data) return <section className="mx-auto mt-16 max-w-lg rounded-3xl border border-red-200 bg-white p-7 text-center shadow-sm"><CircleAlert className="mx-auto h-9 w-9 text-red-600" /><h1 className="mt-4 text-xl font-bold">Chưa tải được cổng thông tin</h1><p className="mt-2 text-sm text-[var(--public-muted)]">{query.error instanceof Error ? query.error.message : "Vui lòng thử lại."}</p><button onClick={() => query.refetch()} className="public-button-primary mt-5 inline-flex min-h-11 items-center gap-2 rounded-xl px-4 text-sm font-bold"><RefreshCw className="h-4 w-4" /> Thử lại</button></section>;
 

@@ -1,23 +1,18 @@
 "use client";
 
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useState } from "react";
 import { CheckCircle2, CreditCard, Loader2, ReceiptText, ShieldCheck } from "lucide-react";
 import { PatientEmptyState, PatientPageError, PatientPageHeader, PatientPageLoading } from "@/components/patient/patient-page-ui";
-import { patientPortalRequest } from "@/lib/patient-portal-api";
-import type { PatientInvoice } from "@/lib/patient-portal-types";
 
 import { formatShortDate, formatMoney } from "@/lib/format";
 import { invoiceStatusDisplay } from "@/lib/patient-status";
-type Provider = { provider: string; label: string };
-type Payment = { id: string; paymentUrl?: string | null; status: string; transactionCode: string };
 
+import { usePatientInvoices, usePayInvoice } from "@/features/portal/hooks";
 export default function PatientInvoicesPage() {
-  const client = useQueryClient();
   const [selected, setSelected] = useState<{ invoiceId: string; provider: string } | null>(null);
-  const query = useQuery({ queryKey: ["patient-invoices"], queryFn: async () => { const [invoices, capabilities] = await Promise.all([patientPortalRequest<PatientInvoice[]>("/hoa-don?page=1&limit=50"), patientPortalRequest<{ providers: Provider[] }>("/kha-nang-thanh-toan")]); return { invoices: invoices.data, providers: capabilities.data.providers }; }, staleTime: 30_000 });
-  const payment = useMutation({ mutationFn: ({ invoiceId, provider }: { invoiceId: string; provider: string }) => patientPortalRequest<Payment>(`/hoa-don/${invoiceId}/thanh-toan`, { method: "POST", headers: { "Idempotency-Key": `web-${invoiceId}-${provider}-${Date.now()}` }, body: JSON.stringify({ provider }) }), onSuccess: async (result) => { if (result.data.paymentUrl) { window.location.assign(result.data.paymentUrl); return; } setSelected(null); await client.invalidateQueries({ queryKey: ["patient-invoices"] }); } });
+  const query = usePatientInvoices();
+  const payment = usePayInvoice(() => setSelected(null));
   return <div className="space-y-6">
     <PatientPageHeader eyebrow="Tài chính" title="Hóa đơn và thanh toán" description="Theo dõi số tiền, giảm trừ BHYT và trạng thái thanh toán theo từng lần khám." />
     {query.isLoading ? <PatientPageLoading /> : query.isError || !query.data ? <PatientPageError message={query.error instanceof Error ? query.error.message : "Không tải được hóa đơn."} onRetry={() => query.refetch()} /> : query.data.invoices.length === 0 ? <PatientEmptyState title="Chưa có hóa đơn" description="Hóa đơn sẽ xuất hiện sau khi bệnh viện lập chi phí cho lần khám." /> : <div className="space-y-4">{query.data.invoices.map((invoice) => {
