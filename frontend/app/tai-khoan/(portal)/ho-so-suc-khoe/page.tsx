@@ -2,20 +2,88 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { Activity, CalendarDays, FileHeart, FlaskConical, Pill, Stethoscope } from "lucide-react";
 import { PatientEmptyState, PatientPageError, PatientPageHeader, PatientPageLoading } from "@/components/patient/patient-page-ui";
-
-import { formatShortDate } from "@/lib/format";
 import { useHealthRecords } from "@/features/portal/hooks";
+import { formatShortDate } from "@/lib/format";
+
 type Tab = "records" | "prescriptions";
+
+const TABS: Array<{ key: Tab; label: string }> = [
+  { key: "records", label: "Kết quả khám" },
+  { key: "prescriptions", label: "Đơn thuốc" },
+];
+
+const doctorLabel = (doctor: { title?: string | null; user: { fullName: string } }) => `${doctor.title ? `${doctor.title} ` : ""}${doctor.user.fullName}`;
+const LIST_CLASS = "divide-y divide-[var(--public-divider)] overflow-hidden rounded-lg border border-[var(--public-border)] bg-[var(--public-surface)]";
+const LINK_CLASS = "mt-3 inline-flex min-h-11 items-center text-sm font-semibold text-[var(--public-primary)] underline underline-offset-4";
 
 export default function HealthRecordsPage() {
   const [tab, setTab] = useState<Tab>("records");
   const query = useHealthRecords();
-  return <div className="space-y-6">
-    <PatientPageHeader title="Kết quả khám và đơn thuốc" description="Chỉ hiển thị hồ sơ đã được bệnh viện công bố. Thông tin được đồng bộ với ứng dụng Mobile." />
-    <div role="tablist" aria-label="Loại hồ sơ" className="flex gap-2 overflow-x-auto rounded-2xl border border-[var(--public-border)] bg-white p-2 shadow-sm"><button role="tab" aria-selected={tab === "records"} onClick={() => setTab("records")} className={`inline-flex min-h-11 items-center gap-2 rounded-xl px-4 text-sm font-bold ${tab === "records" ? "bg-[var(--public-primary)] text-white" : "text-[var(--public-text-soft)]"}`}><FileHeart className="h-4 w-4" /> Kết quả khám</button><button role="tab" aria-selected={tab === "prescriptions"} onClick={() => setTab("prescriptions")} className={`inline-flex min-h-11 items-center gap-2 rounded-xl px-4 text-sm font-bold ${tab === "prescriptions" ? "bg-[var(--public-primary)] text-white" : "text-[var(--public-text-soft)]"}`}><Pill className="h-4 w-4" /> Đơn thuốc</button></div>
-    {query.isLoading ? <PatientPageLoading /> : query.isError || !query.data ? <PatientPageError message={query.error instanceof Error ? query.error.message : "Không tải được hồ sơ sức khỏe."} onRetry={() => query.refetch()} /> : tab === "records" ? query.data.records.length ? <div className="space-y-4">{query.data.records.map((record) => <article key={record.id} className="rounded-3xl border border-[var(--public-border)] bg-white p-5 shadow-sm sm:p-6"><div className="flex flex-wrap items-start justify-between gap-3"><div><span className="inline-flex rounded-full bg-emerald-100 px-2.5 py-1 text-[11px] font-bold text-emerald-800">Đã công bố</span><h2 className="mt-3 text-lg font-bold">Phiếu khám {record.recordCode}</h2></div><span className="flex items-center gap-2 text-xs font-semibold text-[var(--public-muted)]"><CalendarDays className="h-4 w-4" /> {formatShortDate(record.publishedAt || record.createdAt)}</span></div><div className="mt-5 grid gap-3 md:grid-cols-2"><div className="rounded-2xl bg-[var(--public-surface-muted)] p-4"><p className="text-xs font-bold uppercase tracking-wide text-[var(--public-muted)]">Chẩn đoán</p><p className="mt-2 text-sm leading-6">{record.diagnosis || "Chưa có nội dung chẩn đoán"}</p></div><div className="rounded-2xl bg-[var(--public-surface-muted)] p-4"><p className="text-xs font-bold uppercase tracking-wide text-[var(--public-muted)]">Bác sĩ phụ trách</p><p className="mt-2 text-sm font-semibold"><Stethoscope className="mr-2 inline h-4 w-4 text-[var(--public-primary)]" />{record.doctor.title ? `${record.doctor.title} ` : ""}{record.doctor.user.fullName}</p></div></div>{record.labResults.length ? <div className="mt-4"><p className="flex items-center gap-2 text-sm font-bold"><FlaskConical className="h-4 w-4 text-violet-600" /> Kết quả xét nghiệm</p><div className="mt-3 grid gap-2 md:grid-cols-2">{record.labResults.slice(0, 2).map((lab) => <div key={lab.id} className="rounded-xl border border-[var(--public-border)] p-3"><strong className="text-sm">{lab.testName}</strong><p className="mt-1 text-xs text-[var(--public-muted)]">{lab.conclusion || "Đã có kết quả"}</p></div>)}</div></div> : null}<div className="mt-5 flex justify-end"><Link href={`/tai-khoan/ho-so-suc-khoe/ket-qua/${record.id}`} className="public-button-secondary inline-flex min-h-11 items-center rounded-xl px-4 text-sm font-bold">Xem toàn bộ kết quả</Link></div></article>)}</div> : <PatientEmptyState title="Chưa có kết quả khám" description="Kết quả sẽ xuất hiện sau khi bác sĩ hoàn tất và bệnh viện công bố hồ sơ." /> : query.data.prescriptions.length ? <div className="grid gap-4 xl:grid-cols-2">{query.data.prescriptions.map((prescription) => <article key={prescription.id} className="rounded-3xl border border-[var(--public-border)] bg-white p-5 shadow-sm"><div className="flex items-start justify-between gap-3"><div><span className="inline-flex rounded-full bg-violet-100 px-2.5 py-1 text-[11px] font-bold text-violet-800">Đã phát hành</span><h2 className="mt-3 text-lg font-bold">{prescription.prescriptionCode}</h2><p className="mt-1 text-xs text-[var(--public-muted)]">{formatShortDate(prescription.issuedAt || prescription.createdAt)} · {prescription.doctor.title ? `${prescription.doctor.title} ` : ""}{prescription.doctor.user.fullName}</p></div><Pill className="h-6 w-6 text-violet-600" /></div><div className="mt-5 space-y-2">{prescription.items.slice(0, 2).map((item) => <div key={item.id} className="rounded-2xl bg-[var(--public-surface-muted)] p-4"><div className="flex items-start gap-3"><Activity className="mt-0.5 h-4 w-4 shrink-0 text-[var(--public-primary)]" /><div><strong className="text-sm">{item.medicineName}</strong><p className="mt-1 text-xs leading-5 text-[var(--public-muted)]">{item.dosage} · {item.frequency}</p></div></div></div>)}</div><div className="mt-5 flex justify-end"><Link href={`/tai-khoan/ho-so-suc-khoe/don-thuoc/${prescription.id}`} className="public-button-secondary inline-flex min-h-11 items-center rounded-xl px-4 text-sm font-bold">Xem chi tiết đơn thuốc</Link></div></article>)}</div> : <PatientEmptyState title="Chưa có đơn thuốc" description="Đơn thuốc sẽ xuất hiện sau khi được bác sĩ phát hành chính thức." />}
-  </div>;
-}
 
+  return (
+    <div className="space-y-5">
+      <PatientPageHeader title="Kết quả khám và đơn thuốc" description="Chỉ hiển thị hồ sơ đã được bệnh viện công bố, đồng bộ với ứng dụng di động." />
+
+      <div role="tablist" aria-label="Loại hồ sơ" className="flex gap-2">
+        {TABS.map((item) => (
+          <button
+            key={item.key}
+            type="button"
+            role="tab"
+            aria-selected={tab === item.key}
+            onClick={() => setTab(item.key)}
+            className={`min-h-11 rounded-lg border px-4 text-sm font-semibold ${tab === item.key ? "border-[var(--public-primary)] bg-[var(--public-primary)] text-white" : "border-[var(--public-border)] bg-[var(--public-surface)] text-[var(--public-text-soft)]"}`}
+          >
+            {item.label}
+          </button>
+        ))}
+      </div>
+
+      {query.isLoading ? (
+        <PatientPageLoading />
+      ) : query.isError || !query.data ? (
+        <PatientPageError message={query.error instanceof Error ? query.error.message : "Không tải được hồ sơ sức khỏe."} onRetry={() => query.refetch()} />
+      ) : tab === "records" ? (
+        query.data.records.length ? (
+          <ul className={LIST_CLASS}>
+            {query.data.records.map((record) => (
+              <li key={record.id} className="p-4 sm:p-5">
+                <p className="text-sm text-[var(--public-muted)]">{formatShortDate(record.publishedAt || record.createdAt)} · {doctorLabel(record.doctor)}</p>
+                <h2 className="mt-0.5 text-base font-bold">Phiếu khám {record.recordCode}</h2>
+                <p className="mt-2 text-base text-[var(--public-text-soft)]"><span className="text-[var(--public-muted)]">Chẩn đoán: </span>{record.diagnosis || "Chưa có nội dung chẩn đoán"}</p>
+                {record.labResults.length ? (
+                  <ul className="mt-2 space-y-1 text-sm text-[var(--public-text-soft)]">
+                    {record.labResults.slice(0, 2).map((lab) => (
+                      <li key={lab.id}><strong className="font-semibold text-[var(--public-ink)]">{lab.testName}:</strong> {lab.conclusion || "Đã có kết quả"}</li>
+                    ))}
+                  </ul>
+                ) : null}
+                <Link href={`/tai-khoan/ho-so-suc-khoe/ket-qua/${record.id}`} className={LINK_CLASS}>Xem toàn bộ kết quả</Link>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <PatientEmptyState title="Chưa có kết quả khám" description="Kết quả xuất hiện sau khi bác sĩ hoàn tất và bệnh viện công bố hồ sơ." />
+        )
+      ) : query.data.prescriptions.length ? (
+        <ul className={LIST_CLASS}>
+          {query.data.prescriptions.map((prescription) => (
+            <li key={prescription.id} className="p-4 sm:p-5">
+              <p className="text-sm text-[var(--public-muted)]">{formatShortDate(prescription.issuedAt || prescription.createdAt)} · {doctorLabel(prescription.doctor)}</p>
+              <h2 className="mt-0.5 text-base font-bold">Đơn thuốc {prescription.prescriptionCode}</h2>
+              <ul className="mt-2 space-y-1 text-sm text-[var(--public-text-soft)]">
+                {prescription.items.slice(0, 3).map((item) => (
+                  <li key={item.id}><strong className="font-semibold text-[var(--public-ink)]">{item.medicineName}</strong> · {item.dosage} · {item.frequency}</li>
+                ))}
+              </ul>
+              <Link href={`/tai-khoan/ho-so-suc-khoe/don-thuoc/${prescription.id}`} className={LINK_CLASS}>Xem chi tiết đơn thuốc</Link>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <PatientEmptyState title="Chưa có đơn thuốc" description="Đơn thuốc xuất hiện sau khi bác sĩ phát hành chính thức." />
+      )}
+    </div>
+  );
+}

@@ -1,20 +1,61 @@
 "use client";
 
-import { CheckCircle2, Loader2, LogOut, MonitorSmartphone, ShieldCheck, Smartphone } from "lucide-react";
+import { Loader2, LogOut } from "lucide-react";
 import { PatientEmptyState, PatientPageError, PatientPageHeader, PatientPageLoading } from "@/components/patient/patient-page-ui";
+import { usePatientSessions, useRevokeSession } from "@/features/portal/hooks";
+import { formatShortDateTime } from "@/lib/format";
 import type { PatientSession } from "@/lib/patient-portal-types";
 
-import { formatShortDateTime } from "@/lib/format";
-import { usePatientSessions, useRevokeSession } from "@/features/portal/hooks";
-const deviceLabel = (session: PatientSession) => session.deviceName || (session.platform === "web" ? "Trình duyệt Web" : session.platform === "android" ? "Thiết bị Android" : session.platform === "ios" ? "Thiết bị iOS" : "Thiết bị đăng nhập");
+const deviceLabel = (session: PatientSession) =>
+  session.deviceName || (session.platform === "web" ? "Trình duyệt Web" : session.platform === "android" ? "Thiết bị Android" : session.platform === "ios" ? "Thiết bị iOS" : "Thiết bị đăng nhập");
 
 export default function PatientSecurityPage() {
   const query = usePatientSessions();
   const revoke = useRevokeSession();
-  return <div className="space-y-6">
-    <PatientPageHeader title="Thiết bị và phiên đăng nhập" description="Kiểm tra các thiết bị còn hiệu lực và chủ động thu hồi những phiên bạn không nhận ra." />
-    <section className="grid gap-4 sm:grid-cols-3"><div className="rounded-2xl border border-[var(--public-border)] bg-white p-4 shadow-sm"><ShieldCheck className="h-5 w-5 text-emerald-600" /><strong className="mt-3 block">OTP và phiên xoay vòng</strong><p className="mt-1 text-xs leading-5 text-[var(--public-muted)]">Mỗi phiên có refresh token riêng và được thu hồi độc lập.</p></div><div className="rounded-2xl border border-[var(--public-border)] bg-white p-4 shadow-sm"><MonitorSmartphone className="h-5 w-5 text-[var(--public-primary)]" /><strong className="mt-3 block">Đồng bộ đa thiết bị</strong><p className="mt-1 text-xs leading-5 text-[var(--public-muted)]">Web và Mobile dùng chung tài khoản nhưng không dùng chung token.</p></div><div className="rounded-2xl border border-[var(--public-border)] bg-white p-4 shadow-sm"><LogOut className="h-5 w-5 text-red-600" /><strong className="mt-3 block">Thu hồi chủ động</strong><p className="mt-1 text-xs leading-5 text-[var(--public-muted)]">Đăng xuất thiết bị lạ mà không ảnh hưởng phiên hiện tại.</p></div></section>
-    {query.isLoading ? <PatientPageLoading /> : query.isError ? <PatientPageError message={query.error instanceof Error ? query.error.message : "Không tải được danh sách phiên."} onRetry={() => query.refetch()} /> : !query.data?.length ? <PatientEmptyState title="Không có phiên đăng nhập" description="Hãy đăng nhập lại nếu phiên hiện tại đã hết hiệu lực." /> : <section className="rounded-3xl border border-[var(--public-border)] bg-white p-5 shadow-sm sm:p-6"><h2 className="text-xl font-bold">Phiên đang hoạt động</h2><div className="mt-5 divide-y divide-[var(--public-divider)]">{query.data.map((session) => <article key={session.id} className="flex flex-col gap-4 py-5 first:pt-0 last:pb-0 sm:flex-row sm:items-center sm:justify-between"><div className="flex min-w-0 items-start gap-3"><span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${session.isCurrent ? "bg-emerald-100 text-emerald-700" : "bg-[var(--public-primary-soft)] text-[var(--public-primary)]"}`}><Smartphone className="h-5 w-5" aria-hidden="true" /></span><div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><h3 className="font-bold">{deviceLabel(session)}</h3>{session.isCurrent ? <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-800"><CheckCircle2 className="h-3 w-3" /> Phiên hiện tại</span> : null}</div><p className="mt-1 break-words text-xs leading-5 text-[var(--public-muted)]">Hoạt động: {formatShortDateTime(session.lastUsedAt)}{session.ipAddress ? ` · IP ${session.ipAddress}` : ""}</p>{session.appVersion ? <p className="mt-1 text-xs text-[var(--public-muted)]">Phiên bản {session.appVersion}</p> : null}</div></div>{!session.isCurrent ? <button type="button" disabled={revoke.isPending} onClick={() => { if (window.confirm(`Đăng xuất ${deviceLabel(session)}?`)) revoke.mutate(session.id); }} className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-xl border border-red-200 px-4 text-sm font-bold text-red-700 hover:bg-red-50 disabled:opacity-60">{revoke.isPending && revoke.variables === session.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <LogOut className="h-4 w-4" />} Đăng xuất thiết bị</button> : null}</article>)}</div>{revoke.isError ? <p role="alert" className="mt-4 rounded-xl bg-red-50 p-3 text-sm text-red-700">{revoke.error instanceof Error ? revoke.error.message : "Không thể thu hồi phiên."}</p> : null}</section>}
-  </div>;
-}
 
+  return (
+    <div className="space-y-5">
+      <PatientPageHeader title="Thiết bị đăng nhập" description="Các thiết bị còn đăng nhập tài khoản này. Đăng xuất thiết bị bạn không nhận ra; phiên hiện tại không bị ảnh hưởng." />
+
+      {query.isLoading ? (
+        <PatientPageLoading />
+      ) : query.isError ? (
+        <PatientPageError message={query.error instanceof Error ? query.error.message : "Không tải được danh sách phiên."} onRetry={() => query.refetch()} />
+      ) : !query.data?.length ? (
+        <PatientEmptyState title="Không có phiên đăng nhập" description="Hãy đăng nhập lại nếu phiên hiện tại đã hết hiệu lực." />
+      ) : (
+        <ul className="divide-y divide-[var(--public-divider)] overflow-hidden rounded-lg border border-[var(--public-border)] bg-[var(--public-surface)]">
+          {query.data.map((session) => (
+            <li key={session.id} className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="min-w-0">
+                <p className="text-base font-semibold">
+                  {deviceLabel(session)}
+                  {session.isCurrent ? <span className="ml-2 rounded-md bg-[var(--public-success-soft)] px-2 py-0.5 text-xs font-semibold text-[var(--public-success)]">Thiết bị này</span> : null}
+                </p>
+                <p className="mt-0.5 break-words text-sm text-[var(--public-muted)]">
+                  Hoạt động {formatShortDateTime(session.lastUsedAt)}
+                  {session.ipAddress ? ` · IP ${session.ipAddress}` : ""}
+                  {session.appVersion ? ` · Phiên bản ${session.appVersion}` : ""}
+                </p>
+              </div>
+              {!session.isCurrent ? (
+                <button
+                  type="button"
+                  disabled={revoke.isPending}
+                  onClick={() => {
+                    if (window.confirm(`Đăng xuất ${deviceLabel(session)}?`)) revoke.mutate(session.id);
+                  }}
+                  className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-lg border border-[var(--public-danger)] px-4 text-sm font-semibold text-[var(--public-danger)] hover:bg-[var(--public-danger-soft)] disabled:opacity-60"
+                >
+                  {revoke.isPending && revoke.variables === session.id ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <LogOut className="h-4 w-4" aria-hidden="true" />}
+                  Đăng xuất thiết bị
+                </button>
+              ) : null}
+            </li>
+          ))}
+        </ul>
+      )}
+      {revoke.isError ? <p role="alert" className="text-sm text-[var(--public-danger)]">{revoke.error instanceof Error ? revoke.error.message : "Không thể thu hồi phiên."}</p> : null}
+    </div>
+  );
+}
