@@ -5,6 +5,7 @@ import { absoluteUrl, buildOpenGraph, jsonLdString } from "@/lib/seo";
 import type { Banner, DoctorProfile, HomePageConfigValue, MedicalPackage, PublicFAQ, SiteSettingsValue } from "@/lib/types";
 import type { Metadata } from "next";
 
+import { BRAND_NAME } from "@/lib/brand";
 export const revalidate = 60;
 
 export const metadata: Metadata = {
@@ -67,7 +68,7 @@ async function getHomeData(): Promise<{ data: PublicHomeData; error: string }> {
 
 function buildMedicalOrganizationJsonLd(data: PublicHomeData) {
   const settings = data.settings;
-  const hospitalName = settings?.hospitalName || "Hospital Booking";
+  const hospitalName = settings?.hospitalName || BRAND_NAME;
   const socialLinks = settings?.socialLinks ? Object.values(settings.socialLinks).filter(Boolean) : [];
 
   return {
@@ -92,7 +93,7 @@ function buildMedicalOrganizationJsonLd(data: PublicHomeData) {
 }
 
 function buildWebSiteJsonLd(data: PublicHomeData) {
-  const hospitalName = data.settings?.hospitalName || "Hospital Booking";
+  const hospitalName = data.settings?.hospitalName || BRAND_NAME;
 
   return {
     "@context": "https://schema.org",

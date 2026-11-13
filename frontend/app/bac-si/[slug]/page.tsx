@@ -8,6 +8,7 @@ import { serverApiRequest } from "@/lib/server-api";
 import { absoluteUrl, buildBreadcrumbJsonLd, buildNoIndexMetadata, buildOpenGraph, cleanText, jsonLdString, truncateText } from "@/lib/seo";
 import type { DoctorProfile } from "@/lib/types";
 
+import { BRAND_NAME } from "@/lib/brand";
 type PageProps = { params: Promise<{ slug: string }> };
 
 const doctorName = (doctor: DoctorProfile) => [doctor.title, doctor.user.fullName].filter(Boolean).join(" ");
@@ -65,7 +66,7 @@ export default async function PublicDoctorDetailPage({ params }: PageProps) {
     image: absoluteUrl(doctor.user.avatar),
     description: cleanText(doctor.bio || doctor.specialization, `${name} thuộc ${doctor.department.name}.`),
     medicalSpecialty: doctor.specialization || doctor.department.name,
-    worksFor: { "@type": "MedicalOrganization", name: "Hospital Booking", url: absoluteUrl("/") },
+    worksFor: { "@type": "MedicalOrganization", name: BRAND_NAME, url: absoluteUrl("/") },
     aggregateRating: doctor.reviewSummary?.count ? {
       "@type": "AggregateRating",
       ratingValue: doctor.reviewSummary.averageRating,

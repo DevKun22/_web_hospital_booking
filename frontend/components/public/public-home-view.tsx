@@ -35,6 +35,7 @@ import type { Banner, DoctorProfile, HomePageConfigValue, HomePageSectionConfig 
 import type { PublicHomeData } from "./public-home-types";
 
 import { formatCurrency } from "@/lib/format";
+import { BRAND_NAME } from "@/lib/brand";
 type PublicHomeViewProps = {
   data: PublicHomeData;
   loading: boolean;
@@ -77,7 +78,7 @@ const safePublicHref = (value: string | null | undefined, fallback = "/") => {
 
 export function PublicHomeView({ data, loading, error }: PublicHomeViewProps) {
   const hospitalName =
-    data.settings?.hospitalName?.trim() || "Hospital Booking";
+    data.settings?.hospitalName?.trim() || BRAND_NAME;
   const homeConfig = data.homeConfig;
 
   return (

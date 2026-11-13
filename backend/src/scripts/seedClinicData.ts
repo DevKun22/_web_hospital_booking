@@ -412,7 +412,7 @@ async function seedMedicines(actorId: string) {
 
 async function seedSiteContent() {
   const value = {
-    hospitalName: "DevKun Care",
+    hospitalName: "DevKunCare",
     hotline: "1900 1234",
     emergencyHotline: "115",
     email: `contact@${EMAIL_DOMAIN}`,
