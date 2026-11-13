@@ -8,15 +8,10 @@ import {
   FileText,
   ShieldCheck,
 } from "lucide-react";
-import { useEffect } from "react";
-import { PublicBookingWidget } from "@/components/public/public-booking-widget";
+import { BookingFlow } from "@/features/booking/components/booking-flow";
 import type { PublicHomeData } from "@/components/public/public-home-types";
 import { usePublicBookingData } from "@/lib/public-booking-query";
-import { usePublicBookingStore } from "@/lib/public-booking-store";
 import { hasPublicHomeData } from "@/lib/public-home-query";
-
-const toDateInputValue = (value?: string | null) =>
-  value?.match(/^(\d{4}-\d{2}-\d{2})/)?.[1] || "";
 
 const bookingJourney = [
   {
@@ -42,48 +37,13 @@ const bookingJourney = [
 ];
 
 export function PublicBookingPageClient({ data, error = "" }: { data: PublicHomeData; error?: string }) {
-  const hydrateFromUrl = usePublicBookingStore((state) => state.hydrateFromUrl);
-  const hydratedFromUrl = usePublicBookingStore(
-    (state) => state.hydratedFromUrl,
-  );
   const query = usePublicBookingData(data);
   const bookingData = query.data || data;
   const queryError = query.error instanceof Error ? query.error.message : "";
   const loading = query.isLoading || (query.isFetching && !hasPublicHomeData(bookingData));
 
-  useEffect(() => {
-    if (hydratedFromUrl || !hasPublicHomeData(bookingData)) return;
-
-    const params = new URLSearchParams(window.location.search);
-    const requestedDoctorId = params.get("doctorId") || "";
-    const requestedPackageId = params.get("packageId") || "";
-    const requestedDepartmentId = params.get("departmentId") || "";
-    const matchedDoctor = bookingData.doctors.find(
-      (doctor) => doctor.id === requestedDoctorId,
-    );
-    const matchedPackage = bookingData.packages.find(
-      (item) => item.id === requestedPackageId,
-    );
-    const matchedDepartment = bookingData.departments.find(
-      (item) => item.id === requestedDepartmentId,
-    );
-    const doctorDepartmentId = matchedDoctor?.department.id || "";
-    const packageDepartmentId = matchedPackage?.department?.id || "";
-    const prefill = {
-      departmentId:
-        doctorDepartmentId || packageDepartmentId || matchedDepartment?.id || "",
-      doctorId: matchedDoctor?.id || "",
-      packageId: matchedPackage?.id || "",
-      date: toDateInputValue(params.get("date")),
-      timeSlotId: params.get("timeSlotId") || "",
-    };
-
-    // Đánh dấu đã hydrate kể cả khi URL không có tham số để dữ liệu refetch
-    // không ghi đè lựa chọn mà người dùng vừa thao tác.
-    hydrateFromUrl(prefill);
-  }, [bookingData, hydrateFromUrl, hydratedFromUrl]);
-
-  const displayError = queryError || error;
+  // Lỗi tải lúc dựng trang không còn đúng khi trình duyệt đã tải được dữ liệu.
+  const displayError = queryError || (hasPublicHomeData(bookingData) ? "" : error);
   return (
     <main className="min-h-screen bg-[var(--public-canvas)] text-[var(--public-ink)]">
       <div className="border-b border-[var(--public-border)] bg-white">
@@ -112,7 +72,11 @@ export function PublicBookingPageClient({ data, error = "" }: { data: PublicHome
           <div className="ui-status-danger rounded-xl border px-4 py-3 text-sm" role="alert">{displayError}</div>
         </div>
       ) : null}
-      <PublicBookingWidget data={bookingData} loading={loading} />
+      <BookingFlow
+        catalog={bookingData}
+        loading={loading}
+        hotline={bookingData.settings?.hotline?.trim() || bookingData.settings?.emergencyHotline?.trim() || ""}
+      />
 
       <section className="border-y border-[var(--public-border)] bg-[var(--public-primary-soft)]/45 py-14 sm:py-16">
         <div className="ui-container">
