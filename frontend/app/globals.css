@@ -89,7 +89,7 @@
   --chart-3: var(--status-warning);
   --chart-4: #7b61c9;
   --chart-5: #d15f72;
-  --radius: 0.75rem;
+  --radius: 0.5rem;
   --sidebar: #ffffff;
   --sidebar-foreground: var(--ink);
   --sidebar-primary: var(--brand-primary);
@@ -101,32 +101,34 @@
 }
 
 .public-site {
-  --public-primary: #2563eb;
-  --public-primary-dark: #1d4ed8;
-  --public-primary-hover: #1e40af;
-  --public-primary-soft: #e7f0ff;
-  --public-secondary: #4d5662;
-  --public-secondary-soft: #eef2f7;
-  --public-care-mint: #059669;
-  --public-accent: #d97706;
-  --public-ink: #172b4d;
-  --public-text-soft: #475569;
-  --public-muted: #64748b;
-  --public-canvas: #f7f9fc;
+  /* Bảng màu DevKunCare. Phong cách: phẳng, lưới rõ, viền mảnh, một màu nhấn duy nhất; không chuyển sắc,
+     không đổ bóng màu, không nâng nút khi rê chuột. Mọi cặp chữ/nền đạt tối thiểu 4,5:1 (đã đo). */
+  --public-primary: #07549c;
+  --public-primary-dark: #053f77;
+  --public-primary-hover: #064785;
+  --public-primary-soft: #e3eef9;
+  --public-secondary: #33495e;
+  --public-secondary-soft: #eaf1f5;
+  --public-care-mint: #087f72;
+  --public-accent: #8a4b00;
+  --public-ink: #0b1f3a;
+  --public-text-soft: #33495e;
+  --public-muted: #52697a;
+  --public-canvas: #f4f8fa;
   --public-surface: #ffffff;
-  --public-surface-muted: #f1f5f9;
-  --public-border: #dce5f2;
-  --public-divider: #e8edf5;
-  --public-success: var(--status-success);
-  --public-success-soft: var(--status-success-soft);
-  --public-warning: var(--status-warning);
-  --public-warning-soft: var(--status-warning-soft);
-  --public-danger: var(--status-danger);
-  --public-danger-soft: var(--status-danger-soft);
-  --public-info: var(--status-info);
-  --public-info-soft: var(--status-info-soft);
-  --public-shadow-soft: 0 1px 3px rgba(23, 43, 77, 0.04), 0 10px 28px rgba(23, 43, 77, 0.07);
-  --public-shadow-floating: 0 24px 52px -12px rgba(23, 43, 77, 0.22);
+  --public-surface-muted: #eaf1f5;
+  --public-border: #d3dfe7;
+  --public-divider: #e3ebf0;
+  --public-success: #1e7b34;
+  --public-success-soft: #e3f3e7;
+  --public-warning: #8a4b00;
+  --public-warning-soft: #fff3dd;
+  --public-danger: #a32d2d;
+  --public-danger-soft: #fbe9e9;
+  --public-info: #07549c;
+  --public-info-soft: #e3eef9;
+  --public-shadow-soft: 0 1px 2px rgba(11, 31, 58, 0.06);
+  --public-shadow-floating: 0 8px 24px rgba(11, 31, 58, 0.16);
 
   --surface: var(--public-surface);
   --surface-muted: var(--public-canvas);
@@ -149,34 +151,34 @@
 
 :root[data-theme="dark"] .public-site,
 :root.theme-dark .public-site {
-  --public-primary: #7da9ff;
-  --public-primary-dark: #a9c5ff;
-  --public-primary-hover: #9bbcff;
-  --public-primary-soft: #172f55;
-  --public-secondary: #b8c4d6;
-  --public-secondary-soft: #172338;
-  --public-care-mint: #4adead;
-  --public-accent: #fbbf5a;
-  --public-ink: #f1f5ff;
-  --public-text-soft: #c7d2e3;
-  --public-muted: #9eacc1;
-  --public-canvas: #07111f;
-  --public-surface: #0e1a2b;
-  --public-surface-muted: #142238;
-  --public-border: #2a3d58;
-  --public-divider: #203149;
-  --public-success: #5ed6a4;
-  --public-success-soft: #123824;
-  --public-warning: #f4bd62;
+  --public-primary: #8cc4ff;
+  --public-primary-dark: #b7dbff;
+  --public-primary-hover: #a6d1ff;
+  --public-primary-soft: #11304f;
+  --public-secondary: #b7c7d6;
+  --public-secondary-soft: #152a42;
+  --public-care-mint: #5ee0cc;
+  --public-accent: #f2b96b;
+  --public-ink: #eaf3fb;
+  --public-text-soft: #b7c7d6;
+  --public-muted: #9db0c2;
+  --public-canvas: #0a1726;
+  --public-surface: #0f2036;
+  --public-surface-muted: #152a42;
+  --public-border: #26405c;
+  --public-divider: #1e334c;
+  --public-success: #6bd38a;
+  --public-success-soft: #123a24;
+  --public-warning: #f2b96b;
   --public-warning-soft: #3b2d10;
-  --public-danger: #ff949b;
+  --public-danger: #ff9a9a;
   --public-danger-soft: #3c1c1f;
-  --public-info: #8dc7f2;
-  --public-info-soft: #132f49;
+  --public-info: #8cc4ff;
+  --public-info-soft: #11304f;
   --public-violet: #c4b5fd;
   --public-violet-soft: #2a2250;
-  --public-shadow-soft: 0 1px 3px rgba(0, 0, 0, 0.22), 0 14px 34px rgba(0, 0, 0, 0.3);
-  --public-shadow-floating: 0 28px 64px -14px rgba(0, 0, 0, 0.62);
+  --public-shadow-soft: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --public-shadow-floating: 0 8px 24px rgba(0, 0, 0, 0.55);
 
   --surface: var(--public-surface);
   --surface-muted: var(--public-canvas);
@@ -432,27 +434,26 @@
   border: 1px solid transparent;
   background: var(--public-primary);
   color: white;
-  box-shadow: 0 10px 24px rgba(37, 99, 235, 0.2);
-  transition: transform 180ms ease, background-color 180ms ease, box-shadow 180ms ease;
+  transition: background-color 150ms ease;
 }
 
 .public-button-primary:hover {
   background: var(--public-primary-hover);
-  box-shadow: 0 14px 30px rgba(37, 99, 235, 0.28);
-  transform: translateY(-1px);
+}
+
+.public-button-primary:active {
+  background: var(--public-primary-dark);
 }
 
 .public-button-secondary {
-  border: 1px solid var(--public-border);
+  border: 1px solid var(--public-primary);
   background: var(--public-surface);
   color: var(--public-primary-dark);
-  transition: border-color 180ms ease, background-color 180ms ease, transform 180ms ease;
+  transition: background-color 150ms ease;
 }
 
 .public-button-secondary:hover {
-  border-color: color-mix(in srgb, var(--public-primary) 38%, var(--public-border));
   background: var(--public-primary-soft);
-  transform: translateY(-1px);
 }
 
 .public-floating-utility {
@@ -682,9 +683,8 @@ body {
 
 .public-filter-panel {
   border: 1px solid var(--border);
-  border-radius: 1.25rem;
-  background: color-mix(in srgb, var(--surface) 92%, white);
-  box-shadow: 0 12px 32px rgba(7, 91, 88, 0.07);
+  border-radius: 0.75rem;
+  background: var(--surface);
 }
 
 .public-card {
@@ -693,16 +693,13 @@ body {
   min-height: 100%;
   flex-direction: column;
   border: 1px solid var(--border);
-  border-radius: 1.25rem;
+  border-radius: 0.625rem;
   background: var(--surface);
-  box-shadow: var(--shadow-sm);
-  transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
+  transition: border-color 150ms ease;
 }
 
 .public-card:hover {
-  border-color: color-mix(in srgb, var(--primary) 28%, var(--border));
-  box-shadow: var(--shadow-md);
-  transform: translateY(-2px);
+  border-color: var(--primary);
 }
 
 .public-card-media {
@@ -710,14 +707,6 @@ body {
   min-height: 11rem;
   overflow: hidden;
   background: var(--primary-soft);
-}
-
-.public-card-media img {
-  transition: transform 320ms ease;
-}
-
-.public-card:hover .public-card-media img {
-  transform: scale(1.025);
 }
 
 .public-card-body {
@@ -1181,76 +1170,26 @@ button:disabled {
 
 .ui-accent-text {
   color: var(--primary);
-  background: linear-gradient(90deg, var(--primary), #1f7a3a, var(--primary));
-  background-size: 180% 100%;
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
-  animation: accent-text-shift 5s ease-in-out infinite;
 }
 
 .ui-soft-glow {
   position: relative;
-  isolation: isolate;
-  overflow: hidden;
-}
-
-.ui-soft-glow::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  background: linear-gradient(120deg, transparent 0%, rgba(13, 79, 139, 0.08) 45%, transparent 72%);
-  transform: translateX(-120%);
-  animation: surface-sheen 7s ease-in-out infinite;
 }
 
 .ui-lift-card {
-  transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease, background-color 180ms ease;
+  transition: border-color 150ms ease;
 }
 
 .ui-lift-card:hover {
-  transform: translateY(-3px);
   border-color: var(--primary);
-  box-shadow: 0 16px 35px rgba(13, 79, 139, 0.14);
 }
 
 .ui-floating-callout {
-  animation: floating-callout 4.8s ease-in-out infinite;
+  position: relative;
 }
 
-@keyframes accent-text-shift {
-  0%,
-  100% {
-    background-position: 0% 50%;
-  }
 
-  50% {
-    background-position: 100% 50%;
-  }
-}
 
-@keyframes surface-sheen {
-  0%,
-  65% {
-    transform: translateX(-120%);
-  }
-
-  100% {
-    transform: translateX(120%);
-  }
-}
-
-@keyframes floating-callout {
-  0%,
-  100% {
-    transform: translateY(0);
-  }
-
-  50% {
-    transform: translateY(-4px);
-  }
-}
 
 @media (prefers-reduced-motion: reduce) {
   .ui-accent-text,
@@ -1434,4 +1373,51 @@ button:disabled {
 @keyframes brand-pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.82; transform: scale(0.96); } }
 @media (prefers-reduced-motion: reduce) {
   .brand-loader__ring, .brand-loader__logo { animation: none; }
+}
+
+/* Thanh điều hướng dưới (điện thoại): phẳng, viền mảnh phía trên, mục đang chọn có vạch màu chính. */
+.public-bottom-nav {
+  position: fixed;
+  inset: auto 0 0 0;
+  z-index: 60;
+  border-top: 1px solid var(--public-border);
+  background: var(--public-surface);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.public-bottom-nav__item {
+  position: relative;
+  display: flex;
+  min-height: 3.5rem;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.125rem;
+  color: var(--public-muted);
+  font-size: 0.6875rem;
+  line-height: 1.2;
+}
+
+.public-bottom-nav__item[data-active="true"] {
+  color: var(--public-primary);
+  font-weight: 600;
+}
+
+.public-bottom-nav__item[data-active="true"]::before {
+  content: "";
+  position: absolute;
+  inset: -1px 25% auto 25%;
+  height: 2px;
+  background: var(--public-primary);
+}
+
+@media (max-width: 1023px) {
+  /* Chừa chỗ cho thanh dưới và đẩy các nút nổi (trợ lý, lên đầu trang) lên trên nó. */
+  .public-has-bottom-nav {
+    padding-bottom: calc(3.5rem + env(safe-area-inset-bottom));
+  }
+
+  .public-has-bottom-nav .public-floating-utility {
+    margin-bottom: 3.5rem;
+  }
 }
