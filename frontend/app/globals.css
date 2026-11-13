@@ -863,108 +863,13 @@ body {
   backface-visibility: hidden;
 }
 
-.public-partner-logo-viewport {
-  overflow: hidden;
-  padding-inline: max(1rem, calc((100vw - 80rem) / 2));
-}
-
-.public-partner-logo-track {
-  display: flex;
-  width: max-content;
-  will-change: transform;
-  animation: public-partner-logo-scroll 34s linear infinite;
-}
-
-.public-partner-logo-track[data-paused="true"] {
-  animation-play-state: paused;
-}
-
-.public-partner-logo-group {
-  display: flex;
-  min-width: max-content;
-  gap: 1rem;
-  padding-right: 1rem;
-}
-
-@keyframes public-partner-logo-scroll {
-  from {
-    transform: translate3d(0, 0, 0);
-  }
-
-  to {
-    transform: translate3d(-50%, 0, 0);
-  }
-}
-
-.public-program-ticker-track {
-  display: flex;
-  width: max-content;
-  will-change: transform;
-  animation: public-program-ticker 24s linear infinite;
-}
-
-.public-program-ticker-track[data-paused="true"] {
-  animation-play-state: paused;
-}
-
-.public-program-ticker-copy {
-  display: flex;
-  min-width: max-content;
-  align-items: center;
-  gap: 0.75rem;
-  padding-right: 4rem;
-  font-size: 0.875rem;
-  line-height: 1.5rem;
-  white-space: nowrap;
-}
-
-@keyframes public-program-ticker {
-  from {
-    transform: translate3d(0, 0, 0);
-  }
-
-  to {
-    transform: translate3d(-50%, 0, 0);
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
   .public-hero-slide {
     contain: paint;
     transform: none;
   }
 
-  .public-partner-logo-viewport {
-    overflow-x: auto;
-  }
-
-  .public-partner-logo-track {
-    animation: none;
-    transform: none;
-    will-change: auto;
-  }
-
-  .public-partner-logo-group + .public-partner-logo-group {
-    display: none;
-  }
-
-  .public-program-ticker-track {
-    width: 100%;
-    animation: none;
-    transform: none;
-    will-change: auto;
-  }
-
-  .public-program-ticker-copy {
-    min-width: 0;
-    white-space: normal;
-    padding-right: 0;
-  }
-
-  .public-program-ticker-copy + .public-program-ticker-copy {
-    display: none;
-  }
-}
+            }
 
 html[data-theme="dark"],
 html[data-theme="dark"] body,
