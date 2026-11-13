@@ -1,62 +1,180 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowRight, CalendarClock, CalendarPlus, CheckCircle2, CircleAlert, FileHeart, Loader2, Pill, ReceiptText, RefreshCw, ShieldCheck, Smartphone, UserRound, UsersRound } from "lucide-react";
-import type { PatientAppointment } from "@/lib/patient-portal-types";
+import { CalendarPlus, ChevronRight, FileHeart, LogOut, ReceiptText } from "lucide-react";
+import { DateBlock, doctorLine, StatusChip, timeRange } from "@/components/patient/appointment-parts";
+import { PatientPageError, PatientPageLoading } from "@/components/patient/patient-page-ui";
+import { usePortalOverview, useUnreadNotificationCount } from "@/features/portal/hooks";
+import { PORTAL_GROUPS } from "@/features/portal/nav";
+import { formatMoney, formatShortDate } from "@/lib/format";
+import { usePatientAuth } from "@/lib/patient-auth";
+import type { PatientAppointment, PatientMedicalRecord } from "@/lib/patient-portal-types";
+import { ACTIVE_APPOINTMENT_STATUSES } from "@/lib/patient-status";
+import { useRouter } from "next/navigation";
 
-import { formatShortDate, formatMoney } from "@/lib/format";
+const RECENT_RESULT_DAYS = 14;
 
-import { ACTIVE_APPOINTMENT_STATUSES, appointmentStatusDisplay } from "@/lib/patient-status";
-import { usePortalOverview } from "@/features/portal/hooks";
+const startOf = (item: PatientAppointment) => new Date(`${item.appointmentDate.slice(0, 10)}T${item.startTime || "00:00"}`);
+
 function findUpcoming(items: PatientAppointment[]) {
-  const active = ACTIVE_APPOINTMENT_STATUSES;
   const now = new Date();
-  return items.filter((item) => active.has(item.status) && new Date(`${item.appointmentDate.slice(0, 10)}T${item.startTime || "00:00"}`) >= now).sort((a, b) => a.appointmentDate.localeCompare(b.appointmentDate) || a.startTime.localeCompare(b.startTime))[0];
+  return items
+    .filter((item) => ACTIVE_APPOINTMENT_STATUSES.has(item.status) && startOf(item) >= now)
+    .sort((a, b) => startOf(a).getTime() - startOf(b).getTime())[0];
+}
+
+// Kết quả khám được công bố trong vài ngày gần đây thì nhắc xem.
+function findRecentResult(records: PatientMedicalRecord[]) {
+  const now = Date.now();
+  return records.find((record) => {
+    const published = record.publishedAt ? Date.parse(record.publishedAt) : 0;
+    return published > 0 && now - published < RECENT_RESULT_DAYS * 86_400_000;
+  });
 }
 
 export default function PatientPortalPage() {
+  const router = useRouter();
+  const { logout } = usePatientAuth();
   const query = usePortalOverview();
-  if (query.isLoading) return <div className="flex min-h-[60vh] items-center justify-center gap-3 text-sm font-semibold text-[var(--public-text-soft)]"><Loader2 className="h-5 w-5 animate-spin text-[var(--public-primary)]" /> Đang đồng bộ thông tin...</div>;
-  if (query.isError || !query.data) return <section className="mx-auto mt-16 max-w-lg rounded-3xl border border-red-200 bg-white p-7 text-center shadow-sm"><CircleAlert className="mx-auto h-9 w-9 text-red-600" /><h1 className="mt-4 text-xl font-bold">Chưa tải được cổng thông tin</h1><p className="mt-2 text-sm text-[var(--public-muted)]">{query.error instanceof Error ? query.error.message : "Vui lòng thử lại."}</p><button onClick={() => query.refetch()} className="public-button-primary mt-5 inline-flex min-h-11 items-center gap-2 rounded-xl px-4 text-sm font-bold"><RefreshCw className="h-4 w-4" /> Thử lại</button></section>;
+  const unread = useUnreadNotificationCount(true).data ?? 0;
+
+  if (query.isLoading) return <PatientPageLoading label="Đang tải tổng quan..." />;
+  if (query.isError || !query.data) {
+    return <PatientPageError message={query.error instanceof Error ? query.error.message : "Vui lòng thử lại."} onRetry={() => query.refetch()} />;
+  }
 
   const data = query.data;
   const upcoming = findUpcoming(data.appointments.items);
-  const profile = data.profile.patientProfile;
-  const fields = [data.profile.fullName, data.profile.phone, data.profile.email, profile?.dateOfBirth, profile?.address, profile?.cccd];
-  const completeness = Math.round((fields.filter(Boolean).length / fields.length) * 100);
   const unpaid = data.invoices.items.find((item) => item.status === "UNPAID");
+  const recentResult = findRecentResult(data.medicalRecords.items);
+  const history = data.appointments.items.filter((item) => item !== upcoming && !ACTIVE_APPOINTMENT_STATUSES.has(item.status)).slice(0, 3);
+  const todo = [
+    unpaid && { key: "invoice", href: `/tai-khoan/hoa-don/${unpaid.id}`, icon: ReceiptText, title: "Hóa đơn chờ thanh toán", note: `${unpaid.invoiceCode} · ${unpaid.appointment.department.name}`, trailing: formatMoney(unpaid.finalAmount), warn: true },
+    recentResult && { key: "result", href: `/tai-khoan/ho-so-suc-khoe/ket-qua/${recentResult.id}`, icon: FileHeart, title: "Có kết quả khám mới", note: `${recentResult.recordCode} · công bố ${formatShortDate(recentResult.publishedAt)}`, trailing: "", warn: false },
+  ].filter(Boolean) as Array<{ key: string; href: string; icon: typeof FileHeart; title: string; note: string; trailing: string; warn: boolean }>;
 
-  return <div id="tong-quan" className="space-y-5">
-    <section className="flex flex-col gap-4 rounded-3xl border border-[var(--public-border)] bg-white p-5 shadow-sm sm:p-6 xl:flex-row xl:items-center xl:justify-between">
-      <div><p className="text-xs font-bold uppercase tracking-[0.14em] text-[var(--public-primary)]">Cổng thông tin người khám</p><h1 className="mt-2 text-2xl font-bold tracking-[-0.025em] sm:text-3xl">Xin chào, {data.profile.fullName}</h1><div className="mt-3 flex flex-wrap gap-2 text-xs font-medium text-[var(--public-text-soft)]"><span className="rounded-full bg-[var(--public-surface-muted)] px-3 py-1.5">{data.profile.phone}</span>{profile?.healthInsuranceCode ? <span className="rounded-full bg-emerald-50 px-3 py-1.5 text-emerald-700">BHYT: {profile.healthInsuranceCode}</span> : null}</div></div>
-      <div className="flex flex-wrap gap-2"><Link href="/dat-lich" className="public-button-primary inline-flex min-h-11 items-center gap-2 rounded-xl px-4 text-sm font-bold"><CalendarPlus className="h-4 w-4" /> Đặt lịch khám mới</Link><Link href="/tai-khoan/lich-hen" className="public-button-secondary inline-flex min-h-11 items-center gap-2 rounded-xl px-4 text-sm font-bold">Lịch hẹn của tôi</Link></div>
-    </section>
+  const handleLogout = async () => {
+    await logout();
+    router.replace("/tai-khoan/dang-nhap");
+  };
 
-    <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">{[
-      { label: "Lịch hẹn", value: data.appointments.total, icon: CalendarClock, tone: "bg-blue-50 text-blue-700" },
-      { label: "Kết quả khám", value: data.medicalRecords.total, icon: FileHeart, tone: "bg-emerald-50 text-emerald-700" },
-      { label: "Đơn thuốc", value: data.prescriptions.total, icon: Pill, tone: "bg-violet-50 text-violet-700" },
-      { label: "Hóa đơn", value: data.invoices.total, icon: ReceiptText, tone: "bg-amber-50 text-amber-800" },
-    ].map((item) => <article key={item.label} className="flex items-center gap-4 rounded-2xl border border-[var(--public-border)] bg-white p-4 shadow-sm"><span className={`flex h-11 w-11 items-center justify-center rounded-xl ${item.tone}`}><item.icon className="h-5 w-5" /></span><div><strong className="block text-2xl leading-none">{item.value}</strong><span className="mt-1 block text-xs text-[var(--public-muted)]">{item.label}</span></div></article>)}</section>
+  return (
+    <div className="space-y-7">
+      <header className="flex items-end justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-sm text-[var(--public-muted)]">Xin chào</p>
+          <h1 className="truncate text-2xl font-bold tracking-tight">{data.profile.fullName}</h1>
+        </div>
+        <Link href="/dat-lich" className="public-button-primary hidden min-h-11 shrink-0 items-center gap-2 rounded-lg px-4 text-sm font-semibold sm:inline-flex">
+          <CalendarPlus className="h-4 w-4" aria-hidden="true" />
+          Đặt lịch mới
+        </Link>
+      </header>
 
-    <section id="lich-hen" className="rounded-3xl border border-[var(--public-border)] bg-white p-5 shadow-sm sm:p-6">
-      <div className="flex items-center justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-[0.12em] text-[var(--public-primary)]">Lịch hẹn</p><h2 className="mt-1 text-xl font-bold">Lịch khám sắp tới</h2></div><Link href="/tai-khoan/lich-hen" className="text-sm font-bold text-[var(--public-primary)]">Xem tất cả</Link></div>
-      {upcoming ? <div className="mt-5 grid gap-4 rounded-2xl border border-blue-100 bg-blue-50/60 p-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center sm:p-5"><div><div className="flex flex-wrap items-center gap-2"><span className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${appointmentStatusDisplay(upcoming.status).style}`}>{appointmentStatusDisplay(upcoming.status).label}</span><span className="text-xs font-semibold text-[var(--public-muted)]">#{upcoming.bookingCode}</span></div><h3 className="mt-3 text-lg font-bold">{upcoming.doctor.title ? `${upcoming.doctor.title} ` : ""}{upcoming.doctor.user.fullName}</h3><p className="mt-1 text-sm text-[var(--public-text-soft)]">{upcoming.department.name}{upcoming.package ? ` · ${upcoming.package.name}` : ""}</p><p className="mt-3 text-sm font-semibold text-[var(--public-primary-dark)]">{upcoming.startTime}–{upcoming.endTime} · {formatShortDate(upcoming.appointmentDate)}</p></div><Link href={`/tai-khoan/lich-hen/${upcoming.id}`} className="public-button-primary inline-flex min-h-11 items-center justify-center gap-2 rounded-xl px-4 text-sm font-bold">Xem chi tiết <ArrowRight className="h-4 w-4" /></Link></div> : <div className="mt-5 rounded-2xl border border-dashed border-[var(--public-border)] bg-[var(--public-surface-muted)] p-6 text-center"><CalendarPlus className="mx-auto h-7 w-7 text-[var(--public-primary)]" /><p className="mt-3 font-bold">Chưa có lịch khám sắp tới</p><p className="mt-1 text-sm text-[var(--public-muted)]">Chọn chuyên khoa, bác sĩ hoặc gói khám phù hợp khi bạn cần.</p></div>}
-    </section>
+      <section aria-labelledby="upcoming-heading">
+        <h2 id="upcoming-heading" className="mb-2 text-sm font-semibold text-[var(--public-muted)]">Lịch sắp tới</h2>
+        {upcoming ? (
+          <div className="rounded-xl border-2 border-[var(--public-primary)] bg-[var(--public-surface)] p-4 sm:p-5">
+            <div className="flex items-start gap-4">
+              <DateBlock date={upcoming.appointmentDate} />
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                  <p className="text-lg font-bold tabular-nums">{timeRange(upcoming)}, {formatShortDate(upcoming.appointmentDate)}</p>
+                  <StatusChip status={upcoming.status} />
+                </div>
+                <p className="mt-1 font-medium">{doctorLine(upcoming)}</p>
+                <p className="text-sm text-[var(--public-muted)]">{upcoming.department.name}{upcoming.package ? ` · ${upcoming.package.name}` : ""} · Mã {upcoming.bookingCode}</p>
+              </div>
+            </div>
+            <Link href={`/tai-khoan/lich-hen/${upcoming.id}`} className="public-button-secondary mt-4 inline-flex min-h-11 w-full items-center justify-center rounded-lg px-4 text-sm font-semibold sm:w-auto">
+              Xem chi tiết hoặc hủy lịch
+            </Link>
+          </div>
+        ) : (
+          <div className="rounded-xl border border-dashed border-[var(--public-border)] p-5">
+            <p className="font-bold">Bạn chưa có lịch khám sắp tới</p>
+            <p className="mt-1 text-sm text-[var(--public-muted)]">Chọn chuyên khoa, bác sĩ và giờ trống, mất chừng một phút.</p>
+            <Link href="/dat-lich" className="public-button-primary mt-4 inline-flex min-h-11 items-center gap-2 rounded-lg px-4 text-sm font-semibold">
+              <CalendarPlus className="h-4 w-4" aria-hidden="true" />
+              Đặt lịch khám
+            </Link>
+          </div>
+        )}
+      </section>
 
-    <section id="ho-so" className="grid gap-5 xl:grid-cols-[minmax(0,1.35fr)_minmax(300px,0.65fr)]">
-      <article className="rounded-3xl border border-[var(--public-border)] bg-white p-5 shadow-sm sm:p-6"><div className="flex items-center justify-between"><div><p className="text-xs font-bold uppercase tracking-[0.12em] text-[var(--public-primary)]">Hồ sơ sức khỏe</p><h2 className="mt-1 text-xl font-bold">Kết quả khám gần đây</h2></div><FileHeart className="h-6 w-6 text-[var(--public-primary)]" /></div><div className="mt-4 divide-y divide-[var(--public-divider)]">{data.medicalRecords.items.length ? data.medicalRecords.items.map((record) => <div key={record.id} className="py-4 first:pt-0 last:pb-0"><div className="flex flex-wrap items-center justify-between gap-2"><h3 className="font-bold">{record.recordCode}</h3><span className="text-xs text-[var(--public-muted)]">{formatShortDate(record.publishedAt || record.createdAt)}</span></div><p className="mt-1 line-clamp-2 text-sm text-[var(--public-text-soft)]">{record.diagnosis || "Kết quả đã được công bố"}</p><p className="mt-2 text-xs font-semibold text-[var(--public-primary)]">{record.doctor.title ? `${record.doctor.title} ` : ""}{record.doctor.user.fullName}</p></div>) : <p className="py-8 text-center text-sm text-[var(--public-muted)]">Chưa có kết quả khám được công bố.</p>}</div></article>
-      <article className="rounded-3xl border border-[var(--public-border)] bg-white p-5 shadow-sm sm:p-6"><div className="flex items-center justify-between"><h2 className="text-lg font-bold">Hoàn thiện hồ sơ</h2><UserRound className="h-5 w-5 text-[var(--public-primary)]" /></div><strong className="mt-5 block text-3xl">{completeness}%</strong><div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full bg-[var(--public-primary)]" style={{ width: `${completeness}%` }} /></div><p className="mt-4 text-sm leading-6 text-[var(--public-muted)]">Thông tin đầy đủ giúp đặt lịch nhanh hơn và hạn chế nhập lại trên Web lẫn Mobile.</p><div className="mt-4 rounded-xl bg-[var(--public-surface-muted)] p-3 text-xs text-[var(--public-text-soft)]"><ShieldCheck className="mr-2 inline h-4 w-4 text-emerald-600" /> Số điện thoại đã xác thực</div></article>
-    </section>
+      {todo.length ? (
+        <section aria-labelledby="todo-heading">
+          <h2 id="todo-heading" className="mb-2 text-sm font-semibold text-[var(--public-muted)]">Cần làm</h2>
+          <ul className="divide-y divide-[var(--public-divider)] overflow-hidden rounded-xl border border-[var(--public-border)] bg-[var(--public-surface)]">
+            {todo.map(({ key, href, icon: Icon, title, note, trailing, warn }) => (
+              <li key={key}>
+                <Link href={href} className="flex min-h-16 items-center gap-3 px-4 py-3 hover:bg-[var(--public-surface-muted)]">
+                  <Icon className={`h-5 w-5 shrink-0 ${warn ? "text-[var(--public-warning)]" : "text-[var(--public-primary)]"}`} aria-hidden="true" />
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-sm font-semibold">{title}</span>
+                    <span className="block truncate text-xs text-[var(--public-muted)]">{note}</span>
+                  </span>
+                  {trailing ? <span className="shrink-0 text-sm font-bold tabular-nums text-[var(--public-warning)]">{trailing}</span> : null}
+                  <ChevronRight className="h-4 w-4 shrink-0 text-[var(--public-muted)]" aria-hidden="true" />
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
 
-    <section id="tai-chinh" className="grid gap-5 lg:grid-cols-2">
-      <article className="rounded-3xl border border-[var(--public-border)] bg-white p-5 shadow-sm sm:p-6"><div className="flex items-center justify-between"><h2 className="text-xl font-bold">Đơn thuốc gần đây</h2><Pill className="h-5 w-5 text-violet-600" /></div>{data.prescriptions.items[0] ? <div className="mt-5"><p className="font-bold">{data.prescriptions.items[0].prescriptionCode}</p><p className="mt-2 text-sm text-[var(--public-muted)]">{data.prescriptions.items[0].items.length} loại thuốc · {formatShortDate(data.prescriptions.items[0].issuedAt || data.prescriptions.items[0].createdAt)}</p><div className="mt-4 space-y-2">{data.prescriptions.items[0].items.slice(0, 2).map((item) => <div key={item.id} className="rounded-xl bg-[var(--public-surface-muted)] p-3 text-sm"><strong>{item.medicineName}</strong><span className="mt-1 block text-xs text-[var(--public-muted)]">{item.dosage} · {item.frequency}</span></div>)}</div></div> : <p className="mt-5 text-sm text-[var(--public-muted)]">Chưa có đơn thuốc được phát hành.</p>}</article>
-      <article className="rounded-3xl border border-[var(--public-border)] bg-white p-5 shadow-sm sm:p-6"><div className="flex items-center justify-between"><h2 className="text-xl font-bold">Hóa đơn và thanh toán</h2><ReceiptText className="h-5 w-5 text-amber-700" /></div>{unpaid ? <div className="mt-5"><span className="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-bold text-amber-800">Chờ thanh toán</span><p className="mt-4 text-sm text-[var(--public-muted)]">{unpaid.invoiceCode}</p><strong className="mt-1 block text-2xl text-[var(--public-primary-dark)]">{formatMoney(unpaid.finalAmount)}</strong><p className="mt-2 text-xs text-[var(--public-muted)]">{unpaid.appointment.department.name} · {formatShortDate(unpaid.createdAt)}</p></div> : <div className="mt-5 flex items-start gap-3 rounded-xl bg-emerald-50 p-4 text-sm text-emerald-800"><CheckCircle2 className="h-5 w-5 shrink-0" /> Không có hóa đơn cần thanh toán trong dữ liệu gần đây.</div>}</article>
-    </section>
+      {history.length ? (
+        <section aria-labelledby="history-heading">
+          <div className="mb-2 flex items-baseline justify-between">
+            <h2 id="history-heading" className="text-sm font-semibold text-[var(--public-muted)]">Lịch gần đây</h2>
+            <Link href="/tai-khoan/lich-hen" className="text-sm font-semibold text-[var(--public-primary)] underline underline-offset-4">Xem tất cả</Link>
+          </div>
+          <ul className="divide-y divide-[var(--public-divider)] overflow-hidden rounded-xl border border-[var(--public-border)] bg-[var(--public-surface)]">
+            {history.map((item) => (
+              <li key={item.id}>
+                <Link href={`/tai-khoan/lich-hen/${item.id}`} className="flex items-center gap-3 px-4 py-3 hover:bg-[var(--public-surface-muted)]">
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-semibold">{doctorLine(item)}</span>
+                    <span className="block text-xs text-[var(--public-muted)]">{formatShortDate(item.appointmentDate)} · {item.department.name}</span>
+                  </span>
+                  <StatusChip status={item.status} />
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
 
-    <section id="nguoi-than" className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(280px,0.45fr)]">
-      <article className="rounded-3xl border border-[var(--public-border)] bg-white p-5 shadow-sm sm:p-6"><div className="flex items-center justify-between"><div><p className="text-xs font-bold uppercase tracking-[0.12em] text-[var(--public-primary)]">Gia đình</p><h2 className="mt-1 text-xl font-bold">Hồ sơ người thân</h2></div><UsersRound className="h-6 w-6 text-[var(--public-primary)]" /></div><div className="mt-4 grid gap-3 sm:grid-cols-2">{data.dependents.length ? data.dependents.slice(0, 4).map((item) => <div key={item.id} className="rounded-2xl border border-[var(--public-border)] p-4"><strong className="block">{item.fullName}</strong><span className="mt-1 block text-xs text-[var(--public-muted)]">{item.relationship} · {item.hasBHYT ? "Có BHYT" : "Chưa có BHYT"}</span></div>) : <p className="col-span-full rounded-2xl bg-[var(--public-surface-muted)] p-5 text-sm text-[var(--public-muted)]">Chưa có hồ sơ người thân.</p>}</div></article>
-      <article className="rounded-3xl border border-[var(--public-border)] bg-white p-5 shadow-sm sm:p-6"><div className="flex items-center justify-between"><h2 className="text-lg font-bold">Phiên đăng nhập</h2><Smartphone className="h-5 w-5 text-[var(--public-primary)]" /></div><p className="mt-2 text-sm text-[var(--public-muted)]">{data.sessions.length} thiết bị đang còn hiệu lực</p><div className="mt-4 space-y-2">{data.sessions.slice(0, 3).map((session) => <div key={session.id} className="rounded-xl bg-[var(--public-surface-muted)] p-3 text-xs"><strong className="block text-[var(--public-ink)]">{session.deviceName || session.platform || "Thiết bị"}{session.isCurrent ? " · Phiên này" : ""}</strong><span className="mt-1 block text-[var(--public-muted)]">Hoạt động {formatShortDate(session.lastUsedAt)}</span></div>)}</div></article>
-    </section>
-  </div>;
+      <section aria-labelledby="menu-heading" className="lg:hidden">
+        <h2 id="menu-heading" className="sr-only">Tất cả mục trong tài khoản</h2>
+        {PORTAL_GROUPS.map((group) => (
+          <div key={group.title} className="mb-5">
+            <p className="mb-2 text-sm font-semibold text-[var(--public-muted)]">{group.title}</p>
+            <ul className="divide-y divide-[var(--public-divider)] overflow-hidden rounded-xl border border-[var(--public-border)] bg-[var(--public-surface)]">
+              {group.items.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <li key={item.href}>
+                    <Link href={item.href} className="flex min-h-14 items-center gap-3 px-4 py-2.5 hover:bg-[var(--public-surface-muted)]">
+                      <Icon className="h-5 w-5 shrink-0 text-[var(--public-primary)]" aria-hidden="true" />
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-sm font-semibold">{item.label}</span>
+                        <span className="block truncate text-xs text-[var(--public-muted)]">{item.hint}</span>
+                      </span>
+                      {item.showUnread && unread > 0 ? <span className="rounded-full bg-[var(--public-danger)] px-2 py-0.5 text-xs font-bold tabular-nums text-white">{unread}</span> : null}
+                      <ChevronRight className="h-4 w-4 shrink-0 text-[var(--public-muted)]" aria-hidden="true" />
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        ))}
+        <button type="button" onClick={handleLogout} className="flex min-h-12 w-full items-center justify-center gap-2 rounded-lg border border-[var(--public-border)] text-sm font-semibold text-[var(--public-danger)] hover:bg-[var(--public-danger-soft)]">
+          <LogOut className="h-4 w-4" aria-hidden="true" />
+          Đăng xuất
+        </button>
+      </section>
+    </div>
+  );
 }

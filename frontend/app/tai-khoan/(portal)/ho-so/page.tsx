@@ -67,6 +67,6 @@ function DependentsSection({ items }: { items: PatientDependent[] }) {
 
 export default function PatientProfilePage() {
   const query = usePatientProfile();
-  return <div className="space-y-6"><PatientPageHeader eyebrow="Hồ sơ cá nhân" title="Thông tin người khám" description="Cập nhật một lần để đồng bộ với ứng dụng Mobile và tự điền nhanh trong những lần đặt lịch tiếp theo." />{query.isLoading ? <PatientPageLoading /> : query.isError || !query.data ? <PatientPageError message={query.error instanceof Error ? query.error.message : "Không tải được hồ sơ."} onRetry={() => query.refetch()} /> : <><ProfileForm key={`${query.data.profile.id}-${query.data.profile.email}-${query.data.profile.patientProfile?.dateOfBirth}`} profile={query.data.profile} /><DependentsSection items={query.data.dependents} /></>}</div>;
+  return <div className="space-y-6"><PatientPageHeader title="Thông tin người khám" description="Cập nhật một lần để đồng bộ với ứng dụng Mobile và tự điền nhanh trong những lần đặt lịch tiếp theo." />{query.isLoading ? <PatientPageLoading /> : query.isError || !query.data ? <PatientPageError message={query.error instanceof Error ? query.error.message : "Không tải được hồ sơ."} onRetry={() => query.refetch()} /> : <><ProfileForm key={`${query.data.profile.id}-${query.data.profile.email}-${query.data.profile.patientProfile?.dateOfBirth}`} profile={query.data.profile} /><DependentsSection items={query.data.dependents} /></>}</div>;
 }
 

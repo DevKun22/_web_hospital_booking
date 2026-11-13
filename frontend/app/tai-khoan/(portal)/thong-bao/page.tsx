@@ -92,7 +92,7 @@ export default function PatientNotificationsPage() {
 
   return <div className="space-y-6">
     <PatientPageHeader
-      eyebrow="Cập nhật dành cho bạn"
+     
       title="Thông báo"
       description="Theo dõi thay đổi lịch khám, kết quả, đơn thuốc, hóa đơn và thông tin từ bệnh viện."
       action={unreadCount > 0 ? <button type="button" disabled={isMutating} onClick={() => markAllMutation.mutate()} className="public-button-secondary inline-flex min-h-11 items-center justify-center gap-2 rounded-xl px-4 text-sm font-bold disabled:cursor-not-allowed disabled:opacity-50"><CheckCheck className="h-4 w-4" aria-hidden="true" /> Đánh dấu tất cả đã đọc</button> : undefined}

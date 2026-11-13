@@ -1,40 +1,63 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Bell, CalendarDays, FileHeart, Home, Loader2, LogOut, Menu, ReceiptText, ShieldCheck, UsersRound } from "lucide-react";
-import { usePatientAuth } from "@/lib/patient-auth";
-import { ThemeToggle } from "@/components/ui/theme-toggle";
-
+import { Bell, Loader2, LogOut } from "lucide-react";
 import { BrandLogo } from "@/components/branding/brand-logo";
 import { PublicBottomNav } from "@/components/public/public-bottom-nav";
-import { BRAND_NAME } from "@/lib/brand";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { useUnreadNotificationCount } from "@/features/portal/hooks";
-const nav = [
-  { href: "/tai-khoan", label: "Tổng quan", icon: Home },
-  { href: "/tai-khoan/lich-hen", label: "Lịch hẹn", icon: CalendarDays },
-  { href: "/tai-khoan/ho-so", label: "Hồ sơ cá nhân", icon: UsersRound },
-  { href: "/tai-khoan/ho-so-suc-khoe", label: "Kết quả và đơn thuốc", icon: FileHeart },
-  { href: "/tai-khoan/hoa-don", label: "Hóa đơn", icon: ReceiptText },
-  { href: "/tai-khoan/thong-bao", label: "Thông báo", icon: Bell, showUnread: true },
-  { href: "/tai-khoan/bao-mat", label: "Bảo mật", icon: ShieldCheck },
-] as const;
+import { isPortalPathActive, PORTAL_GROUPS, PORTAL_HOME, type PortalNavItem } from "@/features/portal/nav";
+import { BRAND_NAME } from "@/lib/brand";
+import { usePatientAuth } from "@/lib/patient-auth";
+
+function UnreadBadge({ count }: { count: number }) {
+  if (count <= 0) return null;
+  return (
+    <span className="inline-flex min-w-5 shrink-0 items-center justify-center rounded-full bg-[var(--public-danger)] px-1.5 py-0.5 text-[11px] font-bold leading-none tabular-nums text-white" aria-label={`${count} thông báo chưa đọc`}>
+      {count > 99 ? "99+" : count}
+    </span>
+  );
+}
+
+function SidebarLink({ item, pathname, unread }: { item: PortalNavItem; pathname: string; unread: number }) {
+  const active = isPortalPathActive(pathname, item.href);
+  const Icon = item.icon;
+  return (
+    <Link
+      href={item.href}
+      aria-current={active ? "page" : undefined}
+      className={`flex min-h-11 items-center gap-3 rounded-lg px-3 text-sm transition-colors ${
+        active ? "bg-[var(--public-primary-soft)] font-semibold text-[var(--public-primary-dark)] shadow-[inset_3px_0_0_var(--public-primary)]" : "text-[var(--public-text-soft)] hover:bg-[var(--public-surface-muted)]"
+      }`}
+    >
+      <Icon className="h-[18px] w-[18px] shrink-0" aria-hidden="true" />
+      <span className="min-w-0 flex-1 truncate">{item.label}</span>
+      {item.showUnread ? <UnreadBadge count={unread} /> : null}
+    </Link>
+  );
+}
 
 export function PatientPortalShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const { user, loading, logout } = usePatientAuth();
-  const unreadQuery = useUnreadNotificationCount(Boolean(user));
-  const [mobileOpen, setMobileOpen] = useState(false);
-  const isActive = (href: string) => href === "/tai-khoan" ? pathname === href : pathname === href || pathname.startsWith(`${href}/`);
+  const unread = useUnreadNotificationCount(Boolean(user)).data ?? 0;
 
   useEffect(() => {
     if (!loading && !user) router.replace("/tai-khoan/dang-nhap");
   }, [loading, router, user]);
 
   if (loading || !user) {
-    return <main className="public-site flex min-h-screen items-center justify-center bg-[var(--public-canvas)] text-[var(--public-ink)]"><div className="flex items-center gap-3 text-sm font-semibold text-[var(--public-text-soft)]"><Loader2 className="h-5 w-5 animate-spin text-[var(--public-primary)]" /> Đang kiểm tra phiên đăng nhập...</div></main>;
+    return (
+      <main className="public-site flex min-h-screen items-center justify-center bg-[var(--public-canvas)] text-[var(--public-ink)]">
+        <p className="flex items-center gap-3 text-sm font-semibold text-[var(--public-text-soft)]" role="status">
+          <Loader2 className="h-5 w-5 animate-spin text-[var(--public-primary)]" aria-hidden="true" />
+          Đang kiểm tra phiên đăng nhập...
+        </p>
+      </main>
+    );
   }
 
   const handleLogout = async () => {
@@ -44,25 +67,55 @@ export function PatientPortalShell({ children }: { children: React.ReactNode }) 
 
   return (
     <div className="public-site public-has-bottom-nav min-h-screen bg-[var(--public-canvas)] text-[var(--public-ink)]">
-      <header className="sticky top-0 z-40 border-b border-[var(--public-border)] bg-[var(--public-surface)] backdrop-blur-xl lg:hidden">
-        <div className="flex min-h-16 items-center justify-between gap-3 px-4">
-          <Link href="/" className="flex min-w-0 items-center" aria-label={`${BRAND_NAME} - Trang chủ`}><BrandLogo variant="horizontal" size="sm" /></Link>
-          <div className="flex items-center gap-2"><ThemeToggle /><button type="button" onClick={() => setMobileOpen((value) => !value)} className="flex h-11 w-11 items-center justify-center rounded-xl border border-[var(--public-border)]" aria-label="Mở điều hướng" aria-expanded={mobileOpen}><Menu className="h-5 w-5" /></button></div>
+      <header className="sticky top-0 z-40 flex min-h-14 items-center justify-between gap-3 border-b border-[var(--public-border)] bg-[var(--public-surface)] px-4 lg:hidden">
+        <Link href="/" className="flex min-w-0 items-center" aria-label={`${BRAND_NAME} - Trang chủ`}>
+          <BrandLogo variant="horizontal" size="sm" />
+        </Link>
+        <div className="flex items-center gap-1">
+          <ThemeToggle />
+          <Link href="/tai-khoan/thong-bao" className="relative flex h-11 w-11 items-center justify-center rounded-lg text-[var(--public-text-soft)] hover:bg-[var(--public-surface-muted)]" aria-label={unread > 0 ? `Thông báo, ${unread} chưa đọc` : "Thông báo"}>
+            <Bell className="h-5 w-5" aria-hidden="true" />
+            {unread > 0 ? <span className="absolute right-2 top-2 h-2.5 w-2.5 rounded-full bg-[var(--public-danger)] ring-2 ring-[var(--public-surface)]" aria-hidden="true" /> : null}
+          </Link>
         </div>
-        {mobileOpen ? <nav className="border-t border-[var(--public-border)] bg-[var(--public-surface)] px-4 py-3 shadow-lg" aria-label="Cổng người khám"><div className="grid grid-cols-2 gap-2">{nav.map((item) => <Link key={item.href} href={item.href} onClick={() => setMobileOpen(false)} aria-current={isActive(item.href) ? "page" : undefined} className={`flex min-h-11 items-center gap-2 rounded-xl px-3 text-xs font-semibold ${isActive(item.href) ? "bg-[var(--public-primary-soft)] text-[var(--public-primary-dark)]" : "bg-[var(--public-surface-muted)] text-[var(--public-text-soft)]"}`}><item.icon className="h-4 w-4" aria-hidden="true" /><span className="min-w-0 flex-1 truncate">{item.label}</span>{"showUnread" in item && item.showUnread && (unreadQuery.data || 0) > 0 ? <span className="inline-flex min-w-5 shrink-0 items-center justify-center rounded-full bg-red-600 px-1.5 py-0.5 text-[10px] font-bold tabular-nums text-white" aria-label={`${unreadQuery.data} thông báo chưa đọc`}>{Math.min(unreadQuery.data || 0, 99)}{(unreadQuery.data || 0) > 99 ? "+" : ""}</span> : null}</Link>)}</div><button type="button" onClick={handleLogout} className="mt-3 flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-red-200 text-sm font-semibold text-red-700"><LogOut className="h-4 w-4" /> Đăng xuất</button></nav> : null}
       </header>
 
-      <div className="mx-auto grid min-h-screen max-w-[92rem] lg:grid-cols-[16.5rem_minmax(0,1fr)]">
+      <div className="mx-auto grid min-h-screen max-w-[80rem] lg:grid-cols-[15rem_minmax(0,1fr)]">
         <aside className="sticky top-0 hidden h-screen flex-col border-r border-[var(--public-border)] bg-[var(--public-surface)] p-4 lg:flex">
-          <Link href="/" className="block px-2 py-3" aria-label={`${BRAND_NAME} - Trang chủ`}><BrandLogo variant="horizontal" size="md" showTagline /></Link>
-          <nav className="mt-5 space-y-1" aria-label="Cổng thông tin người khám">{nav.map((item) => <Link key={item.href} href={item.href} aria-current={isActive(item.href) ? "page" : undefined} className={`flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm font-semibold transition ${isActive(item.href) ? "bg-[var(--public-primary-soft)] text-[var(--public-primary-dark)]" : "text-[var(--public-text-soft)] hover:bg-[var(--public-surface-muted)]"}`}><item.icon className="h-4 w-4" aria-hidden="true" /><span className="min-w-0 flex-1 truncate">{item.label}</span>{"showUnread" in item && item.showUnread && (unreadQuery.data || 0) > 0 ? <span role="status" aria-atomic="true" className="inline-flex min-w-6 shrink-0 items-center justify-center rounded-full bg-red-600 px-1.5 py-0.5 text-[10px] font-bold tabular-nums text-white" aria-label={`${unreadQuery.data} thông báo chưa đọc`}>{Math.min(unreadQuery.data || 0, 99)}{(unreadQuery.data || 0) > 99 ? "+" : ""}</span> : null}</Link>)}</nav>
-          <ThemeToggle showLabel className="mt-auto w-full" />
-          <div className="mt-3 rounded-2xl bg-[var(--public-primary-dark)] p-4 text-white"><ShieldCheck className="h-5 w-5" /><p className="mt-3 text-sm font-bold">Dữ liệu được bảo vệ</p><p className="mt-1 text-xs leading-5 text-blue-100">Phiên đăng nhập được xác thực và có thể thu hồi khi cần.</p></div>
-          <button type="button" onClick={handleLogout} className="mt-3 flex min-h-11 items-center justify-center gap-2 rounded-xl border border-[var(--public-border)] text-sm font-semibold text-[var(--public-text-soft)] hover:bg-red-50 hover:text-red-700"><LogOut className="h-4 w-4" /> Đăng xuất</button>
+          <Link href="/" className="block px-2 py-2" aria-label={`${BRAND_NAME} - Trang chủ`}>
+            <BrandLogo variant="horizontal" size="md" />
+          </Link>
+
+          <nav className="mt-5 flex-1 space-y-5 overflow-y-auto" aria-label="Cổng thông tin người khám">
+            <SidebarLink item={PORTAL_HOME} pathname={pathname} unread={unread} />
+            {PORTAL_GROUPS.map((group) => (
+              <div key={group.title}>
+                <p className="px-3 pb-1 text-xs font-semibold text-[var(--public-muted)]">{group.title}</p>
+                <div className="space-y-0.5">
+                  {group.items.map((item) => (
+                    <SidebarLink key={item.href} item={item} pathname={pathname} unread={unread} />
+                  ))}
+                </div>
+              </div>
+            ))}
+          </nav>
+
+          <div className="mt-3 border-t border-[var(--public-divider)] pt-3">
+            <p className="truncate px-3 text-sm font-semibold">{user.fullName}</p>
+            <p className="truncate px-3 text-xs text-[var(--public-muted)]">{user.phone || user.email}</p>
+            <div className="mt-2 flex items-center gap-1">
+              <ThemeToggle />
+              <button type="button" onClick={handleLogout} className="flex min-h-11 flex-1 items-center gap-2 rounded-lg px-3 text-sm font-semibold text-[var(--public-text-soft)] hover:bg-[var(--public-danger-soft)] hover:text-[var(--public-danger)]">
+                <LogOut className="h-4 w-4" aria-hidden="true" />
+                Đăng xuất
+              </button>
+            </div>
+          </div>
         </aside>
-        <main className="min-w-0 px-4 py-5 sm:px-6 lg:px-8 lg:py-7">{children}</main>
+
+        <main className="min-w-0 px-4 py-5 sm:px-6 lg:px-8 lg:py-8">{children}</main>
       </div>
-    <PublicBottomNav /></div>
+      <PublicBottomNav />
+    </div>
   );
 }
-

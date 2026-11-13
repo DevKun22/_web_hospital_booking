@@ -2,45 +2,154 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { CalendarPlus, Clock3, Loader2, MapPin, Stethoscope, X } from "lucide-react";
+import { CalendarPlus, Loader2 } from "lucide-react";
+import { DateBlock, doctorLine, StatusChip, timeRange } from "@/components/patient/appointment-parts";
 import { PatientEmptyState, PatientPageError, PatientPageHeader, PatientPageLoading } from "@/components/patient/patient-page-ui";
-import type { PatientAppointment } from "@/lib/patient-portal-types";
-
-import { formatWeekdayDate } from "@/lib/format";
-import { ACTIVE_APPOINTMENT_STATUSES, appointmentStatusDisplay, CANCELLABLE_APPOINTMENT_STATUSES, CANCELLED_APPOINTMENT_STATUSES } from "@/lib/patient-status";
 import { useCancelAppointment, usePatientAppointments } from "@/features/portal/hooks";
+import { formatWeekdayDate } from "@/lib/format";
+import type { PatientAppointment } from "@/lib/patient-portal-types";
+import { ACTIVE_APPOINTMENT_STATUSES, CANCELLABLE_APPOINTMENT_STATUSES, CANCELLED_APPOINTMENT_STATUSES } from "@/lib/patient-status";
+
 type Filter = "upcoming" | "history" | "cancelled";
-const appointmentTime = (item: PatientAppointment) => new Date(`${item.appointmentDate.slice(0, 10)}T${item.startTime || "00:00"}`);
+
+const TABS: { key: Filter; label: string; empty: string }[] = [
+  { key: "upcoming", label: "Sắp tới", empty: "Chưa có lịch khám sắp tới" },
+  { key: "history", label: "Đã khám", empty: "Chưa có lịch đã khám" },
+  { key: "cancelled", label: "Đã hủy", empty: "Không có lịch đã hủy" },
+];
+
+const MIN_REASON = 3;
+const startOf = (item: PatientAppointment) => new Date(`${item.appointmentDate.slice(0, 10)}T${item.startTime || "00:00"}`);
+
+function applyFilter(items: PatientAppointment[], filter: Filter) {
+  const now = new Date();
+  const matches = items.filter((item) => {
+    if (filter === "cancelled") return CANCELLED_APPOINTMENT_STATUSES.has(item.status);
+    const active = ACTIVE_APPOINTMENT_STATUSES.has(item.status);
+    if (filter === "upcoming") return active && startOf(item) >= now;
+    return item.status === "COMPLETED" || (active && startOf(item) < now);
+  });
+  // Sắp tới: gần nhất trước. Còn lại: mới nhất trước.
+  return matches.sort((a, b) => (filter === "upcoming" ? 1 : -1) * (startOf(a).getTime() - startOf(b).getTime()));
+}
 
 export default function PatientAppointmentsPage() {
   const [filter, setFilter] = useState<Filter>("upcoming");
   const [cancelId, setCancelId] = useState<string | null>(null);
   const [reason, setReason] = useState("");
   const query = usePatientAppointments();
-  const cancelMutation = useCancelAppointment(() => { setCancelId(null); setReason(""); });
+  const cancel = useCancelAppointment(() => {
+    setCancelId(null);
+    setReason("");
+  });
+  const items = useMemo(() => applyFilter(query.data || [], filter), [filter, query.data]);
+  const tab = TABS.find((item) => item.key === filter)!;
 
-  const items = useMemo(() => {
-    const now = new Date();
-    return (query.data || []).filter((item) => {
-      if (filter === "cancelled") return CANCELLED_APPOINTMENT_STATUSES.has(item.status);
-      if (filter === "upcoming") return ACTIVE_APPOINTMENT_STATUSES.has(item.status) && appointmentTime(item) >= now;
-      return item.status === "COMPLETED" || (ACTIVE_APPOINTMENT_STATUSES.has(item.status) && appointmentTime(item) < now);
-    }).sort((a, b) => filter === "upcoming" ? appointmentTime(a).getTime() - appointmentTime(b).getTime() : appointmentTime(b).getTime() - appointmentTime(a).getTime());
-  }, [filter, query.data]);
+  return (
+    <div className="space-y-5">
+      <PatientPageHeader
+        title="Lịch hẹn"
+        action={
+          <Link href="/dat-lich" className="public-button-primary inline-flex min-h-11 items-center justify-center gap-2 rounded-lg px-4 text-sm font-semibold">
+            <CalendarPlus className="h-4 w-4" aria-hidden="true" />
+            Đặt lịch mới
+          </Link>
+        }
+      />
 
-  return <div className="space-y-6">
-    <PatientPageHeader eyebrow="Quản lý lịch hẹn" title="Lịch khám của tôi" description="Theo dõi trạng thái, thời gian và thông tin tiếp nhận. Dữ liệu đồng bộ với ứng dụng Mobile." action={<Link href="/dat-lich" className="public-button-primary inline-flex min-h-11 items-center justify-center gap-2 rounded-xl px-4 text-sm font-bold"><CalendarPlus className="h-4 w-4" aria-hidden="true" /> Đặt lịch mới</Link>} />
-    <div role="tablist" aria-label="Lọc lịch hẹn" className="flex gap-2 overflow-x-auto rounded-2xl border border-[var(--public-border)] bg-white p-2 shadow-sm">{([{ key: "upcoming", label: "Sắp tới" }, { key: "history", label: "Đã khám" }, { key: "cancelled", label: "Đã hủy" }] as const).map((item) => <button key={item.key} role="tab" aria-selected={filter === item.key} onClick={() => setFilter(item.key)} className={`min-h-11 shrink-0 rounded-xl px-4 text-sm font-bold transition ${filter === item.key ? "bg-[var(--public-primary)] text-white" : "text-[var(--public-text-soft)] hover:bg-[var(--public-surface-muted)]"}`}>{item.label}</button>)}</div>
-    {query.isLoading ? <PatientPageLoading label="Đang tải lịch hẹn..." /> : query.isError ? <PatientPageError message={query.error instanceof Error ? query.error.message : "Không tải được lịch hẹn."} onRetry={() => query.refetch()} /> : items.length === 0 ? <PatientEmptyState title={filter === "upcoming" ? "Chưa có lịch khám sắp tới" : "Chưa có dữ liệu trong nhóm này"} description="Các lịch hẹn sẽ tự động xuất hiện đúng nhóm khi trạng thái được cập nhật." action={filter === "upcoming" ? <Link href="/dat-lich" className="public-button-primary inline-flex min-h-11 items-center rounded-xl px-4 text-sm font-bold">Đặt lịch khám</Link> : undefined} /> : <div className="grid gap-4 xl:grid-cols-2">{items.map((item) => {
-      const status = appointmentStatusDisplay(item.status);
-      return <article key={item.id} className="rounded-3xl border border-[var(--public-border)] bg-white p-5 shadow-sm">
-        <div className="flex flex-wrap items-start justify-between gap-3"><div><span className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-bold ${status.style}`}>{status.label}</span><p className="mt-2 text-xs font-semibold text-[var(--public-muted)]">Mã lịch #{item.bookingCode}</p></div><strong className="text-sm text-[var(--public-primary-dark)]">{item.patientName}</strong></div>
-        <div className="mt-4 flex items-start gap-3"><span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[var(--public-primary-soft)] text-[var(--public-primary)]"><Stethoscope className="h-5 w-5" aria-hidden="true" /></span><div className="min-w-0"><h2 className="font-bold">{item.doctor.title ? `${item.doctor.title} ` : ""}{item.doctor.user.fullName}</h2><p className="mt-1 text-sm text-[var(--public-text-soft)]">{item.department.name}{item.package ? ` · ${item.package.name}` : ""}</p></div></div>
-        <div className="mt-4 grid gap-2 rounded-2xl bg-[var(--public-surface-muted)] p-4 text-sm sm:grid-cols-2"><span className="flex items-start gap-2"><Clock3 className="mt-0.5 h-4 w-4 shrink-0 text-[var(--public-primary)]" aria-hidden="true" /><span><strong className="block">{item.startTime}–{item.endTime}</strong>{formatWeekdayDate(item.appointmentDate)}</span></span><span className="flex items-start gap-2"><MapPin className="mt-0.5 h-4 w-4 shrink-0 text-[var(--public-primary)]" aria-hidden="true" /><span><strong className="block">Nơi tiếp nhận</strong>{item.department.name}</span></span></div>
-        {cancelId === item.id ? <div className="mt-4 rounded-2xl border border-red-200 bg-red-50 p-4"><label className="text-sm font-bold text-red-800">Lý do hủy lịch<textarea value={reason} onChange={(event) => setReason(event.target.value)} rows={3} maxLength={500} className="mt-2 w-full rounded-xl border border-red-200 bg-white p-3 text-sm text-[var(--public-ink)] outline-none focus:border-red-500" placeholder="Nhập lý do cụ thể (tối thiểu 3 ký tự)" /></label>{cancelMutation.isError ? <p role="alert" className="mt-2 text-sm text-red-700">{cancelMutation.error instanceof Error ? cancelMutation.error.message : "Không thể hủy lịch."}</p> : null}<div className="mt-3 flex flex-wrap gap-2"><button type="button" disabled={reason.trim().length < 3 || cancelMutation.isPending} onClick={() => cancelMutation.mutate({ id: item.id, reason: reason.trim() })} className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-red-600 px-4 text-sm font-bold text-white disabled:opacity-50">{cancelMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null} Xác nhận hủy</button><button type="button" onClick={() => { setCancelId(null); setReason(""); }} className="inline-flex min-h-11 items-center gap-2 rounded-xl px-4 text-sm font-bold text-[var(--public-text-soft)]"><X className="h-4 w-4" /> Giữ lịch</button></div></div> : null}
-        <div className="mt-4 flex flex-wrap justify-end gap-2"><Link href={`/tai-khoan/lich-hen/${item.id}`} className="public-button-secondary inline-flex min-h-11 items-center rounded-xl px-4 text-sm font-bold">Xem chi tiết</Link>{CANCELLABLE_APPOINTMENT_STATUSES.has(item.status) && cancelId !== item.id ? <button type="button" onClick={() => setCancelId(item.id)} className="inline-flex min-h-11 items-center rounded-xl px-4 text-sm font-bold text-red-700 hover:bg-red-50">Hủy lịch</button> : null}</div>
-      </article>;
-    })}</div>}
-  </div>;
+      <div role="tablist" aria-label="Lọc lịch hẹn" className="flex gap-6 border-b border-[var(--public-border)]">
+        {TABS.map((item) => (
+          <button
+            key={item.key}
+            type="button"
+            role="tab"
+            aria-selected={filter === item.key}
+            onClick={() => setFilter(item.key)}
+            className={`-mb-px min-h-11 border-b-2 text-sm font-semibold transition-colors ${
+              filter === item.key ? "border-[var(--public-primary)] text-[var(--public-primary-dark)]" : "border-transparent text-[var(--public-muted)] hover:text-[var(--public-ink)]"
+            }`}
+          >
+            {item.label}
+          </button>
+        ))}
+      </div>
+
+      {query.isLoading ? (
+        <PatientPageLoading label="Đang tải lịch hẹn..." />
+      ) : query.isError ? (
+        <PatientPageError message={query.error instanceof Error ? query.error.message : "Không tải được lịch hẹn."} onRetry={() => query.refetch()} />
+      ) : items.length === 0 ? (
+        <PatientEmptyState
+          title={tab.empty}
+          description={filter === "upcoming" ? "Lịch mới đặt sẽ xuất hiện ở đây ngay sau khi bạn xác thực OTP." : "Các lịch phù hợp sẽ tự xuất hiện ở đây khi có thay đổi."}
+          action={filter === "upcoming" ? <Link href="/dat-lich" className="public-button-primary inline-flex min-h-11 items-center rounded-lg px-4 text-sm font-semibold">Đặt lịch khám</Link> : undefined}
+        />
+      ) : (
+        <ul className="divide-y divide-[var(--public-divider)] overflow-hidden rounded-xl border border-[var(--public-border)] bg-[var(--public-surface)]">
+          {items.map((item) => {
+            const canCancel = CANCELLABLE_APPOINTMENT_STATUSES.has(item.status);
+            const cancelling = cancelId === item.id;
+            const reasonTooShort = reason.trim().length < MIN_REASON;
+            return (
+              <li key={item.id} className="p-4">
+                <div className="flex items-start gap-3">
+                  <DateBlock date={item.appointmentDate} />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+                      <p className="font-bold tabular-nums">{timeRange(item)}</p>
+                      <StatusChip status={item.status} />
+                    </div>
+                    <p className="text-sm text-[var(--public-muted)]">{formatWeekdayDate(item.appointmentDate)}</p>
+                    <p className="mt-1.5 text-sm font-semibold">{doctorLine(item)}</p>
+                    <p className="text-sm text-[var(--public-muted)]">{item.department.name}{item.package ? ` · ${item.package.name}` : ""}</p>
+                    <p className="mt-1 text-xs text-[var(--public-muted)]">Mã {item.bookingCode}{item.patientName ? ` · ${item.patientName}` : ""}</p>
+                  </div>
+                </div>
+
+                {cancelling ? (
+                  <div className="mt-4 rounded-lg border border-[var(--public-danger)] bg-[var(--public-danger-soft)] p-3">
+                    <label className="block text-sm font-semibold text-[var(--public-danger)]">
+                      Lý do hủy lịch
+                      <textarea
+                        value={reason}
+                        onChange={(event) => setReason(event.target.value)}
+                        rows={3}
+                        maxLength={500}
+                        placeholder="Nhập lý do cụ thể (tối thiểu 3 ký tự)"
+                        className="ui-field mt-1.5 w-full px-3 py-2.5 text-base font-normal text-[var(--public-ink)] sm:text-sm"
+                      />
+                    </label>
+                    {cancel.isError ? <p role="alert" className="mt-2 text-sm font-medium text-[var(--public-danger)]">{cancel.error instanceof Error ? cancel.error.message : "Không hủy được lịch. Thử lại sau."}</p> : null}
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() => !reasonTooShort && cancel.mutate({ id: item.id, reason: reason.trim() })}
+                        aria-disabled={reasonTooShort}
+                        className={`inline-flex min-h-11 items-center gap-2 rounded-lg bg-[var(--public-danger)] px-4 text-sm font-semibold text-white ${reasonTooShort ? "opacity-60" : ""}`}
+                      >
+                        {cancel.isPending ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : null}
+                        Xác nhận hủy
+                      </button>
+                      <button type="button" onClick={() => { setCancelId(null); setReason(""); }} className="public-button-secondary min-h-11 rounded-lg px-4 text-sm font-semibold">
+                        Giữ lịch
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="mt-3 flex flex-wrap gap-2 pl-[4.25rem]">
+                    <Link href={`/tai-khoan/lich-hen/${item.id}`} className="public-button-secondary inline-flex min-h-11 items-center rounded-lg px-4 text-sm font-semibold">Xem chi tiết</Link>
+                    {canCancel ? (
+                      <button type="button" onClick={() => { setCancelId(item.id); setReason(""); }} className="inline-flex min-h-11 items-center rounded-lg px-3 text-sm font-semibold text-[var(--public-danger)] hover:bg-[var(--public-danger-soft)]">
+                        Hủy lịch
+                      </button>
+                    ) : null}
+                  </div>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
+  );
 }
-
