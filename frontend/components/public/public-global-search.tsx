@@ -20,6 +20,7 @@ import {
 } from "@/lib/public-search-query";
 import { useDebouncedValue } from "@/lib/use-debounced-value";
 
+import { formatOptionalCurrency } from "@/lib/format";
 const typeMeta: Record<PublicSearchItem["type"], { label: string; icon: LucideIcon }> = {
   department: { label: "Chuyên khoa", icon: Building2 },
   doctor: { label: "Bác sĩ", icon: Stethoscope },
@@ -27,14 +28,6 @@ const typeMeta: Record<PublicSearchItem["type"], { label: string; icon: LucideIc
   faq: { label: "Hỏi đáp", icon: CircleHelp },
 };
 
-const formatCurrency = (value?: number | null) =>
-  value
-    ? new Intl.NumberFormat("vi-VN", {
-        style: "currency",
-        currency: "VND",
-        maximumFractionDigits: 0,
-      }).format(value)
-    : "";
 
 export function PublicGlobalSearch({
   compact = false,
@@ -189,7 +182,7 @@ export function PublicGlobalSearch({
                     ) : null}
                   </span>
                   <span className="flex shrink-0 flex-col items-end gap-2">
-                    {item.price ? <span className="text-xs font-bold tabular-nums text-[var(--public-primary-dark)] sm:text-sm">{formatCurrency(item.price)}</span> : null}
+                    {item.price ? <span className="text-xs font-bold tabular-nums text-[var(--public-primary-dark)] sm:text-sm">{formatOptionalCurrency(item.price)}</span> : null}
                     <ChevronRight className="h-4 w-4 text-[var(--public-muted)] transition group-hover:translate-x-0.5 group-hover:text-[var(--public-primary)] motion-reduce:transition-none" aria-hidden="true" />
                   </span>
                 </Link>

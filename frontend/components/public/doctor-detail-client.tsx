@@ -9,6 +9,7 @@ import { VietnamDateInput } from "@/components/ui/vietnam-date-input";
 import { type PublicSlot, usePublicAvailableSlots } from "@/lib/public-booking-query";
 import type { DoctorProfile } from "@/lib/types";
 
+import { formatCurrency } from "@/lib/format";
 export type { PublicSlot };
 
 type DoctorDetailClientProps = {
@@ -17,12 +18,6 @@ type DoctorDetailClientProps = {
   initialSlots: PublicSlot[];
 };
 
-const formatCurrency = (value: number) =>
-  new Intl.NumberFormat("vi-VN", {
-    style: "currency",
-    currency: "VND",
-    maximumFractionDigits: 0,
-  }).format(value || 0);
 
 const doctorName = (doctor: DoctorProfile) => [doctor.title, doctor.user.fullName].filter(Boolean).join(" ");
 const firstLetter = (value: string) => value.trim().slice(0, 1).toUpperCase() || "B";

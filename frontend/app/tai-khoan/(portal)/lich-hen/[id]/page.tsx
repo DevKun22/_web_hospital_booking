@@ -9,26 +9,24 @@ import { PatientPageError, PatientPageLoading } from "@/components/patient/patie
 import { patientPortalRequest } from "@/lib/patient-portal-api";
 import type { PatientAppointment } from "@/lib/patient-portal-types";
 
-const formatDate = (value: string) => new Intl.DateTimeFormat("vi-VN", { weekday: "long", day: "2-digit", month: "2-digit", year: "numeric" }).format(new Date(value));
-const formatMoney = (value?: number) => `${new Intl.NumberFormat("vi-VN").format(value || 0)} đ`;
-const labels: Record<string, string> = { PENDING_OTP: "Chờ xác thực OTP", PENDING_CONFIRM: "Chờ bệnh viện xác nhận", CONFIRMED: "Đã xác nhận", CHECKED_IN: "Đã tiếp nhận", IN_PROGRESS: "Đang khám", COMPLETED: "Đã hoàn tất", RESCHEDULED: "Đã đổi lịch", CANCELLED_BY_PATIENT: "Bạn đã hủy lịch", CANCELLED_BY_DOCTOR: "Bác sĩ đã hủy lịch", CANCELLED_BY_ADMIN: "Bệnh viện đã hủy lịch", NO_SHOW: "Không đến khám" };
-const progress = ["PENDING_CONFIRM", "CONFIRMED", "CHECKED_IN", "IN_PROGRESS", "COMPLETED"];
+import { formatWeekdayDate, formatMoney } from "@/lib/format";
 
+import { APPOINTMENT_PROGRESS, APPOINTMENT_STATUS_DETAIL } from "@/lib/patient-status";
 export default function AppointmentDetailPage() {
   const id = String(useParams<{ id: string }>().id || "");
   const query = useQuery({ queryKey: ["patient-appointment", id], queryFn: async () => (await patientPortalRequest<PatientAppointment>(`/lich-hen/${id}`)).data, enabled: Boolean(id), staleTime: 15_000 });
   if (query.isLoading) return <PatientPageLoading label="Đang tải chi tiết lịch hẹn..." />;
   if (query.isError || !query.data) return <PatientPageError message={query.error instanceof Error ? query.error.message : "Không tìm thấy lịch hẹn."} onRetry={() => query.refetch()} />;
   const item = query.data;
-  const currentIndex = progress.indexOf(item.status === "RESCHEDULED" ? "CONFIRMED" : item.status);
+  const currentIndex = APPOINTMENT_PROGRESS.indexOf(item.status === "RESCHEDULED" ? "CONFIRMED" : item.status);
   const isCancelled = item.status.startsWith("CANCELLED") || item.status === "NO_SHOW";
   return <div className="space-y-5">
     <Link href="/tai-khoan/lich-hen" className="inline-flex min-h-11 items-center gap-2 rounded-xl text-sm font-bold text-[var(--public-text-soft)] hover:text-[var(--public-primary)]"><ArrowLeft className="h-4 w-4" /> Quay lại lịch hẹn</Link>
-    <section className="rounded-3xl border border-[var(--public-border)] bg-white p-5 shadow-sm sm:p-7"><div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between"><div><p className="text-xs font-bold uppercase tracking-[0.14em] text-[var(--public-primary)]">Chi tiết lịch hẹn</p><h1 className="mt-2 text-2xl font-bold">#{item.bookingCode}</h1><p className="mt-2 text-sm text-[var(--public-muted)]">Đặt cho {item.patientName}</p></div><span className={`w-fit rounded-full px-3 py-1.5 text-xs font-bold ${isCancelled ? "bg-red-100 text-red-700" : item.status === "COMPLETED" ? "bg-slate-200 text-slate-700" : "bg-emerald-100 text-emerald-800"}`}>{labels[item.status] || item.status}</span></div>
-      {!isCancelled ? <ol className="mt-7 grid gap-2 sm:grid-cols-5" aria-label="Tiến trình lịch hẹn">{progress.map((status, index) => <li key={status} className={`rounded-xl border p-3 text-xs font-semibold ${index <= currentIndex ? "border-blue-200 bg-blue-50 text-blue-800" : "border-[var(--public-border)] text-[var(--public-muted)]"}`}><CheckCircle2 className={`mb-2 h-4 w-4 ${index <= currentIndex ? "text-[var(--public-primary)]" : "text-slate-300"}`} />{labels[status]}</li>)}</ol> : <div className="mt-6 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-800"><strong className="block">Lịch hẹn không còn hiệu lực</strong><span className="mt-1 block">{item.cancelledReason || labels[item.status]}</span></div>}
+    <section className="rounded-3xl border border-[var(--public-border)] bg-white p-5 shadow-sm sm:p-7"><div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between"><div><p className="text-xs font-bold uppercase tracking-[0.14em] text-[var(--public-primary)]">Chi tiết lịch hẹn</p><h1 className="mt-2 text-2xl font-bold">#{item.bookingCode}</h1><p className="mt-2 text-sm text-[var(--public-muted)]">Đặt cho {item.patientName}</p></div><span className={`w-fit rounded-full px-3 py-1.5 text-xs font-bold ${isCancelled ? "bg-red-100 text-red-700" : item.status === "COMPLETED" ? "bg-slate-200 text-slate-700" : "bg-emerald-100 text-emerald-800"}`}>{APPOINTMENT_STATUS_DETAIL[item.status] || item.status}</span></div>
+      {!isCancelled ? <ol className="mt-7 grid gap-2 sm:grid-cols-5" aria-label="Tiến trình lịch hẹn">{APPOINTMENT_PROGRESS.map((status, index) => <li key={status} className={`rounded-xl border p-3 text-xs font-semibold ${index <= currentIndex ? "border-blue-200 bg-blue-50 text-blue-800" : "border-[var(--public-border)] text-[var(--public-muted)]"}`}><CheckCircle2 className={`mb-2 h-4 w-4 ${index <= currentIndex ? "text-[var(--public-primary)]" : "text-slate-300"}`} />{APPOINTMENT_STATUS_DETAIL[status]}</li>)}</ol> : <div className="mt-6 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-800"><strong className="block">Lịch hẹn không còn hiệu lực</strong><span className="mt-1 block">{item.cancelledReason || APPOINTMENT_STATUS_DETAIL[item.status]}</span></div>}
     </section>
     <div className="grid gap-5 xl:grid-cols-[minmax(0,1.25fr)_minmax(300px,0.75fr)]"><section className="rounded-3xl border border-[var(--public-border)] bg-white p-5 shadow-sm sm:p-6"><h2 className="text-xl font-bold">Thông tin tiếp nhận</h2><div className="mt-5 grid gap-3 sm:grid-cols-2">{[
-      { icon: CalendarDays, label: "Ngày khám", value: formatDate(item.appointmentDate) },
+      { icon: CalendarDays, label: "Ngày khám", value: formatWeekdayDate(item.appointmentDate) },
       { icon: Clock3, label: "Khung giờ", value: `${item.startTime}–${item.endTime}` },
       { icon: Stethoscope, label: "Bác sĩ", value: `${item.doctor.title ? `${item.doctor.title} ` : ""}${item.doctor.user.fullName}` },
       { icon: MapPin, label: "Chuyên khoa", value: item.department.name },

@@ -17,16 +17,11 @@ import { usePublicPackageCatalog } from "@/lib/public-lists-query";
 import { openPublicChatbot } from "@/lib/public-ui-events";
 import type { MedicalPackage } from "@/lib/types";
 
+import { formatCurrency } from "@/lib/format";
 const PAGE_SIZE = 6;
 type PackageKind = "ALL" | "POPULAR" | "BHYT";
 type PackageSort = "POPULAR_DESC" | "PRICE_ASC" | "PRICE_DESC" | "NAME_ASC";
 
-const formatCurrency = (value: number) =>
-  new Intl.NumberFormat("vi-VN", {
-    style: "currency",
-    currency: "VND",
-    maximumFractionDigits: 0,
-  }).format(value || 0);
 
 const getBookingUrl = (item: MedicalPackage) => {
   const params = new URLSearchParams({ packageId: item.id });

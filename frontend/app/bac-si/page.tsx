@@ -31,6 +31,7 @@ import { PUBLIC_CHATBOT_OPEN_EVENT } from "@/lib/public-ui-events";
 import { buildCollectionPageJsonLd, jsonLdString } from "@/lib/seo";
 import type { DoctorProfile } from "@/lib/types";
 
+import { formatCurrency } from "@/lib/format";
 const pageJsonLd = buildCollectionPageJsonLd({
   name: "Đội ngũ bác sĩ",
   description:
@@ -40,12 +41,6 @@ const pageJsonLd = buildCollectionPageJsonLd({
 
 const pageSize = 9;
 
-const formatCurrency = (value: number) =>
-  new Intl.NumberFormat("vi-VN", {
-    style: "currency",
-    currency: "VND",
-    maximumFractionDigits: 0,
-  }).format(value || 0);
 
 const doctorName = (doctor: DoctorProfile) =>
   [doctor.title, doctor.user.fullName].filter(Boolean).join(" ");

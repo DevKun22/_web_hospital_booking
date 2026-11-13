@@ -16,16 +16,11 @@ import { serverApiRequest } from "@/lib/server-api";
 import { buildBreadcrumbJsonLd, buildNoIndexMetadata, buildOpenGraph, cleanText, jsonLdString, truncateText, absoluteUrl } from "@/lib/seo";
 import type { DoctorProfile, MedicalPackage } from "@/lib/types";
 
+import { formatCurrency } from "@/lib/format";
 type PageProps = {
   params: Promise<{ slug: string }>;
 };
 
-const formatCurrency = (value: number) =>
-  new Intl.NumberFormat("vi-VN", {
-    style: "currency",
-    currency: "VND",
-    maximumFractionDigits: 0,
-  }).format(value || 0);
 
 const doctorName = (doctor: DoctorProfile) => [doctor.title, doctor.user.fullName].filter(Boolean).join(" ");
 const firstLetter = (value: string) => value.trim().slice(0, 1).toUpperCase() || "B";
