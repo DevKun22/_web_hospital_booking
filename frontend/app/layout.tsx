@@ -7,10 +7,10 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { serverApiRequest } from "@/lib/server-api";
 import { SITE_URL } from "@/lib/seo";
 import type { SiteSettingsValue } from "@/lib/types";
-import "@fontsource/be-vietnam-pro/400.css";
-import "@fontsource/be-vietnam-pro/500.css";
-import "@fontsource/be-vietnam-pro/600.css";
-import "@fontsource/be-vietnam-pro/700.css";
+import "@fontsource/source-sans-3/400.css";
+import "@fontsource/source-sans-3/400-italic.css";
+import "@fontsource/source-sans-3/600.css";
+import "@fontsource/source-sans-3/700.css";
 import "./globals.css";
 
 import { BRAND_NAME } from "@/lib/brand";
