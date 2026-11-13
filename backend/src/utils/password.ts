@@ -1,8 +1,6 @@
 import argon2 from "argon2";
 import bcrypt from "bcrypt";
 
-const BCRYPT_ROUNDS = 10;
-
 export const ARGON2ID_OPTIONS = {
   type: argon2.argon2id,
   memoryCost: 19_456,
@@ -21,13 +19,8 @@ export const getPasswordHashAlgorithm = (
   return "unsupported";
 };
 
-// Giai đoạn tương thích: vẫn tạo bcrypt để phiên bản production trước đó có thể
-// rollback và đọc mọi hash mới. Giai đoạn chuyển đổi sau sẽ đổi duy nhất hàm này.
-export const hashPassword = async (password: string) => {
-  return bcrypt.hash(password, BCRYPT_ROUNDS);
-};
-
-export const hashArgon2Password = async (password: string) =>
+// Mọi mật khẩu mới đều dùng Argon2id. bcrypt chỉ còn để xác thực hash cũ đã lưu sẵn.
+export const hashPassword = async (password: string) =>
   argon2.hash(password, ARGON2ID_OPTIONS);
 
 export const comparePassword = async (
@@ -44,9 +37,8 @@ export const comparePassword = async (
   }
 };
 
-// Giữ cùng chi phí với bcrypt production trong giai đoạn chưa chuyển thuật toán
-// mặc định, nhằm hạn chế suy đoán tài khoản qua chênh lệch thời gian phản hồi.
-export const DUMMY_PASSWORD_HASH = bcrypt.hashSync(
+// Hash giả để thời gian phản hồi không lộ việc tài khoản có tồn tại hay không.
+export const DUMMY_PASSWORD_HASH = await argon2.hash(
   "hospital-booking-invalid-password",
-  BCRYPT_ROUNDS,
+  ARGON2ID_OPTIONS,
 );
