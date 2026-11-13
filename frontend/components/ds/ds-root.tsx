@@ -1,22 +1,13 @@
 "use client";
 
 import { createContext, useContext, useState } from "react";
-import { IBM_Plex_Mono, IBM_Plex_Sans } from "next/font/google";
+import "@fontsource/ibm-plex-sans/400.css";
+import "@fontsource/ibm-plex-sans/500.css";
+import "@fontsource/ibm-plex-sans/600.css";
+import "@fontsource/ibm-plex-sans/700.css";
+import "@fontsource/ibm-plex-mono/400.css";
+import "@fontsource/ibm-plex-mono/500.css";
 import { cn } from "@/lib/utils";
-
-const plexSans = IBM_Plex_Sans({
-  subsets: ["latin", "vietnamese"],
-  weight: ["400", "500", "600", "700"],
-  display: "swap",
-  variable: "--font-ds-sans",
-});
-
-const plexMono = IBM_Plex_Mono({
-  subsets: ["latin", "vietnamese"],
-  weight: ["400", "500"],
-  display: "swap",
-  variable: "--font-ds-mono",
-});
 
 // Phần tử gốc của nền thiết kế: mang biến màu/chữ (`.ds`) và là nơi ngăn bên, hộp thoại gắn vào,
 // để chúng cũng nhận đúng biến màu dù được render ra ngoài cây thường.
@@ -34,7 +25,7 @@ export function DsRoot({
   const [element, setElement] = useState<HTMLElement | null>(null);
 
   return (
-    <div ref={setElement} className={cn("ds", plexSans.variable, plexMono.variable, className)} {...rest}>
+    <div ref={setElement} className={cn("ds", className)} {...rest}>
       <DsRootContext.Provider value={element}>{children}</DsRootContext.Provider>
     </div>
   );
