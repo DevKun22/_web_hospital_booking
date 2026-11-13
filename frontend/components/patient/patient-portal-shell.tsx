@@ -8,6 +8,7 @@ import { usePatientAuth } from "@/lib/patient-auth";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 
 import { BrandLogo } from "@/components/branding/brand-logo";
+import { PublicBottomNav } from "@/components/public/public-bottom-nav";
 import { BRAND_NAME } from "@/lib/brand";
 import { useUnreadNotificationCount } from "@/features/portal/hooks";
 const nav = [
@@ -42,7 +43,7 @@ export function PatientPortalShell({ children }: { children: React.ReactNode }) 
   };
 
   return (
-    <div className="public-site min-h-screen bg-[var(--public-canvas)] text-[var(--public-ink)]">
+    <div className="public-site public-has-bottom-nav min-h-screen bg-[var(--public-canvas)] text-[var(--public-ink)]">
       <header className="sticky top-0 z-40 border-b border-[var(--public-border)] bg-[var(--public-surface)] backdrop-blur-xl lg:hidden">
         <div className="flex min-h-16 items-center justify-between gap-3 px-4">
           <Link href="/" className="flex min-w-0 items-center" aria-label={`${BRAND_NAME} - Trang chủ`}><BrandLogo variant="horizontal" size="sm" /></Link>
@@ -61,7 +62,7 @@ export function PatientPortalShell({ children }: { children: React.ReactNode }) 
         </aside>
         <main className="min-w-0 px-4 py-5 sm:px-6 lg:px-8 lg:py-7">{children}</main>
       </div>
-    </div>
+    <PublicBottomNav /></div>
   );
 }
 

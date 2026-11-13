@@ -25,6 +25,7 @@ import Image from "next/image";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { PublicBottomNav } from "@/components/public/public-bottom-nav";
 import { BackToTopButton } from "@/components/public/back-to-top-button";
 import { PublicSiteFooter } from "@/components/public/public-site-footer";
 import { PublicSiteHeader } from "@/components/public/public-site-header";
@@ -81,7 +82,7 @@ export function PublicHomeView({ data, loading, error }: PublicHomeViewProps) {
   const homeConfig = data.homeConfig;
 
   return (
-    <main id="main-content" tabIndex={-1} className="public-site min-h-screen bg-[var(--public-canvas)] text-[var(--public-ink)]">
+    <main id="main-content" tabIndex={-1} className="public-site public-has-bottom-nav min-h-screen bg-[var(--public-canvas)] text-[var(--public-ink)]">
       <a className="ui-skip-link" href="#home-content">
         Bỏ qua điều hướng
       </a>
@@ -118,6 +119,7 @@ export function PublicHomeView({ data, loading, error }: PublicHomeViewProps) {
       <PublicSiteFooter settings={data.settings} />
       <BackToTopButton />
       <PublicChatbotWidget />
+      <PublicBottomNav />
     </main>
   );
 }
