@@ -17,12 +17,12 @@ import { buildBreadcrumbJsonLd, buildNoIndexMetadata, buildOpenGraph, cleanText,
 import type { DoctorProfile, MedicalPackage } from "@/lib/types";
 
 import { formatCurrency } from "@/lib/format";
+import { doctorDisplayName } from "@/lib/doctor";
 type PageProps = {
   params: Promise<{ slug: string }>;
 };
 
 
-const doctorName = (doctor: DoctorProfile) => [doctor.title, doctor.user.fullName].filter(Boolean).join(" ");
 const firstLetter = (value: string) => value.trim().slice(0, 1).toUpperCase() || "B";
 
 const getDepartment = cache(async (slug: string) => {
@@ -197,7 +197,7 @@ export default async function PublicDepartmentDetailPage({ params }: PageProps) 
                       <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-[var(--public-primary-soft)] text-lg font-semibold text-[var(--public-primary)]">{firstLetter(doctor.user.fullName)}</div>
                     )}
                     <div className="min-w-0">
-                      <h3 className="truncate font-semibold">{doctorName(doctor)}</h3>
+                      <h3 className="truncate font-semibold">{doctorDisplayName(doctor)}</h3>
                       <p className="truncate text-sm text-[var(--public-muted)]">{doctor.specialization || "Khám chuyên khoa"}</p>
                     </div>
                   </div>

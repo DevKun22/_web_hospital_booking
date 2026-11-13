@@ -130,8 +130,7 @@ export const createInitialState = (): BookingState => ({
   urlApplied: false,
 });
 
-export const doctorDisplayName = (doctor: DoctorProfile) =>
-  [doctor.title, doctor.user.fullName].filter(Boolean).join(" ");
+export { doctorDisplayName } from "@/lib/doctor";
 
 export const hasHealthDeclaration = (draft: BookingDraft) =>
   Boolean(draft.allergies.trim() || draft.medicalHistory.trim() || draft.familyHistory.trim());

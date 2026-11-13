@@ -9,9 +9,9 @@ import { absoluteUrl, buildBreadcrumbJsonLd, buildNoIndexMetadata, buildOpenGrap
 import type { DoctorProfile } from "@/lib/types";
 
 import { BRAND_NAME } from "@/lib/brand";
+import { doctorDisplayName } from "@/lib/doctor";
 type PageProps = { params: Promise<{ slug: string }> };
 
-const doctorName = (doctor: DoctorProfile) => [doctor.title, doctor.user.fullName].filter(Boolean).join(" ");
 const getDoctor = cache(async (identifier: string) => serverApiRequest<DoctorProfile>(`/doctors/${identifier}`));
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
@@ -19,7 +19,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
   try {
     const doctor = await getDoctor(slug);
-    const name = doctorName(doctor);
+    const name = doctorDisplayName(doctor);
     const description = truncateText(cleanText(
       doctor.bio || doctor.specialization,
       `${name} thuộc ${doctor.department.name}. Xem chuyên môn, phí khám và lịch trống để đặt lịch trực tuyến.`,
@@ -56,7 +56,7 @@ export default async function PublicDoctorDetailPage({ params }: PageProps) {
   const slots = await serverApiRequest<PublicSlot[]>(`/doctors/${doctor.id}/available-slots`, {
     query: { date: today },
   }).catch(() => []);
-  const name = doctorName(doctor);
+  const name = doctorDisplayName(doctor);
   const canonicalPath = `/bac-si/${canonicalSlug}`;
   const jsonLd = {
     "@context": "https://schema.org",
