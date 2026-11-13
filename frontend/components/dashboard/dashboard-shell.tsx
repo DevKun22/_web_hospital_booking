@@ -6,7 +6,6 @@ import {
   Bell,
   ChevronDown,
   ChevronRight,
-  Hospital,
   LogOut,
   Menu,
   Moon,
@@ -43,6 +42,8 @@ import {
 import { usePublicSiteSettings } from "@/lib/public-home-query";
 import { useTheme } from "@/lib/theme";
 
+import { BrandLogo } from "@/components/branding/brand-logo";
+import { BRAND_NAME } from "@/lib/brand";
 const SIDEBAR_STORAGE_KEY = "hospital-dashboard-sidebar-collapsed";
 const SIDEBAR_CHANGE_EVENT = "hospital-dashboard-sidebar-change";
 
@@ -85,11 +86,11 @@ function Avatar({ name, src }: { name?: string | null; src?: string | null }) {
   );
 }
 
-function Brand({ hospitalName, logo }: { hospitalName: string; logo?: string }) {
+function Brand({ hospitalName }: { hospitalName: string }) {
   return (
     <>
       <span className="ds-brand-mark">
-        {logo ? <img src={logo} alt="" /> : <Hospital aria-hidden="true" />}
+        <BrandLogo variant="icon" size="md" decorative />
       </span>
       <span className="ds-brand-text">
         <small>Trung tâm điều hành</small>
@@ -343,8 +344,7 @@ function ShellFrame({ children, collapsed }: { children: React.ReactNode; collap
   const baseItem = getDashboardNavItem(pathname);
   const currentItem = (baseItem && items.find((item) => item.key === baseItem.key)) || baseItem;
   const siteSettings = siteSettingsQuery.data || null;
-  const hospitalName = siteSettings?.hospitalName?.trim() || "Hệ thống đặt khám";
-  const logo = siteSettings?.logo?.trim();
+  const hospitalName = siteSettings?.hospitalName?.trim() || BRAND_NAME;
   const dark = theme === "dark";
   const currentLabel = currentItem?.label;
 
@@ -393,7 +393,7 @@ function ShellFrame({ children, collapsed }: { children: React.ReactNode; collap
 
       <aside className="ds-side" aria-label="Thanh điều hướng">
         <div className="ds-side__brand">
-          <Brand hospitalName={hospitalName} logo={logo} />
+          <Brand hospitalName={hospitalName} />
         </div>
         <Navigation pathname={pathname} items={items} collapsed={collapsed} />
         <div className="ds-side__foot">

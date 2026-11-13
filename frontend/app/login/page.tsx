@@ -3,13 +3,14 @@
 import { ClipboardEvent, FormEvent, KeyboardEvent, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Eye, EyeOff, Hospital, Loader2 } from "lucide-react";
+import { ArrowLeft, Eye, EyeOff, Loader2 } from "lucide-react";
 import { DsButton, DsField, DsInput, DsNotice, DsRoot, describedBy } from "@/components/ds";
 import { DebugOtpBox } from "@/components/ui/debug-otp-box";
 import { useAuth } from "@/lib/auth";
 import { maskContactForDisplay } from "@/lib/mask-contact";
-import { usePublicSiteSettings } from "@/lib/public-home-query";
 
+import { BrandLogo } from "@/components/branding/brand-logo";
+import { BRAND_NAME } from "@/lib/brand";
 type LoginStep = "credentials" | "otp";
 type OtpDeliveryStatus = "PENDING" | "SENT" | "FAILED";
 
@@ -33,7 +34,6 @@ const formatClock = (seconds: number) =>
 export default function LoginPage() {
   const router = useRouter();
   const { user, loading, login, verifyOtp } = useAuth();
-  const siteSettingsQuery = usePublicSiteSettings();
   const [step, setStep] = useState<LoginStep>("credentials");
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
@@ -54,9 +54,6 @@ export default function LoginPage() {
   const phoneInputRef = useRef<HTMLInputElement>(null);
   const otpRefs = useRef<(HTMLInputElement | null)[]>([]);
 
-  const siteSettings = siteSettingsQuery.data || null;
-  const hospitalName = siteSettings?.hospitalName?.trim() || "Hospital Booking";
-  const logo = siteSettings?.logo?.trim();
   const otp = digits.join("");
 
   useEffect(() => {
@@ -206,12 +203,8 @@ export default function LoginPage() {
       <main className="ds-login__main">
         <div className="ds-login__card">
           <div className="ds-login__top">
-            <Link href="/" className="ds-login__brand">
-              <span className="ds-brand-mark">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                {logo ? <img src={logo} alt="" /> : <Hospital aria-hidden="true" />}
-              </span>
-              <strong>{hospitalName}</strong>
+            <Link href="/" className="ds-login__brand" aria-label={`${BRAND_NAME} - Trang chủ`}>
+              <BrandLogo variant="horizontal" size="md" />
             </Link>
             <Link href="/" className="ds-btn">
               Website

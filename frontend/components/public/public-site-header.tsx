@@ -3,14 +3,12 @@
 import {
   CalendarCheck,
   Clock3,
-  HeartPulse,
   Menu,
   MessageCircleQuestion,
   Phone,
   UserRound,
   X,
 } from "lucide-react";
-import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -26,6 +24,9 @@ import {
 import { openPublicChatbot } from "@/lib/public-ui-events";
 import type { SiteSettingsValue } from "@/lib/types";
 
+import Image from "next/image";
+import { BrandLogo } from "@/components/branding/brand-logo";
+import { BRAND_NAME } from "@/lib/brand";
 const navItems = [
   { href: "/chuyen-khoa", label: "Chuyên khoa", aliases: [] },
   { href: "/bac-si", label: "Bác sĩ", aliases: [] },
@@ -114,8 +115,6 @@ export function PublicSiteHeader({
     staleTime: 30_000,
     refetchOnWindowFocus: true,
   });
-  const hospitalName = settings?.hospitalName?.trim() || "Hospital Booking";
-  const logo = settings?.logo?.trim();
   const hotline =
     settings?.hotline?.trim() ||
     settings?.emergencyHotline?.trim() ||
@@ -179,29 +178,8 @@ export function PublicSiteHeader({
 
       <header className="sticky top-0 z-50 border-b border-[var(--public-border)] bg-[var(--public-surface)] shadow-[0_1px_0_rgba(23,43,77,0.05)] backdrop-blur-xl">
         <div className="ui-container grid min-h-[4.75rem] grid-cols-[minmax(0,1fr)_auto] items-center gap-3 py-2 md:grid-cols-[minmax(220px,0.72fr)_minmax(280px,1.25fr)_auto] xl:grid-cols-[minmax(220px,0.72fr)_minmax(320px,1.25fr)_auto] xl:gap-4">
-          <Link href="/" onClick={() => setMobileOpen(false)} className="group flex min-w-0 items-center gap-3" aria-label={`${hospitalName} - Trang chủ`}>
-            <span className="relative flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-[var(--public-border)] bg-[var(--public-primary-soft)] text-[var(--public-primary)] transition group-hover:-translate-y-0.5">
-              {logo ? (
-                <Image
-                  src={logo}
-                  alt=""
-                  fill
-                  sizes="44px"
-                  quality={75}
-                  className="object-contain p-1.5"
-                />
-              ) : (
-                <HeartPulse className="h-6 w-6" aria-hidden="true" />
-              )}
-            </span>
-            <span className="min-w-0">
-              <span className="block truncate text-[0.98rem] font-bold tracking-[-0.015em] text-[var(--public-ink)] sm:text-base">
-                {hospitalName}
-              </span>
-              <span className="block truncate text-[0.7rem] font-medium uppercase tracking-[0.12em] text-[var(--public-muted)]">
-                Chăm sóc chủ động
-              </span>
-            </span>
+          <Link href="/" onClick={() => setMobileOpen(false)} className="group flex min-w-0 items-center" aria-label={`${BRAND_NAME} - Trang chủ`}>
+            <BrandLogo variant="horizontal" size="md" className="transition group-hover:-translate-y-0.5" />
           </Link>
 
           <div className="hidden min-w-0 md:block">

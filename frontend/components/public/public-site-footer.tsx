@@ -1,8 +1,9 @@
-import { Clock3, HeartPulse, Mail, MapPin, Phone } from "lucide-react";
-import Image from "next/image";
+import { Clock3, Mail, MapPin, Phone } from "lucide-react";
 import Link from "next/link";
 import type { SiteSettingsValue } from "@/lib/types";
 
+import { BrandLogo } from "@/components/branding/brand-logo";
+import { BRAND_NAME } from "@/lib/brand";
 const normalizeExternalUrl = (value: string) =>
   /^https?:\/\//i.test(value) ? value : `https://${value}`;
 
@@ -22,8 +23,7 @@ export function PublicSiteFooter({
 }: {
   settings: SiteSettingsValue | null;
 }) {
-  const hospitalName = settings?.hospitalName?.trim() || "Hospital Booking";
-  const logo = settings?.logo?.trim();
+  const hospitalName = settings?.hospitalName?.trim() || BRAND_NAME;
   const hotline =
     settings?.hotline?.trim() ||
     settings?.emergencyHotline?.trim() ||
@@ -36,21 +36,7 @@ export function PublicSiteFooter({
     <footer className="border-t border-[var(--public-divider)] bg-[var(--public-surface)] text-[var(--public-ink)]">
       <div className="ui-container grid gap-8 py-10 sm:grid-cols-2 sm:gap-10 sm:py-12 lg:grid-cols-[1.25fr_0.8fr_0.8fr_1fr]">
         <div>
-          <div className="flex items-center gap-3">
-            <span className="relative flex h-12 w-12 items-center justify-center overflow-hidden rounded-2xl border border-[var(--public-border)] bg-[var(--public-primary-soft)] text-[var(--public-primary)]">
-              {logo ? (
-                <Image src={logo} alt="" fill sizes="48px" quality={75} className="object-contain p-1.5" />
-              ) : (
-                <HeartPulse className="h-6 w-6" aria-hidden="true" />
-              )}
-            </span>
-            <div>
-              <p className="font-bold tracking-[-0.01em]">{hospitalName}</p>
-              <p className="mt-0.5 text-xs font-medium uppercase tracking-[0.14em] text-[var(--public-muted)]">
-                Chăm sóc chủ động
-              </p>
-            </div>
-          </div>
+          <BrandLogo variant="horizontal" size="lg" showTagline />
           <p className="mt-5 max-w-md text-sm leading-7 text-[var(--public-muted)]">
             Khám phá chuyên khoa, bác sĩ và gói chăm sóc phù hợp. Đặt lịch trực tuyến và theo dõi hành trình khám bằng thông tin minh bạch.
           </p>

@@ -1,13 +1,11 @@
 "use client";
 
 import { FormEvent, useEffect, useRef, useState } from "react";
-import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
   CheckCircle2,
-  HeartPulse,
   Loader2,
   LockKeyhole,
   Phone,
@@ -17,8 +15,9 @@ import {
 import { DebugOtpBox } from "@/components/ui/debug-otp-box";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { usePatientAuth } from "@/lib/patient-auth";
-import { usePublicSiteSettings } from "@/lib/public-home-query";
 
+import { BrandLogo } from "@/components/branding/brand-logo";
+import { BRAND_NAME } from "@/lib/brand";
 type Step = "phone" | "otp";
 
 // Chỉ cho phép quay về trang trong cổng bệnh nhân để tránh open redirect.
@@ -31,7 +30,6 @@ function readSafeNextPath() {
 export default function PatientLoginPage() {
   const router = useRouter();
   const { user, loading, requestOtp, verifyOtp } = usePatientAuth();
-  const settings = usePublicSiteSettings().data;
   const [step, setStep] = useState<Step>("phone");
   const [phone, setPhone] = useState("");
   const [otp, setOtp] = useState("");
@@ -42,7 +40,6 @@ export default function PatientLoginPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const otpRef = useRef<HTMLInputElement>(null);
-  const hospitalName = settings?.hospitalName?.trim() || "Hospital Booking";
 
   useEffect(() => {
     if (!loading && user) router.replace(readSafeNextPath());
@@ -108,11 +105,8 @@ export default function PatientLoginPage() {
     <main className="public-site min-h-screen bg-[var(--public-canvas)] text-[var(--public-ink)]">
       <header className="border-b border-[var(--public-border)] bg-[var(--public-surface)]">
         <div className="ui-container flex min-h-16 items-center justify-between gap-4 py-2">
-          <Link href="/" className="flex min-w-0 items-center gap-3">
-            <span className="relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-[var(--public-primary-soft)] text-[var(--public-primary)]">
-              {settings?.logo ? <Image src={settings.logo} alt="" fill sizes="40px" className="object-contain p-1" /> : <HeartPulse className="h-5 w-5" />}
-            </span>
-            <span className="truncate font-bold">{hospitalName}</span>
+          <Link href="/" className="flex min-w-0 items-center" aria-label={`${BRAND_NAME} - Trang chủ`}>
+            <BrandLogo variant="horizontal" size="md" />
           </Link>
           <div className="flex items-center gap-2"><ThemeToggle /><Link href="/" className="inline-flex min-h-11 items-center gap-2 rounded-xl px-3 text-sm font-semibold text-[var(--public-text-soft)] hover:bg-[var(--public-surface-muted)]"><ArrowLeft className="h-4 w-4" /> <span className="hidden sm:inline">Trang chủ</span></Link></div>
         </div>

@@ -1414,3 +1414,24 @@ button:disabled {
     min-height: 60pt;
   }
 }
+
+/* Thương hiệu: logo ngang đổi bản theo giao diện tối; vòng tải nhẹ, tắt khi giảm chuyển động. */
+.brand-logo__on-dark { display: none; }
+:root.theme-dark .brand-logo__on-light, :root.dark .brand-logo__on-light { display: none; }
+:root.theme-dark .brand-logo__on-dark, :root.dark .brand-logo__on-dark { display: block; }
+.brand-logo__img { max-width: none; flex: none; }
+
+.brand-loader__ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  border: 3px solid color-mix(in srgb, var(--dk-teal) 22%, transparent);
+  border-top-color: var(--dk-teal);
+  animation: brand-spin 1.2s linear infinite;
+}
+.brand-loader__logo { animation: brand-pulse 1.4s ease-in-out infinite; }
+@keyframes brand-spin { to { transform: rotate(360deg); } }
+@keyframes brand-pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.82; transform: scale(0.96); } }
+@media (prefers-reduced-motion: reduce) {
+  .brand-loader__ring, .brand-loader__logo { animation: none; }
+}

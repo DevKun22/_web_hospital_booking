@@ -13,7 +13,8 @@ import "@fontsource/be-vietnam-pro/600.css";
 import "@fontsource/be-vietnam-pro/700.css";
 import "./globals.css";
 
-const defaultTitle = "Hospital Booking";
+import { BRAND_NAME } from "@/lib/brand";
+const defaultTitle = BRAND_NAME;
 const defaultDescription =
   "Đặt lịch khám bệnh trực tuyến, tra cứu lịch hẹn, theo dõi hóa đơn và kết quả khám.";
 
@@ -30,7 +31,6 @@ async function getSiteSettings() {
 export async function generateMetadata(): Promise<Metadata> {
   const settings = await getSiteSettings();
   const hospitalName = settings?.hospitalName?.trim() || defaultTitle;
-  const favicon = settings?.favicon?.trim() || "/favicon.ico";
   const logo = settings?.logo?.trim();
 
   return {
@@ -67,9 +67,11 @@ export async function generateMetadata(): Promise<Metadata> {
       images: logo ? [logo] : undefined,
     },
     icons: {
-      icon: favicon,
-      shortcut: favicon,
-      apple: favicon,
+      icon: [
+        { url: "/favicon.svg", type: "image/svg+xml" },
+        { url: "/favicon.ico", sizes: "any" },
+      ],
+      apple: "/apple-touch-icon.png",
     },
     robots: {
       index: true,
@@ -84,6 +86,7 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   colorScheme: "light dark",
+  themeColor: "#07549c",
 };
 
 const themeInitializationScript = `
