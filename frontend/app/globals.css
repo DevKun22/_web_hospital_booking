@@ -9,7 +9,7 @@
 @custom-variant data-vertical (&:is([data-orientation="vertical"]));
 
 :root {
-  --app-font-sans: var(--font-be-vietnam-pro), "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --app-font-sans: "Be Vietnam Pro", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   --brand-primary: #087a73;
   --brand-primary-strong: #075b58;
   --brand-primary-hover: #066963;

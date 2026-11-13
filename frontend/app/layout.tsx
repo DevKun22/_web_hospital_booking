@@ -1,5 +1,4 @@
 import type { Metadata, Viewport } from "next";
-import { Be_Vietnam_Pro } from "next/font/google";
 import Script from "next/script";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { Analytics } from "@vercel/analytics/next";
@@ -8,19 +7,15 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { serverApiRequest } from "@/lib/server-api";
 import { SITE_URL } from "@/lib/seo";
 import type { SiteSettingsValue } from "@/lib/types";
+import "@fontsource/be-vietnam-pro/400.css";
+import "@fontsource/be-vietnam-pro/500.css";
+import "@fontsource/be-vietnam-pro/600.css";
+import "@fontsource/be-vietnam-pro/700.css";
 import "./globals.css";
 
 const defaultTitle = "Hospital Booking";
 const defaultDescription =
   "Đặt lịch khám bệnh trực tuyến, tra cứu lịch hẹn, theo dõi hóa đơn và kết quả khám.";
-
-const beVietnamPro = Be_Vietnam_Pro({
-  subsets: ["latin", "vietnamese"],
-  weight: ["400", "500", "600", "700"],
-  display: "swap",
-  variable: "--font-be-vietnam-pro",
-  fallback: ["Segoe UI", "Arial", "sans-serif"],
-});
 
 async function getSiteSettings() {
   try {
@@ -112,7 +107,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="vi" data-scroll-behavior="smooth" className={beVietnamPro.variable} suppressHydrationWarning>
+    <html lang="vi" data-scroll-behavior="smooth" suppressHydrationWarning>
       <head>
         <Script
           id="theme-initialization"

@@ -6,8 +6,8 @@
 */
 
 .ds {
-  --ds-font: var(--font-ds-sans), "Segoe UI", system-ui, sans-serif;
-  --ds-mono: var(--font-ds-mono), ui-monospace, Consolas, monospace;
+  --ds-font: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --ds-mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
 
   --ds-bg: #f4f6f7;
   --ds-surface: #ffffff;
