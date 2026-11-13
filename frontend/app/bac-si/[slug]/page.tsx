@@ -82,7 +82,7 @@ export default async function PublicDoctorDetailPage({ params }: PageProps) {
   ]);
 
   return (
-    <main className="min-h-screen bg-[linear-gradient(180deg,#f1faf7_0%,var(--public-canvas)_46%,#ffffff_100%)] text-[var(--public-ink)]">
+    <main className="min-h-screen bg-[var(--public-canvas)] text-[var(--public-ink)]">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdString(jsonLd) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdString(breadcrumbJsonLd) }} />
       <section className="ui-container py-5 sm:py-7">

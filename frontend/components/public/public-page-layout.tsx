@@ -29,16 +29,11 @@ export function PublicPageHero({
   children?: ReactNode;
 }) {
   return (
-    <section className="border-b border-[var(--border-soft)] bg-[radial-gradient(circle_at_top_right,rgba(46,159,130,0.12),transparent_32%),linear-gradient(180deg,#f4fbf9_0%,#ffffff_100%)]">
+    <section className="border-b border-[var(--public-border)] bg-[var(--public-surface)]">
       <div className="ui-container py-5 sm:py-7">
         <PublicBreadcrumb current={eyebrow} />
-        <div className="max-w-3xl">
-          <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--primary)] sm:text-sm">{eyebrow}</p>
-          <h1 className="mt-1.5 text-[1.75rem] font-bold leading-[1.18] tracking-[-0.025em] text-[var(--foreground)] sm:text-[2rem] lg:text-4xl">
-            {title}
-          </h1>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--text-muted)] sm:text-base">{description}</p>
-        </div>
+        <h1 className="text-2xl font-bold sm:text-3xl">{title}</h1>
+        <p className="mt-2 max-w-2xl text-base leading-7 text-[var(--public-text-soft)]">{description}</p>
         {children ? <div className="mt-5">{children}</div> : null}
       </div>
     </section>

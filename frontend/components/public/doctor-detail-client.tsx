@@ -2,15 +2,15 @@
 
 /* eslint-disable @next/next/no-img-element */
 
-import { ArrowRight, CalendarDays, Clock, Loader2, Star, Stethoscope } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useState } from "react";
-import { VietnamDateInput } from "@/components/ui/vietnam-date-input";
+import { useState } from "react";
+import { Loader2, Star } from "lucide-react";
+import { DayStrip } from "@/features/booking/components/day-strip";
+import { groupSlotsByPeriod } from "@/features/booking/dates";
+import { doctorDisplayName, doctorInitial } from "@/lib/doctor";
+import { formatCurrency } from "@/lib/format";
 import { type PublicSlot, usePublicAvailableSlots } from "@/lib/public-slots-query";
 import type { DoctorProfile } from "@/lib/types";
-
-import { formatCurrency } from "@/lib/format";
-import { doctorDisplayName } from "@/lib/doctor";
 export type { PublicSlot };
 
 type DoctorDetailClientProps = {
@@ -19,143 +19,108 @@ type DoctorDetailClientProps = {
   initialSlots: PublicSlot[];
 };
 
-
-const firstLetter = (value: string) => value.trim().slice(0, 1).toUpperCase() || "B";
 const formatTime = (value: string) => value.slice(0, 5);
-const toDateInputValue = (value: string) => value.match(/^(\d{4}-\d{2}-\d{2})/)?.[1] || value;
-const formatReviewDate = (value: string) => new Intl.DateTimeFormat("vi-VN", { month: "long", year: "numeric" }).format(new Date(value));
+const dateOnly = (value: string) => value.match(/^(\d{4}-\d{2}-\d{2})/)?.[1] || value;
+const formatMonthYear = (value: string) => new Intl.DateTimeFormat("vi-VN", { month: "long", year: "numeric" }).format(new Date(value));
 
 export function DoctorDetailClient({ doctor, initialDate, initialSlots }: DoctorDetailClientProps) {
-  const [slots, setSlots] = useState<PublicSlot[]>(initialSlots);
   const [date, setDate] = useState(initialDate);
-  const [slotError, setSlotError] = useState("");
+  const query = usePublicAvailableSlots({ doctorId: doctor.id, date });
+  // Ngày đầu tiên dùng khung giờ máy chủ đã tải sẵn để không phải chờ.
+  const slots = query.data ?? (date === initialDate ? initialSlots : []);
+  const loading = query.isLoading && !slots.length;
+  const groups = groupSlotsByPeriod(slots);
   const bookingUrl = `/dat-lich?departmentId=${doctor.department.id}&doctorId=${doctor.id}`;
-  const slotsQuery = usePublicAvailableSlots({ doctorId: doctor.id, date });
-  const loadingSlots = slotsQuery.isLoading || (slotsQuery.isFetching && !slots.length);
-
-  useEffect(() => {
-    if (!slotsQuery.data) return;
-    const timeoutId = window.setTimeout(() => {
-      setSlots(slotsQuery.data);
-      setSlotError("");
-    }, 0);
-    return () => window.clearTimeout(timeoutId);
-  }, [slotsQuery.data]);
-
-  useEffect(() => {
-    if (!slotsQuery.error) return;
-    const timeoutId = window.setTimeout(() => {
-      setSlots([]);
-      setSlotError(slotsQuery.error instanceof Error ? slotsQuery.error.message : "Không tải được khung giờ khám");
-    }, 0);
-    return () => window.clearTimeout(timeoutId);
-  }, [slotsQuery.error]);
-  const getSlotBookingUrl = (slot: PublicSlot) =>
-    `/dat-lich?departmentId=${doctor.department.id}&doctorId=${doctor.id}&date=${toDateInputValue(slot.date)}&timeSlotId=${slot.id}`;
+  const summary = doctor.reviewSummary;
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_380px]">
-      <article className="rounded-3xl border border-[var(--public-border)] bg-white p-4 shadow-[var(--public-shadow-soft)] sm:p-6">
-        <div className="flex items-start gap-4 sm:gap-5">
+    <div className="grid grid-cols-[minmax(0,1fr)] gap-6 lg:grid-cols-[minmax(0,1fr)_22rem] lg:gap-8">
+      <article className="min-w-0">
+        <header className="flex items-start gap-4">
           {doctor.user.avatar ? (
-            <img src={doctor.user.avatar} alt={doctor.user.fullName} decoding="async" fetchPriority="high" className="h-24 w-24 shrink-0 rounded-2xl border border-[var(--public-border)] object-cover shadow-sm ring-4 ring-[var(--public-primary-soft)] sm:h-36 sm:w-36" />
+            <img src={doctor.user.avatar} alt={doctor.user.fullName} decoding="async" fetchPriority="high" className="h-24 w-24 shrink-0 rounded-full object-cover" />
           ) : (
-            <div className="flex h-24 w-24 shrink-0 items-center justify-center rounded-2xl border border-[var(--public-border)] bg-[var(--public-primary-soft)] text-3xl font-semibold text-[var(--public-primary)] shadow-sm sm:h-36 sm:w-36 sm:text-5xl">
-              {firstLetter(doctor.user.fullName)}
-            </div>
+            <span className="flex h-24 w-24 shrink-0 items-center justify-center rounded-full bg-[var(--public-surface-muted)] text-4xl font-semibold text-[var(--public-primary-dark)]" aria-hidden="true">{doctorInitial(doctor.user.fullName)}</span>
           )}
           <div className="min-w-0">
-            <p className="text-xs font-semibold uppercase tracking-wide text-[var(--public-primary)] sm:text-sm">{doctor.department.name}</p>
-            <h1 className="mt-1 text-xl font-semibold leading-tight sm:mt-2 sm:text-3xl lg:text-4xl">{doctorDisplayName(doctor)}</h1>
-            <div className="mt-3 flex flex-wrap gap-2 text-xs text-[var(--public-muted)] sm:mt-4 sm:text-sm">
-              <span className="inline-flex items-center gap-2 rounded-xl border border-[var(--public-border)] bg-[var(--public-surface-muted)] px-3 py-2">
-                <Stethoscope className="h-4 w-4 text-[var(--public-primary)]" />
-                {doctor.specialization || "Khám chuyên khoa"}
-              </span>
-              <span className="inline-flex items-center gap-2 rounded-xl border border-[var(--public-border)] bg-[var(--public-surface-muted)] px-3 py-2">
-                <Clock className="h-4 w-4 text-[var(--public-primary)]" />
-                {doctor.experience || 0} năm kinh nghiệm
-              </span>
-            </div>
-            <p className="mt-3 text-xl font-bold text-[var(--public-primary-dark)] sm:mt-5 sm:text-2xl">{formatCurrency(doctor.consultationFee)}</p>
+            <h1 className="text-2xl font-bold sm:text-3xl">{doctorDisplayName(doctor)}</h1>
+            <p className="mt-1 text-base text-[var(--public-text-soft)]">{doctor.department.name}{doctor.specialization ? ` · ${doctor.specialization}` : ""}</p>
+            <p className="mt-0.5 text-sm text-[var(--public-muted)]">{doctor.experience || 0} năm kinh nghiệm</p>
+            <p className="mt-2 text-xl font-bold tabular-nums text-[var(--public-primary-dark)]">{formatCurrency(doctor.consultationFee)} <span className="text-sm font-normal text-[var(--public-muted)]">phí khám</span></p>
           </div>
-        </div>
+        </header>
 
-        <div className="mt-5 border-t border-[#e5ebf3] pt-4 sm:mt-6 sm:pt-5">
-          <h2 className="text-lg font-semibold">Giới thiệu</h2>
-          <p className="mt-3 text-sm leading-7 text-[var(--public-muted)]">
-            {doctor.bio || "Bác sĩ đang tiếp nhận lịch khám và tư vấn theo chuyên khoa. Bạn có thể chọn ngày để xem khung giờ trống trước khi đặt lịch."}
+        <section className="mt-6 border-t border-[var(--public-divider)] pt-5">
+          <h2 className="text-lg font-bold">Giới thiệu</h2>
+          <p className="mt-2 text-base leading-7 text-[var(--public-text-soft)]">
+            {doctor.bio || "Bác sĩ đang tiếp nhận lịch khám và tư vấn theo chuyên khoa. Chọn ngày để xem khung giờ còn trống."}
           </p>
-        </div>
+        </section>
 
-        {doctor.reviewSummary?.count ? (
-          <section className="mt-6 border-t border-[#e5ebf3] pt-5">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <h2 className="text-lg font-semibold">Đánh giá từ người khám</h2>
-                <p className="mt-1 text-sm text-[#667892]">Các phản hồi đã được bệnh viện xác nhận.</p>
-              </div>
-              <div className="inline-flex items-center gap-2 rounded-md bg-[#fff8eb] px-3 py-2 text-[#8a5a00]">
-                <Star className="h-4 w-4 fill-current" />
-                <span className="font-semibold">{doctor.reviewSummary.averageRating.toFixed(1)}/5</span>
-                <span className="text-sm">({doctor.reviewSummary.count})</span>
-              </div>
+        {summary?.count ? (
+          <section className="mt-6 border-t border-[var(--public-divider)] pt-5">
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+              <h2 className="text-lg font-bold">Đánh giá từ người khám</h2>
+              <p className="inline-flex items-center gap-1.5 text-base font-semibold">
+                <Star className="h-4 w-4 fill-[var(--public-warning)] text-[var(--public-warning)]" aria-hidden="true" />
+                {summary.averageRating.toFixed(1)} <span className="font-normal text-[var(--public-muted)]">({summary.count} đánh giá)</span>
+              </p>
             </div>
-            <div className="mt-4 grid gap-3 sm:grid-cols-3">
-              {[
-                ["Bác sĩ", doctor.reviewSummary.averageDoctorRating],
-                ["Dịch vụ", doctor.reviewSummary.averageServiceRating],
-                ["Cơ sở vật chất", doctor.reviewSummary.averageFacilityRating],
-              ].map(([label, value]) => <div key={label as string} className="rounded-md border border-[#e5ebf3] bg-[#f8fafc] px-3 py-2"><p className="text-xs text-[#667892]">{label as string}</p><p className="mt-1 text-sm font-semibold text-[#172033]">{Number(value).toFixed(1)} / 5</p></div>)}
-            </div>
-            {doctor.publicReviews?.length ? <div className="mt-4 grid gap-3 sm:grid-cols-2">{doctor.publicReviews.map((review) => <article key={review.id} className="rounded-md border border-[#e5ebf3] bg-white p-4"><div className="flex items-center justify-between gap-2"><span className="inline-flex items-center gap-1 text-sm font-semibold text-[#8a5a00]"><Star className="h-4 w-4 fill-current" /> {review.rating.toFixed(1)}</span><span className="text-xs text-[#667892]">Người khám · {formatReviewDate(review.createdAt)}</span></div><p className="mt-3 text-sm leading-6 text-[#42526b]">{review.comment}</p></article>)}</div> : null}
+            <dl className="mt-3 grid grid-cols-3 divide-x divide-[var(--public-divider)] rounded-lg border border-[var(--public-border)] text-center">
+              {([["Bác sĩ", summary.averageDoctorRating], ["Dịch vụ", summary.averageServiceRating], ["Cơ sở vật chất", summary.averageFacilityRating]] as const).map(([label, value]) => (
+                <div key={label} className="px-2 py-2.5">
+                  <dt className="text-xs text-[var(--public-muted)]">{label}</dt>
+                  <dd className="text-lg font-bold tabular-nums">{value.toFixed(1)}</dd>
+                </div>
+              ))}
+            </dl>
+            {doctor.publicReviews?.length ? (
+              <ul className="mt-3 divide-y divide-[var(--public-divider)]">
+                {doctor.publicReviews.map((review) => (
+                  <li key={review.id} className="py-3">
+                    <p className="text-sm text-[var(--public-muted)]"><strong className="font-semibold tabular-nums text-[var(--public-ink)]">{review.rating.toFixed(1)}</strong> sao · {formatMonthYear(review.createdAt)}</p>
+                    {review.comment ? <p className="mt-1 text-base leading-7 text-[var(--public-text-soft)]">{review.comment}</p> : null}
+                  </li>
+                ))}
+              </ul>
+            ) : null}
           </section>
         ) : null}
       </article>
 
-      <aside className="h-fit rounded-3xl border border-[var(--public-border)] bg-white p-5 shadow-[var(--public-shadow-soft)] lg:sticky lg:top-28">
-        <div className="flex items-center gap-2 text-sm font-semibold text-[var(--public-ink)]">
-          <CalendarDays className="h-4 w-4 text-[var(--public-primary)]" />
-          Lịch trống theo ngày
+      <aside aria-label="Đặt lịch với bác sĩ" className="h-fit rounded-xl border border-[var(--public-border)] bg-[var(--public-surface)] p-4 lg:sticky lg:top-28">
+        <h2 className="text-lg font-bold">Lịch trống</h2>
+        <div className="mt-3">
+          <DayStrip today={initialDate} value={date} onChange={setDate} />
         </div>
-        <VietnamDateInput
-          min={initialDate}
-          value={date}
-          onChange={(value) => {
-            setDate(value);
-            setSlotError("");
-          }}
-          ariaLabel="Ngày khám"
-          className="ui-field mt-4 w-full px-3 py-2.5 text-sm"
-        />
 
-        {slotError ? <div className="mt-3 rounded-md border border-[#f2b8b5] bg-[#fff3f2] px-3 py-2 text-sm text-[#b3261e]">{slotError}</div> : null}
-
-        <div className="mt-4 min-h-20 space-y-2">
-          {loadingSlots ? (
-            <div className="flex items-center gap-2 text-sm text-[var(--public-muted)]">
-              <Loader2 className="h-4 w-4 animate-spin" />
-              Đang tải khung giờ
+        <div className="mt-4 min-h-16" aria-live="polite">
+          {loading ? (
+            <p className="flex items-center gap-2 text-sm text-[var(--public-muted)]" role="status"><Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />Đang tải khung giờ</p>
+          ) : query.isError && !slots.length ? (
+            <p role="alert" className="text-sm text-[var(--public-danger)]">Không tải được khung giờ. Thử lại sau.</p>
+          ) : groups.length ? (
+            <div className="space-y-3">
+              {groups.map((group) => (
+                <div key={group.key}>
+                  <p className="text-xs font-semibold text-[var(--public-muted)]">{group.label}</p>
+                  <div className="mt-1.5 grid grid-cols-3 gap-2">
+                    {group.slots.map((slot) => (
+                      <Link key={slot.id} href={`${bookingUrl}&date=${dateOnly(slot.date)}&timeSlotId=${slot.id}`} className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--public-border)] text-sm font-semibold tabular-nums hover:border-[var(--public-primary)] hover:bg-[var(--public-primary-soft)]">
+                        {formatTime(slot.startTime)}
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              ))}
             </div>
-          ) : slots.length ? slots.map((slot) => (
-            <Link
-              key={slot.id}
-              href={getSlotBookingUrl(slot)}
-              className="flex items-center justify-between rounded-xl border border-[var(--public-border)] bg-white px-3 py-2.5 text-sm font-semibold text-[var(--public-text-soft)] transition hover:-translate-y-0.5 hover:border-[var(--public-primary)] hover:bg-[var(--public-primary-soft)] hover:text-[var(--public-primary-dark)]"
-            >
-              <span>{formatTime(slot.startTime)} - {formatTime(slot.endTime)}</span>
-              <span className="inline-flex items-center gap-1 text-[var(--public-primary)]">Chọn <ArrowRight className="h-3.5 w-3.5" /></span>
-            </Link>
-          )) : (
-            <div className="rounded-md border border-dashed border-[#dce3ee] px-3 py-4 text-sm text-[#667892]">
-              Chưa có khung giờ trống trong ngày này.
-            </div>
+          ) : (
+            <p className="rounded-lg border border-dashed border-[var(--public-border)] px-3 py-3 text-sm text-[var(--public-muted)]">Ngày này chưa có khung giờ trống. Chọn ngày khác.</p>
           )}
         </div>
 
-        <Link href={bookingUrl} className="public-button-primary mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold">
+        <Link href={bookingUrl} className="public-button-primary mt-4 inline-flex min-h-12 w-full items-center justify-center rounded-lg px-4 text-base font-semibold">
           Đặt lịch với bác sĩ này
-          <ArrowRight className="h-4 w-4" />
         </Link>
       </aside>
     </div>

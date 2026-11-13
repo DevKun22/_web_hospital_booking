@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import { DoctorCatalog } from "@/features/doctors/components/doctor-catalog";
-import { DoctorSkeleton } from "@/features/doctors/components/doctor-skeleton";
+import { RowSkeleton } from "@/components/public/catalog-parts";
 import { buildCollectionPageJsonLd, jsonLdString } from "@/lib/seo";
 
 const pageJsonLd = buildCollectionPageJsonLd({
@@ -16,10 +16,8 @@ export default function PublicDoctorsPage() {
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdString(pageJsonLd) }} />
       <Suspense
         fallback={
-          <div className="ui-container grid gap-5 py-10 md:grid-cols-2 xl:grid-cols-3" aria-busy="true">
-            {Array.from({ length: 6 }).map((_, index) => (
-              <DoctorSkeleton key={index} />
-            ))}
+          <div className="ui-container py-8" aria-busy="true">
+            <RowSkeleton rows={4} />
           </div>
         }
       >
