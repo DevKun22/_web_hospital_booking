@@ -10,6 +10,7 @@ import { type PublicSlot, usePublicAvailableSlots } from "@/lib/public-slots-que
 import type { DoctorProfile } from "@/lib/types";
 
 import { formatCurrency } from "@/lib/format";
+import { doctorDisplayName } from "@/lib/doctor";
 export type { PublicSlot };
 
 type DoctorDetailClientProps = {
@@ -19,7 +20,6 @@ type DoctorDetailClientProps = {
 };
 
 
-const doctorName = (doctor: DoctorProfile) => [doctor.title, doctor.user.fullName].filter(Boolean).join(" ");
 const firstLetter = (value: string) => value.trim().slice(0, 1).toUpperCase() || "B";
 const formatTime = (value: string) => value.slice(0, 5);
 const toDateInputValue = (value: string) => value.match(/^(\d{4}-\d{2}-\d{2})/)?.[1] || value;
@@ -66,7 +66,7 @@ export function DoctorDetailClient({ doctor, initialDate, initialSlots }: Doctor
           )}
           <div className="min-w-0">
             <p className="text-xs font-semibold uppercase tracking-wide text-[var(--public-primary)] sm:text-sm">{doctor.department.name}</p>
-            <h1 className="mt-1 text-xl font-semibold leading-tight sm:mt-2 sm:text-3xl lg:text-4xl">{doctorName(doctor)}</h1>
+            <h1 className="mt-1 text-xl font-semibold leading-tight sm:mt-2 sm:text-3xl lg:text-4xl">{doctorDisplayName(doctor)}</h1>
             <div className="mt-3 flex flex-wrap gap-2 text-xs text-[var(--public-muted)] sm:mt-4 sm:text-sm">
               <span className="inline-flex items-center gap-2 rounded-xl border border-[var(--public-border)] bg-[var(--public-surface-muted)] px-3 py-2">
                 <Stethoscope className="h-4 w-4 text-[var(--public-primary)]" />

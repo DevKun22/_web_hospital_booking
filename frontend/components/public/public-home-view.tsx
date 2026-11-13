@@ -36,6 +36,7 @@ import type { PublicHomeData } from "./public-home-types";
 
 import { formatCurrency } from "@/lib/format";
 import { BRAND_NAME } from "@/lib/brand";
+import { doctorDisplayName } from "@/lib/doctor";
 type PublicHomeViewProps = {
   data: PublicHomeData;
   loading: boolean;
@@ -59,8 +60,6 @@ const formatShortAppointmentDate = (value: string) =>
     timeZone: "UTC",
   }).format(new Date(value));
 
-const doctorName = (doctor: DoctorProfile) =>
-  [doctor.title, doctor.user.fullName].filter(Boolean).join(" ");
 
 const firstLetter = (value: string) =>
   value.trim().slice(0, 1).toUpperCase() || "H";
@@ -637,7 +636,7 @@ function DoctorSection({
               <ScrollReveal key={doctor.id} delay={index * 70}>
                 <article className="ui-lift-card flex h-full flex-col rounded-2xl border border-[var(--public-border)] bg-white p-4 shadow-sm sm:p-5">
                   <div className="flex items-start gap-3">
-                    <Link href={getPublicDoctorPath(doctor)} className="relative shrink-0 rounded-xl focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[var(--public-primary-soft)]" aria-label={`Xem hồ sơ ${doctorName(doctor)}`}>
+                    <Link href={getPublicDoctorPath(doctor)} className="relative shrink-0 rounded-xl focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[var(--public-primary-soft)]" aria-label={`Xem hồ sơ ${doctorDisplayName(doctor)}`}>
                       {doctor.user.avatar ? (
                         <Image
                           src={doctor.user.avatar}
@@ -666,7 +665,7 @@ function DoctorSection({
                         <p className="text-xs font-medium text-[var(--public-muted)]">Chưa có đánh giá công khai</p>
                       )}
                       <h3 className="mt-1 line-clamp-1 text-base font-bold leading-6 text-[var(--public-ink)] sm:text-lg">
-                        <Link href={getPublicDoctorPath(doctor)} className="transition hover:text-[var(--public-primary)]">{doctorName(doctor)}</Link>
+                        <Link href={getPublicDoctorPath(doctor)} className="transition hover:text-[var(--public-primary)]">{doctorDisplayName(doctor)}</Link>
                       </h3>
                       <p className="truncate text-xs font-semibold text-[var(--public-primary)] sm:text-sm">{doctor.department.name}</p>
                       <p className="mt-0.5 truncate text-xs text-[var(--public-muted)]">
