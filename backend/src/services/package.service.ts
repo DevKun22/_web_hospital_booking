@@ -2,6 +2,7 @@ import { Prisma } from "../../generated/prisma/client.js";
 import { prisma } from "../config/prisma.js";
 import { AppError } from "../utils/appError.js";
 import { createSlug } from "../utils/slug.js";
+import MediaAssetService from "./mediaAsset.service.js";
 import { publicCompletePackageWhere } from "./publicCatalogEligibility.js";
 
 type PackageItemInput = {
@@ -21,6 +22,8 @@ type CreatePackageInput = {
   serviceFee?: number;
   summary?: string | null;
   note?: string | null;
+  image?: string | null;
+  imageAssetId?: string;
   isPopular?: boolean;
   isBHYTSupport?: boolean;
   isActive?: boolean;
@@ -36,6 +39,8 @@ type UpdatePackageInput = {
   serviceFee?: number;
   summary?: string | null;
   note?: string | null;
+  image?: string | null;
+  imageAssetId?: string | null;
   isPopular?: boolean;
   isBHYTSupport?: boolean;
   isActive?: boolean;
@@ -59,6 +64,7 @@ const packageSelect = {
   serviceFee: true,
   summary: true,
   note: true,
+  image: true,
   isPopular: true,
   isBHYTSupport: true,
   isActive: true,
@@ -92,6 +98,7 @@ const publicPackageSelect = {
   serviceFee: true,
   summary: true,
   note: true,
+  image: true,
   isPopular: true,
   isBHYTSupport: true,
   items: {
@@ -204,6 +211,9 @@ class PackageService {
 
     await this.ensureUniquePackage({ name: input.name, slug });
     await this.ensureDepartmentExists(input.departmentId);
+    const imageAsset = input.imageAssetId
+      ? await MediaAssetService.getUsableAsset(input.imageAssetId)
+      : null;
 
     const packageItem = await prisma.package.create({
       data: {
@@ -215,6 +225,7 @@ class PackageService {
         serviceFee: input.serviceFee ?? 0,
         summary: normalizeOptionalString(input.summary),
         note: normalizeOptionalString(input.note),
+        image: imageAsset?.url || normalizeOptionalString(input.image),
         isPopular: input.isPopular ?? false,
         isBHYTSupport: input.isBHYTSupport ?? false,
         isActive: input.isActive ?? true,
@@ -232,6 +243,10 @@ class PackageService {
       },
       select: packageSelect,
     });
+
+    if (imageAsset) {
+      await MediaAssetService.attachAsset(imageAsset.id, "PACKAGE", packageItem.id);
+    }
 
     return withFinalPrice(packageItem);
   }
@@ -258,6 +273,13 @@ class PackageService {
 
     await this.ensureDepartmentExists(input.departmentId);
 
+    const imageAsset =
+      input.imageAssetId === null
+        ? null
+        : input.imageAssetId
+          ? await MediaAssetService.attachAsset(input.imageAssetId, "PACKAGE", id)
+          : undefined;
+
     const packageItem = await prisma.package.update({
       where: { id },
       data: {
@@ -269,12 +291,22 @@ class PackageService {
         serviceFee: input.serviceFee,
         summary: normalizeOptionalString(input.summary),
         note: normalizeOptionalString(input.note),
+        image:
+          input.imageAssetId === null
+            ? null
+            : imageAsset
+              ? imageAsset.url
+              : normalizeOptionalString(input.image),
         isPopular: input.isPopular,
         isBHYTSupport: input.isBHYTSupport,
         isActive: input.isActive,
       },
       select: packageSelect,
     });
+
+    if (imageAsset || input.imageAssetId === null) {
+      await MediaAssetService.detachOwnerAssets("PACKAGE", id, imageAsset?.id);
+    }
 
     return withFinalPrice(packageItem);
   }
