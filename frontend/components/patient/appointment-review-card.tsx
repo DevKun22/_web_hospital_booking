@@ -27,7 +27,7 @@ function StarInput({ value, onChange, label }: { value: number; onChange: (value
             onClick={() => onChange(score)}
             className="rounded-md p-1"
           >
-            <Star className={`h-6 w-6 ${score <= value ? "fill-amber-400 text-amber-400" : "text-slate-300"}`} />
+            <Star className={`h-6 w-6 ${score <= value ? "fill-[var(--public-warning)] text-[var(--public-warning)]" : "text-slate-300"}`} />
           </button>
         ))}
       </div>
@@ -49,14 +49,14 @@ export function AppointmentReviewCard({ appointmentId }: { appointmentId: string
   const isComplete = Object.values(scores).every((score) => score > 0);
 
   return (
-    <section className="rounded-3xl border border-[var(--public-border)] bg-white p-5 shadow-sm sm:p-6">
+    <section className="rounded-xl border border-[var(--public-border)] bg-white p-5 sm:p-6">
       <h2 className="text-xl font-bold">Đánh giá sau khám</h2>
       {review.isLoading ? (
         <p className="mt-4 text-sm text-[var(--public-muted)]">Đang tải...</p>
       ) : review.data ? (
         <div className="mt-4 space-y-2 text-sm">
           <p className="font-semibold">Bạn đã đánh giá {review.data.rating.toFixed(1)}/5. Cảm ơn bạn đã phản hồi.</p>
-          {review.data.comment ? <p className="rounded-2xl bg-[var(--public-surface-muted)] p-4 text-[var(--public-text-soft)]">{review.data.comment}</p> : null}
+          {review.data.comment ? <p className="rounded-lg bg-[var(--public-surface-muted)] p-4 text-[var(--public-text-soft)]">{review.data.comment}</p> : null}
         </div>
       ) : (
         <form className="mt-4 space-y-4" onSubmit={handleSubmit}>
@@ -74,9 +74,9 @@ export function AppointmentReviewCard({ appointmentId }: { appointmentId: string
             maxLength={1000}
             rows={3}
             placeholder="Chia sẻ thêm trải nghiệm của bạn (không bắt buộc)"
-            className="w-full rounded-2xl border border-[var(--public-border)] p-3 text-sm"
+            className="w-full rounded-lg border border-[var(--public-border)] p-3 text-sm"
           />
-          {submit.isError ? <p className="text-sm text-red-700">{submit.error instanceof Error ? submit.error.message : "Không thể gửi đánh giá."}</p> : null}
+          {submit.isError ? <p className="text-sm text-[var(--public-danger)]">{submit.error instanceof Error ? submit.error.message : "Không thể gửi đánh giá."}</p> : null}
           <button
             type="submit"
             disabled={!isComplete || submit.isPending}
