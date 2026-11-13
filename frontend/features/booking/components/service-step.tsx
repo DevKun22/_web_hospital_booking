@@ -1,139 +1,133 @@
-import { ChevronRight, Info, PackageCheck, Stethoscope } from "lucide-react";
-import { doctorDisplayName, doctorsFor, packagesFor, type ServiceMode } from "@/features/booking/model";
+/* eslint-disable @next/next/no-img-element */
+import { doctorsFor, packagesFor, type ServiceMode } from "@/features/booking/model";
 import type { BookingFlow } from "@/features/booking/use-booking-flow";
-import { StepFrame } from "@/features/booking/components/step-frame";
+import { Field, GroupLabel, INPUT_CLASS, StepFrame } from "@/features/booking/components/step-frame";
+import { doctorDisplayName, doctorInitial } from "@/lib/doctor";
 import { formatCurrency } from "@/lib/format";
 
-const MODES: { value: Exclude<ServiceMode, "">; label: string; icon: typeof Stethoscope }[] = [
-  { value: "DOCTOR_ONLY", label: "Khám theo bác sĩ", icon: Stethoscope },
-  { value: "PACKAGE", label: "Chọn gói khám", icon: PackageCheck },
+const MODES: { value: Exclude<ServiceMode, "">; label: string }[] = [
+  { value: "DOCTOR_ONLY", label: "Khám theo bác sĩ" },
+  { value: "PACKAGE", label: "Khám theo gói" },
 ];
 
 export function ServiceStep({ flow, loading }: { flow: BookingFlow; loading: boolean }) {
-  const { state, dispatch, catalog, actions } = flow;
+  const { state, dispatch, catalog } = flow;
   const { selection } = state;
   const doctors = doctorsFor(catalog, selection.departmentId);
   const packages = packagesFor(catalog, selection.departmentId);
   const change = (patch: Partial<typeof selection>) => dispatch({ type: "selection_changed", patch });
+  const needsPackage = selection.serviceMode === "PACKAGE" && !selection.packageId;
 
   return (
-    <StepFrame number={1} title="Chọn chuyên khoa và dịch vụ">
-      <label className="block">
-        <span className="text-sm font-semibold text-[var(--public-ink)]">
-          Chuyên khoa tiếp nhận <span className="text-[var(--public-danger)]">*</span>
-        </span>
+    <StepFrame title="Bạn muốn khám gì?" description="Chọn chuyên khoa, hình thức khám và bác sĩ tiếp nhận.">
+      <Field label="Chuyên khoa" required>
         <select
           value={selection.departmentId}
           onChange={(event) => {
             change({ departmentId: event.target.value, doctorId: "", packageId: "", serviceMode: "" });
             dispatch({ type: "draft_changed", patch: { timeSlotId: "" } });
           }}
-          className="ui-field mt-2 w-full px-3 py-3 text-base sm:text-sm"
+          className={INPUT_CLASS}
           disabled={loading}
         >
-          <option value="">Chọn chuyên khoa phù hợp</option>
+          <option value="">Chọn chuyên khoa</option>
           {catalog.departments.map((item) => (
             <option key={item.id} value={item.id}>{item.name}</option>
           ))}
         </select>
-      </label>
+      </Field>
 
-      <fieldset className="mt-5" disabled={loading || !selection.departmentId}>
-        <legend className="text-sm font-semibold text-[var(--public-ink)]">
-          Phương thức chọn khám <span className="text-[var(--public-danger)]">*</span>
-        </legend>
-        <div className="mt-2 grid gap-2 rounded-xl border border-[var(--public-border)] bg-[var(--public-surface-muted)] p-1.5 sm:grid-cols-2">
-          {MODES.map(({ value, label, icon: Icon }) => {
-            const active = selection.serviceMode === value;
-            return (
-              <button
-                key={value}
-                type="button"
-                onClick={() => change({ serviceMode: value, packageId: "" })}
-                aria-pressed={active}
-                className={`inline-flex min-h-12 items-center justify-center gap-2 rounded-lg px-3 text-sm font-bold transition ${
-                  active
-                    ? "border border-[var(--public-border)] bg-white text-[var(--public-primary-dark)] shadow-sm"
-                    : "text-[var(--public-text-soft)] hover:bg-white/70 hover:text-[var(--public-primary)]"
-                }`}
-              >
-                <Icon className="h-4 w-4" aria-hidden="true" />
-                {label}
-              </button>
-            );
-          })}
-        </div>
-      </fieldset>
-
-      {selection.departmentId && !selection.serviceMode ? (
-        <div className="mt-3 flex items-start gap-2 rounded-xl border border-[var(--public-border)] bg-[var(--public-primary-soft)] px-3 py-2.5 text-sm text-[var(--public-primary-dark)]">
-          <Info className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
-          <p>Chọn khám theo bác sĩ hoặc chọn một gói khám đang có trong hệ thống để tiếp tục.</p>
-        </div>
+      {selection.departmentId ? (
+        <fieldset>
+          <GroupLabel>Hình thức khám</GroupLabel>
+          <div className="mt-1.5 grid grid-cols-2 rounded-lg border border-[var(--public-border)] p-1" role="group">
+            {MODES.map(({ value, label }) => {
+              const active = selection.serviceMode === value;
+              return (
+                <button
+                  key={value}
+                  type="button"
+                  aria-pressed={active}
+                  onClick={() => change({ serviceMode: value, packageId: "" })}
+                  className={`min-h-11 rounded-md px-3 text-sm font-semibold transition-colors ${
+                    active ? "bg-[var(--public-primary)] text-white" : "text-[var(--public-text-soft)] hover:bg-[var(--public-surface-muted)]"
+                  }`}
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+        </fieldset>
       ) : null}
 
-      {selection.serviceMode ? (
-        <div className="mt-5 grid gap-4 md:grid-cols-2">
+      {selection.serviceMode === "PACKAGE" ? (
+        <fieldset>
+          <GroupLabel>Gói khám</GroupLabel>
+          <div className="mt-1.5 overflow-hidden rounded-lg border border-[var(--public-border)]" role="radiogroup" aria-label="Gói khám">
+            {packages.length ? (
+              packages.map((item) => (
+                <label key={item.id} className="choice-row">
+                  <input type="radio" name="package" checked={selection.packageId === item.id} onChange={() => change({ packageId: item.id })} />
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-sm font-semibold leading-5 text-[var(--public-ink)]">{item.name}</span>
+                    {item.summary ? <span className="mt-0.5 line-clamp-2 block text-xs leading-5 text-[var(--public-muted)]">{item.summary}</span> : null}
+                  </span>
+                  <span className="shrink-0 text-sm font-semibold tabular-nums text-[var(--public-primary-dark)]">{formatCurrency(item.finalPrice)}</span>
+                  <span className="choice-row__mark" aria-hidden="true" />
+                </label>
+              ))
+            ) : (
+              <p className="px-3 py-4 text-sm text-[var(--public-muted)]">Chuyên khoa này chưa có gói khám.</p>
+            )}
+          </div>
+        </fieldset>
+      ) : null}
+
+      {selection.serviceMode && !needsPackage ? (
+        <fieldset>
+          <GroupLabel>{selection.serviceMode === "PACKAGE" ? "Bác sĩ tiếp nhận gói" : "Bác sĩ"}</GroupLabel>
+          <div className="mt-1.5 overflow-hidden rounded-lg border border-[var(--public-border)]" role="radiogroup" aria-label="Bác sĩ">
+            {doctors.length ? (
+              doctors.map((item) => (
+                <label key={item.id} className="choice-row">
+                  <input
+                    type="radio"
+                    name="doctor"
+                    checked={selection.doctorId === item.id}
+                    onChange={() => {
+                      change({ doctorId: item.id });
+                      dispatch({ type: "draft_changed", patch: { timeSlotId: "" } });
+                    }}
+                  />
+                  {item.user.avatar ? (
+                    <img src={item.user.avatar} alt="" loading="lazy" className="h-10 w-10 shrink-0 rounded-full object-cover" />
+                  ) : (
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[var(--public-surface-muted)] text-sm font-bold text-[var(--public-primary-dark)]" aria-hidden="true">
+                      {doctorInitial(item.user.fullName)}
+                    </span>
+                  )}
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-sm font-semibold leading-5 text-[var(--public-ink)]">{doctorDisplayName(item)}</span>
+                    <span className="mt-0.5 block truncate text-xs leading-5 text-[var(--public-muted)]">
+                      {[item.specialization, item.experience ? `${item.experience} năm kinh nghiệm` : ""].filter(Boolean).join(" · ") || item.department.name}
+                    </span>
+                  </span>
+                  {selection.serviceMode === "DOCTOR_ONLY" ? (
+                    <span className="shrink-0 text-sm font-semibold tabular-nums text-[var(--public-primary-dark)]">{formatCurrency(item.consultationFee)}</span>
+                  ) : null}
+                  <span className="choice-row__mark" aria-hidden="true" />
+                </label>
+              ))
+            ) : (
+              <p className="px-3 py-4 text-sm text-[var(--public-muted)]">Chuyên khoa này chưa có bác sĩ nhận lịch.</p>
+            )}
+          </div>
           {selection.serviceMode === "PACKAGE" ? (
-            <label className="block">
-              <span className="text-sm font-semibold text-[var(--public-ink)]">
-                Gói khám <span className="text-[var(--public-danger)]">*</span>
-              </span>
-              <select
-                value={selection.packageId}
-                onChange={(event) => change({ packageId: event.target.value })}
-                className="ui-field mt-2 w-full px-3 py-3 text-base sm:text-sm"
-              >
-                <option value="">Chọn gói khám</option>
-                {packages.map((item) => (
-                  <option key={item.id} value={item.id}>{item.name} · {formatCurrency(item.finalPrice)}</option>
-                ))}
-              </select>
-            </label>
-          ) : (
-            <div className="rounded-xl border border-[var(--public-border)] bg-[var(--public-primary-soft)] px-4 py-3 text-sm leading-6 text-[var(--public-primary-dark)]">
-              Phí dự kiến sẽ được tính theo bác sĩ bạn chọn.
-            </div>
-          )}
-          <label className="block">
-            <span className="text-sm font-semibold text-[var(--public-ink)]">
-              Bác sĩ tiếp nhận <span className="text-[var(--public-danger)]">*</span>
-              {selection.serviceMode === "PACKAGE" ? (
-                <span className="ml-1 font-normal text-[var(--public-muted)]">(không tính phí khám riêng)</span>
-              ) : null}
-            </span>
-            <select
-              value={selection.doctorId}
-              onChange={(event) => {
-                change({ doctorId: event.target.value });
-                dispatch({ type: "draft_changed", patch: { timeSlotId: "" } });
-              }}
-              className="ui-field mt-2 w-full px-3 py-3 text-base sm:text-sm"
-              disabled={selection.serviceMode === "PACKAGE" && !selection.packageId}
-            >
-              <option value="">Chọn bác sĩ</option>
-              {doctors.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {doctorDisplayName(item)}
-                  {selection.serviceMode === "DOCTOR_ONLY" ? ` · ${formatCurrency(item.consultationFee)}` : ""}
-                </option>
-              ))}
-            </select>
-            {selection.serviceMode === "PACKAGE" ? (
-              <span className="mt-1.5 block text-xs leading-5 text-[var(--public-muted)]">
-                Bác sĩ được chọn để tiếp nhận gói; tạm tính chỉ theo giá gói đang hiển thị.
-              </span>
-            ) : null}
-          </label>
-        </div>
+            <p className="mt-1.5 text-xs leading-5 text-[var(--public-muted)]">Khám theo gói không tính phí khám riêng của bác sĩ; giá tạm tính theo gói.</p>
+          ) : null}
+        </fieldset>
       ) : null}
-
-      <div className="mt-5 flex justify-end border-t border-[var(--public-divider)] pt-4">
-        <button type="button" onClick={actions.continueFromService} className="public-button-primary inline-flex min-h-11 items-center justify-center rounded-xl px-5 py-2.5 text-sm font-bold">
-          Tiếp tục
-          <ChevronRight className="ml-1.5 h-4 w-4" aria-hidden="true" />
-        </button>
-      </div>
     </StepFrame>
   );
 }

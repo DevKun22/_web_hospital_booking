@@ -6,8 +6,8 @@ import type { BookingFlow } from "@/features/booking/use-booking-flow";
 import { VietnamDateInput } from "@/components/ui/vietnam-date-input";
 import { getVietnamYesterdayDateInput } from "@/lib/date";
 
-const INPUT = "ui-field mt-1 w-full px-3 py-2.5 text-sm";
-const LABEL = "text-sm font-medium text-[var(--public-text-soft)]";
+const INPUT = "ui-field mt-1.5 w-full px-3 py-2.5 text-base sm:text-sm";
+const LABEL = "text-sm font-semibold text-[var(--public-ink)]";
 
 type TextFieldProps = {
   label: string;
@@ -39,26 +39,26 @@ export function HealthSection({ flow }: { flow: BookingFlow }) {
   const declared = hasHealthDeclaration(draft);
 
   return (
-    <section className="overflow-hidden rounded-2xl border border-[var(--public-border)] bg-white shadow-sm">
+    <section className="overflow-hidden rounded-xl border border-[var(--public-border)] bg-[var(--public-surface)]">
       <button
         type="button"
         onClick={() => setOpen((current) => !current)}
         aria-expanded={open}
-        className="flex min-h-16 w-full items-center justify-between gap-3 px-4 py-3 text-left transition hover:bg-[var(--public-surface-muted)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-inset focus-visible:ring-[var(--public-primary-soft)]"
+        className="flex min-h-16 w-full items-center justify-between gap-3 px-4 py-3 text-left transition-colors hover:bg-[var(--public-surface-muted)]"
       >
         <span>
-          <span className="block text-sm font-bold text-[var(--public-ink)]">Hồ sơ y tế và BHYT</span>
+          <span className="block text-sm font-bold text-[var(--public-ink)]">Hồ sơ y tế và BHYT <span className="font-normal text-[var(--public-muted)]">(không bắt buộc)</span></span>
           <span className="mt-1 block text-sm leading-6 text-[var(--public-muted)]">
             Ngày sinh, BHYT và tiền sử bệnh. Có thể nhập để hồ sơ khám đầy đủ hơn.
           </span>
         </span>
-        <span className="shrink-0 rounded-lg border border-[var(--public-border)] bg-white px-3 py-1.5 text-xs font-bold text-[var(--public-primary-dark)]">
+        <span className="shrink-0 text-sm font-semibold text-[var(--public-primary)] underline underline-offset-4">
           {open ? "Ẩn bớt" : "Nhập thêm"}
         </span>
       </button>
 
       {open ? (
-        <div className="grid gap-4 border-t border-[var(--public-divider)] bg-[var(--public-surface-muted)]/55 p-4 md:grid-cols-2">
+        <div className="grid gap-4 border-t border-[var(--public-divider)] p-4 md:grid-cols-2">
           <label className="block">
             <span className={LABEL}>Giới tính</span>
             <select value={draft.gender} onChange={(event) => set({ gender: event.target.value as BookingDraft["gender"] })} className={INPUT}>
