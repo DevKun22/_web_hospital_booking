@@ -4,13 +4,13 @@ import type { ReactNode } from "react";
 
 export function PublicBreadcrumb({ current }: { current: string }) {
   return (
-    <nav aria-label="Breadcrumb" className="mb-3 flex items-center gap-2 text-xs text-[var(--text-muted)] sm:text-sm">
-      <Link href="/" className="inline-flex items-center gap-1.5 hover:text-[var(--primary)]">
+    <nav aria-label="Breadcrumb" className="mb-3 flex items-center gap-2 text-xs text-[var(--public-muted)] sm:text-sm">
+      <Link href="/" className="inline-flex items-center gap-1.5 hover:text-[var(--public-primary)]">
         <Home className="h-3.5 w-3.5" aria-hidden="true" />
         Trang chủ
       </Link>
       <span aria-hidden="true">/</span>
-      <span className="truncate font-medium text-[var(--text-soft)]" aria-current="page">
+      <span className="truncate font-semibold text-[var(--public-ink)]" aria-current="page">
         {current}
       </span>
     </nav>
@@ -42,7 +42,7 @@ export function PublicPageHero({
 
 export function PublicEmptyState({ children }: { children: ReactNode }) {
   return (
-    <div className="rounded-xl border border-dashed border-[var(--border)] bg-[var(--public-surface)] p-10 text-center text-sm text-[var(--text-muted)]">
+    <div className="rounded-xl border border-dashed border-[var(--border)] bg-[var(--public-surface)] p-10 text-center text-sm text-[var(--public-muted)]">
       {children}
     </div>
   );
