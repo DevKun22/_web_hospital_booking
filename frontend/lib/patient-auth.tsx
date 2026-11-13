@@ -3,6 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import type { PatientUser } from "@/lib/patient-portal-types";
+import { patientApiRequest } from "@/lib/patient-portal-api";
 import { patientSessionQueryKey } from "@/lib/patient-session-client";
 
 type OtpChallenge = {
@@ -29,23 +30,8 @@ const SERVER_ACTIVITY_TOUCH_MS = 5 * 60 * 1000;
 
 const PatientAuthContext = createContext<PatientAuthContextValue | null>(null);
 
-async function patientFetch<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(path, {
-    ...init,
-    headers: {
-      Accept: "application/json",
-      ...(init?.body ? { "Content-Type": "application/json" } : {}),
-      ...(init?.headers || {}),
-    },
-  });
-  const payload = (await response.json().catch(() => null)) as
-    | { data?: T; message?: string }
-    | null;
-  if (!response.ok || !payload?.data) {
-    throw new Error(payload?.message || "Không thể kết nối máy chủ.");
-  }
-  return payload.data;
-}
+const patientFetch = async <T,>(path: string, init?: RequestInit) =>
+  (await patientApiRequest<T>(path, init)).data;
 
 export function PatientAuthProvider({ children }: { children: React.ReactNode }) {
   const queryClient = useQueryClient();
@@ -57,7 +43,7 @@ export function PatientAuthProvider({ children }: { children: React.ReactNode })
 
   const refreshUser = useCallback(async () => {
     try {
-      const profile = await patientFetch<PatientUser>("/api/nguoi-kham/phien");
+      const profile = await patientFetch<PatientUser>("/phien");
       setUser(profile);
       lastServerActivityRef.current = Date.now();
       queryClient.setQueryData(patientSessionQueryKey, profile);
@@ -78,13 +64,13 @@ export function PatientAuthProvider({ children }: { children: React.ReactNode })
 
   // identifier là số điện thoại hoặc email.
   const requestOtp = useCallback((identifier: string) =>
-    patientFetch<OtpChallenge>("/api/nguoi-kham/auth/request-otp", {
+    patientFetch<OtpChallenge>("/auth/request-otp", {
       method: "POST",
       body: JSON.stringify(identifier.includes("@") ? { email: identifier } : { phone: identifier }),
     }), []);
 
   const verifyOtp = useCallback(async (challengeId: string, otp: string) => {
-    const result = await patientFetch<{ user: PatientUser }>("/api/nguoi-kham/auth/verify-otp", {
+    const result = await patientFetch<{ user: PatientUser }>("/auth/verify-otp", {
       method: "POST",
       body: JSON.stringify({ challengeId, otp }),
     });
@@ -96,7 +82,8 @@ export function PatientAuthProvider({ children }: { children: React.ReactNode })
   }, [queryClient]);
 
   const logout = useCallback(async () => {
-    await fetch("/api/nguoi-kham/auth/logout", { method: "POST" });
+    // Dù máy chủ không phản hồi, vẫn xóa phiên phía trình duyệt.
+    await patientApiRequest("/auth/logout", { method: "POST", allowEmpty: true }).catch(() => undefined);
     setUser(null);
     setIdleWarning(false);
     queryClient.setQueryData(patientSessionQueryKey, null);

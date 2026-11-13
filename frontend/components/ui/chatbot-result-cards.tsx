@@ -12,6 +12,7 @@ import type {
   ChatbotSuggestedAction,
 } from "@/lib/types";
 
+import { formatCurrency } from "@/lib/format";
 type ChatbotResultCardsProps = {
   groups?: ChatbotResultGroup[];
   disabled?: boolean;
@@ -20,12 +21,6 @@ type ChatbotResultCardsProps = {
 
 type SlotItem = Extract<ChatbotResultItem, { type: "slot" }>;
 
-const formatCurrency = (value: number) =>
-  new Intl.NumberFormat("vi-VN", {
-    style: "currency",
-    currency: "VND",
-    maximumFractionDigits: 0,
-  }).format(value);
 
 const buildAction = (
   item: ChatbotResultItem,

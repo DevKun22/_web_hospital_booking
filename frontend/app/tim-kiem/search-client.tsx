@@ -14,6 +14,7 @@ import { HighlightText } from "@/components/public/search-highlight";
 import { usePublicSearch, type PublicSearchItem, type PublicSearchType } from "@/lib/public-search-query";
 import { useDebouncedValue } from "@/lib/use-debounced-value";
 
+import { formatOptionalCurrency } from "@/lib/format";
 const searchTabs: Array<{ value: PublicSearchType; label: string }> = [
   { value: "all", label: "Tất cả" },
   { value: "department", label: "Chuyên khoa" },
@@ -36,14 +37,6 @@ const typeIcons: Record<PublicSearchItem["type"], ReactNode> = {
   faq: <HelpCircle className="h-4 w-4" />,
 };
 
-const formatCurrency = (value?: number | null) =>
-  value
-    ? new Intl.NumberFormat("vi-VN", {
-        style: "currency",
-        currency: "VND",
-        maximumFractionDigits: 0,
-      }).format(value)
-    : "";
 
 const normalizeType = (value: string | null): PublicSearchType =>
   searchTabs.some((item) => item.value === value) ? (value as PublicSearchType) : "all";
@@ -165,7 +158,7 @@ function SearchResultCard({ item, query }: { item: PublicSearchItem; query: stri
                 <HighlightText text={item.departmentName} query={query} />
               </span>
             ) : null}
-            {item.price ? <span className="text-xs font-semibold text-[var(--public-primary-dark)]">{formatCurrency(item.price)}</span> : null}
+            {item.price ? <span className="text-xs font-semibold text-[var(--public-primary-dark)]">{formatOptionalCurrency(item.price)}</span> : null}
           </div>
           <h2 className="mt-2 text-lg font-semibold text-[var(--public-ink)] group-hover:text-[var(--public-primary)]">
             <HighlightText text={item.title} query={query} />

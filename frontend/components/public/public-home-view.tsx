@@ -34,6 +34,7 @@ import { openPublicChatbot } from "@/lib/public-ui-events";
 import type { Banner, DoctorProfile, HomePageConfigValue, HomePageSectionConfig } from "@/lib/types";
 import type { PublicHomeData } from "./public-home-types";
 
+import { formatCurrency } from "@/lib/format";
 type PublicHomeViewProps = {
   data: PublicHomeData;
   loading: boolean;
@@ -48,12 +49,6 @@ const PublicChatbotWidget = dynamic(
   { ssr: false },
 );
 
-const formatCurrency = (value: number) =>
-  new Intl.NumberFormat("vi-VN", {
-    style: "currency",
-    currency: "VND",
-    maximumFractionDigits: 0,
-  }).format(value || 0);
 
 const formatShortAppointmentDate = (value: string) =>
   new Intl.DateTimeFormat("vi-VN", {

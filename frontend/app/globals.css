@@ -8,6 +8,20 @@
 @custom-variant data-horizontal (&:is([data-orientation="horizontal"]));
 @custom-variant data-vertical (&:is([data-orientation="vertical"]));
 
+/* Màu thương hiệu DevKunCare (Brand Kit). Chưa gắn vào giao diện; Đợt 2 và 5 sẽ trỏ --public-* về đây.
+   Tỉ lệ tương phản đã kiểm: blue/white 7,6; teal-ink/white 4,9; green-ink/white 5,3.
+   teal và green gốc (2,8 và 2,2) chỉ dùng cho nền trang trí, biểu tượng có nhãn, không dùng cho chữ. */
+:root {
+  --dk-blue: #07549c;
+  --dk-teal: #0baf9b;
+  --dk-teal-ink: #087f72;
+  --dk-green: #41c75a;
+  --dk-green-ink: #1e7b34;
+  --dk-surface: #f2fafc;
+  --dk-ink: #0b1f3a;
+  --dk-ink-soft: #4f6b7d;
+}
+
 :root {
   --app-font-sans: "Be Vietnam Pro", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   --brand-primary: #087a73;

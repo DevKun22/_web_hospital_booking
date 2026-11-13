@@ -58,6 +58,7 @@ import { VietnamDateInput } from "@/components/ui/vietnam-date-input";
 import type { PublicHomeData } from "./public-home-types";
 import { ScrollReveal } from "./scroll-reveal";
 
+import { formatCurrency } from "@/lib/format";
 type PublicBookingWidgetProps = {
   data: PublicHomeData;
   loading: boolean;
@@ -74,12 +75,6 @@ const sanitizePhoneInput = (value: string) => {
   );
 };
 
-const formatCurrency = (value: number) =>
-  new Intl.NumberFormat("vi-VN", {
-    style: "currency",
-    currency: "VND",
-    maximumFractionDigits: 0,
-  }).format(value || 0);
 
 const doctorName = (doctor: PublicHomeData["doctors"][number]) =>
   [doctor.title, doctor.user.fullName].filter(Boolean).join(" ");

@@ -25,16 +25,11 @@ import {
 } from "@/lib/seo";
 import type { MedicalPackage } from "@/lib/types";
 
+import { formatCurrency } from "@/lib/format";
 type PageProps = {
   params: Promise<{ slug: string }>;
 };
 
-const formatCurrency = (value: number) =>
-  new Intl.NumberFormat("vi-VN", {
-    style: "currency",
-    currency: "VND",
-    maximumFractionDigits: 0,
-  }).format(value || 0);
 
 const getBookingUrl = (item: MedicalPackage) => {
   const params = new URLSearchParams({ packageId: item.id });
