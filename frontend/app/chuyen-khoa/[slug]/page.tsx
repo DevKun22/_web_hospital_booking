@@ -3,8 +3,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { cache } from "react";
-import type { ReactNode } from "react";
-import { ArrowRight, Clock, HeartPulse, PackageCheck, Star } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { PublicBreadcrumb } from "@/components/public/public-page-layout";
 import type {
@@ -103,174 +102,106 @@ export default async function PublicDepartmentDetailPage({ params }: PageProps) 
   ]);
 
   return (
-    <main className="min-h-screen bg-[linear-gradient(180deg,#f1faf7_0%,var(--public-canvas)_46%,#ffffff_100%)] text-[var(--public-ink)]">
+    <main className="min-h-screen bg-[var(--public-canvas)] text-[var(--public-ink)]">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdString(jsonLd) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdString(breadcrumbJsonLd) }} />
 
-      <section className="ui-container py-5 sm:py-7">
+      <section className="ui-container py-5 sm:py-8">
         <PublicBreadcrumb current={department.name} />
-        <div className="space-y-6 sm:space-y-8">
-          <article className="grid overflow-hidden rounded-3xl border border-[var(--public-border)] bg-white shadow-[var(--public-shadow-soft)] lg:grid-cols-[minmax(0,0.95fr)_minmax(360px,1fr)]">
-            <div className="p-4 sm:p-6">
-              <p className="text-sm font-semibold uppercase tracking-wide text-[var(--public-primary)]">Chuyên khoa</p>
-              <h1 className="mt-1 text-2xl font-semibold leading-tight sm:mt-2 sm:text-3xl lg:text-4xl">{department.name}</h1>
-              <p className="mt-3 text-sm leading-6 text-[var(--public-muted)] sm:mt-4 sm:leading-7">{description}</p>
 
-              <div className="mt-4 grid grid-cols-2 gap-2 sm:mt-6 sm:grid-cols-4 sm:gap-3 lg:grid-cols-2 xl:grid-cols-4">
-                <MetricCard label="Bác sĩ có lịch" value={summary.doctorCount} />
-                <MetricCard label="Gói khám" value={summary.packageCount} />
-                <MetricCard label="Khung giờ 14 ngày" value={summary.availableSlotCount} />
-                <MetricCard
-                  label={summary.reviewSummary.count ? `${summary.reviewSummary.count} đánh giá` : "Chưa có đánh giá"}
-                  value={summary.reviewSummary.count ? summary.reviewSummary.averageRating.toFixed(1) : "—"}
-                />
-              </div>
-
-              <div className="mt-4 flex flex-col gap-2 sm:mt-6 sm:flex-row sm:gap-3">
-                <Link href={bookingUrl} className="public-button-primary inline-flex items-center justify-center gap-2 rounded-xl px-5 py-3 text-sm font-semibold">
-                  Đặt lịch chuyên khoa này
-                  <ArrowRight className="h-4 w-4" />
-                </Link>
-                <Link href={doctorsUrl} className="public-button-secondary inline-flex items-center justify-center gap-2 rounded-xl px-5 py-3 text-sm font-semibold">
-                  Xem bác sĩ
-                </Link>
-              </div>
-            </div>
-
-            <div className="min-h-52 bg-[var(--public-primary-soft)] sm:min-h-64 lg:min-h-80">
-              {department.image ? (
-                <img src={department.image} alt={department.name} decoding="async" fetchPriority="high" className="h-full w-full object-cover" />
-              ) : (
-                <div className="flex h-full min-h-52 items-center justify-center text-[var(--public-primary)] sm:min-h-64 lg:min-h-80">
-                  <HeartPulse className="h-16 w-16" />
-                </div>
-              )}
-            </div>
-          </article>
-
-          <nav aria-label="Nội dung chuyên khoa" className="sticky top-[var(--public-header-offset,0px)] z-20 overflow-x-auto rounded-xl border border-[var(--public-border)] bg-white/95 p-2 shadow-sm backdrop-blur">
-            <div className="flex min-w-max gap-1">
-              <AnchorLink href="#tong-quan">Tổng quan</AnchorLink>
-              <AnchorLink href="#nhu-cau-kham">Nhu cầu khám</AnchorLink>
-              <AnchorLink href="#bac-si">Bác sĩ</AnchorLink>
-              <AnchorLink href="#goi-kham">Gói khám</AnchorLink>
-            </div>
-          </nav>
-
-          <section id="tong-quan" className="scroll-mt-36 grid gap-4 lg:grid-cols-[minmax(0,1fr)_360px]">
-            <article className="public-card p-5 sm:p-6">
-              <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--public-primary)]">Tổng quan chuyên khoa</p>
-              <h2 className="mt-2 text-2xl font-bold">Thông tin tiếp nhận và định hướng khám</h2>
-              <p className="mt-3 text-sm leading-7 text-[var(--public-muted)] sm:text-base">{description}</p>
-            </article>
-            <aside id="nhu-cau-kham" className="public-card scroll-mt-36 p-5 sm:p-6">
-              <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--public-primary)]">Nhu cầu khám thường gặp</p>
-              <div className="mt-3 flex flex-wrap gap-2">
-                {(department.symptomKeywords || []).map((keyword) => (
-                  <span key={keyword} className="rounded-lg border border-[var(--public-border)] bg-[var(--public-surface-muted)] px-3 py-2 text-sm font-medium">{keyword}</span>
-                ))}
-                {!department.symptomKeywords?.length ? <span className="text-sm text-[var(--public-muted)]">Nội dung đang được cập nhật.</span> : null}
-              </div>
-              {department.triageDescription ? <p className="mt-4 border-t border-[var(--public-border)] pt-4 text-sm leading-6 text-[var(--public-muted)]">{department.triageDescription}</p> : null}
-            </aside>
-          </section>
-
-          <section id="bac-si" className="scroll-mt-36">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-              <div>
-                <p className="text-sm font-semibold uppercase tracking-wide text-[var(--public-muted)]">Bác sĩ</p>
-                <h2 className="mt-1 text-2xl font-semibold sm:mt-2 sm:text-3xl">Bác sĩ thuộc chuyên khoa</h2>
-              </div>
-              <Link href={doctorsUrl} className="inline-flex items-center gap-2 text-sm font-semibold text-[var(--public-primary)]">
-                Xem tất cả
-                <ArrowRight className="h-4 w-4" />
+        <header className="grid grid-cols-[minmax(0,1fr)] gap-5 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start lg:gap-8">
+          <div>
+            <h1 className="text-2xl font-bold sm:text-3xl">{department.name}</h1>
+            <p className="mt-3 max-w-2xl text-base leading-7 text-[var(--public-text-soft)]">{description}</p>
+            <p className="mt-3 text-sm text-[var(--public-muted)]">
+              {summary.doctorCount} bác sĩ có lịch · {summary.packageCount} gói khám · {summary.availableSlotCount} khung giờ trong 14 ngày
+              {summary.reviewSummary.count ? ` · ${summary.reviewSummary.averageRating.toFixed(1)} sao (${summary.reviewSummary.count} đánh giá)` : ""}
+            </p>
+            <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+              <Link href={bookingUrl} className="public-button-primary inline-flex min-h-12 items-center justify-center gap-2 rounded-lg px-5 text-base font-semibold">
+                Đặt lịch chuyên khoa này
+                <ArrowRight className="h-4 w-4" aria-hidden="true" />
+              </Link>
+              <Link href={doctorsUrl} className="public-button-secondary inline-flex min-h-12 items-center justify-center rounded-lg px-5 text-base font-semibold">
+                Xem bác sĩ
               </Link>
             </div>
+          </div>
+          {department.image ? (
+            <img src={department.image} alt={department.name} decoding="async" fetchPriority="high" className="aspect-[4/3] w-full rounded-lg object-cover" />
+          ) : null}
+        </header>
 
-            <div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-              {doctors.length ? doctors.slice(0, 4).map((doctor) => (
-                <article key={doctor.id} className="public-card p-4">
-                  <div className="flex items-center gap-3">
+        {department.symptomKeywords?.length || department.triageDescription ? (
+          <section aria-labelledby="nhu-cau-kham" className="mt-8 border-t border-[var(--public-divider)] pt-6">
+            <h2 id="nhu-cau-kham" className="text-lg font-bold">Nên đến khám khi</h2>
+            {department.symptomKeywords?.length ? (
+              <ul className="mt-3 flex flex-wrap gap-2">
+                {department.symptomKeywords.map((keyword) => (
+                  <li key={keyword} className="rounded-lg border border-[var(--public-border)] bg-[var(--public-surface)] px-3 py-1.5 text-sm">{keyword}</li>
+                ))}
+              </ul>
+            ) : null}
+            {department.triageDescription ? <p className="mt-3 max-w-2xl text-base leading-7 text-[var(--public-text-soft)]">{department.triageDescription}</p> : null}
+          </section>
+        ) : null}
+
+        <section id="bac-si" aria-labelledby="bac-si-title" className="mt-8 border-t border-[var(--public-divider)] pt-6">
+          <div className="flex items-baseline justify-between gap-3">
+            <h2 id="bac-si-title" className="text-lg font-bold">Bác sĩ thuộc chuyên khoa</h2>
+            <Link href={doctorsUrl} className="text-sm font-semibold text-[var(--public-primary)] underline underline-offset-4">Xem tất cả</Link>
+          </div>
+          {doctors.length ? (
+            <ul className="mt-3 divide-y divide-[var(--public-divider)] overflow-hidden rounded-lg border border-[var(--public-border)] bg-[var(--public-surface)]">
+              {doctors.slice(0, 6).map((doctor) => (
+                <li key={doctor.id}>
+                  <Link href={getPublicDoctorPath(doctor)} className="flex items-center gap-3 p-3 hover:bg-[var(--public-surface-muted)] sm:p-4">
                     {doctor.user.avatar ? (
-                      <img src={doctor.user.avatar} alt={doctor.user.fullName} loading="lazy" decoding="async" className="h-14 w-14 rounded-md object-cover" />
+                      <img src={doctor.user.avatar} alt="" loading="lazy" decoding="async" className="h-12 w-12 shrink-0 rounded-full object-cover" />
                     ) : (
-                      <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-[var(--public-primary-soft)] text-lg font-semibold text-[var(--public-primary)]">{firstLetter(doctor.user.fullName)}</div>
+                      <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[var(--public-surface-muted)] text-lg font-semibold text-[var(--public-primary-dark)]" aria-hidden="true">{firstLetter(doctor.user.fullName)}</span>
                     )}
-                    <div className="min-w-0">
-                      <h3 className="truncate font-semibold">{doctorDisplayName(doctor)}</h3>
-                      <p className="truncate text-sm text-[var(--public-muted)]">{doctor.specialization || "Khám chuyên khoa"}</p>
-                    </div>
-                  </div>
-                  <p className="mt-4 flex items-center gap-2 text-sm text-[var(--public-muted)]"><Clock className="h-4 w-4 text-[var(--public-primary)]" />{doctor.experience || 0} năm kinh nghiệm</p>
-                  <p className="mt-3 font-semibold text-[var(--public-primary-dark)]">{formatCurrency(doctor.consultationFee)}</p>
-                  <Link href={getPublicDoctorPath(doctor)} className="public-button-secondary mt-4 inline-flex w-full items-center justify-center rounded-xl px-3 py-2 text-sm font-semibold">
-                    Xem chi tiết
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-base font-semibold">{doctorDisplayName(doctor)}</span>
+                      <span className="block truncate text-sm text-[var(--public-muted)]">{doctor.specialization || "Khám chuyên khoa"} · {doctor.experience || 0} năm kinh nghiệm</span>
+                    </span>
+                    <span className="shrink-0 text-sm font-semibold tabular-nums text-[var(--public-primary-dark)]">{formatCurrency(doctor.consultationFee)}</span>
                   </Link>
-                </article>
-              )) : (
-                <EmptyState label="Chưa có bác sĩ hiển thị cho chuyên khoa này." />
-              )}
-            </div>
-          </section>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <EmptyState label="Chưa có bác sĩ hiển thị cho chuyên khoa này." />
+          )}
+        </section>
 
-          <section id="goi-kham" className="scroll-mt-36">
-            <div>
-              <p className="text-sm font-semibold uppercase tracking-wide text-[var(--public-muted)]">Gói khám</p>
-              <h2 className="mt-1 text-2xl font-semibold sm:mt-2 sm:text-3xl">Gói khám liên quan</h2>
-            </div>
-
-            <div className="mt-5 grid gap-4 lg:grid-cols-3">
-              {packages.length ? packages.slice(0, 3).map((item) => (
-                <article key={item.id} className="public-card flex flex-col p-4 sm:min-h-[260px] sm:p-5">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <h3 className="text-lg font-semibold">{item.name}</h3>
-                      <p className="mt-1 text-sm text-[var(--public-muted)]">{item.summary || item.description || "Gói khám được thiết kế theo nhu cầu chuyên khoa."}</p>
-                    </div>
-                    {item.isPopular ? <span className="inline-flex items-center gap-1 rounded-md bg-[#fff4d6] px-2 py-1 text-xs font-semibold text-[#8a5a00]"><Star className="h-3.5 w-3.5" />Phổ biến</span> : null}
+        <section id="goi-kham" aria-labelledby="goi-kham-title" className="mt-8 border-t border-[var(--public-divider)] pt-6">
+          <h2 id="goi-kham-title" className="text-lg font-bold">Gói khám liên quan</h2>
+          {packages.length ? (
+            <ul className="mt-3 divide-y divide-[var(--public-divider)] overflow-hidden rounded-lg border border-[var(--public-border)] bg-[var(--public-surface)]">
+              {packages.slice(0, 4).map((item) => (
+                <li key={item.id} className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="min-w-0">
+                    <h3 className="text-base font-semibold">{item.slug ? <Link href={`/goi-kham/${item.slug}`} className="hover:text-[var(--public-primary)]">{item.name}</Link> : item.name}</h3>
+                    <p className="mt-0.5 line-clamp-2 text-sm text-[var(--public-muted)]">{item.summary || item.description || "Gói khám được thiết kế theo nhu cầu chuyên khoa."}</p>
+                    <p className="mt-1 text-sm text-[var(--public-muted)]">{item.items.length} hạng mục{item.isBHYTSupport ? " · Hỗ trợ BHYT" : ""}{item.isPopular ? " · Được chọn nhiều" : ""}</p>
                   </div>
-                  <p className="mt-5 text-2xl font-bold text-[var(--public-primary-dark)]">{formatCurrency(item.finalPrice)}</p>
-                  <div className="mt-4 flex flex-wrap gap-2 text-xs font-semibold">
-                    {item.isBHYTSupport ? <span className="rounded-md bg-[#e7f6ed] px-2 py-1 text-[#1f7a3a]">Hỗ trợ BHYT</span> : null}
-                    <span className="inline-flex items-center gap-1 rounded-md bg-[#f1f5f9] px-2 py-1 text-[#42526b]"><PackageCheck className="h-3.5 w-3.5" />{item.items.length} hạng mục</span>
+                  <div className="flex shrink-0 items-center justify-between gap-4 sm:justify-end">
+                    <p className="text-lg font-bold tabular-nums text-[var(--public-primary-dark)]">{formatCurrency(item.finalPrice)}</p>
+                    <Link href={`/dat-lich?departmentId=${department.id}&packageId=${item.id}`} className="public-button-primary inline-flex min-h-11 items-center rounded-lg px-4 text-sm font-semibold">Chọn gói</Link>
                   </div>
-                  <div className="mt-auto grid grid-cols-2 gap-2 pt-5">
-                    {item.slug ? (
-                      <Link href={`/goi-kham/${item.slug}`} className="public-button-secondary rounded-xl px-3 py-2.5 text-center text-sm font-semibold">
-                        Chi tiết
-                      </Link>
-                    ) : (
-                      <span className="rounded-md border border-[#e5ebf3] px-3 py-2.5 text-center text-sm font-semibold text-[#94a3b8]">Chi tiết</span>
-                    )}
-                    <Link href={`/dat-lich?departmentId=${department.id}&packageId=${item.id}`} className="public-button-primary rounded-xl px-3 py-2.5 text-center text-sm font-semibold">
-                      Chọn gói
-                    </Link>
-                  </div>
-                </article>
-              )) : (
-                <EmptyState label="Chưa có gói khám riêng cho chuyên khoa này." />
-              )}
-            </div>
-          </section>
-        </div>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <EmptyState label="Chưa có gói khám riêng cho chuyên khoa này." />
+          )}
+        </section>
       </section>
     </main>
   );
 }
 
-function MetricCard({ label, value }: { label: string; value: string | number }) {
-  return (
-    <div className="rounded-2xl border border-[var(--public-border)] bg-[var(--public-surface-muted)] p-4">
-      <p className="text-2xl font-bold text-[var(--public-primary-dark)]">{value}</p>
-      <p className="mt-1 text-sm text-[var(--public-muted)]">{label}</p>
-    </div>
-  );
-}
-
-function AnchorLink({ href, children }: { href: string; children: ReactNode }) {
-  return <a href={href} className="inline-flex min-h-10 items-center rounded-lg px-4 text-sm font-semibold text-[var(--public-muted)] transition hover:bg-[var(--public-primary-soft)] hover:text-[var(--public-primary-dark)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--public-primary)]">{children}</a>;
-}
-
 function EmptyState({ label }: { label: string }) {
-  return <div className="rounded-2xl border border-dashed border-[var(--public-border)] bg-white p-6 text-center text-sm text-[var(--public-muted)] sm:col-span-2 lg:col-span-3 xl:col-span-4">{label}</div>;
+  return <p className="mt-3 rounded-lg border border-dashed border-[var(--public-border)] p-5 text-center text-sm text-[var(--public-muted)]">{label}</p>;
 }
