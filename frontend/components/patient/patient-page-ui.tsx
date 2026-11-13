@@ -1,18 +1,57 @@
-import { CircleAlert, Inbox, Loader2, RefreshCw } from "lucide-react";
+import type { ReactNode } from "react";
+import { AlertCircle, RefreshCw } from "lucide-react";
 
-export function PatientPageHeader({ eyebrow, title, description, action }: { eyebrow: string; title: string; description: string; action?: React.ReactNode }) {
-  return <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between"><div><p className="text-xs font-bold uppercase tracking-[0.14em] text-[var(--public-primary)]">{eyebrow}</p><h1 className="mt-2 text-2xl font-bold tracking-[-0.025em] sm:text-3xl">{title}</h1><p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--public-muted)]">{description}</p></div>{action}</header>;
+export function PatientPageHeader({ title, description, action }: { title: string; description?: string; action?: ReactNode }) {
+  return (
+    <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight">{title}</h1>
+        {description ? <p className="mt-1 max-w-2xl text-sm leading-6 text-[var(--public-muted)]">{description}</p> : null}
+      </div>
+      {action}
+    </header>
+  );
 }
 
+// Khung chờ theo hình dạng nội dung sắp hiện, tránh màn hình trắng và giật bố cục.
 export function PatientPageLoading({ label = "Đang tải dữ liệu..." }: { label?: string }) {
-  return <div className="flex min-h-[22rem] items-center justify-center gap-3 text-sm font-semibold text-[var(--public-text-soft)]"><Loader2 className="h-5 w-5 animate-spin text-[var(--public-primary)]" aria-hidden="true" /> {label}</div>;
+  return (
+    <div role="status" aria-busy="true" className="space-y-3">
+      <span className="sr-only">{label}</span>
+      {[0, 1, 2].map((index) => (
+        <div key={index} className="rounded-xl border border-[var(--public-border)] bg-[var(--public-surface)] p-4">
+          <span className="skeleton-shimmer block h-4 w-1/3 rounded" />
+          <span className="skeleton-shimmer mt-3 block h-5 w-2/3 rounded" />
+          <span className="skeleton-shimmer mt-2 block h-4 w-1/2 rounded" />
+        </div>
+      ))}
+    </div>
+  );
 }
 
 export function PatientPageError({ message, onRetry }: { message: string; onRetry: () => void }) {
-  return <div role="alert" className="rounded-3xl border border-red-200 bg-white p-7 text-center shadow-sm"><CircleAlert className="mx-auto h-8 w-8 text-red-600" aria-hidden="true" /><h2 className="mt-3 text-lg font-bold">Chưa tải được dữ liệu</h2><p className="mt-2 text-sm text-[var(--public-muted)]">{message}</p><button type="button" onClick={onRetry} className="public-button-secondary mt-5 inline-flex min-h-11 items-center gap-2 rounded-xl px-4 text-sm font-bold"><RefreshCw className="h-4 w-4" aria-hidden="true" /> Thử lại</button></div>;
+  return (
+    <div role="alert" className="rounded-xl border border-[var(--public-danger)] bg-[var(--public-surface)] p-5">
+      <p className="flex items-start gap-2 text-sm font-semibold text-[var(--public-danger)]">
+        <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+        Chưa tải được dữ liệu
+      </p>
+      <p className="mt-1.5 text-sm text-[var(--public-text-soft)]">{message}</p>
+      <button type="button" onClick={onRetry} className="public-button-secondary mt-4 inline-flex min-h-11 items-center gap-2 rounded-lg px-4 text-sm font-semibold">
+        <RefreshCw className="h-4 w-4" aria-hidden="true" />
+        Thử lại
+      </button>
+    </div>
+  );
 }
 
-export function PatientEmptyState({ title, description, action }: { title: string; description: string; action?: React.ReactNode }) {
-  return <div className="rounded-2xl border border-dashed border-[var(--public-border)] bg-[var(--public-surface-muted)] p-7 text-center"><Inbox className="mx-auto h-8 w-8 text-[var(--public-primary)]" aria-hidden="true" /><h2 className="mt-3 font-bold">{title}</h2><p className="mx-auto mt-2 max-w-lg text-sm leading-6 text-[var(--public-muted)]">{description}</p>{action ? <div className="mt-5">{action}</div> : null}</div>;
+// Lời mời hành động, không phải lời xin lỗi: nói đây là nơi nào, rồi đưa nút làm việc tiếp theo.
+export function PatientEmptyState({ title, description, action }: { title: string; description: string; action?: ReactNode }) {
+  return (
+    <div className="rounded-xl border border-dashed border-[var(--public-border)] p-6 text-center">
+      <h2 className="font-bold">{title}</h2>
+      <p className="mx-auto mt-1.5 max-w-md text-sm leading-6 text-[var(--public-muted)]">{description}</p>
+      {action ? <div className="mt-4">{action}</div> : null}
+    </div>
+  );
 }
-
