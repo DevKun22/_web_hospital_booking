@@ -342,7 +342,7 @@ export function PublicChatbotWidget() {
   return (
     <div className="public-floating-utility fixed bottom-[max(1rem,env(safe-area-inset-bottom))] right-3 z-[70] sm:bottom-6 sm:right-6">
       {open ? (
-        <section ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="chatbot-title" className="flex h-[min(620px,calc(100dvh_-_2rem_-_env(safe-area-inset-bottom)))] w-[min(400px,calc(100vw_-_1.5rem))] flex-col overflow-hidden rounded-2xl border border-[var(--public-border)] bg-white shadow-2xl ring-1 ring-[var(--public-primary-soft)]">
+        <section ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="chatbot-title" className="flex h-[min(620px,calc(100dvh_-_2rem_-_env(safe-area-inset-bottom)))] w-[min(400px,calc(100vw_-_1.5rem))] flex-col overflow-hidden rounded-xl border border-[var(--public-border)] bg-white shadow-2xl ring-1 ring-[var(--public-primary-soft)]">
           <header className="flex items-center justify-between border-b border-[var(--public-divider)] px-4 py-3">
             <div className="flex min-w-0 items-center gap-3">
               <div className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[var(--public-primary-soft)] text-[var(--public-primary)]">

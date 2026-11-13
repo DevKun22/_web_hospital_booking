@@ -14,7 +14,7 @@ export function DoctorFilterBar({ state, departments }: { state: FilterState; de
 
   return (
     <section className="ui-container pt-5 sm:pt-7" aria-label="Bộ lọc bác sĩ">
-      <div className="rounded-2xl border border-[var(--public-border)] bg-white p-3 shadow-sm sm:p-4">
+      <div className="rounded-lg border border-[var(--public-border)] bg-[var(--public-surface)] p-3 sm:p-4">
         <form
           className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto_auto]"
           onSubmit={(event) => {

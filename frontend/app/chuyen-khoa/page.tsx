@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { RowSkeleton } from "@/components/public/catalog-parts";
 import { DepartmentCatalogClient } from "@/components/public/department-catalog-client";
 import { buildCollectionPageJsonLd, jsonLdString } from "@/lib/seo";
 
@@ -12,7 +13,7 @@ export default function PublicDepartmentsPage() {
   return (
     <main className="min-h-screen bg-[var(--public-canvas)] text-[var(--public-ink)]">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdString(pageJsonLd) }} />
-      <Suspense fallback={<div className="ui-container min-h-[28rem] animate-pulse py-10"><div className="h-40 rounded-3xl bg-[var(--public-surface-muted)]" /></div>}>
+      <Suspense fallback={<div className="ui-container min-h-[28rem] py-10"><RowSkeleton /></div>}>
         <DepartmentCatalogClient />
       </Suspense>
     </main>
