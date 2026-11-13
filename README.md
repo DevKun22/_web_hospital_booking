@@ -44,7 +44,7 @@ Web công khai / Dashboard (Next.js) ─┐
 - Hộp thư thông báo lưu trong PostgreSQL là dữ liệu chính, push chỉ là kênh chuyển phát.
 - `/health` chỉ xác nhận tiến trình API còn sống; `/ready` báo riêng PostgreSQL và Redis. PostgreSQL lỗi luôn trả `503`; Redis lỗi mặc định trả trạng thái `degraded` để hệ thống tiếp tục bằng policy dự phòng, hoặc trả `503` khi bật `REDIS_REQUIRED_FOR_READINESS=true`.
 - Các việc nền (gửi OTP, nhắc lịch, hết hạn giữ chỗ, đối soát thanh toán, nhắc thanh toán hóa đơn, tự sinh khung giờ) chạy qua hàng đợi hoặc worker, có thể chạy ngay trong tiến trình API (`INLINE_WORKERS`). Chu kỳ mặc định được kéo dài để tiết kiệm lượt truy vấn trên gói miễn phí và chỉnh được bằng biến môi trường. Khi hàng đợi Redis lỗi hoặc hết hạn mức, OTP được gửi trực tiếp thay vì qua hàng đợi.
-- Production nên tách `REDIS_URL` (rate limit, RBAC, readiness) và `QUEUE_REDIS_URL` (BullMQ) bằng hai ACL user. Dùng `rediss://` qua mạng công khai hoặc khai báo `REDIS_PRIVATE_NETWORK=true` cho endpoint nội bộ; sau khi cấu hình xong, bật `REDIS_SECURITY_MODE=strict` để chặn khởi động sai cấu hình.
+- Production **bắt buộc** cấu hình Redis an toàn, nếu không API từ chối khởi động: tách `REDIS_URL` (rate limit, RBAC, readiness) và `QUEUE_REDIS_URL` (BullMQ) bằng hai ACL user khác nhau; dùng `rediss://` có credential qua mạng công khai hoặc khai báo `REDIS_PRIVATE_NETWORK=true` cho endpoint nội bộ; `REDIS_SECURITY_MODE` mặc định là `strict` (không được đặt `warn`). Production cũng yêu cầu `INLINE_WORKERS` đúng bốn worker, bật giới hạn tần suất, bỏ `DEMO_OTP_PHONES` và tắt `OTP_DEBUG_ENABLED`.
 - Khung giờ khám được tự sinh từ lịch mẫu theo tuần cho 14 ngày tới; đổi, tắt hoặc xóa lịch mẫu gỡ khung giờ còn trống và báo nhân viên về các lịch đã đặt bị ảnh hưởng (lịch đã đặt không bị hủy tự động).
 
 ## Công nghệ
@@ -136,9 +136,9 @@ cd mobile   && flutter analyze && flutter test
 
 | Thành phần | Nền tảng | Ghi chú |
 | --- | --- | --- |
-| Web | Vercel, thư mục gốc `frontend` | Đặt `NEXT_PUBLIC_API_URL` và `NEXT_PUBLIC_SITE_URL` |
+| Web | Vercel, thư mục gốc `frontend` | Đặt `NEXT_PUBLIC_API_URL` (kết thúc bằng `/api/v1`, ví dụ `https://hospital-api.ngoloi.dev/api/v1`) và `NEXT_PUBLIC_SITE_URL` |
 | API | Render Web Service, thư mục gốc `backend` | Build `npm install && npm run render:build` (chạy migration rồi build), start `npm run start` |
-| Redis | Upstash | Dùng cho hàng đợi và bộ đếm giới hạn tần suất; nên đặt chính sách `noeviction` |
+| Redis | Upstash | Dùng cho hàng đợi, bộ đếm giới hạn tần suất và phát tín hiệu thu hồi quyền; nên đặt chính sách `noeviction`. Production cần hai ACL user khác nhau (xem phần kiến trúc) |
 | Cơ sở dữ liệu | Supabase (PostgreSQL) | `DATABASE_URL` là chuỗi **Session pooler** (cổng 5432; mã hóa `@`, `#` trong mật khẩu thành `%40`, `%23`). Migration áp dụng khi build API. Nên tắt Data API (backend kết nối thẳng, không dùng) và bật RLS cho mọi bảng; có thể bật trigger tự bật RLS cho bảng mới |
 
 **Hạn mức gói miễn phí:** mỗi dịch vụ giới hạn theo cách riêng (Upstash giới hạn số lệnh Redis mỗi tháng, Supabase tự tạm dừng khi lâu không hoạt động, Render tự ngủ khi không có truy cập), nên các việc nền được giữ ở mức thưa. Đổi nhà cung cấp cơ sở dữ liệu chỉ cần đổi `DATABASE_URL` (dự án chỉ yêu cầu PostgreSQL; schema có trigger, ràng buộc CHECK và SQL thô đặc thù PostgreSQL); dùng `npx prisma migrate deploy` để dựng cấu trúc, rồi `npm run seed:demo-full` và `npm run seed:chatbot-faq` trong `backend` nếu cần dữ liệu demo (tài khoản demo dùng mật khẩu cố định trong mã nguồn, chỉ dành cho môi trường thử).
@@ -177,6 +177,8 @@ Cấu hình (chỉ ở backend, biến mẫu trong `backend/.env.example`): `PAY
 - Bác sĩ chỉ xem bệnh án do chính mình lập, chưa hỗ trợ xem lịch sử khám từ bác sĩ khác khi có lịch hiện hành.
 - Máy chủ gói miễn phí có độ trễ khi khởi động lại; các việc nền chạy trong tiến trình API nên tạm dừng khi máy chủ ngủ.
 - Hạn mức gói miễn phí của Redis (Upstash) và cơ sở dữ liệu có thể làm hàng đợi hoặc truy vấn bị chặn khi dùng nhiều; OTP đã có đường gửi trực tiếp dự phòng, các việc nền khác chưa có.
+- Production kiểm tra cấu hình khi khởi động và từ chối chạy nếu Redis hoặc worker sai quy định (hai ACL user, `rediss://`, `INLINE_WORKERS` đủ bốn worker). Gói miễn phí chỉ có một người dùng Redis và giới hạn số lệnh có thể không đáp ứng, nên có thể cần Redis trả phí hoặc hai cơ sở dữ liệu Redis riêng.
+- Mọi client chỉ dùng `/api/v1`; đường dẫn cũ `/api/*` trả 404, nên khi đổi biến môi trường trên Vercel, Render và cổng VNPay phải dùng đường dẫn mới.
 - Dữ liệu trên môi trường triển khai hiện là bộ dữ liệu demo; tài khoản demo có email giả nên không nhận được OTP, cần đặt email thật cho tài khoản dùng để đăng nhập.
 - Tiền thuốc tính theo thực cấp, thêm vào hóa đơn chưa thanh toán khi cấp thuốc; hóa đơn đã thanh toán hoặc đã hủy không tự đổi (nhân viên được báo xử lý); chưa có hoàn tiền một phần.
 
