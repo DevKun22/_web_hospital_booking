@@ -125,6 +125,10 @@ export default async function PublicPackageDetailPage({ params }: PageProps) {
             </p>
             <p className="mt-3 max-w-2xl text-base leading-7 text-[var(--public-text-soft)]">{description}</p>
           </header>
+          {packageItem.image ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={packageItem.image} alt={packageItem.name} width={960} height={540} fetchPriority="high" decoding="async" className="mt-5 aspect-[16/9] w-full max-w-2xl rounded-xl border border-[var(--public-border)] object-cover" />
+          ) : null}
 
           <section id="hang-muc" aria-labelledby="hang-muc-title" className="mt-8 border-t border-[var(--public-divider)] pt-6">
             <h2 id="hang-muc-title" className="text-lg font-bold">Hạng mục trong gói</h2>

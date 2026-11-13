@@ -22,7 +22,7 @@ import {
   DsToolbar,
   type DsColumn,
 } from "@/components/ds";
-import { apiRequest } from "@/lib/api";
+import { apiRequest, uploadImages } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { useDashboardDepartments } from "@/lib/dashboard-departments-query";
 import { useDashboardPackages } from "@/lib/dashboard-packages-query";
@@ -42,6 +42,8 @@ type PackageForm = {
   summary: string;
   description: string;
   note: string;
+  image: string;
+  imageAssetId: string;
   isPopular: boolean;
   isBHYTSupport: boolean;
   isActive: boolean;
@@ -64,6 +66,8 @@ const emptyPackageForm: PackageForm = {
   summary: "",
   description: "",
   note: "",
+  image: "",
+  imageAssetId: "",
   isPopular: false,
   isBHYTSupport: false,
   isActive: true,
@@ -109,6 +113,8 @@ const toPackageForm = (item: MedicalPackage): PackageForm => ({
   summary: item.summary || "",
   description: item.description || "",
   note: item.note || "",
+  image: item.image || "",
+  imageAssetId: "",
   isPopular: item.isPopular,
   isBHYTSupport: item.isBHYTSupport,
   isActive: item.isActive,
@@ -131,6 +137,8 @@ const buildPackagePayload = (form: PackageForm) => ({
   summary: form.summary.trim() || null,
   description: form.description.trim() || null,
   note: form.note.trim() || null,
+  image: form.image.trim() || null,
+  imageAssetId: form.imageAssetId || undefined,
   isPopular: form.isPopular,
   isBHYTSupport: form.isBHYTSupport,
   isActive: form.isActive,
@@ -159,6 +167,7 @@ export default function PackagesPage() {
   const [pane, setPane] = useState<PaneState>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [form, setForm] = useState<PackageForm>(emptyPackageForm);
+  const [uploading, setUploading] = useState(false);
   const [slugTouched, setSlugTouched] = useState(false);
   const [itemOpen, setItemOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<PackageItem | null>(null);
@@ -236,6 +245,23 @@ export default function PackagesPage() {
       const currentSlugWasAuto = !current.slug || current.slug === createSlug(current.name);
       return { ...current, name, slug: !slugTouched && currentSlugWasAuto ? createSlug(name) : current.slug };
     });
+  };
+
+  const handleImageUpload = async (file: File | undefined) => {
+    if (!file || !canWrite) return;
+
+    setUploading(true);
+    setError("");
+
+    try {
+      const [asset] = await uploadImages([file], "packages");
+      if (!asset) throw new Error("Đã tải lên nhưng không nhận được thông tin ảnh");
+      setForm((current) => ({ ...current, image: asset.url, imageAssetId: asset.id }));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Không tải được ảnh lên");
+    } finally {
+      setUploading(false);
+    }
   };
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -526,6 +552,32 @@ export default function PackagesPage() {
           <DsField label="Ghi chú" htmlFor="pk-note">
             <DsTextarea id="pk-note" rows={2} value={form.note} disabled={!canWrite} onChange={(event) => setForm((current) => ({ ...current, note: event.target.value }))} />
           </DsField>
+          <DsField label="Ảnh gói khám" htmlFor="pk-image-file" hint="Hiện ở trang chủ, tỉ lệ 16:9. JPG, PNG hoặc WEBP.">
+            {form.image ? (
+              <div style={{ marginBottom: 8 }}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={form.image} alt={form.name || "Ảnh gói khám"} style={{ width: "100%", aspectRatio: "16 / 9", objectFit: "cover", borderRadius: 6 }} />
+                {canWrite ? (
+                  <DsButton variant="ghost" onClick={() => setForm((current) => ({ ...current, image: "", imageAssetId: "" }))}>
+                    Gỡ ảnh
+                  </DsButton>
+                ) : null}
+              </div>
+            ) : null}
+            {canWrite ? (
+              <input
+                id="pk-image-file"
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                disabled={uploading}
+                onChange={(event) => {
+                  void handleImageUpload(event.target.files?.[0]);
+                  event.target.value = "";
+                }}
+              />
+            ) : null}
+            {uploading ? <div className="ds-hint">Đang tải ảnh lên...</div> : null}
+          </DsField>
           {(
             [
               ["isPopular", "Gói nổi bật", "Hiện ở nhóm nổi bật trên website."],
@@ -544,7 +596,7 @@ export default function PackagesPage() {
           {canWrite ? (
             <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", flexWrap: "wrap" }}>
               <DsButton onClick={closePane}>Đóng</DsButton>
-              <DsButton type="submit" variant="primary" disabled={saving || !form.name.trim()}>
+              <DsButton type="submit" variant="primary" disabled={saving || uploading || !form.name.trim()}>
                 {saving ? "Đang lưu..." : selected ? "Lưu thay đổi" : "Tạo gói"}
               </DsButton>
             </div>

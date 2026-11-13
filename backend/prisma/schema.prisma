@@ -868,6 +868,7 @@ model Package {
   // Mô tả nhanh trên giao diện
   summary       String?
   note          String?
+  image         String?
   isPopular     Boolean @default(false)
   isBHYTSupport Boolean @default(false)
   isActive      Boolean @default(true)
