@@ -33,7 +33,7 @@ import {
 } from "@/lib/dashboard-appointments-query";
 import { formatVietnamDate, getVietnamDateInput, getVietnamYesterdayDateInput } from "@/lib/date";
 import { can } from "@/lib/permissions";
-import { usePublicAvailableSlots } from "@/lib/public-booking-query";
+import { usePublicAvailableSlots } from "@/lib/public-slots-query";
 import { queryKeys } from "@/lib/query-keys";
 import type { Appointment, AppointmentStatus, DoctorProfile } from "@/lib/types";
 import { useDebouncedValue } from "@/lib/use-debounced-value";
@@ -189,7 +189,7 @@ export default function AppointmentsPage() {
       queryClient.invalidateQueries({ queryKey: ["dashboard", "medical-records"] }),
       queryClient.invalidateQueries({ queryKey: ["dashboard", "invoices"] }),
       queryClient.invalidateQueries({ queryKey: queryKeys.dashboardOverview }),
-      queryClient.invalidateQueries({ queryKey: queryKeys.publicHome }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.publicBootstrap() }),
     ]);
   };
 

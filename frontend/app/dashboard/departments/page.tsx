@@ -138,7 +138,7 @@ export default function DepartmentsPage() {
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ["dashboard", "departments"] }),
       queryClient.invalidateQueries({ queryKey: ["public", "departments"] }),
-      queryClient.invalidateQueries({ queryKey: queryKeys.publicHome }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.publicBootstrap() }),
     ]);
   };
 

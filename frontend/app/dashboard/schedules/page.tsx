@@ -254,7 +254,7 @@ export default function SchedulesPage() {
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ["dashboard", "doctor-schedules"] }),
       queryClient.invalidateQueries({ queryKey: ["dashboard", "schedule-change-requests"] }),
-      queryClient.invalidateQueries({ queryKey: queryKeys.publicHome }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.publicBootstrap() }),
     ]);
   };
 
@@ -262,7 +262,7 @@ export default function SchedulesPage() {
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ["dashboard", "doctor-time-slots"] }),
       queryClient.invalidateQueries({ queryKey: ["public", "available-slots"] }),
-      queryClient.invalidateQueries({ queryKey: queryKeys.publicHome }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.publicBootstrap() }),
     ]);
   };
 

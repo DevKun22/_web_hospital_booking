@@ -187,7 +187,7 @@ export default function PackagesPage() {
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ["dashboard", "packages"] }),
       queryClient.invalidateQueries({ queryKey: ["public", "packages"] }),
-      queryClient.invalidateQueries({ queryKey: queryKeys.publicHome }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.publicBootstrap() }),
     ]);
   };
 

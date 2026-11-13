@@ -1,5 +1,6 @@
 import type { Appointment, DoctorProfile, MedicalPackage } from "@/lib/types";
 import type { PublicDepartment } from "@/components/public/public-home-types";
+import type { PublicSlot } from "@/lib/public-slots-query";
 
 export type BookingStep = "service" | "schedule" | "details" | "verify" | "done";
 export type ServiceMode = "" | "DOCTOR_ONLY" | "PACKAGE";
@@ -48,12 +49,7 @@ export type PendingAppointment = {
   snapshot?: { selection: BookingSelection; slot: BookingSlot | null };
 };
 
-export type BookingSlot = {
-  id: string;
-  date: string;
-  startTime: string;
-  endTime: string;
-};
+export type BookingSlot = PublicSlot;
 
 export type BookingState = {
   step: BookingStep;

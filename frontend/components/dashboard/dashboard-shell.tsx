@@ -39,7 +39,7 @@ import {
   isDashboardItemActive,
   type DashboardNavItem,
 } from "@/lib/dashboard-navigation";
-import { usePublicSiteSettings } from "@/lib/public-home-query";
+import { usePublicSiteSettings } from "@/lib/public-bootstrap-client";
 import { useTheme } from "@/lib/theme";
 
 import { BrandLogo } from "@/components/branding/brand-logo";

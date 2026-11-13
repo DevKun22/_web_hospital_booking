@@ -1,8 +1,7 @@
 import { PublicHomeClient } from "@/components/public/public-home-client";
-import { emptyHomeData, type PublicHomeData } from "@/components/public/public-home-types";
-import { serverApiRequest } from "@/lib/server-api";
+import type { PublicHomeData } from "@/components/public/public-home-types";
+import { loadPublicBootstrap } from "@/lib/public-bootstrap-server";
 import { absoluteUrl, buildOpenGraph, jsonLdString } from "@/lib/seo";
-import type { Banner, DoctorProfile, HomePageConfigValue, MedicalPackage, PublicFAQ, SiteSettingsValue } from "@/lib/types";
 import type { Metadata } from "next";
 
 import { BRAND_NAME } from "@/lib/brand";
@@ -21,50 +20,6 @@ export const metadata: Metadata = {
       "j_aO8IuKTc90WaB5XcpNQsVXAPIsEHC34mUgaeRoMAA",
   },
 };
-
-type PublicBootstrapData = {
-  siteSettings: SiteSettingsValue | null;
-  homeConfig: HomePageConfigValue | null;
-  banners: Banner[];
-  departments: PublicHomeData["departments"];
-  doctors: DoctorProfile[];
-  packages: MedicalPackage[];
-  faqs: PublicFAQ[];
-};
-
-async function getHomeData(): Promise<{ data: PublicHomeData; error: string }> {
-  try {
-    const bootstrap = await serverApiRequest<PublicBootstrapData>(
-      "/public/bootstrap",
-      {
-        query: { view: "featured" },
-        next: { revalidate: 60 },
-      },
-    );
-    const publicBanners = bootstrap.banners || [];
-    const heroBanners = publicBanners.filter((banner) => banner.position === "HOME_HERO");
-
-    return {
-      data: {
-        settings: bootstrap.siteSettings,
-        homeConfig: bootstrap.homeConfig,
-        heroBanners,
-        promoBanners: [],
-        partnerBanners: publicBanners.filter((banner) => banner.position === "HOME_PARTNER"),
-        departments: bootstrap.departments,
-        doctors: bootstrap.doctors,
-        packages: bootstrap.packages,
-        faqs: bootstrap.faqs,
-      },
-      error: "",
-    };
-  } catch (err) {
-    return {
-      data: emptyHomeData,
-      error: err instanceof Error ? err.message : "Không tải được dữ liệu website",
-    };
-  }
-}
 
 function buildMedicalOrganizationJsonLd(data: PublicHomeData) {
   const settings = data.settings;
@@ -109,7 +64,8 @@ function buildWebSiteJsonLd(data: PublicHomeData) {
 }
 
 export default async function PublicHomePage() {
-  const { data, error } = await getHomeData();
+  const snapshot = await loadPublicBootstrap("featured", 60);
+  const { data } = snapshot;
 
   return (
     <>
@@ -121,7 +77,7 @@ export default async function PublicHomePage() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: jsonLdString(buildWebSiteJsonLd(data)) }}
       />
-      <PublicHomeClient data={data} error={error} />
+      <PublicHomeClient snapshot={snapshot} />
     </>
   );
 }
