@@ -9,8 +9,8 @@ export const revalidate = 60;
 
 export const metadata: Metadata = {
   ...buildOpenGraph({
-  title: "Đặt lịch khám trực tuyến",
-  description: "Đặt lịch khám, chọn chuyên khoa, bác sĩ, gói khám và tra cứu lịch hẹn trực tuyến.",
+  title: "Đặt lịch khám bệnh trực tuyến, xem giờ trống và chi phí",
+  description: "Đặt lịch khám bệnh trực tuyến tại DevKunCare: chọn chuyên khoa, bác sĩ, gói khám, xem giờ trống và chi phí dự kiến, xác nhận bằng OTP, không cần tạo tài khoản.",
   path: "/",
   keywords: ["đặt lịch khám", "đặt lịch bác sĩ", "gói khám", "tra cứu lịch hẹn"],
   }),
@@ -47,6 +47,21 @@ function buildMedicalOrganizationJsonLd(data: PublicHomeData) {
   };
 }
 
+function buildFaqJsonLd(data: PublicHomeData) {
+  const items = data.faqs.slice(0, 5);
+  if (!items.length) return null;
+
+  return {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: items.map((item) => ({
+      "@type": "Question",
+      name: item.question,
+      acceptedAnswer: { "@type": "Answer", text: item.answer },
+    })),
+  };
+}
+
 function buildWebSiteJsonLd(data: PublicHomeData) {
   const hospitalName = data.settings?.hospitalName || BRAND_NAME;
 
@@ -66,6 +81,7 @@ function buildWebSiteJsonLd(data: PublicHomeData) {
 export default async function PublicHomePage() {
   const snapshot = await loadPublicBootstrap("featured", 60);
   const { data } = snapshot;
+  const faqJsonLd = buildFaqJsonLd(data);
 
   return (
     <>
@@ -77,6 +93,12 @@ export default async function PublicHomePage() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: jsonLdString(buildWebSiteJsonLd(data)) }}
       />
+      {faqJsonLd ? (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: jsonLdString(faqJsonLd) }}
+        />
+      ) : null}
       <PublicHomeClient snapshot={snapshot} />
     </>
   );

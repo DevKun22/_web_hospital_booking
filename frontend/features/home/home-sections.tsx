@@ -1,12 +1,12 @@
 /* eslint-disable @next/next/no-img-element */
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { CalendarPlus, ChevronRight, Clock, MapPin, Phone, Stethoscope } from "lucide-react";
+import { ArrowRight, CalendarCheck, Check, ChevronRight, Clock, MapPin, Phone, ReceiptText, ShieldCheck, Star, UserRoundCheck } from "lucide-react";
 import type { PublicHomeData } from "@/components/public/public-home-types";
 import { doctorDisplayName, doctorInitial } from "@/lib/doctor";
 import { formatCurrency, formatShortDate } from "@/lib/format";
 import { getPublicDoctorPath } from "@/lib/public-routes";
-import type { Banner, DoctorProfile, HomePageConfigValue, HomePageSectionConfig, MedicalPackage, SiteSettingsValue } from "@/lib/types";
+import type { Banner, DoctorProfile, HomePageConfigValue, HomePageSectionConfig, MedicalPackage, PublicFAQ, SiteSettingsValue } from "@/lib/types";
 
 const formatTime = (value: string) => value.slice(0, 5);
 
@@ -33,106 +33,112 @@ export function isAnnouncementActive(announcement: HomePageConfigValue["announce
 export function Notice({ announcement }: { announcement?: HomePageConfigValue["announcement"] }) {
   if (!announcement || !isAnnouncementActive(announcement)) return null;
   return (
-    <div className="border-b border-[var(--public-border)] bg-[var(--public-primary-soft)]">
-      <p className="ui-container flex flex-wrap items-center gap-x-3 gap-y-1 py-2.5 text-sm text-[var(--public-primary-dark)]">
+    <div className="border-b border-[var(--public-border)] bg-[var(--public-surface-muted)]">
+      <p className="ui-container flex flex-wrap items-center gap-x-3 gap-y-1 py-2.5 text-sm text-[var(--public-ink)]">
         {announcement.label ? <strong className="font-semibold">{announcement.label}</strong> : null}
         <span>{announcement.message}</span>
         {announcement.ctaLabel ? (
-          <Link href={safeHref(announcement.ctaHref)} className="font-semibold underline underline-offset-4">{announcement.ctaLabel}</Link>
+          <Link href={safeHref(announcement.ctaHref)} className="font-semibold text-[var(--public-primary)] underline underline-offset-4">{announcement.ctaLabel}</Link>
         ) : null}
       </p>
     </div>
   );
 }
 
-export function Hero({ settings, banner }: { settings: SiteSettingsValue | null; banner?: Banner }) {
+const FIELD = "ui-field mt-1 min-h-12 w-full px-3 text-base";
+
+// Đầu trang: lời chào ngắn, ô chọn chuyên khoa dẫn thẳng vào đặt lịch, thông tin liên hệ.
+export function Hero({ settings, banner, departments }: { settings: SiteSettingsValue | null; banner?: Banner; departments: PublicHomeData["departments"] }) {
   const hotline = settings?.hotline?.trim();
   return (
-    <section className="border-b border-[var(--public-border)] bg-[var(--public-surface)]">
-      <div className="ui-container grid gap-6 py-7 sm:py-10 lg:grid-cols-[minmax(0,1fr)_22rem] lg:gap-12 lg:py-12">
+    <section className="border-b border-[var(--public-divider)] bg-[var(--public-surface)]">
+      <div className="ui-container grid grid-cols-[minmax(0,1fr)] gap-8 py-8 sm:py-12 lg:grid-cols-[minmax(0,1fr)_21rem] lg:gap-12 lg:py-14">
         <div>
-          <h1 className="text-[1.75rem] font-bold leading-tight text-[var(--public-ink)] sm:text-4xl">Đặt lịch khám trực tuyến</h1>
+          <h1 className="text-[1.75rem] font-bold leading-tight text-[var(--public-ink)] sm:text-4xl">
+            Đặt lịch khám trực tuyến, biết giờ trống và chi phí trước khi đến
+          </h1>
           <p className="mt-3 max-w-xl text-base leading-7 text-[var(--public-text-soft)]">
-            Chọn chuyên khoa, bác sĩ và giờ khám còn trống. Xác nhận bằng mã OTP gửi về điện thoại hoặc email, không cần tạo tài khoản.
+            Chọn bác sĩ và giờ khám còn trống, xác nhận bằng mã OTP. Quý khách không cần tạo tài khoản.
           </p>
-          <div className="mt-5 flex flex-col gap-3 sm:flex-row">
-            <Link href="/dat-lich" className="public-button-primary inline-flex min-h-12 items-center justify-center gap-2 rounded-lg px-6 text-base font-semibold">
-              <CalendarPlus className="h-5 w-5" aria-hidden="true" />
-              Đặt lịch khám
-            </Link>
-            <Link href="/bac-si" className="public-button-secondary inline-flex min-h-12 items-center justify-center rounded-lg px-6 text-base font-semibold">
-              Tìm bác sĩ
-            </Link>
-          </div>
+
+          <form action="/dat-lich" method="get" className="mt-6 max-w-xl rounded-xl border border-[var(--public-border)] bg-[var(--public-surface)] p-4">
+            <label htmlFor="home-department" className="block text-sm font-semibold text-[var(--public-ink)]">Chuyên khoa</label>
+            <select id="home-department" name="departmentId" defaultValue="" className={FIELD}>
+              <option value="">Tất cả chuyên khoa</option>
+              {departments.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+            </select>
+            <button type="submit" className="public-button-primary mt-3 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-lg px-6 text-base font-semibold">
+              <CalendarCheck className="h-5 w-5" aria-hidden="true" />
+              Tìm giờ trống
+            </button>
+          </form>
+          <p className="mt-3 text-sm text-[var(--public-muted)]">
+            Đã có lịch hẹn? <Link href="/tai-khoan/lich-hen" className="font-semibold text-[var(--public-primary)] underline underline-offset-4">Xem lịch của tôi</Link>
+          </p>
         </div>
 
-        <dl className="space-y-3 self-start rounded-lg border border-[var(--public-border)] p-4 text-sm">
-          {hotline ? (
-            <div className="flex items-start gap-3">
-              <Phone className="mt-0.5 h-4 w-4 shrink-0 text-[var(--public-primary)]" aria-hidden="true" />
-              <div>
-                <dt className="text-[var(--public-muted)]">Hotline</dt>
-                <dd><a href={`tel:${hotline}`} className="text-lg font-semibold tabular-nums text-[var(--public-ink)]">{hotline}</a></dd>
-              </div>
-            </div>
+        <div className="space-y-4 self-start">
+          {banner ? (
+            <Link href={safeHref(banner.linkUrl)} className="block overflow-hidden rounded-xl border border-[var(--public-border)]">
+              <picture>
+                {banner.mobileImage ? <source media="(max-width: 639px)" srcSet={banner.mobileImage} /> : null}
+                <img src={banner.image} alt={banner.title} className="aspect-[4/3] w-full object-cover" loading="eager" fetchPriority="high" />
+              </picture>
+            </Link>
           ) : null}
-          {settings?.workingHours ? (
-            <div className="flex items-start gap-3">
-              <Clock className="mt-0.5 h-4 w-4 shrink-0 text-[var(--public-primary)]" aria-hidden="true" />
-              <div>
-                <dt className="text-[var(--public-muted)]">Giờ làm việc</dt>
-                <dd className="font-medium">{settings.workingHours}</dd>
+          <dl className="space-y-3 rounded-xl border border-[var(--public-border)] p-4 text-sm">
+            {hotline ? (
+              <div className="flex items-start gap-3">
+                <Phone className="mt-0.5 h-4 w-4 shrink-0 text-[var(--public-primary)]" aria-hidden="true" />
+                <div>
+                  <dt className="text-[var(--public-muted)]">Đường dây nóng</dt>
+                  <dd><a href={`tel:${hotline}`} className="text-lg font-semibold tabular-nums text-[var(--public-ink)]">{hotline}</a></dd>
+                </div>
               </div>
-            </div>
-          ) : null}
-          {settings?.address ? (
-            <div className="flex items-start gap-3">
-              <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-[var(--public-primary)]" aria-hidden="true" />
-              <div>
-                <dt className="text-[var(--public-muted)]">Địa chỉ</dt>
-                <dd className="font-medium">{settings.address}</dd>
+            ) : null}
+            {settings?.workingHours ? (
+              <div className="flex items-start gap-3">
+                <Clock className="mt-0.5 h-4 w-4 shrink-0 text-[var(--public-primary)]" aria-hidden="true" />
+                <div>
+                  <dt className="text-[var(--public-muted)]">Giờ làm việc</dt>
+                  <dd className="font-medium">{settings.workingHours}</dd>
+                </div>
               </div>
-            </div>
-          ) : null}
-        </dl>
+            ) : null}
+            {settings?.address ? (
+              <div className="flex items-start gap-3">
+                <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-[var(--public-primary)]" aria-hidden="true" />
+                <div>
+                  <dt className="text-[var(--public-muted)]">Địa chỉ</dt>
+                  <dd className="font-medium">{settings.address}</dd>
+                </div>
+              </div>
+            ) : null}
+          </dl>
+        </div>
       </div>
-
-      {banner ? (
-        <div className="ui-container pb-7 lg:pb-10">
-          <Link href={safeHref(banner.linkUrl)} className="block overflow-hidden rounded-lg border border-[var(--public-border)]">
-            <picture>
-              {banner.mobileImage ? <source media="(max-width: 639px)" srcSet={banner.mobileImage} /> : null}
-              <img src={banner.image} alt={banner.title} className="aspect-[16/7] w-full object-cover sm:aspect-[21/7]" loading="eager" />
-            </picture>
-          </Link>
-        </div>
-      ) : null}
     </section>
   );
 }
 
-const SHORTCUTS = [
-  { href: "/dat-lich", label: "Đặt lịch khám", hint: "Chọn bác sĩ và giờ trống" },
-  { href: "/bac-si", label: "Bác sĩ", hint: "Tìm theo tên, chuyên khoa" },
-  { href: "/chuyen-khoa", label: "Chuyên khoa", hint: "Danh sách khoa đang khám" },
-  { href: "/goi-kham", label: "Gói khám", hint: "Giá rõ ràng, theo nhu cầu" },
-  { href: "/tai-khoan/lich-hen", label: "Lịch của tôi", hint: "Xem, đổi, hủy lịch hẹn" },
-  { href: "/hoi-dap", label: "Hỏi đáp", hint: "Giải đáp thắc mắc thường gặp" },
+const BENEFITS = [
+  { icon: UserRoundCheck, title: "Không cần tài khoản", text: "Xác nhận lịch bằng mã OTP." },
+  { icon: Clock, title: "Giờ trống cập nhật", text: "Chọn đúng giờ còn tiếp nhận." },
+  { icon: ReceiptText, title: "Biết chi phí trước", text: "Chi phí dự kiến hiển thị rõ." },
+  { icon: ShieldCheck, title: "Hỗ trợ BHYT", text: "Theo từng gói khám." },
 ];
 
-export function Shortcuts() {
+export function Benefits() {
   return (
-    <section aria-label="Lối tắt" className="ui-container py-6 sm:py-8">
-      <ul className="grid overflow-hidden rounded-lg border border-[var(--public-border)] bg-[var(--public-surface)] sm:grid-cols-2 lg:grid-cols-3">
-        {SHORTCUTS.map((item) => (
-          <li key={item.href} className="border-b border-[var(--public-divider)] last:border-b-0 sm:[&:nth-last-child(2)]:border-b-0 lg:[&:nth-last-child(3)]:border-b-0">
-            <Link href={item.href} className="flex min-h-16 items-center gap-3 px-4 py-3 hover:bg-[var(--public-surface-muted)]">
-              <span className="min-w-0 flex-1">
-                <span className="block font-semibold text-[var(--public-ink)]">{item.label}</span>
-                <span className="block truncate text-sm text-[var(--public-muted)]">{item.hint}</span>
-              </span>
-              <ChevronRight className="h-4 w-4 shrink-0 text-[var(--public-muted)]" aria-hidden="true" />
-            </Link>
+    <section aria-label="Lợi ích khi đặt lịch" className="border-b border-[var(--public-divider)] bg-[var(--public-surface)]">
+      <ul className="ui-container grid grid-cols-2 gap-x-4 gap-y-5 py-6 lg:grid-cols-4">
+        {BENEFITS.map(({ icon: Icon, title, text }) => (
+          <li key={title} className="flex items-start gap-3">
+            <Icon className="mt-0.5 h-5 w-5 shrink-0 text-[var(--public-primary)]" aria-hidden="true" />
+            <div>
+              <p className="font-semibold text-[var(--public-ink)]">{title}</p>
+              <p className="text-sm text-[var(--public-muted)]">{text}</p>
+            </div>
           </li>
         ))}
       </ul>
@@ -140,15 +146,15 @@ export function Shortcuts() {
   );
 }
 
-function SectionShell({ id, title, description, href, linkLabel, children }: { id: string; title: string; description?: string; href: string; linkLabel: string; children: ReactNode }) {
+function SectionShell({ id, title, description, href, linkLabel, children }: { id: string; title: string; description?: string; href?: string; linkLabel?: string; children: ReactNode }) {
   return (
-    <section id={id} className="ui-container scroll-mt-24 py-6 sm:py-8">
+    <section id={id} className="ui-container scroll-mt-24 py-8 sm:py-10">
       <div className="flex items-end justify-between gap-4">
         <div className="min-w-0">
           <h2 className="text-xl font-bold text-[var(--public-ink)] sm:text-2xl">{title}</h2>
-          {description ? <p className="mt-1 text-sm text-[var(--public-muted)]">{description}</p> : null}
+          {description ? <p className="mt-1 text-base text-[var(--public-muted)]">{description}</p> : null}
         </div>
-        <Link href={href} className="shrink-0 py-2 text-sm font-semibold text-[var(--public-primary)] underline underline-offset-4">{linkLabel}</Link>
+        {href && linkLabel ? <Link href={href} className="shrink-0 py-2 text-sm font-semibold text-[var(--public-primary)] underline underline-offset-4">{linkLabel}</Link> : null}
       </div>
       <div className="mt-4">{children}</div>
     </section>
@@ -157,7 +163,7 @@ function SectionShell({ id, title, description, href, linkLabel, children }: { i
 
 function RowSkeleton({ rows = 3 }: { rows?: number }) {
   return (
-    <div className="divide-y divide-[var(--public-divider)] overflow-hidden rounded-lg border border-[var(--public-border)] bg-[var(--public-surface)]" aria-busy="true">
+    <div className="divide-y divide-[var(--public-divider)] overflow-hidden rounded-xl border border-[var(--public-border)] bg-[var(--public-surface)]" aria-busy="true">
       {Array.from({ length: rows }).map((_, index) => (
         <div key={index} className="flex items-center gap-3 p-4">
           <span className="skeleton-shimmer h-11 w-11 shrink-0 rounded-full" />
@@ -175,18 +181,27 @@ function DoctorRow({ doctor }: { doctor: DoctorProfile }) {
   const slots = (doctor.todayAvailableSlots || []).slice(0, 3);
   const next = doctor.nextAvailableSlot;
   const bookingBase = `/dat-lich?departmentId=${doctor.department.id}&doctorId=${doctor.id}`;
+  const reviews = doctor.reviewSummary;
   return (
     <li className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center">
       <div className="flex min-w-0 flex-1 items-center gap-3">
         {doctor.user.avatar ? (
-          <img src={doctor.user.avatar} alt="" loading="lazy" className="h-12 w-12 shrink-0 rounded-full object-cover" />
+          <img src={doctor.user.avatar} alt="" loading="lazy" className="h-14 w-14 shrink-0 rounded-full object-cover" />
         ) : (
-          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[var(--public-surface-muted)] text-lg font-semibold text-[var(--public-primary-dark)]" aria-hidden="true">{doctorInitial(doctor.user.fullName)}</span>
+          <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-[var(--public-primary-soft)] text-xl font-semibold text-[var(--public-primary-dark)]" aria-hidden="true">{doctorInitial(doctor.user.fullName)}</span>
         )}
         <div className="min-w-0">
           <Link href={getPublicDoctorPath(doctor)} className="block truncate font-semibold text-[var(--public-ink)] hover:text-[var(--public-primary)]">{doctorDisplayName(doctor)}</Link>
           <p className="truncate text-sm text-[var(--public-muted)]">{[doctor.department.name, doctor.experience ? `${doctor.experience} năm kinh nghiệm` : ""].filter(Boolean).join(" · ")}</p>
-          <p className="text-sm font-semibold tabular-nums text-[var(--public-primary-dark)]">{formatCurrency(doctor.consultationFee)}</p>
+          <p className="flex flex-wrap items-center gap-x-3 text-sm">
+            <span className="font-semibold tabular-nums text-[var(--public-primary-dark)]">{formatCurrency(doctor.consultationFee)}</span>
+            {reviews?.count ? (
+              <span className="inline-flex items-center gap-1 text-[var(--public-muted)]">
+                <Star className="h-3.5 w-3.5 fill-[var(--public-warning)] text-[var(--public-warning)]" aria-hidden="true" />
+                {reviews.averageRating.toFixed(1)} ({reviews.count})
+              </span>
+            ) : null}
+          </p>
         </div>
       </div>
       <div className="flex flex-wrap items-center gap-2 sm:justify-end">
@@ -214,11 +229,11 @@ function DoctorRow({ doctor }: { doctor: DoctorProfile }) {
 export function DoctorsSection({ doctors, config, loading }: { doctors: DoctorProfile[]; config?: HomePageSectionConfig; loading: boolean }) {
   if (!loading && !doctors.length) return null;
   return (
-    <SectionShell id="doctors" title={config?.title || "Bác sĩ đang nhận lịch"} description={config?.description} href="/bac-si" linkLabel="Xem tất cả bác sĩ">
+    <SectionShell id="doctors" title={config?.title || "Bác sĩ đang nhận lịch"} description={config?.description || "Chọn giờ còn trống để đặt lịch ngay."} href="/bac-si" linkLabel="Xem tất cả bác sĩ">
       {loading ? (
         <RowSkeleton />
       ) : (
-        <ul className="divide-y divide-[var(--public-divider)] overflow-hidden rounded-lg border border-[var(--public-border)] bg-[var(--public-surface)]">
+        <ul className="divide-y divide-[var(--public-divider)] overflow-hidden rounded-xl border border-[var(--public-border)] bg-[var(--public-surface)]">
           {doctors.map((doctor) => <DoctorRow key={doctor.id} doctor={doctor} />)}
         </ul>
       )}
@@ -226,25 +241,35 @@ export function DoctorsSection({ doctors, config, loading }: { doctors: DoctorPr
   );
 }
 
+// Chuyên khoa kèm vài triệu chứng thường gặp để người khám tự chọn đúng khoa.
 export function DepartmentsSection({ departments, config, loading }: { departments: PublicHomeData["departments"]; config?: HomePageSectionConfig; loading: boolean }) {
   if (!loading && !departments.length) return null;
   return (
-    <SectionShell id="departments" title={config?.title || "Chuyên khoa"} description={config?.description} href="/chuyen-khoa" linkLabel="Tất cả chuyên khoa">
+    <SectionShell id="departments" title={config?.title || "Chuyên khoa"} description={config?.description || "Chọn chuyên khoa theo nhu cầu khám của bạn."} href="/chuyen-khoa" linkLabel="Tất cả chuyên khoa">
       {loading ? (
         <RowSkeleton rows={4} />
       ) : (
-        <ul className="grid overflow-hidden rounded-lg border border-[var(--public-border)] bg-[var(--public-surface)] sm:grid-cols-2 lg:grid-cols-3">
-          {departments.map((item) => (
-            <li key={item.id} className="border-b border-[var(--public-divider)] sm:border-r">
-              <Link href={item.slug ? `/chuyen-khoa/${item.slug}` : "/chuyen-khoa"} className="flex min-h-16 items-center gap-3 px-4 py-3 hover:bg-[var(--public-surface-muted)]">
-                <Stethoscope className="h-5 w-5 shrink-0 text-[var(--public-primary)]" aria-hidden="true" />
-                <span className="min-w-0 flex-1">
-                  <span className="block font-semibold text-[var(--public-ink)]">{item.name}</span>
-                  {item.description ? <span className="line-clamp-1 block text-sm text-[var(--public-muted)]">{item.description}</span> : null}
-                </span>
-              </Link>
-            </li>
-          ))}
+        <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {departments.map((item) => {
+            const keywords = (item.symptomKeywords || []).slice(0, 3);
+            return (
+              <li key={item.id}>
+                <Link href={item.slug ? `/chuyen-khoa/${item.slug}` : "/chuyen-khoa"} className="group flex h-full flex-col rounded-xl border border-[var(--public-border)] bg-[var(--public-surface)] p-4 hover:border-[var(--public-primary)]">
+                  <span className="flex items-center justify-between gap-2">
+                    <span className="font-semibold text-[var(--public-ink)]">{item.name}</span>
+                    <ChevronRight className="h-4 w-4 shrink-0 text-[var(--public-muted)] group-hover:text-[var(--public-primary)]" aria-hidden="true" />
+                  </span>
+                  {keywords.length ? (
+                    <span className="mt-2 flex flex-wrap gap-1.5">
+                      {keywords.map((keyword) => <span key={keyword} className="rounded-md bg-[var(--public-primary-soft)] px-2 py-0.5 text-sm text-[var(--public-primary-dark)]">{keyword}</span>)}
+                    </span>
+                  ) : item.description ? (
+                    <span className="mt-1 line-clamp-2 text-sm text-[var(--public-muted)]">{item.description}</span>
+                  ) : null}
+                </Link>
+              </li>
+            );
+          })}
         </ul>
       )}
     </SectionShell>
@@ -254,27 +279,104 @@ export function DepartmentsSection({ departments, config, loading }: { departmen
 export function PackagesSection({ packages, config, loading }: { packages: MedicalPackage[]; config?: HomePageSectionConfig; loading: boolean }) {
   if (!loading && !packages.length) return null;
   return (
-    <SectionShell id="packages" title={config?.title || "Gói khám"} description={config?.description} href="/goi-kham" linkLabel="Tất cả gói khám">
+    <SectionShell id="packages" title={config?.title || "Gói khám"} description={config?.description || "Chi phí dự kiến được hiển thị trước khi đặt lịch."} href="/goi-kham" linkLabel="Tất cả gói khám">
       {loading ? (
         <RowSkeleton />
       ) : (
-        <ul className="divide-y divide-[var(--public-divider)] overflow-hidden rounded-lg border border-[var(--public-border)] bg-[var(--public-surface)]">
-          {packages.map((item) => (
-            <li key={item.id}>
-              <Link href={`/goi-kham/${item.slug || item.id}`} className="flex items-center gap-3 px-4 py-3.5 hover:bg-[var(--public-surface-muted)]">
-                <span className="min-w-0 flex-1">
-                  <span className="block font-semibold text-[var(--public-ink)]">{item.name}</span>
-                  {item.summary ? <span className="line-clamp-1 block text-sm text-[var(--public-muted)]">{item.summary}</span> : null}
-                  {item.isBHYTSupport ? <span className="mt-0.5 block text-xs font-semibold text-[var(--public-success)]">Hỗ trợ BHYT</span> : null}
-                </span>
-                <span className="shrink-0 text-right font-semibold tabular-nums text-[var(--public-primary-dark)]">{formatCurrency(item.finalPrice)}</span>
-                <ChevronRight className="h-4 w-4 shrink-0 text-[var(--public-muted)]" aria-hidden="true" />
-              </Link>
-            </li>
-          ))}
+        <ul className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+          {packages.map((item) => {
+            const included = (item.items || []).filter((entry) => entry.included).slice(0, 3);
+            return (
+              <li key={item.id}>
+                <div className="flex h-full flex-col rounded-xl border border-[var(--public-border)] bg-[var(--public-surface)] p-4">
+                  <p className="text-sm text-[var(--public-muted)]">
+                    {[item.department?.name, item.isPopular ? "Được chọn nhiều" : "", item.isBHYTSupport ? "Hỗ trợ BHYT" : ""].filter(Boolean).join(" · ") || "Gói khám"}
+                  </p>
+                  <h3 className="mt-1 text-lg font-bold text-[var(--public-ink)]"><Link href={`/goi-kham/${item.slug || item.id}`} className="hover:text-[var(--public-primary)]">{item.name}</Link></h3>
+                  {included.length ? (
+                    <ul className="mt-2 space-y-1 text-sm text-[var(--public-text-soft)]">
+                      {included.map((entry) => (
+                        <li key={entry.id} className="flex items-start gap-2"><Check className="mt-0.5 h-4 w-4 shrink-0 text-[var(--public-success)]" aria-hidden="true" />{entry.name}</li>
+                      ))}
+                    </ul>
+                  ) : item.summary ? (
+                    <p className="mt-2 line-clamp-3 text-sm text-[var(--public-text-soft)]">{item.summary}</p>
+                  ) : null}
+                  <div className="mt-auto flex items-center justify-between gap-3 pt-4">
+                    <p className="text-xl font-bold tabular-nums text-[var(--public-primary-dark)]">{formatCurrency(item.finalPrice)}</p>
+                    <Link href={`/dat-lich?packageId=${item.id}`} className="public-button-primary inline-flex min-h-11 items-center rounded-lg px-4 text-sm font-semibold">Chọn gói</Link>
+                  </div>
+                </div>
+              </li>
+            );
+          })}
         </ul>
       )}
     </SectionShell>
+  );
+}
+
+const STEPS = [
+  { title: "Chọn dịch vụ", text: "Chuyên khoa, bác sĩ hoặc gói khám." },
+  { title: "Chọn giờ khám", text: "Xem ngày và giờ còn trống." },
+  { title: "Điền thông tin", text: "Họ tên và số điện thoại." },
+  { title: "Xác nhận OTP", text: "Nhập mã để nhận mã lịch hẹn." },
+];
+
+export function Steps() {
+  return (
+    <SectionShell id="quy-trinh" title="Đặt lịch trong 4 bước" href="/huong-dan/dat-lich" linkLabel="Xem hướng dẫn">
+      <ol className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        {STEPS.map((step, index) => (
+          <li key={step.title} className="rounded-xl border border-[var(--public-border)] bg-[var(--public-surface)] p-4">
+            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--public-primary-soft)] text-sm font-bold text-[var(--public-primary-dark)]" aria-hidden="true">{index + 1}</span>
+            <p className="mt-2 font-semibold text-[var(--public-ink)]">{step.title}</p>
+            <p className="text-sm text-[var(--public-muted)]">{step.text}</p>
+          </li>
+        ))}
+      </ol>
+    </SectionShell>
+  );
+}
+
+// Hỏi đáp rút gọn dùng thẻ details nên không cần JavaScript; cùng dữ liệu với trang Hỏi đáp.
+export function FaqSection({ faqs }: { faqs: PublicFAQ[] }) {
+  const items = faqs.slice(0, 5);
+  if (!items.length) return null;
+  return (
+    <SectionShell id="hoi-dap" title="Câu hỏi thường gặp" href="/hoi-dap" linkLabel="Xem tất cả">
+      <div className="divide-y divide-[var(--public-divider)] overflow-hidden rounded-xl border border-[var(--public-border)] bg-[var(--public-surface)]">
+        {items.map((item) => (
+          <details key={item.id} className="group">
+            <summary className="flex min-h-14 cursor-pointer list-none items-center gap-3 px-4 py-3 font-semibold text-[var(--public-ink)] hover:bg-[var(--public-surface-muted)]">
+              <span className="min-w-0 flex-1">{item.question}</span>
+              <ChevronRight className="h-4 w-4 shrink-0 text-[var(--public-muted)] transition-transform group-open:rotate-90" aria-hidden="true" />
+            </summary>
+            <p className="px-4 pb-4 text-base leading-7 text-[var(--public-text-soft)]">{item.answer}</p>
+          </details>
+        ))}
+      </div>
+    </SectionShell>
+  );
+}
+
+export function ClosingCta({ settings }: { settings: SiteSettingsValue | null }) {
+  const hotline = settings?.hotline?.trim();
+  return (
+    <section aria-labelledby="closing-title" className="ui-container py-8 sm:py-10">
+      <div className="flex flex-col gap-4 rounded-xl border border-[var(--public-border)] bg-[var(--public-surface)] p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
+        <div>
+          <h2 id="closing-title" className="text-xl font-bold text-[var(--public-ink)]">Quý khách cần hỗ trợ đặt lịch?</h2>
+          <p className="mt-1 text-base text-[var(--public-muted)]">
+            {hotline ? <>Vui lòng gọi <a href={`tel:${hotline}`} className="font-semibold tabular-nums text-[var(--public-ink)]">{hotline}</a> hoặc đặt lịch trực tuyến.</> : "Đặt lịch trực tuyến hoặc hỏi trợ lý để được hướng dẫn."}
+          </p>
+        </div>
+        <Link href="/dat-lich" className="public-button-primary inline-flex min-h-12 shrink-0 items-center justify-center gap-2 rounded-lg px-6 text-base font-semibold">
+          Đặt lịch khám
+          <ArrowRight className="h-4 w-4" aria-hidden="true" />
+        </Link>
+      </div>
+    </section>
   );
 }
 
