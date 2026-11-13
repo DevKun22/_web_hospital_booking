@@ -133,6 +133,8 @@ export type MedicalPackage = {
   finalPrice: number;
   summary: string | null;
   note: string | null;
+  /** Ảnh đại diện gói khám; backend chưa trả trường này nên luôn là tùy chọn. */
+  image?: string | null;
   isPopular: boolean;
   isBHYTSupport: boolean;
   isActive: boolean;

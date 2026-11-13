@@ -5,7 +5,7 @@ import { BackToTopButton } from "@/components/public/back-to-top-button";
 import { PublicBottomNav } from "@/components/public/public-bottom-nav";
 import { PublicSiteFooter } from "@/components/public/public-site-footer";
 import { PublicSiteHeader } from "@/components/public/public-site-header";
-import { Benefits, ClosingCta, DepartmentsSection, DoctorsSection, FaqSection, Hero, Notice, PackagesSection, Partners, Steps } from "@/features/home/home-sections";
+import { Benefits, DepartmentsSection, DoctorsSection, Hero, Notice, PackagesSection, Partners, PromoBanner, QuickActions, Steps, SupportSection } from "@/features/home/home-sections";
 import type { PublicHomeData } from "./public-home-types";
 
 type PublicHomeViewProps = {
@@ -38,21 +38,22 @@ export function PublicHomeView({ data, loading, error }: PublicHomeViewProps) {
           </div>
         ) : null}
 
-        <Hero settings={data.settings} banner={data.heroBanners[0]} departments={data.departments} />
+        <Hero departments={data.departments} />
+        <QuickActions settings={data.settings} />
+        <PromoBanner banner={data.heroBanners[0]} />
         {sections?.serviceHub.enabled !== false ? <Benefits /> : null}
-        {sections?.doctors.enabled !== false ? (
-          <DoctorsSection doctors={data.doctors.slice(0, limit(sections?.doctors.limit, 4))} config={sections?.doctors} loading={loading} />
-        ) : null}
         {sections?.departments.enabled !== false ? (
-          <DepartmentsSection departments={data.departments.slice(0, limit(sections?.departments.limit, 9))} config={sections?.departments} loading={loading} />
+          <DepartmentsSection departments={data.departments.slice(0, limit(sections?.departments.limit, 8))} config={sections?.departments} loading={loading} />
+        ) : null}
+        {sections?.doctors.enabled !== false ? (
+          <DoctorsSection doctors={data.doctors.slice(0, limit(sections?.doctors.limit, 6))} config={sections?.doctors} loading={loading} />
         ) : null}
         {sections?.packages.enabled !== false ? (
-          <PackagesSection packages={data.packages.slice(0, limit(sections?.packages.limit, 4))} config={sections?.packages} loading={loading} />
+          <PackagesSection packages={data.packages.slice(0, limit(sections?.packages.limit, 3))} config={sections?.packages} loading={loading} />
         ) : null}
         <Steps />
-        <FaqSection faqs={data.faqs} />
+        <SupportSection faqs={data.faqs} settings={data.settings} />
         {sections?.partners.enabled !== false ? <Partners banners={data.partnerBanners} config={sections?.partners} /> : null}
-        <ClosingCta settings={data.settings} />
       </div>
 
       <PublicSiteFooter settings={data.settings} />

@@ -103,10 +103,10 @@
 .public-site {
   /* Bảng màu DevKunCare. Phong cách: phẳng, lưới rõ, viền mảnh, một màu nhấn duy nhất; không chuyển sắc,
      không đổ bóng màu, không nâng nút khi rê chuột. Mọi cặp chữ/nền đạt tối thiểu 4,5:1 (đã đo). */
-  --public-primary: #07549c;
-  --public-primary-dark: #053f77;
-  --public-primary-hover: #064785;
-  --public-primary-soft: #e3eef9;
+  --public-primary: #0a6bc0;
+  --public-primary-dark: #084e8f;
+  --public-primary-hover: #0858a3;
+  --public-primary-soft: #e4f2ff;
   --public-secondary: #33495e;
   --public-secondary-soft: #eaf1f5;
   --public-care-mint: #087f72;
