@@ -50,6 +50,7 @@ const FIELD = "ui-field mt-1 min-h-12 w-full px-3 text-base";
 // Đầu trang: lời chào ngắn, ô chọn chuyên khoa dẫn thẳng vào đặt lịch, thông tin liên hệ.
 export function Hero({ settings, banner, departments }: { settings: SiteSettingsValue | null; banner?: Banner; departments: PublicHomeData["departments"] }) {
   const hotline = settings?.hotline?.trim();
+  const hasContact = Boolean(hotline || settings?.workingHours || settings?.address);
   return (
     <section className="border-b border-[var(--public-divider)] bg-[var(--public-surface)]">
       <div className="ui-container grid grid-cols-[minmax(0,1fr)] gap-8 py-8 sm:py-12 lg:grid-cols-[minmax(0,1fr)_21rem] lg:gap-12 lg:py-14">
@@ -86,7 +87,7 @@ export function Hero({ settings, banner, departments }: { settings: SiteSettings
               </picture>
             </Link>
           ) : null}
-          <dl className="space-y-3 rounded-xl border border-[var(--public-border)] p-4 text-sm">
+          {hasContact ? <dl className="space-y-3 rounded-xl border border-[var(--public-border)] p-4 text-sm">
             {hotline ? (
               <div className="flex items-start gap-3">
                 <Phone className="mt-0.5 h-4 w-4 shrink-0 text-[var(--public-primary)]" aria-hidden="true" />
@@ -114,7 +115,7 @@ export function Hero({ settings, banner, departments }: { settings: SiteSettings
                 </div>
               </div>
             ) : null}
-          </dl>
+          </dl> : null}
         </div>
       </div>
     </section>
