@@ -24,7 +24,7 @@ const buildNormalizedIndex = (value: string) => {
 export function HighlightText({
   text,
   query,
-  className = "rounded bg-[#fff4bf] px-0.5 font-semibold text-[#7a4b00]",
+  className = "rounded bg-[var(--public-warning-soft)] px-0.5 font-semibold text-[var(--public-warning)]",
 }: {
   text: string;
   query: string;

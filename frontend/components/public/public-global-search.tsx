@@ -117,7 +117,7 @@ export function PublicGlobalSearch({
     }
 
     return (
-      <div id={`${inputId}-results`} className="absolute left-0 right-0 top-[calc(100%+0.5rem)] z-[75] overflow-hidden rounded-2xl border border-[var(--public-border)] bg-white shadow-[0_20px_60px_rgba(15,23,42,0.18)]">
+      <div id={`${inputId}-results`} className="absolute left-0 right-0 top-[calc(100%+0.5rem)] z-[75] overflow-hidden rounded-lg border border-[var(--public-border)] bg-white shadow-[0_20px_60px_rgba(15,23,42,0.18)]">
         <div className="flex min-h-12 items-center justify-between gap-3 border-b border-[var(--public-divider)] bg-[var(--public-surface-muted)] px-4 py-2.5 text-xs font-medium text-[var(--public-muted)] sm:px-5">
           {waitingDebounce || searchQuery.isFetching ? (
             <span className="inline-flex items-center gap-2" role="status">
