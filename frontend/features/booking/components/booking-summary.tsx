@@ -1,117 +1,91 @@
 import Link from "next/link";
-import { CalendarDays, ClipboardCheck, Clock, Phone } from "lucide-react";
-import { doctorDisplayName } from "@/features/booking/model";
+import { Phone } from "lucide-react";
+import { formatDayShort } from "@/features/booking/dates";
 import type { BookingFlow } from "@/features/booking/use-booking-flow";
+import { doctorDisplayName } from "@/lib/doctor";
 import { formatCurrency } from "@/lib/format";
-import { formatVietnamDate } from "@/lib/date";
 
 const formatTime = (value: string) => value.slice(0, 5);
 
-function SummaryRow({ label, value, hint, href }: { label: string; value: string; hint?: string; href?: string }) {
-  const body = (
-    <>
-      <span className="text-xs font-medium text-[var(--public-muted)]">{label}</span>
-      <span className="mt-1 block font-semibold text-[var(--public-ink)]">{value}</span>
-      {hint ? <span className="mt-1 block text-xs leading-5 text-[var(--public-muted)]">{hint}</span> : null}
-    </>
+// Dữ liệu tóm tắt dùng chung cho phiếu bên phải (máy tính) và dòng tóm tắt ở thanh dưới (điện thoại).
+export function useBookingSummaryData(flow: BookingFlow) {
+  const { state, catalog, amount } = flow;
+  const { selection, draft, slot } = state;
+  const department = catalog.departments.find((item) => item.id === selection.departmentId);
+  const doctor = catalog.doctors.find((item) => item.id === selection.doctorId);
+  const pack = catalog.packages.find((item) => item.id === selection.packageId);
+  const when = slot ? `${formatTime(slot.startTime)}, ${formatDayShort(slot.date.slice(0, 10))}` : draft.date ? formatDayShort(draft.date) : "";
+  return { selection, department, doctor, pack, when, hasTime: Boolean(slot), amount };
+}
+
+// Dòng ngắn trên thanh hành động ở điện thoại: giờ đã chọn và giá, hoặc bác sĩ đang chọn.
+export function MobileSummaryLine({ flow }: { flow: BookingFlow }) {
+  const { doctor, when, hasTime, amount } = useBookingSummaryData(flow);
+  if (!doctor && !hasTime) return null;
+  return (
+    <p className="flex items-center justify-between gap-3">
+      <span className="min-w-0 truncate text-[var(--public-text-soft)]">{hasTime ? when : doctor ? doctorDisplayName(doctor) : ""}</span>
+      {amount ? <strong className="shrink-0 tabular-nums text-[var(--public-primary-dark)]">{formatCurrency(amount)}</strong> : null}
+    </p>
   );
-  const box = "block rounded-md border border-[var(--public-border)] bg-white px-3 py-2";
-  return href ? (
-    <Link href={href} className={`${box} transition hover:border-[var(--public-primary)] hover:bg-[var(--public-primary-soft)]`}>{body}</Link>
-  ) : (
-    <div className={box}>{body}</div>
+}
+
+function Row({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="py-2.5">
+      <dt className="text-xs text-[var(--public-muted)]">{label}</dt>
+      <dd className="mt-0.5 text-sm font-medium text-[var(--public-ink)]">{children}</dd>
+    </div>
   );
 }
 
 export function BookingSummary({ flow, hotline }: { flow: BookingFlow; hotline: string }) {
-  const { state, catalog, amount } = flow;
-  const { selection, draft, slot, pending, verified } = state;
-  const department = catalog.departments.find((item) => item.id === selection.departmentId);
-  const doctor = catalog.doctors.find((item) => item.id === selection.doctorId);
-  const pack = catalog.packages.find((item) => item.id === selection.packageId);
-
-  const badge = verified
-    ? { text: "Đã xác thực", style: "bg-[var(--public-success-soft)] text-[var(--public-success)]" }
-    : pending
-      ? { text: "Chờ OTP", style: "bg-[var(--public-warning-soft)] text-[var(--public-warning)]" }
-      : { text: "Đang lập phiếu", style: "bg-[var(--public-primary-soft)] text-[var(--public-primary-dark)]" };
-
-  const packageValue =
-    selection.serviceMode === "PACKAGE" ? pack?.name || "Chưa chọn gói khám" : selection.serviceMode === "DOCTOR_ONLY" ? "Khám theo bác sĩ" : "Chưa chọn hình thức khám";
+  const { selection, department, doctor, pack, when, hasTime, amount } = useBookingSummaryData(flow);
+  const { pending, verified } = flow.state;
+  const status = verified ? "Đã xác thực" : pending ? "Chờ xác thực OTP" : "Đang chọn";
+  const link = "underline underline-offset-2 hover:text-[var(--public-primary)]";
+  const unset = <span className="text-[var(--public-muted)]">Chưa chọn</span>;
 
   return (
-    <aside aria-label="Tóm tắt lịch hẹn" className="space-y-4 lg:sticky lg:top-36 lg:self-start">
-      <div className="relative overflow-hidden rounded-2xl border-2 border-[var(--public-border)] bg-white p-4 shadow-[var(--public-shadow-soft)] sm:p-5">
-        <span className="absolute inset-x-0 top-0 h-1.5 bg-[var(--public-primary)]" aria-hidden="true" />
-        <div className="flex items-center justify-between gap-3 border-b border-[var(--public-divider)] pb-3 pt-1">
-          <p className="flex items-center gap-2 font-bold text-[var(--public-ink)]">
-            <ClipboardCheck className="h-5 w-5 text-[var(--public-primary)]" aria-hidden="true" />
-            Phiếu hẹn dự kiến
-          </p>
-          <span className={`rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.08em] ${badge.style}`}>{badge.text}</span>
+    <aside aria-label="Tóm tắt lịch hẹn" className="hidden space-y-4 lg:sticky lg:top-28 lg:block lg:self-start">
+      <div className="rounded-xl border border-[var(--public-border)] bg-[var(--public-surface)] p-4">
+        <div className="flex items-baseline justify-between gap-3 border-b border-[var(--public-divider)] pb-3">
+          <h2 className="text-base font-bold text-[var(--public-ink)]">Lịch hẹn của bạn</h2>
+          <span className="text-xs font-semibold text-[var(--public-muted)]">{status}</span>
         </div>
-
-        <div className="mt-3 space-y-2 text-sm">
-          <SummaryRow
-            label="Chuyên khoa"
-            value={department?.name || "Chưa chọn chuyên khoa"}
-            hint={department ? "Bấm để xem nhanh thông tin khoa" : "Chọn khoa để hệ thống lọc bác sĩ và gói khám"}
-            href={department ? (department.slug ? `/chuyen-khoa/${department.slug}` : "/chuyen-khoa") : undefined}
-          />
-          <SummaryRow
-            label="Bác sĩ"
-            value={doctor ? doctorDisplayName(doctor) : "Chưa chọn bác sĩ"}
-            hint={doctor ? "Bấm để xem nhanh hồ sơ bác sĩ" : "Chọn bác sĩ để xem lịch trống"}
-            href={doctor ? `/bac-si/${encodeURIComponent(doctor.slug || doctor.id)}` : undefined}
-          />
-          <SummaryRow
-            label="Gói khám"
-            value={packageValue}
-            hint={pack ? "Bấm để xem nhanh hạng mục và giá gói" : selection.serviceMode === "DOCTOR_ONLY" ? "Giá tạm tính theo phí khám của bác sĩ" : "Chọn khám theo bác sĩ hoặc một gói khám"}
-            href={pack ? `/goi-kham/${pack.slug || pack.id}` : undefined}
-          />
-          <div className="rounded-md border border-[var(--public-border)] bg-white px-3 py-2">
-            <span className="text-xs font-medium text-[var(--public-muted)]">Ngày khám</span>
-            <p className="mt-1 flex items-center gap-2 font-semibold text-[var(--public-ink)]">
-              <CalendarDays className="h-4 w-4 text-[var(--public-primary-dark)]" aria-hidden="true" />
-              {slot ? formatVietnamDate(slot.date) : draft.date ? formatVietnamDate(draft.date) : "Chưa chọn ngày"}
-            </p>
-          </div>
-          <div className="rounded-md border border-[var(--public-border)] bg-white px-3 py-2">
-            <span className="text-xs font-medium text-[var(--public-muted)]">Giờ khám</span>
-            <p className="mt-1 flex items-center gap-2 font-semibold text-[var(--public-ink)]">
-              <Clock className="h-4 w-4 text-[var(--public-primary-dark)]" aria-hidden="true" />
-              {slot ? `${formatTime(slot.startTime)} - ${formatTime(slot.endTime)}` : "Chưa chọn khung giờ"}
-            </p>
-          </div>
+        <dl className="divide-y divide-[var(--public-divider)]">
+          <Row label="Chuyên khoa">
+            {department ? <Link href={department.slug ? `/chuyen-khoa/${department.slug}` : "/chuyen-khoa"} className={link}>{department.name}</Link> : unset}
+          </Row>
+          <Row label="Bác sĩ">
+            {doctor ? <Link href={`/bac-si/${encodeURIComponent(doctor.slug || doctor.id)}`} className={link}>{doctorDisplayName(doctor)}</Link> : unset}
+          </Row>
+          <Row label="Hình thức">
+            {selection.serviceMode === "PACKAGE"
+              ? pack
+                ? <Link href={`/goi-kham/${pack.slug || pack.id}`} className={link}>{pack.name}</Link>
+                : "Khám theo gói"
+              : selection.serviceMode === "DOCTOR_ONLY"
+                ? "Khám theo bác sĩ"
+                : unset}
+          </Row>
+          <Row label="Thời gian">{hasTime ? when : unset}</Row>
+        </dl>
+        <div className="mt-1 flex items-baseline justify-between border-t border-[var(--public-border)] pt-3">
+          <span className="text-sm text-[var(--public-muted)]">Tạm tính</span>
+          <strong className="text-xl tabular-nums text-[var(--public-primary-dark)]">{amount ? formatCurrency(amount) : "—"}</strong>
         </div>
-
-        <div className="mt-4 rounded-md border border-[var(--public-border)] bg-white px-3 py-3">
-          <p className="text-xs font-semibold uppercase tracking-wide text-[var(--public-muted)]">Tạm tính</p>
-          <p className="mt-1 text-lg font-semibold text-[var(--public-primary-dark)]">{amount ? formatCurrency(amount) : "Sẽ tính theo lựa chọn"}</p>
-          <p className="mt-2 text-xs leading-5 text-[var(--public-muted)]">
-            {selection.serviceMode === "PACKAGE" && pack
-              ? "Giá tạm tính dựa trên gói khám đã chọn, bao gồm các hạng mục đang được cấu hình trong gói."
-              : selection.serviceMode === "DOCTOR_ONLY" && doctor
-                ? "Giá tạm tính dựa trên phí khám của bác sĩ đã chọn. Chi phí cuối cùng có thể thay đổi sau khi bệnh viện xác nhận."
-                : "Giá sẽ hiển thị sau khi bạn chọn hình thức khám và bác sĩ."}
-          </p>
-        </div>
+        <p className="mt-2 text-xs leading-5 text-[var(--public-muted)]">Chi phí cuối cùng có thể thay đổi sau khi bệnh viện xác nhận.</p>
       </div>
 
       {hotline ? (
-        <div className="rounded-2xl bg-[var(--public-primary)] p-4 text-white shadow-sm">
-          <p className="text-xs font-bold uppercase tracking-[0.1em] text-white/75">Hỗ trợ đặt lịch</p>
-          <div className="mt-2 flex items-center justify-between gap-3">
-            <div className="min-w-0">
-              <p className="truncate text-lg font-bold tabular-nums">{hotline}</p>
-              <p className="mt-1 text-xs leading-5 text-white/75">Liên hệ khi cần hướng dẫn trong quá trình đặt lịch.</p>
-            </div>
-            <a href={`tel:${hotline}`} className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white text-[var(--public-primary)] shadow-sm transition hover:bg-[var(--public-primary-soft)]" aria-label={`Gọi hỗ trợ ${hotline}`}>
-              <Phone className="h-5 w-5" aria-hidden="true" />
-            </a>
-          </div>
-        </div>
+        <a href={`tel:${hotline}`} className="flex items-center gap-3 rounded-xl border border-[var(--public-border)] bg-[var(--public-surface)] p-3 text-sm hover:border-[var(--public-primary)]">
+          <Phone className="h-5 w-5 shrink-0 text-[var(--public-primary)]" aria-hidden="true" />
+          <span>
+            <span className="block text-xs text-[var(--public-muted)]">Cần hỗ trợ đặt lịch</span>
+            <strong className="tabular-nums text-[var(--public-ink)]">{hotline}</strong>
+          </span>
+        </a>
       ) : null}
     </aside>
   );
