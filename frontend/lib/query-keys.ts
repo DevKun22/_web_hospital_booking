@@ -1,6 +1,6 @@
 export const queryKeys = {
-  publicHome: ["public", "home"] as const,
-  publicBooking: ["public", "booking"] as const,
+  // Không truyền view: khóa tiền tố, dùng để làm mới mọi bản dữ liệu công khai sau khi quản trị sửa nội dung.
+  publicBootstrap: (view?: "featured" | "full") => (view ? (["public", "bootstrap", view] as const) : (["public", "bootstrap"] as const)),
   publicSiteSettings: ["public", "site-settings"] as const,
   publicBanners: (filters?: { position?: string }) =>
     ["public", "banners", filters || {}] as const,

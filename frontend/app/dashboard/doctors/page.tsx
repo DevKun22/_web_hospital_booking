@@ -152,7 +152,7 @@ export default function DoctorsPage() {
       queryClient.invalidateQueries({ queryKey: ["dashboard", "doctors"] }),
       queryClient.invalidateQueries({ queryKey: ["dashboard", "users"] }),
       queryClient.invalidateQueries({ queryKey: ["public", "doctors"] }),
-      queryClient.invalidateQueries({ queryKey: queryKeys.publicHome }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.publicBootstrap() }),
     ]);
   };
 

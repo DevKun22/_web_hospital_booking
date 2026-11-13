@@ -16,7 +16,7 @@ import { buildProfilePrefill, resolveUrlPrefill } from "@/features/booking/prefi
 import { useBookingStore } from "@/features/booking/store";
 import { validateBooking, validateOtp, validateSchedule, validateService } from "@/features/booking/validation";
 import { loadOptionalPatientSession, patientSessionQueryKey } from "@/lib/patient-session-client";
-import { usePublicAvailableSlots } from "@/lib/public-booking-query";
+import { usePublicAvailableSlots } from "@/lib/public-slots-query";
 import { usePublicCapabilities } from "@/lib/public-capabilities-query";
 import { queryKeys } from "@/lib/query-keys";
 

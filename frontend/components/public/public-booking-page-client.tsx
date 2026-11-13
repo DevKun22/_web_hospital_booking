@@ -9,9 +9,8 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { BookingFlow } from "@/features/booking/components/booking-flow";
-import type { PublicHomeData } from "@/components/public/public-home-types";
-import { usePublicBookingData } from "@/lib/public-booking-query";
-import { hasPublicHomeData } from "@/lib/public-home-query";
+import { usePublicBootstrap } from "@/lib/public-bootstrap-client";
+import type { PublicBootstrapSnapshot } from "@/lib/public-bootstrap";
 
 const bookingJourney = [
   {
@@ -36,14 +35,9 @@ const bookingJourney = [
   },
 ];
 
-export function PublicBookingPageClient({ data, error = "" }: { data: PublicHomeData; error?: string }) {
-  const query = usePublicBookingData(data);
-  const bookingData = query.data || data;
-  const queryError = query.error instanceof Error ? query.error.message : "";
-  const loading = query.isLoading || (query.isFetching && !hasPublicHomeData(bookingData));
+export function PublicBookingPageClient({ snapshot }: { snapshot: PublicBootstrapSnapshot }) {
+  const { data: bookingData, loading, error: displayError } = usePublicBootstrap("full", snapshot);
 
-  // Lỗi tải lúc dựng trang không còn đúng khi trình duyệt đã tải được dữ liệu.
-  const displayError = queryError || (hasPublicHomeData(bookingData) ? "" : error);
   return (
     <main className="min-h-screen bg-[var(--public-canvas)] text-[var(--public-ink)]">
       <div className="border-b border-[var(--public-border)] bg-white">

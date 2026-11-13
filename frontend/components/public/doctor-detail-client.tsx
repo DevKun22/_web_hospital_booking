@@ -6,7 +6,7 @@ import { ArrowRight, CalendarDays, Clock, Loader2, Star, Stethoscope } from "luc
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { VietnamDateInput } from "@/components/ui/vietnam-date-input";
-import { type PublicSlot, usePublicAvailableSlots } from "@/lib/public-booking-query";
+import { type PublicSlot, usePublicAvailableSlots } from "@/lib/public-slots-query";
 import type { DoctorProfile } from "@/lib/types";
 
 import { formatCurrency } from "@/lib/format";

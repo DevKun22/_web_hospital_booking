@@ -87,7 +87,6 @@ export type PublicHomeData = {
   settings: SiteSettingsValue | null;
   homeConfig: HomePageConfigValue | null;
   heroBanners: Banner[];
-  promoBanners: Banner[];
   partnerBanners: Banner[];
   departments: PublicDepartment[];
   doctors: DoctorProfile[];
@@ -105,7 +104,6 @@ export const emptyHomeData: PublicHomeData = {
   settings: null,
   homeConfig: null,
   heroBanners: [],
-  promoBanners: [],
   partnerBanners: [],
   departments: [],
   doctors: [],

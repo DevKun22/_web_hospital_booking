@@ -283,14 +283,14 @@ export default function SiteSettingsPage() {
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: queryKeys.dashboardSiteSettings }),
       queryClient.invalidateQueries({ queryKey: queryKeys.publicSiteSettings }),
-      queryClient.invalidateQueries({ queryKey: queryKeys.publicHome }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.publicBootstrap() }),
     ]);
     publishPublicContentUpdated();
   };
   const invalidateHomePageConfig = async () => {
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: queryKeys.dashboardHomePageConfig }),
-      queryClient.invalidateQueries({ queryKey: queryKeys.publicHome }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.publicBootstrap() }),
     ]);
     publishPublicContentUpdated();
   };
@@ -298,7 +298,7 @@ export default function SiteSettingsPage() {
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ["dashboard", "banners"] }),
       queryClient.invalidateQueries({ queryKey: ["public", "banners"] }),
-      queryClient.invalidateQueries({ queryKey: queryKeys.publicHome }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.publicBootstrap() }),
     ]);
     publishPublicContentUpdated();
   };
@@ -306,7 +306,7 @@ export default function SiteSettingsPage() {
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ["dashboard", "faqs"] }),
       queryClient.invalidateQueries({ queryKey: ["public", "faqs"] }),
-      queryClient.invalidateQueries({ queryKey: queryKeys.publicHome }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.publicBootstrap() }),
     ]);
     publishPublicContentUpdated();
   };
