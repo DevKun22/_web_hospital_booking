@@ -19,7 +19,7 @@
     "test:e2e": "tsx test/runIntegrationTests.ts patient journey",
     "test:types": "tsc --noEmit -p tsconfig.test.json",
     "test:all": "prisma generate && tsc --noEmit -p tsconfig.test.json && tsx --test test/smoke/app.test.ts && npm run test:unit && tsx test/runIntegrationTests.ts",
-    "seed:demo-full": "tsx src/scripts/seedDemoData.ts",
+    "seed:clinic": "tsx src/scripts/seedClinicData.ts",
     "seed:chatbot-faq": "tsx src/scripts/seedChatbotFAQ.ts",
     "check:queue-redis": "tsx src/scripts/checkQueueRedis.ts",
     "prisma:generate": "prisma generate",

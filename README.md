@@ -80,7 +80,8 @@ cd backend
 cp .env.example .env        # điền DATABASE_URL, JWT_SECRET, OTP_SECRET, REDIS_URL...
 npm install
 npx prisma migrate deploy
-npm run seed:demo-full      # dữ liệu mẫu (xem lưu ý bên dưới)
+SEED_PASSWORD='<mật khẩu >= 12 ký tự>' npm run seed:clinic   # dữ liệu danh mục (xem bên dưới)
+npm run seed:chatbot-faq
 npm run dev
 
 # Frontend (cổng 3000)
@@ -105,7 +106,10 @@ Hướng dẫn chi tiết (thiết bị thật, emulator, đóng gói): [mobile/
 
 ### Dữ liệu mẫu
 
-`npm run seed:demo-full` tạo chuyên khoa, bác sĩ, gói khám, khung giờ, tài khoản mẫu cho các vai trò và thuốc mẫu. Script **có thể xóa dữ liệu hiện có**, chỉ chạy trên cơ sở dữ liệu cục bộ.
+`npm run seed:clinic` nạp dữ liệu danh mục cho phòng khám: tài khoản quản trị, nhân viên, dược sĩ, 11 bác sĩ thuộc 9 chuyên khoa (kèm lịch làm việc và khung giờ 14 ngày), 10 gói khám, 15 loại thuốc nhập kho theo lô và nội dung website. Script **không tạo dữ liệu người bệnh** (hồ sơ, lịch hẹn, bệnh án, hóa đơn).
+
+- Bắt buộc đặt `SEED_PASSWORD` (tối thiểu 12 ký tự, dùng chung cho mọi tài khoản nhân sự, không ghi trong mã nguồn). Email quản trị lấy từ `SEED_ADMIN_EMAIL`.
+- Muốn xóa sạch dữ liệu cũ trước khi nạp, đặt thêm `RESET_DATABASE=true` và `ALLOW_DATABASE_RESET=true`; thao tác này xóa **toàn bộ** bảng (trừ `_prisma_migrations`), nên chỉ chạy khi chắc chắn. Sau khi xóa sạch, chạy tiếp `npm run seed:chatbot-faq` để nạp lại câu hỏi thường gặp.
 
 ## Cấu hình
 
@@ -141,7 +145,7 @@ cd mobile   && flutter analyze && flutter test
 | Redis | Upstash | Dùng cho hàng đợi, bộ đếm giới hạn tần suất và phát tín hiệu thu hồi quyền; nên đặt chính sách `noeviction`. Production cần hai ACL user khác nhau (xem phần kiến trúc) |
 | Cơ sở dữ liệu | Supabase (PostgreSQL) | `DATABASE_URL` là chuỗi **Session pooler** (cổng 5432; mã hóa `@`, `#` trong mật khẩu thành `%40`, `%23`). Migration áp dụng khi build API. Nên tắt Data API (backend kết nối thẳng, không dùng) và bật RLS cho mọi bảng; có thể bật trigger tự bật RLS cho bảng mới |
 
-**Hạn mức gói miễn phí:** mỗi dịch vụ giới hạn theo cách riêng (Upstash giới hạn số lệnh Redis mỗi tháng, Supabase tự tạm dừng khi lâu không hoạt động, Render tự ngủ khi không có truy cập), nên các việc nền được giữ ở mức thưa. Đổi nhà cung cấp cơ sở dữ liệu chỉ cần đổi `DATABASE_URL` (dự án chỉ yêu cầu PostgreSQL; schema có trigger, ràng buộc CHECK và SQL thô đặc thù PostgreSQL); dùng `npx prisma migrate deploy` để dựng cấu trúc, rồi `npm run seed:demo-full` và `npm run seed:chatbot-faq` trong `backend` nếu cần dữ liệu demo (tài khoản demo dùng mật khẩu cố định trong mã nguồn, chỉ dành cho môi trường thử).
+**Hạn mức gói miễn phí:** mỗi dịch vụ giới hạn theo cách riêng (Upstash giới hạn số lệnh Redis mỗi tháng, Supabase tự tạm dừng khi lâu không hoạt động, Render tự ngủ khi không có truy cập), nên các việc nền được giữ ở mức thưa. Đổi nhà cung cấp cơ sở dữ liệu chỉ cần đổi `DATABASE_URL` (dự án chỉ yêu cầu PostgreSQL; schema có trigger, ràng buộc CHECK và SQL thô đặc thù PostgreSQL); dùng `npx prisma migrate deploy` để dựng cấu trúc, rồi `npm run seed:clinic` và `npm run seed:chatbot-faq` trong `backend` nếu cần dữ liệu danh mục.
 
 Production dùng duy nhất một topology: API và toàn bộ worker chạy trong cùng Web Service với `INLINE_WORKERS=otp,appointments,notifications,payments`. Các lệnh `worker:*:dev` chỉ dùng để chẩn đoán cục bộ, không phải đường triển khai production.
 
@@ -179,7 +183,7 @@ Cấu hình (chỉ ở backend, biến mẫu trong `backend/.env.example`): `PAY
 - Hạn mức gói miễn phí của Redis (Upstash) và cơ sở dữ liệu có thể làm hàng đợi hoặc truy vấn bị chặn khi dùng nhiều; OTP đã có đường gửi trực tiếp dự phòng, các việc nền khác chưa có.
 - Production kiểm tra cấu hình khi khởi động và từ chối chạy nếu Redis hoặc worker sai quy định (hai ACL user, `rediss://`, `INLINE_WORKERS` đủ bốn worker). Gói miễn phí chỉ có một người dùng Redis và giới hạn số lệnh có thể không đáp ứng, nên có thể cần Redis trả phí hoặc hai cơ sở dữ liệu Redis riêng.
 - Mọi client chỉ dùng `/api/v1`; đường dẫn cũ `/api/*` trả 404, nên khi đổi biến môi trường trên Vercel, Render và cổng VNPay phải dùng đường dẫn mới.
-- Dữ liệu trên môi trường triển khai hiện là bộ dữ liệu demo; tài khoản demo có email giả nên không nhận được OTP, cần đặt email thật cho tài khoản dùng để đăng nhập.
+- Tài khoản nhân sự do seed tạo (trừ quản trị) dùng email `@devkuncare.com` chưa có hộp thư thật, nên không nhận được OTP; cần đặt email thật cho tài khoản dùng để đăng nhập.
 - Tiền thuốc tính theo thực cấp, thêm vào hóa đơn chưa thanh toán khi cấp thuốc; hóa đơn đã thanh toán hoặc đã hủy không tự đổi (nhân viên được báo xử lý); chưa có hoàn tiền một phần.
 
 **Hướng phát triển:** tích hợp SMS, chuyển VNPay sang production, quyền xem khẩn cấp có lý do bắt buộc cho quản trị, cho bác sĩ xem lịch sử khám khi có lịch hẹn hiện hành, báo cáo độ phủ kiểm thử, thông báo thời gian thực cho dashboard, khám từ xa qua video.
