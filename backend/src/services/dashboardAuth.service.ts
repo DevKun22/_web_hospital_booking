@@ -1,5 +1,4 @@
 import { maskContact } from "../utils/maskContact.js";
-import bcrypt from "bcrypt";
 import type { SignOptions } from "jsonwebtoken";
 import { prisma } from "../config/prisma.js";
 import AuthOtpService from "./authOtp.service.js";
@@ -13,7 +12,11 @@ import DashboardLoginSecurityService from "./dashboardLoginSecurity.service.js";
 import { STAFF_ROLES, type StaffRole } from "../config/permissions.js";
 import { getRolePermissions } from "./rbac.service.js";
 import AuditLogService from "./auditLog.service.js";
-import { hashPassword } from "../utils/password.js";
+import {
+  comparePassword,
+  DUMMY_PASSWORD_HASH,
+  hashPassword,
+} from "../utils/password.js";
 import { getRuntimeConfig } from "../config/runtimeConfig.js";
 
 const DASHBOARD_ROLES: Role[] = [...STAFF_ROLES];
@@ -23,13 +26,6 @@ const dashboardAuthConfig = getRuntimeConfig().dashboardAuth;
 const ACCESS_TOKEN_EXPIRES_IN =
   dashboardAuthConfig.accessTokenExpiresIn as SignOptions["expiresIn"];
 const REFRESH_TOKEN_DAYS = dashboardAuthConfig.refreshTokenDays;
-// Giữ thời gian so sánh mật khẩu tương đương khi tài khoản không tồn tại để
-// hạn chế suy đoán số điện thoại đã đăng ký qua chênh lệch thời gian phản hồi.
-const DUMMY_PASSWORD_HASH = bcrypt.hashSync(
-  "hospital-booking-invalid-password",
-  10,
-);
-
 const dashboardPurposeByRole: Record<StaffRole, OtpPurpose> = {
   ADMIN: "ADMIN_LOGIN",
   DOCTOR: "DOCTOR_LOGIN",
@@ -89,7 +85,7 @@ class DashboardAuthService {
       where: { phone },
     });
 
-    const validPassword = await bcrypt.compare(
+    const validPassword = await comparePassword(
       password,
       user?.password || DUMMY_PASSWORD_HASH,
     );
@@ -341,7 +337,8 @@ class DashboardAuthService {
       select: { password: true },
     });
     const valid =
-      !!user?.password && (await bcrypt.compare(input.currentPassword, user.password));
+      !!user?.password &&
+      (await comparePassword(input.currentPassword, user.password));
     if (!valid) throw new AppError("Mật khẩu hiện tại không chính xác", 400);
     if (input.currentPassword === input.newPassword) {
       throw new AppError("Mật khẩu mới phải khác mật khẩu hiện tại", 400);

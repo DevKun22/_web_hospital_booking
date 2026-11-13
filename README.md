@@ -53,7 +53,7 @@ Web công khai / Dashboard (Next.js) ─┐
 | --- | --- |
 | Web | Next.js 16, React 19, TypeScript, Tailwind CSS, TanStack Query, Zustand |
 | Mobile | Flutter 3.38, Riverpod, GoRouter, Dio, Firebase Messaging, flutter_secure_storage |
-| Backend | Node.js 20 trở lên, Express 5, TypeScript, Prisma, PostgreSQL |
+| Backend | Node.js 22 trở lên, Express 5, TypeScript, Prisma, PostgreSQL |
 | Hàng đợi | Redis, BullMQ |
 | Dịch vụ ngoài | Resend, Cloudinary, Firebase Cloud Messaging, Gemini, VNPay |
 | Triển khai | Vercel (web), Render (API), Supabase (PostgreSQL), Upstash (Redis) |
@@ -70,7 +70,7 @@ mobile/     Ứng dụng Flutter cho bệnh nhân
 
 ## Chạy ở máy cục bộ
 
-Yêu cầu: Node.js 20 trở lên, PostgreSQL 16, Redis 7 (cài trực tiếp hoặc dùng dịch vụ đám mây), Flutter 3.38 cho ứng dụng mobile.
+Yêu cầu: Node.js 22 trở lên, PostgreSQL 16, Redis 7 (cài trực tiếp hoặc dùng dịch vụ đám mây), Flutter 3.38 cho ứng dụng mobile.
 
 ### Chạy backend và frontend
 
