@@ -110,7 +110,7 @@ class _DigitalPatientCard extends StatelessWidget {
       borderRadius: BorderRadius.circular(24),
       boxShadow: [
         BoxShadow(
-          color: context.colors.primaryDark.withValues(alpha: 0.18),
+          color: AppPalette.heroDeep.withValues(alpha: 0.18),
           blurRadius: 20,
           offset: const Offset(0, 8),
         ),

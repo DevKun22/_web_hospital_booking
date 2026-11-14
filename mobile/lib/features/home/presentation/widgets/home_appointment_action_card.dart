@@ -79,7 +79,7 @@ class HomeAppointmentActionCard extends StatelessWidget {
               const SizedBox(height: AppSpacing.sm),
               DecoratedBox(
                 decoration: BoxDecoration(
-                  color: context.colors.primaryDark,
+                  color: AppPalette.heroDeep,
                   borderRadius: BorderRadius.circular(AppRadius.md),
                 ),
                 child: Padding(
@@ -144,7 +144,7 @@ class HomeAppointmentActionCard extends StatelessWidget {
                         onPressed: onOpen,
                         style: FilledButton.styleFrom(
                           backgroundColor: Colors.white,
-                          foregroundColor: context.colors.primaryDark,
+                          foregroundColor: AppPalette.heroDeep,
                         ),
                         icon: Icon(copy.primaryIcon),
                         label: Text(copy.primaryLabel),
@@ -158,7 +158,7 @@ class HomeAppointmentActionCard extends StatelessWidget {
                   onPressed: onOpen,
                   style: FilledButton.styleFrom(
                     backgroundColor: Colors.white,
-                    foregroundColor: context.colors.primaryDark,
+                    foregroundColor: AppPalette.heroDeep,
                   ),
                   icon: Icon(copy.primaryIcon),
                   label: Text(copy.primaryLabel),

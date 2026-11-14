@@ -330,7 +330,7 @@ class _HeroBanner extends StatelessWidget {
                     style: FilledButton.styleFrom(
                       minimumSize: const Size(0, 38),
                       backgroundColor: Colors.white,
-                      foregroundColor: context.colors.primaryDark,
+                      foregroundColor: AppPalette.heroDeep,
                     ),
                     onPressed: () =>
                         openBookingFromCurrentRoute(context, '/booking'),

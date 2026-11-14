@@ -133,7 +133,7 @@ class DepartmentDetailScreen extends ConsumerWidget {
                       style: FilledButton.styleFrom(
                         minimumSize: const Size(0, 44),
                         backgroundColor: Colors.white,
-                        foregroundColor: context.colors.primary,
+                        foregroundColor: AppPalette.heroDeep,
                       ),
                       onPressed: () => openBookingFromCurrentRoute(
                         context,
