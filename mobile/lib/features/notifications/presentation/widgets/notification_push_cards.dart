@@ -142,7 +142,7 @@ class NotificationPushSyncCard extends ConsumerWidget {
                   const SizedBox(height: 5),
                   Text(
                     isLoading
-                        ? 'Ứng dụng đang đăng ký thiết bị với hệ thống bệnh viện.'
+                        ? 'Ứng dụng đang đăng ký thiết bị với DevKunCare.'
                         : state.errorMessage ??
                               'Bạn vẫn xem được hộp thư. Hãy thử kết nối lại để nhận thông báo đẩy.',
                   ),

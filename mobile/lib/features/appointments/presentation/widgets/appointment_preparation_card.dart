@@ -175,7 +175,7 @@ class _AppointmentPreparationCardState
                   subtitle: Text(item.description),
                 ),
             Text(
-              'Dấu tích chỉ được lưu trên thiết bị này và không thay thế hướng dẫn của bệnh viện.',
+              'Dấu tích chỉ được lưu trên thiết bị này và không thay thế hướng dẫn của cơ sở khám.',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
                 height: 1.35,

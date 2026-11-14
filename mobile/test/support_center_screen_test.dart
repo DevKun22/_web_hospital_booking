@@ -23,7 +23,7 @@ class _LoadedHomeContentController extends HomeContentController {
         ),
       ],
       siteSettings: const HomeSiteSettings(
-        hospitalName: 'Bệnh viện kiểm thử',
+        hospitalName: 'Cơ sở khám kiểm thử',
         hotline: '1900 1234',
         emergencyHotline: '1900 1080',
       ),

@@ -28,7 +28,7 @@ abstract interface class PatientDataSyncCoordinator {
   Future<void> handleBookingCompleted({String? appointmentId});
 }
 
-/// Một nguồn dữ liệu bệnh nhân mà bộ đồng bộ có thể làm mới.
+/// Một nguồn dữ liệu người khám mà bộ đồng bộ có thể làm mới.
 abstract interface class _Source {
   /// Controller đã được tạo (người dùng từng mở màn hình dùng nó) hay chưa.
   bool isActive(Ref ref);

@@ -84,7 +84,7 @@ class _DetailContent extends StatelessWidget {
         const AppEmptyState(
           icon: Icons.medication_outlined,
           title: 'Chưa có thuốc trong đơn',
-          message: 'Vui lòng liên hệ bệnh viện để kiểm tra lại đơn thuốc.',
+          message: 'Vui lòng liên hệ cơ sở khám để kiểm tra lại đơn thuốc.',
         )
       else
         for (var index = 0; index < prescription.items.length; index++) ...[

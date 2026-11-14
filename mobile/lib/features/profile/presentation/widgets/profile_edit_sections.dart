@@ -169,7 +169,7 @@ class ProfileInsuranceSection extends StatelessWidget {
         icon: Icons.health_and_safety_outlined,
         title: 'Bảo hiểm y tế',
         description:
-            'Thông tin này hỗ trợ bệnh viện chuẩn bị thủ tục tiếp nhận.',
+            'Thông tin này hỗ trợ cơ sở khám chuẩn bị thủ tục tiếp nhận.',
       ),
       const SizedBox(height: 10),
       Card(
@@ -200,7 +200,7 @@ class ProfileInsuranceSection extends StatelessWidget {
           maxLength: 200,
           textCapitalization: TextCapitalization.sentences,
           decoration: const InputDecoration(
-            labelText: 'Nơi đăng ký khám chữa bệnh',
+            labelText: 'Nơi đăng ký KCB ban đầu',
             prefixIcon: Icon(Icons.local_hospital_outlined),
           ),
         ),
@@ -301,7 +301,7 @@ class ProfileHealthSection extends StatelessWidget {
       const SizedBox(height: 12),
       ProfileLongTextField(
         controller: medicalHistory,
-        label: 'Tiền sử bệnh',
+        label: 'Tiền sử sức khỏe',
         maxLength: 5000,
       ),
       const SizedBox(height: 12),
@@ -319,8 +319,8 @@ class ProfileHealthSection extends StatelessWidget {
           onChanged: isSaving ? null : onHealthConsentChanged,
           title: const Text('Đồng ý lưu thông tin sức khỏe'),
           subtitle: const Text(
-            'Tôi đồng ý cho bệnh viện lưu dị ứng, tiền sử bệnh và '
-            'tiền sử gia đình để phục vụ khám chữa bệnh. '
+            'Tôi đồng ý cho cơ sở khám lưu dị ứng, tiền sử sức khỏe và '
+            'tiền sử gia đình để phục vụ việc khám. '
             'Tôi có thể xóa các nội dung này bất cứ lúc nào.',
           ),
           controlAffinity: ListTileControlAffinity.leading,

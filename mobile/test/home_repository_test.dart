@@ -60,7 +60,7 @@ void main() {
                   },
                 ],
                 'siteSettings': {
-                  'hospitalName': 'Bệnh viện kiểm thử',
+                  'hospitalName': 'Cơ sở khám kiểm thử',
                   'emergencyHotline': '1900 1080',
                 },
               },
@@ -87,7 +87,7 @@ void main() {
       expect(content.doctors.single.displayName, 'BS. CKI Nguyễn Văn An');
       expect(content.packages.single.finalPrice, 1850000);
       expect(content.faqs.single.question, 'Cần chuẩn bị gì?');
-      expect(content.siteSettings.hospitalName, 'Bệnh viện kiểm thử');
+      expect(content.siteSettings.hospitalName, 'Cơ sở khám kiểm thử');
       expect((await cache.read())?.doctors.single.id, 'doctor-1');
 
       dio.close(force: true);
@@ -121,7 +121,7 @@ void main() {
       ],
       packages: const [],
       faqs: const [],
-      siteSettings: const HomeSiteSettings(hospitalName: 'Bệnh viện cũ'),
+      siteSettings: const HomeSiteSettings(hospitalName: 'Cơ sở khám cũ'),
       fetchedAt: DateTime(2029),
     );
     final repository = HomeRepository(
@@ -133,7 +133,7 @@ void main() {
 
     expect(result.content.banners, isEmpty);
     expect(result.content.doctors.single.id, 'cached-doctor');
-    expect(result.content.siteSettings.hospitalName, 'Bệnh viện cũ');
+    expect(result.content.siteSettings.hospitalName, 'Cơ sở khám cũ');
     expect(result.warning?.code, 'HOME_FALLBACK_CONTENT');
     expect(result.usedFallback, isTrue);
     dio.close(force: true);

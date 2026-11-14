@@ -128,7 +128,7 @@ class _LoadedHomeContentController extends HomeContentController {
           answer: 'Mang theo giấy tờ tùy thân.',
         ),
       ],
-      siteSettings: const HomeSiteSettings(hospitalName: 'Bệnh viện kiểm thử'),
+      siteSettings: const HomeSiteSettings(hospitalName: 'Cơ sở khám kiểm thử'),
       fetchedAt: DateTime(2030),
     ),
   );
@@ -170,7 +170,7 @@ void main() {
       ),
     );
 
-    expect(find.text('Bệnh viện kiểm thử'), findsOneWidget);
+    expect(find.text('Cơ sở khám kiểm thử'), findsOneWidget);
     expect(find.text('Chăm sóc từ trái tim'), findsOneWidget);
     expect(find.text('Tim mạch'), findsWidgets);
     expect(find.text('BS. CKI Nguyễn Văn An'), findsOneWidget);
@@ -180,7 +180,7 @@ void main() {
     expect(find.text('15:30'), findsNothing);
     expect(find.text('Xem thêm +1'), findsOneWidget);
     expect(find.text('Khám tổng quát'), findsOneWidget);
-    expect(find.text('Tiện ích khám chữa bệnh'), findsOneWidget);
+    expect(find.text('Tiện ích chăm sóc sức khỏe'), findsOneWidget);
     expect(find.text('Trợ lý đặt lịch 24/7'), findsNothing);
     expect(find.text('Tất cả'), findsOneWidget);
 

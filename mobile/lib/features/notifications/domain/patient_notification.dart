@@ -29,7 +29,7 @@ enum PatientNotificationType {
   final String apiValue;
 
   String get historyLabel => switch (this) {
-    PatientNotificationType.systemAnnouncement => 'Thông báo bệnh viện',
+    PatientNotificationType.systemAnnouncement => 'Thông báo chung',
     PatientNotificationType.appointmentConfirmed => 'Xác nhận lịch khám',
     PatientNotificationType.appointmentRescheduled => 'Đổi lịch khám',
     PatientNotificationType.appointmentCancelled => 'Hủy lịch khám',

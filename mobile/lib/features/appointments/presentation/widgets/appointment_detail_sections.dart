@@ -151,7 +151,7 @@ class AppointmentPriceInformation extends StatelessWidget {
       ),
       const SizedBox(height: 6),
       Text(
-        'Số tiền có thể thay đổi theo chỉ định thực tế tại bệnh viện.',
+        'Số tiền có thể thay đổi theo chỉ định thực tế tại cơ sở khám.',
         style: Theme.of(context).textTheme.bodySmall?.copyWith(
           color: Theme.of(context).colorScheme.onSurfaceVariant,
         ),

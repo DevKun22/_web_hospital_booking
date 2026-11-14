@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:hospital_booking_mobile/core/formatters/vietnam_time.dart';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hospital_booking_mobile/core/errors/api_exception.dart';
 import 'package:hospital_booking_mobile/core/errors/swallowed_error.dart';
@@ -523,8 +525,12 @@ T? _firstWhereOrNull<T>(Iterable<T> values, bool Function(T) test) {
 bool _isSelectableDate(String value) {
   final parsed = DateTime.tryParse(value);
   if (parsed == null) return false;
-  final vietnamNow = DateTime.now().toUtc().add(const Duration(hours: 7));
-  final today = DateTime(vietnamNow.year, vietnamNow.month, vietnamNow.day);
+  final vietnamToday = toVietnamTime(DateTime.now());
+  final today = DateTime(
+    vietnamToday.year,
+    vietnamToday.month,
+    vietnamToday.day,
+  );
   final date = DateTime(parsed.year, parsed.month, parsed.day);
   final lastDate = today.add(const Duration(days: 13));
   return !date.isBefore(today) && !date.isAfter(lastDate);

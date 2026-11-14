@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:hospital_booking_mobile/core/formatters/vietnam_time.dart';
 import 'package:hospital_booking_mobile/core/design/app_colors.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -236,7 +237,7 @@ Future<void> _showAnnouncementDetails(
               const SizedBox(width: 12),
               const Expanded(
                 child: Text(
-                  'Thông báo từ bệnh viện',
+                  'Thông báo chung',
                   style: TextStyle(fontWeight: FontWeight.w700),
                 ),
               ),
@@ -277,13 +278,12 @@ List<Widget> _groupedItems(
   List<PatientNotification> items, {
   required ValueChanged<PatientNotification> onTap,
 }) {
-  final now = DateTime.now();
-  final today = DateTime(now.year, now.month, now.day);
+  final today = vietnamToday();
   final todayItems = items
-      .where((item) => !item.publishedAt.isBefore(today))
+      .where((item) => !vietnamDateOf(item.publishedAt).isBefore(today))
       .toList(growable: false);
   final earlierItems = items
-      .where((item) => item.publishedAt.isBefore(today))
+      .where((item) => vietnamDateOf(item.publishedAt).isBefore(today))
       .toList(growable: false);
   final widgets = <Widget>[];
 

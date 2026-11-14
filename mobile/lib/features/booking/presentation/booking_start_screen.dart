@@ -10,6 +10,7 @@ import 'package:hospital_booking_mobile/features/booking/domain/booking_catalog.
 import 'package:hospital_booking_mobile/features/booking/presentation/widgets/booking_journey_indicator.dart';
 import 'package:hospital_booking_mobile/features/booking/presentation/widgets/booking_selection_widgets.dart';
 import 'package:hospital_booking_mobile/features/booking/presentation/widgets/booking_schedule_widgets.dart';
+import 'package:hospital_booking_mobile/features/booking/presentation/widgets/booking_slot_picker.dart';
 import 'package:hospital_booking_mobile/features/booking/presentation/widgets/booking_service_widgets.dart';
 import 'package:hospital_booking_mobile/features/booking/presentation/widgets/booking_summary_widgets.dart';
 
@@ -173,7 +174,7 @@ class _BookingStartScreenState extends ConsumerState<BookingStartScreen> {
               const AppPageIntro(
                 title: 'Chọn lịch khám phù hợp',
                 subtitle:
-                    'Lựa chọn được lưu trên thiết bị. Khung giờ luôn được kiểm tra lại từ bệnh viện.',
+                    'Lựa chọn được lưu trên thiết bị. Khung giờ luôn được kiểm tra lại từ cơ sở khám.',
               ),
               const SizedBox(height: 18),
               if (submission.pending != null &&
@@ -210,7 +211,7 @@ class _BookingStartScreenState extends ConsumerState<BookingStartScreen> {
                 AppEmptyState(
                   icon: Icons.local_hospital_outlined,
                   title: 'Chưa có chuyên khoa khả dụng',
-                  message: 'Kéo xuống để tải lại danh sách từ bệnh viện.',
+                  message: 'Kéo xuống để tải lại danh sách từ cơ sở khám.',
                   action: FilledButton.icon(
                     onPressed: controller.load,
                     icon: const Icon(Icons.refresh_rounded),
@@ -229,7 +230,7 @@ class _BookingStartScreenState extends ConsumerState<BookingStartScreen> {
                     number: 1,
                     title: 'Chọn gói khám',
                     subtitle:
-                        'Giá và danh mục dịch vụ được đồng bộ từ bệnh viện.',
+                        'Giá và danh mục dịch vụ được đồng bộ từ cơ sở khám.',
                   ),
                   const SizedBox(height: 12),
                   if (state.selectedPackage != null)

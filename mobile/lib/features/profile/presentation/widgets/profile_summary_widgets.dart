@@ -114,7 +114,7 @@ class ProfileCompletionCard extends StatelessWidget {
           Text(
             profile.completionPercent >= 90
                 ? 'Hồ sơ đã đủ thông tin để hỗ trợ tiếp nhận nhanh hơn.'
-                : 'Bổ sung thông tin còn thiếu để bệnh viện tiếp nhận thuận tiện hơn.',
+                : 'Bổ sung thông tin còn thiếu để cơ sở khám tiếp nhận thuận tiện hơn.',
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
               color: Theme.of(context).colorScheme.onSurfaceVariant,
             ),
@@ -179,7 +179,7 @@ class ProfileHealthSnapshot extends StatelessWidget {
       ProfileRow(label: 'Huyết áp', value: profile.bloodPressure),
       ProfileRow(label: 'Dị ứng', value: profile.allergies),
       ProfileRow(
-        label: 'Tiền sử bệnh',
+        label: 'Tiền sử sức khỏe',
         value: profile.medicalHistory,
         showDivider: false,
       ),

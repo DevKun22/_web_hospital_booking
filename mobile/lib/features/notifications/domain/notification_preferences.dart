@@ -1,8 +1,8 @@
 enum NotificationPreferenceKind {
   generalAnnouncements(
     apiKey: 'generalAnnouncementsPush',
-    label: 'Thông báo từ bệnh viện',
-    description: 'Tin tức, hướng dẫn và cập nhật chung từ bệnh viện.',
+    label: 'Thông báo chung',
+    description: 'Tin tức, hướng dẫn và cập nhật chung từ cơ sở khám.',
   ),
   appointmentUpdates(
     apiKey: 'appointmentUpdatesPush',
@@ -17,7 +17,7 @@ enum NotificationPreferenceKind {
   medicalResults(
     apiKey: 'medicalResultsPush',
     label: 'Kết quả khám',
-    description: 'Hồ sơ và kết quả mới được bệnh viện công bố.',
+    description: 'Hồ sơ và kết quả mới được cơ sở khám công bố.',
   ),
   prescriptions(
     apiKey: 'prescriptionsPush',

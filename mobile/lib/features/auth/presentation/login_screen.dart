@@ -213,7 +213,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       return 'Vui lòng đăng nhập để xem và cập nhật hồ sơ người khám.';
     }
     if (returnTo.startsWith('/medical-records')) {
-      return 'Vui lòng đăng nhập để xem hồ sơ khám bệnh.';
+      return 'Vui lòng đăng nhập để xem hồ sơ khám.';
     }
     if (returnTo.startsWith('/prescriptions')) {
       return 'Vui lòng đăng nhập để xem đơn thuốc.';
