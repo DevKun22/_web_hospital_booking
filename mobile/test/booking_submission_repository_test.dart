@@ -90,10 +90,11 @@ void main() {
         otpChannel: BookingOtpChannel.email,
       );
 
-      final pending = await repository.create(
+      final creation = await repository.create(
         selection: selection,
         patient: patient,
       );
+      final pending = creation.pending!;
       final resent = await repository.resend(pending);
       await repository.abandon(resent);
       final appointment = await repository.verify(
@@ -188,6 +189,83 @@ void main() {
         authenticatedRequests.single.data as Map,
       );
       expect(body['dependentProfileId'], 'dependent-1');
+
+      publicDio.close(force: true);
+      authenticatedDio.close(force: true);
+    },
+  );
+
+  test(
+    'logged-in booking uses the session and returns the confirmed appointment',
+    () async {
+      final publicRequests = <RequestOptions>[];
+      final authenticatedRequests = <RequestOptions>[];
+      Dio fakeClient(List<RequestOptions> requests) {
+        final dio = Dio(BaseOptions(baseUrl: 'https://example.test/api/v1'));
+        dio.interceptors.add(
+          InterceptorsWrapper(
+            onRequest: (options, handler) {
+              requests.add(options);
+              handler.resolve(
+                Response<dynamic>(
+                  requestOptions: options,
+                  statusCode: 201,
+                  data: {
+                    'success': true,
+                    'data': {
+                      'appointmentId': 'appointment-self',
+                      'bookingCode': 'HB-SELF',
+                      'patientPhone': '0912345678',
+                      'otpRequired': false,
+                      'holdExpiresAt': null,
+                      'appointment': {
+                        'id': 'appointment-self',
+                        'bookingCode': 'HB-SELF',
+                        'status': 'PENDING_CONFIRM',
+                        'patientName': 'Nguyễn Văn An',
+                        'patientPhone': '0912345678',
+                        'appointmentDate': '2030-01-02',
+                        'startTime': '09:00',
+                        'endTime': '09:30',
+                        'finalAmount': 250000,
+                      },
+                    },
+                  },
+                ),
+              );
+            },
+          ),
+        );
+        return dio;
+      }
+
+      final publicDio = fakeClient(publicRequests);
+      final authenticatedDio = fakeClient(authenticatedRequests);
+      final repository = BookingSubmissionRepository(
+        publicDio,
+        authenticatedDio,
+      );
+
+      final creation = await repository.create(
+        selection: const BookingSelection(
+          departmentId: 'department-1',
+          doctorId: 'doctor-1',
+          date: '2030-01-02',
+          slotId: 'slot-1',
+        ),
+        patient: const BookingPatientDraft(
+          patientName: 'Nguyễn Văn An',
+          patientPhone: '0912345678',
+          otpChannel: BookingOtpChannel.email,
+        ),
+        authenticated: true,
+      );
+
+      expect(publicRequests, isEmpty);
+      expect(authenticatedRequests, hasLength(1));
+      expect(creation.pending, isNull);
+      expect(creation.confirmed?.bookingCode, 'HB-SELF');
+      expect(creation.confirmed?.status, 'PENDING_CONFIRM');
 
       publicDio.close(force: true);
       authenticatedDio.close(force: true);

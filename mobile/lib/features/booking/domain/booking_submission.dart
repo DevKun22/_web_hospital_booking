@@ -67,6 +67,19 @@ class BookingPatientDraft {
   };
 }
 
+/// Kết quả tạo lịch: hoặc chờ OTP ([pending]), hoặc đã xác nhận ngay ([confirmed])
+/// khi người dùng đang đăng nhập và đặt cho chính mình.
+class BookingCreation {
+  const BookingCreation.awaitingOtp(PendingBooking this.pending)
+    : confirmed = null;
+
+  const BookingCreation.confirmed(BookedAppointment this.confirmed)
+    : pending = null;
+
+  final PendingBooking? pending;
+  final BookedAppointment? confirmed;
+}
+
 class PendingBooking {
   const PendingBooking({
     required this.appointmentId,

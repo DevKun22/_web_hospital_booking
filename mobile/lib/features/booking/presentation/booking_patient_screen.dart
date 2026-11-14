@@ -120,6 +120,10 @@ class _BookingPatientScreenState extends ConsumerState<BookingPatientScreen> {
   Widget build(BuildContext context) {
     final availableOtpChannels =
         ref.watch(otpChannelsProvider).value ?? const [BookingOtpChannel.email];
+    // Đã đăng nhập và đặt cho chính mình: máy chủ không đòi OTP đặt lịch.
+    final skipsOtp =
+        ref.watch(authControllerProvider).isAuthenticated &&
+        _patientType != BookingPatientType.relative;
     final booking = ref.watch(bookingFlowControllerProvider);
     final submission = ref.watch(bookingSubmissionControllerProvider);
     final profileState = ref.watch(patientProfileControllerProvider);
@@ -137,6 +141,11 @@ class _BookingPatientScreenState extends ConsumerState<BookingPatientScreen> {
             previous != BookingSubmissionStatus.awaitingOtp) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (mounted) context.go('/booking/verify');
+          });
+        } else if (next == BookingSubmissionStatus.success &&
+            previous != BookingSubmissionStatus.success) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) context.go('/booking/success');
           });
         }
       },
@@ -287,6 +296,7 @@ class _BookingPatientScreenState extends ConsumerState<BookingPatientScreen> {
                 onOtpChannelChanged: (value) =>
                     setState(() => _otpChannel = value),
                 isSubmitting: isSubmitting,
+                skipsOtp: skipsOtp,
               ),
               const SizedBox(height: 20),
               TextFormField(
@@ -333,6 +343,7 @@ class _BookingPatientScreenState extends ConsumerState<BookingPatientScreen> {
                 isSubmitting: isSubmitting,
                 isRevalidatingSlot: _isRevalidatingSlot,
                 onSubmit: _submit,
+                skipsOtp: skipsOtp,
               ),
             ],
           ),
@@ -533,6 +544,7 @@ class _BookingPatientScreenState extends ConsumerState<BookingPatientScreen> {
         .read(bookingSubmissionControllerProvider.notifier)
         .submit(
           selection: selection,
+          authenticated: ref.read(authControllerProvider).isAuthenticated,
           patient: BookingPatientDraft(
             dependentProfileId: _selectedDependent?.id,
             patientName: _nameController.text,

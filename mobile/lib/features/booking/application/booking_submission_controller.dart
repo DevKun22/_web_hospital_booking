@@ -77,9 +77,12 @@ class BookingSubmissionController extends Notifier<BookingSubmissionState> {
   Future<void> waitUntilRestored() =>
       _restoreCompleter?.future ?? Future<void>.value();
 
+  /// [authenticated]: người dùng đang đăng nhập; gửi kèm phiên để đặt cho chính
+  /// mình không cần OTP.
   Future<bool> submit({
     required BookingSelection selection,
     required BookingPatientDraft patient,
+    bool authenticated = false,
   }) async {
     if (_createInFlight ||
         state.isBusy ||
@@ -93,9 +96,23 @@ class BookingSubmissionController extends Notifier<BookingSubmissionState> {
       status: BookingSubmissionStatus.submitting,
     );
     try {
-      final pending = await ref
+      final creation = await ref
           .read(bookingSubmissionRepositoryProvider)
-          .create(selection: selection, patient: patient);
+          .create(
+            selection: selection,
+            patient: patient,
+            authenticated: authenticated,
+          );
+      final confirmed = creation.confirmed;
+      if (confirmed != null) {
+        // Đã đăng nhập, đặt cho chính mình: lịch được xác nhận ngay, không có bước OTP.
+        state = BookingSubmissionState(
+          status: BookingSubmissionStatus.success,
+          appointment: confirmed,
+        );
+        return true;
+      }
+      final pending = creation.pending!;
       await _savePendingSafely(pending);
       state = BookingSubmissionState(
         status: BookingSubmissionStatus.awaitingOtp,

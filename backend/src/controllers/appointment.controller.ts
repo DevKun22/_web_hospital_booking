@@ -35,7 +35,9 @@ export const createAppointmentHandler = async (
 
     return res.status(201).json({
       success: true,
-      message: "OTP đã được gửi để xác nhận lịch hẹn",
+      message: result.otpRequired
+        ? "OTP đã được gửi để xác nhận lịch hẹn"
+        : "Đã tiếp nhận lịch hẹn",
       data: result,
     });
   } catch (error) {

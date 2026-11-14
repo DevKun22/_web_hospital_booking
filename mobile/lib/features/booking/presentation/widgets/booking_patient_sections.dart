@@ -15,6 +15,7 @@ class BookingPatientContactFields extends StatelessWidget {
     required this.availableOtpChannels,
     required this.onOtpChannelChanged,
     required this.isSubmitting,
+    this.skipsOtp = false,
   });
 
   final TextEditingController name;
@@ -27,6 +28,9 @@ class BookingPatientContactFields extends StatelessWidget {
   final List<BookingOtpChannel> availableOtpChannels;
   final ValueChanged<BookingOtpChannel> onOtpChannelChanged;
   final bool isSubmitting;
+
+  /// Người đã đăng nhập đặt cho chính mình: không cần OTP nên không hỏi kênh nhận mã.
+  final bool skipsOtp;
 
   @override
   Widget build(BuildContext context) => Column(
@@ -69,14 +73,16 @@ class BookingPatientContactFields extends StatelessWidget {
         textInputAction: TextInputAction.next,
         autofillHints: const [AutofillHints.email],
         decoration: InputDecoration(
-          labelText: otpChannel == BookingOtpChannel.email
+          labelText: !skipsOtp && otpChannel == BookingOtpChannel.email
               ? 'Email *'
               : 'Email (không bắt buộc)',
           prefixIcon: const Icon(Icons.email_outlined),
         ),
         validator: (value) {
           final email = value?.trim() ?? '';
-          if (otpChannel == BookingOtpChannel.email && email.isEmpty) {
+          if (!skipsOtp &&
+              otpChannel == BookingOtpChannel.email &&
+              email.isEmpty) {
             return 'Email là bắt buộc khi nhận OTP qua email.';
           }
           if (email.isNotEmpty &&
@@ -86,56 +92,60 @@ class BookingPatientContactFields extends StatelessWidget {
           return null;
         },
       ),
-      const SizedBox(height: 18),
-      if (availableOtpChannels.length == 1)
-        Row(
-          children: [
-            Icon(
-              availableOtpChannels.first == BookingOtpChannel.sms
-                  ? Icons.sms_outlined
-                  : Icons.email_outlined,
-              size: 18,
-              color: Theme.of(context).colorScheme.primary,
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
+      if (!skipsOtp) ...[
+        const SizedBox(height: 18),
+        if (availableOtpChannels.length == 1)
+          Row(
+            children: [
+              Icon(
                 availableOtpChannels.first == BookingOtpChannel.sms
-                    ? 'Mã xác thực sẽ gửi qua SMS.'
-                    : 'Mã xác thực sẽ gửi qua email.',
-                style: Theme.of(context).textTheme.bodyMedium,
+                    ? Icons.sms_outlined
+                    : Icons.email_outlined,
+                size: 18,
+                color: Theme.of(context).colorScheme.primary,
               ),
-            ),
-          ],
-        )
-      else ...[
-        Text(
-          'Nhận mã xác thực qua',
-          style: Theme.of(context).textTheme.labelLarge,
-        ),
-        const SizedBox(height: 8),
-        SegmentedButton<BookingOtpChannel>(
-          segments: [
-            for (final channel in availableOtpChannels)
-              ButtonSegment(
-                value: channel,
-                icon: Icon(
-                  channel == BookingOtpChannel.sms
-                      ? Icons.sms_outlined
-                      : Icons.email_outlined,
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  availableOtpChannels.first == BookingOtpChannel.sms
+                      ? 'Mã xác thực sẽ gửi qua SMS.'
+                      : 'Mã xác thực sẽ gửi qua email.',
+                  style: Theme.of(context).textTheme.bodyMedium,
                 ),
-                label: Text(channel == BookingOtpChannel.sms ? 'SMS' : 'Email'),
               ),
-          ],
-          selected: {
-            availableOtpChannels.contains(otpChannel)
-                ? otpChannel
-                : availableOtpChannels.first,
-          },
-          onSelectionChanged: isSubmitting
-              ? null
-              : (value) => onOtpChannelChanged(value.first),
-        ),
+            ],
+          )
+        else ...[
+          Text(
+            'Nhận mã xác thực qua',
+            style: Theme.of(context).textTheme.labelLarge,
+          ),
+          const SizedBox(height: 8),
+          SegmentedButton<BookingOtpChannel>(
+            segments: [
+              for (final channel in availableOtpChannels)
+                ButtonSegment(
+                  value: channel,
+                  icon: Icon(
+                    channel == BookingOtpChannel.sms
+                        ? Icons.sms_outlined
+                        : Icons.email_outlined,
+                  ),
+                  label: Text(
+                    channel == BookingOtpChannel.sms ? 'SMS' : 'Email',
+                  ),
+                ),
+            ],
+            selected: {
+              availableOtpChannels.contains(otpChannel)
+                  ? otpChannel
+                  : availableOtpChannels.first,
+            },
+            onSelectionChanged: isSubmitting
+                ? null
+                : (value) => onOtpChannelChanged(value.first),
+          ),
+        ],
       ],
     ],
   );
@@ -259,6 +269,7 @@ class BookingPatientSubmitSection extends StatelessWidget {
     required this.isSubmitting,
     required this.isRevalidatingSlot,
     required this.onSubmit,
+    this.skipsOtp = false,
   });
 
   final ApiException? error;
@@ -268,6 +279,9 @@ class BookingPatientSubmitSection extends StatelessWidget {
   final bool isSubmitting;
   final bool isRevalidatingSlot;
   final VoidCallback onSubmit;
+
+  /// Không có bước OTP: nút ghi "Đặt lịch" và ghi chú nói bệnh viện sẽ xác nhận.
+  final bool skipsOtp;
 
   @override
   Widget build(BuildContext context) => Column(
@@ -298,13 +312,15 @@ class BookingPatientSubmitSection extends StatelessWidget {
           isRevalidatingSlot
               ? 'Đang kiểm tra khung giờ…'
               : isSubmitting
-              ? 'Đang giữ lịch…'
-              : 'Giữ lịch và gửi OTP',
+              ? (skipsOtp ? 'Đang đặt lịch…' : 'Đang giữ lịch…')
+              : (skipsOtp ? 'Đặt lịch' : 'Giữ lịch và gửi OTP'),
         ),
       ),
       const SizedBox(height: 8),
       Text(
-        'Khung giờ chỉ được giữ tạm thời cho đến khi bạn xác thực OTP.',
+        skipsOtp
+            ? 'Bệnh viện sẽ xác nhận lịch của bạn sau khi tiếp nhận.'
+            : 'Khung giờ chỉ được giữ tạm thời cho đến khi bạn xác thực OTP.',
         textAlign: TextAlign.center,
         style: Theme.of(context).textTheme.bodySmall?.copyWith(
           color: Theme.of(context).colorScheme.onSurfaceVariant,

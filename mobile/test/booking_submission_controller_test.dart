@@ -47,21 +47,29 @@ const _appointment = BookedAppointment(
 );
 
 class _FakeSubmissionRepository extends BookingSubmissionRepository {
-  _FakeSubmissionRepository({this.createGate, this.abandonError})
-    : super(Dio());
+  _FakeSubmissionRepository({
+    this.createGate,
+    this.abandonError,
+    this.confirmOnCreate = false,
+  }) : super(Dio());
 
-  final Completer<PendingBooking>? createGate;
+  final Completer<BookingCreation>? createGate;
+  final bool confirmOnCreate;
   final ApiException? abandonError;
   int createCalls = 0;
   int abandonCalls = 0;
 
   @override
-  Future<PendingBooking> create({
+  Future<BookingCreation> create({
     required BookingSelection selection,
     required BookingPatientDraft patient,
+    bool authenticated = false,
   }) async {
     createCalls += 1;
-    return createGate == null ? _pending() : createGate!.future;
+    if (confirmOnCreate) return const BookingCreation.confirmed(_appointment);
+    return createGate == null
+        ? BookingCreation.awaitingOtp(_pending())
+        : createGate!.future;
   }
 
   @override
@@ -97,7 +105,7 @@ ProviderContainer _container({
 
 void main() {
   test('duplicate taps can create only one pending appointment', () async {
-    final gate = Completer<PendingBooking>();
+    final gate = Completer<BookingCreation>();
     final repository = _FakeSubmissionRepository(createGate: gate);
     final store = MemoryPendingBookingStore();
     final container = _container(store: store, repository: repository);
@@ -121,7 +129,7 @@ void main() {
 
     expect(second, isFalse);
     expect(repository.createCalls, 1);
-    gate.complete(_pending());
+    gate.complete(BookingCreation.awaitingOtp(_pending()));
     expect(await first, isTrue);
     expect(store.pending?.bookingCode, 'HB-1001');
   });
@@ -235,4 +243,35 @@ void main() {
       ApiErrorKind.network,
     );
   });
+
+  test(
+    'a booking confirmed on create goes straight to success without OTP',
+    () async {
+      final repository = _FakeSubmissionRepository(confirmOnCreate: true);
+      final store = MemoryPendingBookingStore();
+      final container = _container(store: store, repository: repository);
+      addTearDown(container.dispose);
+
+      container.read(bookingSubmissionControllerProvider);
+      await _waitUntil(
+        () =>
+            container.read(bookingSubmissionControllerProvider).status ==
+            BookingSubmissionStatus.idle,
+      );
+      final controller = container.read(
+        bookingSubmissionControllerProvider.notifier,
+      );
+
+      expect(
+        await controller.submit(selection: _selection, patient: _patient),
+        isTrue,
+      );
+
+      final state = container.read(bookingSubmissionControllerProvider);
+      expect(state.status, BookingSubmissionStatus.success);
+      expect(state.appointment?.bookingCode, 'HB-1001');
+      expect(state.pending, isNull);
+      expect(store.pending, isNull);
+    },
+  );
 }
