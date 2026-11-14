@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:hospital_booking_mobile/core/design/app_design_tokens.dart';
 import 'package:hospital_booking_mobile/features/home/presentation/widgets/home_service_catalog.dart';
+import 'package:hospital_booking_mobile/core/design/app_colors.dart';
 
 class HomeAllServicesSheet extends StatelessWidget {
   const HomeAllServicesSheet({
@@ -106,8 +107,8 @@ class HomeServiceSectionView extends StatelessWidget {
       const SizedBox(height: 10),
       DecoratedBox(
         decoration: BoxDecoration(
-          color: Colors.white,
-          border: Border.all(color: AppPalette.border),
+          color: context.colors.surface,
+          border: Border.all(color: context.colors.border),
           borderRadius: BorderRadius.circular(18),
         ),
         child: Column(
@@ -148,10 +149,10 @@ class HomeServiceTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Material(
-    color: Colors.white,
+    color: context.colors.surface,
     shape: RoundedRectangleBorder(
       borderRadius: BorderRadius.circular(16),
-      side: const BorderSide(color: AppPalette.border),
+      side: BorderSide(color: context.colors.border),
     ),
     clipBehavior: Clip.antiAlias,
     child: InkWell(
@@ -180,7 +181,7 @@ class HomeServiceTile extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                       textAlign: TextAlign.center,
                       style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: AppPalette.ink,
+                        color: context.colors.ink,
                         fontSize: 9.5,
                         height: 1.08,
                         fontWeight: FontWeight.w700,
@@ -202,23 +203,23 @@ class HomeServiceTile extends StatelessWidget {
                     ? const EdgeInsets.symmetric(horizontal: 4)
                     : EdgeInsets.zero,
                 decoration: BoxDecoration(
-                  color: AppPalette.primarySoft,
+                  color: context.colors.primarySoft,
                   borderRadius: BorderRadius.circular(999),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(
+                    Icon(
                       Icons.lock_outline_rounded,
                       size: 9,
-                      color: AppPalette.primaryDark,
+                      color: context.colors.primaryDark,
                     ),
                     if (statusLabel == 'Cần mạng') ...[
                       const SizedBox(width: 2),
                       Text(
                         statusLabel!,
-                        style: const TextStyle(
-                          color: AppPalette.primaryDark,
+                        style: TextStyle(
+                          color: context.colors.primaryDark,
                           fontSize: 7.5,
                           height: 1,
                           fontWeight: FontWeight.w800,
@@ -255,10 +256,10 @@ class HomeServiceListTile extends StatelessWidget {
       width: 40,
       height: 40,
       decoration: BoxDecoration(
-        color: AppPalette.primarySoft,
+        color: context.colors.primarySoft,
         borderRadius: BorderRadius.circular(13),
       ),
-      child: Icon(service.icon, size: 21, color: AppPalette.primary),
+      child: Icon(service.icon, size: 21, color: context.colors.primary),
     ),
     title: Text(
       service.label,

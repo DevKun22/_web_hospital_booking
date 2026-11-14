@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:hospital_booking_mobile/app/navigation/main_navigation_destination.dart';
 import 'package:hospital_booking_mobile/core/design/app_design_tokens.dart';
 import 'package:hospital_booking_mobile/app/sync/patient_data_sync_coordinator.dart';
+import 'package:hospital_booking_mobile/core/design/app_colors.dart';
 
 class MainNavigationHistoryController extends ChangeNotifier {
   static const _homeIndex = 0;
@@ -210,8 +211,8 @@ class _MainBottomNavigationBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => DecoratedBox(
-    decoration: const BoxDecoration(
-      color: Colors.white,
+    decoration: BoxDecoration(
+      color: context.colors.surface,
       boxShadow: AppShadow.floating,
     ),
     child: Material(
@@ -232,8 +233,10 @@ class _MainBottomNavigationBar extends StatelessWidget {
               Positioned.fill(
                 top: 8,
                 child: DecoratedBox(
-                  decoration: const BoxDecoration(
-                    border: Border(top: BorderSide(color: AppPalette.border)),
+                  decoration: BoxDecoration(
+                    border: Border(
+                      top: BorderSide(color: context.colors.border),
+                    ),
                   ),
                   child: Row(
                     children: List.generate(_destinations.length, (index) {
@@ -288,7 +291,7 @@ class _NavigationItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final foreground = selected ? AppPalette.primary : AppPalette.muted;
+    final foreground = selected ? context.colors.primary : context.colors.muted;
     final animationDuration = AppMotion.responsive(context, AppMotion.fast);
 
     return Semantics(
@@ -316,7 +319,7 @@ class _NavigationItem extends StatelessWidget {
                     height: 30,
                     decoration: BoxDecoration(
                       color: selected
-                          ? AppPalette.primarySoft
+                          ? context.colors.primarySoft
                           : Colors.transparent,
                       borderRadius: BorderRadius.circular(AppRadius.sm),
                     ),
@@ -338,7 +341,9 @@ class _NavigationItem extends StatelessWidget {
                   overflow: TextOverflow.fade,
                   softWrap: false,
                   style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: selected ? AppPalette.primary : AppPalette.muted,
+                    color: selected
+                        ? context.colors.primary
+                        : context.colors.muted,
                     fontSize: 11.5,
                     height: 1.15,
                     fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
@@ -391,14 +396,17 @@ class _PrimaryNavigationItem extends StatelessWidget {
                     width: 56,
                     height: 56,
                     decoration: BoxDecoration(
-                      color: AppPalette.primary,
+                      color: context.colors.primary,
                       shape: BoxShape.circle,
-                      border: Border.all(color: Colors.white, width: 4),
+                      border: Border.all(
+                        color: context.colors.surface,
+                        width: 4,
+                      ),
                       boxShadow: AppShadow.floating,
                     ),
                     child: Icon(
                       destination.selectedIcon,
-                      color: Colors.white,
+                      color: context.colors.onPrimary,
                       size: 28,
                     ),
                   ),
@@ -408,7 +416,7 @@ class _PrimaryNavigationItem extends StatelessWidget {
                   destination.label,
                   maxLines: 1,
                   style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: AppPalette.primary,
+                    color: context.colors.primary,
                     fontSize: 11.5,
                     height: 1,
                     fontWeight: FontWeight.w800,

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:hospital_booking_mobile/core/design/app_design_tokens.dart';
+import 'package:hospital_booking_mobile/core/design/app_colors.dart';
 
 class HomeService {
   const HomeService({
@@ -153,8 +154,6 @@ const homePrimaryServices = <HomeService>[
   homeDepartmentsService,
   homePackagesService,
 ];
-
-const homeServicePalettes = AppPalette.tintPairs;
 
 const homeServiceSections = <HomeServiceSection>[
   HomeServiceSection(

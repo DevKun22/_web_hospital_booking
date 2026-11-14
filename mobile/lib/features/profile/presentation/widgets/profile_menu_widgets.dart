@@ -4,6 +4,7 @@ import 'package:hospital_booking_mobile/features/notifications/domain/push_permi
 import 'package:hospital_booking_mobile/core/theme/app_theme.dart';
 import 'package:hospital_booking_mobile/core/widgets/app_ui.dart';
 import 'package:hospital_booking_mobile/features/notifications/application/push_notifications_controller.dart';
+import 'package:hospital_booking_mobile/core/design/app_colors.dart';
 
 class ProfilePatientShortcuts extends StatelessWidget {
   const ProfilePatientShortcuts({super.key});
@@ -37,7 +38,7 @@ class ProfileGroupTitle extends StatelessWidget {
     child: Text(
       title,
       style: Theme.of(context).textTheme.titleMedium?.copyWith(
-        color: AppTheme.clinicalInk,
+        color: context.colors.ink,
         fontWeight: FontWeight.w900,
       ),
     ),
@@ -66,7 +67,7 @@ class ProfileAppSupportSection extends StatelessWidget {
                 profileNotificationStatus(pushState),
                 style: Theme.of(context).textTheme.labelMedium?.copyWith(
                   color: pushState.isAllowed
-                      ? AppTheme.primary
+                      ? context.colors.primary
                       : Theme.of(context).colorScheme.onSurfaceVariant,
                   fontWeight: FontWeight.w700,
                 ),

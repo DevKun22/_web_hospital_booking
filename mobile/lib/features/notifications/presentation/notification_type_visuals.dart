@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:hospital_booking_mobile/features/notifications/domain/patient_notification.dart';
 
 import 'package:hospital_booking_mobile/core/design/app_design_tokens.dart';
+import 'package:hospital_booking_mobile/core/design/app_colors.dart';
 
 /// Biểu diễn giao diện của PatientNotificationType; tách khỏi lớp domain để domain là Dart thuần.
 extension PatientNotificationTypeVisuals on PatientNotificationType {
@@ -27,44 +28,41 @@ extension PatientNotificationTypeVisuals on PatientNotificationType {
     PatientNotificationType.unknown => Icons.notifications_none_rounded,
   };
 
-  Color get foreground => switch (this) {
-    PatientNotificationType.systemAnnouncement => AppPalette.care,
-    PatientNotificationType.appointmentConfirmed => AppPalette.success,
-    PatientNotificationType.appointmentRescheduled => AppPalette.warning,
-    PatientNotificationType.appointmentCancelled => AppPalette.danger,
-    PatientNotificationType.appointmentReminder => AppPalette.info,
-    PatientNotificationType.appointmentNoShow => AppPalette.danger,
-    PatientNotificationType.appointmentCheckedIn => AppPalette.info,
-    PatientNotificationType.appointmentInProgress => AppPalette.violet,
-    PatientNotificationType.appointmentCompleted => AppPalette.success,
-    PatientNotificationType.medicalResultPublished => AppPalette.success,
-    PatientNotificationType.prescriptionIssued => AppPalette.violet,
-    PatientNotificationType.prescriptionDispensed => AppPalette.success,
-    PatientNotificationType.invoiceCreated => AppPalette.warning,
-    PatientNotificationType.paymentSucceeded => AppPalette.success,
-    PatientNotificationType.paymentRefunded => AppPalette.info,
-    PatientNotificationType.unknown => AppPalette.muted,
+  Color foreground(AppColors colors) => switch (this) {
+    PatientNotificationType.systemAnnouncement => colors.care,
+    PatientNotificationType.appointmentConfirmed => colors.success,
+    PatientNotificationType.appointmentRescheduled => colors.warning,
+    PatientNotificationType.appointmentCancelled => colors.danger,
+    PatientNotificationType.appointmentReminder => colors.info,
+    PatientNotificationType.appointmentNoShow => colors.danger,
+    PatientNotificationType.appointmentCheckedIn => colors.info,
+    PatientNotificationType.appointmentInProgress => colors.violet,
+    PatientNotificationType.appointmentCompleted => colors.success,
+    PatientNotificationType.medicalResultPublished => colors.success,
+    PatientNotificationType.prescriptionIssued => colors.violet,
+    PatientNotificationType.prescriptionDispensed => colors.success,
+    PatientNotificationType.invoiceCreated => colors.warning,
+    PatientNotificationType.paymentSucceeded => colors.success,
+    PatientNotificationType.paymentRefunded => colors.info,
+    PatientNotificationType.unknown => colors.muted,
   };
 
-  Color get background => switch (this) {
-    PatientNotificationType.systemAnnouncement => AppPalette.careSoft,
-    PatientNotificationType.appointmentConfirmed => AppPalette.successContainer,
-    PatientNotificationType.appointmentRescheduled =>
-      AppPalette.warningContainer,
-    PatientNotificationType.appointmentCancelled => AppPalette.dangerContainer,
-    PatientNotificationType.appointmentReminder => AppPalette.infoContainer,
-    PatientNotificationType.appointmentNoShow => AppPalette.dangerContainer,
-    PatientNotificationType.appointmentCheckedIn => AppPalette.infoContainer,
-    PatientNotificationType.appointmentInProgress => AppPalette.violetContainer,
-    PatientNotificationType.appointmentCompleted => AppPalette.successContainer,
-    PatientNotificationType.medicalResultPublished =>
-      AppPalette.successContainer,
-    PatientNotificationType.prescriptionIssued => AppPalette.violetContainer,
-    PatientNotificationType.prescriptionDispensed =>
-      AppPalette.successContainer,
-    PatientNotificationType.invoiceCreated => AppPalette.warningContainer,
-    PatientNotificationType.paymentSucceeded => AppPalette.successContainer,
-    PatientNotificationType.paymentRefunded => AppPalette.infoContainer,
-    PatientNotificationType.unknown => AppPalette.surfaceMuted,
+  Color background(AppColors colors) => switch (this) {
+    PatientNotificationType.systemAnnouncement => colors.careSoft,
+    PatientNotificationType.appointmentConfirmed => colors.successContainer,
+    PatientNotificationType.appointmentRescheduled => colors.warningContainer,
+    PatientNotificationType.appointmentCancelled => colors.dangerContainer,
+    PatientNotificationType.appointmentReminder => colors.infoContainer,
+    PatientNotificationType.appointmentNoShow => colors.dangerContainer,
+    PatientNotificationType.appointmentCheckedIn => colors.infoContainer,
+    PatientNotificationType.appointmentInProgress => colors.violetContainer,
+    PatientNotificationType.appointmentCompleted => colors.successContainer,
+    PatientNotificationType.medicalResultPublished => colors.successContainer,
+    PatientNotificationType.prescriptionIssued => colors.violetContainer,
+    PatientNotificationType.prescriptionDispensed => colors.successContainer,
+    PatientNotificationType.invoiceCreated => colors.warningContainer,
+    PatientNotificationType.paymentSucceeded => colors.successContainer,
+    PatientNotificationType.paymentRefunded => colors.infoContainer,
+    PatientNotificationType.unknown => colors.surfaceMuted,
   };
 }

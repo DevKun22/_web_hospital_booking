@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:hospital_booking_mobile/core/design/app_colors.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hospital_booking_mobile/features/notifications/presentation/notification_type_visuals.dart';
@@ -224,10 +225,13 @@ Future<void> _showAnnouncementDetails(
                 width: 44,
                 height: 44,
                 decoration: BoxDecoration(
-                  color: item.type.background,
+                  color: item.type.background(context.colors),
                   borderRadius: BorderRadius.circular(14),
                 ),
-                child: Icon(item.type.icon, color: item.type.foreground),
+                child: Icon(
+                  item.type.icon,
+                  color: item.type.foreground(context.colors),
+                ),
               ),
               const SizedBox(width: 12),
               const Expanded(

@@ -21,6 +21,7 @@ import 'package:hospital_booking_mobile/features/home/presentation/widgets/home_
 import 'package:hospital_booking_mobile/features/home/presentation/widgets/home_doctor_section.dart';
 import 'package:hospital_booking_mobile/features/home/presentation/widgets/home_hero_carousel.dart';
 import 'package:hospital_booking_mobile/features/home/presentation/widgets/home_search_sheet.dart';
+import 'package:hospital_booking_mobile/core/design/app_colors.dart';
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
@@ -41,7 +42,7 @@ class HomeScreen extends ConsumerWidget {
     final unreadNotificationCount = dashboard.unreadNotificationCount;
 
     return Scaffold(
-      backgroundColor: AppPalette.canvas,
+      backgroundColor: context.colors.canvas,
       body: RefreshIndicator(
         onRefresh: () => Future.wait([
           ref.read(homeContentControllerProvider.notifier).refresh(),
@@ -56,11 +57,11 @@ class HomeScreen extends ConsumerWidget {
             SliverAppBar(
               pinned: true,
               automaticallyImplyLeading: false,
-              backgroundColor: Colors.white,
+              backgroundColor: context.colors.surface,
               surfaceTintColor: Colors.transparent,
               elevation: 0,
               scrolledUnderElevation: 2,
-              shadowColor: AppPalette.shadowTint,
+              shadowColor: context.colors.shadowTint,
               toolbarHeight: 64,
               titleSpacing: 14,
               title: HomeHeader(

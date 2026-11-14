@@ -9,6 +9,7 @@ import 'package:hospital_booking_mobile/core/widgets/resized_network_image.dart'
 import 'package:hospital_booking_mobile/features/booking/application/booking_flow_controller.dart';
 import 'package:hospital_booking_mobile/features/booking/domain/booking_catalog.dart';
 import 'package:hospital_booking_mobile/features/chatbot/domain/chatbot_entry_context.dart';
+import 'package:hospital_booking_mobile/core/design/app_colors.dart';
 
 class DepartmentDetailScreen extends ConsumerWidget {
   const DepartmentDetailScreen({required this.departmentId, super.key});
@@ -98,8 +99,8 @@ class DepartmentDetailScreen extends ConsumerWidget {
               Container(
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [AppTheme.primaryDark, AppPalette.care],
+                  gradient: LinearGradient(
+                    colors: [AppPalette.heroDeep, AppPalette.heroCare],
                   ),
                   borderRadius: BorderRadius.circular(AppRadius.xl),
                 ),
@@ -124,9 +125,7 @@ class DepartmentDetailScreen extends ConsumerWidget {
                       const SizedBox(height: 8),
                       Text(
                         department.description!,
-                        style: const TextStyle(
-                          color: AppPalette.onPrimaryMuted,
-                        ),
+                        style: const TextStyle(color: AppPalette.onHeroMuted),
                       ),
                     ],
                     const SizedBox(height: 16),
@@ -134,7 +133,7 @@ class DepartmentDetailScreen extends ConsumerWidget {
                       style: FilledButton.styleFrom(
                         minimumSize: const Size(0, 44),
                         backgroundColor: Colors.white,
-                        foregroundColor: AppTheme.primary,
+                        foregroundColor: context.colors.primary,
                       ),
                       onPressed: () => openBookingFromCurrentRoute(
                         context,

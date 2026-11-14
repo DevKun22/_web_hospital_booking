@@ -4,6 +4,7 @@ import 'package:hospital_booking_mobile/app/router/route_guard.dart';
 import 'package:hospital_booking_mobile/core/design/app_design_tokens.dart';
 import 'package:hospital_booking_mobile/features/home/presentation/widgets/home_service_catalog.dart';
 import 'package:hospital_booking_mobile/features/home/presentation/widgets/home_service_tiles.dart';
+import 'package:hospital_booking_mobile/core/design/app_colors.dart';
 
 /// Entry point for capabilities that already exist in the patient app.
 ///
@@ -33,7 +34,7 @@ class HomeServiceHub extends StatelessWidget {
               child: Text(
                 'Tiện ích khám chữa bệnh',
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  color: AppPalette.ink,
+                  color: context.colors.ink,
                   fontWeight: FontWeight.w900,
                 ),
               ),
@@ -42,7 +43,7 @@ class HomeServiceHub extends StatelessWidget {
               key: const Key('home-all-services-button'),
               onPressed: () => _showAllServices(context),
               style: TextButton.styleFrom(
-                foregroundColor: AppPalette.primaryDark,
+                foregroundColor: context.colors.primaryDark,
               ),
               child: const Text('Tất cả'),
             ),
@@ -63,8 +64,8 @@ class HomeServiceHub extends StatelessWidget {
           ),
           itemBuilder: (context, index) {
             final service = visibleServices[index];
-            final palette =
-                homeServicePalettes[index % homeServicePalettes.length];
+            final tints = context.colors.tintPairs;
+            final palette = tints[index % tints.length];
             return HomeServiceTile(
               icon: service.icon,
               label: service.shortLabel,

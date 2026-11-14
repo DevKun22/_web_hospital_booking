@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:hospital_booking_mobile/core/theme/app_theme.dart';
 import 'package:hospital_booking_mobile/core/design/app_design_tokens.dart';
+import 'package:hospital_booking_mobile/core/design/app_colors.dart';
 
 export 'app_brand_mark.dart';
 export 'app_catalog_scaffold.dart';
@@ -219,8 +220,8 @@ class AppGradientOverviewCard extends StatelessWidget {
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.all(18),
     decoration: BoxDecoration(
-      gradient: const LinearGradient(
-        colors: [AppTheme.primaryDark, AppTheme.primary],
+      gradient: LinearGradient(
+        colors: [AppPalette.heroDeep, AppPalette.heroMid],
       ),
       borderRadius: BorderRadius.circular(AppRadius.lg),
       boxShadow: AppShadow.soft,
@@ -361,15 +362,18 @@ class AppStatusBadge extends StatelessWidget {
   Widget build(BuildContext context) {
     final (foreground, background) = switch (tone) {
       AppStatusTone.success => (
-        AppPalette.success,
-        AppPalette.successContainer,
+        context.colors.success,
+        context.colors.successContainer,
       ),
       AppStatusTone.warning => (
-        AppPalette.warning,
-        AppPalette.warningContainer,
+        context.colors.warning,
+        context.colors.warningContainer,
       ),
-      AppStatusTone.danger => (AppPalette.danger, AppPalette.dangerContainer),
-      AppStatusTone.info => (AppPalette.info, AppPalette.infoContainer),
+      AppStatusTone.danger => (
+        context.colors.danger,
+        context.colors.dangerContainer,
+      ),
+      AppStatusTone.info => (context.colors.info, context.colors.infoContainer),
     };
 
     return DecoratedBox(

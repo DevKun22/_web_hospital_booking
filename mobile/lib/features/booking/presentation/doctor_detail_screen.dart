@@ -11,6 +11,7 @@ import 'package:hospital_booking_mobile/core/widgets/resized_network_image.dart'
 import 'package:hospital_booking_mobile/features/booking/application/booking_flow_controller.dart';
 import 'package:hospital_booking_mobile/features/booking/domain/booking_catalog.dart';
 import 'package:hospital_booking_mobile/features/chatbot/domain/chatbot_entry_context.dart';
+import 'package:hospital_booking_mobile/core/design/app_colors.dart';
 
 class DoctorDetailScreen extends ConsumerWidget {
   const DoctorDetailScreen({required this.doctorId, super.key});
@@ -98,10 +99,10 @@ class _DoctorDetailContent extends StatelessWidget {
     ),
     children: [
       Card(
-        color: AppPalette.successContainer,
+        color: context.colors.successContainer,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppRadius.xl),
-          side: const BorderSide(color: AppTheme.softBorder),
+          side: BorderSide(color: context.colors.border),
         ),
         child: Padding(
           padding: const EdgeInsets.all(AppSpacing.lg),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:hospital_booking_mobile/core/theme/app_theme.dart';
 
 import 'package:hospital_booking_mobile/core/design/app_design_tokens.dart';
+import 'package:hospital_booking_mobile/core/design/app_colors.dart';
 
 class BookingJourneyIndicator extends StatelessWidget {
   const BookingJourneyIndicator({required this.currentStep, super.key});
@@ -19,7 +20,7 @@ class BookingJourneyIndicator extends StatelessWidget {
         final completed = index < currentStep;
         final active = index == currentStep;
         final color = completed || active
-            ? AppTheme.primary
+            ? context.colors.primary
             : Theme.of(context).colorScheme.outlineVariant;
         return Expanded(
           child: Row(
@@ -38,24 +39,24 @@ class BookingJourneyIndicator extends StatelessWidget {
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
                             color: active
-                                ? AppTheme.primary
+                                ? context.colors.primary
                                 : completed
-                                ? AppPalette.primarySoft
-                                : AppPalette.surfaceMuted,
+                                ? context.colors.primarySoft
+                                : context.colors.surfaceMuted,
                             border: Border.all(color: color, width: 1.5),
                           ),
                           child: completed
-                              ? const Icon(
+                              ? Icon(
                                   Icons.check_rounded,
                                   size: 18,
-                                  color: AppTheme.primaryDark,
+                                  color: context.colors.primaryDark,
                                 )
                               : Center(
                                   child: Text(
                                     '${index + 1}',
                                     style: TextStyle(
                                       color: active
-                                          ? Colors.white
+                                          ? context.colors.onPrimary
                                           : Theme.of(
                                               context,
                                             ).colorScheme.onSurfaceVariant,
@@ -68,7 +69,7 @@ class BookingJourneyIndicator extends StatelessWidget {
                           Expanded(
                             child: Divider(
                               color: index < currentStep
-                                  ? AppTheme.primary
+                                  ? context.colors.primary
                                   : Theme.of(
                                       context,
                                     ).colorScheme.outlineVariant,
@@ -84,7 +85,7 @@ class BookingJourneyIndicator extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                       style: Theme.of(context).textTheme.labelSmall?.copyWith(
                         color: active || completed
-                            ? AppTheme.primaryDark
+                            ? context.colors.primaryDark
                             : Theme.of(context).colorScheme.onSurfaceVariant,
                         fontWeight: active ? FontWeight.w800 : FontWeight.w500,
                       ),

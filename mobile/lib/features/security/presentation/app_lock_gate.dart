@@ -4,6 +4,7 @@ import 'package:hospital_booking_mobile/core/theme/app_theme.dart';
 import 'package:hospital_booking_mobile/core/widgets/app_brand_mark.dart';
 import 'package:hospital_booking_mobile/features/auth/application/auth_controller.dart';
 import 'package:hospital_booking_mobile/features/security/application/app_lock_controller.dart';
+import 'package:hospital_booking_mobile/core/design/app_colors.dart';
 
 class AppLockGate extends ConsumerWidget {
   const AppLockGate({required this.child, super.key});
@@ -23,7 +24,7 @@ class AppLockGate extends ConsumerWidget {
         if (covered)
           Positioned.fill(
             child: Material(
-              color: AppTheme.quietCanvas,
+              color: context.colors.canvas,
               child: SafeArea(
                 child: Center(
                   child: ConstrainedBox(

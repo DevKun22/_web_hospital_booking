@@ -5,6 +5,7 @@ import 'package:hospital_booking_mobile/core/widgets/app_ui.dart';
 import 'package:hospital_booking_mobile/core/widgets/resized_network_image.dart';
 
 import 'package:hospital_booking_mobile/core/config/app_brand.dart';
+import 'package:hospital_booking_mobile/core/design/app_colors.dart';
 
 class HomeSectionHeader extends StatelessWidget {
   const HomeSectionHeader({
@@ -31,7 +32,7 @@ class HomeSectionHeader extends StatelessWidget {
             Text(
               title,
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                color: AppPalette.ink,
+                color: context.colors.ink,
                 fontWeight: FontWeight.w900,
                 letterSpacing: -0.2,
               ),
@@ -44,7 +45,7 @@ class HomeSectionHeader extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
                 style: Theme.of(
                   context,
-                ).textTheme.bodySmall?.copyWith(color: AppPalette.muted),
+                ).textTheme.bodySmall?.copyWith(color: context.colors.muted),
               ),
             ],
           ],
@@ -54,7 +55,7 @@ class HomeSectionHeader extends StatelessWidget {
         TextButton.icon(
           onPressed: onAction,
           style: TextButton.styleFrom(
-            foregroundColor: AppPalette.primaryDark,
+            foregroundColor: context.colors.primaryDark,
             padding: const EdgeInsets.symmetric(horizontal: 6),
           ),
           label: Text(actionLabel!),
@@ -91,11 +92,11 @@ class HomeHeader extends StatelessWidget {
           padding: const EdgeInsets.all(2),
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            border: Border.all(color: AppPalette.primary, width: 2),
+            border: Border.all(color: context.colors.primary, width: 2),
           ),
           child: CircleAvatar(
             radius: 20,
-            backgroundColor: AppPalette.primarySoft,
+            backgroundColor: context.colors.primarySoft,
             backgroundImage: resizedNetworkImage(
               context,
               avatar,
@@ -104,7 +105,7 @@ class HomeHeader extends StatelessWidget {
             ),
             child: avatar?.trim().isNotEmpty == true
                 ? null
-                : const Icon(Icons.person_rounded, color: AppPalette.primary),
+                : Icon(Icons.person_rounded, color: context.colors.primary),
           ),
         )
       else
@@ -112,12 +113,12 @@ class HomeHeader extends StatelessWidget {
           width: 44,
           height: 44,
           decoration: BoxDecoration(
-            color: AppPalette.primarySoft,
+            color: context.colors.primarySoft,
             borderRadius: BorderRadius.circular(14),
           ),
-          child: const Icon(
+          child: Icon(
             Icons.monitor_heart_outlined,
-            color: AppPalette.primary,
+            color: context.colors.primary,
             size: 25,
           ),
         ),
@@ -165,10 +166,10 @@ class HomeSearchBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Material(
-    color: Colors.white,
+    color: context.colors.surface,
     shape: RoundedRectangleBorder(
       borderRadius: BorderRadius.circular(14),
-      side: const BorderSide(color: AppPalette.border),
+      side: BorderSide(color: context.colors.border),
     ),
     clipBehavior: Clip.antiAlias,
     child: InkWell(
@@ -178,7 +179,7 @@ class HomeSearchBar extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
         child: Row(
           children: [
-            const Icon(Icons.search_rounded, color: AppPalette.primary),
+            Icon(Icons.search_rounded, color: context.colors.primary),
             const SizedBox(width: 10),
             Expanded(
               child: Text(
@@ -187,19 +188,19 @@ class HomeSearchBar extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
                 style: Theme.of(
                   context,
-                ).textTheme.bodyMedium?.copyWith(color: AppPalette.muted),
+                ).textTheme.bodyMedium?.copyWith(color: context.colors.muted),
               ),
             ),
             Container(
               width: 30,
               height: 30,
               decoration: BoxDecoration(
-                color: AppPalette.primarySoft,
+                color: context.colors.primarySoft,
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: const Icon(
+              child: Icon(
                 Icons.tune_rounded,
-                color: AppPalette.primary,
+                color: context.colors.primary,
                 size: 19,
               ),
             ),
@@ -233,8 +234,8 @@ class HomeQuickDepartmentChips extends StatelessWidget {
             color: Theme.of(context).colorScheme.onSurface,
             fontWeight: FontWeight.w700,
           ),
-          backgroundColor: Colors.white,
-          side: const BorderSide(color: AppPalette.border),
+          backgroundColor: context.colors.surface,
+          side: BorderSide(color: context.colors.border),
           shape: const StadiumBorder(),
           visualDensity: VisualDensity.compact,
         );
@@ -258,13 +259,13 @@ class HomeNotificationBell extends StatelessWidget {
     clipBehavior: Clip.none,
     children: [
       Material(
-        color: AppPalette.primarySoft,
+        color: context.colors.primarySoft,
         shape: const CircleBorder(),
         child: IconButton(
           onPressed: onTap,
-          icon: const Icon(
+          icon: Icon(
             Icons.notifications_none_rounded,
-            color: AppPalette.primaryDark,
+            color: context.colors.primaryDark,
             size: 22,
           ),
           tooltip: unreadCount == 0
@@ -283,13 +284,13 @@ class HomeNotificationBell extends StatelessWidget {
               decoration: BoxDecoration(
                 color: Theme.of(context).colorScheme.error,
                 borderRadius: BorderRadius.circular(999),
-                border: Border.all(color: Colors.white, width: 1.5),
+                border: Border.all(color: context.colors.surface, width: 1.5),
               ),
               alignment: Alignment.center,
               child: Text(
                 unreadCount > 99 ? '99+' : '$unreadCount',
                 style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: Colors.white,
+                  color: Theme.of(context).colorScheme.onError,
                   fontSize: 9,
                   fontWeight: FontWeight.w900,
                 ),
@@ -320,7 +321,7 @@ class HomeOfflineContentNotice extends StatelessWidget {
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: AppPalette.border),
+        border: Border.all(color: context.colors.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -416,7 +417,7 @@ class HomeEmergencyCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Material(
     key: const Key('home-emergency-support-card'),
-    color: AppPalette.dangerContainer,
+    color: context.colors.dangerContainer,
     borderRadius: BorderRadius.circular(18),
     clipBehavior: Clip.antiAlias,
     child: InkWell(
@@ -425,9 +426,9 @@ class HomeEmergencyCard extends StatelessWidget {
         padding: const EdgeInsets.all(16),
         child: Row(
           children: [
-            const CircleAvatar(
-              backgroundColor: AppPalette.danger,
-              foregroundColor: Colors.white,
+            CircleAvatar(
+              backgroundColor: context.colors.danger,
+              foregroundColor: Theme.of(context).colorScheme.onError,
               child: Icon(Icons.emergency_rounded),
             ),
             const SizedBox(width: 12),
@@ -442,14 +443,14 @@ class HomeEmergencyCard extends StatelessWidget {
                   Text(
                     hotline,
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: AppPalette.danger,
+                      color: context.colors.danger,
                       fontWeight: FontWeight.w800,
                     ),
                   ),
                 ],
               ),
             ),
-            const Icon(Icons.chevron_right_rounded, color: AppPalette.danger),
+            Icon(Icons.chevron_right_rounded, color: context.colors.danger),
           ],
         ),
       ),

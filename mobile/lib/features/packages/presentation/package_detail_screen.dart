@@ -11,6 +11,7 @@ import 'package:hospital_booking_mobile/core/widgets/app_ui.dart';
 import 'package:hospital_booking_mobile/features/packages/application/package_providers.dart';
 import 'package:hospital_booking_mobile/features/packages/domain/medical_package.dart';
 import 'package:hospital_booking_mobile/features/chatbot/domain/chatbot_entry_context.dart';
+import 'package:hospital_booking_mobile/core/design/app_colors.dart';
 
 class PackageDetailScreen extends ConsumerWidget {
   const PackageDetailScreen({required this.slug, super.key});
@@ -80,8 +81,8 @@ class _PackageDetailBody extends StatelessWidget {
         Container(
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              colors: [AppTheme.primaryDark, AppPalette.care],
+            gradient: LinearGradient(
+              colors: [AppPalette.heroDeep, AppPalette.heroCare],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
@@ -118,7 +119,7 @@ class _PackageDetailBody extends StatelessWidget {
                 const SizedBox(height: 8),
                 Text(
                   packageItem.summary!,
-                  style: const TextStyle(color: AppPalette.onPrimaryMuted),
+                  style: const TextStyle(color: AppPalette.onHeroMuted),
                 ),
               ],
               if (packageItem.departmentName != null) ...[
@@ -170,19 +171,16 @@ class _PackageDetailBody extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(15),
             decoration: BoxDecoration(
-              color: AppPalette.warningContainer,
+              color: context.colors.warningContainer,
               borderRadius: BorderRadius.circular(AppRadius.md),
               border: Border.all(
-                color: AppPalette.warning.withValues(alpha: 0.4),
+                color: context.colors.warning.withValues(alpha: 0.4),
               ),
             ),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Icon(
-                  Icons.info_outline_rounded,
-                  color: AppPalette.warning,
-                ),
+                Icon(Icons.info_outline_rounded, color: context.colors.warning),
                 const SizedBox(width: 10),
                 Expanded(child: Text(packageItem.note!)),
               ],
@@ -233,7 +231,7 @@ class _PriceCard extends StatelessWidget {
               Text(
                 formatVnd(packageItem.finalPrice),
                 style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  color: AppTheme.primaryDark,
+                  color: context.colors.primaryDark,
                   fontWeight: FontWeight.w800,
                 ),
               ),
@@ -295,7 +293,9 @@ class _PackageItemRow extends StatelessWidget {
           item.included
               ? Icons.check_circle_rounded
               : Icons.add_circle_outline_rounded,
-          color: item.included ? AppTheme.primary : AppPalette.warning,
+          color: item.included
+              ? context.colors.primary
+              : context.colors.warning,
         ),
         const SizedBox(width: 10),
         Expanded(
@@ -315,8 +315,8 @@ class _PackageItemRow extends StatelessWidget {
                       : '${formatVnd(item.price)} · Tính thêm khi chọn',
                   style: Theme.of(context).textTheme.labelMedium?.copyWith(
                     color: item.included
-                        ? AppTheme.primaryDark
-                        : AppPalette.warning,
+                        ? context.colors.primaryDark
+                        : context.colors.warning,
                   ),
                 ),
               ],

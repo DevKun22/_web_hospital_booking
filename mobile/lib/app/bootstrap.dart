@@ -6,20 +6,11 @@ import 'package:hospital_booking_mobile/core/theme/app_theme.dart';
 import 'package:hospital_booking_mobile/core/config/app_config.dart';
 import 'package:hospital_booking_mobile/core/errors/global_error_handler.dart';
 import 'package:hospital_booking_mobile/core/providers/app_providers.dart';
+import 'package:hospital_booking_mobile/core/design/app_colors.dart';
 
 Future<void> bootstrap(AppEnvironment environment) async {
   WidgetsFlutterBinding.ensureInitialized();
   installGlobalErrorHandlers();
-  SystemChrome.setSystemUIOverlayStyle(
-    const SystemUiOverlayStyle(
-      statusBarColor: Colors.transparent,
-      statusBarIconBrightness: Brightness.dark,
-      statusBarBrightness: Brightness.light,
-      systemNavigationBarColor: AppTheme.quietCanvas,
-      systemNavigationBarIconBrightness: Brightness.dark,
-      systemNavigationBarDividerColor: Colors.transparent,
-    ),
-  );
   final config = AppConfig.fromEnvironment(defaultEnvironment: environment);
   if (config.enableNetworkLogs) {
     debugPrint('[APP_CONFIG] API base URL: ${config.apiBaseUrl}');

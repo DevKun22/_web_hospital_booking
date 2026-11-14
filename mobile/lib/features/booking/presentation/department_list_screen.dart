@@ -6,6 +6,7 @@ import 'package:hospital_booking_mobile/core/widgets/app_error_banner.dart';
 import 'package:hospital_booking_mobile/core/widgets/app_ui.dart';
 import 'package:hospital_booking_mobile/core/widgets/resized_network_image.dart';
 import 'package:hospital_booking_mobile/features/booking/application/booking_flow_controller.dart';
+import 'package:hospital_booking_mobile/core/design/app_colors.dart';
 
 class DepartmentListScreen extends ConsumerStatefulWidget {
   const DepartmentListScreen({super.key});
@@ -117,7 +118,7 @@ class _DepartmentListScreenState extends ConsumerState<DepartmentListScreen> {
                 margin: EdgeInsets.zero,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(AppRadius.card),
-                  side: const BorderSide(color: AppTheme.softBorder),
+                  side: BorderSide(color: context.colors.border),
                 ),
                 clipBehavior: Clip.antiAlias,
                 child: InkWell(
@@ -139,17 +140,17 @@ class _DepartmentListScreenState extends ConsumerState<DepartmentListScreen> {
                             borderRadius: BorderRadius.circular(AppRadius.card),
                           ),
                           child: imageProvider == null
-                              ? const Icon(
+                              ? Icon(
                                   Icons.medical_services_outlined,
-                                  color: AppTheme.primary,
+                                  color: context.colors.primary,
                                   size: 29,
                                 )
                               : Image(
                                   image: imageProvider,
                                   fit: BoxFit.cover,
-                                  errorBuilder: (_, _, _) => const Icon(
+                                  errorBuilder: (_, _, _) => Icon(
                                     Icons.medical_services_outlined,
-                                    color: AppTheme.primary,
+                                    color: context.colors.primary,
                                   ),
                                 ),
                         ),

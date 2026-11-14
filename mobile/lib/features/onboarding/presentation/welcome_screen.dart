@@ -5,6 +5,7 @@ import 'package:hospital_booking_mobile/core/widgets/app_ui.dart';
 import 'package:hospital_booking_mobile/features/onboarding/application/onboarding_controller.dart';
 
 import 'package:hospital_booking_mobile/core/config/app_brand.dart';
+import 'package:hospital_booking_mobile/core/design/app_colors.dart';
 
 class WelcomeScreen extends ConsumerWidget {
   const WelcomeScreen({super.key});
@@ -153,8 +154,8 @@ class _WelcomeIllustration extends StatelessWidget {
     aspectRatio: 1.8,
     child: DecoratedBox(
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [AppPalette.primarySoft, AppPalette.careSoft],
+        gradient: LinearGradient(
+          colors: [context.colors.primarySoft, context.colors.careSoft],
         ),
         borderRadius: BorderRadius.circular(36),
       ),
@@ -167,9 +168,9 @@ class _WelcomeIllustration extends StatelessWidget {
             decoration: BoxDecoration(
               color: primary,
               borderRadius: BorderRadius.circular(30),
-              boxShadow: const [
+              boxShadow: [
                 BoxShadow(
-                  color: AppPalette.shadowTint,
+                  color: context.colors.shadowTint,
                   blurRadius: 28,
                   offset: Offset(0, 12),
                 ),
@@ -209,9 +210,9 @@ class _FloatingIcon extends StatelessWidget {
     decoration: BoxDecoration(
       color: Theme.of(context).colorScheme.surface,
       borderRadius: BorderRadius.circular(15),
-      boxShadow: const [
+      boxShadow: [
         BoxShadow(
-          color: AppPalette.shadowTint,
+          color: context.colors.shadowTint,
           blurRadius: 18,
           offset: Offset(0, 7),
         ),
