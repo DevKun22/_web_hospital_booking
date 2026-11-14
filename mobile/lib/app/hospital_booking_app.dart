@@ -10,6 +10,8 @@ import 'package:hospital_booking_mobile/features/notifications/application/push_
 import 'package:hospital_booking_mobile/features/security/application/app_lock_controller.dart';
 import 'package:hospital_booking_mobile/features/security/presentation/app_lock_gate.dart';
 
+import 'package:hospital_booking_mobile/core/config/app_brand.dart';
+
 final rootScaffoldMessengerKey = GlobalKey<ScaffoldMessengerState>();
 
 class HospitalBookingApp extends ConsumerStatefulWidget {
@@ -95,7 +97,7 @@ class _HospitalBookingAppState extends ConsumerState<HospitalBookingApp>
     });
 
     return MaterialApp.router(
-      title: 'Medcare Booking',
+      title: AppBrand.name,
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
       scaffoldMessengerKey: rootScaffoldMessengerKey,

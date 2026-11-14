@@ -212,7 +212,7 @@ class _MainBottomNavigationBar extends StatelessWidget {
   Widget build(BuildContext context) => DecoratedBox(
     decoration: const BoxDecoration(
       color: Colors.white,
-      boxShadow: AppShadow.publicFloating,
+      boxShadow: AppShadow.floating,
     ),
     child: Material(
       color: Colors.transparent,
@@ -233,9 +233,7 @@ class _MainBottomNavigationBar extends StatelessWidget {
                 top: 8,
                 child: DecoratedBox(
                   decoration: const BoxDecoration(
-                    border: Border(
-                      top: BorderSide(color: AppPalette.publicBorder),
-                    ),
+                    border: Border(top: BorderSide(color: AppPalette.border)),
                   ),
                   child: Row(
                     children: List.generate(_destinations.length, (index) {
@@ -290,9 +288,7 @@ class _NavigationItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final foreground = selected
-        ? AppPalette.clinicalBlue
-        : AppPalette.publicMuted;
+    final foreground = selected ? AppPalette.primary : AppPalette.muted;
     final animationDuration = AppMotion.responsive(context, AppMotion.fast);
 
     return Semantics(
@@ -320,7 +316,7 @@ class _NavigationItem extends StatelessWidget {
                     height: 30,
                     decoration: BoxDecoration(
                       color: selected
-                          ? AppPalette.clinicalBlueContainer
+                          ? AppPalette.primarySoft
                           : Colors.transparent,
                       borderRadius: BorderRadius.circular(AppRadius.sm),
                     ),
@@ -342,9 +338,7 @@ class _NavigationItem extends StatelessWidget {
                   overflow: TextOverflow.fade,
                   softWrap: false,
                   style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: selected
-                        ? AppPalette.clinicalBlue
-                        : AppPalette.publicMuted,
+                    color: selected ? AppPalette.primary : AppPalette.muted,
                     fontSize: 11.5,
                     height: 1.15,
                     fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
@@ -397,10 +391,10 @@ class _PrimaryNavigationItem extends StatelessWidget {
                     width: 56,
                     height: 56,
                     decoration: BoxDecoration(
-                      color: AppPalette.clinicalBlue,
+                      color: AppPalette.primary,
                       shape: BoxShape.circle,
                       border: Border.all(color: Colors.white, width: 4),
-                      boxShadow: AppShadow.publicFloating,
+                      boxShadow: AppShadow.floating,
                     ),
                     child: Icon(
                       destination.selectedIcon,
@@ -414,7 +408,7 @@ class _PrimaryNavigationItem extends StatelessWidget {
                   destination.label,
                   maxLines: 1,
                   style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: AppPalette.clinicalBlue,
+                    color: AppPalette.primary,
                     fontSize: 11.5,
                     height: 1,
                     fontWeight: FontWeight.w800,

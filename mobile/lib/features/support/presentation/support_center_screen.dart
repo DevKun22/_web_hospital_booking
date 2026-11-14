@@ -122,7 +122,7 @@ class SupportCenterScreen extends ConsumerWidget {
       builder: (dialogContext) => AlertDialog(
         icon: Icon(
           isEmergency ? Icons.emergency_rounded : Icons.phone_in_talk_rounded,
-          color: isEmergency ? const Color(0xFFB64048) : AppTheme.primary,
+          color: isEmergency ? AppPalette.danger : AppTheme.primary,
         ),
         title: Text(isEmergency ? 'Gọi cấp cứu?' : 'Gọi bệnh viện?'),
         content: Text(
@@ -211,7 +211,7 @@ class _SupportIntro extends StatelessWidget {
               Text(
                 'Chọn đúng kênh để được hỗ trợ nhanh và an toàn.',
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: const Color(0xDFFFFFFF),
+                  color: AppPalette.onPrimaryMuted,
                 ),
               ),
             ],
@@ -236,8 +236,8 @@ class _EmergencySupportCard extends StatelessWidget {
     key: const Key('support-emergency-card'),
     padding: const EdgeInsets.all(16),
     decoration: BoxDecoration(
-      color: const Color(0xFFFCEBED),
-      border: Border.all(color: const Color(0xFFF2C9CD)),
+      color: AppPalette.dangerContainer,
+      border: Border.all(color: AppPalette.danger),
       borderRadius: BorderRadius.circular(20),
     ),
     child: Column(
@@ -246,7 +246,7 @@ class _EmergencySupportCard extends StatelessWidget {
         Row(
           children: [
             const CircleAvatar(
-              backgroundColor: Color(0xFFB64048),
+              backgroundColor: AppPalette.danger,
               foregroundColor: Colors.white,
               child: Icon(Icons.emergency_rounded),
             ),
@@ -265,7 +265,7 @@ class _EmergencySupportCard extends StatelessWidget {
                   Text(
                     phoneNumber ?? 'Chưa có số cấp cứu',
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      color: const Color(0xFFB64048),
+                      color: AppPalette.danger,
                       fontWeight: FontWeight.w900,
                     ),
                   ),
@@ -281,9 +281,7 @@ class _EmergencySupportCard extends StatelessWidget {
         const SizedBox(height: 14),
         FilledButton.icon(
           key: const Key('support-emergency-call-button'),
-          style: FilledButton.styleFrom(
-            backgroundColor: const Color(0xFFB64048),
-          ),
+          style: FilledButton.styleFrom(backgroundColor: AppPalette.danger),
           onPressed: phoneNumber == null ? null : () => onCall(phoneNumber!),
           icon: const Icon(Icons.phone_in_talk_rounded),
           label: const Text('Mở trình gọi cấp cứu'),

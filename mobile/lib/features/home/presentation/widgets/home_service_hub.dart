@@ -31,7 +31,7 @@ class HomeServiceHub extends StatelessWidget {
               child: Text(
                 'Tiện ích khám chữa bệnh',
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  color: AppPalette.publicInk,
+                  color: AppPalette.ink,
                   fontWeight: FontWeight.w900,
                 ),
               ),
@@ -40,7 +40,7 @@ class HomeServiceHub extends StatelessWidget {
               key: const Key('home-all-services-button'),
               onPressed: () => _showAllServices(context),
               style: TextButton.styleFrom(
-                foregroundColor: AppPalette.clinicalBlueDark,
+                foregroundColor: AppPalette.primaryDark,
               ),
               child: const Text('Tất cả'),
             ),
@@ -231,7 +231,7 @@ class _ServiceSection extends StatelessWidget {
       DecoratedBox(
         decoration: BoxDecoration(
           color: Colors.white,
-          border: Border.all(color: AppPalette.publicBorder),
+          border: Border.all(color: AppPalette.border),
           borderRadius: BorderRadius.circular(18),
         ),
         child: Column(
@@ -274,7 +274,7 @@ class _ServiceTile extends StatelessWidget {
     color: Colors.white,
     shape: RoundedRectangleBorder(
       borderRadius: BorderRadius.circular(16),
-      side: const BorderSide(color: AppPalette.publicBorder),
+      side: const BorderSide(color: AppPalette.border),
     ),
     clipBehavior: Clip.antiAlias,
     child: InkWell(
@@ -303,7 +303,7 @@ class _ServiceTile extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                       textAlign: TextAlign.center,
                       style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: AppPalette.publicInk,
+                        color: AppPalette.ink,
                         fontSize: 9.5,
                         height: 1.08,
                         fontWeight: FontWeight.w700,
@@ -325,7 +325,7 @@ class _ServiceTile extends StatelessWidget {
                     ? const EdgeInsets.symmetric(horizontal: 4)
                     : EdgeInsets.zero,
                 decoration: BoxDecoration(
-                  color: AppPalette.clinicalBlueContainer,
+                  color: AppPalette.primarySoft,
                   borderRadius: BorderRadius.circular(999),
                 ),
                 child: Row(
@@ -334,14 +334,14 @@ class _ServiceTile extends StatelessWidget {
                     const Icon(
                       Icons.lock_outline_rounded,
                       size: 9,
-                      color: AppPalette.clinicalBlueDark,
+                      color: AppPalette.primaryDark,
                     ),
                     if (statusLabel == 'Cần mạng') ...[
                       const SizedBox(width: 2),
                       Text(
                         statusLabel!,
                         style: const TextStyle(
-                          color: AppPalette.clinicalBlueDark,
+                          color: AppPalette.primaryDark,
                           fontSize: 7.5,
                           height: 1,
                           fontWeight: FontWeight.w800,
@@ -377,10 +377,10 @@ class _ServiceListTile extends StatelessWidget {
       width: 40,
       height: 40,
       decoration: BoxDecoration(
-        color: AppPalette.clinicalBlueContainer,
+        color: AppPalette.primarySoft,
         borderRadius: BorderRadius.circular(13),
       ),
-      child: Icon(service.icon, size: 21, color: AppPalette.clinicalBlue),
+      child: Icon(service.icon, size: 21, color: AppPalette.primary),
     ),
     title: Text(
       service.label,
@@ -561,14 +561,7 @@ const _primaryServices = <_HomeService>[
   _packagesService,
 ];
 
-const _servicePalettes = <({Color background, Color foreground})>[
-  (background: Color(0xFFE7F0FF), foreground: Color(0xFF2563EB)),
-  (background: Color(0xFFEEF2FF), foreground: Color(0xFF4F46E5)),
-  (background: Color(0xFFE8F7F2), foreground: Color(0xFF059669)),
-  (background: Color(0xFFFFF3DD), foreground: Color(0xFFD97706)),
-  (background: Color(0xFFFCEBED), foreground: Color(0xFFB64048)),
-  (background: Color(0xFFEFF6FF), foreground: Color(0xFF1D4ED8)),
-];
+const _servicePalettes = AppPalette.tintPairs;
 
 const _serviceSections = <_HomeServiceSection>[
   _HomeServiceSection(

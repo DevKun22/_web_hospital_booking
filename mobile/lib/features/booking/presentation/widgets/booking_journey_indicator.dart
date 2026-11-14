@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:hospital_booking_mobile/core/theme/app_theme.dart';
 
+import 'package:hospital_booking_mobile/core/design/app_design_tokens.dart';
+
 class BookingJourneyIndicator extends StatelessWidget {
   const BookingJourneyIndicator({required this.currentStep, super.key});
 
@@ -38,8 +40,8 @@ class BookingJourneyIndicator extends StatelessWidget {
                             color: active
                                 ? AppTheme.primary
                                 : completed
-                                ? const Color(0xFFDDF3EE)
-                                : const Color(0xFFF0F4F3),
+                                ? AppPalette.primarySoft
+                                : AppPalette.surfaceMuted,
                             border: Border.all(color: color, width: 1.5),
                           ),
                           child: completed

@@ -99,7 +99,7 @@ class DepartmentDetailScreen extends ConsumerWidget {
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(
-                    colors: [AppTheme.primaryDark, AppPalette.careMint],
+                    colors: [AppTheme.primaryDark, AppPalette.care],
                   ),
                   borderRadius: BorderRadius.circular(AppRadius.xl),
                 ),
@@ -124,7 +124,9 @@ class DepartmentDetailScreen extends ConsumerWidget {
                       const SizedBox(height: 8),
                       Text(
                         department.description!,
-                        style: const TextStyle(color: Color(0xE6FFFFFF)),
+                        style: const TextStyle(
+                          color: AppPalette.onPrimaryMuted,
+                        ),
                       ),
                     ],
                     const SizedBox(height: 16),

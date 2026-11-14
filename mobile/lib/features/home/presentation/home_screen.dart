@@ -41,7 +41,7 @@ class HomeScreen extends ConsumerWidget {
     final unreadNotificationCount = dashboard.unreadNotificationCount;
 
     return Scaffold(
-      backgroundColor: AppPalette.publicCanvas,
+      backgroundColor: AppPalette.canvas,
       body: RefreshIndicator(
         onRefresh: () => Future.wait([
           ref.read(homeContentControllerProvider.notifier).refresh(),
@@ -60,7 +60,7 @@ class HomeScreen extends ConsumerWidget {
               surfaceTintColor: Colors.transparent,
               elevation: 0,
               scrolledUnderElevation: 2,
-              shadowColor: const Color(0x1A172B4D),
+              shadowColor: AppPalette.shadowTint,
               toolbarHeight: 64,
               titleSpacing: 14,
               title: HomeHeader(

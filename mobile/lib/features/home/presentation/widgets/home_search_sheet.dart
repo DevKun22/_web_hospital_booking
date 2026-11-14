@@ -174,7 +174,7 @@ class _HomeSearchSheetState extends State<_HomeSearchSheet> {
                   child: Text(
                     'Tìm dịch vụ chăm sóc',
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      color: AppPalette.publicInk,
+                      color: AppPalette.ink,
                       fontWeight: FontWeight.w900,
                     ),
                   ),
@@ -193,23 +193,23 @@ class _HomeSearchSheetState extends State<_HomeSearchSheet> {
               key: const Key('home-search-field'),
               autofocus: true,
               onChanged: (value) => setState(() => _query = value),
-              cursorColor: AppPalette.clinicalBlue,
+              cursorColor: AppPalette.primary,
               decoration: InputDecoration(
                 hintText: 'Tên bác sĩ, chuyên khoa hoặc gói khám',
                 filled: true,
-                fillColor: AppPalette.publicSurfaceMuted,
+                fillColor: AppPalette.surfaceMuted,
                 prefixIcon: const Icon(
                   Icons.search_rounded,
-                  color: AppPalette.clinicalBlue,
+                  color: AppPalette.primary,
                 ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(AppRadius.md),
-                  borderSide: const BorderSide(color: AppPalette.publicBorder),
+                  borderSide: const BorderSide(color: AppPalette.border),
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(AppRadius.md),
                   borderSide: const BorderSide(
-                    color: AppPalette.clinicalBlue,
+                    color: AppPalette.primary,
                     width: 1.8,
                   ),
                 ),
@@ -332,12 +332,12 @@ class _HomeSearchResultTile extends StatelessWidget {
           width: 42,
           height: 42,
           decoration: BoxDecoration(
-            color: AppPalette.clinicalBlueContainer,
+            color: AppPalette.primarySoft,
             borderRadius: BorderRadius.circular(13),
           ),
           child: Icon(
             isRecent ? Icons.history_rounded : item.icon,
-            color: AppPalette.clinicalBlue,
+            color: AppPalette.primary,
           ),
         ),
         title: Text(
@@ -353,7 +353,7 @@ class _HomeSearchResultTile extends StatelessWidget {
         ),
         trailing: const Icon(
           Icons.chevron_right_rounded,
-          color: AppPalette.clinicalBlue,
+          color: AppPalette.primary,
         ),
       ),
       const Divider(height: 1),

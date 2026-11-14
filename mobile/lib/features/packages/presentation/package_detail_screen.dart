@@ -81,7 +81,7 @@ class _PackageDetailBody extends StatelessWidget {
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
             gradient: const LinearGradient(
-              colors: [AppTheme.primaryDark, AppPalette.careMint],
+              colors: [AppTheme.primaryDark, AppPalette.care],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
@@ -118,7 +118,7 @@ class _PackageDetailBody extends StatelessWidget {
                 const SizedBox(height: 8),
                 Text(
                   packageItem.summary!,
-                  style: const TextStyle(color: Color(0xE6FFFFFF)),
+                  style: const TextStyle(color: AppPalette.onPrimaryMuted),
                 ),
               ],
               if (packageItem.departmentName != null) ...[
@@ -172,7 +172,9 @@ class _PackageDetailBody extends StatelessWidget {
             decoration: BoxDecoration(
               color: AppPalette.warningContainer,
               borderRadius: BorderRadius.circular(AppRadius.md),
-              border: Border.all(color: AppPalette.warmSignal),
+              border: Border.all(
+                color: AppPalette.warning.withValues(alpha: 0.4),
+              ),
             ),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,

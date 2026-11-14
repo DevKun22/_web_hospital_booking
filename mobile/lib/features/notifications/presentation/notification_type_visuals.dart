@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:hospital_booking_mobile/features/notifications/domain/patient_notification.dart';
 
+import 'package:hospital_booking_mobile/core/design/app_design_tokens.dart';
+
 /// Biểu diễn giao diện của PatientNotificationType; tách khỏi lớp domain để domain là Dart thuần.
 extension PatientNotificationTypeVisuals on PatientNotificationType {
   IconData get icon => switch (this) {
@@ -26,40 +28,43 @@ extension PatientNotificationTypeVisuals on PatientNotificationType {
   };
 
   Color get foreground => switch (this) {
-    PatientNotificationType.systemAnnouncement => const Color(0xFF006B5F),
-    PatientNotificationType.appointmentConfirmed => const Color(0xFF237A57),
-    PatientNotificationType.appointmentRescheduled => const Color(0xFFA4660D),
-    PatientNotificationType.appointmentCancelled => const Color(0xFFB64048),
-    PatientNotificationType.appointmentReminder => const Color(0xFF2B6F9E),
-    PatientNotificationType.appointmentNoShow => const Color(0xFFB64048),
-    PatientNotificationType.appointmentCheckedIn => const Color(0xFF2B6F9E),
-    PatientNotificationType.appointmentInProgress => const Color(0xFF6556A5),
-    PatientNotificationType.appointmentCompleted => const Color(0xFF237A57),
-    PatientNotificationType.medicalResultPublished => const Color(0xFF237A57),
-    PatientNotificationType.prescriptionIssued => const Color(0xFF6556A5),
-    PatientNotificationType.prescriptionDispensed => const Color(0xFF237A57),
-    PatientNotificationType.invoiceCreated => const Color(0xFFA4660D),
-    PatientNotificationType.paymentSucceeded => const Color(0xFF237A57),
-    PatientNotificationType.paymentRefunded => const Color(0xFF2B6F9E),
-    PatientNotificationType.unknown => const Color(0xFF647B7E),
+    PatientNotificationType.systemAnnouncement => AppPalette.care,
+    PatientNotificationType.appointmentConfirmed => AppPalette.success,
+    PatientNotificationType.appointmentRescheduled => AppPalette.warning,
+    PatientNotificationType.appointmentCancelled => AppPalette.danger,
+    PatientNotificationType.appointmentReminder => AppPalette.info,
+    PatientNotificationType.appointmentNoShow => AppPalette.danger,
+    PatientNotificationType.appointmentCheckedIn => AppPalette.info,
+    PatientNotificationType.appointmentInProgress => AppPalette.violet,
+    PatientNotificationType.appointmentCompleted => AppPalette.success,
+    PatientNotificationType.medicalResultPublished => AppPalette.success,
+    PatientNotificationType.prescriptionIssued => AppPalette.violet,
+    PatientNotificationType.prescriptionDispensed => AppPalette.success,
+    PatientNotificationType.invoiceCreated => AppPalette.warning,
+    PatientNotificationType.paymentSucceeded => AppPalette.success,
+    PatientNotificationType.paymentRefunded => AppPalette.info,
+    PatientNotificationType.unknown => AppPalette.muted,
   };
 
   Color get background => switch (this) {
-    PatientNotificationType.systemAnnouncement => const Color(0xFFDDF6F1),
-    PatientNotificationType.appointmentConfirmed => const Color(0xFFE4F5EF),
-    PatientNotificationType.appointmentRescheduled => const Color(0xFFFFF3DD),
-    PatientNotificationType.appointmentCancelled => const Color(0xFFFCEBED),
-    PatientNotificationType.appointmentReminder => const Color(0xFFE9F3FA),
-    PatientNotificationType.appointmentNoShow => const Color(0xFFFCEBED),
-    PatientNotificationType.appointmentCheckedIn => const Color(0xFFE9F3FA),
-    PatientNotificationType.appointmentInProgress => const Color(0xFFF0ECFA),
-    PatientNotificationType.appointmentCompleted => const Color(0xFFE4F5EF),
-    PatientNotificationType.medicalResultPublished => const Color(0xFFE4F5EF),
-    PatientNotificationType.prescriptionIssued => const Color(0xFFF0ECFA),
-    PatientNotificationType.prescriptionDispensed => const Color(0xFFE4F5EF),
-    PatientNotificationType.invoiceCreated => const Color(0xFFFFF3DD),
-    PatientNotificationType.paymentSucceeded => const Color(0xFFE4F5EF),
-    PatientNotificationType.paymentRefunded => const Color(0xFFE9F3FA),
-    PatientNotificationType.unknown => const Color(0xFFE8F0EE),
+    PatientNotificationType.systemAnnouncement => AppPalette.careSoft,
+    PatientNotificationType.appointmentConfirmed => AppPalette.successContainer,
+    PatientNotificationType.appointmentRescheduled =>
+      AppPalette.warningContainer,
+    PatientNotificationType.appointmentCancelled => AppPalette.dangerContainer,
+    PatientNotificationType.appointmentReminder => AppPalette.infoContainer,
+    PatientNotificationType.appointmentNoShow => AppPalette.dangerContainer,
+    PatientNotificationType.appointmentCheckedIn => AppPalette.infoContainer,
+    PatientNotificationType.appointmentInProgress => AppPalette.violetContainer,
+    PatientNotificationType.appointmentCompleted => AppPalette.successContainer,
+    PatientNotificationType.medicalResultPublished =>
+      AppPalette.successContainer,
+    PatientNotificationType.prescriptionIssued => AppPalette.violetContainer,
+    PatientNotificationType.prescriptionDispensed =>
+      AppPalette.successContainer,
+    PatientNotificationType.invoiceCreated => AppPalette.warningContainer,
+    PatientNotificationType.paymentSucceeded => AppPalette.successContainer,
+    PatientNotificationType.paymentRefunded => AppPalette.infoContainer,
+    PatientNotificationType.unknown => AppPalette.surfaceMuted,
   };
 }

@@ -4,6 +4,8 @@ import 'package:hospital_booking_mobile/app/navigation/booking_navigation.dart';
 import 'package:hospital_booking_mobile/core/widgets/app_ui.dart';
 import 'package:hospital_booking_mobile/features/home/domain/home_content.dart';
 
+import 'package:hospital_booking_mobile/core/design/app_design_tokens.dart';
+
 class HomeHeroCarousel extends StatefulWidget {
   const HomeHeroCarousel({super.key, required this.banners});
 
@@ -180,8 +182,8 @@ class _HeroCarouselState extends State<HomeHeroCarousel>
                             height: 6,
                             decoration: BoxDecoration(
                               color: selected
-                                  ? AppPalette.clinicalBlue
-                                  : AppPalette.publicBorder,
+                                  ? AppPalette.primary
+                                  : AppPalette.border,
                               borderRadius: BorderRadius.circular(999),
                             ),
                           ),
@@ -226,7 +228,7 @@ class _HeroBanner extends StatelessWidget {
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [AppPalette.clinicalBlueDark, Color(0xFF3B82F6)],
+          colors: [AppPalette.primaryDark, AppPalette.primary],
         ),
         borderRadius: BorderRadius.circular(24),
       ),
@@ -247,8 +249,8 @@ class _HeroBanner extends StatelessWidget {
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   colors: [
-                    AppPalette.clinicalBlueDark.withValues(alpha: 0.96),
-                    AppPalette.clinicalBlue.withValues(
+                    AppPalette.primaryDark.withValues(alpha: 0.96),
+                    AppPalette.primary.withValues(
                       alpha: image == null ? 0.7 : 0.18,
                     ),
                   ],
@@ -315,14 +317,14 @@ class _HeroBanner extends StatelessWidget {
                         'Chủ động chọn dịch vụ, bác sĩ và thời gian phù hợp.',
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(color: Color(0xDFFFFFFF)),
+                    style: const TextStyle(color: AppPalette.onPrimaryMuted),
                   ),
                   const SizedBox(height: 8),
                   FilledButton.icon(
                     style: FilledButton.styleFrom(
                       minimumSize: const Size(0, 38),
                       backgroundColor: Colors.white,
-                      foregroundColor: AppPalette.clinicalBlueDark,
+                      foregroundColor: AppPalette.primaryDark,
                     ),
                     onPressed: () =>
                         openBookingFromCurrentRoute(context, '/booking'),

@@ -24,8 +24,8 @@ class HomeAppointmentActionCard extends StatelessWidget {
       label:
           'Lịch khám sắp tới, ${appointment.doctorName}, ${appointment.status.label}',
       child: AppSurfaceCard(
-        backgroundColor: AppPalette.clinicalBlue,
-        borderColor: AppPalette.clinicalBlueDark,
+        backgroundColor: AppPalette.primary,
+        borderColor: AppPalette.primaryDark,
         child: DefaultTextStyle.merge(
           style: const TextStyle(color: Colors.white),
           child: Column(
@@ -72,13 +72,13 @@ class HomeAppointmentActionCard extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: const Color(0xDFFFFFFF),
+                  color: AppPalette.onPrimaryMuted,
                 ),
               ),
               const SizedBox(height: AppSpacing.sm),
               DecoratedBox(
                 decoration: BoxDecoration(
-                  color: AppPalette.clinicalBlueDark,
+                  color: AppPalette.primaryDark,
                   borderRadius: BorderRadius.circular(AppRadius.md),
                 ),
                 child: Padding(
@@ -104,7 +104,7 @@ class HomeAppointmentActionCard extends StatelessWidget {
                       Text(
                         appointment.bookingCode,
                         style: Theme.of(context).textTheme.labelMedium
-                            ?.copyWith(color: const Color(0xDFFFFFFF)),
+                            ?.copyWith(color: AppPalette.onPrimaryMuted),
                       ),
                     ],
                   ),
@@ -115,7 +115,7 @@ class HomeAppointmentActionCard extends StatelessWidget {
                 Text(
                   copy.guidance!,
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: const Color(0xDFFFFFFF),
+                    color: AppPalette.onPrimaryMuted,
                     height: 1.35,
                   ),
                 ),
@@ -143,7 +143,7 @@ class HomeAppointmentActionCard extends StatelessWidget {
                         onPressed: onOpen,
                         style: FilledButton.styleFrom(
                           backgroundColor: Colors.white,
-                          foregroundColor: AppPalette.clinicalBlueDark,
+                          foregroundColor: AppPalette.primaryDark,
                         ),
                         icon: Icon(copy.primaryIcon),
                         label: Text(copy.primaryLabel),
@@ -157,7 +157,7 @@ class HomeAppointmentActionCard extends StatelessWidget {
                   onPressed: onOpen,
                   style: FilledButton.styleFrom(
                     backgroundColor: Colors.white,
-                    foregroundColor: AppPalette.clinicalBlueDark,
+                    foregroundColor: AppPalette.primaryDark,
                   ),
                   icon: Icon(copy.primaryIcon),
                   label: Text(copy.primaryLabel),

@@ -645,7 +645,7 @@ class BookingStickySummary extends StatelessWidget {
                       ? formatVnd(price)
                       : 'Giá gói: ${formatVnd(price)}',
                   style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                    color: AppPalette.brandDark,
+                    color: AppPalette.primaryDark,
                     fontWeight: FontWeight.w800,
                   ),
                 ),

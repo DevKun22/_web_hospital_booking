@@ -6,6 +6,8 @@ import 'package:hospital_booking_mobile/core/formatters/display_formatters.dart'
 import 'package:hospital_booking_mobile/core/widgets/app_ui.dart';
 import 'package:hospital_booking_mobile/core/widgets/resized_network_image.dart';
 
+import 'package:hospital_booking_mobile/core/design/app_design_tokens.dart';
+
 class HomeDoctorList extends StatelessWidget {
   const HomeDoctorList({super.key, required this.items});
 
@@ -54,11 +56,11 @@ class _DoctorCard extends StatelessWidget {
 
     return Card(
       color: Colors.white,
-      shadowColor: const Color(0x12172B4D),
+      shadowColor: AppPalette.shadowTint,
       elevation: 1,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(18),
-        side: const BorderSide(color: AppPalette.publicBorder),
+        side: const BorderSide(color: AppPalette.border),
       ),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
@@ -76,7 +78,7 @@ class _DoctorCard extends StatelessWidget {
                   children: [
                     CircleAvatar(
                       radius: 22,
-                      backgroundColor: AppPalette.clinicalBlueContainer,
+                      backgroundColor: AppPalette.primarySoft,
                       backgroundImage: resizedNetworkImage(
                         context,
                         doctor.avatar,
@@ -86,7 +88,7 @@ class _DoctorCard extends StatelessWidget {
                       child: doctor.avatar?.trim().isNotEmpty != true
                           ? const Icon(
                               Icons.person_outline_rounded,
-                              color: AppPalette.clinicalBlueDark,
+                              color: AppPalette.primaryDark,
                               size: 20,
                             )
                           : null,
@@ -102,7 +104,7 @@ class _DoctorCard extends StatelessWidget {
                             overflow: TextOverflow.ellipsis,
                             style: Theme.of(context).textTheme.titleSmall
                                 ?.copyWith(
-                                  color: AppPalette.publicInk,
+                                  color: AppPalette.ink,
                                   fontWeight: FontWeight.w900,
                                 ),
                           ),
@@ -113,7 +115,7 @@ class _DoctorCard extends StatelessWidget {
                             overflow: TextOverflow.ellipsis,
                             style: Theme.of(context).textTheme.labelMedium
                                 ?.copyWith(
-                                  color: AppPalette.publicMint,
+                                  color: AppPalette.success,
                                   fontWeight: FontWeight.w800,
                                 ),
                           ),
@@ -133,7 +135,7 @@ class _DoctorCard extends StatelessWidget {
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                   style: Theme.of(context).textTheme.labelSmall
-                                      ?.copyWith(color: AppPalette.publicMuted),
+                                      ?.copyWith(color: AppPalette.muted),
                                 ),
                               ),
                             ],
@@ -150,7 +152,7 @@ class _DoctorCard extends StatelessWidget {
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8),
                   decoration: BoxDecoration(
-                    color: AppPalette.clinicalBlueContainer,
+                    color: AppPalette.primarySoft,
                     borderRadius: BorderRadius.circular(11),
                   ),
                   child: Column(
@@ -167,7 +169,7 @@ class _DoctorCard extends StatelessWidget {
                               overflow: TextOverflow.ellipsis,
                               style: Theme.of(context).textTheme.labelSmall
                                   ?.copyWith(
-                                    color: AppPalette.publicMuted,
+                                    color: AppPalette.muted,
                                     fontWeight: FontWeight.w700,
                                   ),
                             ),
@@ -176,7 +178,7 @@ class _DoctorCard extends StatelessWidget {
                             formatVnd(doctor.consultationFee),
                             style: Theme.of(context).textTheme.labelMedium
                                 ?.copyWith(
-                                  color: AppPalette.publicInk,
+                                  color: AppPalette.ink,
                                   fontWeight: FontWeight.w900,
                                 ),
                           ),
@@ -193,7 +195,7 @@ class _DoctorCard extends StatelessWidget {
                                         .textTheme
                                         .labelSmall
                                         ?.copyWith(
-                                          color: AppPalette.clinicalBlueDark,
+                                          color: AppPalette.primaryDark,
                                           fontWeight: FontWeight.w800,
                                         ),
                                   )
@@ -212,7 +214,7 @@ class _DoctorCard extends StatelessWidget {
                               padding: const EdgeInsets.only(left: 6),
                               visualDensity: VisualDensity.compact,
                               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                              foregroundColor: AppPalette.clinicalBlueDark,
+                              foregroundColor: AppPalette.primaryDark,
                             ),
                             child: Text(
                               hiddenSlotCount > 0
@@ -234,7 +236,7 @@ class _DoctorCard extends StatelessWidget {
               FilledButton.icon(
                 style: FilledButton.styleFrom(
                   minimumSize: const Size(0, 36),
-                  backgroundColor: AppPalette.clinicalBlue,
+                  backgroundColor: AppPalette.primary,
                   foregroundColor: Colors.white,
                   visualDensity: VisualDensity.compact,
                   tapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -261,18 +263,18 @@ class _DoctorRatingBadge extends StatelessWidget {
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
     decoration: BoxDecoration(
-      color: const Color(0xFFFFF0D8),
+      color: AppPalette.warningContainer,
       borderRadius: BorderRadius.circular(999),
     ),
     child: Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        const Icon(Icons.star_rounded, size: 13, color: Color(0xFFE09B2D)),
+        const Icon(Icons.star_rounded, size: 13, color: AppPalette.star),
         const SizedBox(width: 2),
         Text(
           '${rating.toStringAsFixed(1)} ($reviewCount)',
           style: Theme.of(context).textTheme.labelSmall?.copyWith(
-            color: const Color(0xFF785417),
+            color: AppPalette.warning,
             fontWeight: FontWeight.w800,
             fontSize: 10,
           ),
@@ -297,7 +299,7 @@ class _DoctorSlotChip extends StatelessWidget {
     child: Text(
       label,
       style: Theme.of(context).textTheme.labelSmall?.copyWith(
-        color: AppPalette.clinicalBlueDark,
+        color: AppPalette.primaryDark,
         fontWeight: FontWeight.w800,
       ),
     ),
