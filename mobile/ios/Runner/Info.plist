@@ -19,7 +19,7 @@
 			<string>Editor</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
-				<string>hospitalbooking</string>
+				<string>devkuncare</string>
 			</array>
 		</dict>
 	</array>

@@ -74,7 +74,7 @@ Copy-Item config/prod.json.example config/prod.json
 - Thiết bị Android kết nối USB nên dùng `127.0.0.1` cùng `adb reverse`; cách này không bị hỏng khi IP Wi-Fi thay đổi.
 - Thiết bị thật chạy không dây phải dùng IP LAN của máy chạy backend, ví dụ `http://192.168.1.20:4000/api/v1`.
 - Production bắt buộc dùng URL HTTPS và kết thúc bằng `/api/v1`.
-- Khung deep link dùng dạng `hospitalbooking://app/profile`; universal/app link theo domain thật sẽ cấu hình ở phase phát hành.
+- Khung deep link dùng dạng `devkuncare://app/profile`; universal/app link theo domain thật sẽ cấu hình ở phase phát hành.
 
 ## Chạy local
 

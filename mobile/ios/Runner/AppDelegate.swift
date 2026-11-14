@@ -10,7 +10,7 @@ import UIKit
     GeneratedPluginRegistrant.register(with: self)
     if let controller = window?.rootViewController as? FlutterViewController {
       let settingsChannel = FlutterMethodChannel(
-        name: "com.hospitalbooking.hospital_booking_mobile/settings",
+        name: "dev.ngoloi.devkuncare/settings",
         binaryMessenger: controller.binaryMessenger
       )
       settingsChannel.setMethodCallHandler { call, result in

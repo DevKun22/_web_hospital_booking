@@ -22,7 +22,7 @@ abstract interface class PushMessagingGateway {
 
 class FirebasePushMessagingGateway implements PushMessagingGateway {
   static const _settingsChannel = MethodChannel(
-    'com.hospitalbooking.hospital_booking_mobile/settings',
+    'dev.ngoloi.devkuncare/settings',
   );
 
   @override
