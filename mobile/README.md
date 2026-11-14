@@ -1,4 +1,4 @@
-# Hospital Booking Mobile
+# DevKunCare Mobile
 
 Ứng dụng Flutter dành cho bệnh nhân, dùng chung API `/api/v1` với hệ thống web.
 
@@ -115,3 +115,29 @@ flutter build ipa -t lib/main_prod.dart --dart-define-from-file=config/prod.json
 ```
 
 Build iOS cần macOS, Xcode và tài khoản ký ứng dụng.
+
+## Phát hành Android
+
+Mã ứng dụng: `dev.ngoloi.devkuncare`. Bản phát hành phải ký bằng khóa riêng, không bao giờ đưa khóa vào git.
+
+1. **Tạo khóa tải lên** (một lần, cất ở nơi an toàn ngoài thư mục dự án và sao lưu; mất khóa là mất quyền cập nhật ứng dụng nếu không dùng Play App Signing):
+
+   ```powershell
+   keytool -genkeypair -v -storetype PKCS12 -keystore $env:USERPROFILE\keys\devkuncare-upload.jks -alias upload -keyalg RSA -keysize 2048 -validity 10000
+   ```
+
+2. **Tạo `android/key.properties`** (đã nằm trong `.gitignore`):
+
+   ```properties
+   storeFile=C:\Users\<tên>\keys\devkuncare-upload.jks
+   storePassword=<mật khẩu kho khóa>
+   keyAlias=upload
+   keyPassword=<mật khẩu khóa>
+   ```
+
+3. **Dựng gói**: `flutter build appbundle -t lib/main_prod.dart --dart-define-from-file=config/prod.json`. Thiếu `key.properties` thì Gradle từ chối dựng AAB; các bản `apk --release` cục bộ và CI vẫn dựng được nhưng ký tạm bằng khóa debug, không đưa lên cửa hàng.
+4. **Phiên bản**: tăng `version` trong `pubspec.yaml` (`x.y.z+số_build`), số build luôn tăng mỗi lần tải lên Play.
+5. **Firebase**: thêm dấu vân tay SHA-1 và SHA-256 của khóa tải lên, và của khóa ký ứng dụng do Play cấp (Play Console, Setup, App signing), vào ứng dụng Android `dev.ngoloi.devkuncare` trong Firebase. Hạn chế khóa API của `google-services.json` theo mã ứng dụng và dấu vân tay trong Google Cloud Console.
+6. **Kiểm tra dung lượng**: `flutter build apk --release --analyze-size -t lib/main_prod.dart --dart-define-from-file=config/prod.json`.
+
+Danh sách việc phía chủ dự án trước khi gửi duyệt (chính sách dữ liệu, biểu mẫu An toàn dữ liệu, ảnh cửa hàng) nằm trong tài liệu hướng dẫn phát hành do trợ lý cung cấp.
