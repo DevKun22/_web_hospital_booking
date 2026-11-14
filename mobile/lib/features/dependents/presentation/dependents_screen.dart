@@ -34,7 +34,12 @@ class DependentsScreen extends ConsumerWidget {
           onRefresh: () => controller.load(force: true),
           child: ListView(
             physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 112),
+            padding: const EdgeInsets.fromLTRB(
+              16,
+              12,
+              16,
+              appMainContentBottomInset,
+            ),
             children: [
               if (state.error != null) ...[
                 AppErrorBanner(

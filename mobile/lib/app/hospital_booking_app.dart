@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:hospital_booking_mobile/app/app_orientation_policy.dart';
 import 'package:hospital_booking_mobile/core/design/app_colors.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -130,8 +131,10 @@ class _HospitalBookingAppState extends ConsumerState<HospitalBookingApp>
       themeMode: ThemeMode.system,
       scaffoldMessengerKey: rootScaffoldMessengerKey,
       routerConfig: router,
-      builder: (context, child) => AppSystemUiStyle(
-        child: AppLockGate(child: child ?? const SizedBox.shrink()),
+      builder: (context, child) => AppOrientationPolicy(
+        child: AppSystemUiStyle(
+          child: AppLockGate(child: child ?? const SizedBox.shrink()),
+        ),
       ),
     );
   }
