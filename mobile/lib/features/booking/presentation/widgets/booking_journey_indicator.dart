@@ -3,12 +3,19 @@ import 'package:flutter/material.dart';
 import 'package:hospital_booking_mobile/core/design/app_colors.dart';
 
 class BookingJourneyIndicator extends StatelessWidget {
-  const BookingJourneyIndicator({required this.currentStep, super.key});
+  const BookingJourneyIndicator({
+    required this.currentStep,
+    this.finalStepLabel = 'Xác thực',
+    super.key,
+  });
 
-  /// 0: chọn lịch, 1: thông tin người khám, 2: xác thực OTP.
+  /// 0: chọn lịch, 1: thông tin người khám, 2: bước cuối.
   final int currentStep;
 
-  static const _labels = ['Chọn lịch', 'Thông tin', 'Xác thực'];
+  /// "Xác thực" khi còn OTP; "Hoàn tất" khi người đã đăng nhập đặt cho chính mình.
+  final String finalStepLabel;
+
+  List<String> get _labels => ['Chọn lịch', 'Thông tin', finalStepLabel];
 
   @override
   Widget build(BuildContext context) => Semantics(
