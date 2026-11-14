@@ -148,7 +148,7 @@ class PushNotificationsController extends Notifier<PushNotificationsState> {
             state.isAllowed) {
           unawaited(_registerToken(token, generation));
         }
-      }),
+      }, onError: _logStreamError),
     );
     _subscriptions.add(
       gateway.foregroundMessages.listen((message) {
@@ -158,16 +158,20 @@ class PushNotificationsController extends Notifier<PushNotificationsState> {
           messageEvent: state.messageEvent + 1,
         );
         unawaited(_synchronizeMessage(message));
-      }),
+      }, onError: _logStreamError),
     );
     _subscriptions.add(
       gateway.openedMessages.listen((message) {
         if (generation != _generation) return;
         unawaited(_synchronizeMessage(message));
         _openMessage(message);
-      }),
+      }, onError: _logStreamError),
     );
   }
+
+  // Khởi tạo Firebase chạy lười nên lỗi (thiếu cấu hình, thiết bị không hỗ trợ) có thể đến qua luồng.
+  void _logStreamError(Object error, StackTrace _) =>
+      logSwallowedError('push_notifications_stream', error);
 
   Future<bool> requestPermission() async {
     if (state.isRequestingPermission) return false;
