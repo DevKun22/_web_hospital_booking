@@ -49,7 +49,7 @@ class ProfileScreen extends ConsumerWidget {
                     16,
                     8,
                     16,
-                    appFloatingActionContentBottomInset,
+                    appMainContentBottomInset,
                   ),
                   children: [
                     if (state.error != null) ...[

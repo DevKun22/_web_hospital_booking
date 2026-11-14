@@ -6,9 +6,9 @@ export 'app_brand_mark.dart';
 export 'app_catalog_scaffold.dart';
 export 'package:hospital_booking_mobile/core/design/app_design_tokens.dart';
 
-/// Keeps the final interactive content clear of the floating chatbot button
-/// when a screen is rendered inside the main navigation shell.
-const double appFloatingActionContentBottomInset = 112;
+/// Đệm cuối trang cho màn hình nằm trong thanh điều hướng chính. Nội dung đã dừng
+/// phía trên thanh nên chỉ cần chừa chỗ cho nút "Đặt khám" nhô lên.
+const double appMainContentBottomInset = 24;
 
 enum AppStatusTone { success, warning, danger, info }
 

@@ -89,7 +89,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen>
                     8,
                     16,
                     widget.embeddedInMainNavigation
-                        ? appFloatingActionContentBottomInset
+                        ? appMainContentBottomInset
                         : 28,
                   ),
                   children: [

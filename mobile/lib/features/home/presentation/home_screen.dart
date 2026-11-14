@@ -170,7 +170,12 @@ class HomeScreen extends ConsumerWidget {
               ),
             ),
             SliverPadding(
-              padding: const EdgeInsets.fromLTRB(14, 14, 14, 108),
+              padding: const EdgeInsets.fromLTRB(
+                14,
+                14,
+                14,
+                appMainContentBottomInset,
+              ),
               sliver: SliverList(
                 delegate: SliverChildListDelegate([
                   if (homeState.isInitialLoading) ...[
