@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 import 'package:hospital_booking_mobile/core/widgets/app_ui.dart';
 import 'package:hospital_booking_mobile/features/onboarding/application/onboarding_controller.dart';
 
+import 'package:hospital_booking_mobile/core/config/app_brand.dart';
+
 class WelcomeScreen extends ConsumerWidget {
   const WelcomeScreen({super.key});
 
@@ -30,7 +32,7 @@ class WelcomeScreen extends ConsumerWidget {
                         AppBrandMark(size: 40),
                         SizedBox(width: 10),
                         Text(
-                          'MEDCARE BOOKING',
+                          AppBrand.name,
                           style: TextStyle(
                             fontWeight: FontWeight.w700,
                             letterSpacing: 1.1,
@@ -152,7 +154,7 @@ class _WelcomeIllustration extends StatelessWidget {
     child: DecoratedBox(
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: [Color(0xFFDDF3EE), Color(0xFFE5F1FA)],
+          colors: [AppPalette.primarySoft, AppPalette.careSoft],
         ),
         borderRadius: BorderRadius.circular(36),
       ),
@@ -167,7 +169,7 @@ class _WelcomeIllustration extends StatelessWidget {
               borderRadius: BorderRadius.circular(30),
               boxShadow: const [
                 BoxShadow(
-                  color: Color(0x22075B58),
+                  color: AppPalette.shadowTint,
                   blurRadius: 28,
                   offset: Offset(0, 12),
                 ),
@@ -209,7 +211,7 @@ class _FloatingIcon extends StatelessWidget {
       borderRadius: BorderRadius.circular(15),
       boxShadow: const [
         BoxShadow(
-          color: Color(0x18075B58),
+          color: AppPalette.shadowTint,
           blurRadius: 18,
           offset: Offset(0, 7),
         ),

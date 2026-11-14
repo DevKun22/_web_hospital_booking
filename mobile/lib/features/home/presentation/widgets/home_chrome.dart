@@ -4,6 +4,8 @@ import 'package:hospital_booking_mobile/features/catalog/domain/catalog_entities
 import 'package:hospital_booking_mobile/core/widgets/app_ui.dart';
 import 'package:hospital_booking_mobile/core/widgets/resized_network_image.dart';
 
+import 'package:hospital_booking_mobile/core/config/app_brand.dart';
+
 class HomeSectionHeader extends StatelessWidget {
   const HomeSectionHeader({
     super.key,
@@ -29,7 +31,7 @@ class HomeSectionHeader extends StatelessWidget {
             Text(
               title,
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                color: AppPalette.publicInk,
+                color: AppPalette.ink,
                 fontWeight: FontWeight.w900,
                 letterSpacing: -0.2,
               ),
@@ -42,7 +44,7 @@ class HomeSectionHeader extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
                 style: Theme.of(
                   context,
-                ).textTheme.bodySmall?.copyWith(color: AppPalette.publicMuted),
+                ).textTheme.bodySmall?.copyWith(color: AppPalette.muted),
               ),
             ],
           ],
@@ -52,7 +54,7 @@ class HomeSectionHeader extends StatelessWidget {
         TextButton.icon(
           onPressed: onAction,
           style: TextButton.styleFrom(
-            foregroundColor: AppPalette.clinicalBlueDark,
+            foregroundColor: AppPalette.primaryDark,
             padding: const EdgeInsets.symmetric(horizontal: 6),
           ),
           label: Text(actionLabel!),
@@ -89,11 +91,11 @@ class HomeHeader extends StatelessWidget {
           padding: const EdgeInsets.all(2),
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            border: Border.all(color: AppPalette.clinicalBlue, width: 2),
+            border: Border.all(color: AppPalette.primary, width: 2),
           ),
           child: CircleAvatar(
             radius: 20,
-            backgroundColor: AppPalette.clinicalBlueContainer,
+            backgroundColor: AppPalette.primarySoft,
             backgroundImage: resizedNetworkImage(
               context,
               avatar,
@@ -102,10 +104,7 @@ class HomeHeader extends StatelessWidget {
             ),
             child: avatar?.trim().isNotEmpty == true
                 ? null
-                : const Icon(
-                    Icons.person_rounded,
-                    color: AppPalette.clinicalBlue,
-                  ),
+                : const Icon(Icons.person_rounded, color: AppPalette.primary),
           ),
         )
       else
@@ -113,12 +112,12 @@ class HomeHeader extends StatelessWidget {
           width: 44,
           height: 44,
           decoration: BoxDecoration(
-            color: AppPalette.clinicalBlueContainer,
+            color: AppPalette.primarySoft,
             borderRadius: BorderRadius.circular(14),
           ),
           child: const Icon(
             Icons.monitor_heart_outlined,
-            color: AppPalette.clinicalBlue,
+            color: AppPalette.primary,
             size: 25,
           ),
         ),
@@ -128,11 +127,11 @@ class HomeHeader extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              isAuthenticated ? 'Xin chào,' : 'MEDCARE BOOKING',
+              isAuthenticated ? 'Xin chào,' : AppBrand.name,
               style: Theme.of(context).textTheme.labelSmall?.copyWith(
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
                 fontWeight: FontWeight.w700,
-                letterSpacing: isAuthenticated ? 0 : 0.6,
+                letterSpacing: 0,
               ),
             ),
             const SizedBox(height: 2),
@@ -169,7 +168,7 @@ class HomeSearchBar extends StatelessWidget {
     color: Colors.white,
     shape: RoundedRectangleBorder(
       borderRadius: BorderRadius.circular(14),
-      side: const BorderSide(color: AppPalette.publicBorder),
+      side: const BorderSide(color: AppPalette.border),
     ),
     clipBehavior: Clip.antiAlias,
     child: InkWell(
@@ -179,7 +178,7 @@ class HomeSearchBar extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
         child: Row(
           children: [
-            const Icon(Icons.search_rounded, color: AppPalette.clinicalBlue),
+            const Icon(Icons.search_rounded, color: AppPalette.primary),
             const SizedBox(width: 10),
             Expanded(
               child: Text(
@@ -188,19 +187,19 @@ class HomeSearchBar extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
                 style: Theme.of(
                   context,
-                ).textTheme.bodyMedium?.copyWith(color: AppPalette.publicMuted),
+                ).textTheme.bodyMedium?.copyWith(color: AppPalette.muted),
               ),
             ),
             Container(
               width: 30,
               height: 30,
               decoration: BoxDecoration(
-                color: AppPalette.clinicalBlueContainer,
+                color: AppPalette.primarySoft,
                 borderRadius: BorderRadius.circular(10),
               ),
               child: const Icon(
                 Icons.tune_rounded,
-                color: AppPalette.clinicalBlue,
+                color: AppPalette.primary,
                 size: 19,
               ),
             ),
@@ -238,11 +237,9 @@ class HomeQuickDepartmentChips extends StatelessWidget {
                 : Theme.of(context).colorScheme.onSurface,
             fontWeight: FontWeight.w700,
           ),
-          backgroundColor: index == 0 ? AppPalette.clinicalBlue : Colors.white,
+          backgroundColor: index == 0 ? AppPalette.primary : Colors.white,
           side: BorderSide(
-            color: index == 0
-                ? AppPalette.clinicalBlue
-                : AppPalette.publicBorder,
+            color: index == 0 ? AppPalette.primary : AppPalette.border,
           ),
           shape: const StadiumBorder(),
           visualDensity: VisualDensity.compact,
@@ -267,13 +264,13 @@ class HomeNotificationBell extends StatelessWidget {
     clipBehavior: Clip.none,
     children: [
       Material(
-        color: AppPalette.clinicalBlueContainer,
+        color: AppPalette.primarySoft,
         shape: const CircleBorder(),
         child: IconButton(
           onPressed: onTap,
           icon: const Icon(
             Icons.notifications_none_rounded,
-            color: AppPalette.clinicalBlueDark,
+            color: AppPalette.primaryDark,
             size: 22,
           ),
           tooltip: unreadCount == 0
@@ -329,7 +326,7 @@ class HomeOfflineContentNotice extends StatelessWidget {
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: AppPalette.publicBorder),
+        border: Border.all(color: AppPalette.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

@@ -1,47 +1,60 @@
 import 'package:flutter/material.dart';
 
-/// Primitive brand and semantic colors.
+/// Bảng màu DevKunCare, khớp token của web (`.public-site`). Mọi cặp chữ/nền dùng trong ứng dụng
+/// đạt tối thiểu 4,5:1; màu `careBright` chỉ để trang trí, không dùng cho chữ.
 ///
-/// Feature widgets should prefer [Theme.of] colors. These constants are for
-/// theme construction and branded surfaces that intentionally remain stable.
+/// Widget nghiệp vụ nên ưu tiên `Theme.of(context).colorScheme`; hằng số ở đây dành cho dựng theme
+/// và các bề mặt thương hiệu cố định.
 abstract final class AppPalette {
-  static const brand = Color(0xFF087A73);
-  static const brandDark = Color(0xFF075B58);
-  static const careMint = Color(0xFF2E9F82);
-  static const warmSignal = Color(0xFFF2B66D);
-  static const clinicalBlue = Color(0xFF2563EB);
-  static const clinicalBlueDark = Color(0xFF1D4ED8);
-  static const clinicalBlueContainer = Color(0xFFE7F0FF);
+  // Nhận diện: xanh biểu tượng, xanh thao tác chính, teal chăm sóc.
+  static const brandBlue = Color(0xFF07549C);
+  static const primary = Color(0xFF0A6BC0);
+  static const primaryDark = Color(0xFF084E8F);
+  static const primarySoft = Color(0xFFE4F2FF);
+  static const care = Color(0xFF07766A);
+  static const careSoft = Color(0xFFE0F4F1);
+  static const careBright = Color(0xFF0BAF9B);
 
-  // Public experience palette shared with the current Web design system.
-  // Kept separate from the legacy brand palette so each mobile surface can
-  // migrate without changing business behaviour or producing a risky,
-  // application-wide visual switch in a single release.
-  static const publicInk = Color(0xFF172B4D);
-  static const publicTextSoft = Color(0xFF475569);
-  static const publicMuted = Color(0xFF64748B);
-  static const publicCanvas = Color(0xFFF7F9FC);
-  static const publicSurfaceMuted = Color(0xFFF1F5F9);
-  static const publicBorder = Color(0xFFDCE5F2);
-  static const publicDivider = Color(0xFFE8EDF5);
-  static const publicMint = Color(0xFF059669);
-  static const publicAmber = Color(0xFFD97706);
+  // Chữ, nền, đường viền.
+  static const ink = Color(0xFF0B1F3A);
+  static const textSoft = Color(0xFF33495E);
+  static const muted = Color(0xFF52697A);
+  static const canvas = Color(0xFFF4F8FA);
+  static const surfaceMuted = Color(0xFFEAF1F5);
+  static const border = Color(0xFFD3DFE7);
+  static const divider = Color(0xFFE3EBF0);
 
-  static const ink = Color(0xFF173033);
-  static const mutedInk = Color(0xFF647B7E);
-  static const canvas = Color(0xFFF7F9FC);
-  static const surfaceMuted = Color(0xFFF0F5F7);
-  static const border = Color(0xFFDCE8E5);
-  static const divider = Color(0xFFE8F0EE);
-
-  static const success = Color(0xFF237A57);
-  static const successContainer = Color(0xFFE4F5EF);
-  static const warning = Color(0xFFA4660D);
+  // Trạng thái.
+  static const success = Color(0xFF1E7B34);
+  static const successContainer = Color(0xFFE3F3E7);
+  static const warning = Color(0xFF8A4B00);
   static const warningContainer = Color(0xFFFFF3DD);
-  static const danger = Color(0xFFB64048);
-  static const dangerContainer = Color(0xFFFCEBED);
-  static const info = Color(0xFF2B6F9E);
-  static const infoContainer = Color(0xFFE9F3FA);
+  static const danger = Color(0xFFA32D2D);
+  static const dangerContainer = Color(0xFFFBE9E9);
+  static const info = Color(0xFF07549C);
+  static const infoContainer = Color(0xFFE3EEF9);
+  static const violet = Color(0xFF5B4A9E);
+  static const violetContainer = Color(0xFFF0ECFA);
+  static const star = Color(0xFFE09B2D);
+
+  /// Bóng đổ rất nhẹ của thẻ, lấy từ màu chữ chính.
+  static const shadowTint = Color(0x120B1F3A);
+
+  // Chữ trắng trên nền xanh đậm theo mức nhấn.
+  static const onPrimary = Color(0xFFFFFFFF);
+  static const onPrimaryMuted = Color(0xDFFFFFFF);
+  static const onPrimarySubtle = Color(0xBFFFFFFF);
+  static const onPrimaryFaint = Color(0x1FFFFFFF);
+
+  /// Cặp nền/chữ cho các ô phân loại (chuyên khoa, lối vào dịch vụ).
+  static const tintPairs = <({Color background, Color foreground})>[
+    (background: dangerContainer, foreground: danger),
+    (background: primarySoft, foreground: primaryDark),
+    (background: successContainer, foreground: success),
+    (background: warningContainer, foreground: warning),
+    (background: careSoft, foreground: care),
+    (background: violetContainer, foreground: violet),
+  ];
 }
 
 abstract final class AppSpacing {
@@ -100,19 +113,11 @@ abstract final class AppMotion {
 
 abstract final class AppShadow {
   static const soft = <BoxShadow>[
-    BoxShadow(color: Color(0x12075B58), blurRadius: 18, offset: Offset(0, 6)),
+    BoxShadow(color: Color(0x0A0B1F3A), blurRadius: 3, offset: Offset(0, 1)),
+    BoxShadow(color: Color(0x120B1F3A), blurRadius: 28, offset: Offset(0, 10)),
   ];
 
   static const floating = <BoxShadow>[
-    BoxShadow(color: Color(0x26075B58), blurRadius: 22, offset: Offset(0, 8)),
-  ];
-
-  static const publicSoft = <BoxShadow>[
-    BoxShadow(color: Color(0x0A172B4D), blurRadius: 3, offset: Offset(0, 1)),
-    BoxShadow(color: Color(0x12172B4D), blurRadius: 28, offset: Offset(0, 10)),
-  ];
-
-  static const publicFloating = <BoxShadow>[
-    BoxShadow(color: Color(0x26172B4D), blurRadius: 30, offset: Offset(0, 12)),
+    BoxShadow(color: Color(0x260B1F3A), blurRadius: 30, offset: Offset(0, 12)),
   ];
 }

@@ -9,6 +9,8 @@ import 'package:hospital_booking_mobile/core/widgets/app_error_banner.dart';
 import 'package:hospital_booking_mobile/features/chatbot/application/chatbot_controller.dart';
 import 'package:hospital_booking_mobile/features/chatbot/domain/chatbot_models.dart';
 
+import 'package:hospital_booking_mobile/core/design/app_design_tokens.dart';
+
 class ChatbotScreen extends ConsumerStatefulWidget {
   const ChatbotScreen({super.key, this.initialPrompt});
 
@@ -256,7 +258,7 @@ class _AvailabilityBar extends StatelessWidget {
       ChatbotAvailability.ready => (
         Icons.circle,
         'Đang sẵn sàng hỗ trợ',
-        const Color(0xFF237A57),
+        AppPalette.success,
       ),
       ChatbotAvailability.disabled => (
         Icons.pause_circle_outline,
@@ -324,7 +326,7 @@ class _MessageBubble extends StatelessWidget {
             color: isUser
                 ? Theme.of(context).colorScheme.primary
                 : isAlert
-                ? const Color(0xFFFFF3DD)
+                ? AppPalette.warningContainer
                 : Theme.of(context).colorScheme.surface,
             borderRadius: BorderRadius.only(
               topLeft: const Radius.circular(18),
@@ -336,7 +338,7 @@ class _MessageBubble extends StatelessWidget {
                 ? null
                 : Border.all(
                     color: isAlert
-                        ? const Color(0xFFF2B66D)
+                        ? AppPalette.warning
                         : Theme.of(context).colorScheme.outlineVariant,
                   ),
           ),
@@ -350,7 +352,7 @@ class _MessageBubble extends StatelessWidget {
                     message.source!.label.toUpperCase(),
                     style: Theme.of(context).textTheme.labelSmall?.copyWith(
                       color: isAlert
-                          ? const Color(0xFFA4660D)
+                          ? AppPalette.warning
                           : Theme.of(context).colorScheme.primary,
                       fontWeight: FontWeight.w800,
                       letterSpacing: 0.4,

@@ -5,7 +5,7 @@
     <!-- Keep edge-back gestures on Flutter's route dispatcher. Some MIUI
          versions bypass nested StatefulShellRoute PopScopes in predictive mode. -->
     <application
-        android:label="Medcare Booking"
+        android:label="DevKunCare"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
         android:roundIcon="@mipmap/ic_launcher_round"

@@ -12,7 +12,7 @@ void main() {
       ),
     );
 
-    expect(find.bySemanticsLabel('Medcare Booking'), findsOneWidget);
+    expect(find.bySemanticsLabel('DevKunCare'), findsOneWidget);
     expect(tester.getSize(find.byType(AppBrandMark)), const Size.square(64));
   });
 

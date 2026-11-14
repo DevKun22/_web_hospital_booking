@@ -48,7 +48,7 @@ class BookingSuccessScreen extends ConsumerWidget {
               Container(
                 padding: const EdgeInsets.all(24),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFE4F5EF),
+                  color: AppPalette.successContainer,
                   borderRadius: BorderRadius.circular(24),
                 ),
                 child: Column(

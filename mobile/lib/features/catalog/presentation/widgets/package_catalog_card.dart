@@ -36,7 +36,7 @@ class PackageCatalogCard extends StatelessWidget {
                   height: 48,
                   decoration: BoxDecoration(
                     gradient: const LinearGradient(
-                      colors: [AppTheme.primary, AppPalette.careMint],
+                      colors: [AppTheme.primary, AppPalette.care],
                     ),
                     borderRadius: BorderRadius.circular(AppRadius.md),
                   ),

@@ -5,6 +5,8 @@ import 'package:hospital_booking_mobile/app/navigation/booking_navigation.dart';
 import 'package:hospital_booking_mobile/core/formatters/display_formatters.dart';
 import 'package:hospital_booking_mobile/core/widgets/app_ui.dart';
 
+import 'package:hospital_booking_mobile/core/design/app_design_tokens.dart';
+
 class HomeDepartmentList extends StatelessWidget {
   const HomeDepartmentList({super.key, required this.items});
 
@@ -31,7 +33,7 @@ class HomeDepartmentList extends StatelessWidget {
         clipBehavior: Clip.antiAlias,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppRadius.md),
-          side: const BorderSide(color: AppPalette.publicBorder),
+          side: const BorderSide(color: AppPalette.border),
         ),
         child: InkWell(
           onTap: () =>
@@ -74,14 +76,7 @@ class HomeDepartmentList extends StatelessWidget {
   );
 }
 
-const _departmentPalettes = <({Color background, Color foreground})>[
-  (background: Color(0xFFFFECEC), foreground: Color(0xFFD64545)),
-  (background: Color(0xFFE7F0FF), foreground: AppPalette.clinicalBlue),
-  (background: Color(0xFFE5F8F2), foreground: Color(0xFF16856A)),
-  (background: Color(0xFFFFF3DD), foreground: Color(0xFFA4660D)),
-  (background: Color(0xFFEAF6FA), foreground: Color(0xFF2B6F9E)),
-  (background: Color(0xFFFCEBED), foreground: Color(0xFFB64075)),
-];
+const _departmentPalettes = AppPalette.tintPairs;
 
 class HomePackageList extends StatelessWidget {
   const HomePackageList({super.key, required this.items});
@@ -114,13 +109,11 @@ class _PackageCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Card(
-    color: isFeatured ? AppPalette.clinicalBlueDark : Colors.white,
+    color: isFeatured ? AppPalette.primaryDark : Colors.white,
     shape: RoundedRectangleBorder(
       borderRadius: BorderRadius.circular(20),
       side: BorderSide(
-        color: isFeatured
-            ? AppPalette.clinicalBlueDark
-            : AppPalette.publicBorder,
+        color: isFeatured ? AppPalette.primaryDark : AppPalette.border,
       ),
     ),
     clipBehavior: Clip.antiAlias,
@@ -140,7 +133,7 @@ class _PackageCard extends StatelessWidget {
               child: Icon(
                 Icons.health_and_safety_outlined,
                 size: 126,
-                color: Color(0x1FFFFFFF),
+                color: AppPalette.onPrimaryFaint,
               ),
             ),
           Padding(
@@ -162,9 +155,7 @@ class _PackageCard extends StatelessWidget {
                       child: Icon(
                         Icons.health_and_safety_outlined,
                         size: 21,
-                        color: isFeatured
-                            ? Colors.white
-                            : AppPalette.clinicalBlue,
+                        color: isFeatured ? Colors.white : AppPalette.primary,
                       ),
                     ),
                     const SizedBox(width: 9),
@@ -178,20 +169,20 @@ class _PackageCard extends StatelessWidget {
                               label: 'PHỔ BIẾN',
                               foreground: isFeatured
                                   ? Colors.white
-                                  : const Color(0xFF9B5B00),
+                                  : AppPalette.warning,
                               background: isFeatured
                                   ? Colors.white.withValues(alpha: 0.16)
-                                  : const Color(0xFFFFE7C2),
+                                  : AppPalette.warningContainer,
                             ),
                           if (item.isBhytSupport)
                             _PackageTag(
                               label: 'HỖ TRỢ BHYT',
                               foreground: isFeatured
                                   ? Colors.white
-                                  : const Color(0xFF236A9B),
+                                  : AppPalette.info,
                               background: isFeatured
                                   ? Colors.white.withValues(alpha: 0.16)
-                                  : const Color(0xFFDCEEFF),
+                                  : AppPalette.infoContainer,
                             ),
                         ],
                       ),
@@ -204,7 +195,7 @@ class _PackageCard extends StatelessWidget {
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: isFeatured ? Colors.white : AppPalette.publicInk,
+                    color: isFeatured ? Colors.white : AppPalette.ink,
                     fontWeight: FontWeight.w900,
                   ),
                 ),
@@ -216,7 +207,7 @@ class _PackageCard extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: isFeatured
-                          ? const Color(0xDFFFFFFF)
+                          ? AppPalette.onPrimaryMuted
                           : Theme.of(context).colorScheme.onSurfaceVariant,
                     ),
                   ),
@@ -233,7 +224,7 @@ class _PackageCard extends StatelessWidget {
                             style: Theme.of(context).textTheme.labelSmall
                                 ?.copyWith(
                                   color: isFeatured
-                                      ? const Color(0xBFFFFFFF)
+                                      ? AppPalette.onPrimarySubtle
                                       : Theme.of(
                                           context,
                                         ).colorScheme.onSurfaceVariant,
@@ -246,7 +237,7 @@ class _PackageCard extends StatelessWidget {
                                 ?.copyWith(
                                   color: isFeatured
                                       ? Colors.white
-                                      : AppPalette.clinicalBlueDark,
+                                      : AppPalette.primaryDark,
                                   fontWeight: FontWeight.w900,
                                 ),
                           ),
@@ -271,7 +262,7 @@ class _PackageCard extends StatelessWidget {
                             'Chi tiết',
                             style: Theme.of(context).textTheme.labelMedium
                                 ?.copyWith(
-                                  color: AppPalette.clinicalBlueDark,
+                                  color: AppPalette.primaryDark,
                                   fontWeight: FontWeight.w800,
                                 ),
                           ),
@@ -279,7 +270,7 @@ class _PackageCard extends StatelessWidget {
                           const Icon(
                             Icons.arrow_forward_rounded,
                             size: 17,
-                            color: AppPalette.clinicalBlueDark,
+                            color: AppPalette.primaryDark,
                           ),
                         ],
                       ),

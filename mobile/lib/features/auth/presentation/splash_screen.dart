@@ -9,6 +9,8 @@ import 'package:hospital_booking_mobile/features/auth/application/app_launch_con
 import 'package:hospital_booking_mobile/features/auth/application/auth_controller.dart';
 import 'package:hospital_booking_mobile/features/auth/application/auth_state.dart';
 
+import 'package:hospital_booking_mobile/core/config/app_brand.dart';
+
 class SplashScreen extends ConsumerStatefulWidget {
   const SplashScreen({super.key});
 
@@ -119,7 +121,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
         systemNavigationBarDividerColor: Colors.transparent,
       ),
       child: Scaffold(
-        backgroundColor: AppTheme.primaryDark,
+        backgroundColor: AppPalette.brandBlue,
         body: SafeArea(
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 32),
@@ -166,17 +168,16 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Text(
-                              'MEDCARE BOOKING',
+                              AppBrand.name,
                               style: Theme.of(context).textTheme.headlineSmall
                                   ?.copyWith(
                                     color: Colors.white,
                                     fontWeight: FontWeight.w900,
-                                    letterSpacing: 1.1,
                                   ),
                             ),
                             const SizedBox(height: 8),
                             Text(
-                              'Đặt lịch thuận tiện · Chăm sóc an tâm',
+                              AppBrand.tagline,
                               textAlign: TextAlign.center,
                               style: Theme.of(context).textTheme.bodyMedium
                                   ?.copyWith(

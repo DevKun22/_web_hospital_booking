@@ -148,7 +148,7 @@ void main() {
       ),
     );
 
-    expect(find.text('MEDCARE BOOKING'), findsOneWidget);
+    expect(find.text('DevKunCare'), findsOneWidget);
     expect(find.text('Vui lòng đợi trước khi gửi lại OTP.'), findsNothing);
   });
 

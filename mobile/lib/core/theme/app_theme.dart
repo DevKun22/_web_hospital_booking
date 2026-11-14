@@ -3,10 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:hospital_booking_mobile/core/design/app_design_tokens.dart';
 
 abstract final class AppTheme {
-  static const primary = AppPalette.brand;
-  static const primaryDark = AppPalette.brandDark;
-  static const careMint = AppPalette.careMint;
-  static const warmSignal = AppPalette.warmSignal;
+  static const primary = AppPalette.primary;
+  static const primaryDark = AppPalette.primaryDark;
   static const clinicalInk = AppPalette.ink;
   static const quietCanvas = AppPalette.canvas;
   static const softBorder = AppPalette.border;
@@ -20,13 +18,13 @@ abstract final class AppTheme {
     final colorScheme = seededScheme.copyWith(
       primary: primary,
       onPrimary: Colors.white,
-      primaryContainer: const Color(0xFFDDF3EE),
+      primaryContainer: AppPalette.primarySoft,
       onPrimaryContainer: primaryDark,
-      secondary: const Color(0xFF2B6F9E),
-      secondaryContainer: const Color(0xFFE5F1FA),
+      secondary: AppPalette.care,
+      secondaryContainer: AppPalette.careSoft,
       surface: Colors.white,
       onSurface: clinicalInk,
-      onSurfaceVariant: AppPalette.mutedInk,
+      onSurfaceVariant: AppPalette.muted,
       outline: softBorder,
       outlineVariant: AppPalette.divider,
       error: AppPalette.danger,
@@ -111,8 +109,8 @@ abstract final class AppTheme {
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: AppPalette.surfaceMuted,
-        hintStyle: const TextStyle(color: AppPalette.mutedInk),
-        prefixIconColor: AppPalette.mutedInk,
+        hintStyle: const TextStyle(color: AppPalette.muted),
+        prefixIconColor: AppPalette.muted,
         suffixIconColor: primary,
         contentPadding: const EdgeInsets.symmetric(
           horizontal: AppSpacing.md,
@@ -148,7 +146,7 @@ abstract final class AppTheme {
           backgroundColor: primary,
           foregroundColor: Colors.white,
           disabledBackgroundColor: AppPalette.divider,
-          disabledForegroundColor: AppPalette.mutedInk,
+          disabledForegroundColor: AppPalette.muted,
           padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(AppRadius.md),
@@ -196,7 +194,7 @@ abstract final class AppTheme {
         elevation: 0,
         color: Colors.white,
         surfaceTintColor: Colors.transparent,
-        shadowColor: const Color(0x12075B58),
+        shadowColor: AppPalette.shadowTint,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppRadius.card),
           side: const BorderSide(color: AppPalette.divider),
@@ -204,7 +202,7 @@ abstract final class AppTheme {
       ),
       chipTheme: ChipThemeData(
         backgroundColor: Colors.white,
-        selectedColor: const Color(0xFFDDF3EE),
+        selectedColor: AppPalette.primarySoft,
         side: const BorderSide(color: softBorder),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppRadius.pill),
@@ -222,11 +220,11 @@ abstract final class AppTheme {
       navigationBarTheme: NavigationBarThemeData(
         backgroundColor: Colors.white,
         surfaceTintColor: Colors.transparent,
-        indicatorColor: const Color(0xFFDDF3EE),
+        indicatorColor: AppPalette.primarySoft,
         labelTextStyle: WidgetStateProperty.resolveWith((states) {
           final selected = states.contains(WidgetState.selected);
           return TextStyle(
-            color: selected ? primary : AppPalette.mutedInk,
+            color: selected ? primary : AppPalette.muted,
             fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
           );
         }),
