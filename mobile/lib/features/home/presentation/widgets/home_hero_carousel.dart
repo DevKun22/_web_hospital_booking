@@ -6,6 +6,8 @@ import 'package:hospital_booking_mobile/features/home/domain/home_content.dart';
 
 import 'package:hospital_booking_mobile/core/design/app_design_tokens.dart';
 
+import 'package:cached_network_image/cached_network_image.dart';
+
 class HomeHeroCarousel extends StatefulWidget {
   const HomeHeroCarousel({super.key, required this.banners});
 
@@ -236,10 +238,13 @@ class _HeroBanner extends StatelessWidget {
         children: [
           if (image != null)
             Positioned.fill(
-              child: Image.network(
-                image,
+              child: Image(
+                image: ResizeImage.resizeIfNeeded(
+                  imageCacheWidth,
+                  null,
+                  CachedNetworkImageProvider(image),
+                ),
                 fit: BoxFit.cover,
-                cacheWidth: imageCacheWidth,
                 filterQuality: FilterQuality.medium,
                 errorBuilder: (_, _, _) => const SizedBox.shrink(),
               ),

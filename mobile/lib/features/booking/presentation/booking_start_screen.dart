@@ -10,6 +10,8 @@ import 'package:hospital_booking_mobile/features/booking/domain/booking_catalog.
 import 'package:hospital_booking_mobile/features/booking/presentation/widgets/booking_journey_indicator.dart';
 import 'package:hospital_booking_mobile/features/booking/presentation/widgets/booking_selection_widgets.dart';
 
+import 'package:hospital_booking_mobile/core/lifecycle/foreground_poller.dart';
+
 class BookingStartScreen extends ConsumerStatefulWidget {
   const BookingStartScreen({
     super.key,
@@ -34,13 +36,16 @@ class BookingStartScreen extends ConsumerStatefulWidget {
 
 class _BookingStartScreenState extends ConsumerState<BookingStartScreen> {
   static const _slotPollInterval = Duration(seconds: 30);
-  Timer? _slotPollTimer;
+  late final ForegroundPoller _slotPoller = ForegroundPoller(
+    interval: _slotPollInterval,
+    onTick: _pollSlotsIfVisible,
+  );
 
   @override
   void initState() {
     super.initState();
     _applyRoutePreset();
-    _slotPollTimer = Timer.periodic(_slotPollInterval, _pollSlotsIfVisible);
+    _slotPoller.start();
   }
 
   @override
@@ -72,11 +77,11 @@ class _BookingStartScreenState extends ConsumerState<BookingStartScreen> {
 
   @override
   void dispose() {
-    _slotPollTimer?.cancel();
+    _slotPoller.stop();
     super.dispose();
   }
 
-  void _pollSlotsIfVisible(Timer _) {
+  void _pollSlotsIfVisible() {
     if (!mounted ||
         !TickerMode.of(context) ||
         ModalRoute.of(context)?.isCurrent != true) {

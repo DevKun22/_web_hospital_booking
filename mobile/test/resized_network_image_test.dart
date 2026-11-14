@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hospital_booking_mobile/core/widgets/resized_network_image.dart';
 
+import 'package:cached_network_image/cached_network_image.dart';
+
 void main() {
   testWidgets('network images are decoded near their rendered pixel size', (
     tester,
@@ -28,6 +30,11 @@ void main() {
     expect(provider, isA<ResizeImage>());
     expect((provider! as ResizeImage).width, 168);
     expect((provider! as ResizeImage).height, 168);
+    // Ảnh được lưu đệm trên đĩa thay vì tải lại mỗi lần mở màn hình.
+    expect(
+      (provider! as ResizeImage).imageProvider,
+      isA<CachedNetworkImageProvider>(),
+    );
   });
 
   testWidgets('blank image URLs keep the local placeholder', (tester) async {

@@ -1,3 +1,4 @@
+import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -20,32 +21,65 @@ abstract interface class PushMessagingGateway {
   Stream<PushMessage> get openedMessages;
 }
 
+/// Chạy trong isolate riêng khi có thông báo lúc ứng dụng ở nền, nên phải tự khởi tạo Firebase.
+@pragma('vm:entry-point')
+Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  await Firebase.initializeApp();
+}
+
 class FirebasePushMessagingGateway implements PushMessagingGateway {
+  static Future<void>? _ready;
+
+  /// Khởi tạo Firebase một lần, ngay lần đầu cần dùng (không chặn khung hình đầu tiên của ứng dụng).
+  static Future<void> _ensureReady() => _ready ??= _initialize();
+
+  static Future<void> _initialize() async {
+    try {
+      await Firebase.initializeApp();
+      FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+    } catch (_) {
+      _ready = null; // cho phép thử lại lần sau
+      rethrow;
+    }
+  }
+
   static const _settingsChannel = MethodChannel(
     'dev.ngoloi.devkuncare/settings',
   );
 
   @override
-  Future<PushPermissionStatus> permissionStatus() async => _mapPermission(
-    (await FirebaseMessaging.instance.getNotificationSettings())
-        .authorizationStatus,
-  );
+  Future<PushPermissionStatus> permissionStatus() async {
+    await _ensureReady();
+    return _mapPermission(
+      (await FirebaseMessaging.instance.getNotificationSettings())
+          .authorizationStatus,
+    );
+  }
 
   @override
-  Future<PushPermissionStatus> requestPermission() async => _mapPermission(
-    (await FirebaseMessaging.instance.requestPermission(
-      alert: true,
-      badge: true,
-      sound: true,
-      provisional: false,
-    )).authorizationStatus,
-  );
+  Future<PushPermissionStatus> requestPermission() async {
+    await _ensureReady();
+    return _mapPermission(
+      (await FirebaseMessaging.instance.requestPermission(
+        alert: true,
+        badge: true,
+        sound: true,
+        provisional: false,
+      )).authorizationStatus,
+    );
+  }
 
   @override
-  Future<String?> getToken() => FirebaseMessaging.instance.getToken();
+  Future<String?> getToken() async {
+    await _ensureReady();
+    return FirebaseMessaging.instance.getToken();
+  }
 
   @override
-  Future<void> deleteToken() => FirebaseMessaging.instance.deleteToken();
+  Future<void> deleteToken() async {
+    await _ensureReady();
+    await FirebaseMessaging.instance.deleteToken();
+  }
 
   @override
   Future<bool> openNotificationSettings() async {
@@ -63,21 +97,25 @@ class FirebasePushMessagingGateway implements PushMessagingGateway {
 
   @override
   Future<PushMessage?> getInitialMessage() async {
+    await _ensureReady();
     final message = await FirebaseMessaging.instance.getInitialMessage();
     return message == null ? null : _fromRemoteMessage(message);
   }
 
   @override
-  Stream<String> get tokenRefreshes =>
-      FirebaseMessaging.instance.onTokenRefresh;
+  Stream<String> get tokenRefreshes => Stream.fromFuture(
+    _ensureReady(),
+  ).asyncExpand((_) => FirebaseMessaging.instance.onTokenRefresh);
 
   @override
-  Stream<PushMessage> get foregroundMessages =>
-      FirebaseMessaging.onMessage.map(_fromRemoteMessage);
+  Stream<PushMessage> get foregroundMessages => Stream.fromFuture(
+    _ensureReady(),
+  ).asyncExpand((_) => FirebaseMessaging.onMessage).map(_fromRemoteMessage);
 
   @override
-  Stream<PushMessage> get openedMessages =>
-      FirebaseMessaging.onMessageOpenedApp.map(_fromRemoteMessage);
+  Stream<PushMessage> get openedMessages => Stream.fromFuture(_ensureReady())
+      .asyncExpand((_) => FirebaseMessaging.onMessageOpenedApp)
+      .map(_fromRemoteMessage);
 }
 
 PushPermissionStatus _mapPermission(AuthorizationStatus status) =>

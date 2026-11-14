@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+import 'package:cached_network_image/cached_network_image.dart';
+
+/// Ảnh mạng có bộ nhớ đệm trên đĩa, giải mã gần đúng cỡ hiển thị để đỡ RAM và đỡ tải lại.
 ImageProvider<Object>? resizedNetworkImage(
   BuildContext context,
   String? url, {
@@ -16,6 +19,6 @@ ImageProvider<Object>? resizedNetworkImage(
   return ResizeImage.resizeIfNeeded(
     cacheWidth,
     cacheHeight,
-    NetworkImage(normalizedUrl),
+    CachedNetworkImageProvider(normalizedUrl),
   );
 }

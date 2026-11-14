@@ -12,6 +12,8 @@ import 'package:hospital_booking_mobile/core/widgets/app_ui.dart';
 import 'package:hospital_booking_mobile/features/appointments/application/appointments_controller.dart';
 import 'package:hospital_booking_mobile/features/appointments/domain/patient_appointment.dart';
 
+import 'package:hospital_booking_mobile/core/lifecycle/foreground_poller.dart';
+
 enum _AppointmentFilter { upcoming, history, all }
 
 class AppointmentsScreen extends ConsumerStatefulWidget {
@@ -22,25 +24,29 @@ class AppointmentsScreen extends ConsumerStatefulWidget {
 }
 
 class _AppointmentsScreenState extends ConsumerState<AppointmentsScreen> {
-  static const _pollInterval = Duration(seconds: 30);
-  static const _pollFreshness = Duration(seconds: 25);
+  // Thay đổi lịch hẹn đã có thông báo đẩy báo về; thăm dò chỉ là lưới an toàn nên thưa hơn.
+  static const _pollInterval = Duration(seconds: 60);
+  static const _pollFreshness = Duration(seconds: 55);
 
   _AppointmentFilter _filter = _AppointmentFilter.upcoming;
-  Timer? _pollTimer;
+  late final ForegroundPoller _poller = ForegroundPoller(
+    interval: _pollInterval,
+    onTick: _pollIfVisible,
+  );
 
   @override
   void initState() {
     super.initState();
-    _pollTimer = Timer.periodic(_pollInterval, _pollIfVisible);
+    _poller.start();
   }
 
   @override
   void dispose() {
-    _pollTimer?.cancel();
+    _poller.stop();
     super.dispose();
   }
 
-  void _pollIfVisible(Timer _) {
+  void _pollIfVisible() {
     if (!mounted ||
         !TickerMode.of(context) ||
         ModalRoute.of(context)?.isCurrent != true) {
