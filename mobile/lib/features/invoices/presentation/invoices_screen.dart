@@ -50,7 +50,7 @@ class InvoicesScreen extends ConsumerWidget {
                             title: '${state.total} hóa đơn trên hệ thống',
                             subtitle: state.items.length < state.total
                                 ? 'Đang hiển thị ${state.items.length} hóa đơn gần nhất'
-                                : 'Chi phí và quyền lợi BHYT được đồng bộ từ bệnh viện',
+                                : 'Chi phí và quyền lợi BHYT được đồng bộ từ cơ sở khám',
                           ),
                           if (state.error != null) ...[
                             const SizedBox(height: 14),
@@ -73,7 +73,7 @@ class InvoicesScreen extends ConsumerWidget {
                           icon: Icons.receipt_long_outlined,
                           title: 'Chưa có hóa đơn',
                           message:
-                              'Hóa đơn sẽ xuất hiện sau khi bệnh viện hoàn tất chi phí khám.',
+                              'Hóa đơn sẽ xuất hiện sau khi cơ sở khám hoàn tất chi phí khám.',
                         ),
                       )
                     else
@@ -161,9 +161,7 @@ class _InvoiceCard extends StatelessWidget {
             ),
             const SizedBox(height: 14),
             Text(
-              invoice.doctorName.isEmpty
-                  ? 'Chi phí khám bệnh'
-                  : invoice.doctorName,
+              invoice.doctorName.isEmpty ? 'Chi phí khám' : invoice.doctorName,
               style: Theme.of(
                 context,
               ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),

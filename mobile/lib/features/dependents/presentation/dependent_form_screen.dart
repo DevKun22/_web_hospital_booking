@@ -278,7 +278,7 @@ class _DependentFormScreenState extends ConsumerState<DependentFormScreen> {
                       minLines: 2,
                       maxLines: 4,
                       decoration: const InputDecoration(
-                        labelText: 'Tiền sử bệnh',
+                        labelText: 'Tiền sử sức khỏe',
                       ),
                     ),
                     const SizedBox(height: 12),

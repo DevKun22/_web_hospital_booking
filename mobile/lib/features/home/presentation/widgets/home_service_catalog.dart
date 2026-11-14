@@ -48,7 +48,7 @@ const homeAppointmentsService = HomeService(
 const homeRecordsService = HomeService(
   shortLabel: 'Kết quả khám',
   label: 'Kết quả khám',
-  description: 'Xem hồ sơ và kết quả đã được bệnh viện công bố',
+  description: 'Xem hồ sơ và kết quả đã được cơ sở khám công bố',
   icon: Icons.description_outlined,
   location: '/medical-records',
   requiresAccount: true,
@@ -134,6 +134,15 @@ const homeProfileService = HomeService(
   opensMainBranch: true,
 );
 
+const homeDigitalCardService = HomeService(
+  shortLabel: 'Thẻ số',
+  label: 'Thẻ khám số',
+  description: 'Mã QR của bạn để đưa cho nhân viên khi đến khám',
+  icon: Icons.qr_code_2_rounded,
+  location: '/mobile-tools',
+  requiresAccount: true,
+);
+
 const homeSupportService = HomeService(
   shortLabel: 'Hỗ trợ',
   label: 'Trung tâm hỗ trợ',
@@ -146,7 +155,7 @@ const homePrimaryServices = <HomeService>[
   homeBookingService,
   homeAppointmentsService,
   homeHealthHubService,
-  homePrescriptionsService,
+  homeDigitalCardService,
   homeInvoicesService,
   homeDoctorsService,
   homeDepartmentsService,
@@ -177,6 +186,7 @@ const homeServiceSections = <HomeServiceSection>[
   HomeServiceSection(
     title: 'Tài khoản & hỗ trợ',
     services: [
+      homeDigitalCardService,
       homeSupportService,
       homeNotificationsService,
       homeProfileService,

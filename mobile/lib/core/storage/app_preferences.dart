@@ -7,6 +7,10 @@ abstract interface class AppPreferences {
   Future<void> setNotificationPermissionRequested();
   Future<bool> isAppLockEnabled();
   Future<void> setAppLockEnabled(bool enabled);
+
+  /// Lần gần nhất người dùng chọn "Để sau" ở gợi ý thiết lập trên trang chủ.
+  Future<DateTime?> setupPromptsDismissedAt();
+  Future<void> dismissSetupPrompts(DateTime at);
 }
 
 class SharedAppPreferences implements AppPreferences {
@@ -17,6 +21,7 @@ class SharedAppPreferences implements AppPreferences {
   static const _notificationPermissionRequestedKey =
       'notification_permission_requested_v1';
   static const _appLockEnabledKey = 'app_lock_enabled_v1';
+  static const _setupPromptsDismissedKey = 'setup_prompts_dismissed_at_v1';
   final SharedPreferencesAsync _preferences;
 
   @override
@@ -41,6 +46,17 @@ class SharedAppPreferences implements AppPreferences {
   @override
   Future<void> setAppLockEnabled(bool enabled) =>
       _preferences.setBool(_appLockEnabledKey, enabled);
+
+  @override
+  Future<DateTime?> setupPromptsDismissedAt() async => DateTime.tryParse(
+    await _preferences.getString(_setupPromptsDismissedKey) ?? '',
+  );
+
+  @override
+  Future<void> dismissSetupPrompts(DateTime at) => _preferences.setString(
+    _setupPromptsDismissedKey,
+    at.toUtc().toIso8601String(),
+  );
 }
 
 class MemoryAppPreferences implements AppPreferences {
@@ -74,4 +90,13 @@ class MemoryAppPreferences implements AppPreferences {
   @override
   Future<void> setAppLockEnabled(bool enabled) async =>
       appLockEnabled = enabled;
+
+  DateTime? setupPromptsDismissed;
+
+  @override
+  Future<DateTime?> setupPromptsDismissedAt() async => setupPromptsDismissed;
+
+  @override
+  Future<void> dismissSetupPrompts(DateTime at) async =>
+      setupPromptsDismissed = at;
 }

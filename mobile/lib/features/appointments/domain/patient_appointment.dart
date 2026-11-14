@@ -30,7 +30,7 @@ enum PatientAppointmentStatus {
 
   String get label => switch (this) {
     PatientAppointmentStatus.pendingOtp => 'Chờ xác thực OTP',
-    PatientAppointmentStatus.pendingConfirm => 'Chờ bệnh viện xác nhận',
+    PatientAppointmentStatus.pendingConfirm => 'Chờ cơ sở khám xác nhận',
     PatientAppointmentStatus.confirmed => 'Đã xác nhận',
     PatientAppointmentStatus.checkedIn => 'Đã check-in',
     PatientAppointmentStatus.inProgress => 'Đang khám',
@@ -38,7 +38,7 @@ enum PatientAppointmentStatus {
     PatientAppointmentStatus.rescheduled => 'Đã đổi lịch',
     PatientAppointmentStatus.cancelledByPatient => 'Bạn đã hủy',
     PatientAppointmentStatus.cancelledByDoctor => 'Bác sĩ đã hủy',
-    PatientAppointmentStatus.cancelledByAdmin => 'Bệnh viện đã hủy',
+    PatientAppointmentStatus.cancelledByAdmin => 'Cơ sở khám đã hủy',
     PatientAppointmentStatus.noShow => 'Không đến khám',
     PatientAppointmentStatus.unknown => 'Đang cập nhật',
   };
@@ -47,11 +47,11 @@ enum PatientAppointmentStatus {
     PatientAppointmentStatus.pendingOtp =>
       'Lịch chưa hoàn tất xác thực OTP và có thể tự hết hạn.',
     PatientAppointmentStatus.pendingConfirm =>
-      'Bệnh viện đang kiểm tra và sẽ xác nhận lịch của bạn.',
+      'Cơ sở khám đang kiểm tra và sẽ xác nhận lịch của bạn.',
     PatientAppointmentStatus.confirmed =>
       'Vui lòng đến sớm khoảng 15 phút để làm thủ tục.',
     PatientAppointmentStatus.checkedIn =>
-      'Bạn đã check-in. Vui lòng chờ hướng dẫn tại bệnh viện.',
+      'Bạn đã check-in. Vui lòng chờ hướng dẫn tại cơ sở khám.',
     PatientAppointmentStatus.inProgress => 'Buổi khám đang được thực hiện.',
     PatientAppointmentStatus.completed =>
       'Buổi khám đã hoàn tất. Kết quả sẽ xuất hiện khi được công bố.',
@@ -60,12 +60,12 @@ enum PatientAppointmentStatus {
     PatientAppointmentStatus.cancelledByPatient =>
       'Lịch đã được hủy theo yêu cầu của bạn.',
     PatientAppointmentStatus.cancelledByDoctor =>
-      'Bác sĩ đã hủy lịch. Vui lòng đặt lịch khác hoặc liên hệ bệnh viện.',
+      'Bác sĩ đã hủy lịch. Vui lòng đặt lịch khác hoặc liên hệ cơ sở khám.',
     PatientAppointmentStatus.cancelledByAdmin =>
-      'Bệnh viện đã hủy lịch. Vui lòng liên hệ để được hỗ trợ.',
+      'Cơ sở khám đã hủy lịch. Vui lòng liên hệ để được hỗ trợ.',
     PatientAppointmentStatus.noShow => 'Lịch được ghi nhận là không đến khám.',
     PatientAppointmentStatus.unknown =>
-      'Trạng thái đang được đồng bộ từ bệnh viện.',
+      'Trạng thái đang được đồng bộ từ cơ sở khám.',
   };
 
   bool get canCancel =>

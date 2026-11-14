@@ -280,7 +280,7 @@ class BookingPatientSubmitSection extends StatelessWidget {
   final bool isRevalidatingSlot;
   final VoidCallback onSubmit;
 
-  /// Không có bước OTP: nút ghi "Đặt lịch" và ghi chú nói bệnh viện sẽ xác nhận.
+  /// Không có bước OTP: nút ghi "Đặt lịch" và ghi chú nói cơ sở khám sẽ xác nhận.
   final bool skipsOtp;
 
   @override
@@ -319,7 +319,7 @@ class BookingPatientSubmitSection extends StatelessWidget {
       const SizedBox(height: 8),
       Text(
         skipsOtp
-            ? 'Bệnh viện sẽ xác nhận lịch của bạn sau khi tiếp nhận.'
+            ? 'Cơ sở khám sẽ xác nhận lịch của bạn sau khi tiếp nhận.'
             : 'Khung giờ chỉ được giữ tạm thời cho đến khi bạn xác thực OTP.',
         textAlign: TextAlign.center,
         style: Theme.of(context).textTheme.bodySmall?.copyWith(

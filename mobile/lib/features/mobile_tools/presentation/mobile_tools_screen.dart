@@ -18,20 +18,13 @@ class MobileToolsScreen extends ConsumerWidget {
     final profileState = ref.watch(patientProfileControllerProvider);
     final lockState = ref.watch(appLockControllerProvider);
     return Scaffold(
-      appBar: AppBar(title: const Text('Tiện ích trên điện thoại')),
+      appBar: AppBar(title: const Text('Thẻ số & bảo mật')),
       body: RefreshIndicator(
         onRefresh: ref.read(patientProfileControllerProvider.notifier).refresh,
         child: ListView(
           physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
           children: [
-            const AppPageIntro(
-              title: 'Nhanh hơn nhưng vẫn an toàn',
-              subtitle:
-                  'Dùng thẻ người khám số và khóa cục bộ để hạn chế lộ dữ liệu khi người khác cầm điện thoại.',
-              badge: 'Chỉ trên mobile',
-            ),
-            const SizedBox(height: 18),
             if (profileState.error != null) ...[
               AppErrorBanner(
                 error: profileState.error!,
@@ -127,7 +120,7 @@ class _DigitalPatientCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'THẺ BỆNH NHÂN SỐ',
+                    'THẺ KHÁM SỐ',
                     style: Theme.of(context).textTheme.labelLarge?.copyWith(
                       color: Colors.white70,
                       fontWeight: FontWeight.w800,
@@ -144,17 +137,22 @@ class _DigitalPatientCard extends StatelessWidget {
                 ],
               ),
             ),
-            Container(
-              padding: const EdgeInsets.all(7),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: QrImageView(
-                data: 'HB-PATIENT:${profile.id}',
-                size: 82,
-                padding: EdgeInsets.zero,
-                semanticsLabel: 'QR thẻ người khám số',
+            InkWell(
+              key: const Key('digital-card-qr'),
+              onTap: () => _showLargeQr(context, profile),
+              borderRadius: BorderRadius.circular(12),
+              child: Container(
+                padding: const EdgeInsets.all(7),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: QrImageView(
+                  data: 'HB-PATIENT:${profile.id}',
+                  size: 82,
+                  padding: EdgeInsets.zero,
+                  semanticsLabel: 'Mã QR thẻ khám số, chạm để phóng to',
+                ),
               ),
             ),
           ],
@@ -181,13 +179,59 @@ class _DigitalPatientCard extends StatelessWidget {
         ),
         const SizedBox(height: 16),
         Text(
-          'Thẻ hiện dùng để trình bày mã hồ sơ trên điện thoại. Nhân viên vẫn tra cứu và xác minh danh tính theo quy trình của bệnh viện.',
+          'Chạm vào mã QR để phóng to và đưa cho nhân viên khi đến khám. Danh tính vẫn được xác minh theo quy trình của cơ sở khám.',
           style: Theme.of(context).textTheme.bodySmall?.copyWith(
             color: Colors.white.withValues(alpha: 0.82),
             height: 1.4,
           ),
         ),
       ],
+    ),
+  );
+}
+
+void _showLargeQr(BuildContext context, PatientProfile profile) {
+  showDialog<void>(
+    context: context,
+    builder: (dialogContext) => Dialog(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              profile.fullName,
+              style: Theme.of(
+                dialogContext,
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+            ),
+            const SizedBox(height: 14),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: QrImageView(
+                data: 'HB-PATIENT:${profile.id}',
+                size: 240,
+                padding: EdgeInsets.zero,
+                semanticsLabel: 'Mã QR thẻ khám số',
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Mã hồ sơ ${_shortId(profile.id)}',
+              style: Theme.of(dialogContext).textTheme.bodySmall,
+            ),
+            const SizedBox(height: 12),
+            FilledButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('Đóng'),
+            ),
+          ],
+        ),
+      ),
     ),
   );
 }
@@ -253,7 +297,7 @@ class _SecurityCard extends StatelessWidget {
           const SizedBox(height: 6),
           Text(
             state.supported
-                ? 'Yêu cầu vân tay, khuôn mặt hoặc mã khóa thiết bị sau khi ứng dụng chạy nền.'
+                ? 'Yêu cầu vân tay, khuôn mặt hoặc mã khóa máy khi mở lại ứng dụng sau 5 phút chạy nền.'
                 : 'Thiết bị chưa sẵn sàng. Hãy thiết lập khóa màn hình trong phần Cài đặt hệ thống.',
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
               color: Theme.of(context).colorScheme.onSurfaceVariant,
@@ -287,7 +331,7 @@ class _PrivacyNotice extends StatelessWidget {
       const SizedBox(width: 9),
       Expanded(
         child: Text(
-          'Ứng dụng không gửi dữ liệu vân tay hoặc khuôn mặt lên máy chủ. Hệ điều hành chỉ trả về kết quả xác thực thành công hoặc thất bại.',
+          'Vân tay và khuôn mặt chỉ nằm trên máy của bạn, ứng dụng không thu thập hay gửi đi.',
           style: Theme.of(context).textTheme.bodySmall?.copyWith(
             color: Theme.of(context).colorScheme.onSurfaceVariant,
             height: 1.4,

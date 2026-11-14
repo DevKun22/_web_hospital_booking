@@ -67,7 +67,7 @@ class BookingSuccessScreen extends ConsumerWidget {
                     ),
                     const SizedBox(height: 8),
                     const Text(
-                      'Bệnh viện sẽ kiểm tra và xác nhận lịch của bạn.',
+                      'Cơ sở khám sẽ kiểm tra và xác nhận lịch của bạn.',
                       textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 16),

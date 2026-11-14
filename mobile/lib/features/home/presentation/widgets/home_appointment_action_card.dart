@@ -188,7 +188,7 @@ class _HomeAppointmentCopy {
           primaryLabel: 'Xem lịch',
           primaryIcon: Icons.event_note_outlined,
           showQr: true,
-          guidance: 'Bệnh viện đang kiểm tra yêu cầu đặt khám của bạn.',
+          guidance: 'Cơ sở khám đang kiểm tra yêu cầu đặt khám của bạn.',
         );
       case PatientAppointmentStatus.checkedIn:
         return const _HomeAppointmentCopy(
@@ -196,7 +196,7 @@ class _HomeAppointmentCopy {
           primaryLabel: 'Theo dõi tiến trình',
           primaryIcon: Icons.how_to_reg_outlined,
           showQr: false,
-          guidance: 'Vui lòng chờ hướng dẫn tiếp nhận tại bệnh viện.',
+          guidance: 'Vui lòng chờ hướng dẫn tiếp nhận tại cơ sở khám.',
         );
       case PatientAppointmentStatus.inProgress:
         return const _HomeAppointmentCopy(
@@ -204,7 +204,7 @@ class _HomeAppointmentCopy {
           primaryLabel: 'Xem tiến trình',
           primaryIcon: Icons.medical_services_outlined,
           showQr: false,
-          guidance: 'Kết quả sẽ hiển thị sau khi bệnh viện phát hành.',
+          guidance: 'Kết quả sẽ hiển thị sau khi cơ sở khám phát hành.',
         );
       case PatientAppointmentStatus.confirmed:
       case PatientAppointmentStatus.rescheduled:

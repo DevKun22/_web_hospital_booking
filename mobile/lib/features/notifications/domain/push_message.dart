@@ -13,7 +13,7 @@ class PushMessage {
 
   String get displayTitle => _text(title) ?? 'Thông báo mới';
 
-  String get displayBody => _text(body) ?? 'Bạn có cập nhật mới từ bệnh viện.';
+  String get displayBody => _text(body) ?? 'Bạn có cập nhật mới từ cơ sở khám.';
 
   String? get notificationId => _text(data['notificationId']);
 

@@ -132,7 +132,7 @@ void main() {
     expect(find.text('Tùy chọn thông báo'), findsOneWidget);
     expect(find.textContaining('chỉ kiểm soát thông báo đẩy'), findsOneWidget);
     expect(find.text('Cập nhật lịch khám'), findsOneWidget);
-    expect(find.text('Thông báo từ bệnh viện'), findsOneWidget);
+    expect(find.text('Thông báo chung'), findsOneWidget);
 
     final updatesSwitch = find.byKey(
       const ValueKey('notification-preference-appointmentUpdatesPush'),

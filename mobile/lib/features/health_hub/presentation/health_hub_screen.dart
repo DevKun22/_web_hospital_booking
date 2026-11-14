@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hospital_booking_mobile/core/widgets/app_ui.dart';
 import 'package:hospital_booking_mobile/features/health_hub/application/health_hub_summary.dart';
-import 'package:hospital_booking_mobile/core/design/app_colors.dart';
 
 class HealthHubScreen extends ConsumerWidget {
   const HealthHubScreen({super.key});
@@ -60,12 +59,9 @@ class HealthHubScreen extends ConsumerWidget {
             appMainContentBottomInset,
           ),
           children: [
-            const _PrivacyHeader(),
-            const SizedBox(height: 20),
             const AppPageIntro(
-              title: 'Thông tin của tôi',
-              subtitle:
-                  'Dữ liệu được đồng bộ từ quá trình đặt lịch và khám bệnh.',
+              title: 'Hồ sơ của tôi',
+              subtitle: 'Lịch khám, kết quả, đơn thuốc và hóa đơn của bạn.',
             ),
             const SizedBox(height: 14),
             ...destinations.map(
@@ -82,63 +78,6 @@ class HealthHubScreen extends ConsumerWidget {
       ),
     );
   }
-}
-
-class _PrivacyHeader extends StatelessWidget {
-  const _PrivacyHeader();
-
-  @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.all(18),
-    decoration: BoxDecoration(
-      gradient: LinearGradient(
-        colors: [AppPalette.heroDeep, AppPalette.heroMid],
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-      ),
-      borderRadius: BorderRadius.circular(22),
-    ),
-    child: Row(
-      children: [
-        Container(
-          width: 54,
-          height: 54,
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.16),
-            borderRadius: BorderRadius.circular(17),
-          ),
-          child: const Icon(
-            Icons.health_and_safety_outlined,
-            color: Colors.white,
-            size: 28,
-          ),
-        ),
-        const SizedBox(width: 14),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Dữ liệu y tế của bạn',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                'Chỉ bạn xem được dữ liệu này trên tài khoản đã xác thực.',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Colors.white.withValues(alpha: 0.86),
-                  height: 1.35,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    ),
-  );
 }
 
 class _HealthDestinationCard extends StatelessWidget {

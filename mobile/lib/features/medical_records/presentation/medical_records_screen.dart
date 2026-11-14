@@ -73,7 +73,7 @@ class MedicalRecordsScreen extends ConsumerWidget {
                           icon: Icons.folder_open_outlined,
                           title: 'Chưa có kết quả khám',
                           message:
-                              'Kết quả sẽ xuất hiện tại đây sau khi bác sĩ hoàn tất và bệnh viện công bố hồ sơ.',
+                              'Kết quả sẽ xuất hiện tại đây sau khi bác sĩ hoàn tất và cơ sở khám công bố hồ sơ.',
                         ),
                       )
                     else

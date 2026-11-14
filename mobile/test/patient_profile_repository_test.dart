@@ -17,7 +17,7 @@ Map<String, dynamic> _profileJson({String fullName = 'Nguyễn Văn An'}) => {
     'address': 'TP. Hồ Chí Minh',
     'hasBHYT': true,
     'healthInsuranceCode': 'DN4012345678901',
-    'registeredHospital': 'Bệnh viện Đại học Y Dược',
+    'registeredHospital': 'Cơ sở khám Đại học Y Dược',
     'bloodType': 'O+',
     'height': 170,
     'weight': 65.5,

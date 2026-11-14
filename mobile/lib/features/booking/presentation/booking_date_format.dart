@@ -1,8 +1,11 @@
+import 'package:hospital_booking_mobile/core/formatters/vietnam_time.dart';
+
 /// Định dạng ngày giờ dùng chung cho luồng đặt lịch.
 List<DateTime> nextVietnamDates(int count) {
-  final vietnamNow = DateTime.now().toUtc().add(const Duration(hours: 7));
-  final today = DateTime(vietnamNow.year, vietnamNow.month, vietnamNow.day);
-  return List.generate(count, (index) => today.add(Duration(days: index)));
+  final today = vietnamToday();
+  // Ngày thuần (không múi giờ) để dựng nhãn và chuỗi API yyyy-MM-dd.
+  final start = DateTime(today.year, today.month, today.day);
+  return List.generate(count, (index) => start.add(Duration(days: index)));
 }
 
 String formatApiDate(DateTime date) =>

@@ -31,7 +31,7 @@ enum PatientInvoiceStatus {
 
   String get guidance => switch (this) {
     PatientInvoiceStatus.unpaid =>
-      'Vui lòng thanh toán theo hướng dẫn của bệnh viện.',
+      'Vui lòng thanh toán theo hướng dẫn của cơ sở khám.',
     PatientInvoiceStatus.paid => 'Hóa đơn đã được ghi nhận thanh toán.',
     PatientInvoiceStatus.cancelled => 'Hóa đơn này không còn hiệu lực.',
     PatientInvoiceStatus.refunded =>

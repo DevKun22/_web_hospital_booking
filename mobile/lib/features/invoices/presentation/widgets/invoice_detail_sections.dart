@@ -387,7 +387,7 @@ class InvoiceUnavailablePayment extends StatelessWidget {
       const SizedBox(width: 8),
       const Expanded(
         child: Text(
-          'Cổng thanh toán trực tuyến chưa được kích hoạt. Bạn vẫn có thể thanh toán tại bệnh viện.',
+          'Cổng thanh toán trực tuyến chưa được kích hoạt. Bạn vẫn có thể thanh toán tại cơ sở khám.',
         ),
       ),
       if (onRetry != null)

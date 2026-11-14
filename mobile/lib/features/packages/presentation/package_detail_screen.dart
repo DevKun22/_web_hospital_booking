@@ -242,7 +242,7 @@ class _PriceCard extends StatelessWidget {
             child: Text(
               packageItem.isBhytSupport
                   ? 'Gói có hỗ trợ BHYT; mức giảm thực tế được xác nhận khi tiếp nhận.'
-                  : 'Chi phí thực tế được xác nhận lại khi bệnh viện tiếp nhận.',
+                  : 'Chi phí thực tế được xác nhận lại khi cơ sở khám tiếp nhận.',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),

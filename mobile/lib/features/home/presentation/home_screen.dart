@@ -21,6 +21,7 @@ import 'package:hospital_booking_mobile/features/home/presentation/widgets/home_
 import 'package:hospital_booking_mobile/features/home/presentation/widgets/home_doctor_section.dart';
 import 'package:hospital_booking_mobile/features/home/presentation/widgets/home_hero_carousel.dart';
 import 'package:hospital_booking_mobile/features/home/presentation/widgets/home_search_sheet.dart';
+import 'package:hospital_booking_mobile/features/home/presentation/widgets/home_setup_prompts.dart';
 import 'package:hospital_booking_mobile/core/design/app_colors.dart';
 
 class HomeScreen extends ConsumerWidget {
@@ -159,6 +160,11 @@ class HomeScreen extends ConsumerWidget {
                     ),
                   ),
                 ),
+              ),
+            if (isAuthenticated)
+              const SliverPadding(
+                padding: EdgeInsets.fromLTRB(14, 12, 14, 0),
+                sliver: SliverToBoxAdapter(child: HomeSetupPrompts()),
               ),
             SliverPadding(
               padding: const EdgeInsets.fromLTRB(14, 10, 14, 0),

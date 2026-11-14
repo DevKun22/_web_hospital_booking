@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:hospital_booking_mobile/features/notifications/presentation/notification_type_visuals.dart';
 import 'package:hospital_booking_mobile/core/widgets/app_ui.dart';
 import 'package:hospital_booking_mobile/features/notifications/domain/patient_notification.dart';
 import 'package:hospital_booking_mobile/core/design/app_colors.dart';
+import 'package:hospital_booking_mobile/core/formatters/vietnam_time.dart';
 
 class NotificationInboxOverview extends StatelessWidget {
   const NotificationInboxOverview({
@@ -57,7 +60,7 @@ class NotificationInboxOverview extends StatelessWidget {
               Text(
                 total == 0
                     ? 'Thông tin lịch khám sẽ được lưu an toàn tại đây.'
-                    : '$total thông báo từ hệ thống bệnh viện',
+                    : '$total thông báo từ DevKunCare',
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   color: Colors.white.withValues(alpha: 0.84),
                 ),
@@ -156,8 +159,8 @@ class NotificationCard extends StatelessWidget {
                           color: Theme.of(context).colorScheme.onSurfaceVariant,
                         ),
                         const SizedBox(width: 5),
-                        Text(
-                          formatNotificationTime(item.publishedAt),
+                        RelativeTimeText(
+                          value: item.publishedAt,
                           style: Theme.of(context).textTheme.bodySmall
                               ?.copyWith(
                                 color: Theme.of(
@@ -198,18 +201,53 @@ class NotificationsLoading extends StatelessWidget {
   );
 }
 
-String formatNotificationTime(DateTime value) {
-  final local = value.toLocal();
-  final now = DateTime.now();
-  final today = DateTime(now.year, now.month, now.day);
-  final date = DateTime(local.year, local.month, local.day);
-  final time =
-      '${local.hour.toString().padLeft(2, '0')}:'
-      '${local.minute.toString().padLeft(2, '0')}';
-  if (date == today) return time;
-  if (date == today.subtract(const Duration(days: 1))) {
-    return 'Hôm qua · $time';
+/// Nhãn thời gian tương đối ("Vừa xong", "5 phút trước"), tự làm mới mỗi 30 giây khi
+/// thông báo còn mới (dưới 1 giờ) để không bị đứng hình khi màn đang mở.
+class RelativeTimeText extends StatefulWidget {
+  const RelativeTimeText({super.key, required this.value, this.style});
+
+  final DateTime value;
+  final TextStyle? style;
+
+  @override
+  State<RelativeTimeText> createState() => _RelativeTimeTextState();
+}
+
+class _RelativeTimeTextState extends State<RelativeTimeText> {
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _scheduleIfRecent();
   }
-  return '${local.day.toString().padLeft(2, '0')}/'
-      '${local.month.toString().padLeft(2, '0')}/${local.year} · $time';
+
+  @override
+  void didUpdateWidget(covariant RelativeTimeText oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.value != widget.value) _scheduleIfRecent();
+  }
+
+  void _scheduleIfRecent() {
+    _timer?.cancel();
+    final age = DateTime.now().difference(widget.value);
+    if (age.isNegative || age >= const Duration(hours: 1)) return;
+    _timer = Timer.periodic(const Duration(seconds: 30), (_) {
+      if (!mounted) return;
+      setState(() {});
+      if (DateTime.now().difference(widget.value) >= const Duration(hours: 1)) {
+        _timer?.cancel();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) =>
+      Text(formatRelativeVietnamTime(widget.value), style: widget.style);
 }

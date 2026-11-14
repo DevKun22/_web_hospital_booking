@@ -25,7 +25,7 @@ void main() {
       address: 'TP. Hồ Chí Minh',
       hasBhyt: true,
       healthInsuranceCode: 'DN4012345678901',
-      registeredHospital: 'Bệnh viện Đại học Y Dược',
+      registeredHospital: 'Cơ sở khám Đại học Y Dược',
     );
 
     final result = BookingPatientPrefill.from(user: _user, profile: profile);
@@ -40,7 +40,7 @@ void main() {
     expect(result.address, 'TP. Hồ Chí Minh');
     expect(result.hasBhyt, isTrue);
     expect(result.healthInsuranceCode, 'DN4012345678901');
-    expect(result.registeredHospital, 'Bệnh viện Đại học Y Dược');
+    expect(result.registeredHospital, 'Cơ sở khám Đại học Y Dược');
   });
 
   test('falls back to session identity and rejects a foreign profile', () {

@@ -80,7 +80,7 @@ class _AnnouncementNotificationsController extends NotificationsController {
         id: 'hospital-announcement',
         type: PatientNotificationType.systemAnnouncement,
         title: 'Thay đổi giờ làm việc',
-        body: 'Bệnh viện tiếp nhận người bệnh từ 7 giờ sáng.',
+        body: 'Cơ sở khám tiếp nhận người bệnh từ 7 giờ sáng.',
         publishedAt: DateTime.now(),
         isRead: false,
       ),
@@ -269,11 +269,11 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(controller.markedId, 'hospital-announcement');
-    expect(find.text('Thông báo từ bệnh viện'), findsOneWidget);
+    expect(find.text('Thông báo chung'), findsOneWidget);
     expect(
       find.descendant(
         of: find.byType(BottomSheet),
-        matching: find.text('Bệnh viện tiếp nhận người bệnh từ 7 giờ sáng.'),
+        matching: find.text('Cơ sở khám tiếp nhận người bệnh từ 7 giờ sáng.'),
       ),
       findsOneWidget,
     );

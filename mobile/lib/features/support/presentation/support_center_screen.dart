@@ -124,7 +124,7 @@ class SupportCenterScreen extends ConsumerWidget {
           isEmergency ? Icons.emergency_rounded : Icons.phone_in_talk_rounded,
           color: isEmergency ? context.colors.danger : context.colors.primary,
         ),
-        title: Text(isEmergency ? 'Gọi cấp cứu?' : 'Gọi bệnh viện?'),
+        title: Text(isEmergency ? 'Gọi cấp cứu?' : 'Gọi tổng đài?'),
         content: Text(
           isEmergency
               ? 'Ứng dụng sẽ mở trình quay số với số $phoneNumber. Chỉ sử dụng khi cần hỗ trợ khẩn cấp.'
@@ -321,7 +321,7 @@ class _SupportOptions extends StatelessWidget {
           _SupportOptionTile(
             key: const Key('support-hotline-option'),
             icon: Icons.phone_in_talk_outlined,
-            title: 'Tổng đài bệnh viện',
+            title: 'Tổng đài hỗ trợ',
             subtitle: hotline ?? 'Chưa có số tổng đài',
             onTap: hotline == null ? null : () => onCall(hotline!),
           ),
@@ -330,9 +330,9 @@ class _SupportOptions extends StatelessWidget {
             _SupportOptionTile(
               key: const Key('support-location-option'),
               icon: Icons.map_outlined,
-              title: 'Đường đến bệnh viện',
+              title: 'Đường đến cơ sở khám',
               subtitle: locationDetails.isEmpty
-                  ? 'Mở vị trí bệnh viện'
+                  ? 'Mở vị trí cơ sở khám'
                   : locationDetails,
               onTap: onOpenMap,
             ),
@@ -409,7 +409,7 @@ class _FaqSection extends StatelessWidget {
       return const AppEmptyState(
         icon: Icons.help_outline_rounded,
         title: 'Chưa có câu hỏi hướng dẫn',
-        message: 'Kéo xuống để tải lại nội dung hỗ trợ từ bệnh viện.',
+        message: 'Kéo xuống để tải lại nội dung hỗ trợ từ cơ sở khám.',
       );
     }
 

@@ -31,7 +31,7 @@ class HomeServiceHub extends StatelessWidget {
           children: [
             Expanded(
               child: Text(
-                'Tiện ích khám chữa bệnh',
+                'Tiện ích chăm sóc sức khỏe',
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
                   color: context.colors.ink,
                   fontWeight: FontWeight.w900,
