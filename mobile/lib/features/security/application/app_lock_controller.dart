@@ -35,8 +35,8 @@ class DeviceLocalAuthenticationGateway implements LocalAuthenticationGateway {
     localizedReason: 'Mở khóa để xem lịch khám và hồ sơ của bạn',
     authMessages: const [
       AndroidAuthMessages(
-        signInTitle: 'Xác thực để tiếp tục',
-        signInHint: 'Chạm vào cảm biến vân tay',
+        signInTitle: 'Mở khóa DevKunCare',
+        signInHint: 'Xác nhận bằng vân tay hoặc mã khóa máy',
         cancelButton: 'Hủy',
       ),
       IOSAuthMessages(

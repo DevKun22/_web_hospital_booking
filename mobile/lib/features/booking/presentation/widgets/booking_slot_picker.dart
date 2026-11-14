@@ -196,56 +196,67 @@ class _SlotTile extends StatelessWidget {
           scale: selected ? 1.04 : 1,
           duration: AppMotion.responsive(context, AppMotion.fast),
           curve: AppMotion.emphasized,
-          child: AnimatedContainer(
-            duration: AppMotion.responsive(context, AppMotion.fast),
-            curve: AppMotion.emphasized,
-            decoration: BoxDecoration(
-              color: selected ? colors.primary : colors.surface,
-              borderRadius: BorderRadius.circular(AppRadius.md),
-              border: Border.all(
-                color: selected ? colors.primary : colors.border,
-                width: selected ? 1.5 : 1,
-              ),
-              boxShadow: selected ? AppShadow.soft : null,
-            ),
-            child: Material(
-              type: MaterialType.transparency,
-              child: InkWell(
-                onTap: onTap,
-                borderRadius: BorderRadius.circular(AppRadius.md),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    vertical: 11,
-                    horizontal: 4,
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              AnimatedContainer(
+                duration: AppMotion.responsive(context, AppMotion.fast),
+                curve: AppMotion.emphasized,
+                decoration: BoxDecoration(
+                  color: selected ? colors.primary : colors.surface,
+                  borderRadius: BorderRadius.circular(AppRadius.md),
+                  border: Border.all(
+                    color: selected ? colors.primary : colors.border,
+                    width: selected ? 1.5 : 1,
                   ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      if (selected) ...[
-                        Icon(
-                          Icons.check_rounded,
-                          size: 15,
-                          color: colors.onPrimary,
-                        ),
-                        const SizedBox(width: 3),
-                      ],
-                      Flexible(
-                        child: Text(
-                          label,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context).textTheme.labelMedium
-                              ?.copyWith(
-                                color: selected ? colors.onPrimary : colors.ink,
-                                fontWeight: FontWeight.w800,
-                              ),
-                        ),
+                  boxShadow: selected ? AppShadow.soft : null,
+                ),
+                child: Material(
+                  type: MaterialType.transparency,
+                  child: InkWell(
+                    onTap: onTap,
+                    borderRadius: BorderRadius.circular(AppRadius.md),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 11,
+                        horizontal: 4,
                       ),
-                    ],
+                      child: Text(
+                        label,
+                        textAlign: TextAlign.center,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.labelMedium
+                            ?.copyWith(
+                              color: selected ? colors.onPrimary : colors.ink,
+                              fontWeight: FontWeight.w800,
+                            ),
+                      ),
+                    ),
                   ),
                 ),
               ),
-            ),
+              if (selected)
+                Positioned(
+                  top: -7,
+                  right: -5,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: colors.surface,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: colors.primary, width: 1.5),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(2),
+                      child: Icon(
+                        Icons.check_rounded,
+                        size: 12,
+                        color: colors.primary,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
           ),
         ),
       ),
