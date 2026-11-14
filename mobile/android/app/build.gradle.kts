@@ -7,7 +7,7 @@ plugins {
 }
 
 android {
-    namespace = "com.hospitalbooking.hospital_booking_mobile"
+    namespace = "dev.ngoloi.devkuncare"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -22,7 +22,7 @@ android {
 
     defaultConfig {
         // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "com.hospitalbooking.hospital_booking_mobile"
+        applicationId = "dev.ngoloi.devkuncare"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         // local_auth 3.x supports Android API 24+. Keeping this explicit makes

@@ -42,7 +42,7 @@ export default async function PaymentReturnPage({ searchParams }: PaymentReturnP
             Xem hóa đơn trên website
             <ArrowRight className="h-4 w-4" aria-hidden="true" />
           </Link>
-          <a href="hospitalbooking://app/invoices" className="public-button-secondary inline-flex min-h-12 items-center justify-center gap-2 rounded-lg px-4 text-base font-semibold">
+          <a href="devkuncare://app/invoices" className="public-button-secondary inline-flex min-h-12 items-center justify-center gap-2 rounded-lg px-4 text-base font-semibold">
             <Smartphone className="h-5 w-5" aria-hidden="true" />
             Quay lại ứng dụng
           </a>

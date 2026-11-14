@@ -57,7 +57,7 @@ void main() {
         home: const Scaffold(
           body: AppointmentQrTicketDialog(
             appointment: _appointment,
-            payload: 'hospitalbooking://app/appointments/appointment-1',
+            payload: 'devkuncare://app/appointments/appointment-1',
           ),
         ),
       ),

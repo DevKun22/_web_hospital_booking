@@ -28,6 +28,6 @@ class AppointmentDeviceActions {
   }
 
   String qrPayload(PatientAppointment appointment) =>
-      'hospitalbooking://app/appointments/${Uri.encodeComponent(appointment.id)}'
+      'devkuncare://app/appointments/${Uri.encodeComponent(appointment.id)}'
       '?code=${Uri.encodeQueryComponent(appointment.bookingCode)}';
 }

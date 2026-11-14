@@ -1,4 +1,4 @@
-package com.hospitalbooking.hospital_booking_mobile
+package dev.ngoloi.devkuncare
 
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -13,7 +13,7 @@ import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : FlutterFragmentActivity() {
     private val settingsChannel =
-        "com.hospitalbooking.hospital_booking_mobile/settings"
+        "dev.ngoloi.devkuncare/settings"
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
