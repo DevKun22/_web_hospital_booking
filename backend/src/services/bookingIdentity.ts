@@ -53,3 +53,13 @@ export const decideGuestBookingIdentity = (input: {
 
   return "LOGIN_REQUIRED";
 };
+
+/**
+ * Người đã đăng nhập đặt lịch cho CHÍNH MÌNH không cần OTP đặt lịch: phiên cổng bệnh
+ * nhân chỉ tồn tại sau khi qua OTP, và lịch luôn gắn SĐT của tài khoản (xem
+ * resolveBookingIdentity). Khách chưa đăng nhập và đặt cho người thân vẫn phải OTP.
+ */
+export const canSkipBookingOtp = (input: {
+  isAuthenticated: boolean;
+  dependentProfileId?: string | null;
+}): boolean => input.isAuthenticated && !input.dependentProfileId;

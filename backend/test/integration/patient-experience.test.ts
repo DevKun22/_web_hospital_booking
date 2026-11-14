@@ -2005,3 +2005,64 @@ test("CSV exports are permission-gated, audited, free of patient identity and sa
   assert.equal(byTarget.INVOICES.actorRole, "ADMIN");
   assert.ok(!JSON.stringify(exported.map((row) => row.meta)).includes(appointment.patientPhone));
 });
+
+test("a logged-in patient booking for themself skips the booking OTP", async () => {
+  const patient = await prisma.user.create({
+    data: {
+      fullName: "Logged In Patient",
+      phone: "0933333333",
+      email: "logged-in@example.com",
+      role: "PATIENT",
+      isPhoneVerified: true,
+      isEmailVerified: true,
+    },
+  });
+  const authorization = `Bearer ${(await loginPatient(patient.phone!)).accessToken}`;
+
+  const booking = await http.request("/api/v1/appointments", {
+    method: "POST",
+    headers: { authorization },
+    body: {
+      ...bookingBody({ phone: "0900000000" }),
+      patientEmail: "typed-by-client@example.com",
+      address: "Booked address",
+    },
+  });
+  assert.equal(booking.status, 201);
+  assert.equal(booking.body.data.otpRequired, false);
+  assert.equal(booking.body.data.appointment.status, "PENDING_CONFIRM");
+  assert.equal(booking.body.data.appointment.bookingCode, booking.body.data.bookingCode);
+  assert.equal(booking.body.data.debugOtp, undefined);
+
+  const stored = await prisma.appointment.findUniqueOrThrow({
+    where: { id: booking.body.data.appointmentId },
+  });
+  assert.equal(stored.status, "PENDING_CONFIRM");
+  assert.equal(stored.holdExpiresAt, null);
+  assert.equal(stored.patientId, patient.id);
+  assert.equal(stored.patientPhone, patient.phone);
+  assert.equal(
+    await prisma.appointmentLog.count({
+      where: { appointmentId: stored.id, action: "OTP_SENT" },
+    }),
+    0,
+  );
+
+  // Không có OTP nào chứng minh email do client nhập: không được gắn vào tài khoản.
+  const account = await prisma.user.findUniqueOrThrow({
+    where: { id: patient.id },
+    include: { patientProfile: true },
+  });
+  assert.equal(account.email, "logged-in@example.com");
+  assert.equal(account.fullName, "Logged In Patient");
+  assert.equal(account.patientProfile?.address, "Booked address");
+
+  // Khách chưa đăng nhập vẫn phải qua OTP.
+  const guest = await http.request("/api/v1/appointments", {
+    method: "POST",
+    body: bookingBody({ phone: "0944444444", timeSlotId: fixture.slotTwo.id }),
+  });
+  assert.equal(guest.status, 201);
+  assert.equal(guest.body.data.otpRequired, true);
+  assert.equal(typeof guest.body.data.debugOtp, "string");
+});

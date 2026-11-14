@@ -15,25 +15,41 @@ class BookingSubmissionRepository {
   final Dio _publicDio;
   final Dio _authenticatedDio;
 
-  Future<PendingBooking> create({
+  /// [authenticated]: đã đăng nhập, gửi kèm phiên để máy chủ nhận ra chủ tài khoản
+  /// (đặt cho chính mình thì không cần OTP). Đặt cho người thân luôn cần phiên.
+  Future<BookingCreation> create({
     required BookingSelection selection,
     required BookingPatientDraft patient,
+    bool authenticated = false,
   }) async {
     return guardApi(() async {
-      final dio = patient.dependentProfileId == null
-          ? _publicDio
-          : _authenticatedDio;
+      final dio = authenticated || patient.dependentProfileId != null
+          ? _authenticatedDio
+          : _publicDio;
       final response = await dio.post<dynamic>(
         '/appointments',
         data: patient.toRequestJson(selection),
       );
-      final pending = PendingBooking.fromJson(requireDataMap(response.data))
-          .copyWith(
-            otpChannel: patient.otpChannel,
-            otpTarget: patient.otpChannel == BookingOtpChannel.email
-                ? patient.patientEmail?.trim()
-                : patient.patientPhone.trim(),
+      final data = requireDataMap(response.data);
+      if (data['otpRequired'] == false) {
+        final confirmed = BookedAppointment.fromJson(
+          jsonMap(data['appointment']),
+        );
+        if (confirmed.id.isEmpty || confirmed.bookingCode.isEmpty) {
+          throw const ApiException(
+            kind: ApiErrorKind.unknown,
+            code: 'INVALID_API_CONTRACT',
+            message: 'Phản hồi tạo lịch không đúng định dạng.',
           );
+        }
+        return BookingCreation.confirmed(confirmed);
+      }
+      final pending = PendingBooking.fromJson(data).copyWith(
+        otpChannel: patient.otpChannel,
+        otpTarget: patient.otpChannel == BookingOtpChannel.email
+            ? patient.patientEmail?.trim()
+            : patient.patientPhone.trim(),
+      );
       if (pending.appointmentId.isEmpty ||
           pending.bookingCode.isEmpty ||
           pending.holdReleaseToken == null) {
@@ -43,7 +59,7 @@ class BookingSubmissionRepository {
           message: 'Phản hồi tạo lịch không đúng định dạng.',
         );
       }
-      return pending;
+      return BookingCreation.awaitingOtp(pending);
     });
   }
 

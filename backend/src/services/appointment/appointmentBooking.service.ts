@@ -1,4 +1,5 @@
 import PolicyService from "../policy.service.js";
+import type { Prisma } from "../../../generated/prisma/client.js";
 import type { OtpChannel } from "../../../generated/prisma/enums.js";
 import { prisma } from "../../config/prisma.js";
 import { enqueuePendingOtpExpiry } from "../../queues/appointmentLifecycle.queue.js";
@@ -6,6 +7,7 @@ import AuthOtpService from "../authOtp.service.js";
 import {
   ACCOUNT_LOGIN_REQUIRED_CODE,
   ACCOUNT_LOGIN_REQUIRED_MESSAGE,
+  canSkipBookingOtp,
   decideGuestBookingIdentity,
 } from "../bookingIdentity.js";
 import { canDeliverSms } from "../../config/otpChannels.js";
@@ -34,6 +36,41 @@ import {
 } from "./appointment.shared.js";
 import { AppointmentServiceSupport } from "./appointment.support.js";
 import type { AppointmentLifecycleUseCases } from "./appointmentLifecycle.service.js";
+const verifiedAppointmentSelect = {
+  id: true,
+  patientId: true,
+  dependentProfileId: true,
+  patientName: true,
+  patientPhone: true,
+  patientEmail: true,
+  otpChannel: true,
+  patientGender: true,
+  patientDateOfBirth: true,
+  patientAddress: true,
+  patientCccd: true,
+  hasBHYT: true,
+  healthInsuranceCode: true,
+  registeredHospital: true,
+  allergies: true,
+  medicalHistory: true,
+  familyHistory: true,
+  status: true,
+  holdExpiresAt: true,
+  createdAt: true,
+} satisfies Prisma.AppointmentSelect;
+
+type VerifiedAppointmentRow = Prisma.AppointmentGetPayload<{
+  select: typeof verifiedAppointmentSelect;
+}>;
+
+/**
+ * Căn cứ xác nhận lịch hẹn:
+ * - OTP: người đặt vừa nhập đúng mã gửi tới SĐT/email.
+ * - ACCOUNT_SESSION: người đặt đang đăng nhập (phiên đã qua OTP) và đặt cho chính
+ *   mình bằng đúng SĐT của tài khoản, nên không cần OTP lần nữa.
+ */
+type BookingVerificationProof = "OTP" | "ACCOUNT_SESSION";
+
 export class AppointmentBookingUseCases extends AppointmentServiceSupport {
   constructor(
     private readonly lifecycle: Pick<
@@ -166,6 +203,10 @@ export class AppointmentBookingUseCases extends AppointmentServiceSupport {
     const finalAmount = estimatedPrice + serviceFee - bhytDiscount;
     const patientDateOfBirth = parseOptionalDate(input.dateOfBirth);
     const normalizedPatientEmail = normalizeOptionalString(input.patientEmail);
+    const skipOtp = canSkipBookingOtp({
+      isAuthenticated: Boolean(bookingIdentity.patientId),
+      dependentProfileId: bookingIdentity.dependentProfileId,
+    });
     const otpChannel: OtpChannel =
       input.otpChannel || (normalizedPatientEmail ? "EMAIL" : "SMS");
     const holdExpiresAt = new Date(
@@ -183,7 +224,7 @@ export class AppointmentBookingUseCases extends AppointmentServiceSupport {
       throw new AppError("Ngày sinh phải nhỏ hơn ngày hiện tại", 400);
     }
 
-    if (otpChannel === "SMS" && !canDeliverSms(input.patientPhone)) {
+    if (!skipOtp && otpChannel === "SMS" && !canDeliverSms(input.patientPhone)) {
       throw new AppError(
         "Hệ thống hiện chỉ gửi mã xác thực qua email. Vui lòng nhập email để nhận mã.",
         400,
@@ -191,7 +232,7 @@ export class AppointmentBookingUseCases extends AppointmentServiceSupport {
       );
     }
 
-    if (otpChannel === "EMAIL" && !normalizedPatientEmail) {
+    if (!skipOtp && otpChannel === "EMAIL" && !normalizedPatientEmail) {
       throw new AppError(
         "Email là bắt buộc khi chọn xác thực OTP qua email",
         400,
@@ -226,6 +267,7 @@ export class AppointmentBookingUseCases extends AppointmentServiceSupport {
 
     let appointmentId = "";
     let bookingCode = "";
+    let confirmed = false;
 
     try {
       const appointment = await prisma.$transaction(async (tx) => {
@@ -330,6 +372,39 @@ export class AppointmentBookingUseCases extends AppointmentServiceSupport {
       appointmentId = appointment.id;
       bookingCode = appointment.bookingCode;
 
+      if (skipOtp) {
+        const verified = await prisma.appointment.findUniqueOrThrow({
+          where: { id: appointmentId },
+          select: verifiedAppointmentSelect,
+        });
+        const confirmedAppointment = await this.confirmVerifiedAppointment(
+          verified,
+          "ACCOUNT_SESSION",
+        );
+        confirmed = true;
+        try {
+          await StaffNotificationService.notifyAppointmentEvent(
+            confirmedAppointment.id,
+            "CREATED",
+            { includeReception: true },
+          );
+        } catch (error) {
+          // Lịch đã xác nhận; lỗi báo lễ tân không được làm mất lịch của người khám.
+          console.error(
+            `[APPOINTMENT_NOTIFY] appointment=${appointmentId} failed:`,
+            error,
+          );
+        }
+        return {
+          appointmentId,
+          bookingCode,
+          patientPhone: input.patientPhone,
+          otpRequired: false as const,
+          holdExpiresAt: null,
+          appointment: confirmedAppointment,
+        };
+      }
+
       try {
         const scheduled = await enqueuePendingOtpExpiry(
           appointmentId,
@@ -366,6 +441,7 @@ export class AppointmentBookingUseCases extends AppointmentServiceSupport {
         appointmentId,
         bookingCode,
         patientPhone: input.patientPhone,
+        otpRequired: true as const,
         holdExpiresAt,
         holdReleaseToken: signBookingHoldReleaseGrant({
           appointmentId,
@@ -376,12 +452,169 @@ export class AppointmentBookingUseCases extends AppointmentServiceSupport {
         expiresIn: otp.expiresIn,
       };
     } catch (error) {
-      if (appointmentId) {
+      if (appointmentId && !confirmed) {
         await this.releasePendingAppointment(appointmentId);
       }
 
       throw error;
     }
+  }
+
+  /**
+   * Chuyển lịch từ PENDING_OTP sang PENDING_CONFIRM và cập nhật hồ sơ người khám.
+   * Chỉ căn cứ OTP mới được ghi email/SĐT "đã xác thực" vào tài khoản; căn cứ phiên
+   * đăng nhập thì giữ nguyên các cờ xác thực vì chưa có bằng chứng mới.
+   */
+  private async confirmVerifiedAppointment(
+    appointment: VerifiedAppointmentRow,
+    proof: BookingVerificationProof,
+  ) {
+    return prisma.$transaction(async (tx) => {
+      await this.claimAppointmentTransition(tx, {
+        id: appointment.id,
+        expectedStatuses: ["PENDING_OTP"],
+        nextStatus: "PENDING_CONFIRM",
+        data: { holdExpiresAt: null },
+      });
+
+      if (appointment.dependentProfileId) {
+        // The OTP belongs to the managing account. Dependent snapshots must
+        // never overwrite the owner's name or patient profile.
+        await tx.user.update({
+          where: { id: appointment.patientId },
+          data: { isPhoneVerified: true },
+        });
+      } else {
+      const emailOwner = proof === "OTP" && appointment.patientEmail
+        ? await tx.user.findUnique({
+            where: { email: appointment.patientEmail },
+            select: { id: true },
+          })
+        : null;
+
+      if (emailOwner && emailOwner.id !== appointment.patientId) {
+        throw new AppError("Email đã được sử dụng cho tài khoản khác", 409);
+      }
+
+      // Kiểm tra lại trong transaction: tài khoản có thể đã được người khác
+      // nhận (gắn email) sau khi lịch này được tạo nhưng trước khi xác thực.
+      if (proof === "OTP" && appointment.otpChannel === "EMAIL") {
+        const account = await tx.user.findUniqueOrThrow({
+          where: { id: appointment.patientId },
+          select: { email: true, isPhoneVerified: true },
+        });
+        if (
+          decideGuestBookingIdentity({
+            channel: "EMAIL",
+            existing: account,
+            bookingEmail: appointment.patientEmail,
+          }) === "LOGIN_REQUIRED"
+        ) {
+          throw new AppError(
+            ACCOUNT_LOGIN_REQUIRED_MESSAGE,
+            409,
+            ACCOUNT_LOGIN_REQUIRED_CODE,
+          );
+        }
+      }
+
+      const cccdOwner = appointment.patientCccd
+        ? await tx.patientProfile.findUnique({
+            where: { cccd: appointment.patientCccd },
+            select: { userId: true },
+          })
+        : null;
+
+      if (cccdOwner && cccdOwner.userId !== appointment.patientId) {
+        throw new AppError(
+          "CCCD đã được sử dụng cho hồ sơ người khám khác",
+          409,
+        );
+      }
+
+      if (proof === "OTP") {
+      await tx.user.update({
+        where: { id: appointment.patientId },
+        data: {
+          fullName: appointment.patientName,
+          ...(appointment.patientEmail
+            ? { email: appointment.patientEmail }
+            : {}),
+          // isPhoneVerified giữ nghĩa "tài khoản đã xác thực bằng OTP" vì phiên
+          // đăng nhập bệnh nhân đang kiểm tra cờ này; kênh email còn đánh dấu
+          // riêng isEmailVerified để biết đúng thứ đã được chứng minh.
+          isPhoneVerified: true,
+          ...(appointment.otpChannel === "EMAIL" && appointment.patientEmail
+            ? { isEmailVerified: true }
+            : {}),
+        },
+      });
+      }
+
+      await tx.patientProfile.upsert({
+        where: { userId: appointment.patientId },
+        update: {
+          ...(appointment.patientGender
+            ? { gender: appointment.patientGender }
+            : {}),
+          ...(appointment.patientDateOfBirth
+            ? { dateOfBirth: appointment.patientDateOfBirth }
+            : {}),
+          ...(appointment.patientCccd
+            ? { cccd: appointment.patientCccd }
+            : {}),
+          ...(appointment.patientAddress
+            ? { address: appointment.patientAddress }
+            : {}),
+          ...(appointment.hasBHYT ? { hasBHYT: true } : {}),
+          ...(appointment.healthInsuranceCode
+            ? { healthInsuranceCode: appointment.healthInsuranceCode }
+            : {}),
+          ...(appointment.registeredHospital
+            ? { registeredHospital: appointment.registeredHospital }
+            : {}),
+          ...(appointment.allergies
+            ? { allergies: appointment.allergies }
+            : {}),
+          ...(appointment.medicalHistory
+            ? { medicalHistory: appointment.medicalHistory }
+            : {}),
+          ...(appointment.familyHistory
+            ? { familyHistory: appointment.familyHistory }
+            : {}),
+        },
+        create: {
+          userId: appointment.patientId,
+          gender: appointment.patientGender,
+          dateOfBirth: appointment.patientDateOfBirth,
+          cccd: appointment.patientCccd,
+          address: appointment.patientAddress,
+          hasBHYT: appointment.hasBHYT,
+          healthInsuranceCode: appointment.healthInsuranceCode,
+          registeredHospital: appointment.registeredHospital,
+          allergies: appointment.allergies,
+          medicalHistory: appointment.medicalHistory,
+          familyHistory: appointment.familyHistory,
+        },
+      });
+      }
+
+      await tx.appointmentLog.create({
+        data: {
+          appointmentId: appointment.id,
+          action: "OTP_VERIFIED",
+          note:
+            proof === "OTP"
+              ? "Người khám đã xác thực OTP đặt lịch"
+              : "Người khám đang đăng nhập, đặt cho chính mình nên không cần OTP",
+        },
+      });
+
+      return tx.appointment.findUniqueOrThrow({
+        where: { id: appointment.id },
+        select: appointmentSelect,
+      });
+    });
   }
 
   async abandonPendingOtp(id: string, holdReleaseToken: string) {
@@ -505,28 +738,7 @@ export class AppointmentBookingUseCases extends AppointmentServiceSupport {
   async verifyOtp(id: string, otp: string, ipAddress?: string) {
     const appointment = await prisma.appointment.findUnique({
       where: { id },
-      select: {
-        id: true,
-        patientId: true,
-        dependentProfileId: true,
-        patientName: true,
-        patientPhone: true,
-        patientEmail: true,
-        otpChannel: true,
-        patientGender: true,
-        patientDateOfBirth: true,
-        patientAddress: true,
-        patientCccd: true,
-        hasBHYT: true,
-        healthInsuranceCode: true,
-        registeredHospital: true,
-        allergies: true,
-        medicalHistory: true,
-        familyHistory: true,
-        status: true,
-        holdExpiresAt: true,
-        createdAt: true,
-      },
+      select: verifiedAppointmentSelect,
     });
 
     if (!appointment) {
@@ -555,147 +767,10 @@ export class AppointmentBookingUseCases extends AppointmentServiceSupport {
       { ipAddress, channel: appointment.otpChannel },
     );
 
-    const updatedAppointment = await prisma.$transaction(async (tx) => {
-      await this.claimAppointmentTransition(tx, {
-        id: appointment.id,
-        expectedStatuses: ["PENDING_OTP"],
-        nextStatus: "PENDING_CONFIRM",
-        data: { holdExpiresAt: null },
-      });
-
-      if (appointment.dependentProfileId) {
-        // The OTP belongs to the managing account. Dependent snapshots must
-        // never overwrite the owner's name or patient profile.
-        await tx.user.update({
-          where: { id: appointment.patientId },
-          data: { isPhoneVerified: true },
-        });
-      } else {
-      const emailOwner = appointment.patientEmail
-        ? await tx.user.findUnique({
-            where: { email: appointment.patientEmail },
-            select: { id: true },
-          })
-        : null;
-
-      if (emailOwner && emailOwner.id !== appointment.patientId) {
-        throw new AppError("Email đã được sử dụng cho tài khoản khác", 409);
-      }
-
-      // Kiểm tra lại trong transaction: tài khoản có thể đã được người khác
-      // nhận (gắn email) sau khi lịch này được tạo nhưng trước khi xác thực.
-      if (appointment.otpChannel === "EMAIL") {
-        const account = await tx.user.findUniqueOrThrow({
-          where: { id: appointment.patientId },
-          select: { email: true, isPhoneVerified: true },
-        });
-        if (
-          decideGuestBookingIdentity({
-            channel: "EMAIL",
-            existing: account,
-            bookingEmail: appointment.patientEmail,
-          }) === "LOGIN_REQUIRED"
-        ) {
-          throw new AppError(
-            ACCOUNT_LOGIN_REQUIRED_MESSAGE,
-            409,
-            ACCOUNT_LOGIN_REQUIRED_CODE,
-          );
-        }
-      }
-
-      const cccdOwner = appointment.patientCccd
-        ? await tx.patientProfile.findUnique({
-            where: { cccd: appointment.patientCccd },
-            select: { userId: true },
-          })
-        : null;
-
-      if (cccdOwner && cccdOwner.userId !== appointment.patientId) {
-        throw new AppError(
-          "CCCD đã được sử dụng cho hồ sơ người khám khác",
-          409,
-        );
-      }
-
-      await tx.user.update({
-        where: { id: appointment.patientId },
-        data: {
-          fullName: appointment.patientName,
-          ...(appointment.patientEmail
-            ? { email: appointment.patientEmail }
-            : {}),
-          // isPhoneVerified giữ nghĩa "tài khoản đã xác thực bằng OTP" vì phiên
-          // đăng nhập bệnh nhân đang kiểm tra cờ này; kênh email còn đánh dấu
-          // riêng isEmailVerified để biết đúng thứ đã được chứng minh.
-          isPhoneVerified: true,
-          ...(appointment.otpChannel === "EMAIL" && appointment.patientEmail
-            ? { isEmailVerified: true }
-            : {}),
-        },
-      });
-
-      await tx.patientProfile.upsert({
-        where: { userId: appointment.patientId },
-        update: {
-          ...(appointment.patientGender
-            ? { gender: appointment.patientGender }
-            : {}),
-          ...(appointment.patientDateOfBirth
-            ? { dateOfBirth: appointment.patientDateOfBirth }
-            : {}),
-          ...(appointment.patientCccd
-            ? { cccd: appointment.patientCccd }
-            : {}),
-          ...(appointment.patientAddress
-            ? { address: appointment.patientAddress }
-            : {}),
-          ...(appointment.hasBHYT ? { hasBHYT: true } : {}),
-          ...(appointment.healthInsuranceCode
-            ? { healthInsuranceCode: appointment.healthInsuranceCode }
-            : {}),
-          ...(appointment.registeredHospital
-            ? { registeredHospital: appointment.registeredHospital }
-            : {}),
-          ...(appointment.allergies
-            ? { allergies: appointment.allergies }
-            : {}),
-          ...(appointment.medicalHistory
-            ? { medicalHistory: appointment.medicalHistory }
-            : {}),
-          ...(appointment.familyHistory
-            ? { familyHistory: appointment.familyHistory }
-            : {}),
-        },
-        create: {
-          userId: appointment.patientId,
-          gender: appointment.patientGender,
-          dateOfBirth: appointment.patientDateOfBirth,
-          cccd: appointment.patientCccd,
-          address: appointment.patientAddress,
-          hasBHYT: appointment.hasBHYT,
-          healthInsuranceCode: appointment.healthInsuranceCode,
-          registeredHospital: appointment.registeredHospital,
-          allergies: appointment.allergies,
-          medicalHistory: appointment.medicalHistory,
-          familyHistory: appointment.familyHistory,
-        },
-      });
-      }
-
-      await tx.appointmentLog.create({
-        data: {
-          appointmentId: appointment.id,
-          action: "OTP_VERIFIED",
-          note: "Người khám đã xác thực OTP đặt lịch",
-        },
-      });
-
-      return tx.appointment.findUniqueOrThrow({
-        where: { id: appointment.id },
-        select: appointmentSelect,
-      });
-    });
+    const updatedAppointment = await this.confirmVerifiedAppointment(
+      appointment,
+      "OTP",
+    );
 
     await StaffNotificationService.notifyAppointmentEvent(
       updatedAppointment.id,
