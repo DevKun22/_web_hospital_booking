@@ -1,47 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:hospital_booking_mobile/core/theme/app_theme.dart';
-import 'package:hospital_booking_mobile/features/booking/application/booking_flow_controller.dart';
-import 'package:hospital_booking_mobile/features/booking/domain/booking_catalog.dart';
-
-class BookingProgressStrip extends StatelessWidget {
-  const BookingProgressStrip({super.key, required this.state});
-
-  final BookingFlowState state;
-
-  @override
-  Widget build(BuildContext context) {
-    final completed = <bool>[
-      if (state.selection.serviceMode == BookingServiceMode.package)
-        state.selection.packageId != null,
-      state.selection.departmentId != null,
-      state.selection.doctorId != null,
-      state.selection.date != null,
-      state.selection.slotId != null,
-    ];
-    return Row(
-      children: List.generate(completed.length, (index) {
-        final active = completed[index];
-        return Expanded(
-          child: Padding(
-            padding: EdgeInsets.only(
-              right: index == completed.length - 1 ? 0 : 6,
-            ),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 180),
-              height: 5,
-              decoration: BoxDecoration(
-                color: active
-                    ? AppTheme.primary
-                    : Theme.of(context).colorScheme.outlineVariant,
-                borderRadius: BorderRadius.circular(999),
-              ),
-            ),
-          ),
-        );
-      }),
-    );
-  }
-}
 
 class BookingStepHeader extends StatelessWidget {
   const BookingStepHeader({

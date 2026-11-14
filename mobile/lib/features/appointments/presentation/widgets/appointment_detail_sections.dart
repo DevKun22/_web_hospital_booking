@@ -24,12 +24,16 @@ class AppointmentStatusHeader extends StatelessWidget {
         Row(
           children: [
             Expanded(
-              child: AppStatusBadge(
-                label: appointment.status.label,
-                tone: appointment.status.tone,
-                icon: appointment.status.icon,
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: AppStatusBadge(
+                  label: appointment.status.label,
+                  tone: appointment.status.tone,
+                  icon: appointment.status.icon,
+                ),
               ),
             ),
+            const SizedBox(width: 12),
             Text(
               appointment.bookingCode,
               style: Theme.of(
@@ -87,7 +91,7 @@ class AppointmentInformationCard extends StatelessWidget {
             ? 'Đang cập nhật'
             : appointment.doctorName,
       ),
-      if (appointment.specialization != null)
+      if (_showSpecialization(appointment))
         _DetailRow(
           icon: Icons.workspace_premium_outlined,
           label: 'Chuyên môn',
@@ -103,6 +107,16 @@ class AppointmentInformationCard extends StatelessWidget {
       ),
     ],
   );
+}
+
+/// Ẩn "Chuyên môn" khi chỉ nhắc lại tên chuyên khoa (vd. "tổng quát" và
+/// "Khoa tổng quát").
+bool _showSpecialization(PatientAppointment appointment) {
+  final specialization = appointment.specialization?.trim();
+  if (specialization == null || specialization.isEmpty) return false;
+  String normalize(String value) =>
+      value.toLowerCase().replaceFirst(RegExp(r'^khoa\s+'), '').trim();
+  return normalize(specialization) != normalize(appointment.careUnit);
 }
 
 class AppointmentPriceInformation extends StatelessWidget {

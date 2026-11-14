@@ -227,20 +227,14 @@ class HomeQuickDepartmentChips extends StatelessWidget {
         return ActionChip(
           onPressed: () =>
               context.push('/departments/${Uri.encodeComponent(item.id)}'),
-          avatar: index == 0
-              ? const Icon(Icons.favorite_outline_rounded, size: 16)
-              : null,
+          avatar: const Icon(Icons.medical_services_outlined, size: 16),
           label: Text(item.name),
           labelStyle: Theme.of(context).textTheme.labelMedium?.copyWith(
-            color: index == 0
-                ? Colors.white
-                : Theme.of(context).colorScheme.onSurface,
+            color: Theme.of(context).colorScheme.onSurface,
             fontWeight: FontWeight.w700,
           ),
-          backgroundColor: index == 0 ? AppPalette.primary : Colors.white,
-          side: BorderSide(
-            color: index == 0 ? AppPalette.primary : AppPalette.border,
-          ),
+          backgroundColor: Colors.white,
+          side: const BorderSide(color: AppPalette.border),
           shape: const StadiumBorder(),
           visualDensity: VisualDensity.compact,
         );

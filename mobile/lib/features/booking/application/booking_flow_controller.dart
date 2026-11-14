@@ -286,6 +286,9 @@ class BookingFlowController extends Notifier<BookingFlowState> {
       selection: selection,
     );
     await _persist(selection);
+    // Chuyên khoa chỉ có một bác sĩ thì chọn sẵn để bớt một thao tác.
+    final visible = state.visibleDoctors;
+    if (visible.length == 1) await selectDoctor(visible.single.id);
   }
 
   Future<void> selectDoctor(String doctorId) async {

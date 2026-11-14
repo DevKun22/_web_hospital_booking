@@ -87,33 +87,56 @@ class BookingPatientContactFields extends StatelessWidget {
         },
       ),
       const SizedBox(height: 18),
-      Text(
-        'Nhận mã xác thực qua',
-        style: Theme.of(context).textTheme.labelLarge,
-      ),
-      const SizedBox(height: 8),
-      SegmentedButton<BookingOtpChannel>(
-        segments: [
-          for (final channel in availableOtpChannels)
-            ButtonSegment(
-              value: channel,
-              icon: Icon(
-                channel == BookingOtpChannel.sms
-                    ? Icons.sms_outlined
-                    : Icons.email_outlined,
-              ),
-              label: Text(channel == BookingOtpChannel.sms ? 'SMS' : 'Email'),
+      if (availableOtpChannels.length == 1)
+        Row(
+          children: [
+            Icon(
+              availableOtpChannels.first == BookingOtpChannel.sms
+                  ? Icons.sms_outlined
+                  : Icons.email_outlined,
+              size: 18,
+              color: Theme.of(context).colorScheme.primary,
             ),
-        ],
-        selected: {
-          availableOtpChannels.contains(otpChannel)
-              ? otpChannel
-              : availableOtpChannels.first,
-        },
-        onSelectionChanged: isSubmitting
-            ? null
-            : (value) => onOtpChannelChanged(value.first),
-      ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                availableOtpChannels.first == BookingOtpChannel.sms
+                    ? 'Mã xác thực sẽ gửi qua SMS.'
+                    : 'Mã xác thực sẽ gửi qua email.',
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+            ),
+          ],
+        )
+      else ...[
+        Text(
+          'Nhận mã xác thực qua',
+          style: Theme.of(context).textTheme.labelLarge,
+        ),
+        const SizedBox(height: 8),
+        SegmentedButton<BookingOtpChannel>(
+          segments: [
+            for (final channel in availableOtpChannels)
+              ButtonSegment(
+                value: channel,
+                icon: Icon(
+                  channel == BookingOtpChannel.sms
+                      ? Icons.sms_outlined
+                      : Icons.email_outlined,
+                ),
+                label: Text(channel == BookingOtpChannel.sms ? 'SMS' : 'Email'),
+              ),
+          ],
+          selected: {
+            availableOtpChannels.contains(otpChannel)
+                ? otpChannel
+                : availableOtpChannels.first,
+          },
+          onSelectionChanged: isSubmitting
+              ? null
+              : (value) => onOtpChannelChanged(value.first),
+        ),
+      ],
     ],
   );
 }

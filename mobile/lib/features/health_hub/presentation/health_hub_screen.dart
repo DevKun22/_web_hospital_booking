@@ -127,7 +127,7 @@ class _PrivacyHeader extends StatelessWidget {
               ),
               const SizedBox(height: 4),
               Text(
-                'Chỉ hiển thị sau khi xác thực đúng tài khoản người khám.',
+                'Chỉ bạn xem được dữ liệu này trên tài khoản đã xác thực.',
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   color: Colors.white.withValues(alpha: 0.86),
                   height: 1.35,

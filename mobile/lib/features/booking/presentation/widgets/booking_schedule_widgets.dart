@@ -27,6 +27,7 @@ class BookingDepartmentPicker extends StatelessWidget {
             label: Text(item.name),
             selected: item.id == selectedId,
             onSelected: (_) => onSelected(item.id),
+            showCheckmark: false,
             avatar: const Icon(Icons.medical_services_outlined, size: 17),
           ),
         )
@@ -246,6 +247,7 @@ class BookingSlotPicker extends StatelessWidget {
                 label: Text(label),
                 selected: selected,
                 onSelected: (_) => onSelected(slot.id),
+                showCheckmark: false,
                 avatar: const Icon(Icons.schedule_rounded, size: 17),
               ),
             ),

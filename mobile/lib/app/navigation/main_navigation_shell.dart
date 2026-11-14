@@ -197,7 +197,7 @@ class _MainBottomNavigationBar extends StatelessWidget {
       isPrimaryAction: true,
     ),
     _NavigationDestination(
-      label: 'Trợ lý AI',
+      label: 'Trợ lý',
       icon: Icons.smart_toy_outlined,
       selectedIcon: Icons.smart_toy_rounded,
     ),
