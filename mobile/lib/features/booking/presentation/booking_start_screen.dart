@@ -9,6 +9,9 @@ import 'package:hospital_booking_mobile/features/booking/application/booking_sub
 import 'package:hospital_booking_mobile/features/booking/domain/booking_catalog.dart';
 import 'package:hospital_booking_mobile/features/booking/presentation/widgets/booking_journey_indicator.dart';
 import 'package:hospital_booking_mobile/features/booking/presentation/widgets/booking_selection_widgets.dart';
+import 'package:hospital_booking_mobile/features/booking/presentation/widgets/booking_schedule_widgets.dart';
+import 'package:hospital_booking_mobile/features/booking/presentation/widgets/booking_service_widgets.dart';
+import 'package:hospital_booking_mobile/features/booking/presentation/widgets/booking_summary_widgets.dart';
 
 import 'package:hospital_booking_mobile/core/lifecycle/foreground_poller.dart';
 

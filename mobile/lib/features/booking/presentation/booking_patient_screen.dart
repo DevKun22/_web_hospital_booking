@@ -1,9 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:hospital_booking_mobile/core/errors/api_exception.dart';
-import 'package:hospital_booking_mobile/core/formatters/display_formatters.dart';
-import 'package:hospital_booking_mobile/core/widgets/app_error_banner.dart';
 import 'package:hospital_booking_mobile/core/widgets/app_ui.dart';
 import 'package:hospital_booking_mobile/features/auth/application/auth_controller.dart';
 import 'package:hospital_booking_mobile/features/booking/application/booking_flow_controller.dart';
@@ -19,6 +16,9 @@ import 'package:hospital_booking_mobile/features/dependents/domain/dependent_pro
 import 'package:hospital_booking_mobile/features/profile/application/patient_profile_controller.dart';
 import 'package:hospital_booking_mobile/features/profile/domain/patient_profile.dart';
 import 'package:hospital_booking_mobile/features/booking/presentation/widgets/booking_patient_dialogs.dart';
+
+import 'package:hospital_booking_mobile/features/booking/presentation/widgets/booking_patient_sections.dart';
+import 'package:hospital_booking_mobile/features/booking/presentation/widgets/booking_compact_selection_card.dart';
 
 enum _BookingPatientField {
   fullName,
@@ -207,7 +207,7 @@ class _BookingPatientScreenState extends ConsumerState<BookingPatientScreen> {
             children: [
               const BookingJourneyIndicator(currentStep: 1),
               const SizedBox(height: 20),
-              _CompactSelectionCard(
+              BookingCompactSelectionCard(
                 doctorName: selectedDoctor.displayName,
                 departmentName: selectedDoctor.departmentName,
                 packageName: selectedPackage?.name,
@@ -277,91 +277,16 @@ class _BookingPatientScreenState extends ConsumerState<BookingPatientScreen> {
                 ],
               ),
               const SizedBox(height: 12),
-              TextFormField(
-                controller: _nameController,
-                readOnly: _patientType == BookingPatientType.relative,
-                textInputAction: TextInputAction.next,
-                autofillHints: const [AutofillHints.name],
-                decoration: const InputDecoration(
-                  labelText: 'Họ và tên *',
-                  prefixIcon: Icon(Icons.person_outline_rounded),
-                ),
-                validator: (value) => (value?.trim().length ?? 0) < 2
-                    ? 'Họ tên tối thiểu 2 ký tự.'
-                    : null,
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _phoneController,
-                readOnly: _patientType == BookingPatientType.relative,
-                keyboardType: TextInputType.phone,
-                textInputAction: TextInputAction.next,
-                autofillHints: const [AutofillHints.telephoneNumber],
-                decoration: const InputDecoration(
-                  labelText: 'Số điện thoại *',
-                  prefixIcon: Icon(Icons.phone_outlined),
-                ),
-                validator: (value) =>
-                    RegExp(
-                      r'^(0|\+84)[0-9]{9,10}$',
-                    ).hasMatch(value?.trim() ?? '')
-                    ? null
-                    : 'Số điện thoại không hợp lệ.',
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _emailController,
-                readOnly: _patientType == BookingPatientType.relative,
-                keyboardType: TextInputType.emailAddress,
-                textInputAction: TextInputAction.next,
-                autofillHints: const [AutofillHints.email],
-                decoration: InputDecoration(
-                  labelText: _otpChannel == BookingOtpChannel.email
-                      ? 'Email *'
-                      : 'Email (không bắt buộc)',
-                  prefixIcon: const Icon(Icons.email_outlined),
-                ),
-                validator: (value) {
-                  final email = value?.trim() ?? '';
-                  if (_otpChannel == BookingOtpChannel.email && email.isEmpty) {
-                    return 'Email là bắt buộc khi nhận OTP qua email.';
-                  }
-                  if (email.isNotEmpty &&
-                      !RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(email)) {
-                    return 'Email không hợp lệ.';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 18),
-              Text(
-                'Nhận mã xác thực qua',
-                style: Theme.of(context).textTheme.labelLarge,
-              ),
-              const SizedBox(height: 8),
-              SegmentedButton<BookingOtpChannel>(
-                segments: [
-                  for (final channel in availableOtpChannels)
-                    ButtonSegment(
-                      value: channel,
-                      icon: Icon(
-                        channel == BookingOtpChannel.sms
-                            ? Icons.sms_outlined
-                            : Icons.email_outlined,
-                      ),
-                      label: Text(
-                        channel == BookingOtpChannel.sms ? 'SMS' : 'Email',
-                      ),
-                    ),
-                ],
-                selected: {
-                  availableOtpChannels.contains(_otpChannel)
-                      ? _otpChannel
-                      : availableOtpChannels.first,
-                },
-                onSelectionChanged: isSubmitting
-                    ? null
-                    : (value) => setState(() => _otpChannel = value.first),
+              BookingPatientContactFields(
+                name: _nameController,
+                phone: _phoneController,
+                email: _emailController,
+                isRelative: _patientType == BookingPatientType.relative,
+                otpChannel: _otpChannel,
+                availableOtpChannels: availableOtpChannels,
+                onOtpChannelChanged: (value) =>
+                    setState(() => _otpChannel = value),
+                isSubmitting: isSubmitting,
               ),
               const SizedBox(height: 20),
               TextFormField(
@@ -375,148 +300,50 @@ class _BookingPatientScreenState extends ConsumerState<BookingPatientScreen> {
                 ),
               ),
               const SizedBox(height: 18),
-              Card(
-                clipBehavior: Clip.antiAlias,
-                child: ExpansionTile(
-                  leading: const Icon(Icons.badge_outlined),
-                  title: const Text('Thông tin bổ sung'),
-                  subtitle: const Text('BHYT và thông tin tiếp nhận'),
-                  childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                  children: [
-                    DropdownButtonFormField<String>(
-                      initialValue: _gender,
-                      decoration: const InputDecoration(labelText: 'Giới tính'),
-                      items: const [
-                        DropdownMenuItem(value: 'MALE', child: Text('Nam')),
-                        DropdownMenuItem(value: 'FEMALE', child: Text('Nữ')),
-                        DropdownMenuItem(value: 'OTHER', child: Text('Khác')),
-                      ],
-                      onChanged: _patientType == BookingPatientType.relative
-                          ? null
-                          : (value) => setState(() {
-                              _genderEdited = true;
-                              _gender = value;
-                            }),
-                    ),
-                    const SizedBox(height: 12),
-                    TextFormField(
-                      controller: _dateOfBirthController,
-                      readOnly: true,
-                      decoration: const InputDecoration(
-                        labelText: 'Ngày sinh',
-                        prefixIcon: Icon(Icons.cake_outlined),
-                      ),
-                      onTap: _patientType == BookingPatientType.relative
-                          ? null
-                          : _pickDateOfBirth,
-                    ),
-                    const SizedBox(height: 12),
-                    TextFormField(
-                      controller: _cccdController,
-                      readOnly: _patientType == BookingPatientType.relative,
-                      keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(
-                        labelText: 'CCCD',
-                        prefixIcon: Icon(Icons.credit_card_outlined),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    TextFormField(
-                      controller: _addressController,
-                      readOnly: _patientType == BookingPatientType.relative,
-                      decoration: const InputDecoration(
-                        labelText: 'Địa chỉ',
-                        prefixIcon: Icon(Icons.location_on_outlined),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    SwitchListTile(
-                      contentPadding: EdgeInsets.zero,
-                      value: _hasBhyt,
-                      title: const Text('Có thẻ BHYT'),
-                      onChanged: _patientType == BookingPatientType.relative
-                          ? null
-                          : (value) => setState(() {
-                              _bhytEdited = true;
-                              _hasBhyt = value;
-                            }),
-                    ),
-                    if (_hasBhyt) ...[
-                      TextFormField(
-                        controller: _insuranceCodeController,
-                        readOnly: _patientType == BookingPatientType.relative,
-                        decoration: const InputDecoration(
-                          labelText: 'Mã thẻ BHYT *',
-                        ),
-                        validator: (value) =>
-                            _hasBhyt && (value?.trim().isEmpty ?? true)
-                            ? 'Vui lòng nhập mã thẻ BHYT.'
-                            : null,
-                      ),
-                      const SizedBox(height: 12),
-                      TextFormField(
-                        controller: _registeredHospitalController,
-                        readOnly: _patientType == BookingPatientType.relative,
-                        decoration: const InputDecoration(
-                          labelText: 'Nơi đăng ký khám ban đầu',
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
+              BookingPatientExtraSection(
+                isRelative: _patientType == BookingPatientType.relative,
+                gender: _gender,
+                onGenderChanged: _patientType == BookingPatientType.relative
+                    ? null
+                    : (value) => setState(() {
+                        _genderEdited = true;
+                        _gender = value;
+                      }),
+                dateOfBirth: _dateOfBirthController,
+                onPickDateOfBirth: _pickDateOfBirth,
+                cccd: _cccdController,
+                address: _addressController,
+                hasBhyt: _hasBhyt,
+                onHasBhytChanged: _patientType == BookingPatientType.relative
+                    ? null
+                    : (value) => setState(() {
+                        _bhytEdited = true;
+                        _hasBhyt = value;
+                      }),
+                insuranceCode: _insuranceCodeController,
+                registeredHospital: _registeredHospitalController,
               ),
-              if (submission.error != null) ...[
-                const SizedBox(height: 16),
-                AppErrorBanner(
-                  error: submission.error!,
-                  onDismiss: ref
-                      .read(bookingSubmissionControllerProvider.notifier)
-                      .dismissError,
-                ),
-                if (submission.error!.kind == ApiErrorKind.conflict) ...[
-                  const SizedBox(height: 8),
-                  TextButton.icon(
-                    onPressed: () async {
-                      await ref
-                          .read(bookingFlowControllerProvider.notifier)
-                          .refreshSlots();
-                      if (context.mounted) context.go('/booking');
-                    },
-                    icon: const Icon(Icons.schedule_rounded),
-                    label: const Text('Chọn lại khung giờ'),
-                  ),
-                ],
-              ],
-              const SizedBox(height: 22),
-              FilledButton.icon(
-                onPressed: isBusy ? null : _submit,
-                icon: isBusy
-                    ? const SizedBox.square(
-                        dimension: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.lock_clock_outlined),
-                label: Text(
-                  _isRevalidatingSlot
-                      ? 'Đang kiểm tra khung giờ…'
-                      : isSubmitting
-                      ? 'Đang giữ lịch…'
-                      : 'Giữ lịch và gửi OTP',
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Khung giờ chỉ được giữ tạm thời cho đến khi bạn xác thực OTP.',
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
+              BookingPatientSubmitSection(
+                error: submission.error,
+                onDismissError: ref
+                    .read(bookingSubmissionControllerProvider.notifier)
+                    .dismissError,
+                onReselectSlot: _reselectSlot,
+                isBusy: isBusy,
+                isSubmitting: isSubmitting,
+                isRevalidatingSlot: _isRevalidatingSlot,
+                onSubmit: _submit,
               ),
             ],
           ),
         ),
       ),
     );
+  }
+
+  Future<void> _reselectSlot() async {
+    await ref.read(bookingFlowControllerProvider.notifier).refreshSlots();
+    if (mounted) context.go('/booking');
   }
 
   Future<void> _pickDateOfBirth() async {
@@ -723,64 +550,4 @@ class _BookingPatientScreenState extends ConsumerState<BookingPatientScreen> {
           ),
         );
   }
-}
-
-class _CompactSelectionCard extends StatelessWidget {
-  const _CompactSelectionCard({
-    required this.doctorName,
-    required this.departmentName,
-    required this.date,
-    required this.time,
-    this.packageName,
-    this.packagePrice,
-  });
-
-  final String doctorName;
-  final String departmentName;
-  final String? packageName;
-  final double? packagePrice;
-  final String date;
-  final String time;
-
-  @override
-  Widget build(BuildContext context) => Card(
-    child: Padding(
-      padding: const EdgeInsets.all(16),
-      child: Row(
-        children: [
-          const CircleAvatar(child: Icon(Icons.event_available_outlined)),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (packageName != null) ...[
-                  Text(
-                    packageName!,
-                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                      color: Theme.of(context).colorScheme.primary,
-                    ),
-                  ),
-                  if (packagePrice != null)
-                    Text(
-                      formatVnd(packagePrice!),
-                      style: Theme.of(context).textTheme.labelMedium,
-                    ),
-                  const SizedBox(height: 5),
-                ],
-                Text(doctorName, style: Theme.of(context).textTheme.titleSmall),
-                const SizedBox(height: 3),
-                Text('$departmentName · ${displayDate(date)} · $time'),
-              ],
-            ),
-          ),
-          IconButton(
-            onPressed: () => context.go('/booking'),
-            tooltip: 'Đổi lịch',
-            icon: const Icon(Icons.edit_calendar_outlined),
-          ),
-        ],
-      ),
-    ),
-  );
 }

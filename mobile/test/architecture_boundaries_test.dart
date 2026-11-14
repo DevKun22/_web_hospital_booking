@@ -40,4 +40,18 @@ void main() {
         );
     expect(violations.map((e) => '${e.key}: ${e.value}'), isEmpty);
   });
+
+  test('no Dart source file grows past the size budget', () {
+    // Màn hình quá dài lẫn trạng thái với giao diện; tách widget khi gần ngưỡng.
+    const maxLines = 600;
+    final oversized = <String>[];
+    for (final entity in Directory('lib').listSync(recursive: true)) {
+      if (entity is! File || !entity.path.endsWith('.dart')) continue;
+      final lines = entity.readAsLinesSync().length;
+      if (lines > maxLines) {
+        oversized.add('${entity.path.replaceAll(r'\', '/')}: $lines');
+      }
+    }
+    expect(oversized, isEmpty);
+  });
 }

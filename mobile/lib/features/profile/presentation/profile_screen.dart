@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:hospital_booking_mobile/features/notifications/domain/push_permission_status.dart';
-import 'package:hospital_booking_mobile/core/theme/app_theme.dart';
 import 'package:hospital_booking_mobile/core/formatters/display_formatters.dart';
 import 'package:hospital_booking_mobile/core/widgets/app_error_banner.dart';
 import 'package:hospital_booking_mobile/core/widgets/app_ui.dart';
@@ -11,7 +9,8 @@ import 'package:hospital_booking_mobile/features/booking/application/booking_flo
 import 'package:hospital_booking_mobile/features/booking/application/booking_submission_controller.dart';
 import 'package:hospital_booking_mobile/features/notifications/application/push_notifications_controller.dart';
 import 'package:hospital_booking_mobile/features/profile/application/patient_profile_controller.dart';
-import 'package:hospital_booking_mobile/features/profile/domain/patient_profile.dart';
+import 'package:hospital_booking_mobile/features/profile/presentation/widgets/profile_menu_widgets.dart';
+import 'package:hospital_booking_mobile/features/profile/presentation/widgets/profile_summary_widgets.dart';
 
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
@@ -41,7 +40,7 @@ class ProfileScreen extends ConsumerWidget {
       ),
       body: SafeArea(
         child: state.isInitialLoading && state.profile == null
-            ? const _ProfileLoading()
+            ? const ProfileLoading()
             : RefreshIndicator(
                 onRefresh: controller.refresh,
                 child: ListView(
@@ -76,29 +75,26 @@ class ProfileScreen extends ConsumerWidget {
                       if (state.isRefreshing)
                         const LinearProgressIndicator(minHeight: 2),
                       if (state.isRefreshing) const SizedBox(height: 12),
-                      _ProfileHeader(profile: state.profile!),
+                      ProfileHeader(profile: state.profile!),
                       const SizedBox(height: 14),
-                      _CompletionCard(profile: state.profile!),
+                      ProfileCompletionCard(profile: state.profile!),
                       const SizedBox(height: 14),
-                      _ProfileSection(
+                      ProfileSection(
                         title: 'Thông tin cá nhân',
                         icon: Icons.badge_outlined,
                         children: [
-                          _ProfileRow(
+                          ProfileRow(
                             label: 'Ngày sinh',
                             value: state.profile!.dateOfBirth == null
                                 ? null
                                 : formatDateVi(state.profile!.dateOfBirth!),
                           ),
-                          _ProfileRow(
+                          ProfileRow(
                             label: 'Giới tính',
                             value: state.profile!.gender?.label,
                           ),
-                          _ProfileRow(
-                            label: 'CCCD',
-                            value: state.profile!.cccd,
-                          ),
-                          _ProfileRow(
+                          ProfileRow(label: 'CCCD', value: state.profile!.cccd),
+                          ProfileRow(
                             label: 'Địa chỉ',
                             value: state.profile!.address,
                             showDivider: false,
@@ -106,17 +102,17 @@ class ProfileScreen extends ConsumerWidget {
                         ],
                       ),
                       const SizedBox(height: 14),
-                      _InsuranceCard(profile: state.profile!),
+                      ProfileInsuranceCard(profile: state.profile!),
                       const SizedBox(height: 14),
-                      _HealthSnapshot(profile: state.profile!),
+                      ProfileHealthSnapshot(profile: state.profile!),
                       const SizedBox(height: 14),
-                      const _ProfileGroupTitle(title: 'Dữ liệu y tế'),
+                      const ProfileGroupTitle(title: 'Dữ liệu y tế'),
                       const SizedBox(height: 8),
-                      _PatientShortcuts(),
+                      ProfilePatientShortcuts(),
                       const SizedBox(height: 14),
-                      const _ProfileGroupTitle(title: 'Ứng dụng & hỗ trợ'),
+                      const ProfileGroupTitle(title: 'Ứng dụng & hỗ trợ'),
                       const SizedBox(height: 8),
-                      _AppSupportSection(pushState: pushState),
+                      ProfileAppSupportSection(pushState: pushState),
                       const SizedBox(height: 20),
                       FilledButton.icon(
                         onPressed: () => _openEditor(context, ref),
@@ -267,431 +263,4 @@ class ProfileScreen extends ConsumerWidget {
       ],
     ),
   );
-}
-
-class _ProfileHeader extends StatelessWidget {
-  const _ProfileHeader({required this.profile});
-
-  final PatientProfile profile;
-
-  @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.all(20),
-    decoration: BoxDecoration(
-      gradient: const LinearGradient(
-        colors: [AppTheme.primaryDark, AppTheme.primary],
-      ),
-      borderRadius: BorderRadius.circular(22),
-    ),
-    child: Row(
-      children: [
-        CircleAvatar(
-          radius: 34,
-          backgroundColor: Colors.white.withValues(alpha: 0.18),
-          child: Text(
-            profile.fullName.isEmpty
-                ? 'B'
-                : profile.fullName.substring(0, 1).toUpperCase(),
-            style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-              color: Colors.white,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-        ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                profile.fullName,
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                profile.phone == null
-                    ? 'Chưa cập nhật số điện thoại'
-                    : _maskPhone(profile.phone!),
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: Colors.white.withValues(alpha: 0.86),
-                ),
-              ),
-              if (profile.isPhoneVerified) ...[
-                const SizedBox(height: 8),
-                const AppStatusBadge(
-                  label: 'Đã xác thực',
-                  tone: AppStatusTone.success,
-                  icon: Icons.verified_outlined,
-                ),
-              ],
-            ],
-          ),
-        ),
-      ],
-    ),
-  );
-}
-
-class _CompletionCard extends StatelessWidget {
-  const _CompletionCard({required this.profile});
-
-  final PatientProfile profile;
-
-  @override
-  Widget build(BuildContext context) => Card(
-    margin: EdgeInsets.zero,
-    child: Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Icon(Icons.fact_check_outlined),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  'Mức độ hoàn thiện hồ sơ',
-                  style: Theme.of(
-                    context,
-                  ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
-                ),
-              ),
-              Text(
-                '${profile.completionPercent}%',
-                style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                  color: Theme.of(context).colorScheme.primary,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          LinearProgressIndicator(
-            value: profile.completionPercent / 100,
-            minHeight: 8,
-            borderRadius: BorderRadius.circular(999),
-          ),
-          const SizedBox(height: 10),
-          Text(
-            profile.completionPercent >= 90
-                ? 'Hồ sơ đã đủ thông tin để hỗ trợ tiếp nhận nhanh hơn.'
-                : 'Bổ sung thông tin còn thiếu để bệnh viện tiếp nhận thuận tiện hơn.',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-            ),
-          ),
-        ],
-      ),
-    ),
-  );
-}
-
-class _InsuranceCard extends StatelessWidget {
-  const _InsuranceCard({required this.profile});
-
-  final PatientProfile profile;
-
-  @override
-  Widget build(BuildContext context) => _ProfileSection(
-    title: 'Bảo hiểm y tế',
-    icon: Icons.health_and_safety_outlined,
-    children: [
-      _ProfileRow(
-        label: 'Trạng thái',
-        value: profile.hasBhyt ? 'Có sử dụng BHYT' : 'Không sử dụng BHYT',
-      ),
-      if (profile.hasBhyt) ...[
-        _ProfileRow(label: 'Mã thẻ BHYT', value: profile.healthInsuranceCode),
-        _ProfileRow(
-          label: 'Nơi đăng ký KCB',
-          value: profile.registeredHospital,
-          showDivider: false,
-        ),
-      ] else
-        const _ProfileRow(
-          label: 'Thông tin',
-          value: 'Có thể bổ sung khi chỉnh sửa hồ sơ',
-          showDivider: false,
-        ),
-    ],
-  );
-}
-
-class _HealthSnapshot extends StatelessWidget {
-  const _HealthSnapshot({required this.profile});
-
-  final PatientProfile profile;
-
-  @override
-  Widget build(BuildContext context) => _ProfileSection(
-    title: 'Thông tin sức khỏe',
-    icon: Icons.monitor_heart_outlined,
-    children: [
-      _ProfileRow(label: 'Nhóm máu', value: profile.bloodType),
-      _ProfileRow(
-        label: 'Chiều cao / Cân nặng',
-        value: profile.height == null && profile.weight == null
-            ? null
-            : '${_number(profile.height)} cm · ${_number(profile.weight)} kg',
-      ),
-      _ProfileRow(label: 'Huyết áp', value: profile.bloodPressure),
-      _ProfileRow(label: 'Dị ứng', value: profile.allergies),
-      _ProfileRow(
-        label: 'Tiền sử bệnh',
-        value: profile.medicalHistory,
-        showDivider: false,
-      ),
-    ],
-  );
-}
-
-class _PatientShortcuts extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) => Card(
-    margin: EdgeInsets.zero,
-    child: Column(
-      children: [
-        ListTile(
-          key: const Key('profile-mobile-tools'),
-          leading: const Icon(Icons.phone_android_rounded),
-          title: const Text('Thẻ số & bảo mật thiết bị'),
-          subtitle: const Text('QR người khám và khóa ứng dụng'),
-          trailing: const Icon(Icons.chevron_right_rounded),
-          onTap: () => context.push('/mobile-tools'),
-        ),
-        const Divider(height: 1),
-        ListTile(
-          key: const Key('profile-dependents'),
-          leading: const Icon(Icons.family_restroom_outlined),
-          title: const Text('Hồ sơ người thân'),
-          subtitle: const Text('Quản lý người được bạn đặt lịch'),
-          trailing: const Icon(Icons.chevron_right_rounded),
-          onTap: () => context.push('/dependents'),
-        ),
-        const Divider(height: 1),
-        ListTile(
-          leading: const Icon(Icons.event_note_outlined),
-          title: const Text('Lịch khám của tôi'),
-          trailing: const Icon(Icons.chevron_right_rounded),
-          onTap: () => context.push('/appointments'),
-        ),
-        const Divider(height: 1),
-        ListTile(
-          leading: const Icon(Icons.folder_shared_outlined),
-          title: const Text('Kết quả khám'),
-          trailing: const Icon(Icons.chevron_right_rounded),
-          onTap: () => context.push('/medical-records'),
-        ),
-        const Divider(height: 1),
-        ListTile(
-          leading: const Icon(Icons.medication_outlined),
-          title: const Text('Đơn thuốc'),
-          trailing: const Icon(Icons.chevron_right_rounded),
-          onTap: () => context.push('/prescriptions'),
-        ),
-        const Divider(height: 1),
-        ListTile(
-          leading: const Icon(Icons.receipt_long_outlined),
-          title: const Text('Hóa đơn và BHYT'),
-          trailing: const Icon(Icons.chevron_right_rounded),
-          onTap: () => context.push('/invoices'),
-        ),
-      ],
-    ),
-  );
-}
-
-class _ProfileGroupTitle extends StatelessWidget {
-  const _ProfileGroupTitle({required this.title});
-
-  final String title;
-
-  @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.only(left: 4),
-    child: Text(
-      title,
-      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-        color: AppTheme.clinicalInk,
-        fontWeight: FontWeight.w900,
-      ),
-    ),
-  );
-}
-
-class _AppSupportSection extends StatelessWidget {
-  const _AppSupportSection({required this.pushState});
-
-  final PushNotificationsState pushState;
-
-  @override
-  Widget build(BuildContext context) => Card(
-    margin: EdgeInsets.zero,
-    child: Column(
-      children: [
-        ListTile(
-          key: const Key('profile-notification-settings'),
-          leading: const Icon(Icons.notifications_none_rounded),
-          title: const Text('Thông báo'),
-          subtitle: const Text('Lịch khám, kết quả và hóa đơn'),
-          trailing: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                _notificationStatus(pushState),
-                style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                  color: pushState.isAllowed
-                      ? AppTheme.primary
-                      : Theme.of(context).colorScheme.onSurfaceVariant,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              const SizedBox(width: 4),
-              const Icon(Icons.chevron_right_rounded),
-            ],
-          ),
-          onTap: () => context.push('/notification-settings'),
-        ),
-        const Divider(height: 1),
-        ListTile(
-          key: const Key('profile-support-center'),
-          leading: const Icon(Icons.support_agent_rounded),
-          title: const Text('Trung tâm hỗ trợ'),
-          subtitle: const Text('Hotline, cấp cứu và câu hỏi thường gặp'),
-          trailing: const Icon(Icons.chevron_right_rounded),
-          onTap: () => context.push('/support'),
-        ),
-      ],
-    ),
-  );
-}
-
-class _ProfileSection extends StatelessWidget {
-  const _ProfileSection({
-    required this.title,
-    required this.icon,
-    required this.children,
-  });
-
-  final String title;
-  final IconData icon;
-  final List<Widget> children;
-
-  @override
-  Widget build(BuildContext context) => Card(
-    margin: EdgeInsets.zero,
-    child: Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(icon, color: Theme.of(context).colorScheme.primary),
-              const SizedBox(width: 10),
-              Text(
-                title,
-                style: Theme.of(
-                  context,
-                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          ...children,
-        ],
-      ),
-    ),
-  );
-}
-
-class _ProfileRow extends StatelessWidget {
-  const _ProfileRow({
-    required this.label,
-    required this.value,
-    this.showDivider = true,
-  });
-
-  final String label;
-  final String? value;
-  final bool showDivider;
-
-  @override
-  Widget build(BuildContext context) => Column(
-    children: [
-      Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            SizedBox(
-              width: 118,
-              child: Text(
-                label,
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                value?.trim().isNotEmpty == true ? value! : 'Chưa cập nhật',
-                textAlign: TextAlign.right,
-                style: Theme.of(
-                  context,
-                ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
-              ),
-            ),
-          ],
-        ),
-      ),
-      if (showDivider) const Divider(height: 1),
-    ],
-  );
-}
-
-class _ProfileLoading extends StatelessWidget {
-  const _ProfileLoading();
-
-  @override
-  Widget build(BuildContext context) => ListView(
-    padding: const EdgeInsets.all(16),
-    children: const [
-      AppLoadingSkeleton(height: 150),
-      SizedBox(height: 14),
-      AppLoadingSkeleton(height: 130),
-      SizedBox(height: 14),
-      AppLoadingSkeleton(height: 300),
-    ],
-  );
-}
-
-String _number(double? value) {
-  if (value == null) return '—';
-  return value == value.roundToDouble()
-      ? value.toInt().toString()
-      : value.toStringAsFixed(1);
-}
-
-String _notificationStatus(PushNotificationsState state) {
-  if (state.isCheckingPermission) return 'Đang kiểm tra';
-  return switch (state.permission) {
-    PushPermissionStatus.authorized =>
-      state.isTokenRegistered ? 'Đang bật' : 'Đang đồng bộ',
-    PushPermissionStatus.provisional => 'Tạm thời',
-    PushPermissionStatus.denied => 'Đang tắt',
-    PushPermissionStatus.notDetermined => 'Chưa thiết lập',
-    PushPermissionStatus.unknown => 'Chưa xác định',
-  };
-}
-
-String _maskPhone(String value) {
-  final digits = value.replaceAll(RegExp(r'\D'), '');
-  if (digits.length < 7) return value;
-  return '${digits.substring(0, 4)} ••• ${digits.substring(digits.length - 3)}';
 }
