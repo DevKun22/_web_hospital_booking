@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:hospital_booking_mobile/core/theme/app_theme.dart';
 
-import 'package:hospital_booking_mobile/core/design/app_design_tokens.dart';
 import 'package:hospital_booking_mobile/core/design/app_colors.dart';
 
 class BookingJourneyIndicator extends StatelessWidget {

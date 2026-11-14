@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:hospital_booking_mobile/core/theme/app_theme.dart';
 import 'package:hospital_booking_mobile/core/widgets/app_ui.dart';
 import 'package:hospital_booking_mobile/features/profile/domain/patient_profile.dart';
 import 'package:hospital_booking_mobile/features/profile/presentation/widgets/profile_menu_widgets.dart';

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:hospital_booking_mobile/features/notifications/presentation/notification_type_visuals.dart';
-import 'package:hospital_booking_mobile/core/theme/app_theme.dart';
 import 'package:hospital_booking_mobile/core/widgets/app_ui.dart';
 import 'package:hospital_booking_mobile/features/notifications/domain/patient_notification.dart';
 import 'package:hospital_booking_mobile/core/design/app_colors.dart';

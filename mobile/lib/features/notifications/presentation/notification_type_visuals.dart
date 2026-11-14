@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:hospital_booking_mobile/features/notifications/domain/patient_notification.dart';
 
-import 'package:hospital_booking_mobile/core/design/app_design_tokens.dart';
 import 'package:hospital_booking_mobile/core/design/app_colors.dart';
 
 /// Biểu diễn giao diện của PatientNotificationType; tách khỏi lớp domain để domain là Dart thuần.

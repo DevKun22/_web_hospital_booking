@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hospital_booking_mobile/app/router/route_guard.dart';
-import 'package:hospital_booking_mobile/core/design/app_design_tokens.dart';
 import 'package:hospital_booking_mobile/features/home/presentation/widgets/home_service_catalog.dart';
 import 'package:hospital_booking_mobile/features/home/presentation/widgets/home_service_tiles.dart';
 import 'package:hospital_booking_mobile/core/design/app_colors.dart';

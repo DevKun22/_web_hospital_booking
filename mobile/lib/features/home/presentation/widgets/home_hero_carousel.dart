@@ -1,10 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:hospital_booking_mobile/app/navigation/booking_navigation.dart';
-import 'package:hospital_booking_mobile/core/widgets/app_ui.dart';
 import 'package:hospital_booking_mobile/features/home/domain/home_content.dart';
-
-import 'package:hospital_booking_mobile/core/design/app_design_tokens.dart';
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:hospital_booking_mobile/core/design/app_colors.dart';

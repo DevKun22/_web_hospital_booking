@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:hospital_booking_mobile/core/config/app_brand.dart';
-import 'package:hospital_booking_mobile/core/design/app_design_tokens.dart';
 import 'package:hospital_booking_mobile/core/design/app_colors.dart';
 
 /// Biểu tượng gọn của DevKunCare: dấu cộng trắng và bong bóng trò chuyện teal trên nền xanh.
