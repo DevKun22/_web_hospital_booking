@@ -151,8 +151,7 @@ class ChatbotComposer extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 8),
-            ] else if (state.messages.length == 1 &&
-                state.availability == ChatbotAvailability.ready) ...[
+            ] else if (state.availability == ChatbotAvailability.ready) ...[
               SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
                 child: Row(

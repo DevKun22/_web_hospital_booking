@@ -130,7 +130,8 @@ void main() {
     await controller.selectDepartment('department-2');
     final selection = container.read(bookingFlowControllerProvider).selection;
     expect(selection.departmentId, 'department-2');
-    expect(selection.doctorId, isNull);
+    // Chuyên khoa mới chỉ có một bác sĩ nên được chọn sẵn; ngày và giờ bị xóa.
+    expect(selection.doctorId, 'doctor-2');
     expect(selection.date, isNull);
     expect(selection.slotId, isNull);
   });

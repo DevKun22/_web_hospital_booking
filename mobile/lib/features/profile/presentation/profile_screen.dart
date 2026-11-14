@@ -106,7 +106,7 @@ class ProfileScreen extends ConsumerWidget {
                       const SizedBox(height: 14),
                       ProfileHealthSnapshot(profile: state.profile!),
                       const SizedBox(height: 14),
-                      const ProfileGroupTitle(title: 'Dữ liệu y tế'),
+                      const ProfileGroupTitle(title: 'Thẻ số & bảo mật'),
                       const SizedBox(height: 8),
                       ProfilePatientShortcuts(),
                       const SizedBox(height: 14),

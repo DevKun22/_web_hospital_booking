@@ -210,8 +210,8 @@ class HomeScreen extends ConsumerWidget {
                     if (content.doctors.isNotEmpty) ...[
                       const SizedBox(height: 14),
                       HomeSectionHeader(
-                        title: 'Bác sĩ có lịch hôm nay',
-                        subtitle: 'Đặt lịch trực tiếp, không cần chờ đợi.',
+                        title: 'Bác sĩ nổi bật',
+                        subtitle: 'Chọn bác sĩ và khung giờ phù hợp với bạn.',
                         actionLabel: 'Xem tất cả',
                         onAction: () => context.push('/doctors'),
                       ),

@@ -44,6 +44,10 @@ class _BookingStartScreenState extends ConsumerState<BookingStartScreen> {
     onTick: _pollSlotsIfVisible,
   );
 
+  final _doctorKey = GlobalKey();
+  final _dateKey = GlobalKey();
+  final _slotKey = GlobalKey();
+
   @override
   void initState() {
     super.initState();
@@ -84,6 +88,35 @@ class _BookingStartScreenState extends ConsumerState<BookingStartScreen> {
     super.dispose();
   }
 
+  /// Cuộn tới bước kế tiếp sau khi người dùng chọn xong một bước.
+  void _reveal(GlobalKey key) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final target = key.currentContext;
+      if (!mounted || target == null) return;
+      unawaited(
+        Scrollable.ensureVisible(
+          target,
+          duration: const Duration(milliseconds: 260),
+          curve: Curves.easeOutCubic,
+          alignment: 0.04,
+        ),
+      );
+    });
+  }
+
+  void _revealNextStep(BookingSelection? previous, BookingSelection next) {
+    if (previous == null) return;
+    if (next.slotId != null && previous.slotId != next.slotId) return;
+    if (next.date != null && previous.date != next.date) {
+      _reveal(_slotKey);
+    } else if (next.doctorId != null && previous.doctorId != next.doctorId) {
+      _reveal(_dateKey);
+    } else if (next.departmentId != null &&
+        previous.departmentId != next.departmentId) {
+      _reveal(_doctorKey);
+    }
+  }
+
   void _pollSlotsIfVisible() {
     if (!mounted ||
         !TickerMode.of(context) ||
@@ -104,6 +137,10 @@ class _BookingStartScreenState extends ConsumerState<BookingStartScreen> {
     final state = ref.watch(bookingFlowControllerProvider);
     final submission = ref.watch(bookingSubmissionControllerProvider);
     final controller = ref.read(bookingFlowControllerProvider.notifier);
+    ref.listen(
+      bookingFlowControllerProvider.select((value) => value.selection),
+      (previous, next) => _revealNextStep(previous, next),
+    );
 
     final content = Scaffold(
       appBar: AppBar(
@@ -139,7 +176,6 @@ class _BookingStartScreenState extends ConsumerState<BookingStartScreen> {
                     'Lựa chọn được lưu trên thiết bị. Khung giờ luôn được kiểm tra lại từ bệnh viện.',
               ),
               const SizedBox(height: 18),
-              BookingProgressStrip(state: state),
               if (submission.pending != null &&
                   submission.status != BookingSubmissionStatus.success) ...[
                 const SizedBox(height: 16),
@@ -249,6 +285,7 @@ class _BookingStartScreenState extends ConsumerState<BookingStartScreen> {
                 if (state.selection.departmentId != null) ...[
                   const SizedBox(height: 28),
                   BookingStepHeader(
+                    key: _doctorKey,
                     number:
                         state.selection.serviceMode ==
                             BookingServiceMode.package
@@ -277,6 +314,7 @@ class _BookingStartScreenState extends ConsumerState<BookingStartScreen> {
                 if (state.selection.doctorId != null) ...[
                   const SizedBox(height: 16),
                   BookingStepHeader(
+                    key: _dateKey,
                     number:
                         state.selection.serviceMode ==
                             BookingServiceMode.package
@@ -294,6 +332,7 @@ class _BookingStartScreenState extends ConsumerState<BookingStartScreen> {
                 if (state.selection.date != null) ...[
                   const SizedBox(height: 28),
                   BookingStepHeader(
+                    key: _slotKey,
                     number:
                         state.selection.serviceMode ==
                             BookingServiceMode.package

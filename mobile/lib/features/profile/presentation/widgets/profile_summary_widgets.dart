@@ -140,7 +140,10 @@ class ProfileInsuranceCard extends StatelessWidget {
         value: profile.hasBhyt ? 'Có sử dụng BHYT' : 'Không sử dụng BHYT',
       ),
       if (profile.hasBhyt) ...[
-        ProfileRow(label: 'Mã thẻ BHYT', value: profile.healthInsuranceCode),
+        ProfileRow(
+          label: 'Mã thẻ BHYT',
+          value: maskInsuranceCode(profile.healthInsuranceCode),
+        ),
         ProfileRow(
           label: 'Nơi đăng ký KCB',
           value: profile.registeredHospital,
@@ -189,6 +192,14 @@ String profileNumber(double? value) {
   return value == value.roundToDouble()
       ? value.toInt().toString()
       : value.toStringAsFixed(1);
+}
+
+/// Che giữa mã thẻ BHYT, chỉ để lại 3 ký tự đầu và cuối.
+String? maskInsuranceCode(String? value) {
+  final normalized = value?.trim();
+  if (normalized == null || normalized.isEmpty) return null;
+  if (normalized.length <= 6) return normalized;
+  return '${normalized.substring(0, 3)}•••${normalized.substring(normalized.length - 3)}';
 }
 
 String maskPhone(String value) {

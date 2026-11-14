@@ -21,6 +21,7 @@ class ChatbotScreen extends ConsumerStatefulWidget {
 class _ChatbotScreenState extends ConsumerState<ChatbotScreen> {
   late final TextEditingController _inputController;
   final _scrollController = ScrollController();
+  final _latestMessageKey = GlobalKey();
   late bool _showPrefillNotice;
 
   @override
@@ -66,7 +67,7 @@ class _ChatbotScreenState extends ConsumerState<ChatbotScreen> {
         ),
         actions: [
           IconButton(
-            tooltip: 'Cuộc trò chuyện mới',
+            tooltip: 'Xóa cuộc trò chuyện và bắt đầu lại',
             onPressed: state.isSending ? null : _confirmReset,
             icon: const Icon(Icons.refresh_rounded),
           ),
@@ -104,6 +105,9 @@ class _ChatbotScreenState extends ConsumerState<ChatbotScreen> {
                   }
                   final message = state.messages[index];
                   return Padding(
+                    key: index == state.messages.length - 1
+                        ? _latestMessageKey
+                        : null,
                     padding: const EdgeInsets.only(bottom: 12),
                     child: ChatbotMessageBubble(
                       message: message,
@@ -231,6 +235,25 @@ class _ChatbotScreenState extends ConsumerState<ChatbotScreen> {
   void _scrollToLatest() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!_scrollController.hasClients) return;
+      final state = ref.read(chatbotControllerProvider);
+      final last = state.messages.last;
+      final target = _latestMessageKey.currentContext;
+      // Trả lời dài (danh sách thẻ): đưa đầu câu trả lời lên để người dùng
+      // đọc từ đầu thay vì bị cuốn xuống cuối danh sách.
+      if (!state.isSending &&
+          last.role != ChatMessageRole.user &&
+          last.results.isNotEmpty &&
+          target != null) {
+        unawaited(
+          Scrollable.ensureVisible(
+            target,
+            duration: const Duration(milliseconds: 220),
+            curve: Curves.easeOut,
+            alignment: 0,
+          ),
+        );
+        return;
+      }
       _scrollController.animateTo(
         _scrollController.position.maxScrollExtent,
         duration: const Duration(milliseconds: 220),

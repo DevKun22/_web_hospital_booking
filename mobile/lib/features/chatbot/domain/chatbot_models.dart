@@ -6,8 +6,8 @@ enum ChatbotSource { system, faq, ai, fallback, emergency, unknown }
 
 extension ChatbotSourceLabel on ChatbotSource {
   String get label => switch (this) {
-    ChatbotSource.system => 'Hệ thống gợi ý',
-    ChatbotSource.faq => 'Kho FAQ trả lời',
+    ChatbotSource.system => 'Trợ lý đặt lịch',
+    ChatbotSource.faq => 'Câu hỏi thường gặp',
     ChatbotSource.ai => 'AI phân tích · dữ liệu bệnh viện',
     ChatbotSource.fallback => 'Phản hồi dự phòng',
     ChatbotSource.emergency => 'Cảnh báo an toàn',

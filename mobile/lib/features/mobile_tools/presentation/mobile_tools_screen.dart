@@ -6,6 +6,7 @@ import 'package:hospital_booking_mobile/core/widgets/app_error_banner.dart';
 import 'package:hospital_booking_mobile/core/widgets/app_ui.dart';
 import 'package:hospital_booking_mobile/features/profile/application/patient_profile_controller.dart';
 import 'package:hospital_booking_mobile/features/profile/domain/patient_profile.dart';
+import 'package:hospital_booking_mobile/features/profile/presentation/widgets/profile_summary_widgets.dart';
 import 'package:hospital_booking_mobile/features/security/application/app_lock_controller.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
@@ -303,8 +304,5 @@ String _shortId(String value) {
 }
 
 String _maskCode(String? value) {
-  final normalized = value?.trim();
-  if (normalized == null || normalized.isEmpty) return 'Đã đăng ký';
-  if (normalized.length <= 6) return normalized;
-  return '${normalized.substring(0, 3)}•••${normalized.substring(normalized.length - 3)}';
+  return maskInsuranceCode(value) ?? 'Đã đăng ký';
 }

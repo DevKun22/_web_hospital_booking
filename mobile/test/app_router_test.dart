@@ -380,7 +380,7 @@ void main() {
     );
     expect(find.text('Hồ sơ sức khỏe'), findsOneWidget);
 
-    await tester.tap(find.byTooltip('Trợ lý AI'));
+    await tester.tap(find.byTooltip('Trợ lý'));
     await tester.pumpAndSettle();
     expect(
       container.read(appRouterProvider).routeInformationProvider.value.uri.path,
