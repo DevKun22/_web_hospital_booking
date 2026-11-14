@@ -3,13 +3,13 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:hospital_booking_mobile/core/theme/app_theme.dart';
 import 'package:hospital_booking_mobile/core/widgets/app_ui.dart';
 import 'package:hospital_booking_mobile/features/auth/application/app_launch_controller.dart';
 import 'package:hospital_booking_mobile/features/auth/application/auth_controller.dart';
 import 'package:hospital_booking_mobile/features/auth/application/auth_state.dart';
 
 import 'package:hospital_booking_mobile/core/config/app_brand.dart';
+import 'package:hospital_booking_mobile/core/design/app_colors.dart';
 
 class SplashScreen extends ConsumerStatefulWidget {
   const SplashScreen({super.key});
@@ -112,11 +112,11 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
     final isOffline = state.status == AuthStatus.offline;
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: const SystemUiOverlayStyle(
+      value: SystemUiOverlayStyle(
         statusBarColor: Colors.transparent,
         statusBarIconBrightness: Brightness.light,
         statusBarBrightness: Brightness.dark,
-        systemNavigationBarColor: AppTheme.primaryDark,
+        systemNavigationBarColor: context.colors.primaryDark,
         systemNavigationBarIconBrightness: Brightness.light,
         systemNavigationBarDividerColor: Colors.transparent,
       ),
@@ -268,7 +268,7 @@ class _OfflineRecovery extends StatelessWidget {
     ),
     child: Column(
       children: [
-        const Icon(Icons.cloud_off_outlined, color: AppTheme.primaryDark),
+        Icon(Icons.cloud_off_outlined, color: context.colors.primaryDark),
         const SizedBox(height: 8),
         Text(message, textAlign: TextAlign.center),
         const SizedBox(height: 14),

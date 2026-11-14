@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:hospital_booking_mobile/features/notifications/presentation/notification_type_visuals.dart';
-import 'package:hospital_booking_mobile/core/theme/app_theme.dart';
 import 'package:hospital_booking_mobile/core/widgets/app_ui.dart';
 import 'package:hospital_booking_mobile/features/notifications/domain/patient_notification.dart';
+import 'package:hospital_booking_mobile/core/design/app_colors.dart';
 
 class NotificationInboxOverview extends StatelessWidget {
   const NotificationInboxOverview({
@@ -18,8 +18,8 @@ class NotificationInboxOverview extends StatelessWidget {
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.all(18),
     decoration: BoxDecoration(
-      gradient: const LinearGradient(
-        colors: [AppTheme.primaryDark, AppTheme.primary],
+      gradient: LinearGradient(
+        colors: [AppPalette.heroDeep, AppPalette.heroMid],
       ),
       borderRadius: BorderRadius.circular(20),
     ),
@@ -83,7 +83,7 @@ class NotificationCard extends StatelessWidget {
     child: Card(
       margin: EdgeInsets.zero,
       color: item.isRead
-          ? Colors.white
+          ? context.colors.surface
           : Theme.of(
               context,
             ).colorScheme.primaryContainer.withValues(alpha: 0.55),
@@ -99,10 +99,13 @@ class NotificationCard extends StatelessWidget {
                 width: 46,
                 height: 46,
                 decoration: BoxDecoration(
-                  color: item.type.background,
+                  color: item.type.background(context.colors),
                   borderRadius: BorderRadius.circular(15),
                 ),
-                child: Icon(item.type.icon, color: item.type.foreground),
+                child: Icon(
+                  item.type.icon,
+                  color: item.type.foreground(context.colors),
+                ),
               ),
               const SizedBox(width: 12),
               Expanded(

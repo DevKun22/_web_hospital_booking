@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hospital_booking_mobile/features/notifications/presentation/notification_preference_visuals.dart';
-import 'package:hospital_booking_mobile/core/theme/app_theme.dart';
 import 'package:hospital_booking_mobile/core/widgets/app_error_banner.dart';
 import 'package:hospital_booking_mobile/core/widgets/app_route_back_scope.dart';
 import 'package:hospital_booking_mobile/core/widgets/app_ui.dart';
 import 'package:hospital_booking_mobile/features/notifications/application/notification_preferences_controller.dart';
 import 'package:hospital_booking_mobile/features/notifications/application/push_notifications_controller.dart';
 import 'package:hospital_booking_mobile/features/notifications/domain/notification_preferences.dart';
+import 'package:hospital_booking_mobile/core/design/app_colors.dart';
 
 class NotificationPreferencesScreen extends ConsumerStatefulWidget {
   const NotificationPreferencesScreen({super.key});
@@ -149,7 +149,7 @@ class _InboxPolicyCard extends ConsumerWidget {
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.primaryContainer,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppTheme.softBorder),
+        border: Border.all(color: context.colors.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -160,7 +160,7 @@ class _InboxPolicyCard extends ConsumerWidget {
                 pushAllowed
                     ? Icons.notifications_active_outlined
                     : Icons.notifications_off_outlined,
-                color: AppTheme.primary,
+                color: context.colors.primary,
               ),
               const SizedBox(width: 10),
               Expanded(
@@ -225,7 +225,7 @@ class _PreferenceTile extends StatelessWidget {
             dimension: 22,
             child: CircularProgressIndicator(strokeWidth: 2),
           )
-        : Icon(kind.icon, color: AppTheme.primary),
+        : Icon(kind.icon, color: context.colors.primary),
     title: Text(
       kind.label,
       style: const TextStyle(fontWeight: FontWeight.w700),

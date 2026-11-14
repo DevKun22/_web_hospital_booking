@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:hospital_booking_mobile/core/theme/app_theme.dart';
 import 'package:hospital_booking_mobile/core/formatters/display_formatters.dart';
 import 'package:hospital_booking_mobile/features/chatbot/application/chatbot_controller.dart';
 import 'package:hospital_booking_mobile/features/chatbot/domain/chatbot_models.dart';
 
-import 'package:hospital_booking_mobile/core/design/app_design_tokens.dart';
+import 'package:hospital_booking_mobile/core/design/app_colors.dart';
 
 class ChatbotMessageBubble extends StatelessWidget {
   const ChatbotMessageBubble({
@@ -33,7 +32,7 @@ class ChatbotMessageBubble extends StatelessWidget {
             color: isUser
                 ? Theme.of(context).colorScheme.primary
                 : isAlert
-                ? AppPalette.warningContainer
+                ? context.colors.warningContainer
                 : Theme.of(context).colorScheme.surface,
             borderRadius: BorderRadius.only(
               topLeft: const Radius.circular(18),
@@ -45,7 +44,7 @@ class ChatbotMessageBubble extends StatelessWidget {
                 ? null
                 : Border.all(
                     color: isAlert
-                        ? AppPalette.warning
+                        ? context.colors.warning
                         : Theme.of(context).colorScheme.outlineVariant,
                   ),
           ),
@@ -59,7 +58,7 @@ class ChatbotMessageBubble extends StatelessWidget {
                     message.source!.label.toUpperCase(),
                     style: Theme.of(context).textTheme.labelSmall?.copyWith(
                       color: isAlert
-                          ? AppPalette.warning
+                          ? context.colors.warning
                           : Theme.of(context).colorScheme.primary,
                       fontWeight: FontWeight.w800,
                       letterSpacing: 0.4,
@@ -223,7 +222,7 @@ class ChatbotResultCard extends StatelessWidget {
               Icon(
                 chatbotResultIcon(item.type),
                 size: 20,
-                color: AppTheme.primary,
+                color: context.colors.primary,
               ),
               const SizedBox(width: 8),
               Expanded(
@@ -249,7 +248,7 @@ class ChatbotResultCard extends StatelessWidget {
                         formatVnd(price),
                         style: Theme.of(context).textTheme.labelMedium
                             ?.copyWith(
-                              color: AppTheme.primary,
+                              color: context.colors.primary,
                               fontWeight: FontWeight.w800,
                             ),
                       ),

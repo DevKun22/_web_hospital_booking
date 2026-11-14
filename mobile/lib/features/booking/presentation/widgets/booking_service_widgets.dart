@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:hospital_booking_mobile/core/theme/app_theme.dart';
 import 'package:hospital_booking_mobile/core/formatters/display_formatters.dart';
 import 'package:hospital_booking_mobile/core/widgets/app_ui.dart';
 import 'package:hospital_booking_mobile/features/booking/domain/booking_catalog.dart';
 import 'package:hospital_booking_mobile/features/packages/domain/medical_package.dart';
+import 'package:hospital_booking_mobile/core/design/app_colors.dart';
 
 class BookingServiceModePicker extends StatelessWidget {
   const BookingServiceModePicker({
@@ -62,11 +62,11 @@ class BookingPackageChoiceCard extends StatelessWidget {
   Widget build(BuildContext context) => Card(
     color: selected
         ? Theme.of(context).colorScheme.primaryContainer
-        : Colors.white,
+        : context.colors.surface,
     shape: RoundedRectangleBorder(
       borderRadius: BorderRadius.circular(18),
       side: BorderSide(
-        color: selected ? AppTheme.primary : AppTheme.softBorder,
+        color: selected ? context.colors.primary : context.colors.border,
         width: selected ? 1.5 : 1,
       ),
     ),
@@ -80,7 +80,7 @@ class BookingPackageChoiceCard extends StatelessWidget {
             children: [
               CircleAvatar(
                 backgroundColor: selected
-                    ? Colors.white
+                    ? context.colors.surface
                     : Theme.of(context).colorScheme.primaryContainer,
                 child: const Icon(Icons.health_and_safety_outlined),
               ),
@@ -108,7 +108,7 @@ class BookingPackageChoiceCard extends StatelessWidget {
                 ),
               ),
               if (selected)
-                const Icon(Icons.check_circle_rounded, color: AppTheme.primary),
+                Icon(Icons.check_circle_rounded, color: context.colors.primary),
             ],
           ),
           const SizedBox(height: 12),
@@ -119,8 +119,8 @@ class BookingPackageChoiceCard extends StatelessWidget {
             children: [
               Text(
                 formatVnd(packageItem.finalPrice),
-                style: const TextStyle(
-                  color: AppTheme.primaryDark,
+                style: TextStyle(
+                  color: context.colors.primaryDark,
                   fontWeight: FontWeight.w800,
                 ),
               ),
@@ -174,7 +174,7 @@ class BookingSelectedPackageCard extends StatelessWidget {
     decoration: BoxDecoration(
       color: Theme.of(context).colorScheme.primaryContainer,
       borderRadius: BorderRadius.circular(18),
-      border: Border.all(color: AppTheme.primary, width: 1.5),
+      border: Border.all(color: context.colors.primary, width: 1.5),
     ),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -182,7 +182,7 @@ class BookingSelectedPackageCard extends StatelessWidget {
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Icon(Icons.check_circle_rounded, color: AppTheme.primary),
+            Icon(Icons.check_circle_rounded, color: context.colors.primary),
             const SizedBox(width: 10),
             Expanded(
               child: Column(
@@ -195,8 +195,8 @@ class BookingSelectedPackageCard extends StatelessWidget {
                   const SizedBox(height: 4),
                   Text(
                     formatVnd(packageItem.finalPrice),
-                    style: const TextStyle(
-                      color: AppTheme.primaryDark,
+                    style: TextStyle(
+                      color: context.colors.primaryDark,
                       fontWeight: FontWeight.w800,
                     ),
                   ),
@@ -249,12 +249,12 @@ class BookingLockedDepartmentCard extends StatelessWidget {
     ),
     child: Row(
       children: [
-        const Icon(Icons.lock_outline_rounded, color: AppTheme.primary),
+        Icon(Icons.lock_outline_rounded, color: context.colors.primary),
         const SizedBox(width: 10),
         Expanded(
           child: Text(name, style: Theme.of(context).textTheme.titleSmall),
         ),
-        const Icon(Icons.check_circle_rounded, color: AppTheme.primary),
+        Icon(Icons.check_circle_rounded, color: context.colors.primary),
       ],
     ),
   );

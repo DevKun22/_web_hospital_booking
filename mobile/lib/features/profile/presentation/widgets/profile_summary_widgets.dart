@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:hospital_booking_mobile/core/theme/app_theme.dart';
 import 'package:hospital_booking_mobile/core/widgets/app_ui.dart';
 import 'package:hospital_booking_mobile/features/profile/domain/patient_profile.dart';
 import 'package:hospital_booking_mobile/features/profile/presentation/widgets/profile_menu_widgets.dart';
+import 'package:hospital_booking_mobile/core/design/app_colors.dart';
 
 class ProfileHeader extends StatelessWidget {
   const ProfileHeader({super.key, required this.profile});
@@ -13,8 +13,8 @@ class ProfileHeader extends StatelessWidget {
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.all(20),
     decoration: BoxDecoration(
-      gradient: const LinearGradient(
-        colors: [AppTheme.primaryDark, AppTheme.primary],
+      gradient: LinearGradient(
+        colors: [AppPalette.heroDeep, AppPalette.heroMid],
       ),
       borderRadius: BorderRadius.circular(22),
     ),

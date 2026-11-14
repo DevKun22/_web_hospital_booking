@@ -1,6 +1,8 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:hospital_booking_mobile/core/design/app_colors.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hospital_booking_mobile/app/router/app_router.dart';
@@ -13,6 +15,30 @@ import 'package:hospital_booking_mobile/features/security/presentation/app_lock_
 import 'package:hospital_booking_mobile/core/config/app_brand.dart';
 
 final rootScaffoldMessengerKey = GlobalKey<ScaffoldMessengerState>();
+
+/// Đặt màu thanh trạng thái và thanh điều hướng hệ thống theo chế độ sáng/tối.
+class AppSystemUiStyle extends StatelessWidget {
+  const AppSystemUiStyle({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final icons = isDark ? Brightness.light : Brightness.dark;
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: icons,
+        statusBarBrightness: isDark ? Brightness.dark : Brightness.light,
+        systemNavigationBarColor: context.colors.canvas,
+        systemNavigationBarIconBrightness: icons,
+        systemNavigationBarDividerColor: Colors.transparent,
+      ),
+      child: child,
+    );
+  }
+}
 
 class HospitalBookingApp extends ConsumerStatefulWidget {
   const HospitalBookingApp({super.key});
@@ -100,10 +126,13 @@ class _HospitalBookingAppState extends ConsumerState<HospitalBookingApp>
       title: AppBrand.name,
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
+      darkTheme: AppTheme.dark,
+      themeMode: ThemeMode.system,
       scaffoldMessengerKey: rootScaffoldMessengerKey,
       routerConfig: router,
-      builder: (context, child) =>
-          AppLockGate(child: child ?? const SizedBox.shrink()),
+      builder: (context, child) => AppSystemUiStyle(
+        child: AppLockGate(child: child ?? const SizedBox.shrink()),
+      ),
     );
   }
 }

@@ -1,34 +1,34 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:hospital_booking_mobile/core/design/app_colors.dart';
 import 'package:hospital_booking_mobile/core/design/app_design_tokens.dart';
 
 abstract final class AppTheme {
-  static const primary = AppPalette.primary;
-  static const primaryDark = AppPalette.primaryDark;
-  static const clinicalInk = AppPalette.ink;
-  static const quietCanvas = AppPalette.canvas;
-  static const softBorder = AppPalette.border;
+  static final ThemeData light = _build(AppColors.light, Brightness.light);
+  static final ThemeData dark = _build(AppColors.dark, Brightness.dark);
 
-  static ThemeData get light {
+  static ThemeData _build(AppColors c, Brightness brightness) {
     final seededScheme = ColorScheme.fromSeed(
-      seedColor: primary,
-      brightness: Brightness.light,
-      surface: Colors.white,
+      seedColor: AppPalette.heroMid,
+      brightness: brightness,
+      surface: c.surface,
     );
     final colorScheme = seededScheme.copyWith(
-      primary: primary,
-      onPrimary: Colors.white,
-      primaryContainer: AppPalette.primarySoft,
-      onPrimaryContainer: primaryDark,
-      secondary: AppPalette.care,
-      secondaryContainer: AppPalette.careSoft,
-      surface: Colors.white,
-      onSurface: clinicalInk,
-      onSurfaceVariant: AppPalette.muted,
-      outline: softBorder,
-      outlineVariant: AppPalette.divider,
-      error: AppPalette.danger,
+      primary: c.primary,
+      onPrimary: c.onPrimary,
+      primaryContainer: c.primarySoft,
+      onPrimaryContainer: c.primaryDark,
+      secondary: c.care,
+      secondaryContainer: c.careSoft,
+      surface: c.surface,
+      onSurface: c.ink,
+      onSurfaceVariant: c.muted,
+      outline: c.border,
+      outlineVariant: c.divider,
+      error: c.danger,
+      errorContainer: c.dangerContainer,
     );
+    final isDark = brightness == Brightness.dark;
 
     const textTheme = TextTheme(
       displaySmall: TextStyle(
@@ -75,43 +75,43 @@ abstract final class AppTheme {
     return ThemeData(
       useMaterial3: true,
       colorScheme: colorScheme,
-      scaffoldBackgroundColor: quietCanvas,
+      extensions: [c],
+      scaffoldBackgroundColor: c.canvas,
       visualDensity: VisualDensity.standard,
       materialTapTargetSize: MaterialTapTargetSize.padded,
-      textTheme: textTheme.apply(
-        bodyColor: clinicalInk,
-        displayColor: clinicalInk,
-      ),
-      appBarTheme: const AppBarTheme(
+      textTheme: textTheme.apply(bodyColor: c.ink, displayColor: c.ink),
+      appBarTheme: AppBarTheme(
         centerTitle: false,
         backgroundColor: Colors.transparent,
         surfaceTintColor: Colors.transparent,
-        foregroundColor: clinicalInk,
+        foregroundColor: c.ink,
         elevation: 0,
         scrolledUnderElevation: 0,
         titleSpacing: AppSpacing.md,
         toolbarHeight: 64,
         titleTextStyle: TextStyle(
-          color: clinicalInk,
+          color: c.ink,
           fontSize: 20,
           height: 1.2,
           fontWeight: FontWeight.w800,
         ),
         systemOverlayStyle: SystemUiOverlayStyle(
           statusBarColor: Colors.transparent,
-          statusBarIconBrightness: Brightness.dark,
-          statusBarBrightness: Brightness.light,
-          systemNavigationBarColor: quietCanvas,
-          systemNavigationBarIconBrightness: Brightness.dark,
+          statusBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
+          statusBarBrightness: isDark ? Brightness.dark : Brightness.light,
+          systemNavigationBarColor: c.canvas,
+          systemNavigationBarIconBrightness: isDark
+              ? Brightness.light
+              : Brightness.dark,
           systemNavigationBarDividerColor: Colors.transparent,
         ),
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: AppPalette.surfaceMuted,
-        hintStyle: const TextStyle(color: AppPalette.muted),
-        prefixIconColor: AppPalette.muted,
-        suffixIconColor: primary,
+        fillColor: c.surfaceMuted,
+        hintStyle: TextStyle(color: c.muted),
+        prefixIconColor: c.muted,
+        suffixIconColor: c.primary,
         contentPadding: const EdgeInsets.symmetric(
           horizontal: AppSpacing.md,
           vertical: AppSpacing.md,
@@ -122,19 +122,19 @@ abstract final class AppTheme {
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(AppRadius.field),
-          borderSide: const BorderSide(color: AppPalette.divider),
+          borderSide: BorderSide(color: c.divider),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(AppRadius.field),
-          borderSide: const BorderSide(color: primary, width: 1.6),
+          borderSide: BorderSide(color: c.primary, width: 1.6),
         ),
         errorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(AppRadius.field),
-          borderSide: const BorderSide(color: AppPalette.danger),
+          borderSide: BorderSide(color: c.danger),
         ),
         focusedErrorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(AppRadius.field),
-          borderSide: const BorderSide(color: AppPalette.danger, width: 1.6),
+          borderSide: BorderSide(color: c.danger, width: 1.6),
         ),
       ),
       filledButtonTheme: FilledButtonThemeData(
@@ -143,10 +143,10 @@ abstract final class AppTheme {
             AppSize.minimumTouchTarget,
             AppSize.controlHeight,
           ),
-          backgroundColor: primary,
-          foregroundColor: Colors.white,
-          disabledBackgroundColor: AppPalette.divider,
-          disabledForegroundColor: AppPalette.muted,
+          backgroundColor: c.primary,
+          foregroundColor: c.onPrimary,
+          disabledBackgroundColor: c.divider,
+          disabledForegroundColor: c.muted,
           padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(AppRadius.md),
@@ -160,8 +160,8 @@ abstract final class AppTheme {
             AppSize.minimumTouchTarget,
             AppSize.controlHeight,
           ),
-          foregroundColor: primary,
-          side: const BorderSide(color: softBorder),
+          foregroundColor: c.primary,
+          side: BorderSide(color: c.border),
           padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(AppRadius.md),
@@ -175,7 +175,7 @@ abstract final class AppTheme {
             AppSize.minimumTouchTarget,
             AppSize.minimumTouchTarget,
           ),
-          foregroundColor: primary,
+          foregroundColor: c.primary,
           padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
           textStyle: const TextStyle(fontWeight: FontWeight.w700),
           shape: RoundedRectangleBorder(
@@ -192,78 +192,75 @@ abstract final class AppTheme {
       cardTheme: CardThemeData(
         margin: EdgeInsets.zero,
         elevation: 0,
-        color: Colors.white,
+        color: c.surface,
         surfaceTintColor: Colors.transparent,
-        shadowColor: AppPalette.shadowTint,
+        shadowColor: c.shadowTint,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppRadius.card),
-          side: const BorderSide(color: AppPalette.divider),
+          side: BorderSide(color: c.divider),
         ),
       ),
       chipTheme: ChipThemeData(
-        backgroundColor: Colors.white,
-        selectedColor: AppPalette.primarySoft,
-        side: const BorderSide(color: softBorder),
+        backgroundColor: c.surface,
+        selectedColor: c.primarySoft,
+        side: BorderSide(color: c.border),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppRadius.pill),
         ),
-        labelStyle: const TextStyle(
-          color: clinicalInk,
-          fontWeight: FontWeight.w600,
-        ),
-        secondaryLabelStyle: const TextStyle(
-          color: primaryDark,
+        labelStyle: TextStyle(color: c.ink, fontWeight: FontWeight.w600),
+        secondaryLabelStyle: TextStyle(
+          color: c.primaryDark,
           fontWeight: FontWeight.w800,
         ),
         padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 7),
       ),
       navigationBarTheme: NavigationBarThemeData(
-        backgroundColor: Colors.white,
+        backgroundColor: c.surface,
         surfaceTintColor: Colors.transparent,
-        indicatorColor: AppPalette.primarySoft,
+        indicatorColor: c.primarySoft,
         labelTextStyle: WidgetStateProperty.resolveWith((states) {
           final selected = states.contains(WidgetState.selected);
           return TextStyle(
-            color: selected ? primary : AppPalette.muted,
+            color: selected ? c.primary : c.muted,
             fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
           );
         }),
       ),
-      snackBarTheme: const SnackBarThemeData(
+      snackBarTheme: SnackBarThemeData(
         behavior: SnackBarBehavior.floating,
-        backgroundColor: clinicalInk,
-        contentTextStyle: TextStyle(color: Colors.white),
-        insetPadding: EdgeInsets.all(AppSpacing.md),
-        shape: RoundedRectangleBorder(
+        backgroundColor: isDark ? c.surfaceMuted : c.ink,
+        contentTextStyle: TextStyle(color: isDark ? c.ink : c.surface),
+        insetPadding: const EdgeInsets.all(AppSpacing.md),
+        shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.all(Radius.circular(AppRadius.md)),
         ),
       ),
       dialogTheme: DialogThemeData(
-        backgroundColor: Colors.white,
+        backgroundColor: c.surface,
         surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppRadius.xl),
         ),
       ),
-      bottomSheetTheme: const BottomSheetThemeData(
-        backgroundColor: Colors.white,
-        modalBackgroundColor: Colors.white,
+      bottomSheetTheme: BottomSheetThemeData(
+        backgroundColor: c.surface,
+        modalBackgroundColor: c.surface,
         surfaceTintColor: Colors.transparent,
         showDragHandle: true,
-        shape: RoundedRectangleBorder(
+        shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(
             top: Radius.circular(AppRadius.xl),
           ),
         ),
       ),
-      progressIndicatorTheme: const ProgressIndicatorThemeData(color: primary),
-      listTileTheme: const ListTileThemeData(
-        iconColor: primary,
-        textColor: clinicalInk,
-        contentPadding: EdgeInsets.symmetric(horizontal: AppSpacing.md),
+      progressIndicatorTheme: ProgressIndicatorThemeData(color: c.primary),
+      listTileTheme: ListTileThemeData(
+        iconColor: c.primary,
+        textColor: c.ink,
+        contentPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
         minTileHeight: AppSize.minimumTouchTarget,
       ),
-      dividerColor: AppPalette.divider,
+      dividerColor: c.divider,
     );
   }
 }

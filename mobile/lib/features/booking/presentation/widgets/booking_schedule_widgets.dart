@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:hospital_booking_mobile/core/theme/app_theme.dart';
 import 'package:hospital_booking_mobile/core/formatters/display_formatters.dart';
 import 'package:hospital_booking_mobile/core/widgets/resized_network_image.dart';
 import 'package:hospital_booking_mobile/features/booking/domain/booking_catalog.dart';
 import 'package:hospital_booking_mobile/features/booking/presentation/booking_date_format.dart';
+import 'package:hospital_booking_mobile/core/design/app_colors.dart';
 
 class BookingDepartmentPicker extends StatelessWidget {
   const BookingDepartmentPicker({
@@ -51,11 +51,11 @@ class BookingDoctorChoiceCard extends StatelessWidget {
   Widget build(BuildContext context) => Card(
     color: selected
         ? Theme.of(context).colorScheme.primaryContainer
-        : Colors.white,
+        : context.colors.surface,
     shape: RoundedRectangleBorder(
       borderRadius: BorderRadius.circular(18),
       side: BorderSide(
-        color: selected ? AppTheme.primary : AppTheme.softBorder,
+        color: selected ? context.colors.primary : context.colors.border,
         width: selected ? 1.5 : 1,
       ),
     ),
@@ -69,7 +69,7 @@ class BookingDoctorChoiceCard extends StatelessWidget {
           children: [
             CircleAvatar(
               radius: 28,
-              backgroundColor: Colors.white,
+              backgroundColor: context.colors.surface,
               backgroundImage: resizedNetworkImage(
                 context,
                 doctor.avatar,
@@ -98,7 +98,7 @@ class BookingDoctorChoiceCard extends StatelessWidget {
                             ? Icons.check_circle_rounded
                             : Icons.radio_button_unchecked_rounded,
                         color: selected
-                            ? AppTheme.primary
+                            ? context.colors.primary
                             : Theme.of(context).colorScheme.outline,
                       ),
                     ],
@@ -119,8 +119,8 @@ class BookingDoctorChoiceCard extends StatelessWidget {
                         Text('${doctor.experience} năm kinh nghiệm'),
                       Text(
                         formatVnd(doctor.consultationFee),
-                        style: const TextStyle(
-                          color: AppTheme.primaryDark,
+                        style: TextStyle(
+                          color: context.colors.primaryDark,
                           fontWeight: FontWeight.w700,
                         ),
                       ),
@@ -177,10 +177,14 @@ class BookingDatePicker extends StatelessWidget {
                   width: 68,
                   padding: const EdgeInsets.symmetric(vertical: 8),
                   decoration: BoxDecoration(
-                    color: selected ? AppTheme.primary : Colors.white,
+                    color: selected
+                        ? context.colors.primary
+                        : context.colors.surface,
                     borderRadius: BorderRadius.circular(16),
                     border: Border.all(
-                      color: selected ? AppTheme.primary : AppTheme.softBorder,
+                      color: selected
+                          ? context.colors.primary
+                          : context.colors.border,
                     ),
                   ),
                   child: Column(
@@ -190,7 +194,7 @@ class BookingDatePicker extends StatelessWidget {
                         weekdayLabel(date.weekday),
                         style: TextStyle(
                           color: selected
-                              ? Colors.white
+                              ? context.colors.onPrimary
                               : Theme.of(context).colorScheme.onSurfaceVariant,
                           fontSize: 12,
                         ),
@@ -199,7 +203,9 @@ class BookingDatePicker extends StatelessWidget {
                       Text(
                         '${date.day}/${date.month}',
                         style: TextStyle(
-                          color: selected ? Colors.white : AppTheme.clinicalInk,
+                          color: selected
+                              ? context.colors.onPrimary
+                              : context.colors.ink,
                           fontWeight: FontWeight.w800,
                         ),
                       ),

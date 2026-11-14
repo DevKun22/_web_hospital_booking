@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:hospital_booking_mobile/core/design/app_colors.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hospital_booking_mobile/features/notifications/presentation/notification_type_visuals.dart';
 import 'package:hospital_booking_mobile/features/appointments/presentation/appointment_status_visuals.dart';
@@ -229,17 +230,18 @@ class AppointmentNotificationHistoryNotice extends StatelessWidget {
     final eventTime = publishedAt == null
         ? null
         : '${formatDateVi(_dateOnly(publishedAt!))} lúc ${_timeOfDay(publishedAt!)}';
+    final foreground = type.foreground(context.colors);
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: type.background,
+        color: type.background(context.colors),
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: type.foreground.withValues(alpha: 0.2)),
+        border: Border.all(color: foreground.withValues(alpha: 0.2)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(Icons.history_rounded, color: type.foreground),
+          Icon(Icons.history_rounded, color: foreground),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -250,7 +252,7 @@ class AppointmentNotificationHistoryNotice extends StatelessWidget {
                       ? 'Mở từ thông báo: ${type.historyLabel}'
                       : '${type.historyLabel} · $eventTime',
                   style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                    color: type.foreground,
+                    color: foreground,
                     fontWeight: FontWeight.w800,
                   ),
                 ),

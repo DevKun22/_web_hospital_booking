@@ -1,12 +1,10 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:hospital_booking_mobile/app/navigation/booking_navigation.dart';
-import 'package:hospital_booking_mobile/core/widgets/app_ui.dart';
 import 'package:hospital_booking_mobile/features/home/domain/home_content.dart';
 
-import 'package:hospital_booking_mobile/core/design/app_design_tokens.dart';
-
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:hospital_booking_mobile/core/design/app_colors.dart';
 
 class HomeHeroCarousel extends StatefulWidget {
   const HomeHeroCarousel({super.key, required this.banners});
@@ -184,8 +182,8 @@ class _HeroCarouselState extends State<HomeHeroCarousel>
                             height: 6,
                             decoration: BoxDecoration(
                               color: selected
-                                  ? AppPalette.primary
-                                  : AppPalette.border,
+                                  ? context.colors.primary
+                                  : context.colors.border,
                               borderRadius: BorderRadius.circular(999),
                             ),
                           ),
@@ -227,10 +225,10 @@ class _HeroBanner extends StatelessWidget {
     return Container(
       clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
+        gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [AppPalette.primaryDark, AppPalette.primary],
+          colors: [AppPalette.heroDeep, AppPalette.heroMid],
         ),
         borderRadius: BorderRadius.circular(24),
       ),
@@ -254,8 +252,8 @@ class _HeroBanner extends StatelessWidget {
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   colors: [
-                    AppPalette.primaryDark.withValues(alpha: 0.96),
-                    AppPalette.primary.withValues(
+                    AppPalette.heroDeep.withValues(alpha: 0.96),
+                    AppPalette.heroMid.withValues(
                       alpha: image == null ? 0.7 : 0.18,
                     ),
                   ],
@@ -322,14 +320,14 @@ class _HeroBanner extends StatelessWidget {
                         'Chủ động chọn dịch vụ, bác sĩ và thời gian phù hợp.',
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(color: AppPalette.onPrimaryMuted),
+                    style: const TextStyle(color: AppPalette.onHeroMuted),
                   ),
                   const SizedBox(height: 8),
                   FilledButton.icon(
                     style: FilledButton.styleFrom(
                       minimumSize: const Size(0, 38),
                       backgroundColor: Colors.white,
-                      foregroundColor: AppPalette.primaryDark,
+                      foregroundColor: AppPalette.heroDeep,
                     ),
                     onPressed: () =>
                         openBookingFromCurrentRoute(context, '/booking'),

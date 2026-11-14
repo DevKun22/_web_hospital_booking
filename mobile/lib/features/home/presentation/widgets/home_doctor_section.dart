@@ -3,10 +3,9 @@ import 'package:go_router/go_router.dart';
 import 'package:hospital_booking_mobile/features/catalog/domain/catalog_entities.dart';
 import 'package:hospital_booking_mobile/app/navigation/booking_navigation.dart';
 import 'package:hospital_booking_mobile/core/formatters/display_formatters.dart';
-import 'package:hospital_booking_mobile/core/widgets/app_ui.dart';
 import 'package:hospital_booking_mobile/core/widgets/resized_network_image.dart';
 
-import 'package:hospital_booking_mobile/core/design/app_design_tokens.dart';
+import 'package:hospital_booking_mobile/core/design/app_colors.dart';
 
 class HomeDoctorList extends StatelessWidget {
   const HomeDoctorList({super.key, required this.items});
@@ -55,12 +54,12 @@ class _DoctorCard extends StatelessWidget {
     final profileLocation = '/doctors/${Uri.encodeComponent(doctor.id)}';
 
     return Card(
-      color: Colors.white,
-      shadowColor: AppPalette.shadowTint,
+      color: context.colors.surface,
+      shadowColor: context.colors.shadowTint,
       elevation: 1,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(18),
-        side: const BorderSide(color: AppPalette.border),
+        side: BorderSide(color: context.colors.border),
       ),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
@@ -78,7 +77,7 @@ class _DoctorCard extends StatelessWidget {
                   children: [
                     CircleAvatar(
                       radius: 22,
-                      backgroundColor: AppPalette.primarySoft,
+                      backgroundColor: context.colors.primarySoft,
                       backgroundImage: resizedNetworkImage(
                         context,
                         doctor.avatar,
@@ -86,9 +85,9 @@ class _DoctorCard extends StatelessWidget {
                         logicalHeight: 44,
                       ),
                       child: doctor.avatar?.trim().isNotEmpty != true
-                          ? const Icon(
+                          ? Icon(
                               Icons.person_outline_rounded,
-                              color: AppPalette.primaryDark,
+                              color: context.colors.primaryDark,
                               size: 20,
                             )
                           : null,
@@ -104,7 +103,7 @@ class _DoctorCard extends StatelessWidget {
                             overflow: TextOverflow.ellipsis,
                             style: Theme.of(context).textTheme.titleSmall
                                 ?.copyWith(
-                                  color: AppPalette.ink,
+                                  color: context.colors.ink,
                                   fontWeight: FontWeight.w900,
                                 ),
                           ),
@@ -115,7 +114,7 @@ class _DoctorCard extends StatelessWidget {
                             overflow: TextOverflow.ellipsis,
                             style: Theme.of(context).textTheme.labelMedium
                                 ?.copyWith(
-                                  color: AppPalette.success,
+                                  color: context.colors.success,
                                   fontWeight: FontWeight.w800,
                                 ),
                           ),
@@ -135,7 +134,7 @@ class _DoctorCard extends StatelessWidget {
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                   style: Theme.of(context).textTheme.labelSmall
-                                      ?.copyWith(color: AppPalette.muted),
+                                      ?.copyWith(color: context.colors.muted),
                                 ),
                               ),
                             ],
@@ -152,7 +151,7 @@ class _DoctorCard extends StatelessWidget {
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8),
                   decoration: BoxDecoration(
-                    color: AppPalette.primarySoft,
+                    color: context.colors.primarySoft,
                     borderRadius: BorderRadius.circular(11),
                   ),
                   child: Column(
@@ -169,7 +168,7 @@ class _DoctorCard extends StatelessWidget {
                               overflow: TextOverflow.ellipsis,
                               style: Theme.of(context).textTheme.labelSmall
                                   ?.copyWith(
-                                    color: AppPalette.muted,
+                                    color: context.colors.muted,
                                     fontWeight: FontWeight.w700,
                                   ),
                             ),
@@ -178,7 +177,7 @@ class _DoctorCard extends StatelessWidget {
                             formatVnd(doctor.consultationFee),
                             style: Theme.of(context).textTheme.labelMedium
                                 ?.copyWith(
-                                  color: AppPalette.ink,
+                                  color: context.colors.ink,
                                   fontWeight: FontWeight.w900,
                                 ),
                           ),
@@ -195,7 +194,7 @@ class _DoctorCard extends StatelessWidget {
                                         .textTheme
                                         .labelSmall
                                         ?.copyWith(
-                                          color: AppPalette.primaryDark,
+                                          color: context.colors.primaryDark,
                                           fontWeight: FontWeight.w800,
                                         ),
                                   )
@@ -214,7 +213,7 @@ class _DoctorCard extends StatelessWidget {
                               padding: const EdgeInsets.only(left: 6),
                               visualDensity: VisualDensity.compact,
                               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                              foregroundColor: AppPalette.primaryDark,
+                              foregroundColor: context.colors.primaryDark,
                             ),
                             child: Text(
                               hiddenSlotCount > 0
@@ -236,8 +235,8 @@ class _DoctorCard extends StatelessWidget {
               FilledButton.icon(
                 style: FilledButton.styleFrom(
                   minimumSize: const Size(0, 36),
-                  backgroundColor: AppPalette.primary,
-                  foregroundColor: Colors.white,
+                  backgroundColor: context.colors.primary,
+                  foregroundColor: context.colors.onPrimary,
                   visualDensity: VisualDensity.compact,
                   tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 ),
@@ -263,7 +262,7 @@ class _DoctorRatingBadge extends StatelessWidget {
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
     decoration: BoxDecoration(
-      color: AppPalette.warningContainer,
+      color: context.colors.warningContainer,
       borderRadius: BorderRadius.circular(999),
     ),
     child: Row(
@@ -274,7 +273,7 @@ class _DoctorRatingBadge extends StatelessWidget {
         Text(
           '${rating.toStringAsFixed(1)} ($reviewCount)',
           style: Theme.of(context).textTheme.labelSmall?.copyWith(
-            color: AppPalette.warning,
+            color: context.colors.warning,
             fontWeight: FontWeight.w800,
             fontSize: 10,
           ),
@@ -293,13 +292,13 @@ class _DoctorSlotChip extends StatelessWidget {
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
     decoration: BoxDecoration(
-      color: Colors.white,
+      color: context.colors.surface,
       borderRadius: BorderRadius.circular(7),
     ),
     child: Text(
       label,
       style: Theme.of(context).textTheme.labelSmall?.copyWith(
-        color: AppPalette.primaryDark,
+        color: context.colors.primaryDark,
         fontWeight: FontWeight.w800,
       ),
     ),

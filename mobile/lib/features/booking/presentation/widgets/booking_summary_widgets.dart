@@ -4,6 +4,7 @@ import 'package:hospital_booking_mobile/core/formatters/display_formatters.dart'
 import 'package:hospital_booking_mobile/core/widgets/app_ui.dart';
 import 'package:hospital_booking_mobile/features/booking/application/booking_flow_controller.dart';
 import 'package:hospital_booking_mobile/features/booking/presentation/booking_date_format.dart';
+import 'package:hospital_booking_mobile/core/design/app_colors.dart';
 
 class BookingStickySummary extends StatelessWidget {
   const BookingStickySummary({super.key, required this.state});
@@ -20,7 +21,7 @@ class BookingStickySummary extends StatelessWidget {
     return Material(
       color: Theme.of(context).colorScheme.surface,
       elevation: 8,
-      shadowColor: AppPalette.ink.withValues(alpha: 0.12),
+      shadowColor: context.colors.ink.withValues(alpha: 0.12),
       child: SafeArea(
         top: false,
         minimum: const EdgeInsets.fromLTRB(
@@ -46,7 +47,7 @@ class BookingStickySummary extends StatelessWidget {
                       ? formatVnd(price)
                       : 'Giá gói: ${formatVnd(price)}',
                   style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                    color: AppPalette.primaryDark,
+                    color: context.colors.primaryDark,
                     fontWeight: FontWeight.w800,
                   ),
                 ),

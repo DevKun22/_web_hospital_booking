@@ -7,6 +7,7 @@ import 'package:hospital_booking_mobile/core/widgets/app_ui.dart';
 import 'package:hospital_booking_mobile/features/home/data/home_search_history_store.dart';
 import 'package:hospital_booking_mobile/features/home/domain/home_content.dart';
 import 'package:hospital_booking_mobile/features/home/domain/home_search_history_entry.dart';
+import 'package:hospital_booking_mobile/core/design/app_colors.dart';
 
 void showHomeSearch(
   BuildContext context,
@@ -152,7 +153,7 @@ class _HomeSearchSheetState extends State<_HomeSearchSheet> {
   Widget build(BuildContext context) {
     final results = _results;
     return Material(
-      color: Colors.white,
+      color: context.colors.surface,
       borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
       clipBehavior: Clip.antiAlias,
       child: Column(
@@ -174,7 +175,7 @@ class _HomeSearchSheetState extends State<_HomeSearchSheet> {
                   child: Text(
                     'Tìm dịch vụ chăm sóc',
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      color: AppPalette.ink,
+                      color: context.colors.ink,
                       fontWeight: FontWeight.w900,
                     ),
                   ),
@@ -193,23 +194,23 @@ class _HomeSearchSheetState extends State<_HomeSearchSheet> {
               key: const Key('home-search-field'),
               autofocus: true,
               onChanged: (value) => setState(() => _query = value),
-              cursorColor: AppPalette.primary,
+              cursorColor: context.colors.primary,
               decoration: InputDecoration(
                 hintText: 'Tên bác sĩ, chuyên khoa hoặc gói khám',
                 filled: true,
-                fillColor: AppPalette.surfaceMuted,
-                prefixIcon: const Icon(
+                fillColor: context.colors.surfaceMuted,
+                prefixIcon: Icon(
                   Icons.search_rounded,
-                  color: AppPalette.primary,
+                  color: context.colors.primary,
                 ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(AppRadius.md),
-                  borderSide: const BorderSide(color: AppPalette.border),
+                  borderSide: BorderSide(color: context.colors.border),
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(AppRadius.md),
-                  borderSide: const BorderSide(
-                    color: AppPalette.primary,
+                  borderSide: BorderSide(
+                    color: context.colors.primary,
                     width: 1.8,
                   ),
                 ),
@@ -332,12 +333,12 @@ class _HomeSearchResultTile extends StatelessWidget {
           width: 42,
           height: 42,
           decoration: BoxDecoration(
-            color: AppPalette.primarySoft,
+            color: context.colors.primarySoft,
             borderRadius: BorderRadius.circular(13),
           ),
           child: Icon(
             isRecent ? Icons.history_rounded : item.icon,
-            color: AppPalette.primary,
+            color: context.colors.primary,
           ),
         ),
         title: Text(
@@ -351,9 +352,9 @@ class _HomeSearchResultTile extends StatelessWidget {
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
         ),
-        trailing: const Icon(
+        trailing: Icon(
           Icons.chevron_right_rounded,
-          color: AppPalette.primary,
+          color: context.colors.primary,
         ),
       ),
       const Divider(height: 1),

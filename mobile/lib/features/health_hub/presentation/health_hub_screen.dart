@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:hospital_booking_mobile/core/theme/app_theme.dart';
 import 'package:hospital_booking_mobile/core/widgets/app_ui.dart';
 import 'package:hospital_booking_mobile/features/health_hub/application/health_hub_summary.dart';
+import 'package:hospital_booking_mobile/core/design/app_colors.dart';
 
 class HealthHubScreen extends ConsumerWidget {
   const HealthHubScreen({super.key});
@@ -91,8 +91,8 @@ class _PrivacyHeader extends StatelessWidget {
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.all(18),
     decoration: BoxDecoration(
-      gradient: const LinearGradient(
-        colors: [AppTheme.primaryDark, AppTheme.primary],
+      gradient: LinearGradient(
+        colors: [AppPalette.heroDeep, AppPalette.heroMid],
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
       ),

@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hospital_booking_mobile/app/navigation/booking_navigation.dart';
-import 'package:hospital_booking_mobile/core/theme/app_theme.dart';
 import 'package:hospital_booking_mobile/core/formatters/display_formatters.dart';
 import 'package:hospital_booking_mobile/core/widgets/app_ui.dart';
 import 'package:hospital_booking_mobile/features/packages/domain/medical_package.dart';
+import 'package:hospital_booking_mobile/core/design/app_colors.dart';
 
 class PackageCatalogCard extends StatelessWidget {
   const PackageCatalogCard({required this.item, super.key});
@@ -17,7 +17,7 @@ class PackageCatalogCard extends StatelessWidget {
     clipBehavior: Clip.antiAlias,
     shape: RoundedRectangleBorder(
       borderRadius: BorderRadius.circular(AppRadius.card),
-      side: const BorderSide(color: AppTheme.softBorder),
+      side: BorderSide(color: context.colors.border),
     ),
     child: InkWell(
       onTap: item.slug == null
@@ -35,8 +35,8 @@ class PackageCatalogCard extends StatelessWidget {
                   width: 48,
                   height: 48,
                   decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [AppTheme.primary, AppPalette.care],
+                    gradient: LinearGradient(
+                      colors: [AppPalette.heroMid, AppPalette.heroCare],
                     ),
                     borderRadius: BorderRadius.circular(AppRadius.md),
                   ),
@@ -94,10 +94,10 @@ class PackageCatalogCard extends StatelessWidget {
               const SizedBox(height: 10),
               Row(
                 children: [
-                  const Icon(
+                  Icon(
                     Icons.local_hospital_outlined,
                     size: 17,
-                    color: AppTheme.primary,
+                    color: context.colors.primary,
                   ),
                   const SizedBox(width: 6),
                   Expanded(
@@ -124,7 +124,7 @@ class PackageCatalogCard extends StatelessWidget {
                       Text(
                         formatVnd(item.finalPrice),
                         style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          color: AppTheme.primaryDark,
+                          color: context.colors.primaryDark,
                           fontWeight: FontWeight.w800,
                         ),
                       ),

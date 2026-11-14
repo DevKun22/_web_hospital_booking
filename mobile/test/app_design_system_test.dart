@@ -2,6 +2,7 @@ import 'dart:ui' show SemanticsAction;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hospital_booking_mobile/core/design/app_colors.dart';
 import 'package:hospital_booking_mobile/core/theme/app_theme.dart';
 import 'package:hospital_booking_mobile/core/widgets/app_ui.dart';
 
@@ -11,12 +12,12 @@ void main() {
     final buttonSize = theme.filledButtonTheme.style?.minimumSize?.resolve({});
     final cardShape = theme.cardTheme.shape as RoundedRectangleBorder;
 
-    expect(theme.scaffoldBackgroundColor, AppPalette.canvas);
+    expect(theme.scaffoldBackgroundColor, AppColors.light.canvas);
     expect(theme.textTheme.titleLarge?.fontWeight, FontWeight.w800);
     expect(buttonSize?.height, AppSize.controlHeight);
     expect(buttonSize?.width, AppSize.minimumTouchTarget);
     expect(cardShape.borderRadius, BorderRadius.circular(AppRadius.card));
-    expect(cardShape.side.color, AppPalette.divider);
+    expect(cardShape.side.color, AppColors.light.divider);
   });
 
   testWidgets('motion tokens honor the operating system reduced-motion flag', (

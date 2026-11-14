@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:hospital_booking_mobile/core/theme/app_theme.dart';
 import 'package:hospital_booking_mobile/core/formatters/display_formatters.dart';
 import 'package:hospital_booking_mobile/core/widgets/app_error_banner.dart';
 import 'package:hospital_booking_mobile/core/widgets/app_ui.dart';
@@ -9,6 +8,7 @@ import 'package:hospital_booking_mobile/features/profile/domain/patient_profile.
 import 'package:hospital_booking_mobile/features/profile/presentation/widgets/profile_summary_widgets.dart';
 import 'package:hospital_booking_mobile/features/security/application/app_lock_controller.dart';
 import 'package:qr_flutter/qr_flutter.dart';
+import 'package:hospital_booking_mobile/core/design/app_colors.dart';
 
 class MobileToolsScreen extends ConsumerWidget {
   const MobileToolsScreen({super.key});
@@ -101,15 +101,15 @@ class _DigitalPatientCard extends StatelessWidget {
     key: const Key('digital-patient-card'),
     padding: const EdgeInsets.all(20),
     decoration: BoxDecoration(
-      gradient: const LinearGradient(
-        colors: [AppTheme.primaryDark, AppTheme.primary],
+      gradient: LinearGradient(
+        colors: [AppPalette.heroDeep, AppPalette.heroMid],
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
       ),
       borderRadius: BorderRadius.circular(24),
       boxShadow: [
         BoxShadow(
-          color: AppTheme.primaryDark.withValues(alpha: 0.18),
+          color: AppPalette.heroDeep.withValues(alpha: 0.18),
           blurRadius: 20,
           offset: const Offset(0, 8),
         ),
@@ -231,7 +231,7 @@ class _SecurityCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              const Icon(Icons.fingerprint_rounded, color: AppTheme.primary),
+              Icon(Icons.fingerprint_rounded, color: context.colors.primary),
               const SizedBox(width: 10),
               Expanded(
                 child: Text(

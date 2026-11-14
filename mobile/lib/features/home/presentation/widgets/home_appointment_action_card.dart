@@ -3,6 +3,7 @@ import 'package:hospital_booking_mobile/features/appointments/presentation/appoi
 import 'package:hospital_booking_mobile/core/formatters/display_formatters.dart';
 import 'package:hospital_booking_mobile/core/widgets/app_ui.dart';
 import 'package:hospital_booking_mobile/features/appointments/domain/patient_appointment.dart';
+import 'package:hospital_booking_mobile/core/design/app_colors.dart';
 
 class HomeAppointmentActionCard extends StatelessWidget {
   const HomeAppointmentActionCard({
@@ -24,8 +25,8 @@ class HomeAppointmentActionCard extends StatelessWidget {
       label:
           'Lịch khám sắp tới, ${appointment.doctorName}, ${appointment.status.label}',
       child: AppSurfaceCard(
-        backgroundColor: AppPalette.primary,
-        borderColor: AppPalette.primaryDark,
+        backgroundColor: AppPalette.heroMid,
+        borderColor: AppPalette.heroDeep,
         child: DefaultTextStyle.merge(
           style: const TextStyle(color: Colors.white),
           child: Column(
@@ -71,14 +72,14 @@ class HomeAppointmentActionCard extends StatelessWidget {
                 appointment.careUnit,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: AppPalette.onPrimaryMuted,
-                ),
+                style: Theme.of(
+                  context,
+                ).textTheme.bodyMedium?.copyWith(color: AppPalette.onHeroMuted),
               ),
               const SizedBox(height: AppSpacing.sm),
               DecoratedBox(
                 decoration: BoxDecoration(
-                  color: AppPalette.primaryDark,
+                  color: AppPalette.heroDeep,
                   borderRadius: BorderRadius.circular(AppRadius.md),
                 ),
                 child: Padding(
@@ -104,7 +105,7 @@ class HomeAppointmentActionCard extends StatelessWidget {
                       Text(
                         appointment.bookingCode,
                         style: Theme.of(context).textTheme.labelMedium
-                            ?.copyWith(color: AppPalette.onPrimaryMuted),
+                            ?.copyWith(color: AppPalette.onHeroMuted),
                       ),
                     ],
                   ),
@@ -115,7 +116,7 @@ class HomeAppointmentActionCard extends StatelessWidget {
                 Text(
                   copy.guidance!,
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: AppPalette.onPrimaryMuted,
+                    color: AppPalette.onHeroMuted,
                     height: 1.35,
                   ),
                 ),
@@ -143,7 +144,7 @@ class HomeAppointmentActionCard extends StatelessWidget {
                         onPressed: onOpen,
                         style: FilledButton.styleFrom(
                           backgroundColor: Colors.white,
-                          foregroundColor: AppPalette.primaryDark,
+                          foregroundColor: AppPalette.heroDeep,
                         ),
                         icon: Icon(copy.primaryIcon),
                         label: Text(copy.primaryLabel),
@@ -157,7 +158,7 @@ class HomeAppointmentActionCard extends StatelessWidget {
                   onPressed: onOpen,
                   style: FilledButton.styleFrom(
                     backgroundColor: Colors.white,
-                    foregroundColor: AppPalette.primaryDark,
+                    foregroundColor: AppPalette.heroDeep,
                   ),
                   icon: Icon(copy.primaryIcon),
                   label: Text(copy.primaryLabel),
