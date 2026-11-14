@@ -4,6 +4,10 @@ import 'package:hospital_booking_mobile/core/network/api_contract.dart';
 import 'package:hospital_booking_mobile/features/booking/domain/booking_catalog.dart';
 import 'package:hospital_booking_mobile/features/booking/domain/booking_submission.dart';
 
+import 'package:hospital_booking_mobile/core/network/json_readers.dart';
+
+import 'package:hospital_booking_mobile/core/network/api_guard.dart';
+
 class BookingSubmissionRepository {
   BookingSubmissionRepository(this._publicDio, [Dio? authenticatedDio])
     : _authenticatedDio = authenticatedDio ?? _publicDio;
@@ -15,7 +19,7 @@ class BookingSubmissionRepository {
     required BookingSelection selection,
     required BookingPatientDraft patient,
   }) async {
-    try {
+    return guardApi(() async {
       final dio = patient.dependentProfileId == null
           ? _publicDio
           : _authenticatedDio;
@@ -40,13 +44,11 @@ class BookingSubmissionRepository {
         );
       }
       return pending;
-    } on DioException catch (error) {
-      throw ApiException.fromDio(error);
-    }
+    });
   }
 
   Future<PendingBooking> resend(PendingBooking pending) async {
-    try {
+    return guardApi(() async {
       final response = await _publicDio.post<dynamic>(
         '/appointments/${pending.appointmentId}/resend-otp',
       );
@@ -55,7 +57,7 @@ class BookingSubmissionRepository {
         appointmentId: pending.appointmentId,
         bookingCode: pending.bookingCode,
         patientPhone: pending.patientPhone,
-        expiresIn: _integer(data['expiresIn']),
+        expiresIn: jsonInt(data['expiresIn']),
         holdExpiresAt:
             DateTime.tryParse(data['holdExpiresAt']?.toString() ?? '') ??
             pending.holdExpiresAt,
@@ -65,9 +67,7 @@ class BookingSubmissionRepository {
         otpChannel: pending.otpChannel,
         otpTarget: pending.otpTarget,
       );
-    } on DioException catch (error) {
-      throw ApiException.fromDio(error);
-    }
+    });
   }
 
   Future<void> abandon(PendingBooking pending) async {
@@ -80,21 +80,19 @@ class BookingSubmissionRepository {
             'Lịch giữ chỗ này được tạo từ phiên bản cũ và không thể hủy ngay. Lịch sẽ tự giải phóng khi hết thời gian giữ.',
       );
     }
-    try {
+    return guardApi(() async {
       await _publicDio.delete<dynamic>(
         '/appointments/${pending.appointmentId}/pending',
         data: {'holdReleaseToken': releaseToken},
       );
-    } on DioException catch (error) {
-      throw ApiException.fromDio(error);
-    }
+    });
   }
 
   Future<BookedAppointment> verify({
     required PendingBooking pending,
     required String otp,
   }) async {
-    try {
+    return guardApi(() async {
       final response = await _publicDio.post<dynamic>(
         '/appointments/${pending.appointmentId}/verify-otp',
         data: {'otp': otp.trim()},
@@ -110,11 +108,6 @@ class BookingSubmissionRepository {
         );
       }
       return appointment;
-    } on DioException catch (error) {
-      throw ApiException.fromDio(error);
-    }
+    });
   }
 }
-
-int _integer(dynamic value) =>
-    value is num ? value.toInt() : int.tryParse(value?.toString() ?? '') ?? 0;

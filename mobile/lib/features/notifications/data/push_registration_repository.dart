@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
-import 'package:hospital_booking_mobile/core/errors/api_exception.dart';
+
+import 'package:hospital_booking_mobile/core/network/api_guard.dart';
 
 class PushRegistrationRepository {
   PushRegistrationRepository(this._dio);
@@ -11,7 +12,7 @@ class PushRegistrationRepository {
     required String platform,
     String? appVersion,
   }) async {
-    try {
+    return guardApi(() async {
       await _dio.put<dynamic>(
         '/auth/push-token',
         data: {
@@ -21,16 +22,12 @@ class PushRegistrationRepository {
             'appVersion': appVersion.trim(),
         },
       );
-    } on DioException catch (error) {
-      throw ApiException.fromDio(error);
-    }
+    });
   }
 
   Future<void> disable() async {
-    try {
+    return guardApi(() async {
       await _dio.delete<dynamic>('/auth/push-token');
-    } on DioException catch (error) {
-      throw ApiException.fromDio(error);
-    }
+    });
   }
 }

@@ -19,3 +19,10 @@ String formatVnd(num value) {
   }
   return '${buffer.toString()} đ';
 }
+
+/// `dd/MM/yyyy lúc HH:mm` theo giờ máy.
+String formatDateTimeVi(DateTime value) {
+  final local = value.toLocal();
+  String two(int number) => number.toString().padLeft(2, '0');
+  return '${two(local.day)}/${two(local.month)}/${local.year} lúc ${two(local.hour)}:${two(local.minute)}';
+}

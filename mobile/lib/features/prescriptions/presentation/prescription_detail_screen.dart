@@ -171,7 +171,7 @@ class _PrescriptionHeader extends StatelessWidget {
             const SizedBox(height: 10),
             _IconLine(
               icon: Icons.edit_calendar_outlined,
-              value: 'Phát hành ${_formatDateTime(prescription.issuedAt!)}',
+              value: 'Phát hành ${formatDateTimeVi(prescription.issuedAt!)}',
             ),
           ],
         ],
@@ -339,10 +339,4 @@ class _DetailLoading extends StatelessWidget {
       AppLoadingSkeleton(height: 250),
     ],
   );
-}
-
-String _formatDateTime(DateTime value) {
-  final local = value.toLocal();
-  String two(int number) => number.toString().padLeft(2, '0');
-  return '${two(local.day)}/${two(local.month)}/${local.year} lúc ${two(local.hour)}:${two(local.minute)}';
 }

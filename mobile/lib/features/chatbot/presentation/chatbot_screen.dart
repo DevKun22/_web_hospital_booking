@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -185,7 +186,7 @@ class _ChatbotScreenState extends ConsumerState<ChatbotScreen> {
       final slug = action.payload['packageSlug']?.toString().trim();
       final packageId = action.payload['packageId']?.toString().trim();
       if (slug?.isNotEmpty == true) {
-        context.push('/packages/${Uri.encodeComponent(slug!)}');
+        unawaited(context.push('/packages/${Uri.encodeComponent(slug!)}'));
       } else if (packageId?.isNotEmpty == true) {
         openBookingFromCurrentRoute(
           context,
@@ -193,7 +194,7 @@ class _ChatbotScreenState extends ConsumerState<ChatbotScreen> {
         );
       }
     } else if (action.type == 'LOOKUP_APPOINTMENT') {
-      context.push('/appointments');
+      unawaited(context.push('/appointments'));
     }
   }
 

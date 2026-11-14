@@ -1,5 +1,7 @@
 import 'package:hospital_booking_mobile/core/formatters/professional_name_formatter.dart';
 
+import 'package:hospital_booking_mobile/core/network/json_readers.dart';
+
 enum PatientAppointmentStatus {
   pendingOtp('PENDING_OTP'),
   pendingConfirm('PENDING_CONFIRM'),
@@ -111,40 +113,40 @@ class PatientAppointment {
   });
 
   factory PatientAppointment.fromJson(Map<String, dynamic> json) {
-    final doctor = _map(json['doctor']);
-    final doctorUser = _map(doctor['user']);
-    final department = _map(json['department']);
-    final package = _map(json['package']);
+    final doctor = jsonMap(json['doctor']);
+    final doctorUser = jsonMap(doctor['user']);
+    final department = jsonMap(json['department']);
+    final package = jsonMap(json['package']);
     return PatientAppointment(
-      id: _string(json['id']),
-      bookingCode: _string(json['bookingCode']),
-      appointmentDate: _dateOnly(_string(json['appointmentDate'])),
-      startTime: _string(json['startTime']),
-      endTime: _string(json['endTime']),
+      id: jsonString(json['id']),
+      bookingCode: jsonString(json['bookingCode']),
+      appointmentDate: jsonDateOnly(jsonString(json['appointmentDate'])),
+      startTime: jsonString(json['startTime']),
+      endTime: jsonString(json['endTime']),
       status: PatientAppointmentStatus.fromApi(json['status']),
-      patientName: _string(json['patientName']),
-      dependentProfileId: _nullableString(json['dependentProfileId']),
-      doctorId: _nullableString(doctor['id']),
+      patientName: jsonString(json['patientName']),
+      dependentProfileId: jsonNullableString(json['dependentProfileId']),
+      doctorId: jsonNullableString(doctor['id']),
       doctorName: formatProfessionalName(
-        title: _nullableString(doctor['title']),
-        fullName: _string(doctorUser['fullName']),
+        title: jsonNullableString(doctor['title']),
+        fullName: jsonString(doctorUser['fullName']),
       ),
-      doctorAvatar: _nullableString(doctorUser['avatar']),
-      specialization: _nullableString(doctor['specialization']),
-      departmentId: _nullableString(department['id']),
-      departmentName: _nullableString(department['name']) ?? '',
-      packageName: _nullableString(package['name']),
-      reason: _nullableString(json['reason']),
-      estimatedPrice: _number(json['estimatedPrice']),
-      serviceFee: _number(json['serviceFee']),
+      doctorAvatar: jsonNullableString(doctorUser['avatar']),
+      specialization: jsonNullableString(doctor['specialization']),
+      departmentId: jsonNullableString(department['id']),
+      departmentName: jsonNullableString(department['name']) ?? '',
+      packageName: jsonNullableString(package['name']),
+      reason: jsonNullableString(json['reason']),
+      estimatedPrice: jsonNumber(json['estimatedPrice']),
+      serviceFee: jsonNumber(json['serviceFee']),
       hasBhyt: json['hasBHYT'] == true,
-      bhytDiscount: _number(json['bhytDiscount']),
-      finalAmount: _number(json['finalAmount']),
-      confirmedAt: _dateTime(json['confirmedAt']),
-      cancelledAt: _dateTime(json['cancelledAt']),
-      cancelledReason: _nullableString(json['cancelledReason']),
-      completedAt: _dateTime(json['completedAt']),
-      createdAt: _dateTime(json['createdAt']),
+      bhytDiscount: jsonNumber(json['bhytDiscount']),
+      finalAmount: jsonNumber(json['finalAmount']),
+      confirmedAt: jsonDateTime(json['confirmedAt']),
+      cancelledAt: jsonDateTime(json['cancelledAt']),
+      cancelledReason: jsonNullableString(json['cancelledReason']),
+      completedAt: jsonDateTime(json['completedAt']),
+      createdAt: jsonDateTime(json['createdAt']),
     );
   }
 
@@ -224,23 +226,3 @@ class AppointmentPage {
   final int total;
   final bool hasNextPage;
 }
-
-Map<String, dynamic> _map(dynamic value) =>
-    value is Map ? Map<String, dynamic>.from(value) : <String, dynamic>{};
-
-String _string(dynamic value) => value?.toString() ?? '';
-
-String? _nullableString(dynamic value) {
-  final result = value?.toString().trim();
-  return result == null || result.isEmpty ? null : result;
-}
-
-double _number(dynamic value) => value is num
-    ? value.toDouble()
-    : double.tryParse(value?.toString() ?? '') ?? 0;
-
-DateTime? _dateTime(dynamic value) =>
-    DateTime.tryParse(value?.toString() ?? '');
-
-String _dateOnly(String value) =>
-    RegExp(r'^\d{4}-\d{2}-\d{2}').firstMatch(value)?.group(0) ?? value;

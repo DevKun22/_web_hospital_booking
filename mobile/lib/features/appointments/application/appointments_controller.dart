@@ -5,6 +5,8 @@ import 'package:hospital_booking_mobile/features/appointments/data/appointments_
 import 'package:hospital_booking_mobile/features/appointments/domain/patient_appointment.dart';
 import 'package:hospital_booking_mobile/features/auth/application/auth_controller.dart';
 
+import 'package:hospital_booking_mobile/core/state/synced_notifier.dart';
+
 final appointmentsRepositoryProvider = Provider<AppointmentsRepository>(
   (ref) => AppointmentsRepository(ref.watch(authenticatedDioProvider)),
 );
@@ -76,7 +78,7 @@ class AppointmentsState {
   );
 }
 
-class AppointmentsController extends Notifier<AppointmentsState> {
+class AppointmentsController extends SyncedNotifier<AppointmentsState> {
   static const _pageSize = 20;
   int _requestVersion = 0;
   String? _patientId;
@@ -101,6 +103,10 @@ class AppointmentsController extends Notifier<AppointmentsState> {
     await _loadFirstPage(requestVersion);
   }
 
+  @override
+  DateTime? get lastSyncedAt => state.lastSyncedAt;
+
+  @override
   Future<void> refresh() async {
     if (_patientId == null || state.isInitialLoading || state.isRefreshing) {
       return;
@@ -113,15 +119,6 @@ class AppointmentsController extends Notifier<AppointmentsState> {
       clearError: true,
     );
     await _loadFirstPage(requestVersion);
-  }
-
-  Future<void> refreshIfStale({required Duration maxAge}) async {
-    final lastSyncedAt = state.lastSyncedAt;
-    final isFresh =
-        lastSyncedAt != null &&
-        DateTime.now().difference(lastSyncedAt) < maxAge;
-    if (isFresh) return;
-    await refresh();
   }
 
   Future<void> _loadFirstPage(int requestVersion) async {

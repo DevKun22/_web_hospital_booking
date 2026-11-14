@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hospital_booking_mobile/app/navigation/main_navigation_destination.dart';
+import 'package:hospital_booking_mobile/core/state/synced_notifier.dart';
 import 'package:hospital_booking_mobile/features/appointments/application/appointments_controller.dart';
 import 'package:hospital_booking_mobile/features/auth/application/auth_controller.dart';
 import 'package:hospital_booking_mobile/features/dependents/application/dependent_profiles_controller.dart';
@@ -27,19 +28,127 @@ abstract interface class PatientDataSyncCoordinator {
   Future<void> handleBookingCompleted({String? appointmentId});
 }
 
+/// Một nguồn dữ liệu bệnh nhân mà bộ đồng bộ có thể làm mới.
+abstract interface class _Source {
+  /// Controller đã được tạo (người dùng từng mở màn hình dùng nó) hay chưa.
+  bool isActive(Ref ref);
+
+  Future<void> refresh(Ref ref);
+
+  Future<void> refreshIfStale(Ref ref);
+}
+
+final class _ControllerSource<N extends SyncedNotifier<S>, S>
+    implements _Source {
+  const _ControllerSource(
+    this._provider, {
+    required this.maxAge,
+    this.onlyWhenActive = false,
+  });
+
+  final NotifierProvider<N, S> _provider;
+
+  /// Tuổi tối đa của dữ liệu khi quay lại ứng dụng hoặc chuyển tab.
+  final Duration maxAge;
+
+  /// Nguồn chỉ cần làm mới khi đã được dùng; chưa dùng thì màn hình sẽ tự tải lần đầu.
+  final bool onlyWhenActive;
+
+  @override
+  bool isActive(Ref ref) => ref.exists(_provider);
+
+  @override
+  Future<void> refresh(Ref ref) => ref.read(_provider.notifier).refresh();
+
+  @override
+  Future<void> refreshIfStale(Ref ref) =>
+      ref.read(_provider.notifier).refreshIfStale(maxAge: maxAge);
+}
+
+/// Loại thực thể do máy chủ báo thay đổi: nguồn danh sách cần tải lại và cách bỏ chi tiết cũ.
+typedef _RemoteEntity = ({
+  _Source source,
+  void Function(Ref ref, String id) invalidateDetail,
+});
+
 class DefaultPatientDataSyncCoordinator implements PatientDataSyncCoordinator {
   DefaultPatientDataSyncCoordinator(this._ref);
 
-  static const _appointmentsResumeMaxAge = Duration(seconds: 10);
-  static const _notificationsResumeMaxAge = Duration(seconds: 30);
-  static const _clinicalDataResumeMaxAge = Duration(seconds: 60);
-  static const _profileResumeMaxAge = Duration(seconds: 60);
-  static const _dependentsResumeMaxAge = Duration(seconds: 60);
+  static final _appointments = _ControllerSource(
+    appointmentsControllerProvider,
+    maxAge: Duration(seconds: 10),
+  );
+  static final _notifications = _ControllerSource(
+    notificationsControllerProvider,
+    maxAge: Duration(seconds: 30),
+  );
+  static final _medicalRecords = _ControllerSource(
+    medicalRecordsControllerProvider,
+    maxAge: Duration(seconds: 60),
+    onlyWhenActive: true,
+  );
+  static final _prescriptions = _ControllerSource(
+    prescriptionsControllerProvider,
+    maxAge: Duration(seconds: 60),
+    onlyWhenActive: true,
+  );
+  static final _invoices = _ControllerSource(
+    invoicesControllerProvider,
+    maxAge: Duration(seconds: 60),
+    onlyWhenActive: true,
+  );
+  static final _profile = _ControllerSource(
+    patientProfileControllerProvider,
+    maxAge: Duration(seconds: 60),
+    onlyWhenActive: true,
+  );
+  static final _dependents = _ControllerSource(
+    dependentProfilesControllerProvider,
+    maxAge: Duration(seconds: 60),
+    onlyWhenActive: true,
+  );
+
+  /// Dữ liệu luôn cần mới ở màn hình chính.
+  static final _homeSources = <_Source>[_appointments, _notifications];
+
+  /// Dữ liệu lâm sàng và thanh toán ở tab hồ sơ.
+  static final _recordsSources = <_Source>[
+    _medicalRecords,
+    _prescriptions,
+    _invoices,
+    _dependents,
+  ];
 
   final Ref _ref;
 
   bool get _isAuthenticated =>
       _ref.read(authControllerProvider).isAuthenticated;
+
+  Map<String, _RemoteEntity> get _remoteEntities => {
+    'MEDICAL_RECORD': (
+      source: _medicalRecords,
+      invalidateDetail: (ref, id) =>
+          ref.invalidate(medicalRecordDetailProvider(id)),
+    ),
+    'PRESCRIPTION': (
+      source: _prescriptions,
+      invalidateDetail: (ref, id) =>
+          ref.invalidate(prescriptionDetailProvider(id)),
+    ),
+    'INVOICE': (
+      source: _invoices,
+      invalidateDetail: (ref, id) => ref.invalidate(invoiceDetailProvider(id)),
+    ),
+  };
+
+  /// Làm mới những nguồn đã cũ; bỏ qua nguồn chỉ-khi-đã-dùng mà chưa được tạo.
+  Future<void> _refreshStale(Iterable<_Source> sources) => Future.wait([
+    for (final source in sources)
+      if (source is! _ControllerSource ||
+          !source.onlyWhenActive ||
+          source.isActive(_ref))
+        source.refreshIfStale(_ref),
+  ]);
 
   @override
   Future<void> handleAppResumed() async {
@@ -48,50 +157,7 @@ class DefaultPatientDataSyncCoordinator implements PatientDataSyncCoordinator {
     _ref.invalidate(medicalRecordDetailProvider);
     _ref.invalidate(prescriptionDetailProvider);
     _ref.invalidate(invoiceDetailProvider);
-    final jobs = <Future<void>>[
-      _ref
-          .read(appointmentsControllerProvider.notifier)
-          .refreshIfStale(maxAge: _appointmentsResumeMaxAge),
-      _ref
-          .read(notificationsControllerProvider.notifier)
-          .refreshIfStale(maxAge: _notificationsResumeMaxAge),
-    ];
-    if (_ref.exists(medicalRecordsControllerProvider)) {
-      jobs.add(
-        _ref
-            .read(medicalRecordsControllerProvider.notifier)
-            .refreshIfStale(maxAge: _clinicalDataResumeMaxAge),
-      );
-    }
-    if (_ref.exists(prescriptionsControllerProvider)) {
-      jobs.add(
-        _ref
-            .read(prescriptionsControllerProvider.notifier)
-            .refreshIfStale(maxAge: _clinicalDataResumeMaxAge),
-      );
-    }
-    if (_ref.exists(invoicesControllerProvider)) {
-      jobs.add(
-        _ref
-            .read(invoicesControllerProvider.notifier)
-            .refreshIfStale(maxAge: _clinicalDataResumeMaxAge),
-      );
-    }
-    if (_ref.exists(patientProfileControllerProvider)) {
-      jobs.add(
-        _ref
-            .read(patientProfileControllerProvider.notifier)
-            .refreshIfStale(maxAge: _profileResumeMaxAge),
-      );
-    }
-    if (_ref.exists(dependentProfilesControllerProvider)) {
-      jobs.add(
-        _ref
-            .read(dependentProfilesControllerProvider.notifier)
-            .refreshIfStale(maxAge: _dependentsResumeMaxAge),
-      );
-    }
-    await Future.wait(jobs);
+    await _refreshStale([..._homeSources, ..._recordsSources, _profile]);
   }
 
   @override
@@ -99,55 +165,14 @@ class DefaultPatientDataSyncCoordinator implements PatientDataSyncCoordinator {
     if (!_isAuthenticated) return;
     switch (MainNavigationBranch.fromIndex(branchIndex)) {
       case MainNavigationBranch.home:
-        await Future.wait([
-          _ref
-              .read(appointmentsControllerProvider.notifier)
-              .refreshIfStale(maxAge: _appointmentsResumeMaxAge),
-          _ref
-              .read(notificationsControllerProvider.notifier)
-              .refreshIfStale(maxAge: _notificationsResumeMaxAge),
-        ]);
-        return;
+        await _refreshStale(_homeSources);
       case MainNavigationBranch.records:
-        final jobs = <Future<void>>[];
-        if (_ref.exists(medicalRecordsControllerProvider)) {
-          jobs.add(
-            _ref
-                .read(medicalRecordsControllerProvider.notifier)
-                .refreshIfStale(maxAge: _clinicalDataResumeMaxAge),
-          );
-        }
-        if (_ref.exists(prescriptionsControllerProvider)) {
-          jobs.add(
-            _ref
-                .read(prescriptionsControllerProvider.notifier)
-                .refreshIfStale(maxAge: _clinicalDataResumeMaxAge),
-          );
-        }
-        if (_ref.exists(invoicesControllerProvider)) {
-          jobs.add(
-            _ref
-                .read(invoicesControllerProvider.notifier)
-                .refreshIfStale(maxAge: _clinicalDataResumeMaxAge),
-          );
-        }
-        if (_ref.exists(dependentProfilesControllerProvider)) {
-          jobs.add(
-            _ref
-                .read(dependentProfilesControllerProvider.notifier)
-                .refreshIfStale(maxAge: _dependentsResumeMaxAge),
-          );
-        }
-        await Future.wait(jobs);
-        return;
-      case MainNavigationBranch.assistant:
-        return;
-      case MainNavigationBranch.booking:
-        return;
+        await _refreshStale(_recordsSources);
       case MainNavigationBranch.profile:
-        await _ref
-            .read(patientProfileControllerProvider.notifier)
-            .refreshIfStale(maxAge: _profileResumeMaxAge);
+        // Tab hồ sơ cá nhân luôn đồng bộ, kể cả khi chưa mở màn hình trước đó.
+        await _profile.refreshIfStale(_ref);
+      case MainNavigationBranch.assistant:
+      case MainNavigationBranch.booking:
         return;
     }
   }
@@ -158,28 +183,15 @@ class DefaultPatientDataSyncCoordinator implements PatientDataSyncCoordinator {
     String? entityId,
   }) async {
     if (!_isAuthenticated) return;
-    final normalizedType = entityType?.trim().toUpperCase();
-    final jobs = <Future<void>>[
-      _ref.read(notificationsControllerProvider.notifier).refresh(),
-    ];
+    final type = entityType?.trim().toUpperCase();
+    final id = entityId?.trim();
+    final jobs = <Future<void>>[_notifications.refresh(_ref)];
 
-    if (normalizedType == 'APPOINTMENT') {
-      jobs.add(handleAppointmentChanged(appointmentId: entityId));
-    } else if (normalizedType == 'MEDICAL_RECORD') {
-      if (entityId != null && entityId.trim().isNotEmpty) {
-        _ref.invalidate(medicalRecordDetailProvider(entityId.trim()));
-      }
-      jobs.add(_ref.read(medicalRecordsControllerProvider.notifier).refresh());
-    } else if (normalizedType == 'PRESCRIPTION') {
-      if (entityId != null && entityId.trim().isNotEmpty) {
-        _ref.invalidate(prescriptionDetailProvider(entityId.trim()));
-      }
-      jobs.add(_ref.read(prescriptionsControllerProvider.notifier).refresh());
-    } else if (normalizedType == 'INVOICE') {
-      if (entityId != null && entityId.trim().isNotEmpty) {
-        _ref.invalidate(invoiceDetailProvider(entityId.trim()));
-      }
-      jobs.add(_ref.read(invoicesControllerProvider.notifier).refresh());
+    if (type == 'APPOINTMENT') {
+      jobs.add(handleAppointmentChanged(appointmentId: id));
+    } else if (_remoteEntities[type] case final entity?) {
+      if (id != null && id.isNotEmpty) entity.invalidateDetail(_ref, id);
+      jobs.add(entity.source.refresh(_ref));
     }
 
     await Future.wait(jobs);
@@ -188,11 +200,11 @@ class DefaultPatientDataSyncCoordinator implements PatientDataSyncCoordinator {
   @override
   Future<void> handleAppointmentChanged({String? appointmentId}) async {
     if (!_isAuthenticated) return;
-    final normalizedId = appointmentId?.trim();
-    if (normalizedId != null && normalizedId.isNotEmpty) {
-      _ref.invalidate(appointmentDetailProvider(normalizedId));
+    final id = appointmentId?.trim();
+    if (id != null && id.isNotEmpty) {
+      _ref.invalidate(appointmentDetailProvider(id));
     }
-    await _ref.read(appointmentsControllerProvider.notifier).refresh();
+    await _appointments.refresh(_ref);
   }
 
   @override
@@ -200,7 +212,7 @@ class DefaultPatientDataSyncCoordinator implements PatientDataSyncCoordinator {
     if (!_isAuthenticated) return;
     await Future.wait([
       handleAppointmentChanged(appointmentId: appointmentId),
-      _ref.read(patientProfileControllerProvider.notifier).refresh(),
+      _profile.refresh(_ref),
     ]);
   }
 }

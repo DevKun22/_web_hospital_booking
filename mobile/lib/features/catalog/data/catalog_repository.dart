@@ -6,20 +6,22 @@ import 'package:hospital_booking_mobile/features/catalog/domain/catalog_page.dar
 import 'package:hospital_booking_mobile/features/booking/domain/booking_catalog.dart';
 import 'package:hospital_booking_mobile/features/packages/domain/medical_package.dart';
 
+import 'package:hospital_booking_mobile/core/network/json_readers.dart';
+
+import 'package:hospital_booking_mobile/core/network/api_guard.dart';
+
 class CatalogRepository {
   CatalogRepository(this._dio);
 
   final Dio _dio;
 
   Future<List<BookingDepartment>> fetchDepartments() async {
-    try {
+    return guardApi(() async {
       final response = await _dio.get<dynamic>('/departments');
       return requireDataList(
         response.data,
       ).map(BookingDepartment.fromJson).toList(growable: false);
-    } on DioException catch (error) {
-      throw ApiException.fromDio(error);
-    }
+    });
   }
 
   Future<CatalogPage<CatalogDoctor>> fetchDoctors({
@@ -28,7 +30,7 @@ class CatalogRepository {
     int page = 1,
     int limit = 10,
   }) async {
-    try {
+    return guardApi(() async {
       final response = await _dio.get<dynamic>(
         '/doctors/catalog',
         queryParameters: {
@@ -39,9 +41,7 @@ class CatalogRepository {
         },
       );
       return _decodePage(response.data, CatalogDoctor.fromJson);
-    } on DioException catch (error) {
-      throw ApiException.fromDio(error);
-    }
+    });
   }
 
   Future<CatalogPage<MedicalPackage>> fetchPackages({
@@ -52,7 +52,7 @@ class CatalogRepository {
     int page = 1,
     int limit = 10,
   }) async {
-    try {
+    return guardApi(() async {
       final response = await _dio.get<dynamic>(
         '/packages/catalog',
         queryParameters: {
@@ -65,9 +65,7 @@ class CatalogRepository {
         },
       );
       return _decodePage(response.data, MedicalPackage.fromJson);
-    } on DioException catch (error) {
-      throw ApiException.fromDio(error);
-    }
+    });
   }
 
   CatalogPage<T> _decodePage<T>(
@@ -90,10 +88,10 @@ class CatalogRepository {
           .whereType<Map>()
           .map((item) => decode(Map<String, dynamic>.from(item)))
           .toList(growable: false),
-      page: _integer(meta['page'], fallback: 1),
-      limit: _integer(meta['limit'], fallback: 10),
-      total: _integer(meta['total']),
-      totalPages: _integer(meta['totalPages']),
+      page: jsonInt(meta['page'], fallback: 1),
+      limit: jsonInt(meta['limit'], fallback: 10),
+      total: jsonInt(meta['total']),
+      totalPages: jsonInt(meta['totalPages']),
     );
   }
 }
@@ -102,7 +100,3 @@ String? _nonEmpty(String? value) {
   final normalized = value?.trim();
   return normalized == null || normalized.isEmpty ? null : normalized;
 }
-
-int _integer(dynamic value, {int fallback = 0}) => value is num
-    ? value.toInt()
-    : int.tryParse(value?.toString() ?? '') ?? fallback;

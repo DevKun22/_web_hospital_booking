@@ -1,7 +1,8 @@
 import 'package:dio/dio.dart';
-import 'package:hospital_booking_mobile/core/errors/api_exception.dart';
 import 'package:hospital_booking_mobile/core/network/api_contract.dart';
 import 'package:hospital_booking_mobile/features/invoices/domain/patient_payment.dart';
+
+import 'package:hospital_booking_mobile/core/network/api_guard.dart';
 
 class PatientPaymentRepository {
   PatientPaymentRepository(this._dio);
@@ -9,12 +10,10 @@ class PatientPaymentRepository {
   final Dio _dio;
 
   Future<PatientPaymentCapabilities> getCapabilities() async {
-    try {
+    return guardApi(() async {
       final response = await _dio.get<dynamic>('/me/payment-capabilities');
       return PatientPaymentCapabilities.fromJson(requireDataMap(response.data));
-    } on DioException catch (error) {
-      throw ApiException.fromDio(error);
-    }
+    });
   }
 
   Future<PatientPaymentTransaction> create({
@@ -22,24 +21,20 @@ class PatientPaymentRepository {
     required String provider,
     required String idempotencyKey,
   }) async {
-    try {
+    return guardApi(() async {
       final response = await _dio.post<dynamic>(
         '/me/invoices/$invoiceId/payments',
         data: {'provider': provider},
         options: Options(headers: {'Idempotency-Key': idempotencyKey}),
       );
       return PatientPaymentTransaction.fromJson(requireDataMap(response.data));
-    } on DioException catch (error) {
-      throw ApiException.fromDio(error);
-    }
+    });
   }
 
   Future<PatientPaymentTransaction> getById(String paymentId) async {
-    try {
+    return guardApi(() async {
       final response = await _dio.get<dynamic>('/me/payments/$paymentId');
       return PatientPaymentTransaction.fromJson(requireDataMap(response.data));
-    } on DioException catch (error) {
-      throw ApiException.fromDio(error);
-    }
+    });
   }
 }

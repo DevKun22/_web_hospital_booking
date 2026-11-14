@@ -5,6 +5,8 @@ import 'package:hospital_booking_mobile/features/auth/application/auth_controlle
 import 'package:hospital_booking_mobile/features/medical_records/data/medical_records_repository.dart';
 import 'package:hospital_booking_mobile/features/medical_records/domain/patient_medical_record.dart';
 
+import 'package:hospital_booking_mobile/core/state/synced_notifier.dart';
+
 final medicalRecordsRepositoryProvider = Provider<MedicalRecordsRepository>(
   (ref) => MedicalRecordsRepository(ref.watch(authenticatedDioProvider)),
 );
@@ -75,7 +77,7 @@ class MedicalRecordsState {
   );
 }
 
-class MedicalRecordsController extends Notifier<MedicalRecordsState> {
+class MedicalRecordsController extends SyncedNotifier<MedicalRecordsState> {
   static const _pageSize = 20;
   int _requestVersion = 0;
   String? _patientId;
@@ -97,6 +99,10 @@ class MedicalRecordsController extends Notifier<MedicalRecordsState> {
     await _loadFirstPage(requestVersion);
   }
 
+  @override
+  DateTime? get lastSyncedAt => state.lastSyncedAt;
+
+  @override
   Future<void> refresh() async {
     if (_patientId == null || state.isInitialLoading || state.isRefreshing) {
       return;
@@ -109,15 +115,6 @@ class MedicalRecordsController extends Notifier<MedicalRecordsState> {
       clearError: true,
     );
     await _loadFirstPage(requestVersion);
-  }
-
-  Future<void> refreshIfStale({required Duration maxAge}) async {
-    final lastSyncedAt = state.lastSyncedAt;
-    if (lastSyncedAt != null &&
-        DateTime.now().difference(lastSyncedAt) < maxAge) {
-      return;
-    }
-    await refresh();
   }
 
   Future<void> _loadFirstPage(int requestVersion) async {

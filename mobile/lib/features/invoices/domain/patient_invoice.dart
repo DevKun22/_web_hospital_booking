@@ -1,5 +1,7 @@
 import 'package:hospital_booking_mobile/core/formatters/professional_name_formatter.dart';
 
+import 'package:hospital_booking_mobile/core/network/json_readers.dart';
+
 enum PatientInvoiceStatus {
   unpaid('UNPAID'),
   paid('PAID'),
@@ -95,11 +97,11 @@ class PatientInvoiceItem {
 
   factory PatientInvoiceItem.fromJson(Map<String, dynamic> json) =>
       PatientInvoiceItem(
-        id: _string(json['id']),
-        description: _string(json['description']),
-        quantity: _integer(json['quantity']),
-        unitPrice: _integer(json['unitPrice']),
-        amount: _integer(json['amount']),
+        id: jsonText(json['id']),
+        description: jsonText(json['description']),
+        quantity: jsonInt(json['quantity']),
+        unitPrice: jsonInt(json['unitPrice']),
+        amount: jsonInt(json['amount']),
       );
 
   final String id;
@@ -142,11 +144,11 @@ class PatientInvoice {
   });
 
   factory PatientInvoice.fromJson(Map<String, dynamic> json) {
-    final appointment = _map(json['appointment']);
-    final doctor = _map(appointment['doctor']);
-    final doctorUser = _map(doctor['user']);
-    final department = _map(appointment['department']);
-    final package = _map(appointment['package']);
+    final appointment = jsonMap(json['appointment']);
+    final doctor = jsonMap(appointment['doctor']);
+    final doctorUser = jsonMap(doctor['user']);
+    final department = jsonMap(appointment['department']);
+    final package = jsonMap(appointment['package']);
     final items = json['items'] is List
         ? (json['items'] as List<dynamic>)
               .whereType<Map>()
@@ -158,14 +160,14 @@ class PatientInvoice {
               .toList(growable: false)
         : const <PatientInvoiceItem>[];
     return PatientInvoice(
-      id: _string(json['id']),
-      invoiceCode: _string(json['invoiceCode']),
-      totalAmount: _integer(json['totalAmount']),
-      bhytDiscount: _integer(json['bhytDiscount']),
-      finalAmount: _integer(json['finalAmount']),
-      insuranceEligibleAmount: _integer(json['insuranceEligibleAmount']),
-      insuranceCoverageRate: _integer(json['insuranceCoverageRate']),
-      insuranceDiscountAmount: _integer(json['insuranceDiscountAmount']),
+      id: jsonText(json['id']),
+      invoiceCode: jsonText(json['invoiceCode']),
+      totalAmount: jsonInt(json['totalAmount']),
+      bhytDiscount: jsonInt(json['bhytDiscount']),
+      finalAmount: jsonInt(json['finalAmount']),
+      insuranceEligibleAmount: jsonInt(json['insuranceEligibleAmount']),
+      insuranceCoverageRate: jsonInt(json['insuranceCoverageRate']),
+      insuranceDiscountAmount: jsonInt(json['insuranceDiscountAmount']),
       items: items,
       insuranceRouteType: json['insuranceRouteType'] == null
           ? null
@@ -174,25 +176,25 @@ class PatientInvoice {
       paymentMethod: json['paymentMethod'] == null
           ? null
           : PatientPaymentMethod.fromApi(json['paymentMethod']),
-      paymentReference: _nullableString(json['paymentReference']),
-      paidAt: _dateTime(json['paidAt']),
-      refundReason: _nullableString(json['refundReason']),
-      refundReference: _nullableString(json['refundReference']),
-      refundedAt: _dateTime(json['refundedAt']),
-      createdAt: _dateTime(json['createdAt']),
-      appointmentId: _string(appointment['id']),
-      bookingCode: _string(appointment['bookingCode']),
-      patientName: _nullableString(appointment['patientName']),
-      dependentProfileId: _nullableString(appointment['dependentProfileId']),
-      appointmentDate: _dateOnly(appointment['appointmentDate']),
-      startTime: _string(appointment['startTime']),
-      endTime: _string(appointment['endTime']),
+      paymentReference: jsonNullableString(json['paymentReference']),
+      paidAt: jsonDateTime(json['paidAt']),
+      refundReason: jsonNullableString(json['refundReason']),
+      refundReference: jsonNullableString(json['refundReference']),
+      refundedAt: jsonDateTime(json['refundedAt']),
+      createdAt: jsonDateTime(json['createdAt']),
+      appointmentId: jsonText(appointment['id']),
+      bookingCode: jsonText(appointment['bookingCode']),
+      patientName: jsonNullableString(appointment['patientName']),
+      dependentProfileId: jsonNullableString(appointment['dependentProfileId']),
+      appointmentDate: jsonDateOnly(appointment['appointmentDate']),
+      startTime: jsonText(appointment['startTime']),
+      endTime: jsonText(appointment['endTime']),
       doctorName: formatProfessionalName(
-        title: _nullableString(doctor['title']),
-        fullName: _string(doctorUser['fullName']),
+        title: jsonNullableString(doctor['title']),
+        fullName: jsonText(doctorUser['fullName']),
       ),
-      departmentName: _nullableString(department['name']) ?? '',
-      packageName: _nullableString(package['name']),
+      departmentName: jsonNullableString(department['name']) ?? '',
+      packageName: jsonNullableString(package['name']),
     );
   }
 
@@ -251,24 +253,3 @@ class InvoicePage {
   final int total;
   final bool hasNextPage;
 }
-
-Map<String, dynamic> _map(dynamic value) =>
-    value is Map ? Map<String, dynamic>.from(value) : <String, dynamic>{};
-
-String _string(dynamic value) => value?.toString().trim() ?? '';
-
-String? _nullableString(dynamic value) {
-  final result = value?.toString().trim();
-  return result == null || result.isEmpty ? null : result;
-}
-
-String _dateOnly(dynamic value) {
-  final raw = _string(value);
-  return RegExp(r'^\d{4}-\d{2}-\d{2}').firstMatch(raw)?.group(0) ?? raw;
-}
-
-DateTime? _dateTime(dynamic value) =>
-    DateTime.tryParse(value?.toString() ?? '');
-
-int _integer(dynamic value) =>
-    value is num ? value.toInt() : int.tryParse(value?.toString() ?? '') ?? 0;

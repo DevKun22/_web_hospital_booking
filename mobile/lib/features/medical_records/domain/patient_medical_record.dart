@@ -2,11 +2,13 @@ import 'dart:typed_data';
 
 import 'package:hospital_booking_mobile/core/formatters/professional_name_formatter.dart';
 
+import 'package:hospital_booking_mobile/core/network/json_readers.dart';
+
 class MedicalFileAvailability {
   const MedicalFileAvailability({required this.available});
 
   factory MedicalFileAvailability.fromJson(dynamic value) {
-    final json = _map(value);
+    final json = jsonMap(value);
     return MedicalFileAvailability(available: json['available'] == true);
   }
 
@@ -27,13 +29,13 @@ class PatientLabResult {
 
   factory PatientLabResult.fromJson(Map<String, dynamic> json) =>
       PatientLabResult(
-        id: _string(json['id']),
-        testName: _string(json['testName'], fallback: 'Xét nghiệm'),
-        resultValue: _nullableString(json['resultValue']),
-        unit: _nullableString(json['unit']),
-        referenceRange: _nullableString(json['referenceRange']),
-        conclusion: _nullableString(json['conclusion']),
-        createdAt: _dateTime(json['createdAt']),
+        id: jsonText(json['id']),
+        testName: jsonText(json['testName'], fallback: 'Xét nghiệm'),
+        resultValue: jsonNullableString(json['resultValue']),
+        unit: jsonNullableString(json['unit']),
+        referenceRange: jsonNullableString(json['referenceRange']),
+        conclusion: jsonNullableString(json['conclusion']),
+        createdAt: jsonDateTime(json['createdAt']),
         file: MedicalFileAvailability.fromJson(json['file']),
       );
 
@@ -80,36 +82,36 @@ class PatientMedicalRecord {
   });
 
   factory PatientMedicalRecord.fromJson(Map<String, dynamic> json) {
-    final appointment = _map(json['appointment']);
-    final doctor = _map(json['doctor']);
-    final doctorUser = _map(doctor['user']);
-    final department = _map(doctor['department']);
+    final appointment = jsonMap(json['appointment']);
+    final doctor = jsonMap(json['doctor']);
+    final doctorUser = jsonMap(doctor['user']);
+    final department = jsonMap(doctor['department']);
     final rawLabs = json['labResults'];
     return PatientMedicalRecord(
-      id: _string(json['id']),
-      recordCode: _string(json['recordCode']),
-      symptoms: _nullableString(json['symptoms']),
-      diagnosis: _nullableString(json['diagnosis']),
-      treatment: _nullableString(json['treatment']),
-      prescription: _nullableString(json['prescription']),
-      status: _string(json['status']),
-      publishedAt: _dateTime(json['publishedAt']),
-      createdAt: _dateTime(json['createdAt']),
-      appointmentId: _string(appointment['id']),
-      bookingCode: _string(appointment['bookingCode']),
-      patientName: _nullableString(appointment['patientName']),
-      dependentProfileId: _nullableString(appointment['dependentProfileId']),
-      appointmentDate: _dateOnly(appointment['appointmentDate']),
-      startTime: _string(appointment['startTime']),
-      endTime: _string(appointment['endTime']),
-      doctorId: _nullableString(doctor['id']),
+      id: jsonText(json['id']),
+      recordCode: jsonText(json['recordCode']),
+      symptoms: jsonNullableString(json['symptoms']),
+      diagnosis: jsonNullableString(json['diagnosis']),
+      treatment: jsonNullableString(json['treatment']),
+      prescription: jsonNullableString(json['prescription']),
+      status: jsonText(json['status']),
+      publishedAt: jsonDateTime(json['publishedAt']),
+      createdAt: jsonDateTime(json['createdAt']),
+      appointmentId: jsonText(appointment['id']),
+      bookingCode: jsonText(appointment['bookingCode']),
+      patientName: jsonNullableString(appointment['patientName']),
+      dependentProfileId: jsonNullableString(appointment['dependentProfileId']),
+      appointmentDate: jsonDateOnly(appointment['appointmentDate']),
+      startTime: jsonText(appointment['startTime']),
+      endTime: jsonText(appointment['endTime']),
+      doctorId: jsonNullableString(doctor['id']),
       doctorName: formatProfessionalName(
-        title: _nullableString(doctor['title']),
-        fullName: _string(doctorUser['fullName']),
+        title: jsonNullableString(doctor['title']),
+        fullName: jsonText(doctorUser['fullName']),
       ),
-      doctorAvatar: _nullableString(doctorUser['avatar']),
-      specialization: _nullableString(doctor['specialization']),
-      departmentName: _nullableString(department['name']),
+      doctorAvatar: jsonNullableString(doctorUser['avatar']),
+      specialization: jsonNullableString(doctor['specialization']),
+      departmentName: jsonNullableString(department['name']),
       labResults: rawLabs is List
           ? rawLabs
                 .whereType<Map>()
@@ -203,24 +205,3 @@ class MedicalDocumentRequest {
   @override
   int get hashCode => Object.hash(recordId, labResultId);
 }
-
-Map<String, dynamic> _map(dynamic value) =>
-    value is Map ? Map<String, dynamic>.from(value) : <String, dynamic>{};
-
-String _string(dynamic value, {String fallback = ''}) {
-  final result = value?.toString().trim();
-  return result == null || result.isEmpty ? fallback : result;
-}
-
-String? _nullableString(dynamic value) {
-  final result = value?.toString().trim();
-  return result == null || result.isEmpty ? null : result;
-}
-
-String _dateOnly(dynamic value) {
-  final raw = _string(value);
-  return RegExp(r'^\d{4}-\d{2}-\d{2}').firstMatch(raw)?.group(0) ?? raw;
-}
-
-DateTime? _dateTime(dynamic value) =>
-    DateTime.tryParse(value?.toString() ?? '');

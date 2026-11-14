@@ -4,6 +4,8 @@ import 'package:hospital_booking_mobile/core/network/api_contract.dart';
 import 'package:hospital_booking_mobile/features/booking/domain/booking_catalog.dart';
 import 'package:hospital_booking_mobile/features/packages/domain/medical_package.dart';
 
+import 'package:hospital_booking_mobile/core/network/api_guard.dart';
+
 class BookingCatalog {
   const BookingCatalog({
     required this.departments,
@@ -22,7 +24,7 @@ class BookingCatalogRepository {
   final Dio _dio;
 
   Future<BookingCatalog> fetchCatalog() async {
-    try {
+    return guardApi(() async {
       final response = await _dio.get<dynamic>(
         '/public/bootstrap',
         queryParameters: {'view': 'catalog'},
@@ -42,9 +44,7 @@ class BookingCatalogRepository {
           'packages',
         ).map(MedicalPackage.fromJson).toList(growable: false),
       );
-    } on DioException catch (error) {
-      throw ApiException.fromDio(error);
-    }
+    });
   }
 
   List<Map<String, dynamic>> _list(Map<String, dynamic> data, String key) {
@@ -64,19 +64,17 @@ class BookingCatalogRepository {
   }
 
   Future<BookingDoctor> fetchDoctor(String doctorId) async {
-    try {
+    return guardApi(() async {
       final response = await _dio.get<dynamic>('/doctors/$doctorId');
       return BookingDoctor.fromJson(requireDataMap(response.data));
-    } on DioException catch (error) {
-      throw ApiException.fromDio(error);
-    }
+    });
   }
 
   Future<List<BookingSlot>> fetchAvailableSlots({
     required String doctorId,
     required String date,
   }) async {
-    try {
+    return guardApi(() async {
       final response = await _dio.get<dynamic>(
         '/doctors/$doctorId/available-slots',
         queryParameters: {'date': date},
@@ -84,8 +82,6 @@ class BookingCatalogRepository {
       return requireDataList(
         response.data,
       ).map(BookingSlot.fromJson).toList(growable: false);
-    } on DioException catch (error) {
-      throw ApiException.fromDio(error);
-    }
+    });
   }
 }

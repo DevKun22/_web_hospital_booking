@@ -8,6 +8,8 @@ import 'package:hospital_booking_mobile/core/network/session_refresh_coordinator
 import 'package:hospital_booking_mobile/core/storage/token_storage.dart';
 import 'package:hospital_booking_mobile/features/auth/domain/auth_session.dart';
 
+import 'package:hospital_booking_mobile/core/network/api_guard.dart';
+
 class AuthRepository {
   AuthRepository({
     required Dio authDio,
@@ -30,7 +32,7 @@ class AuthRepository {
   /// [identifier] là số điện thoại hoặc email đã dùng khi đặt lịch.
   Future<OtpChallenge> requestOtp(String identifier) async {
     final value = identifier.trim();
-    try {
+    return guardApi(() async {
       final response = await _authDio.post<dynamic>(
         '/auth/patient/request-otp',
         data: value.contains('@')
@@ -38,16 +40,14 @@ class AuthRepository {
             : {'phone': value},
       );
       return OtpChallenge.fromJson(requireDataMap(response.data));
-    } on DioException catch (error) {
-      throw ApiException.fromDio(error);
-    }
+    });
   }
 
   Future<AuthSession> verifyOtp({
     required String challengeId,
     required String otp,
   }) async {
-    try {
+    return guardApi(() async {
       final deviceId = await _tokenStorage.getOrCreateDeviceId();
       final response = await _authDio.post<dynamic>(
         '/auth/patient/verify-otp',
@@ -72,9 +72,7 @@ class AuthRepository {
         refreshToken: session.refreshToken,
       );
       return session;
-    } on DioException catch (error) {
-      throw ApiException.fromDio(error);
-    }
+    });
   }
 
   Future<AuthSession?> restoreSession() async {
@@ -101,11 +99,9 @@ class AuthRepository {
   }
 
   Future<void> verifyAuthenticatedConnection() async {
-    try {
+    return guardApi(() async {
       await _authenticatedDio.get<dynamic>('/me');
-    } on DioException catch (error) {
-      throw ApiException.fromDio(error);
-    }
+    });
   }
 
   String get _platformName => switch (defaultTargetPlatform) {

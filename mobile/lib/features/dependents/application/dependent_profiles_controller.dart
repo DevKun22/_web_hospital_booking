@@ -5,6 +5,8 @@ import 'package:hospital_booking_mobile/features/auth/application/auth_controlle
 import 'package:hospital_booking_mobile/features/dependents/data/dependent_profiles_repository.dart';
 import 'package:hospital_booking_mobile/features/dependents/domain/dependent_profile.dart';
 
+import 'package:hospital_booking_mobile/core/state/synced_notifier.dart';
+
 final dependentProfilesRepositoryProvider =
     Provider<DependentProfilesRepository>(
       (ref) => DependentProfilesRepository(ref.watch(authenticatedDioProvider)),
@@ -50,7 +52,8 @@ class DependentProfilesState {
   );
 }
 
-class DependentProfilesController extends Notifier<DependentProfilesState> {
+class DependentProfilesController
+    extends SyncedNotifier<DependentProfilesState> {
   String? _ownerId;
   int _requestVersion = 0;
 
@@ -62,6 +65,12 @@ class DependentProfilesController extends Notifier<DependentProfilesState> {
     if (_ownerId != null) Future<void>.microtask(load);
     return DependentProfilesState(isLoading: _ownerId != null);
   }
+
+  @override
+  DateTime? get lastSyncedAt => state.lastSyncedAt;
+
+  @override
+  Future<void> refresh() => load(force: true);
 
   Future<void> load({bool force = false}) async {
     if (_ownerId == null || state.isSaving) return;
@@ -80,15 +89,6 @@ class DependentProfilesController extends Notifier<DependentProfilesState> {
       if (version != _requestVersion) return;
       state = state.copyWith(isLoading: false, loaded: true, error: error);
     }
-  }
-
-  Future<void> refreshIfStale({required Duration maxAge}) async {
-    final lastSyncedAt = state.lastSyncedAt;
-    if (lastSyncedAt != null &&
-        DateTime.now().difference(lastSyncedAt) < maxAge) {
-      return;
-    }
-    await load(force: true);
   }
 
   Future<bool> save(DependentProfileDraft draft, {String? id}) async {
