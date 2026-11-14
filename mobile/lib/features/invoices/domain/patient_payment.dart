@@ -1,3 +1,5 @@
+import 'package:hospital_booking_mobile/core/network/json_readers.dart';
+
 enum PatientPaymentStatus {
   pending,
   success,
@@ -74,8 +76,8 @@ class PatientPaymentTransaction {
         amount: (json['amount'] as num?)?.toInt() ?? 0,
         transactionCode: json['transactionCode']?.toString() ?? '',
         paymentUrl: _optionalString(json['paymentUrl']),
-        paidAt: _dateTime(json['paidAt']),
-        expiredAt: _dateTime(json['expiredAt']),
+        paidAt: jsonDateTime(json['paidAt']),
+        expiredAt: jsonDateTime(json['expiredAt']),
       );
 
   final String id;
@@ -92,6 +94,3 @@ String? _optionalString(dynamic value) {
   final parsed = value?.toString().trim();
   return parsed == null || parsed.isEmpty ? null : parsed;
 }
-
-DateTime? _dateTime(dynamic value) =>
-    DateTime.tryParse(value?.toString() ?? '');

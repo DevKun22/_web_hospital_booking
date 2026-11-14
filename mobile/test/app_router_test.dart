@@ -544,7 +544,7 @@ void main() {
     await tester.pumpAndSettle();
 
     final router = container.read(appRouterProvider);
-    router.push('/doctors/doctor-1');
+    unawaited(router.push('/doctors/doctor-1'));
     await tester.pumpAndSettle();
     expect(find.text('Hồ sơ bác sĩ'), findsOneWidget);
 
@@ -613,7 +613,7 @@ void main() {
     await tester.pumpAndSettle();
 
     final router = container.read(appRouterProvider);
-    router.push('/notifications');
+    unawaited(router.push('/notifications'));
     await tester.pumpAndSettle();
     expect(find.text('Chưa có thông báo'), findsOneWidget);
 
@@ -676,7 +676,7 @@ void main() {
     await tester.pump();
     expect(find.text('Thông báo đang hiển thị'), findsOneWidget);
 
-    container.read(appRouterProvider).push('/notifications');
+    unawaited(container.read(appRouterProvider).push('/notifications'));
     await tester.pumpAndSettle();
 
     expect(find.text('Thông báo đang hiển thị'), findsNothing);

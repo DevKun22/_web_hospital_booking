@@ -3,18 +3,18 @@ import 'package:hospital_booking_mobile/core/errors/api_exception.dart';
 import 'package:hospital_booking_mobile/core/network/api_contract.dart';
 import 'package:hospital_booking_mobile/features/chatbot/domain/chatbot_models.dart';
 
+import 'package:hospital_booking_mobile/core/network/api_guard.dart';
+
 class ChatbotRepository {
   ChatbotRepository(this._dio);
 
   final Dio _dio;
 
   Future<ChatbotSettings> getSettings() async {
-    try {
+    return guardApi(() async {
       final response = await _dio.get<dynamic>('/chatbot/settings');
       return ChatbotSettings.fromJson(requireDataMap(response.data));
-    } on DioException catch (error) {
-      throw ApiException.fromDio(error);
-    }
+    });
   }
 
   Future<ChatbotResponse> sendMessage({
@@ -23,7 +23,7 @@ class ChatbotRepository {
     ChatBookingDraft? draft,
     ChatbotAction? action,
   }) async {
-    try {
+    return guardApi(() async {
       final response = await _dio.post<dynamic>(
         '/chatbot/message',
         data: {
@@ -42,8 +42,6 @@ class ChatbotRepository {
         );
       }
       return result;
-    } on DioException catch (error) {
-      throw ApiException.fromDio(error);
-    }
+    });
   }
 }

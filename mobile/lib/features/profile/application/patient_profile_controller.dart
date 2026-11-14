@@ -5,6 +5,8 @@ import 'package:hospital_booking_mobile/features/auth/application/auth_controlle
 import 'package:hospital_booking_mobile/features/profile/data/patient_profile_repository.dart';
 import 'package:hospital_booking_mobile/features/profile/domain/patient_profile.dart';
 
+import 'package:hospital_booking_mobile/core/state/synced_notifier.dart';
+
 final patientProfileRepositoryProvider = Provider<PatientProfileRepository>(
   (ref) => PatientProfileRepository(ref.watch(authenticatedDioProvider)),
 );
@@ -49,7 +51,7 @@ class PatientProfileState {
   );
 }
 
-class PatientProfileController extends Notifier<PatientProfileState> {
+class PatientProfileController extends SyncedNotifier<PatientProfileState> {
   int _requestVersion = 0;
   String? _patientId;
 
@@ -70,6 +72,10 @@ class PatientProfileController extends Notifier<PatientProfileState> {
     await _fetch(requestVersion);
   }
 
+  @override
+  DateTime? get lastSyncedAt => state.lastSyncedAt;
+
+  @override
   Future<void> refresh() async {
     if (_patientId == null ||
         state.isInitialLoading ||
@@ -84,15 +90,6 @@ class PatientProfileController extends Notifier<PatientProfileState> {
       clearError: true,
     );
     await _fetch(requestVersion);
-  }
-
-  Future<void> refreshIfStale({required Duration maxAge}) async {
-    final lastSyncedAt = state.lastSyncedAt;
-    final isFresh =
-        lastSyncedAt != null &&
-        DateTime.now().difference(lastSyncedAt) < maxAge;
-    if (isFresh) return;
-    await refresh();
   }
 
   Future<void> _fetch(int requestVersion) async {

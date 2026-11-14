@@ -1,0 +1,38 @@
+{
+  "id": "22c841a9-943d-4f76-bf76-862aab3e12a7",
+  "name": "Gói khám tổng quát cơ bản",
+  "slug": "goi-kham-tong-quat-co-ban",
+  "description": "Kiểm tra sức khỏe ban đầu cho người trưởng thành chưa có bệnh lý nền.",
+  "department": {
+    "id": "137bad43-b275-4607-bfba-928c0a9c3822",
+    "name": "Khoa tổng quát",
+    "slug": "khoa-tong-quat"
+  },
+  "basePrice": 420000,
+  "serviceFee": 20000,
+  "summary": "Khám lâm sàng, sinh hiệu, xét nghiệm máu và nước tiểu cơ bản.",
+  "note": null,
+  "image": null,
+  "isPopular": true,
+  "isBHYTSupport": true,
+  "items": [
+    {
+      "id": "ce077094-3d83-404f-8b07-3d94a673fe71",
+      "name": "Khám lâm sàng tổng quát",
+      "description": "Khai thác tiền sử, khám các cơ quan.",
+      "price": 150000,
+      "included": true,
+      "order": 1
+    },
+    {
+      "id": "f4f3f6a4-3bef-4121-ba14-baa83475eae6",
+      "name": "Đo sinh hiệu, BMI",
+      "description": "Mạch, huyết áp, nhiệt độ, chiều cao, cân nặng.",
+      "price": 30000,
+      "included": true,
+      "order": 2
+    }
+  ],
+  "includedItemsTotal": 180000,
+  "finalPrice": 200000
+}

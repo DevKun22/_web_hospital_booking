@@ -1,6 +1,8 @@
 import 'package:hospital_booking_mobile/core/formatters/professional_name_formatter.dart';
 import 'package:hospital_booking_mobile/features/booking/domain/booking_catalog.dart';
 
+import 'package:hospital_booking_mobile/core/network/json_readers.dart';
+
 enum BookingOtpChannel { sms, email }
 
 extension BookingOtpChannelValue on BookingOtpChannel {
@@ -39,7 +41,7 @@ class BookingPatientDraft {
   final String? dependentProfileId;
 
   Map<String, dynamic> toRequestJson(BookingSelection selection) => {
-    'dependentProfileId': _nullable(dependentProfileId),
+    'dependentProfileId': jsonNullableString(dependentProfileId),
     'packageId': selection.serviceMode == BookingServiceMode.package
         ? selection.packageId
         : null,
@@ -48,16 +50,20 @@ class BookingPatientDraft {
     'timeSlotId': selection.slotId,
     'patientName': patientName.trim(),
     'patientPhone': patientPhone.trim(),
-    'patientEmail': _nullable(patientEmail),
+    'patientEmail': jsonNullableString(patientEmail),
     'otpChannel': otpChannel.apiValue,
-    'reason': _nullable(reason),
-    'gender': _nullable(gender),
-    'dateOfBirth': _nullable(dateOfBirth),
-    'cccd': _nullable(cccd),
-    'address': _nullable(address),
+    'reason': jsonNullableString(reason),
+    'gender': jsonNullableString(gender),
+    'dateOfBirth': jsonNullableString(dateOfBirth),
+    'cccd': jsonNullableString(cccd),
+    'address': jsonNullableString(address),
     'hasBHYT': hasBhyt,
-    'healthInsuranceCode': hasBhyt ? _nullable(healthInsuranceCode) : null,
-    'registeredHospital': hasBhyt ? _nullable(registeredHospital) : null,
+    'healthInsuranceCode': hasBhyt
+        ? jsonNullableString(healthInsuranceCode)
+        : null,
+    'registeredHospital': hasBhyt
+        ? jsonNullableString(registeredHospital)
+        : null,
   };
 }
 
@@ -79,9 +85,9 @@ class PendingBooking {
     appointmentId: json['appointmentId']?.toString() ?? '',
     bookingCode: json['bookingCode']?.toString() ?? '',
     patientPhone: json['patientPhone']?.toString() ?? '',
-    expiresIn: _integer(json['expiresIn']),
+    expiresIn: jsonInt(json['expiresIn']),
     holdExpiresAt: DateTime.tryParse(json['holdExpiresAt']?.toString() ?? ''),
-    holdReleaseToken: _nullable(json['holdReleaseToken']),
+    holdReleaseToken: jsonNullableString(json['holdReleaseToken']),
     otpDeliveryStatus: json['otpDeliveryStatus']?.toString(),
     debugOtp: json['debugOtp']?.toString(),
     otpChannel: json['otpChannel']?.toString().toUpperCase() == 'EMAIL'
@@ -155,26 +161,26 @@ class BookedAppointment {
   });
 
   factory BookedAppointment.fromJson(Map<String, dynamic> json) {
-    final doctor = _map(json['doctor']);
-    final doctorUser = _map(doctor['user']);
-    final department = _map(json['department']);
-    final packageItem = _map(json['package']);
+    final doctor = jsonMap(json['doctor']);
+    final doctorUser = jsonMap(doctor['user']);
+    final department = jsonMap(json['department']);
+    final packageItem = jsonMap(json['package']);
     return BookedAppointment(
       id: json['id']?.toString() ?? '',
       bookingCode: json['bookingCode']?.toString() ?? '',
       status: json['status']?.toString() ?? '',
       patientName: json['patientName']?.toString() ?? '',
       patientPhone: json['patientPhone']?.toString() ?? '',
-      appointmentDate: _dateOnly(json['appointmentDate']?.toString() ?? ''),
+      appointmentDate: jsonDateOnly(json['appointmentDate']?.toString() ?? ''),
       startTime: json['startTime']?.toString() ?? '',
       endTime: json['endTime']?.toString() ?? '',
       doctorName: formatProfessionalName(
-        title: _nullable(doctor['title']),
-        fullName: _nullable(doctorUser['fullName']) ?? '',
+        title: jsonNullableString(doctor['title']),
+        fullName: jsonNullableString(doctorUser['fullName']) ?? '',
       ),
       departmentName: department['name']?.toString() ?? '',
-      packageName: _nullable(packageItem['name']),
-      finalAmount: _number(json['finalAmount']),
+      packageName: jsonNullableString(packageItem['name']),
+      finalAmount: jsonNumber(json['finalAmount']),
     );
   }
 
@@ -191,21 +197,3 @@ class BookedAppointment {
   final String? packageName;
   final double finalAmount;
 }
-
-Map<String, dynamic> _map(dynamic value) =>
-    value is Map ? Map<String, dynamic>.from(value) : <String, dynamic>{};
-
-String? _nullable(dynamic value) {
-  final result = value?.toString().trim();
-  return result == null || result.isEmpty ? null : result;
-}
-
-int _integer(dynamic value) =>
-    value is num ? value.toInt() : int.tryParse(value?.toString() ?? '') ?? 0;
-
-double _number(dynamic value) => value is num
-    ? value.toDouble()
-    : double.tryParse(value?.toString() ?? '') ?? 0;
-
-String _dateOnly(String value) =>
-    RegExp(r'^\d{4}-\d{2}-\d{2}').firstMatch(value)?.group(0) ?? value;

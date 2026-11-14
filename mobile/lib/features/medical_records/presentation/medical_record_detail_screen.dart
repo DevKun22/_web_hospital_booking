@@ -184,7 +184,7 @@ class _RecordHeader extends StatelessWidget {
             const SizedBox(height: 10),
             _IconLine(
               icon: Icons.publish_outlined,
-              value: 'Công bố ${_formatDateTime(record.publishedAt!)}',
+              value: 'Công bố ${formatDateTimeVi(record.publishedAt!)}',
             ),
           ],
         ],
@@ -427,10 +427,4 @@ class _DetailLoading extends StatelessWidget {
       AppLoadingSkeleton(height: 220),
     ],
   );
-}
-
-String _formatDateTime(DateTime value) {
-  final local = value.toLocal();
-  String two(int number) => number.toString().padLeft(2, '0');
-  return '${two(local.day)}/${two(local.month)}/${local.year} lúc ${two(local.hour)}:${two(local.minute)}';
 }

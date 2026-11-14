@@ -233,12 +233,12 @@ class _PaymentSummary extends StatelessWidget {
           if (invoice.paidAt != null)
             _TextRow(
               label: 'Thanh toán lúc',
-              value: _formatDateTime(invoice.paidAt!),
+              value: formatDateTimeVi(invoice.paidAt!),
             ),
           if (invoice.refundedAt != null)
             _TextRow(
               label: 'Hoàn tiền lúc',
-              value: _formatDateTime(invoice.refundedAt!),
+              value: formatDateTimeVi(invoice.refundedAt!),
             ),
           if (invoice.refundReference != null)
             _TextRow(label: 'Mã hoàn tiền', value: invoice.refundReference!),
@@ -789,10 +789,4 @@ class _DetailLoading extends StatelessWidget {
       AppLoadingSkeleton(height: 190),
     ],
   );
-}
-
-String _formatDateTime(DateTime value) {
-  final local = value.toLocal();
-  String two(int number) => number.toString().padLeft(2, '0');
-  return '${two(local.day)}/${two(local.month)}/${local.year} lúc ${two(local.hour)}:${two(local.minute)}';
 }

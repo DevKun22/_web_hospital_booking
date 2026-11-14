@@ -1,3 +1,5 @@
+import 'package:hospital_booking_mobile/core/network/json_readers.dart';
+
 enum DependentRelationship {
   child('CHILD', 'Con'),
   spouse('SPOUSE', 'Vợ / chồng'),
@@ -42,18 +44,18 @@ class DependentProfile {
         id: json['id']?.toString() ?? '',
         fullName: json['fullName']?.toString().trim() ?? '',
         relationship: DependentRelationship.fromApi(json['relationship']),
-        phone: _nullable(json['phone']),
-        email: _nullable(json['email']),
-        dateOfBirth: _dateOnly(json['dateOfBirth']),
-        gender: _nullable(json['gender']),
-        cccd: _nullable(json['cccd']),
-        address: _nullable(json['address']),
+        phone: jsonNullableString(json['phone']),
+        email: jsonNullableString(json['email']),
+        dateOfBirth: jsonNullableDateOnly(json['dateOfBirth']),
+        gender: jsonNullableString(json['gender']),
+        cccd: jsonNullableString(json['cccd']),
+        address: jsonNullableString(json['address']),
         hasBhyt: json['hasBHYT'] == true,
-        healthInsuranceCode: _nullable(json['healthInsuranceCode']),
-        registeredHospital: _nullable(json['registeredHospital']),
-        allergies: _nullable(json['allergies']),
-        medicalHistory: _nullable(json['medicalHistory']),
-        familyHistory: _nullable(json['familyHistory']),
+        healthInsuranceCode: jsonNullableString(json['healthInsuranceCode']),
+        registeredHospital: jsonNullableString(json['registeredHospital']),
+        allergies: jsonNullableString(json['allergies']),
+        medicalHistory: jsonNullableString(json['medicalHistory']),
+        familyHistory: jsonNullableString(json['familyHistory']),
         consentConfirmedAt: DateTime.tryParse(
           json['consentConfirmedAt']?.toString() ?? '',
         ),
@@ -134,31 +136,22 @@ class DependentProfileDraft {
   Map<String, dynamic> toRequestJson({bool includeConsent = false}) => {
     'fullName': fullName.trim(),
     'relationship': relationship.apiValue,
-    'phone': _trimOrNull(phone),
-    'email': _trimOrNull(email),
-    'dateOfBirth': _trimOrNull(dateOfBirth),
-    'gender': _trimOrNull(gender),
-    'cccd': _trimOrNull(cccd),
-    'address': _trimOrNull(address),
+    'phone': jsonNullableString(phone),
+    'email': jsonNullableString(email),
+    'dateOfBirth': jsonNullableString(dateOfBirth),
+    'gender': jsonNullableString(gender),
+    'cccd': jsonNullableString(cccd),
+    'address': jsonNullableString(address),
     'hasBHYT': hasBhyt,
-    'healthInsuranceCode': hasBhyt ? _trimOrNull(healthInsuranceCode) : null,
-    'registeredHospital': hasBhyt ? _trimOrNull(registeredHospital) : null,
-    'allergies': _trimOrNull(allergies),
-    'medicalHistory': _trimOrNull(medicalHistory),
-    'familyHistory': _trimOrNull(familyHistory),
+    'healthInsuranceCode': hasBhyt
+        ? jsonNullableString(healthInsuranceCode)
+        : null,
+    'registeredHospital': hasBhyt
+        ? jsonNullableString(registeredHospital)
+        : null,
+    'allergies': jsonNullableString(allergies),
+    'medicalHistory': jsonNullableString(medicalHistory),
+    'familyHistory': jsonNullableString(familyHistory),
     if (includeConsent) 'consentConfirmed': consentConfirmed,
   };
 }
-
-String? _nullable(dynamic value) {
-  final normalized = value?.toString().trim();
-  return normalized == null || normalized.isEmpty ? null : normalized;
-}
-
-String? _dateOnly(dynamic value) {
-  final raw = _nullable(value);
-  if (raw == null) return null;
-  return RegExp(r'^\d{4}-\d{2}-\d{2}').firstMatch(raw)?.group(0);
-}
-
-String? _trimOrNull(String? value) => _nullable(value);

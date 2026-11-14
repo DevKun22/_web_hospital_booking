@@ -1,5 +1,7 @@
 import 'package:hospital_booking_mobile/core/formatters/professional_name_formatter.dart';
 
+import 'package:hospital_booking_mobile/core/network/json_readers.dart';
+
 class PrescriptionMedicine {
   const PrescriptionMedicine({
     required this.id,
@@ -15,18 +17,18 @@ class PrescriptionMedicine {
 
   factory PrescriptionMedicine.fromJson(Map<String, dynamic> json) =>
       PrescriptionMedicine(
-        id: _string(json['id']),
-        medicineName: _string(
+        id: jsonText(json['id']),
+        medicineName: jsonText(
           json['medicineName'],
           fallback: 'Thuốc chưa cập nhật tên',
         ),
-        dosage: _nullableString(json['dosage']),
-        frequency: _nullableString(json['frequency']),
-        duration: _nullableString(json['duration']),
+        dosage: jsonNullableString(json['dosage']),
+        frequency: jsonNullableString(json['frequency']),
+        duration: jsonNullableString(json['duration']),
         quantity: _nullableInteger(json['quantity']),
-        unit: _nullableString(json['unit']),
-        instruction: _nullableString(json['instruction']),
-        sortOrder: _integer(json['sortOrder']),
+        unit: jsonNullableString(json['unit']),
+        instruction: jsonNullableString(json['instruction']),
+        sortOrder: jsonInt(json['sortOrder']),
       );
 
   final String id;
@@ -73,31 +75,31 @@ class PatientPrescription {
   });
 
   factory PatientPrescription.fromJson(Map<String, dynamic> json) {
-    final appointment = _map(json['appointment']);
-    final doctor = _map(json['doctor']);
-    final doctorUser = _map(doctor['user']);
+    final appointment = jsonMap(json['appointment']);
+    final doctor = jsonMap(json['doctor']);
+    final doctorUser = jsonMap(doctor['user']);
     final rawItems = json['items'];
     return PatientPrescription(
-      id: _string(json['id']),
-      prescriptionCode: _string(json['prescriptionCode']),
-      status: _string(json['status']),
-      note: _nullableString(json['note']),
-      issuedAt: _dateTime(json['issuedAt']),
-      createdAt: _dateTime(json['createdAt']),
-      appointmentId: _string(appointment['id']),
-      bookingCode: _string(appointment['bookingCode']),
-      patientName: _nullableString(appointment['patientName']),
-      dependentProfileId: _nullableString(appointment['dependentProfileId']),
-      appointmentDate: _dateOnly(appointment['appointmentDate']),
-      startTime: _string(appointment['startTime']),
-      endTime: _string(appointment['endTime']),
-      doctorId: _nullableString(doctor['id']),
+      id: jsonText(json['id']),
+      prescriptionCode: jsonText(json['prescriptionCode']),
+      status: jsonText(json['status']),
+      note: jsonNullableString(json['note']),
+      issuedAt: jsonDateTime(json['issuedAt']),
+      createdAt: jsonDateTime(json['createdAt']),
+      appointmentId: jsonText(appointment['id']),
+      bookingCode: jsonText(appointment['bookingCode']),
+      patientName: jsonNullableString(appointment['patientName']),
+      dependentProfileId: jsonNullableString(appointment['dependentProfileId']),
+      appointmentDate: jsonDateOnly(appointment['appointmentDate']),
+      startTime: jsonText(appointment['startTime']),
+      endTime: jsonText(appointment['endTime']),
+      doctorId: jsonNullableString(doctor['id']),
       doctorName: formatProfessionalName(
-        title: _nullableString(doctor['title']),
-        fullName: _string(doctorUser['fullName']),
+        title: jsonNullableString(doctor['title']),
+        fullName: jsonText(doctorUser['fullName']),
       ),
-      doctorAvatar: _nullableString(doctorUser['avatar']),
-      specialization: _nullableString(doctor['specialization']),
+      doctorAvatar: jsonNullableString(doctorUser['avatar']),
+      specialization: jsonNullableString(doctor['specialization']),
       items: rawItems is List
           ? rawItems
                 .whereType<Map>()
@@ -146,30 +148,6 @@ class PrescriptionPage {
   final int total;
   final bool hasNextPage;
 }
-
-Map<String, dynamic> _map(dynamic value) =>
-    value is Map ? Map<String, dynamic>.from(value) : <String, dynamic>{};
-
-String _string(dynamic value, {String fallback = ''}) {
-  final result = value?.toString().trim();
-  return result == null || result.isEmpty ? fallback : result;
-}
-
-String? _nullableString(dynamic value) {
-  final result = value?.toString().trim();
-  return result == null || result.isEmpty ? null : result;
-}
-
-String _dateOnly(dynamic value) {
-  final raw = _string(value);
-  return RegExp(r'^\d{4}-\d{2}-\d{2}').firstMatch(raw)?.group(0) ?? raw;
-}
-
-DateTime? _dateTime(dynamic value) =>
-    DateTime.tryParse(value?.toString() ?? '');
-
-int _integer(dynamic value) =>
-    value is num ? value.toInt() : int.tryParse(value?.toString() ?? '') ?? 0;
 
 int? _nullableInteger(dynamic value) => value == null
     ? null

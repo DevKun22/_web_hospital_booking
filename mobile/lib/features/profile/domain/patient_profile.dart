@@ -1,5 +1,7 @@
 import 'package:hospital_booking_mobile/features/auth/domain/patient_user.dart';
 
+import 'package:hospital_booking_mobile/core/network/json_readers.dart';
+
 /// Phiên bản nội dung đồng ý lưu thông tin sức khỏe; phải khớp `HEALTH_CONSENT_VERSION`
 /// ở `backend/src/services/appointment.service.ts`.
 const currentHealthConsentVersion = '2026-11';
@@ -47,31 +49,31 @@ class PatientProfile {
   });
 
   factory PatientProfile.fromJson(Map<String, dynamic> json) {
-    final details = _map(json['patientProfile']);
+    final details = jsonMap(json['patientProfile']);
     return PatientProfile(
-      id: _string(json['id']),
-      fullName: _string(json['fullName'], fallback: 'Người khám'),
-      phone: _nullableString(json['phone']),
-      email: _nullableString(json['email']),
-      avatar: _nullableString(json['avatar']),
+      id: jsonText(json['id']),
+      fullName: jsonText(json['fullName'], fallback: 'Người khám'),
+      phone: jsonNullableString(json['phone']),
+      email: jsonNullableString(json['email']),
+      avatar: jsonNullableString(json['avatar']),
       isPhoneVerified: json['isPhoneVerified'] == true,
-      dateOfBirth: _dateOnly(details['dateOfBirth']),
+      dateOfBirth: jsonNullableDateOnly(details['dateOfBirth']),
       gender: details['gender'] == null
           ? null
           : PatientGender.fromApi(details['gender']),
-      cccd: _nullableString(details['cccd']),
-      address: _nullableString(details['address']),
+      cccd: jsonNullableString(details['cccd']),
+      address: jsonNullableString(details['address']),
       hasBhyt: details['hasBHYT'] == true,
-      healthInsuranceCode: _nullableString(details['healthInsuranceCode']),
-      registeredHospital: _nullableString(details['registeredHospital']),
-      bloodType: _nullableString(details['bloodType']),
+      healthInsuranceCode: jsonNullableString(details['healthInsuranceCode']),
+      registeredHospital: jsonNullableString(details['registeredHospital']),
+      bloodType: jsonNullableString(details['bloodType']),
       height: _nullableDouble(details['height']),
       weight: _nullableDouble(details['weight']),
-      allergies: _nullableString(details['allergies']),
-      medicalHistory: _nullableString(details['medicalHistory']),
-      familyHistory: _nullableString(details['familyHistory']),
-      bloodPressure: _nullableString(details['bloodPressure']),
-      healthConsentVersion: _nullableString(details['healthConsentVersion']),
+      allergies: jsonNullableString(details['allergies']),
+      medicalHistory: jsonNullableString(details['medicalHistory']),
+      familyHistory: jsonNullableString(details['familyHistory']),
+      bloodPressure: jsonNullableString(details['bloodPressure']),
+      healthConsentVersion: jsonNullableString(details['healthConsentVersion']),
     );
   }
 
@@ -175,48 +177,28 @@ class PatientProfileDraft {
 
   Map<String, dynamic> toRequestJson() => {
     'fullName': fullName.trim(),
-    'email': _trimOrNull(email),
-    'dateOfBirth': _trimOrNull(dateOfBirth),
+    'email': jsonNullableString(email),
+    'dateOfBirth': jsonNullableString(dateOfBirth),
     'gender': gender?.apiValue,
-    'cccd': _trimOrNull(cccd),
-    'address': _trimOrNull(address),
+    'cccd': jsonNullableString(cccd),
+    'address': jsonNullableString(address),
     'hasBHYT': hasBhyt,
-    'healthInsuranceCode': hasBhyt ? _trimOrNull(healthInsuranceCode) : null,
-    'registeredHospital': hasBhyt ? _trimOrNull(registeredHospital) : null,
-    'bloodType': _trimOrNull(bloodType),
+    'healthInsuranceCode': hasBhyt
+        ? jsonNullableString(healthInsuranceCode)
+        : null,
+    'registeredHospital': hasBhyt
+        ? jsonNullableString(registeredHospital)
+        : null,
+    'bloodType': jsonNullableString(bloodType),
     'height': height,
     'weight': weight,
-    'allergies': _trimOrNull(allergies),
-    'medicalHistory': _trimOrNull(medicalHistory),
-    'familyHistory': _trimOrNull(familyHistory),
-    'bloodPressure': _trimOrNull(bloodPressure),
+    'allergies': jsonNullableString(allergies),
+    'medicalHistory': jsonNullableString(medicalHistory),
+    'familyHistory': jsonNullableString(familyHistory),
+    'bloodPressure': jsonNullableString(bloodPressure),
     if (healthConsent) 'healthConsent': true,
   };
 }
 
-Map<String, dynamic> _map(dynamic value) =>
-    value is Map ? Map<String, dynamic>.from(value) : <String, dynamic>{};
-
-String _string(dynamic value, {String fallback = ''}) {
-  final result = value?.toString().trim();
-  return result == null || result.isEmpty ? fallback : result;
-}
-
-String? _nullableString(dynamic value) {
-  final result = value?.toString().trim();
-  return result == null || result.isEmpty ? null : result;
-}
-
-String? _dateOnly(dynamic value) {
-  final raw = _nullableString(value);
-  if (raw == null) return null;
-  return RegExp(r'^\d{4}-\d{2}-\d{2}').firstMatch(raw)?.group(0);
-}
-
 double? _nullableDouble(dynamic value) =>
     value is num ? value.toDouble() : double.tryParse(value?.toString() ?? '');
-
-String? _trimOrNull(String? value) {
-  final result = value?.trim();
-  return result == null || result.isEmpty ? null : result;
-}

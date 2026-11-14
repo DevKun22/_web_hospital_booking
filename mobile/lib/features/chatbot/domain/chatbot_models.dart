@@ -1,5 +1,7 @@
 import 'package:hospital_booking_mobile/core/formatters/professional_name_formatter.dart';
 
+import 'package:hospital_booking_mobile/core/network/json_readers.dart';
+
 enum ChatbotSource { system, faq, ai, fallback, emergency, unknown }
 
 extension ChatbotSourceLabel on ChatbotSource {
@@ -22,7 +24,7 @@ class ChatbotSettings {
   });
 
   factory ChatbotSettings.fromJson(Map<String, dynamic> json) {
-    final value = _map(json['value']);
+    final value = jsonMap(json['value']);
     return ChatbotSettings(
       isActive: json['isActive'] == true,
       aiEnabled: value['aiEnabled'] == true,
@@ -61,21 +63,21 @@ class ChatBookingDraft {
 
   factory ChatBookingDraft.fromJson(Map<String, dynamic> json) =>
       ChatBookingDraft(
-        departmentId: _nullableString(json['departmentId']),
-        departmentSlug: _nullableString(json['departmentSlug']),
-        packageId: _nullableString(json['packageId']),
-        packageSlug: _nullableString(json['packageSlug']),
-        serviceMode: _nullableString(json['serviceMode']),
-        doctorId: _nullableString(json['doctorId']),
-        date: _nullableString(json['date']),
-        timeSlotId: _nullableString(json['timeSlotId']),
+        departmentId: jsonNullableString(json['departmentId']),
+        departmentSlug: jsonNullableString(json['departmentSlug']),
+        packageId: jsonNullableString(json['packageId']),
+        packageSlug: jsonNullableString(json['packageSlug']),
+        serviceMode: jsonNullableString(json['serviceMode']),
+        doctorId: jsonNullableString(json['doctorId']),
+        date: jsonNullableString(json['date']),
+        timeSlotId: jsonNullableString(json['timeSlotId']),
         symptoms: _strings(json['symptoms']),
         bodyParts: _strings(json['bodyParts']),
-        symptomDuration: _nullableString(json['symptomDuration']),
-        symptomSeverity: _nullableString(json['symptomSeverity']),
+        symptomDuration: jsonNullableString(json['symptomDuration']),
+        symptomSeverity: jsonNullableString(json['symptomSeverity']),
         associatedSymptoms: _strings(json['associatedSymptoms']),
-        triageLastQuestion: _nullableString(json['triageLastQuestion']),
-        reason: _nullableString(json['reason']),
+        triageLastQuestion: jsonNullableString(json['triageLastQuestion']),
+        reason: jsonNullableString(json['reason']),
       );
 
   final String? departmentId;
@@ -123,7 +125,7 @@ class ChatbotAction {
   factory ChatbotAction.fromJson(Map<String, dynamic> json) => ChatbotAction(
     type: json['type']?.toString() ?? '',
     label: json['label']?.toString() ?? '',
-    payload: _map(json['payload']),
+    payload: jsonMap(json['payload']),
   );
 
   final String type;
@@ -171,22 +173,22 @@ class ChatbotResultItem {
           _ => ChatbotResultType.unknown,
         },
         id: json['id']?.toString() ?? '',
-        name: _nullableString(json['name']),
-        slug: _nullableString(json['slug']),
-        description: _nullableString(json['description']),
-        departmentId: _nullableString(json['departmentId']),
-        departmentName: _nullableString(json['departmentName']),
-        summary: _nullableString(json['summary']),
-        finalPrice: _number(json['finalPrice']),
-        fullName: _nullableString(json['fullName']),
-        title: _nullableString(json['title']),
-        specialization: _nullableString(json['specialization']),
-        consultationFee: _number(json['consultationFee']),
-        doctorId: _nullableString(json['doctorId']),
-        doctorName: _nullableString(json['doctorName']),
-        date: _nullableString(json['date']),
-        startTime: _nullableString(json['startTime']),
-        endTime: _nullableString(json['endTime']),
+        name: jsonNullableString(json['name']),
+        slug: jsonNullableString(json['slug']),
+        description: jsonNullableString(json['description']),
+        departmentId: jsonNullableString(json['departmentId']),
+        departmentName: jsonNullableString(json['departmentName']),
+        summary: jsonNullableString(json['summary']),
+        finalPrice: jsonNumber(json['finalPrice']),
+        fullName: jsonNullableString(json['fullName']),
+        title: jsonNullableString(json['title']),
+        specialization: jsonNullableString(json['specialization']),
+        consultationFee: jsonNumber(json['consultationFee']),
+        doctorId: jsonNullableString(json['doctorId']),
+        doctorName: jsonNullableString(json['doctorName']),
+        date: jsonNullableString(json['date']),
+        startTime: jsonNullableString(json['startTime']),
+        endTime: jsonNullableString(json['endTime']),
       );
 
   final ChatbotResultType type;
@@ -268,12 +270,12 @@ class ChatbotResultGroup {
       ChatbotResultGroup(
         type: json['type']?.toString() ?? '',
         title: json['title']?.toString() ?? '',
-        description: _nullableString(json['description']),
+        description: jsonNullableString(json['description']),
         items: _maps(
           json['items'],
         ).map(ChatbotResultItem.fromJson).toList(growable: false),
-        total: _integer(json['total']),
-        limit: _integer(json['limit']),
+        total: jsonInt(json['total']),
+        limit: jsonInt(json['limit']),
       );
 
   final String type;
@@ -313,8 +315,8 @@ class ChatbotResponse {
         intent: json['intent']?.toString() ?? '',
         state: json['state']?.toString() ?? '',
         nextStep: json['nextStep']?.toString() ?? '',
-        confidence: _number(json['confidence']),
-        draft: ChatBookingDraft.fromJson(_map(json['draft'])),
+        confidence: jsonNumber(json['confidence']),
+        draft: ChatBookingDraft.fromJson(jsonMap(json['draft'])),
         results: _maps(
           json['results'],
         ).map(ChatbotResultGroup.fromJson).toList(growable: false),
@@ -335,9 +337,6 @@ class ChatbotResponse {
   final List<ChatbotAction> suggestedActions;
 }
 
-Map<String, dynamic> _map(dynamic value) =>
-    value is Map ? Map<String, dynamic>.from(value) : <String, dynamic>{};
-
 List<Map<String, dynamic>> _maps(dynamic value) => value is List
     ? value
           .whereType<Map>()
@@ -348,18 +347,6 @@ List<Map<String, dynamic>> _maps(dynamic value) => value is List
 List<String> _strings(dynamic value) => value is List
     ? value.map((item) => item.toString()).toList(growable: false)
     : const [];
-
-String? _nullableString(dynamic value) {
-  final result = value?.toString().trim();
-  return result == null || result.isEmpty ? null : result;
-}
-
-double _number(dynamic value) => value is num
-    ? value.toDouble()
-    : double.tryParse(value?.toString() ?? '') ?? 0;
-
-int _integer(dynamic value) =>
-    value is num ? value.toInt() : int.tryParse(value?.toString() ?? '') ?? 0;
 
 String _formatDate(String value) {
   final match = RegExp(r'^(\d{4})-(\d{2})-(\d{2})$').firstMatch(value);

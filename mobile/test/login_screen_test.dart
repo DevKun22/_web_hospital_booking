@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -35,7 +36,7 @@ void main() {
         child: MaterialApp.router(routerConfig: router),
       ),
     );
-    router.push('/login');
+    unawaited(router.push('/login'));
     await tester.pumpAndSettle();
     expect(find.text('Đăng nhập người khám'), findsOneWidget);
 

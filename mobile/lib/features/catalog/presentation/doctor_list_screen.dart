@@ -60,13 +60,7 @@ class _DoctorListScreenState extends ConsumerState<DoctorListScreen> {
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(doctorCatalogControllerProvider);
-    final departments = ref
-        .watch(departmentCatalogProvider)
-        .when(
-          data: (items) => items,
-          error: (_, _) => const [],
-          loading: () => const [],
-        );
+    final departments = ref.watch(departmentCatalogProvider).value ?? const [];
     final controller = ref.read(doctorCatalogControllerProvider.notifier);
     return AppCatalogScaffold(
       title: 'Đội ngũ bác sĩ',
