@@ -71,7 +71,7 @@ jobs:
       - name: Reject tracked local secrets
         shell: bash
         run: |
-          forbidden="$(git ls-files 'backend/.env' 'backend/secrets/**' 'mobile/config/dev.json' 'mobile/config/prod.json')"
+          forbidden="$(git ls-files 'backend/.env' 'backend/secrets/**' 'mobile/config/dev.json' 'mobile/config/prod.json' 'mobile/android/key.properties' '*.jks' '*.keystore')"
           test -z "$forbidden" || { echo "Local secret/config files are tracked:"; echo "$forbidden"; exit 1; }
           private_key_marker='-----BEGIN PRIVATE'' KEY-----'
           if git grep -n -- "$private_key_marker"; then
@@ -190,11 +190,6 @@ jobs:
       - name: Install mobile dependencies
         working-directory: mobile
         run: flutter pub get
-      - name: Mobile file size warning
-        working-directory: mobile
-        run: |
-          # Cảnh báo (không làm hỏng CI) khi tệp Dart vượt 800 dòng để ngăn màn hình phình to.
-          find lib -name '*.dart' -print0 | xargs -0 wc -l | awk '$1 > 800 && $2 != "total" {print "::warning file=mobile/" $2 "::" $1 " dòng, nên tách widget (ngưỡng 800)"}'
       - name: Mobile static analysis
         working-directory: mobile
         run: flutter analyze
@@ -216,6 +211,11 @@ jobs:
         if: needs.changes.outputs.apk == 'true'
         working-directory: mobile
         run: flutter build apk --debug -t lib/main_dev.dart --dart-define-from-file=config/dev.json.example
+      # Bản release bật thu nhỏ mã (R8): bắt lỗi thiếu quy tắc giữ lớp ngay khi dựng. Ký tạm bằng khóa debug vì CI không có khóa phát hành.
+      - name: Build Android release APK (R8)
+        if: needs.changes.outputs.apk == 'true'
+        working-directory: mobile
+        run: flutter build apk --release -t lib/main_dev.dart --dart-define-from-file=config/dev.json.example
 
   verify:
     name: verify
