@@ -217,3 +217,36 @@ export const refundInvoiceViaVnpayHandler = async (
     next(error);
   }
 };
+
+// Các dòng tiền thuốc đang chờ hoàn của hóa đơn đã thanh toán.
+export const listRefundableMedicineHandler = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const data = await InvoiceService.listRefundableMedicine(getParam(req.params.id));
+    return res.json({ success: true, data });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Ghi nhận đã hoàn tiền thuốc một phần (tiền được hoàn ở cổng thanh toán hoặc tiền mặt).
+export const recordMedicineRefundHandler = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const data = await InvoiceService.recordMedicineRefund(
+      getParam(req.params.id),
+      req.body,
+      { userId: getActorId(req) as string, role: req.user!.role },
+      getClientIp(req),
+    );
+    return res.json({ success: true, message: "Đã ghi nhận hoàn tiền thuốc", data });
+  } catch (error) {
+    next(error);
+  }
+};

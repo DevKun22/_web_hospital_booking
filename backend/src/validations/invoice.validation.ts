@@ -85,6 +85,12 @@ export const refundInvoiceSchema = z.object({
     .optional(),
 });
 
+// Ghi nhận đã hoàn tiền thuốc một phần. Mã tham chiếu bắt buộc với hóa đơn thanh toán bằng VNPAY (kiểm ở dịch vụ).
+export const refundMedicineSchema = z.object({
+  refundReference: z.string().trim().max(120).nullable().optional(),
+  note: z.string().trim().max(300).nullable().optional(),
+});
+
 export const refundInvoiceViaVnpaySchema = z.object({
   refundReason: refundInvoiceSchema.shape.refundReason,
 });

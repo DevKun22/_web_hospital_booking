@@ -24,6 +24,7 @@ import {
   type DsTone,
 } from "@/components/ds";
 import { ExportCsvButton } from "@/components/dashboard/export-csv-button";
+import { MedicineRefundPanel } from "@/components/dashboard/medicine-refund-panel";
 import { PrintButton, PrintableInvoice } from "@/components/dashboard/printable-documents";
 import { ApiError, apiRequest } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
@@ -981,6 +982,7 @@ export default function InvoicesPage() {
               ) : (
                 <p style={{ margin: 0, color: "var(--ds-muted)" }}>Chưa thanh toán.</p>
               )}
+              {canRefund && selected.status === "PAID" ? <MedicineRefundPanel invoiceId={selected.id} onChanged={invalidateInvoices} /> : null}
               {selected.status === "REFUNDED" ? (
                 <DsKeyValue
                   items={[

@@ -432,6 +432,8 @@ export type Invoice = {
   refundReason: string | null;
   refundReference: string | null;
   refundedAt: string | null;
+  // Tổng tiền thuốc đã hoàn một phần (hóa đơn vẫn đã thanh toán).
+  refundedAmount?: number;
   createdAt: string;
   updatedAt: string;
   items: InvoiceItem[];

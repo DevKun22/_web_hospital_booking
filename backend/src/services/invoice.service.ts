@@ -207,6 +207,7 @@ export const invoiceSelect = {
   refundReason: true,
   refundReference: true,
   refundedAt: true,
+  refundedAmount: true,
   createdAt: true,
   updatedAt: true,
   items: {
@@ -219,6 +220,7 @@ export const invoiceSelect = {
       unitPrice: true,
       amount: true,
       sortOrder: true,
+      refundedAt: true,
     },
   },
   paymentTransactions: {
@@ -889,13 +891,150 @@ class InvoiceService {
       await StaffNotificationService.notifyRoles(["STAFF", "ADMIN"], {
         type: "INVOICE_CREATED",
         title: "Tiền thuốc chưa tính vào hóa đơn",
-        body: `Đơn ${prescription.prescriptionCode} có thay đổi tiền thuốc (${Math.abs(result.delta).toLocaleString("vi-VN")} đ) nhưng hóa đơn ${invoiceRef.invoiceCode} không còn sửa được. Vui lòng xử lý tiền thuốc.`,
+        body: `Đơn ${prescription.prescriptionCode} có thay đổi tiền thuốc (${Math.abs(result.delta).toLocaleString("vi-VN")} đ) nhưng hóa đơn ${invoiceRef.invoiceCode} không còn sửa được. ${result.delta < 0 ? "Thuốc không được cấp: quản trị viên ghi nhận hoàn tiền thuốc ở chi tiết hóa đơn sau khi hoàn tiền cho người khám." : "Vui lòng thu thêm tiền thuốc tại quầy."}`,
         entityType: "INVOICE",
         entityId: invoiceRef.id,
         eventKey: `invoice:${invoiceRef.id}:medicine-blocked:${prescriptionId}:${result.delta}`,
       });
     }
     return { outcome: result.outcome, amount: result.delta };
+  }
+
+
+  // ---- Hoàn tiền thuốc một phần ------------------------------------------------------------------------------
+
+  // Dòng tiền thuốc của hóa đơn đã thanh toán mà thuốc không được cấp (kho hết hàng hoặc người khám tự mua) và
+  // chưa hoàn. Chỉ dòng gắn dòng đơn thuốc mới có thể thuộc nhóm này.
+  private async refundableMedicineLines(
+    client: Prisma.TransactionClient | typeof prisma,
+    invoiceId: string,
+  ) {
+    const lines = await client.invoiceItem.findMany({
+      where: { invoiceId, type: "MEDICINE", prescriptionItemId: { not: null }, refundedAt: null },
+      orderBy: { sortOrder: "asc" },
+      select: { id: true, description: true, amount: true, prescriptionItemId: true },
+    });
+    if (lines.length === 0) return [];
+    const items = await client.prescriptionItem.findMany({
+      where: { id: { in: lines.map((line) => line.prescriptionItemId as string) } },
+      select: { id: true, fulfillmentStatus: true, fulfillmentNote: true },
+    });
+    const notDelivered = new Map(
+      items.filter((item) => item.fulfillmentStatus === "OUTSIDE" || item.fulfillmentStatus === "OUT_OF_STOCK").map((item) => [item.id, item]),
+    );
+    return lines
+      .filter((line) => notDelivered.has(line.prescriptionItemId as string))
+      .map((line) => ({
+        id: line.id,
+        description: line.description,
+        amount: line.amount,
+        reason: notDelivered.get(line.prescriptionItemId as string)?.fulfillmentStatus as "OUTSIDE" | "OUT_OF_STOCK",
+      }));
+  }
+
+  /** Các dòng tiền thuốc đang chờ hoàn của một hóa đơn đã thanh toán, kèm tổng tiền. */
+  async listRefundableMedicine(invoiceId: string) {
+    const invoice = await prisma.invoice.findUnique({
+      where: { id: invoiceId },
+      select: { id: true, status: true, paymentMethod: true, refundedAmount: true },
+    });
+    if (!invoice) throw new AppError("Không tìm thấy hóa đơn", 404);
+    const lines = invoice.status === "PAID" ? await this.refundableMedicineLines(prisma, invoiceId) : [];
+    return {
+      status: invoice.status,
+      paymentMethod: invoice.paymentMethod,
+      refundedAmount: invoice.refundedAmount,
+      lines,
+      total: lines.reduce((sum, line) => sum + line.amount, 0),
+    };
+  }
+
+  /**
+   * Ghi nhận đã hoàn tiền các dòng thuốc không được cấp của hóa đơn đã thanh toán. Tiền được hoàn ở cổng thanh
+   * toán hoặc bằng tiền mặt (hệ thống không tự gọi VNPAY cho hoàn một phần); đây chỉ là sổ đối soát. Hóa đơn
+   * vẫn PAID, refundedAmount tăng đúng bằng tiền các dòng được hoàn. Thanh toán VNPAY cần mã tham chiếu hoàn tiền.
+   */
+  async recordMedicineRefund(
+    id: string,
+    input: { refundReference?: string | null; note?: string | null },
+    actor: { userId: string; role: string },
+    ipAddress?: string,
+  ) {
+    const reference = normalizeOptionalString(input.refundReference);
+    const note = normalizeOptionalString(input.note);
+    const result = await prisma.$transaction(async (tx) => {
+      await tx.$queryRaw(Prisma.sql`SELECT "id" FROM "Invoice" WHERE "id" = ${id} FOR UPDATE`);
+      const invoice = await tx.invoice.findUnique({
+        where: { id },
+        select: {
+          id: true,
+          status: true,
+          paymentMethod: true,
+          invoiceCode: true,
+          patientId: true,
+          refundedAmount: true,
+          appointment: { select: { bookingCode: true } },
+        },
+      });
+      if (!invoice) throw new AppError("Không tìm thấy hóa đơn", 404);
+      if (invoice.status !== "PAID") {
+        throw new AppError("Chỉ ghi nhận hoàn tiền thuốc cho hóa đơn đã thanh toán", 409, "INVOICE_STATE_CONFLICT");
+      }
+      const lines = await this.refundableMedicineLines(tx, id);
+      if (lines.length === 0) {
+        throw new AppError("Không có dòng tiền thuốc nào cần hoàn", 409, "NO_REFUNDABLE_MEDICINE");
+      }
+      if (invoice.paymentMethod === "VNPAY" && !reference) {
+        throw new AppError(
+          "Cần mã tham chiếu hoàn tiền từ cổng thanh toán trước khi ghi nhận",
+          400,
+          "REFUND_REFERENCE_REQUIRED",
+        );
+      }
+      const total = lines.reduce((sum, line) => sum + line.amount, 0);
+      const refundedAt = new Date();
+      await tx.invoiceItem.updateMany({
+        where: { id: { in: lines.map((line) => line.id) } },
+        data: { refundedAt, refundReference: reference },
+      });
+      const refundedAmount = invoice.refundedAmount + total;
+      await tx.invoice.update({ where: { id }, data: { refundedAmount } });
+      await tx.appointment.update({
+        where: { id: (await tx.invoice.findUniqueOrThrow({ where: { id }, select: { appointmentId: true } })).appointmentId },
+        data: { logs: { create: { action: "INVOICE_CREATED", note: "Đã hoàn tiền thuốc một phần", createdById: actor.userId } } },
+      });
+      await AuditLogService.record(
+        {
+          actor: { userId: actor.userId, role: actor.role },
+          action: "INVOICE_ADJUSTED",
+          targetType: "INVOICE",
+          targetId: id,
+          ipAddress,
+          meta: {
+            reason: "MEDICINE_REFUND",
+            amount: total,
+            lines: lines.map((line) => ({ id: line.id, amount: line.amount, reason: line.reason })),
+            refundReference: reference,
+            note,
+            paymentMethod: invoice.paymentMethod,
+          },
+        },
+        tx,
+      );
+      await PatientEventNotificationService.createMedicineRefunded(
+        {
+          userId: invoice.patientId,
+          invoiceId: invoice.id,
+          invoiceCode: invoice.invoiceCode,
+          bookingCode: invoice.appointment.bookingCode,
+          finalAmount: total,
+          refundedTotal: refundedAmount,
+        },
+        tx,
+      );
+      return { total, refundedAmount, lines };
+    });
+    return result;
   }
 
   /** Giữ tên cũ cho chỗ gọi lúc cấp thuốc; hành vi là đồng bộ dòng tiền thuốc. */
@@ -1056,6 +1195,7 @@ class InvoiceService {
           status: true,
           finalAmount: true,
           paymentMethod: true,
+          refundedAmount: true,
           refundRequestId: true,
           paymentTransactions: {
             where: { provider: "VNPAY", status: "SUCCESS" },
@@ -1076,6 +1216,13 @@ class InvoiceService {
           "Chỉ hoàn tiền qua VNPAY cho hóa đơn đã thanh toán bằng VNPAY",
           409,
           "INVOICE_STATE_CONFLICT",
+        );
+      }
+      if (invoice.refundedAmount > 0) {
+        throw new AppError(
+          "Hóa đơn đã hoàn một phần tiền thuốc nên không hoàn tự động toàn phần qua VNPAY được. Hãy hoàn phần còn lại ở cổng VNPAY rồi ghi nhận thủ công.",
+          409,
+          "REFUND_PARTIAL_EXISTS",
         );
       }
       if (invoice.refundRequestId) {

@@ -1197,3 +1197,121 @@ test("issuing a prescription adds its medicine to an unpaid invoice, and an out-
   assert.equal(afterDispense.finalAmount, created.body.data.finalAmount);
   assert.equal(afterDispense.items.filter((item) => item.type === "MEDICINE").length, 0);
 });
+
+test("a paid invoice records a partial refund once for medicine that was not delivered", async () => {
+  const admin = await authCookie(fixture.adminUser.id, "ADMIN");
+  const staff = await createDashboardUser("STAFF", "0900000091");
+  const staffCookie = await authCookie(staff.id, "STAFF");
+  const delivered = await prisma.medicine.create({ data: { code: "RF-OK", name: "Thuốc đã cấp", unit: "viên", unitPrice: 3000 } });
+  const missing = await prisma.medicine.create({ data: { code: "RF-MISS", name: "Thuốc hết hàng", unit: "viên", unitPrice: 5000 } });
+
+  const { appointment, prescription } = await createIssuedPrescription({
+    code: "RX-REFUND",
+    phone: "0944000091",
+    timeSlotId: fixture.slotOne.id,
+    items: [
+      { medicineName: "Thuốc đã cấp", quantity: 2, medicineId: delivered.id },
+      { medicineName: "Thuốc hết hàng", quantity: 1, medicineId: missing.id },
+    ],
+  });
+  const created = await http.request(`/api/v1/dashboard/invoices/appointments/${appointment.id}`, {
+    method: "POST",
+    headers: dashboardHeaders(staffCookie),
+    body: {},
+  });
+  assert.equal(created.status, 201);
+  const invoiceId = created.body.data.id as string;
+  const refundPath = `/api/v1/dashboard/invoices/${invoiceId}/medicine-refund`;
+
+  // Hóa đơn chưa thanh toán: chưa có gì để hoàn.
+  const beforePaid = await http.request(refundPath, { headers: dashboardHeaders(admin) });
+  assert.equal(beforePaid.status, 200);
+  assert.equal(beforePaid.body.data.total, 0);
+
+  // Đã thanh toán; thuốc 1 đã cấp, thuốc 2 kho hết hàng lúc cấp.
+  await prisma.invoice.update({ where: { id: invoiceId }, data: { status: "PAID", paymentMethod: "CASH", paidAt: new Date() } });
+  const items = await prisma.prescriptionItem.findMany({ where: { prescriptionId: prescription.id }, orderBy: { sortOrder: "asc" } });
+  await prisma.prescriptionItem.update({ where: { id: items[0].id }, data: { fulfillmentStatus: "DISPENSED", dispensedQuantity: 2 } });
+  await prisma.prescriptionItem.update({ where: { id: items[1].id }, data: { fulfillmentStatus: "OUT_OF_STOCK" } });
+
+  const listed = await http.request(refundPath, { headers: dashboardHeaders(admin) });
+  assert.equal(listed.status, 200);
+  assert.equal(listed.body.data.lines.length, 1);
+  assert.equal(listed.body.data.lines[0].amount, 5000);
+  assert.equal(listed.body.data.lines[0].reason, "OUT_OF_STOCK");
+  assert.equal(listed.body.data.total, 5000);
+
+  // Chỉ người có quyền hoàn tiền (quản trị) được xem và ghi nhận.
+  assert.equal((await http.request(refundPath, { headers: dashboardHeaders(staffCookie) })).status, 403);
+  assert.equal((await http.request(refundPath, { method: "POST", headers: dashboardHeaders(staffCookie), body: {} })).status, 403);
+
+  const recorded = await http.request(refundPath, {
+    method: "POST",
+    headers: dashboardHeaders(admin),
+    body: { note: "Hoàn tiền mặt tại quầy" },
+  });
+  assert.equal(recorded.status, 200);
+  assert.equal(recorded.body.data.total, 5000);
+  assert.equal(recorded.body.data.refundedAmount, 5000);
+  const after = await prisma.invoice.findUniqueOrThrow({ where: { id: invoiceId }, include: { items: true } });
+  assert.equal(after.status, "PAID");
+  assert.equal(after.refundedAmount, 5000);
+  assert.equal(after.items.filter((item) => item.refundedAt !== null).length, 1);
+  assert.equal(after.items.filter((item) => item.type === "MEDICINE" && item.refundedAt === null).length, 1);
+  const audit = await prisma.auditLog.findFirstOrThrow({ where: { action: "INVOICE_ADJUSTED", targetId: invoiceId } });
+  assert.equal((audit.meta as { reason: string }).reason, "MEDICINE_REFUND");
+  assert.equal(
+    await prisma.notification.count({ where: { userId: appointment.patientId, type: "PAYMENT_REFUNDED" } }),
+    1,
+  );
+
+  // Ghi nhận lần hai bị từ chối: dòng đã hoàn không được hoàn lại.
+  const again = await http.request(refundPath, { method: "POST", headers: dashboardHeaders(admin), body: {} });
+  assert.equal(again.status, 409);
+  assert.equal(again.body.code, "NO_REFUNDABLE_MEDICINE");
+  assert.equal((await prisma.invoice.findUniqueOrThrow({ where: { id: invoiceId } })).refundedAmount, 5000);
+});
+
+test("a VNPAY invoice needs a refund reference for the partial medicine refund, and then no longer refunds in full automatically", async () => {
+  const admin = await authCookie(fixture.adminUser.id, "ADMIN");
+  const staff = await createDashboardUser("STAFF", "0900000092");
+  const staffCookie = await authCookie(staff.id, "STAFF");
+  const medicine = await prisma.medicine.create({ data: { code: "RF-VNP", name: "Thuốc tự mua", unit: "viên", unitPrice: 2000 } });
+  const { appointment, prescription } = await createIssuedPrescription({
+    code: "RX-REFUND-VNP",
+    phone: "0944000092",
+    timeSlotId: fixture.slotTwo.id,
+    items: [{ medicineName: "Thuốc tự mua", quantity: 3, medicineId: medicine.id }],
+  });
+  const created = await http.request(`/api/v1/dashboard/invoices/appointments/${appointment.id}`, {
+    method: "POST",
+    headers: dashboardHeaders(staffCookie),
+    body: {},
+  });
+  assert.equal(created.status, 201);
+  const invoiceId = created.body.data.id as string;
+  await prisma.invoice.update({ where: { id: invoiceId }, data: { status: "PAID", paymentMethod: "VNPAY", paidAt: new Date() } });
+  await prisma.prescriptionItem.updateMany({ where: { prescriptionId: prescription.id }, data: { fulfillmentStatus: "OUTSIDE" } });
+  const refundPath = `/api/v1/dashboard/invoices/${invoiceId}/medicine-refund`;
+
+  const missingReference = await http.request(refundPath, { method: "POST", headers: dashboardHeaders(admin), body: {} });
+  assert.equal(missingReference.status, 400);
+  assert.equal(missingReference.body.code, "REFUND_REFERENCE_REQUIRED");
+
+  const ok = await http.request(refundPath, {
+    method: "POST",
+    headers: dashboardHeaders(admin),
+    body: { refundReference: "VNPAY-REFUND-0001" },
+  });
+  assert.equal(ok.status, 200);
+  assert.equal(ok.body.data.total, 6000);
+
+  // Đã hoàn một phần thì không hoàn tự động toàn phần qua API VNPAY (sẽ vượt số tiền còn lại).
+  const full = await http.request(`/api/v1/dashboard/invoices/${invoiceId}/refund/vnpay`, {
+    method: "POST",
+    headers: dashboardHeaders(admin),
+    body: { refundReason: "Thử hoàn toàn phần sau khi đã hoàn một phần" },
+  });
+  assert.equal(full.status, 409);
+  assert.equal(full.body.code, "REFUND_PARTIAL_EXISTS");
+});

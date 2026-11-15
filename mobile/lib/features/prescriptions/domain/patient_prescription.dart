@@ -13,6 +13,8 @@ class PrescriptionMedicine {
     this.quantity,
     this.unit,
     this.instruction,
+    this.fulfillmentStatus,
+    this.fulfillmentNote,
   });
 
   factory PrescriptionMedicine.fromJson(Map<String, dynamic> json) =>
@@ -28,6 +30,8 @@ class PrescriptionMedicine {
         quantity: _nullableInteger(json['quantity']),
         unit: jsonNullableString(json['unit']),
         instruction: jsonNullableString(json['instruction']),
+        fulfillmentStatus: jsonNullableString(json['fulfillmentStatus']),
+        fulfillmentNote: jsonNullableString(json['fulfillmentNote']),
         sortOrder: jsonInt(json['sortOrder']),
       );
 
@@ -39,7 +43,19 @@ class PrescriptionMedicine {
   final int? quantity;
   final String? unit;
   final String? instruction;
+
+  /// Kết quả xử lý khi dược sĩ cấp: DISPENSED, OUTSIDE, OUT_OF_STOCK (PENDING hoặc trống khi chưa cấp).
+  final String? fulfillmentStatus;
+  final String? fulfillmentNote;
   final int sortOrder;
+
+  /// Cho người khám biết thuốc nào đã nhận tại cơ sở khám và thuốc nào phải tự mua; null khi chưa cấp.
+  String? get fulfillmentLabel => switch (fulfillmentStatus) {
+    'DISPENSED' => 'Đã cấp tại cơ sở khám',
+    'OUTSIDE' => 'Bạn tự mua tại nhà thuốc',
+    'OUT_OF_STOCK' => 'Cơ sở khám hết thuốc này, vui lòng mua tại nhà thuốc bên ngoài theo đơn',
+    _ => null,
+  };
 
   String? get quantityLabel {
     if (quantity == null) return null;
