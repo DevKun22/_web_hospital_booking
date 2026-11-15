@@ -73,7 +73,7 @@ class BookingSuccessScreen extends ConsumerWidget {
                     const SizedBox(height: 16),
                     AppStatusBadge(
                       label: appointment.status == 'PENDING_CONFIRM'
-                          ? 'CHỜ BỆNH VIỆN XÁC NHẬN'
+                          ? 'CHỜ CƠ SỞ KHÁM XÁC NHẬN'
                           : appointment.status,
                       tone: AppStatusTone.warning,
                       icon: Icons.hourglass_top_rounded,

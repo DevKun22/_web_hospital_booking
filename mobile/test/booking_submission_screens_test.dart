@@ -62,7 +62,7 @@ void main() {
     );
 
     expect(find.text('Đã tiếp nhận lịch khám'), findsOneWidget);
-    expect(find.text('CHỜ BỆNH VIỆN XÁC NHẬN'), findsOneWidget);
+    expect(find.text('CHỜ CƠ SỞ KHÁM XÁC NHẬN'), findsOneWidget);
     expect(find.text('HB-1001'), findsOneWidget);
     expect(find.text('250.000 đ'), findsOneWidget);
   });
