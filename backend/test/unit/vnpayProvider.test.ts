@@ -238,7 +238,7 @@ const refundInput = {
   transactionNo: "14000001",
   transactionDate: "20261108115900",
   createBy: "admin-1",
-  reason: "Người khám yêu cầu hoàn",
+  reason: "Bệnh nhân yêu cầu hoàn",
   ipAddress: "203.0.113.10",
 };
 
