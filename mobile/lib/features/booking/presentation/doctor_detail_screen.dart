@@ -130,7 +130,11 @@ class _DoctorDetailContent extends StatelessWidget {
               ),
               const SizedBox(height: 5),
               Text(
-                doctor.specialization ?? doctor.departmentName,
+                distinctSpecialization(
+                      doctor.specialization,
+                      doctor.departmentName,
+                    ) ??
+                    doctor.departmentName,
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   color: Theme.of(context).colorScheme.onSurfaceVariant,

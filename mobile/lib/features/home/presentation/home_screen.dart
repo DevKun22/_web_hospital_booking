@@ -71,6 +71,7 @@ class HomeScreen extends ConsumerWidget {
                 avatar: user?.avatar,
                 isAuthenticated: isAuthenticated,
                 unreadNotificationCount: unreadNotificationCount,
+                onLogin: () => context.go('/login'),
                 onNotifications: isOfflineBrowsing
                     ? ref.read(authControllerProvider.notifier).bootstrapSession
                     : isAuthenticated

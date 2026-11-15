@@ -39,9 +39,13 @@ class _DoctorCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final slots = doctor.todayAvailableSlots.take(2).toList(growable: false);
     final hiddenSlotCount = doctor.todayAvailableSlots.length - slots.length;
+    final specialization = distinctSpecialization(
+      doctor.specialization,
+      doctor.departmentName,
+    );
     final experienceText = doctor.experience == null
-        ? doctor.specialization ?? 'Tư vấn và thăm khám chuyên khoa'
-        : '${doctor.experience} năm kinh nghiệm${doctor.specialization == null ? '' : ' • ${doctor.specialization}'}';
+        ? specialization ?? 'Tư vấn và thăm khám chuyên khoa'
+        : '${doctor.experience} năm kinh nghiệm${specialization == null ? '' : ' • $specialization'}';
 
     void openBooking() => openBookingFromCurrentRoute(
       context,

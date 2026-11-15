@@ -74,7 +74,12 @@ class _HomeSearchSheetState extends State<_HomeSearchSheet> {
       for (final item in widget.content.doctors)
         _HomeSearchResult(
           title: item.displayName,
-          subtitle: item.specialization ?? item.departmentName,
+          subtitle:
+              distinctSpecialization(
+                item.specialization,
+                item.departmentName,
+              ) ??
+              item.departmentName,
           icon: Icons.person_search_outlined,
           kind: HomeSearchHistoryKind.doctor,
           location: '/doctors/${Uri.encodeComponent(item.id)}',

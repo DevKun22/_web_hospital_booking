@@ -74,7 +74,13 @@ class DoctorCatalogCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 3),
                     Text(
-                      '${doctor.departmentName}${doctor.specialization == null ? '' : ' • ${doctor.specialization}'}',
+                      [
+                        doctor.departmentName,
+                        distinctSpecialization(
+                          doctor.specialization,
+                          doctor.departmentName,
+                        ),
+                      ].whereType<String>().join(' • '),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
@@ -110,7 +116,7 @@ class DoctorCatalogCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Giờ trống hôm nay',
+                        slots.isEmpty ? 'Lịch khám' : 'Giờ trống hôm nay',
                         style: Theme.of(context).textTheme.labelSmall,
                       ),
                       const SizedBox(height: 4),

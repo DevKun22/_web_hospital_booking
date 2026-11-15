@@ -221,6 +221,18 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     if (returnTo.startsWith('/invoices')) {
       return 'Vui lòng đăng nhập để xem hóa đơn.';
     }
+    if (returnTo.startsWith('/mobile-tools')) {
+      return 'Vui lòng đăng nhập để mở thẻ khám số và cài đặt bảo mật.';
+    }
+    if (returnTo.startsWith('/dependents')) {
+      return 'Vui lòng đăng nhập để quản lý hồ sơ người thân.';
+    }
+    if (returnTo.startsWith('/notifications')) {
+      return 'Vui lòng đăng nhập để xem thông báo.';
+    }
+    if (returnTo.startsWith('/records')) {
+      return 'Vui lòng đăng nhập để xem hồ sơ của bạn.';
+    }
     return 'Vui lòng đăng nhập để tiếp tục tính năng đã chọn.';
   }
 }
