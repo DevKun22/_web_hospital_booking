@@ -628,7 +628,7 @@ class PharmacyService {
           patientId: true,
           appointment: { select: { bookingCode: true } },
           items: {
-            select: { id: true, medicineName: true, quantity: true, medicineId: true },
+            select: { id: true, medicineName: true, quantity: true, medicineId: true, fulfillmentStatus: true },
           },
         },
       });
@@ -652,6 +652,8 @@ class PharmacyService {
       // Gom theo thuốc để trừ kho một lần mỗi thuốc, theo thứ tự id để tránh deadlock.
       const plan = new Map<string, { quantity: number; items: { id: string; quantity: number }[] }>();
       for (const item of prescription.items) {
+        // Dòng đã được xử lý từ lúc phát hành (kho không đủ thuốc nên đã đánh dấu hết hàng): không cấp, không đổi.
+        if (item.fulfillmentStatus !== "PENDING") continue;
         const decision = actions.get(item.id);
         if (decision && decision.action !== "DISPENSE") {
           skipped.push({ itemId: item.id, status: decision.action, note: decision.note });

@@ -163,10 +163,14 @@ export default function PharmacyQueuePage() {
 
   // Cộng dồn số cần cấp theo từng thuốc kho, để cảnh báo cả khi nhiều dòng cùng lấy một thuốc.
   const neededByMedicine = (prescription: QueuePrescription, medicineId: string) =>
-    prescription.items.filter((other) => pickedMedicineId(other) === medicineId).reduce((sum, other) => sum + (other.quantity || 0), 0);
+    prescription.items
+      .filter((other) => other.fulfillmentStatus === "PENDING" && pickedMedicineId(other) === medicineId)
+      .reduce((sum, other) => sum + (other.quantity || 0), 0);
 
   const stockWarnings = selected
     ? selected.items.flatMap((item) => {
+        // Dòng đã được đánh dấu từ lúc kê đơn (kho không đủ thuốc) không còn là việc cần cấp.
+        if (item.fulfillmentStatus !== "PENDING") return [];
         const medicineId = pickedMedicineId(item);
         if (!medicineId || medicineId === OUT_OF_STOCK) return [];
         const medicine = medicines.find((entry) => entry.id === medicineId);
@@ -185,7 +189,7 @@ export default function PharmacyQueuePage() {
           confirmed,
           note: note.trim() || null,
           unpaidReason: needsPaymentReason ? unpaidReason.trim() : undefined,
-          lines: selected!.items.map((item) => {
+          lines: selected!.items.filter((item) => item.fulfillmentStatus === "PENDING").map((item) => {
             const picked = pickedMedicineId(item);
             return {
               itemId: item.id,
@@ -373,7 +377,7 @@ export default function PharmacyQueuePage() {
                     {item.instruction ? <small>{item.instruction}</small> : null}
                   </div>
                   <div style={{ marginTop: 8 }}>
-                    {selected.dispenseStatus === "DISPENSED" ? (
+                    {selected.dispenseStatus === "DISPENSED" || item.fulfillmentStatus !== "PENDING" ? (
                       <small style={{ color: "var(--ds-muted)" }}>
                         {item.fulfillmentStatus === "OUT_OF_STOCK"
                           ? `Kho hết thuốc, người khám mua ngoài${item.fulfillmentNote ? ` · ${item.fulfillmentNote}` : ""}`

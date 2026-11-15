@@ -270,7 +270,7 @@ class PrescriptionService {
     });
   }
 
-  async issue(id: string, actor: Actor) {
+  async issue(id: string, actor: Actor, options: { acknowledgeShortage?: boolean } = {}) {
     const prescription = await this.ensureDraft(id, actor);
 
     if (prescription.items.length === 0) {
@@ -280,7 +280,25 @@ class PrescriptionService {
       );
     }
 
+    // Dòng gắn thuốc kho mà số lượng kê vượt khả năng cấp: không tính tiền và không chờ cấp, vì cơ sở không có thuốc
+    // để cấp. Bác sĩ phải xác nhận rõ; sau đó các dòng này được đánh dấu "kho hết hàng, người khám tự mua".
+    const availability = await MedicineAvailabilityService.forItems(prescription.items);
+    const shortItems = prescription.items.filter((item) => availability.get(item.id)?.short);
+    if (shortItems.length > 0 && !options.acknowledgeShortage) {
+      throw new AppError(
+        `Kho không đủ thuốc cho ${shortItems.length} dòng (${shortItems.map((item) => item.medicineName).join(", ")}). Giảm số lượng, đổi thuốc, hoặc xác nhận để người khám tự mua phần này.`,
+        409,
+        "STOCK_SHORT_ACK_REQUIRED",
+      );
+    }
+
     const transition = await prisma.$transaction(async (tx) => {
+      if (shortItems.length > 0) {
+        await tx.prescriptionItem.updateMany({
+          where: { id: { in: shortItems.map((item) => item.id) } },
+          data: { fulfillmentStatus: "OUT_OF_STOCK", fulfillmentNote: "Kho không đủ lúc kê đơn" },
+        });
+      }
       const updatedPrescription = await tx.prescription.update({
         where: { id },
         data: {
