@@ -41,6 +41,8 @@ type PrescriptionItem = {
   instruction: string | null;
   medicineId: string | null;
   dispensedQuantity: number;
+  fulfillmentStatus: "PENDING" | "DISPENSED" | "OUTSIDE" | "OUT_OF_STOCK";
+  fulfillmentNote: string | null;
   medicine: StockMedicine | null;
 };
 
@@ -66,6 +68,8 @@ type QueuePrescription = {
 type Paged<T> = { items: T[]; pagination: { total: number; totalPages?: number } };
 
 const OUTSIDE = "";
+// Giá trị riêng của ô chọn: kho hết thuốc này nên không cấp (người khám mua ngoài); không phải mã thuốc.
+const OUT_OF_STOCK = "__out_of_stock__";
 const QUEUE_PAGE_SIZE = 20;
 
 const normalizeName = (text: string) =>
@@ -162,7 +166,7 @@ export default function PharmacyQueuePage() {
   const stockWarnings = selected
     ? selected.items.flatMap((item) => {
         const medicineId = pickedMedicineId(item);
-        if (!medicineId) return [];
+        if (!medicineId || medicineId === OUT_OF_STOCK) return [];
         const medicine = medicines.find((entry) => entry.id === medicineId);
         if (!medicine) return [];
         const needed = neededByMedicine(selected, medicineId);
@@ -178,10 +182,14 @@ export default function PharmacyQueuePage() {
         body: {
           confirmed,
           note: note.trim() || null,
-          lines: selected!.items.map((item) => ({
-            itemId: item.id,
-            medicineId: pickedMedicineId(item) || null,
-          })),
+          lines: selected!.items.map((item) => {
+            const picked = pickedMedicineId(item);
+            return {
+              itemId: item.id,
+              medicineId: picked === OUT_OF_STOCK ? null : picked || null,
+              action: picked === OUT_OF_STOCK ? "OUT_OF_STOCK" : picked === OUTSIDE ? "OUTSIDE" : "DISPENSE",
+            };
+          }),
         },
       }),
     onSuccess: async () => {
@@ -356,7 +364,11 @@ export default function PharmacyQueuePage() {
                   <div style={{ marginTop: 8 }}>
                     {selected.dispenseStatus === "DISPENSED" ? (
                       <small style={{ color: "var(--ds-muted)" }}>
-                        {item.medicine ? `Đã cấp ${item.dispensedQuantity} · ${item.medicine.name}` : "Thuốc mua ngoài"}
+                        {item.fulfillmentStatus === "OUT_OF_STOCK"
+                          ? `Kho hết thuốc, người khám mua ngoài${item.fulfillmentNote ? ` · ${item.fulfillmentNote}` : ""}`
+                          : item.medicine && item.dispensedQuantity > 0
+                            ? `Đã cấp ${item.dispensedQuantity} · ${item.medicine.name}`
+                            : "Thuốc mua ngoài"}
                       </small>
                     ) : (
                       <DsField label="Thuốc trong kho" htmlFor={`pick-${item.id}`} hint={short ? undefined : medicine ? `${!item.medicineId && !(item.id in picks) ? "Gợi ý theo tên thuốc, kiểm tra lại. " : ""}Còn hạn ${availableOf(medicine)} ${medicine.unit}${medicine.expiredQuantity ? ` (đã loại ${medicine.expiredQuantity} hết hạn)` : ""}` : undefined}>
@@ -367,6 +379,7 @@ export default function PharmacyQueuePage() {
                           onChange={(event) => setPicks((current) => ({ ...current, [item.id]: event.target.value }))}
                         >
                           <option value={OUTSIDE}>Thuốc mua ngoài (không trừ kho)</option>
+                          <option value={OUT_OF_STOCK}>Kho hết thuốc này (không cấp, người khám mua ngoài)</option>
                           {medicines.map((entry) => (
                             <option key={entry.id} value={entry.id}>
                               {entry.name} — còn hạn {availableOf(entry)} {entry.unit}

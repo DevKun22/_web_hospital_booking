@@ -75,7 +75,7 @@ export type PatientPrescription = {
   note?: string | null;
   createdAt: string;
   doctor: { title: string | null; user: { fullName: string } };
-  items: Array<{ id: string; medicineName: string; dosage: string; frequency: string; duration?: string | null; quantity?: number | null; unit?: string | null; instruction?: string | null }>;
+  items: Array<{ id: string; medicineName: string; dosage: string; frequency: string; duration?: string | null; quantity?: number | null; unit?: string | null; instruction?: string | null; fulfillmentStatus?: "PENDING" | "DISPENSED" | "OUTSIDE" | "OUT_OF_STOCK"; fulfillmentNote?: string | null }>;
 };
 
 export type PatientInvoice = {

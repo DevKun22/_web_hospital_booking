@@ -585,6 +585,10 @@ export default function PrescriptionsPage() {
                     SL {item.quantity ?? "-"} {item.unit || ""}
                   </small>
                   {item.instruction ? <small>{item.instruction}</small> : null}
+                  {item.fulfillmentStatus === "OUT_OF_STOCK" ? (
+                    <small style={{ color: "var(--ds-warn, #b45309)" }}>Kho hết thuốc lúc cấp, người khám mua ngoài{item.fulfillmentNote ? ` · ${item.fulfillmentNote}` : ""}.</small>
+                  ) : null}
+                  {item.fulfillmentStatus === "DISPENSED" ? <small style={{ color: "var(--ds-muted)" }}>Đã cấp tại cơ sở.</small> : null}
                   {deleteItemTarget?.id === item.id ? (
                     <div style={{ display: "flex", gap: 8, marginTop: 8, alignItems: "center", flexWrap: "wrap" }}>
                       <span style={{ fontSize: 13 }}>Xoá thuốc này khỏi đơn?</span>

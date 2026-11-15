@@ -56,6 +56,9 @@ export const dispenseSchema = z.object({
       z.object({
         itemId: z.string().uuid(),
         medicineId: z.string().uuid().nullable().optional(),
+        // Mặc định DISPENSE (cấp từ kho; dòng không gắn thuốc kho coi là người khám tự mua).
+        action: z.enum(["DISPENSE", "OUTSIDE", "OUT_OF_STOCK"]).optional(),
+        note: nullableText(200),
       }),
     )
     .max(100)

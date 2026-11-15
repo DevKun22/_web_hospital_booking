@@ -811,3 +811,108 @@ test("doctors see only availability levels for medicines and get a short-stock f
   const { randomUUID } = await import("node:crypto");
   assert.equal((await addItem({ medicineId: randomUUID(), medicineName: "Không có", quantity: 1 })).status, 400);
 });
+
+test("a line marked out of stock or outside is skipped without blocking the rest, and each line keeps its own status", async () => {
+  const pharmacist = await createDashboardUser("PHARMACIST", "0900000041");
+  const cookie = await authCookie(pharmacist.id, "PHARMACIST");
+  const medicineA = await createMedicineViaApi(cookie, { code: "FL-A", name: "Thuốc A", unitPrice: 1000 });
+  const medicineB = await createMedicineViaApi(cookie, { code: "FL-B", name: "Thuốc B", unitPrice: 2000 });
+  await receiveViaApi(cookie, medicineA.id, 10);
+  await receiveViaApi(cookie, medicineB.id, 3);
+  const stock = async (id: string) => (await prisma.medicine.findUniqueOrThrow({ where: { id } })).stockQuantity;
+
+  const mixed = await createIssuedPrescription({
+    code: "RX-FULFIL-MIX",
+    phone: "0955555551",
+    timeSlotId: fixture.slotTwo.id,
+    items: [
+      { medicineName: "Thuốc A", quantity: 6, medicineId: medicineA.id },
+      { medicineName: "Thuốc B", quantity: 5, medicineId: medicineB.id },
+      { medicineName: "Thuốc ngoài danh mục", quantity: 2 },
+    ],
+  });
+  const dispense = (prescriptionId: string, body: unknown) =>
+    http.request(`/api/v1/dashboard/pharmacy/prescriptions/${prescriptionId}/dispense`, {
+      method: "POST",
+      headers: dashboardHeaders(cookie),
+      body,
+    });
+  const [itemA, itemB, itemOutside] = mixed.prescription.items;
+
+  // Mặc định không đổi: thuốc B thiếu thì cả đơn bị từ chối và không dòng nào đổi trạng thái.
+  const refused = await dispense(mixed.prescription.id, { confirmed: true });
+  assert.equal(refused.status, 409);
+  assert.equal(refused.body.code, "INSUFFICIENT_STOCK");
+  assert.equal(
+    await prisma.prescriptionItem.count({ where: { prescriptionId: mixed.prescription.id, fulfillmentStatus: "PENDING" } }),
+    3,
+  );
+
+  // Đánh dấu thuốc B hết hàng: phần còn lại vẫn được cấp, kho chỉ trừ thuốc A.
+  const ok = await dispense(mixed.prescription.id, {
+    confirmed: true,
+    lines: [
+      { itemId: itemA.id, action: "DISPENSE" },
+      { itemId: itemB.id, action: "OUT_OF_STOCK", note: "Chờ nhập hàng" },
+    ],
+  });
+  assert.equal(ok.status, 200);
+  assert.equal(await stock(medicineA.id), 4);
+  assert.equal(await stock(medicineB.id), 3);
+  const items = await prisma.prescriptionItem.findMany({
+    where: { prescriptionId: mixed.prescription.id },
+    orderBy: { sortOrder: "asc" },
+  });
+  assert.deepEqual(
+    items.map((item) => [item.id, item.fulfillmentStatus, item.dispensedQuantity, item.fulfillmentNote]),
+    [
+      [itemA.id, "DISPENSED", 6, null],
+      [itemB.id, "OUT_OF_STOCK", 0, "Chờ nhập hàng"],
+      [itemOutside.id, "OUTSIDE", 0, null],
+    ],
+  );
+  assert.equal(
+    (await prisma.prescription.findUniqueOrThrow({ where: { id: mixed.prescription.id } })).dispenseStatus,
+    "DISPENSED",
+  );
+  assert.equal(await prisma.stockMovement.count({ where: { type: "DISPENSE", prescriptionItemId: itemB.id } }), 0);
+  assert.equal(
+    await prisma.notification.count({
+      where: { userId: mixed.appointment.patientId, type: "PRESCRIPTION_DISPENSED" },
+    }),
+    1,
+  );
+
+  // Mọi dòng đều không cấp (người khám tự mua hoặc hết hàng): đơn vẫn được xử lý xong, kho không đổi,
+  // và người khám không nhận thông báo "đã cấp thuốc" sai sự thật.
+  const nothing = await createIssuedPrescription({
+    code: "RX-FULFIL-NONE",
+    phone: "0955555552",
+    timeSlotId: fixture.slotOne.id,
+    items: [
+      { medicineName: "Thuốc B", quantity: 1, medicineId: medicineB.id },
+      { medicineName: "Thuốc mua ngoài", quantity: 1 },
+    ],
+  });
+  const none = await dispense(nothing.prescription.id, {
+    confirmed: true,
+    lines: [
+      { itemId: nothing.prescription.items[0].id, action: "OUT_OF_STOCK" },
+      { itemId: nothing.prescription.items[1].id, action: "OUTSIDE" },
+    ],
+  });
+  assert.equal(none.status, 200);
+  assert.equal(await stock(medicineB.id), 3);
+  assert.equal(
+    await prisma.notification.count({
+      where: { userId: nothing.appointment.patientId, type: "PRESCRIPTION_DISPENSED" },
+    }),
+    0,
+  );
+
+  // Hóa đơn chỉ tính dòng đã cấp: A (4 hộp còn lại không liên quan) 6 x 1000; dòng hết hàng và tự mua không tính tiền.
+  const invoice = await InvoiceService.createForAppointment(mixed.appointment.id, {});
+  const medicineLines = invoice.items.filter((line: { type: string }) => line.type === "MEDICINE");
+  assert.equal(medicineLines.length, 1);
+  assert.equal(medicineLines[0].amount, 6000);
+});

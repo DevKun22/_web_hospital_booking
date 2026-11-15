@@ -74,6 +74,8 @@ const queueSelect = {
       instruction: true,
       medicineId: true,
       dispensedQuantity: true,
+      fulfillmentStatus: true,
+      fulfillmentNote: true,
       medicine: {
         select: { id: true, code: true, name: true, unit: true, stockQuantity: true },
       },
@@ -81,7 +83,8 @@ const queueSelect = {
   },
 } satisfies Prisma.PrescriptionSelect;
 
-export type DispenseLine = { itemId: string; medicineId?: string | null };
+export type DispenseAction = "DISPENSE" | "OUTSIDE" | "OUT_OF_STOCK";
+export type DispenseLine = { itemId: string; medicineId?: string | null; action?: DispenseAction; note?: string | null };
 
 type MoveOptions = {
   batch?: { batchNumber: string; expiryDate: string };
@@ -610,19 +613,36 @@ class PharmacyService {
         },
       });
 
-      const overrides = new Map((input.lines || []).map((line) => [line.itemId, line.medicineId]));
-      for (const itemId of overrides.keys()) {
-        if (!prescription.items.some((item) => item.id === itemId)) {
+      // medicineId bỏ trống (undefined) = giữ thuốc đã gắn; null = bỏ gắn (thuốc mua ngoài); có giá trị = đổi sang thuốc đó.
+      const overrides = new Map(
+        (input.lines || []).filter((line) => line.medicineId !== undefined).map((line) => [line.itemId, line.medicineId]),
+      );
+      for (const line of input.lines || []) {
+        if (!prescription.items.some((item) => item.id === line.itemId)) {
           throw new AppError("Dòng thuốc không thuộc đơn này", 400, "ITEM_NOT_IN_PRESCRIPTION");
         }
       }
+      // Mỗi dòng mặc định là cấp từ kho. Dược sĩ có thể đánh dấu dòng là người khám tự mua hoặc kho hết hàng:
+      // dòng đó không trừ kho, không tính tiền và không làm cả đơn bị từ chối.
+      const actions = new Map((input.lines || []).map((line) => [line.itemId, { action: line.action ?? "DISPENSE", note: normalize(line.note) }]));
+      // Kết quả xử lý các dòng không cấp từ kho; dòng cấp từ kho được ghi DISPENSED ngay khi trừ kho.
+      const skipped: { itemId: string; status: "OUTSIDE" | "OUT_OF_STOCK"; note: string | null }[] = [];
+      let dispensedLines = 0;
 
       // Gom theo thuốc để trừ kho một lần mỗi thuốc, theo thứ tự id để tránh deadlock.
       const plan = new Map<string, { quantity: number; items: { id: string; quantity: number }[] }>();
       for (const item of prescription.items) {
+        const decision = actions.get(item.id);
+        if (decision && decision.action !== "DISPENSE") {
+          skipped.push({ itemId: item.id, status: decision.action, note: decision.note });
+          continue;
+        }
         const medicineId = overrides.has(item.id) ? overrides.get(item.id) : item.medicineId;
         // Không gắn thuốc kho = thuốc mua ngoài, không trừ kho.
-        if (!medicineId) continue;
+        if (!medicineId) {
+          skipped.push({ itemId: item.id, status: "OUTSIDE", note: null });
+          continue;
+        }
         if (!item.quantity || item.quantity <= 0) {
           throw new AppError(
             `Dòng "${item.medicineName}" chưa có số lượng nên không thể trừ kho`,
@@ -716,8 +736,9 @@ class PharmacyService {
           }
           await tx.prescriptionItem.update({
             where: { id: item.id },
-            data: { medicineId, dispensedQuantity: item.quantity },
+            data: { medicineId, dispensedQuantity: item.quantity, fulfillmentStatus: "DISPENSED", fulfillmentNote: null },
           });
+          dispensedLines += 1;
         }
       }
 
@@ -730,21 +751,33 @@ class PharmacyService {
         );
       }
 
+      for (const line of skipped) {
+        await tx.prescriptionItem.update({
+          where: { id: line.itemId },
+          data: { fulfillmentStatus: line.status, fulfillmentNote: line.note },
+        });
+      }
+
       await logClinicalAction(tx, {
         action: "PRESCRIPTION_DISPENSED",
         actorId: actor.userId,
         prescriptionId,
-        note: "Cấp phát thuốc theo đơn",
+        note: skipped.some((line) => line.status === "OUT_OF_STOCK")
+          ? "Cấp phát thuốc theo đơn (có dòng hết hàng)"
+          : "Cấp phát thuốc theo đơn",
       });
-      await PatientEventNotificationService.createPrescriptionDispensed(
-        {
-          userId: prescription.patientId,
-          prescriptionId,
-          prescriptionCode: prescription.prescriptionCode,
-          bookingCode: prescription.appointment.bookingCode,
-        },
-        tx,
-      );
+      // Chỉ báo "thuốc đã được cấp" khi có ít nhất một dòng thực sự được cấp.
+      if (dispensedLines > 0) {
+        await PatientEventNotificationService.createPrescriptionDispensed(
+          {
+            userId: prescription.patientId,
+            prescriptionId,
+            prescriptionCode: prescription.prescriptionCode,
+            bookingCode: prescription.appointment.bookingCode,
+          },
+          tx,
+        );
+      }
     });
 
     // Tiền thuốc vào hóa đơn chưa thanh toán (nếu có). Lỗi ở đây không được làm hỏng việc cấp thuốc đã hoàn tất.
