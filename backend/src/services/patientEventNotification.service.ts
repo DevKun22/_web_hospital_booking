@@ -164,6 +164,32 @@ class PatientEventNotificationService {
     );
   }
 
+  // Hoàn một phần tiền thuốc không được cấp; hóa đơn vẫn là đã thanh toán.
+  createMedicineRefunded(
+    input: InvoiceEventInput & { refundedTotal: number },
+    client: DatabaseClient,
+  ) {
+    return NotificationService.create(
+      {
+        userId: input.userId,
+        type: "PAYMENT_REFUNDED",
+        title: "Đã hoàn tiền thuốc",
+        body: `Hóa đơn ${input.invoiceCode} đã hoàn ${formatCurrency(input.finalAmount)} tiền thuốc không được cấp.`,
+        entityType: "INVOICE",
+        entityId: input.invoiceId,
+        payload: {
+          invoiceCode: input.invoiceCode,
+          bookingCode: input.bookingCode,
+          refundedAmount: input.finalAmount,
+          refundedTotal: input.refundedTotal,
+          status: "PAID",
+        },
+        dedupeKey: `invoice:${input.invoiceId}:medicine-refund:${input.refundedTotal}`,
+      },
+      client,
+    );
+  }
+
   createPaymentRefunded(input: InvoiceEventInput, client: DatabaseClient) {
     return NotificationService.create(
       {

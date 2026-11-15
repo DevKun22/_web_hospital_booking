@@ -224,6 +224,22 @@ class _MedicineCard extends StatelessWidget {
                 ),
             ],
           ),
+          if (item.fulfillmentLabel != null) ...[
+            const SizedBox(height: 10),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: AppStatusBadge(
+                label: item.fulfillmentNote == null
+                    ? item.fulfillmentLabel!
+                    : '${item.fulfillmentLabel!} · ${item.fulfillmentNote}',
+                tone: switch (item.fulfillmentStatus) {
+                  'DISPENSED' => AppStatusTone.success,
+                  'OUT_OF_STOCK' => AppStatusTone.warning,
+                  _ => AppStatusTone.info,
+                },
+              ),
+            ),
+          ],
           const SizedBox(height: 14),
           _MedicineRow(label: 'Liều dùng', value: item.dosage),
           _MedicineRow(label: 'Tần suất', value: item.frequency),

@@ -5,6 +5,8 @@ import {
   getInvoiceHandler,
   listInvoicesHandler,
   payInvoiceHandler,
+  listRefundableMedicineHandler,
+  recordMedicineRefundHandler,
   refundInvoiceHandler,
   refundInvoiceViaVnpayHandler,
   updateInvoiceHandler,
@@ -17,6 +19,7 @@ import {
   payInvoiceSchema,
   refundInvoiceSchema,
   refundInvoiceViaVnpaySchema,
+  refundMedicineSchema,
   updateInvoiceSchema,
 } from "../validations/invoice.validation.js";
 
@@ -63,6 +66,19 @@ router.post(
   requirePermission("invoice.refund"),
   validate(refundInvoiceViaVnpaySchema),
   refundInvoiceViaVnpayHandler,
+);
+
+// Hoàn một phần tiền thuốc không được cấp: xem các dòng chờ hoàn và ghi nhận đã hoàn.
+router.get(
+  "/:id/medicine-refund",
+  requirePermission("invoice.refund"),
+  listRefundableMedicineHandler,
+);
+router.post(
+  "/:id/medicine-refund",
+  requirePermission("invoice.refund"),
+  validate(refundMedicineSchema),
+  recordMedicineRefundHandler,
 );
 
 export default router;

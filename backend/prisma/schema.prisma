@@ -1332,6 +1332,8 @@ model Invoice {
   // không bị gửi hai yêu cầu hoàn; chỉ xóa khi VNPAY từ chối rõ ràng.
   refundRequestId   String?   @unique
   refundAttemptedAt DateTime?
+  // Tổng tiền thuốc đã hoàn một phần (hóa đơn vẫn PAID). Hoàn toàn phần dùng status REFUNDED, không cộng vào đây.
+  refundedAmount    Int       @default(0)
 
   paymentTransactions PaymentTransaction[]
   items               InvoiceItem[]
@@ -1361,6 +1363,10 @@ model InvoiceItem {
   // Dòng tiền thuốc được sinh từ dòng đơn thuốc này (không có quan hệ cứng: dòng đơn bị xóa thì dòng hóa đơn
   // được đồng bộ gỡ đi, không tự xóa lan).
   prescriptionItemId String?
+
+  // Dòng tiền thuốc đã được hoàn lại (thuốc hết hàng hoặc người khám tự mua sau khi thanh toán).
+  refundedAt      DateTime?
+  refundReference String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
