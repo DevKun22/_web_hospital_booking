@@ -74,8 +74,11 @@ class HomeHeader extends StatelessWidget {
     required this.isAuthenticated,
     required this.unreadNotificationCount,
     required this.onNotifications,
+    this.onLogin,
   });
 
+  /// Nút "Đăng nhập" cho khách (chưa đăng nhập).
+  final VoidCallback? onLogin;
   final String? hospitalName;
   final String? userName;
   final String? avatar;
@@ -150,6 +153,18 @@ class HomeHeader extends StatelessWidget {
           ],
         ),
       ),
+      if (!isAuthenticated && onLogin != null) ...[
+        FilledButton.tonal(
+          key: const Key('home-login-button'),
+          onPressed: onLogin,
+          style: FilledButton.styleFrom(
+            minimumSize: const Size(0, 40),
+            padding: const EdgeInsets.symmetric(horizontal: 14),
+          ),
+          child: const Text('Đăng nhập'),
+        ),
+        const SizedBox(width: 8),
+      ],
       HomeNotificationBell(
         unreadCount: unreadNotificationCount,
         onTap: onNotifications,

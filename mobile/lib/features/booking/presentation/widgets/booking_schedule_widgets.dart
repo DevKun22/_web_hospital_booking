@@ -105,7 +105,11 @@ class BookingDoctorChoiceCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    doctor.specialization ?? doctor.departmentName,
+                    distinctSpecialization(
+                          doctor.specialization,
+                          doctor.departmentName,
+                        ) ??
+                        doctor.departmentName,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: Theme.of(context).colorScheme.onSurfaceVariant,
                     ),

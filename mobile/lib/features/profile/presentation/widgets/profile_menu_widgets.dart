@@ -16,7 +16,7 @@ class ProfilePatientShortcuts extends StatelessWidget {
         ListTile(
           key: const Key('profile-mobile-tools'),
           leading: const Icon(Icons.phone_android_rounded),
-          title: const Text('Thẻ số & bảo mật thiết bị'),
+          title: const Text('Thẻ số & bảo mật'),
           subtitle: const Text('QR người khám và khóa ứng dụng'),
           trailing: const Icon(Icons.chevron_right_rounded),
           onTap: () => context.push('/mobile-tools'),

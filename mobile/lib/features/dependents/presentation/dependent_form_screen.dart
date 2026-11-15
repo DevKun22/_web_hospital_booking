@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -18,6 +20,7 @@ class DependentFormScreen extends ConsumerStatefulWidget {
 
 class _DependentFormScreenState extends ConsumerState<DependentFormScreen> {
   final _formKey = GlobalKey<FormState>();
+  final _scrollController = ScrollController();
   final _name = TextEditingController();
   final _phone = TextEditingController();
   final _email = TextEditingController();
@@ -44,6 +47,7 @@ class _DependentFormScreenState extends ConsumerState<DependentFormScreen> {
 
   @override
   void dispose() {
+    _scrollController.dispose();
     for (final controller in [
       _name,
       _phone,
@@ -103,6 +107,7 @@ class _DependentFormScreenState extends ConsumerState<DependentFormScreen> {
         child: Form(
           key: _formKey,
           child: ListView(
+            controller: _scrollController,
             padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
             children: [
               if (state.error != null) ...[
@@ -365,7 +370,24 @@ class _DependentFormScreenState extends ConsumerState<DependentFormScreen> {
   }
 
   Future<void> _save() async {
-    if (!(_formKey.currentState?.validate() ?? false)) return;
+    if (!(_formKey.currentState?.validate() ?? false)) {
+      // Ô báo lỗi thường nằm ở đầu form, ngoài màn hình khi bấm Lưu ở cuối trang.
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          const SnackBar(content: Text('Vui lòng kiểm tra các ô báo lỗi.')),
+        );
+      if (_scrollController.hasClients) {
+        unawaited(
+          _scrollController.animateTo(
+            0,
+            duration: const Duration(milliseconds: 260),
+            curve: Curves.easeOutCubic,
+          ),
+        );
+      }
+      return;
+    }
     if (widget.dependentId == null && !_consentConfirmed) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(

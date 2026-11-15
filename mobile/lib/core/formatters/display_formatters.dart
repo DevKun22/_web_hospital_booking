@@ -26,3 +26,16 @@ String formatDateTimeVi(DateTime value) {
   String two(int number) => number.toString().padLeft(2, '0');
   return '${two(local.day)}/${two(local.month)}/${local.year} lúc ${two(local.hour)}:${two(local.minute)}';
 }
+
+/// Chuyên môn của bác sĩ, hoặc `null` khi trống hay chỉ nhắc lại tên chuyên khoa
+/// (vd. "tổng quát" và "Khoa tổng quát"), để không hiển thị lặp.
+String? distinctSpecialization(String? specialization, String? departmentName) {
+  final value = specialization?.trim();
+  if (value == null || value.isEmpty) return null;
+  String normalize(String text) =>
+      text.toLowerCase().replaceFirst(RegExp(r'^khoa\s+'), '').trim();
+  if (departmentName != null && normalize(value) == normalize(departmentName)) {
+    return null;
+  }
+  return value;
+}

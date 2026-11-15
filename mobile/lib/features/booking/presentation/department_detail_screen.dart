@@ -9,6 +9,7 @@ import 'package:hospital_booking_mobile/features/booking/application/booking_flo
 import 'package:hospital_booking_mobile/features/booking/domain/booking_catalog.dart';
 import 'package:hospital_booking_mobile/features/chatbot/domain/chatbot_entry_context.dart';
 import 'package:hospital_booking_mobile/core/design/app_colors.dart';
+import 'package:hospital_booking_mobile/core/formatters/display_formatters.dart';
 
 class DepartmentDetailScreen extends ConsumerWidget {
   const DepartmentDetailScreen({required this.departmentId, super.key});
@@ -234,7 +235,11 @@ class _DepartmentDoctorCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    doctor.specialization ?? doctor.departmentName,
+                    distinctSpecialization(
+                          doctor.specialization,
+                          doctor.departmentName,
+                        ) ??
+                        doctor.departmentName,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: Theme.of(context).colorScheme.onSurfaceVariant,
                     ),

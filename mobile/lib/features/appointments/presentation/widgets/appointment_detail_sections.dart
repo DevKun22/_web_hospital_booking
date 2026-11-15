@@ -91,7 +91,11 @@ class AppointmentInformationCard extends StatelessWidget {
             ? 'Đang cập nhật'
             : appointment.doctorName,
       ),
-      if (_showSpecialization(appointment))
+      if (distinctSpecialization(
+            appointment.specialization,
+            appointment.careUnit,
+          ) !=
+          null)
         _DetailRow(
           icon: Icons.workspace_premium_outlined,
           label: 'Chuyên môn',
@@ -107,16 +111,6 @@ class AppointmentInformationCard extends StatelessWidget {
       ),
     ],
   );
-}
-
-/// Ẩn "Chuyên môn" khi chỉ nhắc lại tên chuyên khoa (vd. "tổng quát" và
-/// "Khoa tổng quát").
-bool _showSpecialization(PatientAppointment appointment) {
-  final specialization = appointment.specialization?.trim();
-  if (specialization == null || specialization.isEmpty) return false;
-  String normalize(String value) =>
-      value.toLowerCase().replaceFirst(RegExp(r'^khoa\s+'), '').trim();
-  return normalize(specialization) != normalize(appointment.careUnit);
 }
 
 class AppointmentPriceInformation extends StatelessWidget {
