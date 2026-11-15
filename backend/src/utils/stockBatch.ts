@@ -52,3 +52,16 @@ export const allocateFefo = (
   if (remaining > Math.max(unbatchedAvailable, 0)) return null;
   return { allocations, fromUnbatched: remaining };
 };
+
+// Mức khả dụng của một thuốc để bác sĩ biết khi kê đơn. Cố ý không lộ số tồn, giá hay lô:
+// chỉ ba mức và việc số lượng kê có vượt khả năng cấp hay không.
+export type AvailabilityLevel = "IN_STOCK" | "LOW" | "OUT";
+
+export const availabilityLevel = (sellable: number, minStock: number): AvailabilityLevel => {
+  if (sellable <= 0) return "OUT";
+  return minStock > 0 && sellable <= minStock ? "LOW" : "IN_STOCK";
+};
+
+// `short` = số lượng kê lớn hơn tồn cấp được (chỉ có nghĩa khi đã biết số lượng).
+export const isShortFor = (sellable: number, needed: number | null | undefined) =>
+  typeof needed === "number" && needed > 0 && needed > Math.max(sellable, 0);

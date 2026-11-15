@@ -4,6 +4,7 @@ import type { PrescriptionStatus, Role } from "../../generated/prisma/enums.js";
 import { prisma } from "../config/prisma.js";
 import { AppError } from "../utils/appError.js";
 import { generatePrescriptionCode } from "../utils/prescriptionCode.js";
+import MedicineAvailabilityService from "./medicineAvailability.service.js";
 import PatientEventNotificationService from "./patientEventNotification.service.js";
 import StaffNotificationService from "./staffNotification.service.js";
 
@@ -13,6 +14,8 @@ type Actor = {
 };
 
 type PrescriptionItemInput = {
+  // Gắn thuốc trong danh mục kho (null/bỏ trống = thuốc ngoài danh mục, người khám tự mua).
+  medicineId?: string | null;
   medicineName: string;
   dosage?: string | null;
   frequency?: string | null;
@@ -183,7 +186,28 @@ class PrescriptionService {
       throw new AppError("Không tìm thấy đơn thuốc", 404);
     }
 
-    return prescription;
+    return this.withAvailability(prescription);
+  }
+
+  // Mỗi dòng đã gắn thuốc kho kèm mức khả dụng (còn/sắp hết/hết) và cờ vượt tồn, để bác sĩ biết sớm.
+  // Chỉ là thông tin tham khảo tại thời điểm đọc; việc trừ kho chính thức vẫn ở bước dược sĩ cấp.
+  private async withAvailability<T extends { items: { id: string; medicineId: string | null; quantity: number | null }[] }>(
+    prescription: T,
+  ) {
+    const availability = await MedicineAvailabilityService.forItems(prescription.items);
+    return {
+      ...prescription,
+      items: prescription.items.map((item) => ({ ...item, availability: availability.get(item.id) ?? null })),
+    };
+  }
+
+  // Chỉ gắn thuốc còn trong danh mục và đang dùng; để trống thì dòng là thuốc ngoài danh mục.
+  private async resolveMedicineId(medicineId: string | null | undefined) {
+    if (!medicineId) return medicineId;
+    if (!(await MedicineAvailabilityService.assertUsable(medicineId))) {
+      throw new AppError("Thuốc không có trong danh mục hoặc đã ngừng sử dụng", 400, "MEDICINE_NOT_USABLE");
+    }
+    return medicineId;
   }
 
   async createForMedicalRecord(
@@ -337,6 +361,7 @@ class PrescriptionService {
     actor: Actor,
   ) {
     await this.ensureDraft(prescriptionId, actor);
+    const medicineId = await this.resolveMedicineId(input.medicineId);
 
     const sortOrder =
       input.sortOrder ??
@@ -349,6 +374,7 @@ class PrescriptionService {
     await prisma.prescriptionItem.create({
       data: {
         prescriptionId,
+        medicineId: medicineId ?? null,
         medicineName: input.medicineName,
         dosage: normalizeOptionalString(input.dosage),
         frequency: normalizeOptionalString(input.frequency),
@@ -371,10 +397,13 @@ class PrescriptionService {
   ) {
     await this.ensureDraft(prescriptionId, actor);
     await this.getItem(prescriptionId, itemId);
+    const medicineId = await this.resolveMedicineId(input.medicineId);
 
     await prisma.prescriptionItem.update({
       where: { id: itemId },
       data: {
+        // undefined = giữ nguyên; null = bỏ gắn thuốc kho.
+        medicineId,
         medicineName: input.medicineName,
         dosage: normalizeOptionalString(input.dosage),
         frequency: normalizeOptionalString(input.frequency),

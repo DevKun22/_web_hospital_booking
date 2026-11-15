@@ -726,3 +726,88 @@ test("pharmacy alerts reach pharmacists once a day and broadcast needs its own p
   });
   assert.equal(asStaff.status, 201);
 });
+
+test("doctors see only availability levels for medicines and get a short-stock flag per prescription line", async () => {
+  const pharmacist = await createDashboardUser("PHARMACIST", "0900000031");
+  const pharmacistCookie = await authCookie(pharmacist.id, "PHARMACIST");
+  const doctorCookie = await authCookie(fixture.doctorOneUser.id, "DOCTOR");
+  const options = (cookie: string, query = "") =>
+    http.request(`/api/v1/dashboard/prescriptions/medicine-options${query}`, { headers: dashboardHeaders(cookie) });
+
+  const out = await createMedicineViaApi(pharmacistCookie, { code: "AV-OUT", name: "Thuốc hết hàng", minStock: 5, unitPrice: 9000 });
+  const low = await createMedicineViaApi(pharmacistCookie, { code: "AV-LOW", name: "Thuốc sắp hết", minStock: 5, unitPrice: 9000 });
+  const ok = await createMedicineViaApi(pharmacistCookie, { code: "AV-OK", name: "Thuốc còn nhiều", minStock: 5, unitPrice: 9000 });
+  const retired = await createMedicineViaApi(pharmacistCookie, { code: "AV-OFF", name: "Thuốc ngừng dùng" });
+  await receiveViaApi(pharmacistCookie, low.id, 3);
+  await receiveViaApi(pharmacistCookie, ok.id, 50);
+  await prisma.medicine.update({ where: { id: retired.id }, data: { isActive: false } });
+
+  // Chỉ người có quyền kê đơn được gọi; dược sĩ và các vai trò khác không.
+  assert.equal((await options(pharmacistCookie)).status, 403);
+  assert.equal((await options(await authCookie(fixture.adminUser.id, "ADMIN"))).status, 403);
+
+  const listed = await options(doctorCookie);
+  assert.equal(listed.status, 200);
+  const byCode = new Map<string, Record<string, unknown>>(
+    (listed.body.data as Record<string, unknown>[]).map((item) => [String(item.code), item]),
+  );
+  assert.equal(byCode.get("AV-OUT")?.availability, "OUT");
+  assert.equal(byCode.get("AV-LOW")?.availability, "LOW");
+  assert.equal(byCode.get("AV-OK")?.availability, "IN_STOCK");
+  assert.equal(byCode.has("AV-OFF"), false, "thuốc ngừng dùng không được gợi ý");
+  // Bác sĩ không bao giờ thấy số tồn, giá, mức tối thiểu hay lô.
+  for (const item of byCode.values()) {
+    for (const forbidden of ["stockQuantity", "unitPrice", "minStock", "batches", "sellableQuantity"]) {
+      assert.equal(forbidden in item, false, `không được lộ ${forbidden}`);
+    }
+  }
+  const filtered = await options(doctorCookie, "?q=sắp");
+  assert.deepEqual(
+    (filtered.body.data as { code: string }[]).map((item) => item.code),
+    ["AV-LOW"],
+  );
+
+  // Đơn nháp của bác sĩ: gắn thuốc kho và nhận cờ vượt tồn theo từng dòng.
+  const { prescription } = await createIssuedPrescription({
+    code: "RX-AVAIL",
+    phone: "0944444441",
+    timeSlotId: fixture.slotTwo.id,
+    items: [],
+  });
+  await prisma.prescription.update({ where: { id: prescription.id }, data: { status: "DRAFT", issuedAt: null } });
+  const addItem = (body: Record<string, unknown>) =>
+    http.request(`/api/v1/dashboard/prescriptions/${prescription.id}/items`, {
+      method: "POST",
+      headers: dashboardHeaders(doctorCookie),
+      body,
+    });
+
+  const tooMany = await addItem({ medicineId: low.id, medicineName: "Thuốc sắp hết", quantity: 10, unit: "viên" });
+  assert.equal(tooMany.status, 201);
+  const lowItem = (tooMany.body.data.items as { medicineId: string | null; availability: { level: string; short: boolean } | null }[]).find(
+    (item) => item.medicineId === low.id,
+  );
+  assert.deepEqual(lowItem?.availability, { level: "LOW", short: true });
+
+  const enough = await addItem({ medicineId: ok.id, medicineName: "Thuốc còn nhiều", quantity: 10, unit: "viên" });
+  assert.equal(enough.status, 201);
+  const okItem = (enough.body.data.items as { medicineId: string | null; availability: { level: string; short: boolean } | null }[]).find(
+    (item) => item.medicineId === ok.id,
+  );
+  assert.deepEqual(okItem?.availability, { level: "IN_STOCK", short: false });
+
+  // Thuốc ngoài danh mục (không gắn kho) là thuốc người khám tự mua: không có thông tin khả dụng.
+  const outside = await addItem({ medicineName: "Thuốc mua ngoài", quantity: 2 });
+  assert.equal(outside.status, 201);
+  const outsideItem = (outside.body.data.items as { medicineId: string | null; availability: unknown }[]).find(
+    (item) => item.medicineId === null,
+  );
+  assert.equal(outsideItem?.availability, null);
+
+  // Thuốc đã ngừng dùng hoặc không tồn tại bị từ chối.
+  const stopped = await addItem({ medicineId: retired.id, medicineName: "Thuốc ngừng dùng", quantity: 1 });
+  assert.equal(stopped.status, 400);
+  assert.equal(stopped.body.code, "MEDICINE_NOT_USABLE");
+  const { randomUUID } = await import("node:crypto");
+  assert.equal((await addItem({ medicineId: randomUUID(), medicineName: "Không có", quantity: 1 })).status, 400);
+});

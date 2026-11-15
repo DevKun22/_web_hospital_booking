@@ -5,6 +5,7 @@ import {
   deletePrescriptionItemHandler,
   getPrescriptionHandler,
   issuePrescriptionHandler,
+  listMedicineOptionsHandler,
   listPrescriptionsHandler,
   updatePrescriptionHandler,
   updatePrescriptionItemHandler,
@@ -25,6 +26,12 @@ router.get(
   "/",
   requirePermission("prescription.view"),
   listPrescriptionsHandler,
+);
+// Đứng trước "/:id". Chỉ người có quyền kê đơn; dược sĩ xem kho qua /dashboard/pharmacy.
+router.get(
+  "/medicine-options",
+  requirePermission("prescription.write"),
+  listMedicineOptionsHandler,
 );
 router.get(
   "/:id",

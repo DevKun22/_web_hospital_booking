@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 const prescriptionItemSchema = z.object({
+  medicineId: z.string().uuid("Ma thuoc khong hop le").nullable().optional(),
   medicineName: z.string().trim().min(2, "Ten thuoc toi thieu 2 ky tu"),
   dosage: z.string().trim().nullable().optional(),
   frequency: z.string().trim().nullable().optional(),

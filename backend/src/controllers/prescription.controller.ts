@@ -1,5 +1,6 @@
 import type { Request, Response, NextFunction } from "express";
 import type { PrescriptionStatus, Role } from "../../generated/prisma/enums.js";
+import MedicineAvailabilityService from "../services/medicineAvailability.service.js";
 import PrescriptionService from "../services/prescription.service.js";
 import { auditClinicalView } from "../utils/auditClinicalView.js";
 import { AppError } from "../utils/appError.js";
@@ -246,5 +247,22 @@ export const deletePrescriptionItemHandler = async (
     });
   } catch (error) {
     next(error);
+  }
+};
+
+// Danh mục thuốc cho bác sĩ khi kê đơn: chỉ tên, đơn vị và mức khả dụng, không có số tồn, giá hay lô.
+export const listMedicineOptionsHandler = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const data = await MedicineAvailabilityService.listOptions({
+      q: typeof req.query.q === "string" ? req.query.q : undefined,
+      limit: parseNumberQuery(req.query.limit),
+    });
+    return res.status(200).json({ success: true, data });
+  } catch (error) {
+    return next(error);
   }
 };
