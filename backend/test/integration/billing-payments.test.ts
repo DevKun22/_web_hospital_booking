@@ -423,7 +423,7 @@ test("VNPay return URL records the result and redirects to the web result page",
   assert.equal(new URL(forged.headers.get("location") || "").searchParams.get("status"), "error");
 });
 
-test("a failed VNPay payment frees the invoice and a late success is not applied", async () => {
+test("a cancelled VNPay payment frees the invoice and a late success is not applied", async () => {
   const { invoice, authorization } = await createPayableInvoice({
     bookingCode: "VNPAY-FAILED",
   });
@@ -434,15 +434,15 @@ test("a failed VNPay payment frees the invoice and a late success is not applied
     buildVnpayCallbackQuery({ transactionCode: first.transactionCode, amount: 300000, responseCode: "24" }),
   );
   assert.equal(cancelled.body.RspCode, "00");
-  const failed = await prisma.paymentTransaction.findUniqueOrThrow({ where: { id: first.id } });
-  assert.equal(failed.status, "FAILED");
-  assert.equal(failed.activeKey, null);
+  const cancelledTransaction = await prisma.paymentTransaction.findUniqueOrThrow({ where: { id: first.id } });
+  assert.equal(cancelledTransaction.status, "CANCELLED");
+  assert.equal(cancelledTransaction.activeKey, null);
   assert.equal(
     (await prisma.invoice.findUniqueOrThrow({ where: { id: invoice.id } })).status,
     "UNPAID",
   );
 
-  // A success that arrives for an already-failed transaction conflicts (code 02).
+  // A success that arrives for an already-cancelled transaction conflicts (code 02).
   const late = await vnpayIpn(
     buildVnpayCallbackQuery({ transactionCode: first.transactionCode, amount: 300000 }),
   );
@@ -455,6 +455,26 @@ test("a failed VNPay payment frees the invoice and a late success is not applied
   // The patient can start a fresh payment afterwards.
   const second = await createVnpayPayment(invoice.id, authorization, "vnpay-failed-2");
   assert.notEqual(second.id, first.id);
+});
+
+test("a declined VNPay payment stays FAILED and frees the invoice", async () => {
+  const { invoice, authorization } = await createPayableInvoice({
+    bookingCode: "VNPAY-DECLINED",
+  });
+  const first = await createVnpayPayment(invoice.id, authorization, "vnpay-declined-1");
+
+  // Any failure code other than the customer cancel (24) is a decline, not a cancel.
+  const declined = await vnpayIpn(
+    buildVnpayCallbackQuery({ transactionCode: first.transactionCode, amount: 300000, responseCode: "51" }),
+  );
+  assert.equal(declined.body.RspCode, "00");
+  const failed = await prisma.paymentTransaction.findUniqueOrThrow({ where: { id: first.id } });
+  assert.equal(failed.status, "FAILED");
+  assert.equal(failed.activeKey, null);
+  assert.equal(
+    (await prisma.invoice.findUniqueOrThrow({ where: { id: invoice.id } })).status,
+    "UNPAID",
+  );
 });
 
 test("an expired VNPay transaction becomes EXPIRED but a genuine late success still pays", async () => {

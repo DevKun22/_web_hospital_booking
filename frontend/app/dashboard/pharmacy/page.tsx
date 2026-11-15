@@ -54,7 +54,11 @@ type QueuePrescription = {
   dispenseNote: string | null;
   patient: { fullName: string; phone: string | null };
   doctor: { title: string | null; user: { fullName: string } };
-  appointment: { bookingCode: string; allergies: string | null };
+  appointment: {
+    bookingCode: string;
+    allergies: string | null;
+    invoice: { invoiceCode: string; status: "UNPAID" | "PAID" | "CANCELLED" | "REFUNDED"; paymentMethod: string | null } | null;
+  };
   dispensedBy: { fullName: string } | null;
   items: PrescriptionItem[];
 };
@@ -87,6 +91,14 @@ const suggestMedicine = (itemName: string, medicines: StockMedicine[]) => {
   return best;
 };
 
+// Tình trạng thanh toán của lịch khám chứa đơn: chỉ để dược sĩ nắm; chưa chặn cấp thuốc ở máy chủ.
+const paymentInfo = (invoice: QueuePrescription["appointment"]["invoice"]) => {
+  if (!invoice) return { label: "Chưa có hóa đơn", tone: "warn" as const, paid: false };
+  if (invoice.status === "PAID") return { label: "Đã thanh toán", tone: "good" as const, paid: true };
+  if (invoice.status === "UNPAID") return { label: "Chưa thanh toán", tone: "warn" as const, paid: false };
+  return { label: invoice.status === "REFUNDED" ? "Đã hoàn tiền" : "Hóa đơn đã hủy", tone: "bad" as const, paid: false };
+};
+
 const statusTabs = [
   { id: "NOT_DISPENSED", label: "Chờ cấp" },
   { id: "DISPENSED", label: "Đã cấp" },
@@ -106,6 +118,8 @@ export default function PharmacyQueuePage() {
   // Lựa chọn thuốc kho của dược sĩ theo từng dòng; dòng chưa chọn dùng thuốc đã gắn sẵn.
   const [picks, setPicks] = useState<Record<string, string>>({});
   const [confirmed, setConfirmed] = useState(false);
+  // Chỉ dùng khi hóa đơn chưa thanh toán: dược sĩ xác nhận có chủ ý cấp trước khi thu tiền.
+  const [unpaidAcknowledged, setUnpaidAcknowledged] = useState(false);
   const [note, setNote] = useState("");
 
   const queueQuery = useQuery({
@@ -174,6 +188,7 @@ export default function PharmacyQueuePage() {
       setSelectedId(null);
       setPicks({});
       setConfirmed(false);
+      setUnpaidAcknowledged(false);
       setNote("");
       await queryClient.invalidateQueries({ queryKey: ["dashboard", "pharmacy"] });
     },
@@ -183,6 +198,7 @@ export default function PharmacyQueuePage() {
     setSelectedId(id);
     setPicks({});
     setConfirmed(false);
+    setUnpaidAcknowledged(false);
     setNote("");
     dispenseMutation.reset();
   };
@@ -202,11 +218,14 @@ export default function PharmacyQueuePage() {
   const errorMessage = dispenseMutation.error instanceof Error ? dispenseMutation.error.message : "";
   const queueError = queueQuery.error ? (queueQuery.error instanceof Error ? queueQuery.error.message : "Không tải được hàng đợi") : "";
 
+  const selectedPayment = selected ? paymentInfo(selected.appointment.invoice) : null;
   const blockReason = !confirmed
     ? "Tick xác nhận đã kiểm tra đơn trước khi cấp"
-    : uniqueWarnings.length > 0
-      ? "Có thuốc không đủ tồn kho"
-      : "";
+    : selectedPayment && !selectedPayment.paid && !unpaidAcknowledged
+      ? "Hóa đơn chưa thanh toán: tick xác nhận nếu vẫn cấp thuốc"
+      : uniqueWarnings.length > 0
+        ? "Có thuốc không đủ tồn kho"
+        : "";
 
   const list = (
     <DsPanel flush>
@@ -252,7 +271,10 @@ export default function PharmacyQueuePage() {
                 {item.prescriptionCode} · {item.items.length} dòng · {item.issuedAt ? formatVietnamDateTime(item.issuedAt) : "—"}
               </small>
             </span>
-            {item.appointment.allergies ? <DsStatusPill tone="warn">Dị ứng</DsStatusPill> : null}
+            <span style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "flex-end" }}>
+              <DsStatusPill tone={paymentInfo(item.appointment.invoice).tone}>{paymentInfo(item.appointment.invoice).label}</DsStatusPill>
+              {item.appointment.allergies ? <DsStatusPill tone="warn">Dị ứng</DsStatusPill> : null}
+            </span>
           </button>
         ))}
       </div>
@@ -295,6 +317,15 @@ export default function PharmacyQueuePage() {
         <div style={{ padding: "12px 16px 0" }}>
           <DsNotice tone="warn">
             <strong>Dị ứng đã khai báo:</strong> {selected.appointment.allergies}
+          </DsNotice>
+        </div>
+      ) : null}
+
+      {selectedPayment ? (
+        <div style={{ padding: "12px 16px 0" }}>
+          <DsNotice tone={selectedPayment.paid ? "good" : "warn"}>
+            <strong>Thanh toán:</strong> {selectedPayment.label}
+            {selected.appointment.invoice ? ` · hóa đơn ${selected.appointment.invoice.invoiceCode}` : ""}
           </DsNotice>
         </div>
       ) : null}
@@ -386,6 +417,12 @@ export default function PharmacyQueuePage() {
                   <input type="checkbox" checked={confirmed} onChange={(event) => setConfirmed(event.target.checked)} style={{ marginTop: 3 }} />
                   <span>Tôi đã kiểm tra đơn: dị ứng, liều dùng và thuốc được chọn đúng với đơn của bác sĩ.</span>
                 </label>
+                {selectedPayment && !selectedPayment.paid ? (
+                  <label className="ds-check" style={{ cursor: "pointer" }}>
+                    <input type="checkbox" checked={unpaidAcknowledged} onChange={(event) => setUnpaidAcknowledged(event.target.checked)} style={{ marginTop: 3 }} />
+                    <span>Hóa đơn chưa thanh toán ({selectedPayment.label.toLowerCase()}). Tôi vẫn cấp thuốc và đã báo quầy thu tiền để xử lý.</span>
+                  </label>
+                ) : null}
                 <DsButton variant="primary" disabled={Boolean(blockReason) || dispenseMutation.isPending} onClick={() => dispenseMutation.mutate()}>
                   {dispenseMutation.isPending ? "Đang cấp..." : "Cấp thuốc cho cả đơn"}
                 </DsButton>

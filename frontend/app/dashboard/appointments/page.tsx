@@ -25,6 +25,7 @@ import {
 import { VietnamDateInput } from "@/components/ui/vietnam-date-input";
 import { appointmentStatusLabel, appointmentStatusTone } from "@/lib/appointment-status";
 import { apiRequest } from "@/lib/api";
+import { confirmCompleteWithRecordCheck } from "@/lib/exam-completion-guard";
 import { useAuth } from "@/lib/auth";
 import {
   useDashboardAppointmentDoctors,
@@ -234,6 +235,7 @@ export default function AppointmentsPage() {
   };
 
   const runAction = async (appointment: Appointment, path: string, message: string, body?: unknown) => {
+    if (path === "/complete" && !(await confirmCompleteWithRecordCheck(appointment.bookingCode))) return false;
     setBusy(true);
     setError("");
     setNotice("");

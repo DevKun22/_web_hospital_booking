@@ -19,6 +19,7 @@ import {
   type DsColumn,
 } from "@/components/ds";
 import { apiRequest } from "@/lib/api";
+import { confirmCompleteWithRecordCheck } from "@/lib/exam-completion-guard";
 import { useAuth } from "@/lib/auth";
 import { useDoctorDashboardOverview } from "@/lib/dashboard-overview-query";
 import { formatVietnamDate, getVietnamDateInput } from "@/lib/date";
@@ -120,6 +121,7 @@ export function DoctorHome() {
   ].slice(0, 6);
 
   const runExamAction = async (appointment: Appointment, path: "/start" | "/complete", message: string) => {
+    if (path === "/complete" && !(await confirmCompleteWithRecordCheck(appointment.bookingCode))) return;
     setBusy(true);
     setError("");
     setNotice("");

@@ -186,6 +186,12 @@ export const parseVerifiedVnpayCallback = (
   };
 };
 
+// Trạng thái giao dịch khi cổng báo không thành công. vnp_ResponseCode 24 là khách chủ động
+// hủy tại cổng; mọi mã lỗi khác giữ là FAILED. Không dùng EXPIRED ở đây: với VNPAY,
+// EXPIRED có nghĩa riêng trong logic hóa đơn (còn có thể nhận IPN thành công đến muộn).
+export const vnpayFailureStatus = (responseCode: string): "CANCELLED" | "FAILED" =>
+  responseCode === "24" ? "CANCELLED" : "FAILED";
+
 // ---------------------------------------------------------------------------
 // Truy vấn kết quả giao dịch (querydr) để đối soát chủ động khi Return URL và IPN
 // đều không tới. Đặc tả: VNPAY API 2.1.0, POST JSON, chữ ký HMAC-SHA512 trên các
