@@ -68,7 +68,7 @@ const audienceLabels: Record<AnnouncementAudience, string> = {
   ALL_PATIENTS: "Tất cả người khám đang hoạt động",
   UPCOMING_APPOINTMENTS: "Người bệnh có lịch khám sắp tới",
   DEPARTMENT_APPOINTMENTS: "Người bệnh có lịch sắp tới theo chuyên khoa",
-  ALL_STAFF: "Tất cả nhân sự bệnh viện",
+  ALL_STAFF: "Tất cả nhân sự cơ sở khám",
   ROLE_DOCTOR: "Chỉ bác sĩ",
   ROLE_PHARMACIST: "Chỉ dược sĩ",
   ROLE_RECEPTION: "Chỉ nhân viên tiếp nhận",
@@ -340,7 +340,7 @@ export default function DashboardNotificationsPage() {
               <legend style={{ fontSize: 13, fontWeight: 600, marginBottom: 6 }}>Nhóm người nhận</legend>
               {[
                 { title: "Gửi cho người khám", values: patientAudiences },
-                { title: "Gửi cho nhân sự bệnh viện", values: staffAudiences.filter((value) => value !== "ONE_USER" || canPickUser) },
+                { title: "Gửi cho nhân sự cơ sở khám", values: staffAudiences.filter((value) => value !== "ONE_USER" || canPickUser) },
               ].map((group) => (
                 <div key={group.title} style={{ display: "grid", gap: 8 }}>
                   <span className="ds-hint" style={{ fontWeight: 600 }}>{group.title}</span>
@@ -460,7 +460,7 @@ export default function DashboardNotificationsPage() {
 
   return (
     <>
-      <DsPageHeader title="Thông báo ứng dụng" description="Soạn một lần, gửi cho người khám (hộp thư và thông báo đẩy theo lựa chọn của từng tài khoản) hoặc cho nhân sự bệnh viện (hộp thư “Thông báo của tôi”)" />
+      <DsPageHeader title="Thông báo ứng dụng" description="Soạn một lần, gửi cho người khám (hộp thư và thông báo đẩy theo lựa chọn của từng tài khoản) hoặc cho nhân sự cơ sở khám (hộp thư “Thông báo của tôi”)" />
       <div style={{ display: "grid", gap: 12, marginBottom: 16 }}>
         {queryErrorMessage ? <DsNotice tone="bad">{queryErrorMessage}</DsNotice> : null}
         {message ? <DsNotice tone={message.tone}>{message.text}</DsNotice> : null}

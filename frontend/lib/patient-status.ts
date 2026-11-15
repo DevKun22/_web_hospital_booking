@@ -20,14 +20,14 @@ export const APPOINTMENT_STATUS: Record<string, StatusDisplay> = {
   RESCHEDULED: { label: "Đã đổi lịch", style: VIOLET },
   CANCELLED_BY_PATIENT: { label: "Bạn đã hủy", style: RED },
   CANCELLED_BY_DOCTOR: { label: "Bác sĩ đã hủy", style: RED },
-  CANCELLED_BY_ADMIN: { label: "Bệnh viện đã hủy", style: RED },
+  CANCELLED_BY_ADMIN: { label: "Cơ sở khám đã hủy", style: RED },
   NO_SHOW: { label: "Không đến khám", style: GRAY },
 };
 
 // Nhãn dài dùng ở trang chi tiết lịch hẹn.
 export const APPOINTMENT_STATUS_DETAIL: Record<string, string> = {
   PENDING_OTP: "Chờ xác thực OTP",
-  PENDING_CONFIRM: "Chờ bệnh viện xác nhận",
+  PENDING_CONFIRM: "Chờ cơ sở khám xác nhận",
   CONFIRMED: "Đã xác nhận",
   CHECKED_IN: "Đã tiếp nhận",
   IN_PROGRESS: "Đang khám",
@@ -35,7 +35,7 @@ export const APPOINTMENT_STATUS_DETAIL: Record<string, string> = {
   RESCHEDULED: "Đã đổi lịch",
   CANCELLED_BY_PATIENT: "Bạn đã hủy lịch",
   CANCELLED_BY_DOCTOR: "Bác sĩ đã hủy lịch",
-  CANCELLED_BY_ADMIN: "Bệnh viện đã hủy lịch",
+  CANCELLED_BY_ADMIN: "Cơ sở khám đã hủy lịch",
   NO_SHOW: "Không đến khám",
 };
 

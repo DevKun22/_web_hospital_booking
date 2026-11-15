@@ -632,7 +632,7 @@ export default function SiteSettingsPage() {
       ) : (
         <div style={{ display: "grid", gap: 16 }}>
           <div className="ds-grid-fields">
-            <DsField label="Tên bệnh viện" htmlFor="site-name">
+            <DsField label="Tên cơ sở khám" htmlFor="site-name">
               <DsInput id="site-name" disabled={!canWrite} value={siteForm.hospitalName || ""} onChange={(event) => updateSite({ hospitalName: event.target.value })} />
             </DsField>
             <DsField label="Email" htmlFor="site-email">

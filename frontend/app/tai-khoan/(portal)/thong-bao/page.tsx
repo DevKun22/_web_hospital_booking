@@ -15,7 +15,7 @@ import type { PatientNotification } from "@/lib/patient-portal-types";
 import { type NotificationFilter } from "@/features/portal/api";
 import { useNotificationMutations, usePatientNotifications } from "@/features/portal/hooks";
 const typeConfig: Record<string, { label: string }> = {
-  SYSTEM_ANNOUNCEMENT: { label: "Thông báo bệnh viện" },
+  SYSTEM_ANNOUNCEMENT: { label: "Thông báo cơ sở khám" },
   APPOINTMENT_CONFIRMED: { label: "Lịch hẹn" },
   APPOINTMENT_RESCHEDULED: { label: "Đổi lịch" },
   APPOINTMENT_CANCELLED: { label: "Hủy lịch" },
@@ -79,7 +79,7 @@ export default function PatientNotificationsPage() {
     <div className="space-y-5">
       <PatientPageHeader
         title="Thông báo"
-        description="Thay đổi lịch khám, kết quả, đơn thuốc, hóa đơn và thông tin từ bệnh viện."
+        description="Thay đổi lịch khám, kết quả, đơn thuốc, hóa đơn và thông tin từ cơ sở khám."
         action={unreadCount > 0 ? (
           <button type="button" disabled={isMutating} onClick={() => markAllMutation.mutate()} className="public-button-secondary inline-flex min-h-11 items-center justify-center gap-2 rounded-lg px-4 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-50">
             <CheckCheck className="h-4 w-4" aria-hidden="true" /> Đánh dấu tất cả đã đọc ({unreadCount})

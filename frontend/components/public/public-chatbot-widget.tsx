@@ -39,7 +39,7 @@ const defaultMessages: ChatWidgetMessage[] = [
     role: "assistant",
     source: "SYSTEM",
     content:
-      "Xin chào, tôi có thể hỗ trợ đặt lịch, tra cứu bác sĩ, gói khám và giải đáp nhanh trước khi bạn đến bệnh viện.",
+      "Xin chào, tôi có thể hỗ trợ đặt lịch, tra cứu bác sĩ, gói khám và giải đáp nhanh trước khi bạn đến cơ sở khám.",
   },
 ];
 

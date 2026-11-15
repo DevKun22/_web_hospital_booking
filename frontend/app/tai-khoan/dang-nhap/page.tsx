@@ -17,7 +17,7 @@ import { BrandLogo } from "@/components/branding/brand-logo";
 import { BRAND_NAME } from "@/lib/brand";
 type Step = "phone" | "otp";
 
-// Chỉ cho phép quay về trang trong cổng bệnh nhân để tránh open redirect.
+// Chỉ cho phép quay về trang trong cổng người khám để tránh open redirect.
 function readSafeNextPath() {
   if (typeof window === "undefined") return "/tai-khoan";
   const next = new URLSearchParams(window.location.search).get("next") || "";
