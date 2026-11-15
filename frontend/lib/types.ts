@@ -505,9 +505,27 @@ export type PrescriptionSummary = {
 
 export type PrescriptionStatus = "DRAFT" | "ISSUED" | "CANCELLED";
 
+// Mức khả dụng bác sĩ được thấy khi kê đơn: không có số tồn, giá hay lô.
+export type MedicineAvailability = "IN_STOCK" | "LOW" | "OUT";
+
+export type MedicineOption = {
+  id: string;
+  code: string;
+  name: string;
+  activeIngredient: string | null;
+  strength: string | null;
+  dosageForm: string | null;
+  unit: string;
+  availability: MedicineAvailability;
+};
+
 export type PrescriptionItem = {
   id: string;
   prescriptionId: string;
+  // Gắn thuốc trong danh mục kho; null là thuốc ngoài danh mục (người khám tự mua).
+  medicineId: string | null;
+  // Có khi dòng gắn thuốc kho: mức khả dụng và cờ số lượng kê vượt khả năng cấp.
+  availability?: { level: MedicineAvailability; short: boolean } | null;
   medicineName: string;
   dosage: string | null;
   frequency: string | null;

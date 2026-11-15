@@ -23,6 +23,7 @@ import {
   type DsColumn,
   type DsTone,
 } from "@/components/ds";
+import { MedicinePicker, availabilityLabel, availabilityTone, medicineDisplayName } from "@/components/dashboard/medicine-picker";
 import { PrintButton, PrintablePrescription } from "@/components/dashboard/printable-documents";
 import { apiRequest } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
@@ -43,6 +44,8 @@ import type { DoctorProfile, Prescription, PrescriptionItem, PrescriptionStatus 
 // kiểm tra và phát hành. Đơn đã phát hành chỉ xem và in.
 
 type ItemForm = {
+  // Thuốc chọn từ danh mục kho; null là thuốc ngoài danh mục (gõ tay).
+  medicineId: string | null;
   medicineName: string;
   dosage: string;
   frequency: string;
@@ -52,7 +55,7 @@ type ItemForm = {
   instruction: string;
 };
 
-const emptyItemForm: ItemForm = { medicineName: "", dosage: "", frequency: "", duration: "", quantity: "", unit: "", instruction: "" };
+const emptyItemForm: ItemForm = { medicineId: null, medicineName: "", dosage: "", frequency: "", duration: "", quantity: "", unit: "", instruction: "" };
 
 const statusTabs = [
   { id: "", label: "Tất cả" },
@@ -77,6 +80,7 @@ const doctorName = (doctor: DoctorProfile | Prescription["doctor"]) =>
   [doctor.title, doctor.user.fullName].filter(Boolean).join(" ");
 
 const toItemForm = (item: PrescriptionItem): ItemForm => ({
+  medicineId: item.medicineId,
   medicineName: item.medicineName,
   dosage: item.dosage || "",
   frequency: item.frequency || "",
@@ -87,6 +91,7 @@ const toItemForm = (item: PrescriptionItem): ItemForm => ({
 });
 
 const buildItemPayload = (form: ItemForm, sortOrder: number) => ({
+  medicineId: form.medicineId,
   medicineName: form.medicineName.trim(),
   dosage: form.dosage.trim() || null,
   frequency: form.frequency.trim() || null,
@@ -558,7 +563,22 @@ export default function PrescriptionsPage() {
             {selected.items.map((item) => (
               <div key={item.id} className="ds-labrow">
                 <div className="ds-labrow__main">
-                  <strong>{item.medicineName}</strong>
+                  <strong>
+                    {item.medicineName}
+                    {item.availability ? (
+                      <>
+                        {" "}
+                        <DsStatusPill tone={availabilityTone[item.availability.level]}>{availabilityLabel[item.availability.level]}</DsStatusPill>
+                      </>
+                    ) : null}
+                  </strong>
+                  {editable && item.availability && (item.availability.short || item.availability.level === "OUT") ? (
+                    <small style={{ color: "var(--ds-warn, #b45309)" }}>
+                      {item.availability.level === "OUT"
+                        ? "Kho hiện hết thuốc này. Cân nhắc đổi thuốc tương đương, hoặc giữ nguyên nếu người khám tự mua."
+                        : "Số lượng kê vượt khả năng cấp của kho. Cân nhắc giảm số lượng, đổi thuốc, hoặc giữ nguyên nếu phần thiếu do người khám tự mua."}
+                    </small>
+                  ) : null}
                   <small>
                     {[item.dosage, item.frequency, item.duration].filter(Boolean).join(" · ") || "Chưa có liều dùng"}
                     {" · "}
@@ -604,8 +624,23 @@ export default function PrescriptionsPage() {
             ))}
             {itemOpen && editable ? (
               <form className="ds-card__body" onSubmit={saveItem} style={{ borderTop: "1px solid var(--ds-line)" }} aria-label={editingItem ? "Sửa thuốc" : "Thêm thuốc"}>
-                <DsField label="Tên thuốc" htmlFor="item-name" required>
-                  <DsInput id="item-name" value={itemForm.medicineName} required onChange={(event) => setItemForm((current) => ({ ...current, medicineName: event.target.value }))} />
+                <MedicinePicker
+                  onPick={(option) =>
+                    setItemForm((current) => ({ ...current, medicineId: option.id, medicineName: medicineDisplayName(option), unit: option.unit || current.unit }))
+                  }
+                />
+                <DsField
+                  label="Tên thuốc"
+                  htmlFor="item-name"
+                  required
+                  hint={itemForm.medicineId ? "Đã chọn từ danh mục kho. Sửa tên tay thì thuốc trở thành thuốc người khám tự mua." : "Thuốc ngoài danh mục: người khám tự mua."}
+                >
+                  <DsInput
+                    id="item-name"
+                    value={itemForm.medicineName}
+                    required
+                    onChange={(event) => setItemForm((current) => ({ ...current, medicineId: null, medicineName: event.target.value }))}
+                  />
                 </DsField>
                 <div className="ds-grid-fields">
                   <DsField label="Liều dùng" htmlFor="item-dosage">

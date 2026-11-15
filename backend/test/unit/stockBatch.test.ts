@@ -2,9 +2,11 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   allocateFefo,
+  availabilityLevel,
   batchStatus,
   daysUntil,
   isExpired,
+  isShortFor,
   sellableQuantity,
   unbatchedQuantity,
   type BatchLike,
@@ -56,4 +58,25 @@ test("FEFO uses unbatched stock last and never touches expired batches", () => {
     fromUnbatched: 10,
   });
   assert.equal(allocateFefo(batches, 5, 20, today), null);
+});
+
+test("availability exposes only three levels: out, low (at or below the minimum) and in stock", () => {
+  assert.equal(availabilityLevel(0, 5), "OUT");
+  assert.equal(availabilityLevel(-3, 0), "OUT");
+  assert.equal(availabilityLevel(5, 5), "LOW");
+  assert.equal(availabilityLevel(3, 5), "LOW");
+  assert.equal(availabilityLevel(6, 5), "IN_STOCK");
+  // Không đặt mức tối thiểu thì còn hàng là còn hàng, không bao giờ "sắp hết".
+  assert.equal(availabilityLevel(1, 0), "IN_STOCK");
+});
+
+test("a prescribed quantity is short only when it exceeds what can be dispensed", () => {
+  assert.equal(isShortFor(10, 10), false);
+  assert.equal(isShortFor(10, 11), true);
+  assert.equal(isShortFor(0, 1), true);
+  assert.equal(isShortFor(-2, 1), true);
+  // Chưa biết số lượng thì không kết luận là thiếu.
+  assert.equal(isShortFor(0, null), false);
+  assert.equal(isShortFor(0, undefined), false);
+  assert.equal(isShortFor(0, 0), false);
 });
