@@ -328,7 +328,7 @@ class MedicalRecordService {
         action: "MEDICAL_RESULT_PUBLISHED",
         actorId: actor.userId,
         medicalRecordId: id,
-        note: "Công bố kết quả khám cho người bệnh",
+        note: "Công bố kết quả khám cho người khám",
       });
       const notification =
         await PatientEventNotificationService.createMedicalResultPublished(

@@ -61,7 +61,7 @@ export const defaultHomePageConfig: HomePageConfigValue = {
     },
     packages: {
       enabled: true,
-      eyebrow: "Chủ động phòng ngừa bệnh",
+      eyebrow: "Chủ động chăm sóc sức khỏe",
       title: "Gói khám sức khỏe và tầm soát toàn diện",
       description:
         "So sánh minh bạch chi phí, hạng mục thực hiện và chính sách hỗ trợ BHYT.",
@@ -71,7 +71,7 @@ export const defaultHomePageConfig: HomePageConfigValue = {
       enabled: true,
       eyebrow: "Mạng lưới đồng hành",
       title: "Kết nối hệ sinh thái chăm sóc sức khỏe",
-      description: "Các đơn vị hợp tác đã được bệnh viện xác thực và công bố.",
+      description: "Các đơn vị hợp tác đã được cơ sở khám xác thực và công bố.",
       limit: 12,
     },
   },

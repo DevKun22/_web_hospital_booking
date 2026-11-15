@@ -124,7 +124,7 @@ const unsupportedInformationOutput = (
   draft: ChatBookingDraft,
 ): AIChatbotOutput => ({
   reply:
-    "Tôi đang tập trung hỗ trợ thông tin bệnh viện và đặt lịch khám nên chưa thể trả lời chính xác câu hỏi này. Bạn có thể hỏi về chuyên khoa, bác sĩ, gói khám, lịch trống hoặc tra cứu lịch hẹn.",
+    "Tôi đang tập trung hỗ trợ thông tin cơ sở khám và đặt lịch khám nên chưa thể trả lời chính xác câu hỏi này. Bạn có thể hỏi về chuyên khoa, bác sĩ, gói khám, lịch trống hoặc tra cứu lịch hẹn.",
   intent: "GENERAL_HOSPITAL_INFO",
   state: "BOOKING_GUIDE",
   nextStep: "SHOW_BOOKING_GUIDE",

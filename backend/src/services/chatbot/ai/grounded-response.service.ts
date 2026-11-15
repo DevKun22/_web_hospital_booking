@@ -26,11 +26,11 @@ const parseJson = (text: string) =>
   ) as unknown;
 
 const systemPrompt = `
-Bạn là trợ lý điều hướng khám bệnh của bệnh viện.
+Bạn là trợ lý điều hướng khám của cơ sở khám.
 Hãy diễn đạt câu trả lời tự nhiên bằng tiếng Việt dựa duy nhất trên VERIFIED_DATA.
 
 Quy tắc bắt buộc:
-- Không chẩn đoán bệnh và không khẳng định chắc chắn chuyên khoa là lựa chọn duy nhất.
+- Không chẩn đoán và không khẳng định chắc chắn chuyên khoa là lựa chọn duy nhất.
 - Không tạo thêm chuyên khoa, bác sĩ, giá, lịch khám hoặc thông tin ngoài VERIFIED_DATA.
 - Không nhắc đến JSON, database, điểm số, từ khóa, mô hình AI hoặc cụm "người dùng mô tả".
 - Không lặp nguyên văn toàn bộ câu hỏi và không dùng lời mở đầu máy móc như "Tôi hiểu bạn đang gặp".

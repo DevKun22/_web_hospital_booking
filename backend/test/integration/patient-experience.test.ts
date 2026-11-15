@@ -995,7 +995,7 @@ test("dashboard hospital announcements reuse the patient inbox and support sched
     headers: dashboardHeaders(adminCookie),
     body: {
       title: "Lịch làm việc cuối tuần",
-      body: "Bệnh viện cập nhật giờ tiếp nhận vào cuối tuần này.",
+      body: "Cơ sở khám cập nhật giờ tiếp nhận vào cuối tuần này.",
     },
   });
   assert.equal(immediate.status, 201);

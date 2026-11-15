@@ -164,7 +164,7 @@ export class AppointmentServiceSupport {
         userId: appointment.patientId,
         type: "APPOINTMENT_CONFIRMED",
         title: "Lịch khám đã được xác nhận",
-        body: `Lịch ${appointment.bookingCode} ngày ${this.formatNotificationDate(appointment.appointmentDate)} lúc ${appointment.startTime} đã được bệnh viện xác nhận.`,
+        body: `Lịch ${appointment.bookingCode} ngày ${this.formatNotificationDate(appointment.appointmentDate)} lúc ${appointment.startTime} đã được cơ sở khám xác nhận.`,
         entityType: "APPOINTMENT",
         entityId: appointment.id,
         payload: {
@@ -291,7 +291,7 @@ export class AppointmentServiceSupport {
       CHECKED_IN: {
         type: "APPOINTMENT_CHECKED_IN" as const,
         title: "Bạn đã check-in",
-        body: `Lịch ${appointment.bookingCode} đã được bệnh viện tiếp nhận. Vui lòng chờ đến lượt khám.`,
+        body: `Lịch ${appointment.bookingCode} đã được cơ sở khám tiếp nhận. Vui lòng chờ đến lượt khám.`,
         dedupeSuffix: "checked-in",
       },
       IN_PROGRESS: {

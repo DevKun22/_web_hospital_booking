@@ -94,7 +94,7 @@ class PatientAuthService {
       target = existing.email;
     } else {
       throw new AppError(
-        "Hệ thống hiện chỉ gửi mã qua email nhưng số điện thoại này chưa có email. Hãy đặt lịch kèm email hoặc liên hệ bệnh viện.",
+        "Hệ thống hiện chỉ gửi mã qua email nhưng số điện thoại này chưa có email. Hãy đặt lịch kèm email hoặc liên hệ cơ sở khám.",
         400,
         "OTP_CHANNEL_UNAVAILABLE",
       );

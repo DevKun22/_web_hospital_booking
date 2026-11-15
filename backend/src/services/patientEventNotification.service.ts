@@ -43,7 +43,7 @@ class PatientEventNotificationService {
         userId: input.userId,
         type: "MEDICAL_RESULT_PUBLISHED",
         title: "Kết quả khám đã sẵn sàng",
-        body: `Hồ sơ ${input.recordCode} của lịch ${input.bookingCode} đã được bệnh viện công bố.`,
+        body: `Hồ sơ ${input.recordCode} của lịch ${input.bookingCode} đã được cơ sở khám công bố.`,
         entityType: "MEDICAL_RECORD",
         entityId: input.recordId,
         payload: {
