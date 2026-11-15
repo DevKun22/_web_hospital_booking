@@ -389,11 +389,14 @@ class AppStatusBadge extends StatelessWidget {
               Icon(icon, size: 16, color: foreground),
               const SizedBox(width: 5),
             ],
-            Text(
-              label,
-              style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                color: foreground,
-                fontWeight: FontWeight.w700,
+            // Flexible để nhãn dài tự xuống dòng thay vì tràn khỏi khung.
+            Flexible(
+              child: Text(
+                label,
+                style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                  color: foreground,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
             ),
           ],
