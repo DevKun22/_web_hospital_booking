@@ -331,6 +331,13 @@ export default function MedicalRecordsPage() {
   };
 
   const simpleRecordAction = async (record: MedicalRecord, path: string, message: string) => {
+    // Cảnh báo mềm: hồ sơ chưa có chẩn đoán hoặc hướng điều trị thì hỏi lại trước khi gửi cho người khám.
+    if (path === "/publish" && !record.diagnosis?.trim() && !record.treatment?.trim()) {
+      const proceed = window.confirm(
+        "Hồ sơ này chưa có chẩn đoán hoặc hướng điều trị (đã lưu). Người khám sẽ nhận thông báo \"Kết quả khám đã sẵn sàng\" với nội dung trống.\n\nBạn vẫn muốn công bố?",
+      );
+      if (!proceed) return;
+    }
     setBusy(true);
     setError("");
     setNotice("");
