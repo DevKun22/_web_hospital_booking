@@ -1023,7 +1023,7 @@ test("completing a visit tells reception to issue the invoice", async () => {
   assert.ok(inbox.body.data.items.some((item: { title: string }) => item.title.includes("chờ lập hóa đơn")));
 });
 
-test("dispensing after the invoice exists adds the medicine charge to an unpaid invoice", async () => {
+test("medicine charges are on the invoice from issue time, and dispensing needs payment or a stated reason", async () => {
   const pharmacist = await createDashboardUser("PHARMACIST", "0900000081");
   const staff = await createDashboardUser("STAFF", "0900000082");
   const pharmacistCookie = await authCookie(pharmacist.id, "PHARMACIST");
@@ -1037,35 +1037,45 @@ test("dispensing after the invoice exists adds the medicine charge to an unpaid 
     timeSlotId: fixture.slotOne.id,
     items: [{ medicineName: "Thuốc cấp sau", quantity: 5, medicineId: medicine.id }],
   });
-  // Lễ tân lập hóa đơn trước khi dược sĩ cấp thuốc: chưa có dòng tiền thuốc.
+  // Lễ tân lập hóa đơn khi đơn đã phát hành: tiền thuốc (5 x 4000) có ngay, không chờ đến lúc cấp.
   const created = await http.request(`/api/v1/dashboard/invoices/appointments/${appointment.id}`, {
     method: "POST",
     headers: dashboardHeaders(staffCookie),
     body: {},
   });
   assert.equal(created.status, 201);
-  assert.equal((created.body.data.items as { type: string }[]).filter((item) => item.type === "MEDICINE").length, 0);
+  const createdLines = (created.body.data.items as { type: string; quantity: number; amount: number }[]).filter((item) => item.type === "MEDICINE");
+  assert.equal(createdLines.length, 1);
+  assert.equal(createdLines[0].quantity, 5);
+  assert.equal(createdLines[0].amount, 20000);
   const baseTotal = created.body.data.totalAmount as number;
-  const baseFinal = created.body.data.finalAmount as number;
 
-  const dispensed = await http.request(`/api/v1/dashboard/pharmacy/prescriptions/${prescription.id}/dispense`, {
-    method: "POST",
-    headers: dashboardHeaders(pharmacistCookie),
-    body: { confirmed: true },
-  });
-  assert.equal(dispensed.status, 200);
+  const dispense = (body: Record<string, unknown>) =>
+    http.request(`/api/v1/dashboard/pharmacy/prescriptions/${prescription.id}/dispense`, {
+      method: "POST",
+      headers: dashboardHeaders(pharmacistCookie),
+      body,
+    });
 
+  // Hóa đơn chưa thanh toán: không cấp được, và lý do quá ngắn cũng không đủ.
+  const blocked = await dispense({ confirmed: true });
+  assert.equal(blocked.status, 409);
+  assert.equal(blocked.body.code, "PAYMENT_REQUIRED");
+  assert.equal((await dispense({ confirmed: true, unpaidReason: "ok" })).status, 409);
+  assert.equal((await prisma.prescription.findUniqueOrThrow({ where: { id: prescription.id } })).dispenseStatus, "NOT_DISPENSED");
+
+  // Có lý do thì cấp được và lý do nằm trong nhật ký; hóa đơn không đổi (không tính tiền thuốc hai lần).
+  const ok = await dispense({ confirmed: true, unpaidReason: "Cấp cứu, quản lý đã duyệt" });
+  assert.equal(ok.status, 200);
   const invoice = await http.request(`/api/v1/dashboard/invoices/${created.body.data.id}`, { headers: dashboardHeaders(staffCookie) });
   assert.equal(invoice.status, 200);
-  const lines = (invoice.body.data.items as { type: string; quantity: number; amount: number }[]).filter((item) => item.type === "MEDICINE");
-  assert.equal(lines.length, 1);
-  assert.equal(lines[0].quantity, 5);
-  assert.equal(lines[0].amount, 20000);
-  assert.equal(invoice.body.data.totalAmount, baseTotal + 20000);
-  assert.equal(invoice.body.data.finalAmount, baseFinal + 20000);
+  assert.equal(invoice.body.data.totalAmount, baseTotal);
+  assert.equal((invoice.body.data.items as { type: string }[]).filter((item) => item.type === "MEDICINE").length, 1);
+  const log = await prisma.appointmentLog.findFirstOrThrow({ where: { appointmentId: appointment.id, action: "PRESCRIPTION_DISPENSED" } });
+  assert.match(log.note || "", /Cấp khi chưa thu tiền: Cấp cứu, quản lý đã duyệt/);
 });
 
-test("a paid invoice is not changed by later dispensing, reception is told instead", async () => {
+test("a paid invoice that already carries the medicine lets the pharmacist dispense without a reason", async () => {
   const pharmacist = await createDashboardUser("PHARMACIST", "0900000083");
   const staff = await createDashboardUser("STAFF", "0900000084");
   const pharmacistCookie = await authCookie(pharmacist.id, "PHARMACIST");
@@ -1095,7 +1105,95 @@ test("a paid invoice is not changed by later dispensing, reception is told inste
   assert.equal(dispensed.status, 200);
   const after = await prisma.invoice.findUniqueOrThrow({ where: { id: created.body.data.id }, include: { items: true } });
   assert.equal(after.totalAmount, before);
-  assert.equal(after.items.filter((item) => item.type === "MEDICINE").length, 0);
+  assert.equal(after.items.filter((item) => item.type === "MEDICINE").length, 1);
+  // Tiền thuốc đã nằm trong hóa đơn từ trước nên không có gì phải báo nhân viên.
+  const inbox = await http.request("/api/v1/dashboard/inbox", { headers: dashboardHeaders(staffCookie) });
+  assert.equal(inbox.body.data.items.some((item: { title: string }) => item.title === "Tiền thuốc chưa tính vào hóa đơn"), false);
+});
+
+test("a paid invoice that does not carry the medicine blocks dispensing without a reason, and reception is told", async () => {
+  const pharmacist = await createDashboardUser("PHARMACIST", "0900000085");
+  const staff = await createDashboardUser("STAFF", "0900000086");
+  const pharmacistCookie = await authCookie(pharmacist.id, "PHARMACIST");
+  const staffCookie = await authCookie(staff.id, "STAFF");
+  const medicine = await createMedicineViaApi(pharmacistCookie, { code: "BILL-MISSING", name: "Thuốc kê sau thanh toán", unitPrice: 3000 });
+  await receiveViaApi(pharmacistCookie, medicine.id, 10);
+  const { appointment, prescription } = await createIssuedPrescription({
+    code: "RX-MISSING",
+    phone: "0944000085",
+    timeSlotId: fixture.slotOne.id,
+    items: [{ medicineName: "Thuốc kê sau thanh toán", quantity: 2, medicineId: medicine.id }],
+  });
+  const created = await http.request(`/api/v1/dashboard/invoices/appointments/${appointment.id}`, {
+    method: "POST",
+    headers: dashboardHeaders(staffCookie),
+    body: {},
+  });
+  assert.equal(created.status, 201);
+  // Mô phỏng đơn được phát hành sau khi hóa đơn đã thu tiền: hóa đơn đã paid mà chưa có dòng tiền thuốc.
+  await prisma.invoiceItem.deleteMany({ where: { invoiceId: created.body.data.id, type: "MEDICINE" } });
+  await prisma.invoice.update({ where: { id: created.body.data.id }, data: { status: "PAID", paidAt: new Date() } });
+
+  const dispense = (body: Record<string, unknown>) =>
+    http.request(`/api/v1/dashboard/pharmacy/prescriptions/${prescription.id}/dispense`, {
+      method: "POST",
+      headers: dashboardHeaders(pharmacistCookie),
+      body,
+    });
+  const blocked = await dispense({ confirmed: true });
+  assert.equal(blocked.status, 409);
+  assert.equal(blocked.body.code, "PAYMENT_REQUIRED");
+
+  const ok = await dispense({ confirmed: true, unpaidReason: "Hóa đơn đã thu, bổ sung tiền thuốc sau" });
+  assert.equal(ok.status, 200);
+  // Hóa đơn đã thanh toán không sửa được: nhân viên được báo để xử lý tiền thuốc.
   const inbox = await http.request("/api/v1/dashboard/inbox", { headers: dashboardHeaders(staffCookie) });
   assert.ok(inbox.body.data.items.some((item: { title: string }) => item.title === "Tiền thuốc chưa tính vào hóa đơn"));
+});
+
+test("issuing a prescription adds its medicine to an unpaid invoice, and an out-of-stock line takes it off again", async () => {
+  const pharmacist = await createDashboardUser("PHARMACIST", "0900000087");
+  const staff = await createDashboardUser("STAFF", "0900000088");
+  const pharmacistCookie = await authCookie(pharmacist.id, "PHARMACIST");
+  const staffCookie = await authCookie(staff.id, "STAFF");
+  const medicine = await createMedicineViaApi(pharmacistCookie, { code: "BILL-ISSUE", name: "Thuốc phát hành sau", unitPrice: 2500 });
+  await receiveViaApi(pharmacistCookie, medicine.id, 10);
+  const { appointment, prescription } = await createIssuedPrescription({
+    code: "RX-ISSUE",
+    phone: "0944000087",
+    timeSlotId: fixture.slotTwo.id,
+    items: [{ medicineName: "Thuốc phát hành sau", quantity: 4, medicineId: medicine.id }],
+  });
+  // Đơn còn nháp khi lập hóa đơn: hóa đơn chưa có tiền thuốc.
+  await prisma.prescription.update({ where: { id: prescription.id }, data: { status: "DRAFT", issuedAt: null } });
+  const created = await http.request(`/api/v1/dashboard/invoices/appointments/${appointment.id}`, {
+    method: "POST",
+    headers: dashboardHeaders(staffCookie),
+    body: {},
+  });
+  assert.equal(created.status, 201);
+  assert.equal((created.body.data.items as { type: string }[]).filter((item) => item.type === "MEDICINE").length, 0);
+  const baseTotal = created.body.data.totalAmount as number;
+
+  // Phát hành đơn: tiền thuốc (4 x 2500) vào hóa đơn ngay; phát hành lần nữa không tính hai lần.
+  const doctorActor = { userId: fixture.doctorOneUser.id, role: "DOCTOR" as const };
+  await PrescriptionService.issue(prescription.id, doctorActor);
+  const afterIssue = await prisma.invoice.findUniqueOrThrow({ where: { id: created.body.data.id }, include: { items: true } });
+  assert.equal(afterIssue.totalAmount, baseTotal + 10000);
+  assert.equal(afterIssue.items.filter((item) => item.type === "MEDICINE").length, 1);
+  await InvoiceService.syncMedicineLines(prescription.id, doctorActor);
+  assert.equal((await prisma.invoice.findUniqueOrThrow({ where: { id: created.body.data.id } })).totalAmount, baseTotal + 10000);
+
+  // Dược sĩ đánh dấu kho hết thuốc này: dòng tiền thuốc được gỡ khỏi hóa đơn chưa thanh toán.
+  const itemId = (await prisma.prescriptionItem.findFirstOrThrow({ where: { prescriptionId: prescription.id } })).id;
+  const dispensed = await http.request(`/api/v1/dashboard/pharmacy/prescriptions/${prescription.id}/dispense`, {
+    method: "POST",
+    headers: dashboardHeaders(pharmacistCookie),
+    body: { confirmed: true, lines: [{ itemId, action: "OUT_OF_STOCK" }] },
+  });
+  assert.equal(dispensed.status, 200);
+  const afterDispense = await prisma.invoice.findUniqueOrThrow({ where: { id: created.body.data.id }, include: { items: true } });
+  assert.equal(afterDispense.totalAmount, baseTotal);
+  assert.equal(afterDispense.finalAmount, created.body.data.finalAmount);
+  assert.equal(afterDispense.items.filter((item) => item.type === "MEDICINE").length, 0);
 });

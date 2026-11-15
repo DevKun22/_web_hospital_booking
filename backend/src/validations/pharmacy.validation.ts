@@ -51,6 +51,8 @@ export const adjustStockSchema = z.object({
 export const dispenseSchema = z.object({
   confirmed: z.boolean(),
   note: nullableText(500),
+  // Lý do cấp thuốc khi hóa đơn chưa thanh toán hoặc chưa tính tiền thuốc này (bắt buộc trong trường hợp đó).
+  unpaidReason: nullableText(300),
   lines: z
     .array(
       z.object({

@@ -9,6 +9,7 @@ import { prisma } from "../config/prisma.js";
 import { getReminderDispatchConcurrency } from "../config/environment.js";
 import { AppError } from "../utils/appError.js";
 import { mapWithConcurrency } from "../utils/concurrency.js";
+import { desiredMedicineLine, diffMedicineLines, type BillableItem } from "../utils/medicineBilling.js";
 import {
   generateInvoiceBarcode,
   generateInvoiceCode,
@@ -73,41 +74,24 @@ type InvoiceItemDraft = {
   unitPrice: number;
   amount: number;
   sortOrder: number;
+  // Dòng tiền thuốc gắn với dòng đơn thuốc sinh ra nó.
+  prescriptionItemId?: string;
 };
 
 const normalizeOptionalString = (value?: string | null) =>
   value === undefined ? undefined : value?.trim() || null;
 
-type DispensedMedicineRow = {
-  medicineName: string;
-  unit: string | null;
-  dispensedQuantity: number;
-  medicine: { unitPrice: number } | null;
-};
-
-// Tiền thuốc tính theo SỐ LƯỢNG THỰC CẤP (dược sĩ cấp mới gắn thuốc với kho) và giá bán hiện tại của thuốc,
-// chụp lại vào dòng hóa đơn. Thuốc mua ngoài, chưa cấp hoặc giá 0 thì không tính tiền.
-const buildMedicineLines = (rows: DispensedMedicineRow[], startOrder: number): InvoiceItemDraft[] => {
-  const lines: InvoiceItemDraft[] = [];
-  for (const row of rows) {
-    const unitPrice = row.medicine?.unitPrice ?? 0;
-    if (unitPrice <= 0 || row.dispensedQuantity <= 0) continue;
-    lines.push({
-      type: "MEDICINE",
-      description: `Thuốc: ${row.medicineName}${row.unit ? ` (${row.unit})` : ""}`,
-      quantity: row.dispensedQuantity,
-      unitPrice,
-      amount: unitPrice * row.dispensedQuantity,
-      sortOrder: startOrder + lines.length,
-    });
-  }
-  return lines;
-};
-
-const dispensedMedicineSelect = {
+// Tiền thuốc tính từ lúc phát hành đơn (theo số lượng kê, giá bán chụp lại vào dòng hóa đơn) và theo số lượng
+// thực cấp khi đã cấp. Thuốc ngoài danh mục, người khám tự mua, hết hàng hoặc giá 0 thì không tính tiền.
+// Quy tắc nằm ở utils/medicineBilling.ts.
+const billableItemSelect = {
+  id: true,
   medicineName: true,
   unit: true,
+  quantity: true,
   dispensedQuantity: true,
+  fulfillmentStatus: true,
+  medicineId: true,
   medicine: { select: { unitPrice: true } },
 } as const;
 
@@ -451,17 +435,16 @@ class InvoiceService {
     }
 
     const invoiceItems = buildInvoiceItems(appointment);
-    // Tiền thuốc đã cấp cho các đơn của lịch này (đơn chưa cấp sẽ được thêm vào hóa đơn lúc dược sĩ cấp thuốc).
-    const dispensed = await prisma.prescriptionItem.findMany({
-      where: {
-        prescription: { appointmentId: appointment.id, status: "ISSUED" },
-        medicineId: { not: null },
-        dispensedQuantity: { gt: 0 },
-      },
+    // Tiền thuốc của các đơn đã phát hành của lịch này (đã cấp thì theo số lượng thực cấp, chưa cấp thì theo số kê).
+    const prescribed = await prisma.prescriptionItem.findMany({
+      where: { prescription: { appointmentId: appointment.id, status: "ISSUED" }, medicineId: { not: null } },
       orderBy: [{ prescription: { issuedAt: "asc" } }, { sortOrder: "asc" }],
-      select: dispensedMedicineSelect,
+      select: billableItemSelect,
     });
-    invoiceItems.push(...buildMedicineLines(dispensed, invoiceItems.length));
+    for (const item of prescribed) {
+      const line = desiredMedicineLine(item);
+      if (line) invoiceItems.push({ type: "MEDICINE", sortOrder: invoiceItems.length, ...line });
+    }
     const totalAmount = invoiceItems.reduce(
       (sum, item) => sum + item.amount,
       0,
@@ -807,83 +790,146 @@ class InvoiceService {
   }
 
   /**
-   * Dược sĩ vừa cấp thuốc cho một đơn: nếu lịch đã có hóa đơn chưa thanh toán thì thêm dòng tiền thuốc vào đó
-   * (tổng tiền và số phải thu tăng đúng bằng tiền thuốc, giảm giá bảo hiểm giữ nguyên). Hóa đơn đã thanh toán,
-   * đã hủy hoặc đang có giao dịch trực tuyến chờ thì không sửa được: báo nhân viên tiếp nhận xử lý.
-   * Nếu chưa có hóa đơn thì không làm gì, tiền thuốc sẽ được tính khi lập hóa đơn.
+   * Đồng bộ dòng tiền thuốc của một đơn vào hóa đơn của lịch: thêm dòng còn thiếu, chỉnh số lượng, gỡ dòng đã hết
+   * hàng hoặc người khám tự mua. Mỗi dòng hóa đơn gắn với một dòng đơn nên gọi lại nhiều lần không tính tiền hai
+   * lần. Gọi lúc phát hành đơn và lúc dược sĩ cấp thuốc.
+   * Hóa đơn đã thanh toán, đã hủy hoặc đang có giao dịch trực tuyến chờ thì không sửa được: nếu có chênh lệch thì
+   * báo nhân viên tiếp nhận xử lý. Chưa có hóa đơn thì không làm gì, tiền thuốc sẽ được tính khi lập hóa đơn.
    */
-  async addDispensedMedicines(prescriptionId: string, actorId?: string) {
+  async syncMedicineLines(prescriptionId: string, actor?: { userId: string; role: string }) {
     const prescription = await prisma.prescription.findUnique({
       where: { id: prescriptionId },
-      select: { id: true, appointmentId: true, prescriptionCode: true, items: { where: { medicineId: { not: null }, dispensedQuantity: { gt: 0 } }, orderBy: { sortOrder: "asc" }, select: dispensedMedicineSelect } },
+      select: { id: true, status: true, appointmentId: true, prescriptionCode: true, items: { orderBy: { sortOrder: "asc" }, select: billableItemSelect } },
     });
     if (!prescription) return { outcome: "NO_PRESCRIPTION" as const, amount: 0 };
-    const lines = buildMedicineLines(prescription.items, 0);
-    const amount = lines.reduce((sum, line) => sum + line.amount, 0);
-    if (amount <= 0) return { outcome: "NO_CHARGE" as const, amount: 0 };
-
     const invoiceRef = await prisma.invoice.findUnique({
       where: { appointmentId: prescription.appointmentId },
       select: { id: true, invoiceCode: true },
     });
-    if (!invoiceRef) return { outcome: "NO_INVOICE" as const, amount };
+    if (!invoiceRef) return { outcome: "NO_INVOICE" as const, amount: 0 };
+    // Đơn đã hủy thì không còn dòng nào cần tính tiền.
+    const items: BillableItem[] = prescription.status === "ISSUED" ? prescription.items : [];
 
     const result = await prisma.$transaction(async (tx) => {
       await tx.$queryRaw(Prisma.sql`SELECT "id" FROM "Invoice" WHERE "id" = ${invoiceRef.id} FOR UPDATE`);
       const invoice = await tx.invoice.findUniqueOrThrow({
         where: { id: invoiceRef.id },
-        select: { status: true, totalAmount: true, finalAmount: true, items: { select: { sortOrder: true } } },
+        select: {
+          status: true,
+          totalAmount: true,
+          finalAmount: true,
+          items: { select: { id: true, sortOrder: true, quantity: true, unitPrice: true, prescriptionItemId: true } },
+        },
       });
-      if (invoice.status !== "UNPAID") return "BLOCKED" as const;
+      const itemIds = new Set(prescription.items.map((item) => item.id));
+      const existing = invoice.items
+        .filter((line) => line.prescriptionItemId && itemIds.has(line.prescriptionItemId))
+        .map((line) => ({ id: line.id, prescriptionItemId: line.prescriptionItemId as string, quantity: line.quantity, unitPrice: line.unitPrice }));
+      const diff = diffMedicineLines(items, existing);
+      if (diff.add.length === 0 && diff.update.length === 0 && diff.remove.length === 0) {
+        return { outcome: "NO_CHANGE" as const, delta: 0 };
+      }
+      if (invoice.status !== "UNPAID") return { outcome: "BLOCKED" as const, delta: diff.delta };
       const pendingPayment = await tx.paymentTransaction.count({
         where: { invoiceId: invoiceRef.id, OR: [{ status: "PENDING" }, { status: "EXPIRED", provider: "VNPAY" }] },
       });
-      if (pendingPayment > 0) return "BLOCKED" as const;
+      if (pendingPayment > 0) return { outcome: "BLOCKED" as const, delta: diff.delta };
 
-      const nextOrder = Math.max(-1, ...invoice.items.map((item) => item.sortOrder)) + 1;
-      await tx.invoiceItem.createMany({
-        data: buildMedicineLines(prescription.items, nextOrder).map((line) => ({ ...line, invoiceId: invoiceRef.id })),
-      });
+      let nextOrder = Math.max(-1, ...invoice.items.map((line) => line.sortOrder)) + 1;
+      if (diff.add.length > 0) {
+        await tx.invoiceItem.createMany({
+          data: diff.add.map((line) => ({
+            invoiceId: invoiceRef.id,
+            type: "MEDICINE" as const,
+            description: line.description,
+            quantity: line.quantity,
+            unitPrice: line.unitPrice,
+            amount: line.amount,
+            sortOrder: nextOrder++,
+            prescriptionItemId: line.prescriptionItemId,
+          })),
+        });
+      }
+      for (const line of diff.update) {
+        await tx.invoiceItem.update({ where: { id: line.id }, data: { quantity: line.quantity, amount: line.amount } });
+      }
+      if (diff.remove.length > 0) {
+        await tx.invoiceItem.deleteMany({ where: { id: { in: diff.remove.map((line) => line.id) } } });
+      }
       await tx.invoice.update({
         where: { id: invoiceRef.id },
-        data: { totalAmount: invoice.totalAmount + amount, finalAmount: invoice.finalAmount + amount },
+        data: { totalAmount: invoice.totalAmount + diff.delta, finalAmount: invoice.finalAmount + diff.delta },
       });
       await tx.appointment.update({
         where: { id: prescription.appointmentId },
         data: {
-          finalAmount: invoice.finalAmount + amount,
-          logs: { create: { action: "INVOICE_CREATED", note: "Đã thêm tiền thuốc vào hóa đơn", createdById: actorId } },
+          finalAmount: invoice.finalAmount + diff.delta,
+          logs: { create: { action: "INVOICE_CREATED", note: "Đã cập nhật tiền thuốc trong hóa đơn", createdById: actor?.userId } },
         },
       });
       await AuditLogService.record(
         {
-          actor: actorId ? { userId: actorId, role: "PHARMACIST" } : null,
+          actor: actor ? { userId: actor.userId, role: actor.role } : null,
           action: "INVOICE_ADJUSTED",
           targetType: "INVOICE",
           targetId: invoiceRef.id,
           meta: {
-            reason: "MEDICINE_DISPENSED",
+            reason: "MEDICINE_SYNC",
             prescriptionId,
             before: { finalAmount: invoice.finalAmount },
-            after: { finalAmount: invoice.finalAmount + amount },
+            after: { finalAmount: invoice.finalAmount + diff.delta },
           },
         },
         tx,
       );
-      return "ADDED" as const;
+      return { outcome: "SYNCED" as const, delta: diff.delta };
     });
 
-    if (result === "BLOCKED") {
+    if (result.outcome === "BLOCKED") {
       await StaffNotificationService.notifyRoles(["STAFF", "ADMIN"], {
         type: "INVOICE_CREATED",
         title: "Tiền thuốc chưa tính vào hóa đơn",
-        body: `Đơn ${prescription.prescriptionCode} vừa được cấp thuốc (${amount.toLocaleString("vi-VN")} đ) nhưng hóa đơn ${invoiceRef.invoiceCode} không còn sửa được. Vui lòng xử lý tiền thuốc.`,
+        body: `Đơn ${prescription.prescriptionCode} có thay đổi tiền thuốc (${Math.abs(result.delta).toLocaleString("vi-VN")} đ) nhưng hóa đơn ${invoiceRef.invoiceCode} không còn sửa được. Vui lòng xử lý tiền thuốc.`,
         entityType: "INVOICE",
         entityId: invoiceRef.id,
-        eventKey: `invoice:${invoiceRef.id}:medicine-blocked:${prescriptionId}`,
+        eventKey: `invoice:${invoiceRef.id}:medicine-blocked:${prescriptionId}:${result.delta}`,
       });
     }
-    return { outcome: result, amount };
+    return { outcome: result.outcome, amount: result.delta };
+  }
+
+  /** Giữ tên cũ cho chỗ gọi lúc cấp thuốc; hành vi là đồng bộ dòng tiền thuốc. */
+  addDispensedMedicines(prescriptionId: string, actor?: { userId: string; role: string }) {
+    return this.syncMedicineLines(prescriptionId, actor);
+  }
+
+  /**
+   * Hóa đơn đã "phủ" tiền thuốc của đơn chưa: có hóa đơn đã thanh toán và mọi dòng thuốc sắp cấp đều đã có dòng
+   * tiền trên hóa đơn đó. Dùng để chặn cấp thuốc khi chưa thu tiền. billableAmount = 0 (thuốc miễn phí hoặc
+   * ngoài danh mục) thì không cần hóa đơn. `excludeItemIds` là các dòng sẽ không cấp (hết hàng, tự mua).
+   */
+  async medicineCoverage(prescriptionId: string, excludeItemIds: string[] = []) {
+    const prescription = await prisma.prescription.findUnique({
+      where: { id: prescriptionId },
+      select: { appointmentId: true, items: { orderBy: { sortOrder: "asc" }, select: billableItemSelect } },
+    });
+    if (!prescription) return { billableAmount: 0, invoiceStatus: null, covered: true };
+    const excluded = new Set(excludeItemIds);
+    const wanted = prescription.items
+      .filter((item) => !excluded.has(item.id) && item.fulfillmentStatus === "PENDING")
+      .map((item) => desiredMedicineLine(item))
+      .filter((line): line is NonNullable<typeof line> => line !== null);
+    const billableAmount = wanted.reduce((sum, line) => sum + line.amount, 0);
+    if (billableAmount <= 0) return { billableAmount: 0, invoiceStatus: null, covered: true };
+
+    const invoice = await prisma.invoice.findUnique({
+      where: { appointmentId: prescription.appointmentId },
+      select: { status: true, items: { select: { prescriptionItemId: true } } },
+    });
+    if (!invoice) return { billableAmount, invoiceStatus: null, covered: false };
+    const linked = new Set(invoice.items.map((line) => line.prescriptionItemId).filter(Boolean));
+    const allLinked = wanted.every((line) => linked.has(line.prescriptionItemId));
+    return { billableAmount, invoiceStatus: invoice.status, covered: invoice.status === "PAID" && allLinked };
   }
 
   /**
