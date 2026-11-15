@@ -279,7 +279,7 @@ class PatientPortalService {
         const consentedBefore = existing?.healthConsentVersion === HEALTH_CONSENT_VERSION;
         if (changesHealthData && input.healthConsent !== true && !consentedBefore) {
           throw new AppError(
-            "Cần đồng ý cho phép bệnh viện lưu thông tin sức khỏe trước khi cập nhật hồ sơ",
+            "Cần đồng ý cho phép cơ sở khám lưu thông tin sức khỏe trước khi cập nhật hồ sơ",
             400,
             "HEALTH_CONSENT_REQUIRED",
           );

@@ -28,7 +28,7 @@ export type GuestBookingIdentityDecision =
 
 export const ACCOUNT_LOGIN_REQUIRED_CODE = "ACCOUNT_LOGIN_REQUIRED";
 export const ACCOUNT_LOGIN_REQUIRED_MESSAGE =
-  "Số điện thoại này đã có tài khoản. Vui lòng đăng nhập cổng bệnh nhân để đặt lịch.";
+  "Số điện thoại này đã có tài khoản. Vui lòng đăng nhập cổng người khám để đặt lịch.";
 
 const normalizeEmail = (value?: string | null) =>
   value?.trim().toLowerCase() || "";

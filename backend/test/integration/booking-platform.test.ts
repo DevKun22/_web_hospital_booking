@@ -489,7 +489,7 @@ test("reconciliation cancels a pending confirmation after its visit window", asy
   assert.equal(stored.status, "CANCELLED_BY_ADMIN");
   assert.equal(
     stored.cancelledReason,
-    "Lịch chờ bệnh viện xác nhận đã quá giờ khám",
+    "Lịch chờ cơ sở khám xác nhận đã quá giờ khám",
   );
   assert.equal(stored.timeSlotId, null);
   assert.equal(

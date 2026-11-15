@@ -90,7 +90,7 @@ export const chatbotReplies = {
     `Mình cần thêm một chút thông tin để gợi ý phù hợp hơn. ${question}`,
 
   triageNoMatch:
-    "Hiện dữ liệu bệnh viện chưa đủ để gợi ý chuyên khoa an toàn. Bạn có thể xem danh sách chuyên khoa hoặc liên hệ nhân viên để được hỗ trợ.",
+    "Hiện dữ liệu cơ sở khám chưa đủ để gợi ý chuyên khoa an toàn. Bạn có thể xem danh sách chuyên khoa hoặc liên hệ nhân viên để được hỗ trợ.",
 
   departmentSuggestion: (departmentName?: string) =>
     departmentName

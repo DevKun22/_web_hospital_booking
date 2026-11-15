@@ -96,7 +96,7 @@ export class AppointmentBookingUseCases extends AppointmentServiceSupport {
     // Khai báo dị ứng/tiền sử là dữ liệu sức khỏe: chỉ lưu khi người đặt đồng ý rõ ràng.
     if (hasHealthData && input.healthConsent !== true) {
       throw new AppError(
-        "Cần đồng ý cho phép bệnh viện lưu thông tin sức khỏe trước khi đặt lịch",
+        "Cần đồng ý cho phép cơ sở khám lưu thông tin sức khỏe trước khi đặt lịch",
         400,
         "HEALTH_CONSENT_REQUIRED",
       );
@@ -807,7 +807,7 @@ export class AppointmentBookingUseCases extends AppointmentServiceSupport {
           patientCancelCutoffHours * 3_600_000
     ) {
       throw new AppError(
-        `Không thể tự hủy trong ${patientCancelCutoffHours} giờ trước giờ khám. Vui lòng liên hệ bệnh viện để được hỗ trợ.`,
+        `Không thể tự hủy trong ${patientCancelCutoffHours} giờ trước giờ khám. Vui lòng liên hệ cơ sở khám để được hỗ trợ.`,
         409,
         "PATIENT_CANCEL_CUTOFF",
       );

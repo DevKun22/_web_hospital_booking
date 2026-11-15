@@ -186,7 +186,7 @@ export class AppointmentLifecycleUseCases extends AppointmentServiceSupport {
     options: { actor?: Actor; now?: Date } = {},
   ) {
     const now = options.now || new Date();
-    const reason = "Lịch chờ bệnh viện xác nhận đã quá giờ khám";
+    const reason = "Lịch chờ cơ sở khám xác nhận đã quá giờ khám";
     const transition = await prisma.$transaction(async (tx) => {
       const appointment = await tx.appointment.findUnique({
         where: { id: appointmentId },

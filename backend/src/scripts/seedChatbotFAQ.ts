@@ -2,10 +2,10 @@ import { prisma } from "../config/prisma.js";
 
 const faqs = [
   {
-    question: "Bệnh viện làm việc mấy giờ?",
+    question: "Cơ sở khám làm việc mấy giờ?",
     legacyQuestions: ["Benh vien lam viec may gio?"],
     answer:
-      "Bệnh viện hỗ trợ khám trong giờ hành chính. Bạn nên đặt lịch trước để được sắp xếp khung giờ phù hợp và giảm thời gian chờ.",
+      "Cơ sở khám hỗ trợ khám trong giờ hành chính. Bạn nên đặt lịch trước để được sắp xếp khung giờ phù hợp và giảm thời gian chờ.",
     keywords: [
       "gio lam viec",
       "lam viec may gio",
@@ -56,7 +56,7 @@ const faqs = [
     ],
   },
   {
-    question: "Bệnh viện hỗ trợ thanh toán như thế nào?",
+    question: "Cơ sở khám hỗ trợ thanh toán như thế nào?",
     legacyQuestions: ["Benh vien ho tro thanh toan nhu the nao?"],
     answer:
       "Hệ thống hỗ trợ ghi nhận thanh toán tại quầy và thanh toán online qua VNPay.",
@@ -132,7 +132,7 @@ const faqs = [
     question: "Tôi xem kết quả khám và hồ sơ ở đâu?",
     legacyQuestions: [],
     answer:
-      "Sau khi hoàn tất khám, hồ sơ khám, đơn thuốc hoặc kết quả cận lâm sàng sẽ được cập nhật theo quy trình của bệnh viện. Bạn có thể liên hệ nhân viên nếu cần hỗ trợ tra cứu.",
+      "Sau khi hoàn tất khám, hồ sơ khám, đơn thuốc hoặc kết quả cận lâm sàng sẽ được cập nhật theo quy trình của cơ sở khám. Bạn có thể liên hệ nhân viên nếu cần hỗ trợ tra cứu.",
     keywords: [
       "ket qua kham",
       "ho so kham",
