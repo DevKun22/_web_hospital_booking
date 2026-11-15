@@ -130,7 +130,8 @@ class _DependentFormScreenState extends ConsumerState<DependentFormScreen> {
                     ? 'Họ tên tối thiểu 2 ký tự.'
                     : null,
               ),
-              const SizedBox(height: 12),
+              // Chừa chỗ cho nhãn nổi của ô kế tiếp để không đè lên dòng báo lỗi.
+              const SizedBox(height: 20),
               DropdownButtonFormField<DependentRelationship>(
                 initialValue: _relationship,
                 decoration: const InputDecoration(

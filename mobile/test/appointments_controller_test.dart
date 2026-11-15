@@ -87,14 +87,26 @@ void main() {
       isTrue,
     );
     expect(_appointment('future').isHistory, isFalse);
+    final today = DateTime.now().toUtc().add(const Duration(hours: 7));
+    final todayText =
+        '${today.year.toString().padLeft(4, '0')}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}';
     expect(
       _appointment(
         'ongoing',
         status: PatientAppointmentStatus.inProgress,
-        appointmentDate: '2020-01-02',
+        appointmentDate: todayText,
       ).isHistory,
       isFalse,
-      reason: 'An in-progress visit remains actionable even after its slot.',
+      reason: 'A visit in progress today stays actionable even after its slot.',
+    );
+    expect(
+      _appointment(
+        'stale-check-in',
+        status: PatientAppointmentStatus.checkedIn,
+        appointmentDate: '2020-01-02',
+      ).isHistory,
+      isTrue,
+      reason: 'A check-in from a previous day that nobody closed is history.',
     );
   });
 
