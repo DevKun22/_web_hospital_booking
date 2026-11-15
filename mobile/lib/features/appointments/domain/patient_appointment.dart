@@ -1,6 +1,7 @@
 import 'package:hospital_booking_mobile/core/formatters/professional_name_formatter.dart';
 
 import 'package:hospital_booking_mobile/core/network/json_readers.dart';
+import 'package:hospital_booking_mobile/core/formatters/vietnam_time.dart';
 
 enum PatientAppointmentStatus {
   pendingOtp('PENDING_OTP'),
@@ -189,7 +190,15 @@ class PatientAppointment {
     if (status.isHistory) return true;
     if (status == PatientAppointmentStatus.checkedIn ||
         status == PatientAppointmentStatus.inProgress) {
-      return false;
+      // Đang khám có thể kéo dài quá khung giờ trong ngày, nhưng một lượt "đã
+      // check-in" của ngày hôm trước mà chưa ai đóng thì là lịch cũ.
+      final date = DateTime.tryParse(appointmentDate);
+      if (date == null) return false;
+      return DateTime.utc(
+        date.year,
+        date.month,
+        date.day,
+      ).isBefore(vietnamToday());
     }
     final scheduledEnd = this.scheduledEnd;
     return scheduledEnd != null && scheduledEnd.isBefore(DateTime.now());
