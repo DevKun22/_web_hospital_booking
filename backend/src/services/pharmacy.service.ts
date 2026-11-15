@@ -52,7 +52,14 @@ const queueSelect = {
   patient: { select: { id: true, fullName: true, phone: true } },
   doctor: { select: { title: true, user: { select: { fullName: true } } } },
   // Dược sĩ cần thấy dị ứng đã khai báo để kiểm tra trước khi cấp thuốc.
-  appointment: { select: { bookingCode: true, allergies: true } },
+  // Hóa đơn chỉ để dược sĩ biết tình trạng thanh toán; backend chưa chặn cấp thuốc theo trạng thái này.
+  appointment: {
+    select: {
+      bookingCode: true,
+      allergies: true,
+      invoice: { select: { invoiceCode: true, status: true, paymentMethod: true } },
+    },
+  },
   dispensedBy: { select: { id: true, fullName: true } },
   items: {
     orderBy: { sortOrder: "asc" },
