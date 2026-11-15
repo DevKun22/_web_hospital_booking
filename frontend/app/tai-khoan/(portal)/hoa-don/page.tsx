@@ -22,7 +22,7 @@ export default function PatientInvoicesPage() {
       ) : query.isError || !query.data ? (
         <PatientPageError message={query.error instanceof Error ? query.error.message : "Không tải được hóa đơn."} onRetry={() => query.refetch()} />
       ) : query.data.invoices.length === 0 ? (
-        <PatientEmptyState title="Chưa có hóa đơn" description="Hóa đơn xuất hiện sau khi bệnh viện lập chi phí cho lần khám." />
+        <PatientEmptyState title="Chưa có hóa đơn" description="Hóa đơn xuất hiện sau khi cơ sở khám lập chi phí cho lần khám." />
       ) : (
         <ul className="divide-y divide-[var(--public-divider)] overflow-hidden rounded-lg border border-[var(--public-border)] bg-[var(--public-surface)]">
           {query.data.invoices.map((invoice) => {
@@ -43,7 +43,7 @@ export default function PatientInvoicesPage() {
                 <dl className="mt-3 grid grid-cols-3 gap-3 text-sm">
                   <div><dt className="text-[var(--public-muted)]">Trước giảm</dt><dd className="font-semibold tabular-nums">{formatMoney(invoice.totalAmount)}</dd></div>
                   <div><dt className="text-[var(--public-muted)]">Giảm BHYT</dt><dd className="font-semibold tabular-nums">{discount ? `−${formatMoney(discount)}` : "—"}</dd></div>
-                  <div><dt className="text-[var(--public-muted)]">Phương thức</dt><dd className="font-semibold">{invoice.paymentMethod || (invoice.status === "UNPAID" ? "Chưa thanh toán" : "Tại bệnh viện")}</dd></div>
+                  <div><dt className="text-[var(--public-muted)]">Phương thức</dt><dd className="font-semibold">{invoice.paymentMethod || (invoice.status === "UNPAID" ? "Chưa thanh toán" : "Tại cơ sở khám")}</dd></div>
                 </dl>
 
                 {invoice.status === "PAID" ? <p className="mt-3 text-sm font-semibold text-[var(--public-success)]">Đã thanh toán {formatShortDate(invoice.paidAt)}</p> : null}
@@ -72,7 +72,7 @@ export default function PatientInvoicesPage() {
                         })}
                       </div>
                     ) : (
-                      <p className="text-sm text-[var(--public-text-soft)]">Chưa có cổng thanh toán trực tuyến. Thanh toán trực tiếp theo hướng dẫn của bệnh viện.</p>
+                      <p className="text-sm text-[var(--public-text-soft)]">Chưa có cổng thanh toán trực tuyến. Thanh toán trực tiếp theo hướng dẫn của cơ sở khám.</p>
                     )}
                     {pendingHere ? <p role="alert" className="mt-3 text-sm text-[var(--public-danger)]">{payment.error instanceof Error ? payment.error.message : "Không thể tạo giao dịch."}</p> : null}
                   </div>
@@ -85,7 +85,7 @@ export default function PatientInvoicesPage() {
         </ul>
       )}
 
-      <p className="text-sm text-[var(--public-muted)]">Số tiền lấy trực tiếp từ hóa đơn trong hệ thống. Không chuyển khoản theo đường dẫn nhận qua tin nhắn hoặc tên miền không thuộc bệnh viện.</p>
+      <p className="text-sm text-[var(--public-muted)]">Số tiền lấy trực tiếp từ hóa đơn trong hệ thống. Không chuyển khoản theo đường dẫn nhận qua tin nhắn hoặc tên miền không thuộc cơ sở khám.</p>
     </div>
   );
 }

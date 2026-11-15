@@ -23,7 +23,7 @@ export default function HealthRecordsPage() {
 
   return (
     <div className="space-y-5">
-      <PatientPageHeader title="Kết quả khám và đơn thuốc" description="Chỉ hiển thị hồ sơ đã được bệnh viện công bố, đồng bộ với ứng dụng di động." />
+      <PatientPageHeader title="Kết quả khám và đơn thuốc" description="Chỉ hiển thị hồ sơ đã được cơ sở khám công bố, đồng bộ với ứng dụng di động." />
 
       <div role="tablist" aria-label="Loại hồ sơ" className="flex gap-2">
         {TABS.map((item) => (
@@ -64,7 +64,7 @@ export default function HealthRecordsPage() {
             ))}
           </ul>
         ) : (
-          <PatientEmptyState title="Chưa có kết quả khám" description="Kết quả xuất hiện sau khi bác sĩ hoàn tất và bệnh viện công bố hồ sơ." />
+          <PatientEmptyState title="Chưa có kết quả khám" description="Kết quả xuất hiện sau khi bác sĩ hoàn tất và cơ sở khám công bố hồ sơ." />
         )
       ) : query.data.prescriptions.length ? (
         <ul className={LIST_CLASS}>

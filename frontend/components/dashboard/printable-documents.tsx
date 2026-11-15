@@ -40,7 +40,7 @@ const routeLabel: Record<InsuranceRouteType, string> = {
 function Header({ title, code }: { title: string; code: string }) {
   return (
     <header className="print-header">
-      <p className="print-org">Bệnh viện</p>
+      <p className="print-org">Cơ sở khám</p>
       <h1>{title}</h1>
       <p className="print-code">Mã: {code}</p>
     </header>
@@ -61,7 +61,7 @@ export function PrintablePrescription({ prescription }: { prescription: Prescrip
   return (
     <section className="print-sheet" aria-hidden="true">
       <Header title="Đơn thuốc" code={prescription.prescriptionCode} />
-      <Row label="Bệnh nhân" value={prescription.patient.fullName} />
+      <Row label="Người khám" value={prescription.patient.fullName} />
       <Row label="Điện thoại" value={prescription.patient.phone} />
       <Row label="Lịch hẹn" value={prescription.appointment.bookingCode} />
       <Row label="Chẩn đoán" value={prescription.medicalRecord.diagnosis} />
@@ -111,7 +111,7 @@ export function PrintableInvoice({ invoice }: { invoice: Invoice }) {
 
   return (
     <section className="print-sheet" aria-hidden="true">
-      <Header title={paid ? "Biên nhận thanh toán" : "Hóa đơn khám bệnh"} code={invoice.invoiceCode} />
+      <Header title={paid ? "Biên nhận thanh toán" : "Hóa đơn khám"} code={invoice.invoiceCode} />
       {stamp ? <p className="print-stamp">{stamp}</p> : null}
       <Row label="Người khám" value={invoice.patient.fullName} />
       <Row label="Điện thoại" value={invoice.patient.phone} />

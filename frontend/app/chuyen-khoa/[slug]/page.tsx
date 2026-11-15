@@ -49,7 +49,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   } catch {
     return buildNoIndexMetadata({
       title: "Chi tiết chuyên khoa",
-      description: "Thông tin chuyên khoa, bác sĩ và gói khám tại bệnh viện.",
+      description: "Thông tin chuyên khoa, bác sĩ và gói khám tại cơ sở khám.",
     });
   }
 }

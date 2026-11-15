@@ -177,7 +177,7 @@ export async function uploadImages(files: File[], folder: string) {
 }
 
 // Tệp kết quả khám (PDF hoặc ảnh JPG, PNG, WEBP, tối đa 10 MB). Chỉ tài khoản có quyền ghi bệnh án
-// (bác sĩ) tải được; tệp được lưu riêng tư và bệnh nhân chỉ xem qua cổng của mình.
+// (bác sĩ) tải được; tệp được lưu riêng tư và người khám chỉ xem qua cổng của mình.
 export async function uploadMedicalFile(file: File) {
   const formData = new FormData();
   formData.append("file", file);

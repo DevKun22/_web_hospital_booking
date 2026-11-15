@@ -10,7 +10,7 @@ export const appointmentStatusLabel: Record<AppointmentStatus, string> = {
   IN_PROGRESS: "Đang khám",
   COMPLETED: "Hoàn tất",
   RESCHEDULED: "Đổi lịch",
-  CANCELLED_BY_PATIENT: "Bệnh nhân hủy",
+  CANCELLED_BY_PATIENT: "Người khám hủy",
   CANCELLED_BY_DOCTOR: "Bác sĩ hủy",
   CANCELLED_BY_ADMIN: "Quản trị hủy",
   NO_SHOW: "Vắng mặt",
