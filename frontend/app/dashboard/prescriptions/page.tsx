@@ -255,11 +255,26 @@ export default function PrescriptionsPage() {
   };
 
   const simpleAction = async (prescription: Prescription, path: string, message: string) => {
+    // Dòng vượt khả năng cấp của kho sẽ được đánh dấu "kho hết hàng, người khám tự mua" và không tính tiền: bác sĩ xác nhận rõ.
+    let acknowledgeShortage = false;
+    if (path === "/issue") {
+      const shortItems = prescription.items.filter((item) => item.availability?.short);
+      if (shortItems.length > 0) {
+        const proceed = window.confirm(
+          `Kho không đủ thuốc cho ${shortItems.length} dòng:\n- ${shortItems.map((item) => item.medicineName).join("\n- ")}\n\nCác dòng này sẽ được đánh dấu "người khám tự mua", không tính tiền và không chờ cấp. Bạn vẫn muốn phát hành?`,
+        );
+        if (!proceed) return;
+        acknowledgeShortage = true;
+      }
+    }
     setBusy(true);
     setError("");
     setNotice("");
     try {
-      const updated = await apiRequest<Prescription>(`/dashboard/prescriptions/${prescription.id}${path}`, { method: "PATCH" });
+      const updated = await apiRequest<Prescription>(`/dashboard/prescriptions/${prescription.id}${path}`, {
+        method: "PATCH",
+        body: acknowledgeShortage ? { acknowledgeShortage: true } : undefined,
+      });
       setSelected(updated);
       setNote(updated.note || "");
       setConfirmCancel(false);

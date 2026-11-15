@@ -150,6 +150,7 @@ export const issuePrescriptionHandler = async (
     const prescription = await PrescriptionService.issue(
       getParam(req.params.id),
       getActor(req),
+      { acknowledgeShortage: req.body?.acknowledgeShortage === true },
     );
 
     return res.json({
