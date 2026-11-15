@@ -59,6 +59,7 @@ const prescriptionSelect = {
   status: true,
   note: true,
   issuedAt: true,
+  dispenseStatus: true,
   createdAt: true,
   appointment: {
     select: {
@@ -91,6 +92,9 @@ const prescriptionSelect = {
       unit: true,
       instruction: true,
       sortOrder: true,
+      // Kết quả xử lý dòng khi dược sĩ cấp (đã cấp, tự mua, hết hàng) để người khám biết cần mua ngoài thuốc nào.
+      fulfillmentStatus: true,
+      fulfillmentNote: true,
     },
   },
 } satisfies Prisma.PrescriptionSelect;

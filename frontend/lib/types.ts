@@ -526,6 +526,9 @@ export type PrescriptionItem = {
   medicineId: string | null;
   // Có khi dòng gắn thuốc kho: mức khả dụng và cờ số lượng kê vượt khả năng cấp.
   availability?: { level: MedicineAvailability; short: boolean } | null;
+  // Kết quả xử lý dòng khi dược sĩ cấp.
+  fulfillmentStatus?: "PENDING" | "DISPENSED" | "OUTSIDE" | "OUT_OF_STOCK";
+  fulfillmentNote?: string | null;
   medicineName: string;
   dosage: string | null;
   frequency: string | null;

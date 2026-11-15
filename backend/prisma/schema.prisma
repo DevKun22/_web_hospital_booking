@@ -160,6 +160,14 @@ enum DispenseStatus {
   DISPENSED
 }
 
+// Trạng thái xử lý từng dòng thuốc khi dược sĩ cấp.
+enum FulfillmentStatus {
+  PENDING // chưa xử lý
+  DISPENSED // đã cấp, đã trừ kho
+  OUTSIDE // người khám tự mua (không trừ kho, không tính tiền)
+  OUT_OF_STOCK // kho hết hàng lúc cấp (không trừ kho, không tính tiền)
+}
+
 enum StockMovementType {
   RECEIPT // nhập kho (quantity > 0)
   DISPENSE // cấp phát theo đơn (quantity < 0)
@@ -1183,6 +1191,10 @@ model PrescriptionItem {
   sortOrder    Int @default(0)
 
   dispensedQuantity Int @default(0)
+
+  // Kết quả xử lý dòng khi dược sĩ cấp; fulfillmentNote ghi lý do (ví dụ hết hàng).
+  fulfillmentStatus FulfillmentStatus @default(PENDING)
+  fulfillmentNote   String?
 
   stockMovements StockMovement[]
 
