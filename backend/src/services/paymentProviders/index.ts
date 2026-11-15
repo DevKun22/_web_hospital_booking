@@ -50,6 +50,7 @@ export {
   parseVerifiedVnpayCallback,
   queryVnpayTransaction,
   refundVnpayTransaction,
+  vnpayFailureStatus,
 } from "./vnpay.provider.js";
 export type {
   VerifiedVnpayCallback,

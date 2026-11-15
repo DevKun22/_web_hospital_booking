@@ -14,6 +14,7 @@ import {
   getPaymentProviderCapabilities,
   getVnpayConfigurationStatus,
   parseVerifiedVnpayCallback,
+  vnpayFailureStatus,
   queryVnpayTransaction,
 } from "./paymentProviders/index.js";
 import PatientEventNotificationService from "./patientEventNotification.service.js";
@@ -332,6 +333,7 @@ class PaymentService {
     const result = await this.applyProviderOutcome({
       transaction,
       outcome: callback.isSuccess ? "SUCCESS" : "FAILED",
+      failureStatus: vnpayFailureStatus(callback.responseCode),
       amount: callback.amount,
       providerReference: callback.transactionNo ?? callback.txnRef,
       paymentMethod: "VNPAY",
@@ -358,6 +360,8 @@ class PaymentService {
       select: typeof providerTransactionSelect;
     }>;
     outcome: "PENDING" | "SUCCESS" | "FAILED";
+    // Trạng thái cuối khi outcome là FAILED; mặc định FAILED, khách hủy tại cổng thì CANCELLED.
+    failureStatus?: "FAILED" | "CANCELLED";
     amount: number;
     providerReference: string;
     paymentMethod: PaymentMethod;
@@ -380,7 +384,7 @@ class PaymentService {
         await prisma.paymentTransaction.updateMany({
           where: { id: transaction.id, status: "PENDING" },
           data: {
-            status: "FAILED",
+            status: input.failureStatus ?? "FAILED",
             activeKey: null,
             rawResponse: safeResponse,
           },

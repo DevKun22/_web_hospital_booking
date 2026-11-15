@@ -5,7 +5,7 @@ process.env.VNPAY_TMN_CODE = "TESTTMN1";
 process.env.VNPAY_HASH_SECRET = "TESTSECRETTESTSECRETTESTSECRET12";
 process.env.VNPAY_RETURN_URL = "https://api.example.test/api/v1/payments/vnpay/return";
 
-const { vnpayPaymentProvider, parseVerifiedVnpayCallback } = await import(
+const { vnpayPaymentProvider, parseVerifiedVnpayCallback, vnpayFailureStatus } = await import(
   "../../src/services/paymentProviders/vnpay.provider.js"
 );
 
@@ -319,5 +319,12 @@ test("refund distinguishes a definite rejection from an unverifiable result", as
       (error: { code?: string }) => error.code === "VNPAY_REFUND_UNVERIFIED",
       label,
     );
+  }
+});
+
+test("a customer cancel at the gateway is recorded as CANCELLED, other failures stay FAILED", () => {
+  assert.equal(vnpayFailureStatus("24"), "CANCELLED");
+  for (const code of ["", "07", "09", "10", "11", "12", "13", "15", "51", "65", "75", "79", "99"]) {
+    assert.equal(vnpayFailureStatus(code), "FAILED", `code ${code || "(empty)"}`);
   }
 });
