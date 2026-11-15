@@ -53,10 +53,10 @@ class BookingCompactSelectionCard extends StatelessWidget {
               ],
             ),
           ),
-          IconButton(
+          TextButton.icon(
             onPressed: () => context.go('/booking'),
-            tooltip: 'Đổi lịch',
-            icon: const Icon(Icons.edit_calendar_outlined),
+            icon: const Icon(Icons.edit_calendar_outlined, size: 18),
+            label: const Text('Đổi'),
           ),
         ],
       ),

@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:hospital_booking_mobile/core/design/app_colors.dart';
+import 'package:hospital_booking_mobile/features/booking/presentation/booking_date_format.dart';
 import 'package:hospital_booking_mobile/core/errors/api_exception.dart';
 import 'package:hospital_booking_mobile/core/widgets/app_error_banner.dart';
 import 'package:hospital_booking_mobile/features/booking/domain/booking_submission.dart';
@@ -52,13 +54,16 @@ class BookingPatientContactFields extends StatelessWidget {
       const SizedBox(height: 12),
       TextFormField(
         controller: phone,
-        readOnly: isRelative,
+        readOnly: isRelative || skipsOtp,
         keyboardType: TextInputType.phone,
         textInputAction: TextInputAction.next,
         autofillHints: const [AutofillHints.telephoneNumber],
-        decoration: const InputDecoration(
+        decoration: InputDecoration(
           labelText: 'Số điện thoại *',
-          prefixIcon: Icon(Icons.phone_outlined),
+          prefixIcon: const Icon(Icons.phone_outlined),
+          // Người đã đăng nhập luôn đặt bằng số của tài khoản.
+          helperText: skipsOtp ? 'Số điện thoại của tài khoản bạn.' : null,
+          suffixIcon: skipsOtp ? const Icon(Icons.lock_outline_rounded) : null,
         ),
         validator: (value) =>
             RegExp(r'^(0|\+84)[0-9]{9,10}$').hasMatch(value?.trim() ?? '')
@@ -187,7 +192,7 @@ class BookingPatientExtraSection extends StatelessWidget {
       leading: const Icon(Icons.badge_outlined),
       title: const Text('Thông tin bổ sung'),
       subtitle: const Text('BHYT và thông tin tiếp nhận'),
-      childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      childrenPadding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
       children: [
         DropdownButtonFormField<String>(
           initialValue: gender,
@@ -199,17 +204,31 @@ class BookingPatientExtraSection extends StatelessWidget {
           ],
           onChanged: isRelative ? null : onGenderChanged,
         ),
-        const SizedBox(height: 12),
-        TextFormField(
-          controller: dateOfBirth,
-          readOnly: true,
-          decoration: const InputDecoration(
-            labelText: 'Ngày sinh',
-            prefixIcon: Icon(Icons.cake_outlined),
-          ),
+        const SizedBox(height: 16),
+        InkWell(
           onTap: isRelative ? null : onPickDateOfBirth,
+          borderRadius: BorderRadius.circular(14),
+          child: InputDecorator(
+            decoration: const InputDecoration(
+              labelText: 'Ngày sinh',
+              prefixIcon: Icon(Icons.cake_outlined),
+              suffixIcon: Icon(Icons.calendar_month_outlined),
+            ),
+            child: ValueListenableBuilder<TextEditingValue>(
+              valueListenable: dateOfBirth,
+              builder: (context, value, _) {
+                final text = value.text.trim();
+                return Text(
+                  text.isEmpty ? 'Chọn ngày sinh' : displayDate(text),
+                  style: text.isEmpty
+                      ? TextStyle(color: context.colors.muted)
+                      : null,
+                );
+              },
+            ),
+          ),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 16),
         TextFormField(
           controller: cccd,
           readOnly: isRelative,
@@ -219,7 +238,7 @@ class BookingPatientExtraSection extends StatelessWidget {
             prefixIcon: Icon(Icons.credit_card_outlined),
           ),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 16),
         TextFormField(
           controller: address,
           readOnly: isRelative,
@@ -233,8 +252,10 @@ class BookingPatientExtraSection extends StatelessWidget {
           contentPadding: EdgeInsets.zero,
           value: hasBhyt,
           title: const Text('Có thẻ BHYT'),
+          subtitle: const Text('Nhập mã thẻ để cơ sở khám chuẩn bị thủ tục.'),
           onChanged: isRelative ? null : onHasBhytChanged,
         ),
+        if (hasBhyt) const SizedBox(height: 8),
         if (hasBhyt) ...[
           TextFormField(
             controller: insuranceCode,
@@ -269,8 +290,14 @@ class BookingPatientSubmitSection extends StatelessWidget {
     required this.isSubmitting,
     required this.isRevalidatingSlot,
     required this.onSubmit,
+    required this.priceLabel,
+    required this.price,
     this.skipsOtp = false,
   });
+
+  /// Dòng giá cố định trên nút đặt lịch, vd. "Chi phí dự kiến".
+  final String priceLabel;
+  final String price;
 
   final ApiException? error;
   final VoidCallback onDismissError;
@@ -299,7 +326,21 @@ class BookingPatientSubmitSection extends StatelessWidget {
           ),
         ],
       ],
-      const SizedBox(height: 22),
+      const SizedBox(height: 8),
+      Row(
+        children: [
+          Text(priceLabel, style: Theme.of(context).textTheme.bodyMedium),
+          const Spacer(),
+          Text(
+            price,
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              color: context.colors.primaryDark,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
+      ),
+      const SizedBox(height: 10),
       FilledButton.icon(
         onPressed: isBusy ? null : onSubmit,
         icon: isBusy
@@ -326,6 +367,43 @@ class BookingPatientSubmitSection extends StatelessWidget {
           color: Theme.of(context).colorScheme.onSurfaceVariant,
         ),
       ),
+    ],
+  );
+}
+
+/// Gợi ý nhanh cho ô "Lý do khám": chạm để điền hoặc nối thêm.
+class BookingReasonChips extends StatelessWidget {
+  const BookingReasonChips({super.key, required this.controller});
+
+  final TextEditingController controller;
+
+  static const suggestions = [
+    'Khám tổng quát',
+    'Tái khám',
+    'Tư vấn sức khỏe',
+    'Kiểm tra định kỳ',
+  ];
+
+  void _apply(String value) {
+    final current = controller.text.trim();
+    if (current.contains(value)) return;
+    controller.text = current.isEmpty ? value : '$current, $value';
+    controller.selection = TextSelection.collapsed(
+      offset: controller.text.length,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) => Wrap(
+    spacing: 8,
+    runSpacing: 4,
+    children: [
+      for (final value in suggestions)
+        ActionChip(
+          label: Text(value),
+          visualDensity: VisualDensity.compact,
+          onPressed: () => _apply(value),
+        ),
     ],
   );
 }

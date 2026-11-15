@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hospital_booking_mobile/features/booking/application/booking_flow_controller.dart';
+import 'package:hospital_booking_mobile/features/auth/application/auth_controller.dart';
+import 'package:hospital_booking_mobile/features/auth/application/auth_state.dart';
 import 'package:hospital_booking_mobile/features/booking/domain/booking_catalog.dart';
 import 'package:hospital_booking_mobile/features/booking/presentation/booking_start_screen.dart';
 import 'package:hospital_booking_mobile/features/packages/domain/medical_package.dart';
@@ -132,6 +134,11 @@ class _RecordingBookingFlowController extends BookingFlowController {
   }
 }
 
+class _GuestAuthController extends AuthController {
+  @override
+  AuthState build() => const AuthState.unauthenticated();
+}
+
 void main() {
   testWidgets('renders a complete server-backed booking selection', (
     tester,
@@ -144,6 +151,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          authControllerProvider.overrideWith(_GuestAuthController.new),
           bookingFlowControllerProvider.overrideWith(
             _LoadedBookingFlowController.new,
           ),
@@ -187,6 +195,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          authControllerProvider.overrideWith(_GuestAuthController.new),
           bookingFlowControllerProvider.overrideWith(
             _PackageBookingFlowController.new,
           ),
@@ -208,6 +217,7 @@ void main() {
   ) async {
     final container = ProviderContainer(
       overrides: [
+        authControllerProvider.overrideWith(_GuestAuthController.new),
         bookingFlowControllerProvider.overrideWith(
           _RecordingBookingFlowController.new,
         ),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:hospital_booking_mobile/core/formatters/display_formatters.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hospital_booking_mobile/core/widgets/app_ui.dart';
@@ -214,7 +215,10 @@ class _BookingPatientScreenState extends ConsumerState<BookingPatientScreen> {
           child: ListView(
             padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
             children: [
-              const BookingJourneyIndicator(currentStep: 1),
+              BookingJourneyIndicator(
+                currentStep: 1,
+                finalStepLabel: skipsOtp ? 'Hoàn tất' : 'Xác thực',
+              ),
               const SizedBox(height: 20),
               BookingCompactSelectionCard(
                 doctorName: selectedDoctor.displayName,
@@ -309,6 +313,8 @@ class _BookingPatientScreenState extends ConsumerState<BookingPatientScreen> {
                   prefixIcon: Icon(Icons.notes_rounded),
                 ),
               ),
+              const SizedBox(height: 8),
+              BookingReasonChips(controller: _reasonController),
               const SizedBox(height: 18),
               BookingPatientExtraSection(
                 isRelative: _patientType == BookingPatientType.relative,
@@ -333,7 +339,22 @@ class _BookingPatientScreenState extends ConsumerState<BookingPatientScreen> {
                 insuranceCode: _insuranceCodeController,
                 registeredHospital: _registeredHospitalController,
               ),
-              BookingPatientSubmitSection(
+            ],
+          ),
+        ),
+      ),
+      bottomNavigationBar: Material(
+        color: Theme.of(context).colorScheme.surface,
+        elevation: 8,
+        child: SafeArea(
+          top: false,
+          minimum: const EdgeInsets.fromLTRB(20, 10, 20, 10),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.sizeOf(context).height * 0.4,
+            ),
+            child: SingleChildScrollView(
+              child: BookingPatientSubmitSection(
                 error: submission.error,
                 onDismissError: ref
                     .read(bookingSubmissionControllerProvider.notifier)
@@ -344,8 +365,14 @@ class _BookingPatientScreenState extends ConsumerState<BookingPatientScreen> {
                 isRevalidatingSlot: _isRevalidatingSlot,
                 onSubmit: _submit,
                 skipsOtp: skipsOtp,
+                priceLabel: selectedPackage == null
+                    ? 'Chi phí dự kiến'
+                    : 'Giá gói',
+                price: formatVnd(
+                  selectedPackage?.finalPrice ?? selectedDoctor.consultationFee,
+                ),
               ),
-            ],
+            ),
           ),
         ),
       ),

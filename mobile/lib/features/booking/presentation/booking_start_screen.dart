@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hospital_booking_mobile/core/widgets/app_error_banner.dart';
 import 'package:hospital_booking_mobile/core/widgets/app_ui.dart';
+import 'package:hospital_booking_mobile/features/auth/application/auth_controller.dart';
 import 'package:hospital_booking_mobile/features/booking/application/booking_flow_controller.dart';
 import 'package:hospital_booking_mobile/features/booking/application/booking_submission_controller.dart';
 import 'package:hospital_booking_mobile/features/booking/domain/booking_catalog.dart';
@@ -169,7 +170,13 @@ class _BookingStartScreenState extends ConsumerState<BookingStartScreen> {
             physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
             children: [
-              const BookingJourneyIndicator(currentStep: 0),
+              BookingJourneyIndicator(
+                currentStep: 0,
+                finalStepLabel:
+                    ref.watch(authControllerProvider).isAuthenticated
+                    ? 'Hoàn tất'
+                    : 'Xác thực',
+              ),
               const SizedBox(height: 20),
               const AppPageIntro(
                 title: 'Chọn lịch khám phù hợp',
