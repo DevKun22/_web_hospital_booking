@@ -18,7 +18,7 @@ import {
   DsTabs,
   DsToolbar,
 } from "@/components/ds";
-import { apiRequest } from "@/lib/api";
+import { ApiError, apiRequest } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { formatVietnamDateTime } from "@/lib/date";
 import { useDebouncedValue } from "@/lib/use-debounced-value";
@@ -122,8 +122,10 @@ export default function PharmacyQueuePage() {
   // Lựa chọn thuốc kho của dược sĩ theo từng dòng; dòng chưa chọn dùng thuốc đã gắn sẵn.
   const [picks, setPicks] = useState<Record<string, string>>({});
   const [confirmed, setConfirmed] = useState(false);
-  // Chỉ dùng khi hóa đơn chưa thanh toán: dược sĩ xác nhận có chủ ý cấp trước khi thu tiền.
-  const [unpaidAcknowledged, setUnpaidAcknowledged] = useState(false);
+  // Lý do cấp thuốc khi hóa đơn chưa thanh toán hoặc chưa tính tiền thuốc này (máy chủ bắt buộc, lưu vào nhật ký cấp thuốc).
+  const [unpaidReason, setUnpaidReason] = useState("");
+  // Máy chủ vừa từ chối vì thanh toán: mở ô lý do ngay cả khi giao diện thấy hóa đơn đã trả (chưa tính thuốc này).
+  const [paymentRejected, setPaymentRejected] = useState(false);
   const [note, setNote] = useState("");
 
   const queueQuery = useQuery({
@@ -182,6 +184,7 @@ export default function PharmacyQueuePage() {
         body: {
           confirmed,
           note: note.trim() || null,
+          unpaidReason: needsPaymentReason ? unpaidReason.trim() : undefined,
           lines: selected!.items.map((item) => {
             const picked = pickedMedicineId(item);
             return {
@@ -196,9 +199,13 @@ export default function PharmacyQueuePage() {
       setSelectedId(null);
       setPicks({});
       setConfirmed(false);
-      setUnpaidAcknowledged(false);
+      setUnpaidReason("");
+      setPaymentRejected(false);
       setNote("");
       await queryClient.invalidateQueries({ queryKey: ["dashboard", "pharmacy"] });
+    },
+    onError: (error) => {
+      setPaymentRejected(error instanceof ApiError && error.status === 409 && /thanh toán|hóa đơn/i.test(error.message));
     },
   });
 
@@ -206,7 +213,8 @@ export default function PharmacyQueuePage() {
     setSelectedId(id);
     setPicks({});
     setConfirmed(false);
-    setUnpaidAcknowledged(false);
+    setUnpaidReason("");
+    setPaymentRejected(false);
     setNote("");
     dispenseMutation.reset();
   };
@@ -227,10 +235,13 @@ export default function PharmacyQueuePage() {
   const queueError = queueQuery.error ? (queueQuery.error instanceof Error ? queueQuery.error.message : "Không tải được hàng đợi") : "";
 
   const selectedPayment = selected ? paymentInfo(selected.appointment.invoice) : null;
+  // Máy chủ chặn cấp thuốc khi hóa đơn chưa thanh toán hoặc chưa tính tiền thuốc, trừ khi có lý do. Hóa đơn đã
+  // thanh toán nhưng chưa tính thuốc này chỉ lộ ra khi máy chủ từ chối, nên cũng mở ô lý do theo lỗi đó.
+  const needsPaymentReason = Boolean((selectedPayment && !selectedPayment.paid) || paymentRejected);
   const blockReason = !confirmed
     ? "Tick xác nhận đã kiểm tra đơn trước khi cấp"
-    : selectedPayment && !selectedPayment.paid && !unpaidAcknowledged
-      ? "Hóa đơn chưa thanh toán: tick xác nhận nếu vẫn cấp thuốc"
+    : needsPaymentReason && unpaidReason.trim().length < 5
+      ? "Chưa thu tiền: nhập lý do cấp trước (ít nhất 5 ký tự)"
       : uniqueWarnings.length > 0
         ? "Có thuốc không đủ tồn kho"
         : "";
@@ -430,11 +441,15 @@ export default function PharmacyQueuePage() {
                   <input type="checkbox" checked={confirmed} onChange={(event) => setConfirmed(event.target.checked)} style={{ marginTop: 3 }} />
                   <span>Tôi đã kiểm tra đơn: dị ứng, liều dùng và thuốc được chọn đúng với đơn của bác sĩ.</span>
                 </label>
-                {selectedPayment && !selectedPayment.paid ? (
-                  <label className="ds-check" style={{ cursor: "pointer" }}>
-                    <input type="checkbox" checked={unpaidAcknowledged} onChange={(event) => setUnpaidAcknowledged(event.target.checked)} style={{ marginTop: 3 }} />
-                    <span>Hóa đơn chưa thanh toán ({selectedPayment.label.toLowerCase()}). Tôi vẫn cấp thuốc và đã báo quầy thu tiền để xử lý.</span>
-                  </label>
+                {needsPaymentReason ? (
+                  <DsField
+                    label="Lý do cấp thuốc khi chưa thu tiền"
+                    htmlFor="unpaid-reason"
+                    required
+                    hint={`Hóa đơn: ${selectedPayment?.label.toLowerCase() ?? "chưa tính tiền thuốc này"}. Lý do được lưu vào nhật ký cấp thuốc (ví dụ cấp cứu, quản lý đã duyệt).`}
+                  >
+                    <DsInput id="unpaid-reason" value={unpaidReason} onChange={(event) => setUnpaidReason(event.target.value)} />
+                  </DsField>
                 ) : null}
                 <DsButton variant="primary" disabled={Boolean(blockReason) || dispenseMutation.isPending} onClick={() => dispenseMutation.mutate()}>
                   {dispenseMutation.isPending ? "Đang cấp..." : "Cấp thuốc cho cả đơn"}

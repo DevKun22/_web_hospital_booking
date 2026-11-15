@@ -839,8 +839,10 @@ test("a line marked out of stock or outside is skipped without blocking the rest
     });
   const [itemA, itemB, itemOutside] = mixed.prescription.items;
 
+  // Thuốc có giá mà chưa có hóa đơn thì cần ghi lý do cấp trước (điều kiện thanh toán của G5).
+  const unpaidReason = "Thử nghiệm: cấp trước khi lập hóa đơn";
   // Mặc định không đổi: thuốc B thiếu thì cả đơn bị từ chối và không dòng nào đổi trạng thái.
-  const refused = await dispense(mixed.prescription.id, { confirmed: true });
+  const refused = await dispense(mixed.prescription.id, { confirmed: true, unpaidReason });
   assert.equal(refused.status, 409);
   assert.equal(refused.body.code, "INSUFFICIENT_STOCK");
   assert.equal(
@@ -851,6 +853,7 @@ test("a line marked out of stock or outside is skipped without blocking the rest
   // Đánh dấu thuốc B hết hàng: phần còn lại vẫn được cấp, kho chỉ trừ thuốc A.
   const ok = await dispense(mixed.prescription.id, {
     confirmed: true,
+    unpaidReason,
     lines: [
       { itemId: itemA.id, action: "DISPENSE" },
       { itemId: itemB.id, action: "OUT_OF_STOCK", note: "Chờ nhập hàng" },

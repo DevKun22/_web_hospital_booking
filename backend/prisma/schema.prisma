@@ -1358,10 +1358,15 @@ model InvoiceItem {
   amount      Int
   sortOrder   Int             @default(0)
 
+  // Dòng tiền thuốc được sinh từ dòng đơn thuốc này (không có quan hệ cứng: dòng đơn bị xóa thì dòng hóa đơn
+  // được đồng bộ gỡ đi, không tự xóa lan).
+  prescriptionItemId String?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([invoiceId, sortOrder])
+  @@index([prescriptionItemId])
 }
 
 model PaymentTransaction {

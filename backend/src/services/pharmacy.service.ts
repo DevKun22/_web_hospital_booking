@@ -566,7 +566,7 @@ class PharmacyService {
   // cấp, hoặc không đổi gì. `confirmed` là hộp xác nhận dược sĩ đã kiểm tra đơn.
   async dispense(
     prescriptionId: string,
-    input: { lines?: DispenseLine[]; confirmed: boolean; note?: string | null },
+    input: { lines?: DispenseLine[]; confirmed: boolean; note?: string | null; unpaidReason?: string | null },
     actor: Actor,
   ) {
     if (input.confirmed !== true) {
@@ -575,6 +575,26 @@ class PharmacyService {
         400,
         "DISPENSE_CONFIRMATION_REQUIRED",
       );
+    }
+
+    // Chỉ cấp thuốc khi hóa đơn đã thanh toán và đã tính tiền các dòng sắp cấp. Nếu chưa, dược sĩ phải ghi lý do
+    // (ví dụ cấp cứu, được quản lý duyệt); lý do được lưu vào nhật ký cấp thuốc. Dòng hết hàng hoặc người khám
+    // tự mua không tính vào điều kiện này. Thuốc miễn phí hoặc ngoài danh mục thì không cần hóa đơn.
+    const skippedIds = (input.lines || []).filter((line) => line.action && line.action !== "DISPENSE").map((line) => line.itemId);
+    const coverage = await InvoiceService.medicineCoverage(prescriptionId, skippedIds);
+    const unpaidReason = normalize(input.unpaidReason);
+    if (!coverage.covered) {
+      if (!unpaidReason || unpaidReason.length < 5) {
+        throw new AppError(
+          coverage.invoiceStatus === null
+            ? "Chưa có hóa đơn cho lịch khám này. Cần thu tiền thuốc trước khi cấp, hoặc ghi lý do cấp trước."
+            : coverage.invoiceStatus === "PAID"
+              ? "Hóa đơn đã thanh toán nhưng chưa tính tiền thuốc này. Cần xử lý tiền thuốc trước khi cấp, hoặc ghi lý do cấp trước."
+              : "Hóa đơn chưa thanh toán. Cần thu tiền trước khi cấp thuốc, hoặc ghi lý do cấp trước.",
+          409,
+          "PAYMENT_REQUIRED",
+        );
+      }
     }
 
     await prisma.$transaction(async (tx) => {
@@ -762,9 +782,12 @@ class PharmacyService {
         action: "PRESCRIPTION_DISPENSED",
         actorId: actor.userId,
         prescriptionId,
-        note: skipped.some((line) => line.status === "OUT_OF_STOCK")
-          ? "Cấp phát thuốc theo đơn (có dòng hết hàng)"
-          : "Cấp phát thuốc theo đơn",
+        note: [
+          skipped.some((line) => line.status === "OUT_OF_STOCK") ? "Cấp phát thuốc theo đơn (có dòng hết hàng)" : "Cấp phát thuốc theo đơn",
+          !coverage.covered && unpaidReason ? `Cấp khi chưa thu tiền: ${unpaidReason}` : null,
+        ]
+          .filter(Boolean)
+          .join(". "),
       });
       // Chỉ báo "thuốc đã được cấp" khi có ít nhất một dòng thực sự được cấp.
       if (dispensedLines > 0) {
@@ -781,7 +804,7 @@ class PharmacyService {
     });
 
     // Tiền thuốc vào hóa đơn chưa thanh toán (nếu có). Lỗi ở đây không được làm hỏng việc cấp thuốc đã hoàn tất.
-    await InvoiceService.addDispensedMedicines(prescriptionId, actor.userId).catch((error) => {
+    await InvoiceService.syncMedicineLines(prescriptionId, actor).catch((error) => {
       console.error("[INVOICE_MEDICINE] cannot add dispensed medicines to invoice:", error);
     });
     await this.notifyStockAlerts();
