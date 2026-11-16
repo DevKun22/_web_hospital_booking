@@ -624,7 +624,7 @@ export default function PrescriptionsPage() {
                   </small>
                   {item.instruction ? <small>{item.instruction}</small> : null}
                   {item.fulfillmentStatus === "OUT_OF_STOCK" ? (
-                    <small style={{ color: "var(--ds-warn, #b45309)" }}>Kho hết thuốc lúc cấp, người khám mua ngoài{item.fulfillmentNote ? ` · ${item.fulfillmentNote}` : ""}.</small>
+                    <small style={{ color: "var(--ds-warn, #b45309)" }}>Kho hết thuốc, người khám mua ngoài{item.fulfillmentNote ? ` · ${item.fulfillmentNote}` : ""}.</small>
                   ) : null}
                   {item.fulfillmentStatus === "OUTSIDE" && item.medicineId ? (
                     <small style={{ color: "var(--ds-warn, #b45309)" }}>Người khám tự mua{item.fulfillmentNote ? ` · ${item.fulfillmentNote}` : ""}.</small>
