@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { RefreshCw } from "lucide-react";
 import {
@@ -19,6 +20,7 @@ import {
   type DsColumn,
 } from "@/components/ds";
 import { apiRequest } from "@/lib/api";
+import { examRecordHref } from "@/lib/exam-navigation";
 import { confirmCompleteWithRecordCheck } from "@/lib/exam-completion-guard";
 import { useAuth } from "@/lib/auth";
 import { useDoctorDashboardOverview } from "@/lib/dashboard-overview-query";
@@ -42,6 +44,7 @@ const slotLabel: Record<string, string> = {
 
 export function DoctorHome() {
   const { user } = useAuth();
+  const router = useRouter();
   const queryClient = useQueryClient();
   const today = useMemo(() => getVietnamDateInput(), []);
   const result = useDoctorDashboardOverview(today, true);
@@ -129,6 +132,8 @@ export function DoctorHome() {
       await apiRequest<Appointment>(`/dashboard/appointments/${appointment.id}${path}`, { method: "PATCH" });
       setNotice(message);
       await queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      // Bắt đầu khám thì vào thẳng hồ sơ khám của ca đó.
+      if (path === "/start") router.push(examRecordHref(appointment.bookingCode));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Không thực hiện được thao tác");
     } finally {

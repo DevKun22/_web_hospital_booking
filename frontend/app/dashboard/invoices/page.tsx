@@ -690,8 +690,8 @@ export default function InvoicesPage() {
           rows={invoices}
           rowKey={(row) => row.id}
           loading={loading}
-          emptyTitle="Chưa có hóa đơn phù hợp"
-          emptyDescription="Đổi bộ lọc hoặc tạo hóa đơn từ một lịch hẹn đã hoàn thành."
+          emptyTitle={status === "UNPAID" ? "Không có hóa đơn nào đang chờ thu" : "Chưa có hóa đơn phù hợp"}
+          emptyDescription={status === "UNPAID" ? "Hóa đơn tự tạo khi bác sĩ hoàn thành khám và hiện ở đây cho đến khi được thu." : "Đổi bộ lọc để xem hóa đơn khác."}
           onRowClick={openDetail}
         />
       )}
