@@ -36,6 +36,7 @@ import {
 } from "./appointment.shared.js";
 import { AppointmentServiceSupport } from "./appointment.support.js";
 import type { AppointmentLifecycleUseCases } from "./appointmentLifecycle.service.js";
+import { logger } from "../../observability/logger.js";
 const verifiedAppointmentSelect = {
   id: true,
   patientId: true,
@@ -390,7 +391,7 @@ export class AppointmentBookingUseCases extends AppointmentServiceSupport {
           );
         } catch (error) {
           // Lịch đã xác nhận; lỗi báo lễ tân không được làm mất lịch của người khám.
-          console.error(
+          logger.error(
             `[APPOINTMENT_NOTIFY] appointment=${appointmentId} failed:`,
             error,
           );
@@ -410,11 +411,11 @@ export class AppointmentBookingUseCases extends AppointmentServiceSupport {
           appointmentId,
           holdExpiresAt,
         );
-        console.log(
+        logger.info(
           `[APPOINTMENT_EXPIRY] appointment=${appointmentId} scheduled=${scheduled}`,
         );
       } catch (error) {
-        console.error(
+        logger.error(
           `[APPOINTMENT_EXPIRY] appointment=${appointmentId} scheduling failed:`,
           error,
         );

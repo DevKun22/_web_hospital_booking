@@ -1,3 +1,5 @@
+import { logger } from "../observability/logger.js";
+
 type RedisComponent = "cache" | "queue";
 
 type RedisHealth = {
@@ -17,7 +19,7 @@ export const reportRedisAvailable = (
 ) => {
   const state = health[component];
   if (state.available === false) {
-    console.info(`[REDIS_RECOVERED] component=${component} source=${source}`);
+    logger.info(`[REDIS_RECOVERED] component=${component} source=${source}`);
   }
   if (state.available !== true) state.changedAt = Date.now();
   state.available = true;
@@ -31,7 +33,7 @@ export const reportRedisUnavailable = (
 ) => {
   const state = health[component];
   if (state.available !== false) {
-    console.warn(
+    logger.warn(
       `[REDIS_DEGRADED] component=${component} source=${source} error=${
         error instanceof Error ? error.message : String(error)
       }`,
@@ -41,8 +43,3 @@ export const reportRedisUnavailable = (
   state.available = false;
   state.source = source;
 };
-
-export const getRedisHealth = () => ({
-  cache: { ...health.cache },
-  queue: { ...health.queue },
-});

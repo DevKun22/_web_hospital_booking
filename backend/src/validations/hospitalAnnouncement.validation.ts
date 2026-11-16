@@ -2,7 +2,7 @@ import { z } from "zod";
 
 const optionalIsoDate = z.string().datetime({ offset: true }).nullable().optional();
 
-export const hospitalAnnouncementAudienceValues = [
+const hospitalAnnouncementAudienceValues = [
   "ALL_PATIENTS",
   "UPCOMING_APPOINTMENTS",
   "DEPARTMENT_APPOINTMENTS",

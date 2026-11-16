@@ -2,7 +2,7 @@
 // Tiền thuốc được tính từ lúc phát hành đơn (theo số lượng kê); khi dược sĩ cấp thì theo số lượng thực cấp.
 // Mỗi dòng hóa đơn gắn với đúng một dòng đơn thuốc nên đồng bộ lặp lại không tính tiền hai lần.
 
-export type FulfillmentLike = "PENDING" | "DISPENSED" | "OUTSIDE" | "OUT_OF_STOCK";
+type FulfillmentLike = "PENDING" | "DISPENSED" | "OUTSIDE" | "OUT_OF_STOCK";
 
 export type BillableItem = {
   id: string;
@@ -15,7 +15,7 @@ export type BillableItem = {
   medicine: { unitPrice: number } | null;
 };
 
-export type MedicineLineDraft = {
+type MedicineLineDraft = {
   prescriptionItemId: string;
   description: string;
   quantity: number;
@@ -41,9 +41,9 @@ export const desiredMedicineLine = (item: BillableItem, snapshotPrice?: number |
   };
 };
 
-export type ExistingMedicineLine = { id: string; prescriptionItemId: string; quantity: number; unitPrice: number };
+type ExistingMedicineLine = { id: string; prescriptionItemId: string; quantity: number; unitPrice: number };
 
-export type MedicineLineDiff = {
+type MedicineLineDiff = {
   add: MedicineLineDraft[];
   update: { id: string; quantity: number; amount: number }[];
   remove: { id: string; amount: number }[];

@@ -3,6 +3,7 @@ import { prisma } from "../config/prisma.js";
 import { AppError } from "../utils/appError.js";
 import { createSlug } from "../utils/slug.js";
 import MediaAssetService from "./mediaAsset.service.js";
+import { normalizeOptionalString } from "../utils/text.js";
 
 type CreateDepartmentInput = {
   name: string;
@@ -47,9 +48,6 @@ const departmentSelect = {
     },
   },
 } satisfies Prisma.DepartmentSelect;
-
-const normalizeOptionalString = (value?: string | null) =>
-  value === undefined ? undefined : value || null;
 
 class DepartmentService {
   async list(query: {

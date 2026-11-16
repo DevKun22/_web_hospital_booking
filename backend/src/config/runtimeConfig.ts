@@ -152,4 +152,3 @@ export const getRuntimeConfig = (env: NodeJS.ProcessEnv = process.env) => {
   } as const;
 };
 
-export type RuntimeConfig = ReturnType<typeof getRuntimeConfig>;

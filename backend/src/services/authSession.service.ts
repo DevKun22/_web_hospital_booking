@@ -18,7 +18,7 @@ export type SessionMeta = {
   appVersion?: string;
 };
 
-export type PushTokenRegistration = {
+type PushTokenRegistration = {
   sessionId: string;
   userId: string;
   kind: SessionKind;
@@ -29,7 +29,7 @@ export type PushTokenRegistration = {
 
 const createOpaqueToken = () => crypto.randomBytes(48).toString("base64url");
 
-export const hashRefreshToken = (token: string) =>
+const hashRefreshToken = (token: string) =>
   crypto.createHash("sha256").update(token).digest("hex");
 
 const normalize = (value?: string, lowercase = false) => {

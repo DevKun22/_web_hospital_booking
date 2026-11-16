@@ -22,7 +22,7 @@ export const AUDIT_ACTIONS = [
 ] as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
 
-export type AuditActor = { userId: string; role: string };
+type AuditActor = { userId: string; role: string };
 
 type AuditInput = {
   actor: AuditActor | null | undefined;

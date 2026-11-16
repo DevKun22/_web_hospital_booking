@@ -11,11 +11,11 @@ import PharmacyService from "./pharmacy.service.js";
 // Luôn kiểm tra toàn bộ tệp trước (apply=false chỉ xem trước). Chỉ áp dụng khi không có dòng
 // nào lỗi, và áp dụng trong một transaction: hoặc đủ mọi dòng hoặc không đổi gì.
 
-export const IMPORT_MAX_ROWS = 500;
+const IMPORT_MAX_ROWS = 500;
 export type ImportKind = "catalog" | "receipts";
 type Actor = { userId: string; role: string };
 
-export type ImportRow = {
+type ImportRow = {
   line: number;
   code: string;
   action: "create" | "update" | "unchanged" | "receive" | "error";
@@ -26,7 +26,7 @@ export type ImportRow = {
   errors: string[];
 };
 
-export type ImportResult = {
+type ImportResult = {
   kind: ImportKind;
   applied: boolean;
   rows: ImportRow[];

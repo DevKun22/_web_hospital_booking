@@ -2,6 +2,7 @@ import type { Request, Response } from "express";
 import PaymentService from "../services/payment.service.js";
 import { AppError } from "../utils/appError.js";
 import { getRuntimeConfig } from "../config/runtimeConfig.js";
+import { logger } from "../observability/logger.js";
 
 const getPaymentResultUrl = () => getRuntimeConfig().payment.resultUrl;
 
@@ -16,7 +17,7 @@ export const vnpayReturnHandler = async (req: Request, res: Response) => {
     resultUrl.searchParams.set("orderId", callback.txnRef);
     resultUrl.searchParams.set("status", callback.isSuccess ? "success" : "failed");
   } catch (error) {
-    console.warn("[VNPAY_RETURN]", error instanceof Error ? error.message : error);
+    logger.warn("[VNPAY_RETURN]", error instanceof Error ? error.message : error);
     resultUrl.searchParams.set("status", "error");
   }
   return res.redirect(302, resultUrl.toString());
@@ -39,7 +40,7 @@ export const vnpayIpnHandler = async (req: Request, res: Response) => {
             : code === "PAYMENT_STATE_CONFLICT" || code === "INVOICE_STATE_CONFLICT"
               ? "02"
               : "99";
-    console.warn("[VNPAY_IPN]", rspCode, error instanceof Error ? error.message : error);
+    logger.warn("[VNPAY_IPN]", rspCode, error instanceof Error ? error.message : error);
     return res.status(200).json({ RspCode: rspCode, Message: "Not confirmed" });
   }
 };

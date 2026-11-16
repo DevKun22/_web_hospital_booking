@@ -3,7 +3,7 @@
 // (đúng ngày hạn dùng vẫn còn dùng được).
 
 export type BatchLike = { id: string; expiryDate: string; quantity: number };
-export type BatchStatus = "EXPIRED" | "EXPIRING" | "OK";
+type BatchStatus = "EXPIRED" | "EXPIRING" | "OK";
 
 export const EXPIRY_WARNING_DAYS = 60;
 
@@ -26,7 +26,7 @@ export const sellableQuantity = (stockQuantity: number, batches: BatchLike[], to
 export const unbatchedQuantity = (stockQuantity: number, batches: BatchLike[]) =>
   stockQuantity - batches.reduce((sum, batch) => sum + batch.quantity, 0);
 
-export type Allocation = { batchId: string; quantity: number };
+type Allocation = { batchId: string; quantity: number };
 
 // FEFO: lấy từ lô còn hạn có hạn dùng sớm nhất trước; phần thiếu lấy từ tồn chưa gắn lô.
 // Trả về null nếu không đủ hàng cấp được. Không bao giờ lấy từ lô đã hết hạn.

@@ -3,6 +3,7 @@ import "dotenv/config";
 import { validateRuntimeEnvironment } from "./config/environment.js";
 import { configureHttpServer } from "./config/httpServer.js";
 import { getRuntimeConfig } from "./config/runtimeConfig.js";
+import { logger } from "./observability/logger.js";
 
 validateRuntimeEnvironment();
 
@@ -25,7 +26,7 @@ const app = createApp();
 const PORT = getRuntimeConfig().server.port;
 
 const server = app.listen(PORT, () => {
-  console.log(`Server running on port http://localhost:${PORT}`);
+  logger.info(`Server running on port http://localhost:${PORT}`);
 });
 configureHttpServer(server);
 startRuntimeMetrics("api");
@@ -35,7 +36,7 @@ const { startInlineWorkers } = await import("./workers/inline.js");
 void startInlineWorkers();
 
 const shutdown = (signal: string) => {
-  console.log(`${signal} received, shutting down gracefully...`);
+  logger.info(`${signal} received, shutting down gracefully...`);
 
   server.close(async () => {
     stopRuntimeMetrics();
@@ -46,7 +47,7 @@ const shutdown = (signal: string) => {
   });
 
   setTimeout(() => {
-    console.error("Force shutdown after timeout");
+    logger.error("Force shutdown after timeout");
     process.exit(1);
   }, 10000).unref();
 };

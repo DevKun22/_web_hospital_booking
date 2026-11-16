@@ -1,6 +1,6 @@
-import type { Role } from "../../generated/prisma/enums.js";
 import { prisma } from "../config/prisma.js";
 import { AppError } from "../utils/appError.js";
+import type { Actor } from "../types/actor.js";
 
 type CreateReviewInput = {
   appointmentId: string;
@@ -18,7 +18,6 @@ type DashboardReviewFilters = {
   limit?: number;
 };
 
-type Actor = { userId: string; role: Role };
 
 const reviewSelect = {
   id: true,

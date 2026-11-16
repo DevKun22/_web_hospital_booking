@@ -34,7 +34,7 @@ const defaultActionLabels: Record<SuggestedActionType, string> = {
   EMERGENCY_ADVICE: "Hướng dẫn khẩn cấp",
 };
 
-export const buildStartBookingAction = (
+const buildStartBookingAction = (
   draft: ChatBookingDraft,
 ): SuggestedAction | null => {
   if (!draft.departmentId || !draft.doctorId || !draft.timeSlotId) return null;

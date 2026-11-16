@@ -1,12 +1,12 @@
 import { Prisma } from "../../generated/prisma/client.js";
 import SlotPlannerService from "./slotPlanner.service.js";
 import StaffNotificationService from "./staffNotification.service.js";
-import type { Role, ScheduleChangeRequestStatus, ScheduleChangeRequestType } from "../../generated/prisma/enums.js";
+import type { ScheduleChangeRequestStatus, ScheduleChangeRequestType } from "../../generated/prisma/enums.js";
 import { prisma } from "../config/prisma.js";
 import { AppError } from "../utils/appError.js";
 import { hasTimeOverlap, parseDateOnly, validateTimeRange } from "../utils/time.js";
+import type { Actor } from "../types/actor.js";
 
-type Actor = { userId: string; role: Role };
 type CreateInput = {
   type: ScheduleChangeRequestType;
   scheduleId?: string | null;

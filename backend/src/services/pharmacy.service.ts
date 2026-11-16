@@ -15,6 +15,7 @@ import { logClinicalAction } from "./clinicalLog.service.js";
 import PatientEventNotificationService from "./patientEventNotification.service.js";
 import InvoiceService from "./invoice.service.js";
 import StaffNotificationService from "./staffNotification.service.js";
+import { logger } from "../observability/logger.js";
 
 type Actor = { userId: string; role: string };
 
@@ -659,7 +660,7 @@ class PharmacyService {
 
     // Tiền thuốc vào hóa đơn chưa thanh toán (nếu có). Lỗi ở đây không được làm hỏng việc cấp thuốc đã hoàn tất.
     await InvoiceService.syncMedicineLines(prescriptionId, actor).catch((error) => {
-      console.error("[INVOICE_MEDICINE] cannot add dispensed medicines to invoice:", error);
+      logger.error("[INVOICE_MEDICINE] cannot add dispensed medicines to invoice:", error);
     });
     await this.notifyStockAlerts();
     return this.getPrescription(prescriptionId);
@@ -849,7 +850,7 @@ class PharmacyService {
         });
       }
     } catch (error) {
-      console.error("[STAFF_NOTIFICATION] stock alerts failed:", error);
+      logger.error("[STAFF_NOTIFICATION] stock alerts failed:", error);
     }
   }
 }

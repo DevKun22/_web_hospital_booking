@@ -1,4 +1,4 @@
-export type ReleasePermit = () => void;
+type ReleasePermit = () => void;
 
 // Semaphore không xếp hàng: khi tiến trình đã dùng hết permit, caller chủ động
 // load-shed thay vì giữ thêm request/buffer trong bộ nhớ.

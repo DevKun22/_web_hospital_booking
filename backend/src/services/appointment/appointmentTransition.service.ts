@@ -11,6 +11,7 @@ import {
   type RescheduleAppointmentInput,
 } from "./appointment.shared.js";
 import { AppointmentServiceSupport } from "./appointment.support.js";
+import { logger } from "../../observability/logger.js";
 export class AppointmentTransitionUseCases extends AppointmentServiceSupport {
   async confirm(id: string, actor: Actor) {
     const transition = await prisma.$transaction(async (tx) => {
@@ -360,7 +361,7 @@ export class AppointmentTransitionUseCases extends AppointmentServiceSupport {
     // làm hỏng việc hoàn thành khám: hóa đơn vẫn lập tay được ở mục Hóa đơn.
     await InvoiceService.createForAppointment(id, {}).catch((error) => {
       if ((error as { code?: string }).code !== "INVOICE_ALREADY_EXISTS") {
-        console.error("[AUTO_INVOICE] cannot create invoice after completion:", error);
+        logger.error("[AUTO_INVOICE] cannot create invoice after completion:", error);
       }
     });
     await StaffNotificationService.notifyAppointmentEvent(id, "COMPLETED", {

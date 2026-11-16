@@ -2,9 +2,9 @@ import type { Prisma } from "../../../generated/prisma/client.js";
 import { prisma } from "../../config/prisma.js";
 import { getRuntimeConfig } from "../../config/runtimeConfig.js";
 
-export const CHATBOT_RUNTIME_SETTING_KEY = "chatbot_runtime";
+const CHATBOT_RUNTIME_SETTING_KEY = "chatbot_runtime";
 
-export type ChatbotRuntimeSettings = {
+type ChatbotRuntimeSettings = {
   aiEnabled: boolean;
   fallbackEnabled: boolean;
   faqEnabled: boolean;
@@ -13,7 +13,7 @@ export type ChatbotRuntimeSettings = {
   sessionExpiresDays: number;
 };
 
-export const DEFAULT_CHATBOT_RUNTIME_SETTINGS: ChatbotRuntimeSettings = {
+const DEFAULT_CHATBOT_RUNTIME_SETTINGS: ChatbotRuntimeSettings = {
   aiEnabled: true,
   fallbackEnabled: true,
   faqEnabled: true,
@@ -49,7 +49,7 @@ const readNumber = (
   return Math.min(Math.max(Math.trunc(number), options.min), options.max);
 };
 
-export const normalizeRuntimeSettings = (value: unknown): ChatbotRuntimeSettings => {
+const normalizeRuntimeSettings = (value: unknown): ChatbotRuntimeSettings => {
   const source = isObject(value) ? value : {};
 
   return {

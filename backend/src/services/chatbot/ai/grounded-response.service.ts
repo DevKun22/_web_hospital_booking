@@ -2,6 +2,7 @@ import { z } from "zod";
 import type { NLUResult } from "./nlu.schema.js";
 import geminiAdapter from "./gemini.adapter.js";
 import type { TriageRecommendation } from "../retrieval/triage.repository.js";
+import { logger } from "../../../observability/logger.js";
 
 type GroundedTriageInput = {
   userMessage: string;
@@ -79,7 +80,7 @@ class GroundedResponseService {
 
       return parsed.reply;
     } catch (error) {
-      console.warn(
+      logger.warn(
         "[CHATBOT] Không thể diễn đạt phản hồi phân luồng bằng AI, sử dụng mẫu dự phòng",
         error,
       );

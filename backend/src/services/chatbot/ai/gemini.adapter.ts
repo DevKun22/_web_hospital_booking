@@ -42,7 +42,7 @@ type GenerateContentResponse = {
   error?: { message?: string };
 };
 
-export class GeminiAdapter implements AIAdapter {
+class GeminiAdapter implements AIAdapter {
   async generateReply(input: GenerateReplyInput) {
     const endpoint = resolveEndpoint(getModel(input.model));
 

@@ -19,6 +19,9 @@ import AuditLogService from "./auditLog.service.js";
 import MedicalRecordService from "./medicalRecord.service.js";
 import PatientEventNotificationService from "./patientEventNotification.service.js";
 import StaffNotificationService from "./staffNotification.service.js";
+import { normalizeOptionalString } from "../utils/text.js";
+import { generateUniqueCode } from "../utils/uniqueCode.js";
+import { logger } from "../observability/logger.js";
 
 type CreateInvoiceInput = {
   bhytDiscount?: number;
@@ -78,9 +81,6 @@ type InvoiceItemDraft = {
   // Dòng tiền thuốc gắn với dòng đơn thuốc sinh ra nó.
   prescriptionItemId?: string;
 };
-
-const normalizeOptionalString = (value?: string | null) =>
-  value === undefined ? undefined : value?.trim() || null;
 
 // Tiền thuốc tính từ lúc phát hành đơn (theo số lượng kê, giá bán chụp lại vào dòng hóa đơn) và theo số lượng
 // thực cấp khi đã cấp. Thuốc ngoài danh mục, người khám tự mua, hết hàng hoặc giá 0 thì không tính tiền.
@@ -814,10 +814,10 @@ class InvoiceService {
    */
   async afterPaid(appointmentId: string, actor?: { userId: string; role: string }) {
     await this.syncAppointmentMedicine(appointmentId, actor).catch((error) => {
-      console.error("[INVOICE_MEDICINE] cannot sync medicines after payment:", error);
+      logger.error("[INVOICE_MEDICINE] cannot sync medicines after payment:", error);
     });
     await MedicalRecordService.publishWhenReady(appointmentId).catch((error) => {
-      console.error("[AUTO_PUBLISH] cannot publish after payment:", error);
+      logger.error("[AUTO_PUBLISH] cannot publish after payment:", error);
     });
   }
 
@@ -1121,13 +1121,12 @@ class InvoiceService {
     });
   }
 
-  private async generateUniqueSupplementCode(tx: Prisma.TransactionClient) {
-    for (let index = 0; index < 10; index += 1) {
-      const supplementCode = `BS${generateInvoiceCode().replace(/^INV/, "")}`;
-      const existing = await tx.invoiceSupplement.findUnique({ where: { supplementCode }, select: { id: true } });
-      if (!existing) return supplementCode;
-    }
-    throw new AppError("Không thể tạo mã hóa đơn bổ sung", 500);
+  private generateUniqueSupplementCode(tx: Prisma.TransactionClient) {
+    return generateUniqueCode(
+      () => `BS${generateInvoiceCode().replace(/^INV/, "")}`,
+      async (supplementCode) => Boolean(await tx.invoiceSupplement.findUnique({ where: { supplementCode }, select: { id: true } })),
+      "Không thể tạo mã hóa đơn bổ sung",
+    );
   }
 
   // ---- Hoàn tiền thuốc một phần ------------------------------------------------------------------------------
@@ -1343,8 +1342,7 @@ class InvoiceService {
       async (invoice) => {
         if (already.has(`invoice:${invoice.id}:reminder`)) return false;
         try {
-          const notification =
-            await PatientEventNotificationService.createPaymentReminder(
+          await PatientEventNotificationService.createPaymentReminder(
               {
                 userId: invoice.patientId,
                 invoiceId: invoice.id,
@@ -1356,7 +1354,7 @@ class InvoiceService {
             );
           return true;
         } catch (error) {
-          console.error(`[INVOICE_REMINDER] invoice=${invoice.id} failed:`, error);
+          logger.error(`[INVOICE_REMINDER] invoice=${invoice.id} failed:`, error);
           return false;
         }
       },
@@ -1642,36 +1640,20 @@ class InvoiceService {
     return transition.refundedInvoice;
   }
 
-  private async generateUniqueInvoiceCode(tx: Prisma.TransactionClient) {
-    for (let index = 0; index < 10; index += 1) {
-      const invoiceCode = generateInvoiceCode();
-      const existing = await tx.invoice.findUnique({
-        where: { invoiceCode },
-        select: { id: true },
-      });
-
-      if (!existing) {
-        return invoiceCode;
-      }
-    }
-
-    throw new AppError("Không thể tạo mã hóa đơn", 500);
+  private generateUniqueInvoiceCode(tx: Prisma.TransactionClient) {
+    return generateUniqueCode(
+      generateInvoiceCode,
+      async (invoiceCode) => Boolean(await tx.invoice.findUnique({ where: { invoiceCode }, select: { id: true } })),
+      "Không thể tạo mã hóa đơn",
+    );
   }
 
-  private async generateUniqueBarcode(tx: Prisma.TransactionClient) {
-    for (let index = 0; index < 10; index += 1) {
-      const barcode = generateInvoiceBarcode();
-      const existing = await tx.invoice.findUnique({
-        where: { barcode },
-        select: { id: true },
-      });
-
-      if (!existing) {
-        return barcode;
-      }
-    }
-
-    throw new AppError("Không thể tạo mã vạch hóa đơn", 500);
+  private generateUniqueBarcode(tx: Prisma.TransactionClient) {
+    return generateUniqueCode(
+      generateInvoiceBarcode,
+      async (barcode) => Boolean(await tx.invoice.findUnique({ where: { barcode }, select: { id: true } })),
+      "Không thể tạo mã vạch hóa đơn",
+    );
   }
 }
 

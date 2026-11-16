@@ -14,6 +14,7 @@ import {
   startRuntimeMetrics,
   stopRuntimeMetrics,
 } from "../observability/runtimeMetrics.js";
+import { logger } from "../observability/logger.js";
 
 validateNotificationWorkerEnvironment();
 startRuntimeMetrics("notification-worker");
@@ -41,14 +42,14 @@ const dispatch = async () => {
       ]);
       lastCleanupAt = Date.now();
       if (cleanup.deletedCount > 0 || outboxCleanup.deletedCount > 0) {
-        console.log(
+        logger.info(
           `[NOTIFICATION_WORKER] cleaned=${cleanup.deletedCount} outboxCleaned=${outboxCleanup.deletedCount} retentionDays=${retentionDays}`,
         );
       }
     }
     if (!result.configured && !warnedMissingFirebase) {
       warnedMissingFirebase = true;
-      console.warn(
+      logger.warn(
         "[NOTIFICATION_WORKER] Firebase Admin is not configured; inbox notifications remain available and push deliveries stay pending.",
       );
     } else if (result.configured) {
@@ -58,17 +59,17 @@ const dispatch = async () => {
       result.configured &&
       (result.published > 0 || result.scanned > 0 || result.errors > 0)
     ) {
-      console.log(
+      logger.info(
         `[NOTIFICATION_WORKER] published=${result.published} scanned=${result.scanned} sent=${result.sent} retryable=${result.failed} exhausted=${result.exhausted} invalid=${result.invalid} cancelled=${result.cancelled} errors=${result.errors}`,
       );
     }
     if (outbox.scanned > 0) {
-      console.log(
+      logger.info(
         `[OUTBOX] scanned=${outbox.scanned} processed=${outbox.processed} retrying=${outbox.retrying} failed=${outbox.failed}`,
       );
     }
   } catch (error) {
-    console.error("[NOTIFICATION_WORKER] dispatch failed:", error);
+    logger.error("[NOTIFICATION_WORKER] dispatch failed:", error);
   } finally {
     running = false;
   }
@@ -77,12 +78,12 @@ const dispatch = async () => {
 const timer = setInterval(() => void dispatch(), intervalMs);
 void dispatch();
 
-console.log(
+logger.info(
   `Notification worker is polling every ${intervalMs}ms with batch size ${batchSize}`,
 );
 
 const shutdown = async (signal: string) => {
-  console.log(`${signal} received, closing notification worker...`);
+  logger.info(`${signal} received, closing notification worker...`);
   clearInterval(timer);
   stopRuntimeMetrics();
   await prisma.$disconnect();

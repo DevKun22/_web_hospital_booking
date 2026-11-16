@@ -1,6 +1,6 @@
 import type { NextFunction, Request, Response } from "express";
 
-export const DASHBOARD_REQUEST_HEADER = "x-hospital-dashboard-request";
+const DASHBOARD_REQUEST_HEADER = "x-hospital-dashboard-request";
 
 const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
 

@@ -1,14 +1,10 @@
 import { Prisma } from "../../generated/prisma/client.js";
-import type { Role } from "../../generated/prisma/enums.js";
 import { prisma } from "../config/prisma.js";
 import { AppError } from "../utils/appError.js";
 import { hasTimeOverlap, validateTimeRange } from "../utils/time.js";
 import SlotPlannerService from "./slotPlanner.service.js";
+import type { Actor } from "../types/actor.js";
 
-type Actor = {
-  userId: string;
-  role: Role;
-};
 
 type CreateDoctorScheduleInput = {
   doctorId: string;

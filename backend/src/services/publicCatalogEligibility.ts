@@ -1,7 +1,7 @@
 import { Prisma } from "../../generated/prisma/client.js";
 import { getVietnamNowParts, parseDateOnly } from "../utils/time.js";
 
-export const FEATURED_AVAILABILITY_DAYS = 14;
+const FEATURED_AVAILABILITY_DAYS = 14;
 
 export const buildFeaturedSlotWhere = (
   availabilityDays = FEATURED_AVAILABILITY_DAYS,

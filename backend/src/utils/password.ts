@@ -1,7 +1,7 @@
 import argon2 from "argon2";
 import bcrypt from "bcrypt";
 
-export const ARGON2ID_OPTIONS = {
+const ARGON2ID_OPTIONS = {
   type: argon2.argon2id,
   memoryCost: 19_456,
   timeCost: 2,
@@ -9,7 +9,7 @@ export const ARGON2ID_OPTIONS = {
   hashLength: 32,
 } as const;
 
-export type PasswordHashAlgorithm = "argon2id" | "bcrypt" | "unsupported";
+type PasswordHashAlgorithm = "argon2id" | "bcrypt" | "unsupported";
 
 export const getPasswordHashAlgorithm = (
   hashedPassword: string,

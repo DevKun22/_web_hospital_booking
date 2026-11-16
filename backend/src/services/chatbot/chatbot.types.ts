@@ -1,4 +1,4 @@
-export const CHAT_INTENTS = [
+const CHAT_INTENTS = [
   "SYMPTOM_TRIAGE",
   "DEPARTMENT_LIST",
   "DEPARTMENT_DETAIL",
@@ -14,7 +14,7 @@ export const CHAT_INTENTS = [
   "UNKNOWN",
 ] as const;
 
-export const CHAT_STATES = [
+const CHAT_STATES = [
   "IDLE",
   "ASKING_SYMPTOMS",
   "SUGGESTING_DEPARTMENT",
@@ -44,7 +44,7 @@ export const SUGGESTED_ACTION_TYPES = [
   "EMERGENCY_ADVICE",
 ] as const;
 
-export const CHAT_NEXT_STEPS = [
+const CHAT_NEXT_STEPS = [
   "ASK_SYMPTOM_DETAILS",
   "CHOOSE_DEPARTMENT",
   "CHOOSE_PACKAGE",
@@ -59,8 +59,8 @@ export const CHAT_NEXT_STEPS = [
 ] as const;
 
 export type ChatIntent = typeof CHAT_INTENTS[number];
-export type ChatState = typeof CHAT_STATES[number];
-export type ChatNextStep = typeof CHAT_NEXT_STEPS[number];
+type ChatState = typeof CHAT_STATES[number];
+type ChatNextStep = typeof CHAT_NEXT_STEPS[number];
 export type SuggestedActionType = typeof SUGGESTED_ACTION_TYPES[number];
 export type ChatbotResponseSource =
   | "SYSTEM"
@@ -122,7 +122,7 @@ export type SuggestedAction = {
   payload: Record<string, unknown>;
 };
 
-export type ChatbotResultItem =
+type ChatbotResultItem =
   | {
       type: "department";
       id: string;

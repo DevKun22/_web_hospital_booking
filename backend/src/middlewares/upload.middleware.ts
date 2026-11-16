@@ -18,7 +18,7 @@ export const uploadImages = multer({
     fileSize: 5 * 1024 * 1024,
     files: 10,
   },
-  fileFilter(req, file, callback) {
+  fileFilter(_req, file, callback) {
     if (!allowedMimeTypes.has(file.mimetype)) {
       callback(
         new AppError("Chỉ hỗ trợ ảnh JPG, PNG, WEBP, GIF, SVG hoặc ICO", 400),
@@ -32,7 +32,7 @@ export const uploadImages = multer({
 
 // Tệp kết quả khám: PDF hoặc ảnh JPEG, PNG, WebP, mỗi lần một tệp, tối đa 10 MB. Loại tệp client
 // khai báo chỉ để lọc sớm; nội dung thật được kiểm tra lại ở MediaAssetService.uploadMedicalFile.
-export const MEDICAL_UPLOAD_MAX_BYTES = 10 * 1024 * 1024;
+const MEDICAL_UPLOAD_MAX_BYTES = 10 * 1024 * 1024;
 
 const medicalMimeTypes = new Set([
   "application/pdf",
@@ -44,7 +44,7 @@ const medicalMimeTypes = new Set([
 const medicalFileUpload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: MEDICAL_UPLOAD_MAX_BYTES, files: 1 },
-  fileFilter(req, file, callback) {
+  fileFilter(_req, file, callback) {
     if (!medicalMimeTypes.has(file.mimetype)) {
       callback(new AppError("Chỉ hỗ trợ tệp PDF, JPG, PNG hoặc WEBP", 400));
       return;

@@ -8,12 +8,13 @@ import {
   reportRedisUnavailable,
 } from "../services/redisHealth.service.js";
 import { AppError } from "../utils/appError.js";
+import { logger } from "../observability/logger.js";
 
 // Giới hạn tần suất theo cửa sổ cố định. Đếm bằng Redis khi có (dùng chung giữa
 // các tiến trình), nếu không có hoặc Redis lỗi thì đếm trong bộ nhớ tiến trình
 // theo policy degraded riêng của từng endpoint.
 
-export type RateLimitHit = {
+type RateLimitHit = {
   count: number;
   resetAt: number;
   degraded?: boolean;
@@ -96,7 +97,7 @@ const warnStoreFailure = (error: unknown) => {
   const current = Date.now();
   if (current - lastWarnAt < WARN_INTERVAL_MS) return;
   lastWarnAt = current;
-  console.warn(
+  logger.warn(
     `[RATE_LIMIT] Redis unavailable, using in-memory counters: ${
       error instanceof Error ? error.message : "unknown error"
     }`,
@@ -145,7 +146,7 @@ const getDefaultStore = (): RateLimitStore => {
   return defaultStore;
 };
 
-export type RateLimitOptions = {
+type RateLimitOptions = {
   // Tên chính sách, dùng làm tiền tố khóa đếm.
   name: string;
   windowMs: number;
@@ -164,8 +165,8 @@ export type RateLimitOptions = {
   failureMode?: "allow" | "deny";
 };
 
-export const RATE_LIMIT_CODE = "RATE_LIMITED";
-export const RATE_LIMIT_UNAVAILABLE_CODE = "RATE_LIMIT_UNAVAILABLE";
+const RATE_LIMIT_CODE = "RATE_LIMITED";
+const RATE_LIMIT_UNAVAILABLE_CODE = "RATE_LIMIT_UNAVAILABLE";
 const DEFAULT_MESSAGE = "Bạn thao tác quá nhanh. Vui lòng thử lại sau ít phút.";
 const UNAVAILABLE_MESSAGE =
   "Hệ thống bảo vệ đang tạm thời gián đoạn. Vui lòng thử lại sau ít phút.";

@@ -1,7 +1,7 @@
 // Đọc CSV (RFC 4180) cho chức năng nhập tệp: có ngoặc kép, dấu phẩy/xuống dòng trong ô, BOM,
 // CRLF hoặc LF. Excel tiếng Việt hay lưu bằng dấu chấm phẩy nên tự nhận dấu phân cách từ dòng đầu.
 
-export type ParsedCsv = { headers: string[]; rows: { line: number; cells: string[] }[] };
+type ParsedCsv = { headers: string[]; rows: { line: number; cells: string[] }[] };
 
 const detectDelimiter = (text: string) => {
   const firstLine = text.split(/\r?\n/, 1)[0] ?? "";

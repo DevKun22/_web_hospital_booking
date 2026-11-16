@@ -15,6 +15,7 @@ import {
   OTP_DELIVERY_QUEUE_NAME,
 } from "../queues/otp.queue.js";
 import { takeRequestPerformanceMetrics } from "./requestPerformance.js";
+import { logger } from "./logger.js";
 
 type QueueCounts = {
   waiting: number;
@@ -131,9 +132,9 @@ let metricsTimer: NodeJS.Timeout | null = null;
 const reportRuntimeMetrics = async (role: string) => {
   try {
     const metrics = await collectRuntimeMetrics(role);
-    console.log(`[RUNTIME_METRICS] ${JSON.stringify(metrics)}`);
+    logger.info(`[RUNTIME_METRICS] ${JSON.stringify(metrics)}`);
   } catch (error) {
-    console.error("[RUNTIME_METRICS] collection failed:", error);
+    logger.error("[RUNTIME_METRICS] collection failed:", error);
   }
 };
 
@@ -141,7 +142,7 @@ export const startRuntimeMetrics = (role: string) => {
   if (!isRuntimeMetricsEnabled() || metricsTimer) return false;
 
   const intervalMs = getRuntimeMetricsIntervalMs();
-  console.log(
+  logger.info(
     `[DATABASE_POOL] ${JSON.stringify(getDatabasePoolBudget())}`,
   );
   void reportRuntimeMetrics(role);

@@ -201,15 +201,15 @@ const boundedNonNegativeInteger = (
   return Math.min(resolved, maximum);
 };
 
-export const getDatabaseApiReplicaCount = (
+const getDatabaseApiReplicaCount = (
   env: NodeJS.ProcessEnv = process.env,
 ) => boundedPositiveInteger(env.DATABASE_API_REPLICA_COUNT, 1, 1, 100);
 
-export const getDatabaseWorkerReplicaCount = (
+const getDatabaseWorkerReplicaCount = (
   env: NodeJS.ProcessEnv = process.env,
 ) => boundedNonNegativeInteger(env.DATABASE_WORKER_REPLICA_COUNT, 0, 100);
 
-export const getDatabaseTotalConnectionBudget = (
+const getDatabaseTotalConnectionBudget = (
   env: NodeJS.ProcessEnv = process.env,
 ) =>
   boundedPositiveInteger(
@@ -219,7 +219,7 @@ export const getDatabaseTotalConnectionBudget = (
     1_000,
   );
 
-export const getDatabaseConnectionReserve = (
+const getDatabaseConnectionReserve = (
   env: NodeJS.ProcessEnv = process.env,
 ) => {
   const budget = getDatabaseTotalConnectionBudget(env);

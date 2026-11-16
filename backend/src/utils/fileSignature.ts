@@ -1,7 +1,7 @@
 // Nhận diện tệp y tế theo nội dung thật (chữ ký đầu tệp), không tin loại tệp do client khai báo.
 // Chỉ cho phép PDF và ảnh JPEG, PNG, WebP: các định dạng bệnh nhân xem được trên web và mobile.
 
-export type MedicalFileKind = {
+type MedicalFileKind = {
   mime: "application/pdf" | "image/jpeg" | "image/png" | "image/webp";
   extension: "pdf" | "jpg" | "png" | "webp";
 };

@@ -21,6 +21,7 @@ import {
   stopRuntimeMetrics,
 } from "../observability/runtimeMetrics.js";
 import { getRuntimeConfig } from "../config/runtimeConfig.js";
+import { logger } from "../observability/logger.js";
 
 const INVOICE_REMINDER_EVERY_MS = 30 * 60 * 1000;
 let lastInvoiceReminderAt = 0;
@@ -38,7 +39,7 @@ const worker = new Worker<AppointmentLifecycleJobData>(
         job.data.appointmentId,
       );
       if (logNoop || result.outcome !== "NOOP") {
-        console.log(
+        logger.info(
           `[APPOINTMENT_EXPIRY] appointment=${job.data.appointmentId} outcome=${result.outcome}`,
         );
       }
@@ -48,7 +49,7 @@ const worker = new Worker<AppointmentLifecycleJobData>(
     if (job.data.type === "RECONCILE_SLOT_CONSISTENCY") {
       const result = await ScheduleReconciliationService.reconcile();
       if (logNoop || result.findingCount > 0 || result.repairedCount > 0) {
-        console.log(
+        logger.info(
           `[SLOT_RECONCILIATION] scanned=${result.scanned} findings=${result.findingCount} repaired=${result.repairedCount}`,
         );
       }
@@ -57,23 +58,23 @@ const worker = new Worker<AppointmentLifecycleJobData>(
 
     // Giữ cửa sổ khung giờ các ngày tới luôn đầy (có giới hạn tần suất bên trong).
     const slotWindow = await SlotPlannerService.generateRollingWindow().catch((error) => {
-      console.error("[SLOT_PLANNER] rolling window failed:", error);
+      logger.error("[SLOT_PLANNER] rolling window failed:", error);
       return null;
     });
     if (slotWindow && slotWindow.generatedCount > 0) {
-      console.log(`[SLOT_PLANNER] generated=${slotWindow.generatedCount} doctors=${slotWindow.doctors}`);
+      logger.info(`[SLOT_PLANNER] generated=${slotWindow.generatedCount} doctors=${slotWindow.doctors}`);
     }
     // Nhắc thanh toán chỉ cần quét thưa (mỗi hóa đơn chỉ nhắc một lần): tránh tốn truy vấn mỗi chu kỳ.
     const invoiceReminders =
       Date.now() - lastInvoiceReminderAt >= INVOICE_REMINDER_EVERY_MS
         ? await InvoiceService.sendPaymentReminders().catch((error) => {
-            console.error("[INVOICE_REMINDER] sweep failed:", error);
+            logger.error("[INVOICE_REMINDER] sweep failed:", error);
             return null;
           })
         : null;
     if (invoiceReminders) lastInvoiceReminderAt = Date.now();
     if (invoiceReminders && invoiceReminders.reminded > 0) {
-      console.log(`[INVOICE_REMINDER] reminded=${invoiceReminders.reminded}`);
+      logger.info(`[INVOICE_REMINDER] reminded=${invoiceReminders.reminded}`);
     }
     // Chạy tuần tự các nhóm để RECONCILIATION_CONCURRENCY là trần chung của sweep,
     // không bị nhân lên bởi ba batch cùng khởi động một lúc.
@@ -82,7 +83,7 @@ const worker = new Worker<AppointmentLifecycleJobData>(
     const noShows = await AppointmentService.reconcileNoShows();
     const otpCleanup = await AuthOtpService.cleanupExpired();
     if (noShows.marked > 0 || otpCleanup.deleted > 0) {
-      console.log(
+      logger.info(
         `[LIFECYCLE_MAINTENANCE] noShowMarked=${noShows.marked} otpDeleted=${otpCleanup.deleted}`,
       );
     }
@@ -93,7 +94,7 @@ const worker = new Worker<AppointmentLifecycleJobData>(
       pendingConfirm.scanned > 0 ||
       pendingConfirm.expired > 0
     ) {
-      console.log(
+      logger.info(
         `[APPOINTMENT_RECONCILIATION] pendingOtp(scanned=${pendingOtp.scanned}, expired=${pendingOtp.expired}, noop=${pendingOtp.noop}) pendingConfirm(scanned=${pendingConfirm.scanned}, expired=${pendingConfirm.expired}, noop=${pendingConfirm.noop})`,
       );
     }
@@ -107,24 +108,24 @@ const worker = new Worker<AppointmentLifecycleJobData>(
 );
 
 worker.on("ready", () => {
-  console.log(
+  logger.info(
     `Appointment lifecycle worker is listening on queue "${APPOINTMENT_LIFECYCLE_QUEUE_NAME}"`,
   );
 });
 
 worker.on("failed", (job, error) => {
-  console.error(
+  logger.error(
     `[APPOINTMENT_LIFECYCLE] job=${job?.id || "unknown"} failed:`,
     error,
   );
 });
 
 worker.on("error", (error) => {
-  console.error("[Appointment Lifecycle Worker] error:", error);
+  logger.error("[Appointment Lifecycle Worker] error:", error);
 });
 
 const shutdown = async (signal: string) => {
-  console.log(`${signal} received, closing appointment lifecycle worker...`);
+  logger.info(`${signal} received, closing appointment lifecycle worker...`);
   stopRuntimeMetrics();
   await worker.close();
   await prisma.$disconnect();
