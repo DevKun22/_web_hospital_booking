@@ -4,7 +4,7 @@ import type { PrescriptionStatus } from "../../generated/prisma/enums.js";
 import { prisma } from "../config/prisma.js";
 import { AppError } from "../utils/appError.js";
 import { generatePrescriptionCode } from "../utils/prescriptionCode.js";
-import InvoiceService from "./invoice.service.js";
+import InvoiceMedicineService from "./invoiceMedicine.service.js";
 import MedicineAvailabilityService from "./medicineAvailability.service.js";
 import PatientEventNotificationService from "./patientEventNotification.service.js";
 import StaffNotificationService from "./staffNotification.service.js";
@@ -336,7 +336,7 @@ class PrescriptionService {
     });
     // Tiền thuốc vào hóa đơn ngay khi phát hành (nếu lịch đã có hóa đơn chưa thanh toán). Lỗi ở đây không được
     // làm hỏng việc phát hành đơn đã hoàn tất; hóa đơn lập sau sẽ tự tính tiền thuốc.
-    await InvoiceService.syncMedicineLines(transition.updatedPrescription.id, actor).catch((error) => {
+    await InvoiceMedicineService.syncMedicineLines(transition.updatedPrescription.id, actor).catch((error) => {
       logger.error("[INVOICE_MEDICINE] cannot add prescribed medicines to invoice:", error);
     });
     return transition.updatedPrescription;
@@ -376,7 +376,7 @@ class PrescriptionService {
       return cancelled;
     });
     // Đơn đã hủy thì gỡ dòng tiền thuốc khỏi hóa đơn chưa thu (hoặc hóa đơn bổ sung chưa thu).
-    await InvoiceService.syncMedicineLines(id, actor).catch((error) => {
+    await InvoiceMedicineService.syncMedicineLines(id, actor).catch((error) => {
       logger.error("[INVOICE_MEDICINE] cannot remove cancelled medicines from invoice:", error);
     });
     return cancelled;
@@ -421,7 +421,7 @@ class PrescriptionService {
         note: "Bác sĩ đánh dấu một dòng thuốc không cấp từ kho",
       });
     });
-    await InvoiceService.syncMedicineLines(prescriptionId, actor).catch((error) => {
+    await InvoiceMedicineService.syncMedicineLines(prescriptionId, actor).catch((error) => {
       logger.error("[INVOICE_MEDICINE] cannot sync after resolving item:", error);
     });
     return this.getById(prescriptionId, actor);

@@ -3,6 +3,8 @@ import {
   AuthOtpService,
   AuthSessionService,
   InvoiceService,
+  InvoiceMedicineService,
+  InvoiceRefundService,
   MedicalRecordService,
   NotificationService,
   PolicyService,
@@ -556,7 +558,7 @@ test("clinical and billing transitions create deep-linkable patient notification
     invoice.totalAmount,
   );
   await InvoiceService.pay(invoice.id, { paymentMethod: "CASH" });
-  await InvoiceService.refund(invoice.id, { refundReason: "Integration test" });
+  await InvoiceRefundService.refund(invoice.id, { refundReason: "Integration test" });
 
   const notifications = await prisma.notification.findMany({
     where: { userId: appointment.patientId },
@@ -1204,7 +1206,7 @@ test("a prescription issued after the invoice was paid becomes a supplement coll
   assert.equal(main.supplements[0].amount, 10000);
   assert.equal(main.supplements[0].items.length, 2);
   // Gọi đồng bộ lại không tạo thêm hóa đơn bổ sung hay tính hai lần.
-  await InvoiceService.syncMedicineLines(prescription.id, doctorActor);
+  await InvoiceMedicineService.syncMedicineLines(prescription.id, doctorActor);
   assert.equal(await prisma.invoiceSupplement.count({ where: { invoiceId } }), 1);
   assert.equal((await prisma.invoiceSupplement.findFirstOrThrow({ where: { invoiceId } })).amount, 10000);
   // Nhân viên được báo có hóa đơn bổ sung cần thu.
@@ -1281,7 +1283,7 @@ test("issuing a prescription adds its medicine to an unpaid invoice, and an out-
   const afterIssue = await prisma.invoice.findUniqueOrThrow({ where: { id: created.body.data.id }, include: { items: true } });
   assert.equal(afterIssue.totalAmount, baseTotal + 10000);
   assert.equal(afterIssue.items.filter((item) => item.type === "MEDICINE").length, 1);
-  await InvoiceService.syncMedicineLines(prescription.id, doctorActor);
+  await InvoiceMedicineService.syncMedicineLines(prescription.id, doctorActor);
   assert.equal((await prisma.invoice.findUniqueOrThrow({ where: { id: created.body.data.id } })).totalAmount, baseTotal + 10000);
 
   // Bác sĩ đánh dấu kho hết thuốc này: dòng tiền thuốc được gỡ khỏi hóa đơn chưa thanh toán.

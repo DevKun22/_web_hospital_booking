@@ -13,7 +13,7 @@ import {
 import { getVietnamNowParts, parseDateOnly, toDateOnly } from "../utils/time.js";
 import { logClinicalAction } from "./clinicalLog.service.js";
 import PatientEventNotificationService from "./patientEventNotification.service.js";
-import InvoiceService from "./invoice.service.js";
+import InvoiceMedicineService from "./invoiceMedicine.service.js";
 import StaffNotificationService from "./staffNotification.service.js";
 import { logger } from "../observability/logger.js";
 
@@ -579,7 +579,7 @@ class PharmacyService {
     // Dược sĩ chỉ cấp đúng những dòng bác sĩ đã kê và đã thu tiền: hóa đơn đã thanh toán và mọi dòng sắp cấp đều có
     // dòng tiền (trên hóa đơn chính hoặc hóa đơn bổ sung đã thu). Không có đường cấp trước khi thu tiền. Thuốc miễn
     // phí hoặc ngoài danh mục thì không cần hóa đơn.
-    const coverage = await InvoiceService.medicineCoverage(prescriptionId);
+    const coverage = await InvoiceMedicineService.medicineCoverage(prescriptionId);
     if (!coverage.covered) {
       throw new AppError(
         coverage.invoiceStatus === null
@@ -659,7 +659,7 @@ class PharmacyService {
     });
 
     // Tiền thuốc vào hóa đơn chưa thanh toán (nếu có). Lỗi ở đây không được làm hỏng việc cấp thuốc đã hoàn tất.
-    await InvoiceService.syncMedicineLines(prescriptionId, actor).catch((error) => {
+    await InvoiceMedicineService.syncMedicineLines(prescriptionId, actor).catch((error) => {
       logger.error("[INVOICE_MEDICINE] cannot add dispensed medicines to invoice:", error);
     });
     await this.notifyStockAlerts();
