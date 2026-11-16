@@ -23,6 +23,7 @@ import {
   type DsColumn,
   type DsTone,
   useActionToast,
+  useConfirm,
 } from "@/components/ds";
 import { ExportCsvButton } from "@/components/dashboard/export-csv-button";
 import { MedicineRefundPanel } from "@/components/dashboard/medicine-refund-panel";
@@ -214,6 +215,7 @@ function InsuranceFields({
 
 export default function InvoicesPage() {
   const { user } = useAuth();
+  const confirm = useConfirm();
   const queryClient = useQueryClient();
   const [status, setStatus] = useState("UNPAID");
   const [paymentMethod, setPaymentMethod] = useState("");
@@ -519,9 +521,13 @@ export default function InvoicesPage() {
       setError("Lý do hoàn tiền phải có ít nhất 5 ký tự");
       return;
     }
-    if (!window.confirm(`Gửi yêu cầu hoàn ${actionTarget.invoice.finalAmount.toLocaleString("vi-VN")} đ qua VNPay? Thao tác không thể hoàn tác.`)) {
-      return;
-    }
+    const agreed = await confirm({
+      title: `Hoàn ${actionTarget.invoice.finalAmount.toLocaleString("vi-VN")} đ qua VNPay?`,
+      message: "Yêu cầu hoàn tiền được gửi ngay tới VNPay. Thao tác không thể hoàn tác.",
+      confirmLabel: "Gửi yêu cầu hoàn",
+      tone: "danger",
+    });
+    if (!agreed) return;
 
     setBusy(true);
     setError("");

@@ -2,7 +2,7 @@
 
 import { FormEvent, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { DsButton, DsField, DsInput, DsNotice, DsStatusPill, DsTextarea, useToast } from "@/components/ds";
+import { DsButton, DsField, DsInput, DsNotice, DsStatusPill, DsTextarea, useConfirm, useToast, type ConfirmFn } from "@/components/ds";
 import { MedicinePicker, availabilityLabel, availabilityTone, medicineDisplayName } from "@/components/dashboard/medicine-picker";
 import { PrintButton, PrintablePrescription } from "@/components/dashboard/printable-documents";
 import { apiRequest } from "@/lib/api";
@@ -53,12 +53,14 @@ const buildItemPayload = (form: ItemForm, sortOrder: number) => ({
 const warnColor = { color: "var(--ds-warn, #b45309)" } as const;
 
 /** Hộp xác nhận khi có dòng vượt khả năng cấp của kho: những dòng này sẽ thành "người khám tự mua" và không tính tiền. */
-export const confirmShortage = (prescription: Prescription) => {
+export const confirmShortage = async (prescription: Prescription, confirm: ConfirmFn) => {
   const shortItems = prescription.items.filter((item) => item.availability?.short);
   if (shortItems.length === 0) return { proceed: true, acknowledgeShortage: false };
-  const proceed = window.confirm(
-    `Kho không đủ thuốc cho ${shortItems.length} dòng:\n- ${shortItems.map((item) => item.medicineName).join("\n- ")}\n\nCác dòng này sẽ được đánh dấu "người khám tự mua", không tính tiền và không chờ cấp. Bạn vẫn muốn phát hành?`,
-  );
+  const proceed = await confirm({
+    title: `Kho không đủ thuốc cho ${shortItems.length} dòng`,
+    message: `${shortItems.map((item) => `- ${item.medicineName}`).join("\n")}\n\nCác dòng này sẽ được đánh dấu "người khám tự mua", không tính tiền và không chờ cấp.`,
+    confirmLabel: "Vẫn phát hành",
+  });
   return { proceed, acknowledgeShortage: proceed };
 };
 
@@ -77,6 +79,7 @@ export function PrescriptionEditor({
 }) {
   const queryClient = useQueryClient();
   const toast = useToast();
+  const confirm = useConfirm();
   const [busy, setBusy] = useState(false);
   const [itemOpen, setItemOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<PrescriptionItem | null>(null);
@@ -166,7 +169,7 @@ export function PrescriptionEditor({
   };
 
   const issue = async () => {
-    const { proceed, acknowledgeShortage } = confirmShortage(prescription);
+    const { proceed, acknowledgeShortage } = await confirmShortage(prescription, confirm);
     if (!proceed) return;
     const ok = await run(
       () =>
@@ -189,7 +192,13 @@ export function PrescriptionEditor({
   // tiền thuốc dòng đó được gỡ khỏi hóa đơn chưa thu (hóa đơn đã thu thì chuyển sang luồng hoàn tiền thuốc).
   const resolveItem = async (item: PrescriptionItem, status: "OUTSIDE" | "OUT_OF_STOCK") => {
     const label = status === "OUTSIDE" ? "người khám tự mua" : "kho hết thuốc, người khám mua ngoài";
-    if (!window.confirm(`Đánh dấu "${item.medicineName}" là ${label}? Dòng này sẽ không tính tiền và dược sĩ không cấp. Không hoàn tác được.`)) return;
+    const agreed = await confirm({
+      title: `Đánh dấu "${item.medicineName}" là ${label}?`,
+      message: "Dòng này sẽ không tính tiền và dược sĩ không cấp. Không hoàn tác được.",
+      confirmLabel: "Đánh dấu",
+      tone: "danger",
+    });
+    if (!agreed) return;
     await run(
       () => apiRequest<Prescription>(`/dashboard/prescriptions/${prescription.id}/items/${item.id}/fulfillment`, { method: "PATCH", body: { status } }),
       "Đã cập nhật dòng thuốc",

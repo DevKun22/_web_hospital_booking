@@ -15,6 +15,7 @@ import {
   DsSplit,
   DsStatusPill,
   DsToolbar,
+  DsLoading,
 } from "@/components/ds";
 import { apiRequest } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
@@ -140,7 +141,7 @@ export default function DashboardReviewsPage() {
           Làm mới
         </DsButton>
       </DsToolbar>
-      {reviewsQuery.isLoading ? <p style={{ margin: 0, padding: 16, color: "var(--ds-muted)" }}>Đang tải đánh giá...</p> : null}
+      {reviewsQuery.isLoading ? <DsLoading label="Đang tải đánh giá..." /> : null}
       {!reviewsQuery.isLoading && items.length === 0 ? <DsEmptyState title="Chưa có phản hồi" description="Đánh giá đã xác thực sẽ xuất hiện tại đây." /> : null}
       <div role="listbox" aria-label="Danh sách đánh giá">
         {items.map((review) => (

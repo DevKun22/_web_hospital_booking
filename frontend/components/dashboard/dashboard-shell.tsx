@@ -26,6 +26,7 @@ import {
   DsMenuItem,
   DsMenuLabel,
   DsMenuSeparator,
+  DsFetchProgress,
   DsRoot,
   useDsRoot,
 } from "@/components/ds";
@@ -511,6 +512,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
 
   return (
     <DsRoot className="ds-shell" data-collapsed={collapsed}>
+      <DsFetchProgress />
       <ShellFrame collapsed={collapsed}>{children}</ShellFrame>
     </DsRoot>
   );

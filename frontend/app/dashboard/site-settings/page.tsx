@@ -19,6 +19,7 @@ import {
   DsTabs,
   DsTextarea,
   DsToolbar,
+  DsLoading,
 } from "@/components/ds";
 import { NumberStepper } from "@/components/ui/number-stepper";
 import { VietnamDateTimeInput } from "@/components/ui/vietnam-datetime-input";
@@ -620,7 +621,7 @@ export default function SiteSettingsPage() {
           onChange={(event) => void uploadToForm(event.target.files?.[0], "site-settings", key, (asset) => updateSite({ [key]: asset.url, [`${key}AssetId`]: asset.id } as Partial<SiteForm>))}
         />
       ) : null}
-      {uploading === key ? <span role="status" className="ds-hint">Đang tải ảnh lên...</span> : null}
+      {uploading === key ? <DsLoading label="Đang tải ảnh lên..." className="ds-loading--inline" /> : null}
       {siteForm[key] ? <img src={siteForm[key] || ""} alt={`Xem trước ${label}`} style={{ height: 80, maxWidth: "100%", objectFit: "contain", borderRadius: 6, background: "var(--ds-sunken)", padding: 6 }} /> : null}
     </div>
   );
@@ -628,7 +629,7 @@ export default function SiteSettingsPage() {
   const settingsTab = (
     <DsPanel title="Thông tin hiển thị công khai" actions={<span className="ds-hint">Cập nhật {siteRecord?.updatedAt ? formatVietnamDateTime(siteRecord.updatedAt) : "-"}</span>}>
       {siteSettingsQuery.isLoading ? (
-        <p className="ds-hint">Đang tải...</p>
+        <DsLoading />
       ) : (
         <div style={{ display: "grid", gap: 16 }}>
           <div className="ds-grid-fields">
@@ -757,7 +758,7 @@ export default function SiteSettingsPage() {
         <DsButton variant="primary" onClick={() => openBanner(null)}>Tạo ảnh quảng bá</DsButton>
       </DsToolbar>
       {bannersQuery.isLoading ? (
-        <p className="ds-hint" style={{ padding: 16 }}>Đang tải...</p>
+        <DsLoading />
       ) : banners.length ? (
         <div role="listbox" aria-label="Danh sách ảnh quảng bá">
           {banners.map((banner) => (
@@ -789,7 +790,7 @@ export default function SiteSettingsPage() {
         accept="image/jpeg,image/png,image/webp,image/gif"
         onChange={(event) => void uploadToForm(event.target.files?.[0], "banners", `banner-${key}`, (asset) => setBannerForm((current) => ({ ...current, [key]: asset.url, [`${key}AssetId`]: asset.id })))}
       />
-      {uploading === `banner-${key}` ? <span role="status" className="ds-hint">Đang tải ảnh lên...</span> : null}
+      {uploading === `banner-${key}` ? <DsLoading label="Đang tải ảnh lên..." className="ds-loading--inline" /> : null}
       {bannerForm[key] ? <img src={bannerForm[key]} alt={`Xem trước ${label}`} style={{ maxHeight: 120, maxWidth: "100%", objectFit: "contain", borderRadius: 6, background: "var(--ds-sunken)" }} /> : null}
     </div>
   );
@@ -890,7 +891,7 @@ export default function SiteSettingsPage() {
         <DsButton variant="primary" onClick={() => openFAQ(null)}>Tạo câu hỏi</DsButton>
       </DsToolbar>
       {faqsQuery.isLoading ? (
-        <p className="ds-hint" style={{ padding: 16 }}>Đang tải...</p>
+        <DsLoading />
       ) : faqs.length ? (
         <div role="listbox" aria-label="Danh sách câu hỏi thường gặp">
           {faqs.map((faq) => (
