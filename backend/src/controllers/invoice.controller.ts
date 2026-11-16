@@ -4,6 +4,8 @@ import type {
   PaymentMethod,
 } from "../../generated/prisma/enums.js";
 import InvoiceService from "../services/invoice.service.js";
+import InvoiceMedicineService from "../services/invoiceMedicine.service.js";
+import InvoiceRefundService from "../services/invoiceRefund.service.js";
 import { AppError } from "../utils/appError.js";
 import { getClientIp } from "../utils/clientIp.js";
 
@@ -134,7 +136,7 @@ export const paySupplementHandler = async (
   next: NextFunction,
 ) => {
   try {
-    const invoice = await InvoiceService.paySupplement(
+    const invoice = await InvoiceMedicineService.paySupplement(
       getParam(req.params.id),
       getParam(req.params.supplementId, "supplementId"),
       req.body,
@@ -200,7 +202,7 @@ export const refundInvoiceHandler = async (
   next: NextFunction,
 ) => {
   try {
-    const invoice = await InvoiceService.refund(
+    const invoice = await InvoiceRefundService.refund(
       getParam(req.params.id),
       req.body,
       getActorId(req),
@@ -223,7 +225,7 @@ export const refundInvoiceViaVnpayHandler = async (
   next: NextFunction,
 ) => {
   try {
-    const invoice = await InvoiceService.refundViaVnpay(
+    const invoice = await InvoiceRefundService.refundViaVnpay(
       getParam(req.params.id),
       req.body,
       getActorId(req),
@@ -248,7 +250,7 @@ export const listRefundableMedicineHandler = async (
   next: NextFunction,
 ) => {
   try {
-    const data = await InvoiceService.listRefundableMedicine(getParam(req.params.id));
+    const data = await InvoiceMedicineService.listRefundableMedicine(getParam(req.params.id));
     return res.json({ success: true, data });
   } catch (error) {
     next(error);
@@ -262,7 +264,7 @@ export const recordMedicineRefundHandler = async (
   next: NextFunction,
 ) => {
   try {
-    const data = await InvoiceService.recordMedicineRefund(
+    const data = await InvoiceMedicineService.recordMedicineRefund(
       getParam(req.params.id),
       req.body,
       { userId: getActorId(req) as string, role: req.user!.role },
