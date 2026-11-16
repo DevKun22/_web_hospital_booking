@@ -10,7 +10,6 @@ import {
   DsEmptyState,
   DsField,
   DsInput,
-  DsNotice,
   DsPageHeader,
   DsPane,
   DsPanel,
@@ -22,6 +21,7 @@ import {
   DsToolbar,
   type DsColumn,
   type DsTone,
+  useActionToast,
 } from "@/components/ds";
 import { VietnamDateInput } from "@/components/ui/vietnam-date-input";
 import { apiRequest, apiUrl, uploadMedicalFile } from "@/lib/api";
@@ -222,6 +222,8 @@ export default function MedicalRecordsPage() {
   const queryError = recordsQuery.error || doctorsQuery.error || selectedRecordQuery.error;
   const queryErrorMessage = queryError ? (queryError instanceof Error ? queryError.message : "Không tải được dữ liệu hồ sơ khám") : "";
   const visibleError = error || queryErrorMessage;
+  // Kết quả thao tác hiện thành thông báo nổi ngay chỗ đang làm việc (không nằm ở đầu trang).
+  useActionToast({ notice, error: visibleError, clear: () => { setNotice(""); setError(""); } });
 
   useEffect(() => {
     const linkedRecordCode = searchParams.get("recordCode")?.trim().toUpperCase();
@@ -596,12 +598,12 @@ export default function MedicalRecordsPage() {
 
       <div className="ds-savebar" style={{ borderTop: 0, position: "static", paddingTop: 12 }}>
         {selected.status !== "PUBLISHED" && canEdit ? (
-          <DsButton variant="primary" disabled={busy} onClick={() => void simpleRecordAction(selected, "/publish", "Đã công bố kết quả cho người khám")}>
+          <DsButton variant="primary" loading={busy} onClick={() => void simpleRecordAction(selected, "/publish", "Đã công bố kết quả cho người khám")}>
             Công bố cho người khám
           </DsButton>
         ) : null}
         {canCreatePrescription && !selected.prescriptionRecord ? (
-          <DsButton disabled={busy} onClick={() => void createPrescriptionFromRecord(selected)}>
+          <DsButton loading={busy} onClick={() => void createPrescriptionFromRecord(selected)}>
             Tạo đơn thuốc
           </DsButton>
         ) : null}
@@ -612,7 +614,7 @@ export default function MedicalRecordsPage() {
         ) : null}
         <span style={{ flex: 1 }} />
         {canArchive && selected.status !== "ARCHIVED" ? (
-          <DsButton variant="ghost" disabled={busy} onClick={() => void simpleRecordAction(selected, "/archive", "Đã lưu trữ hồ sơ")}>
+          <DsButton variant="ghost" loading={busy} onClick={() => void simpleRecordAction(selected, "/archive", "Đã lưu trữ hồ sơ")}>
             Lưu trữ
           </DsButton>
         ) : null}
@@ -707,7 +709,7 @@ export default function MedicalRecordsPage() {
                   {deleteLabTarget?.id === lab.id ? (
                     <div style={{ display: "flex", gap: 8, marginTop: 8, alignItems: "center", flexWrap: "wrap" }}>
                       <span style={{ fontSize: 13 }}>Xoá kết quả này?</span>
-                      <DsButton variant="danger" disabled={busy} onClick={() => void deleteLabResult()}>
+                      <DsButton variant="danger" loading={busy} onClick={() => void deleteLabResult()}>
                         Xoá
                       </DsButton>
                       <DsButton onClick={() => setDeleteLabTarget(null)}>Giữ lại</DsButton>
@@ -851,8 +853,6 @@ export default function MedicalRecordsPage() {
         }
       />
       <div style={{ display: "grid", gap: 12, marginBottom: 16 }}>
-        {visibleError ? <DsNotice tone="bad">{visibleError}</DsNotice> : null}
-        {notice ? <DsNotice tone="good">{notice}</DsNotice> : null}
       </div>
       <DsSplit wide list={list} pane={pane} />
     </>

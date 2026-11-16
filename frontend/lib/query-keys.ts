@@ -59,6 +59,7 @@ export const queryKeys = {
     phone?: string;
     bookingCode?: string;
     billingState?: "PENDING_INVOICE" | "HAS_INVOICE";
+    view?: "ACTIVE";
     page?: number;
     limit?: number;
   }) => ["dashboard", "appointments", filters || {}] as const,

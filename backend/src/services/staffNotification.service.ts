@@ -116,8 +116,8 @@ class StaffNotificationService {
         },
         COMPLETED: {
           type: "APPOINTMENT_COMPLETED",
-          title: "Lịch đã khám xong, chờ lập hóa đơn",
-          body: `Lịch ${label} đã hoàn thành khám. Vào Hóa đơn, tab Chờ lập hóa đơn để phát hành hóa đơn.`,
+          title: "Lịch đã khám xong, hóa đơn chờ thu",
+          body: `Lịch ${label} đã hoàn thành khám, hóa đơn đã được tạo tự động. Vào Hóa đơn để kiểm tra và thu tiền.`,
         },
         CHECKED_IN: {
           type: "APPOINTMENT_CHECKED_IN",

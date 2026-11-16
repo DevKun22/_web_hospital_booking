@@ -87,6 +87,61 @@
   font-size: 0.92em;
 }
 
+/* ---- Thông báo nổi ---- */
+.ds .ds-toasts {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 80;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: min(380px, calc(100vw - 32px));
+  pointer-events: none;
+}
+.ds .ds-toast {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 11px 10px 11px 12px;
+  border-radius: var(--ds-radius);
+  border: 1px solid var(--ds-line);
+  border-left-width: 4px;
+  background: var(--ds-surface);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.16);
+  font-size: 13px;
+  line-height: 1.4;
+  pointer-events: auto;
+}
+.ds .ds-toast--good { border-left-color: var(--ds-good); }
+.ds .ds-toast--bad { border-left-color: var(--ds-bad); }
+.ds .ds-toast--info { border-left-color: var(--ds-accent); }
+.ds .ds-toast__icon { flex: none; width: 18px; height: 18px; margin-top: 1px; }
+.ds .ds-toast--good .ds-toast__icon { color: var(--ds-good); }
+.ds .ds-toast--bad .ds-toast__icon { color: var(--ds-bad); }
+.ds .ds-toast--info .ds-toast__icon { color: var(--ds-accent); }
+.ds .ds-toast__text { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.ds .ds-toast__close {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border: 0;
+  border-radius: var(--ds-radius-sm);
+  background: transparent;
+  color: var(--ds-muted);
+  cursor: pointer;
+}
+.ds .ds-toast__close:hover { background: var(--ds-sunken); color: var(--ds-ink); }
+.ds .ds-toast__close svg { width: 14px; height: 14px; }
+@media (prefers-reduced-motion: no-preference) {
+  .ds .ds-toast { animation: ds-toast-in 0.18s ease-out; }
+}
+@keyframes ds-toast-in {
+  from { opacity: 0; transform: translateY(8px); }
+}
+
 /* ---- Nút ---- */
 .ds .ds-btn {
   display: inline-flex;
@@ -116,6 +171,20 @@
 .ds .ds-btn--lg { height: var(--ds-control-lg); padding: 0 18px; font-size: 14px; }
 .ds .ds-btn--icon { width: var(--ds-control); padding: 0; }
 .ds .ds-btn[aria-busy="true"] { cursor: progress; }
+.ds .ds-btn[aria-busy="true"]:disabled { opacity: 0.85; }
+.ds .ds-btn[aria-busy="true"]::before {
+  content: "";
+  flex: none;
+  width: 14px;
+  height: 14px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: ds-spin 0.7s linear infinite;
+}
+@keyframes ds-spin {
+  to { transform: rotate(360deg); }
+}
 
 /* ---- Ô nhập ---- */
 .ds .ds-field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }

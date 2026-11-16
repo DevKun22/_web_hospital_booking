@@ -1010,7 +1010,7 @@ test("invoices bill prescribed stock medicines, and unpaid invoices get exactly 
   assert.equal(afterPaid.reminded, 0);
 });
 
-test("completing a visit tells reception to issue the invoice", async () => {
+test("completing a visit creates the invoice by itself and tells reception to collect it", async () => {
   const staff = await createDashboardUser("STAFF", "0900000072");
   const staffCookie = await authCookie(staff.id, "STAFF");
   const doctorCookie = await authCookie(fixture.doctorOneUser.id, "DOCTOR");
@@ -1019,8 +1019,58 @@ test("completing a visit tells reception to issue the invoice", async () => {
   assert.equal(started.status, 200);
   const finished = await http.request(`/api/v1/dashboard/appointments/${appointment.id}/complete`, { method: "PATCH", headers: dashboardHeaders(doctorCookie) });
   assert.equal(finished.status, 200);
+  const invoice = await prisma.invoice.findUniqueOrThrow({ where: { appointmentId: appointment.id } });
+  assert.equal(invoice.status, "UNPAID");
   const inbox = await http.request("/api/v1/dashboard/inbox", { headers: dashboardHeaders(staffCookie) });
-  assert.ok(inbox.body.data.items.some((item: { title: string }) => item.title.includes("chờ lập hóa đơn")));
+  assert.ok(inbox.body.data.items.some((item: { title: string }) => item.title.includes("hóa đơn chờ thu")));
+  // Lập tay cho lịch đã có hóa đơn tự tạo thì báo đã tồn tại, không tạo thêm.
+  const again = await http.request(`/api/v1/dashboard/invoices/appointments/${appointment.id}`, { method: "POST", headers: dashboardHeaders(staffCookie), body: {} });
+  assert.equal(again.status, 409);
+  assert.equal(again.body.code, "INVOICE_ALREADY_EXISTS");
+});
+
+test("a completed visit publishes its record by itself once the invoice is paid and the record has a conclusion", async () => {
+  const staff = await createDashboardUser("STAFF", "0900000073");
+  const staffCookie = await authCookie(staff.id, "STAFF");
+  const doctorCookie = await authCookie(fixture.doctorOneUser.id, "DOCTOR");
+  const appointment = await createStoredAppointment({ status: "CHECKED_IN", bookingCode: "BK-AUTOPUB", phone: "0944000073", timeSlotId: fixture.slotOne.id });
+  await http.request(`/api/v1/dashboard/appointments/${appointment.id}/start`, { method: "PATCH", headers: dashboardHeaders(doctorCookie) });
+  const record = await prisma.medicalRecord.findUniqueOrThrow({ where: { appointmentId: appointment.id } });
+  const publishedAt = async () => (await prisma.medicalRecord.findUniqueOrThrow({ where: { id: record.id } })).status;
+  await http.request(`/api/v1/dashboard/appointments/${appointment.id}/complete`, { method: "PATCH", headers: dashboardHeaders(doctorCookie) });
+  const invoice = await prisma.invoice.findUniqueOrThrow({ where: { appointmentId: appointment.id } });
+  const pay = () => http.request(`/api/v1/dashboard/invoices/${invoice.id}/pay`, { method: "PATCH", headers: dashboardHeaders(staffCookie), body: { paymentMethod: "CASH" } });
+
+  // Đã thu nhưng hồ sơ chưa có kết luận: chưa công bố.
+  assert.equal((await pay()).status, 200);
+  assert.equal(await publishedAt(), "DRAFT");
+
+  // Bác sĩ ghi kết luận sau khi đã thu: hồ sơ tự mở cho người khám và người khám được báo đúng một lần.
+  const updated = await http.request(`/api/v1/dashboard/medical-records/${record.id}`, {
+    method: "PATCH",
+    headers: dashboardHeaders(doctorCookie),
+    body: { diagnosis: "Viêm họng cấp" },
+  });
+  assert.equal(updated.status, 200);
+  assert.equal(await publishedAt(), "PUBLISHED");
+  assert.equal(await prisma.notification.count({ where: { userId: appointment.patientId, type: "MEDICAL_RESULT_PUBLISHED" } }), 1);
+});
+
+test("a record with a conclusion is published right when the invoice is paid", async () => {
+  const staff = await createDashboardUser("STAFF", "0900000074");
+  const staffCookie = await authCookie(staff.id, "STAFF");
+  const doctorCookie = await authCookie(fixture.doctorOneUser.id, "DOCTOR");
+  const appointment = await createStoredAppointment({ status: "CHECKED_IN", bookingCode: "BK-AUTOPUB2", phone: "0944000074", timeSlotId: fixture.slotTwo.id });
+  await http.request(`/api/v1/dashboard/appointments/${appointment.id}/start`, { method: "PATCH", headers: dashboardHeaders(doctorCookie) });
+  const record = await prisma.medicalRecord.findUniqueOrThrow({ where: { appointmentId: appointment.id } });
+  await http.request(`/api/v1/dashboard/medical-records/${record.id}`, { method: "PATCH", headers: dashboardHeaders(doctorCookie), body: { treatment: "Nghỉ ngơi" } });
+  await http.request(`/api/v1/dashboard/appointments/${appointment.id}/complete`, { method: "PATCH", headers: dashboardHeaders(doctorCookie) });
+  // Chưa thu tiền: hồ sơ còn là bản nháp.
+  assert.equal((await prisma.medicalRecord.findUniqueOrThrow({ where: { id: record.id } })).status, "DRAFT");
+  const invoice = await prisma.invoice.findUniqueOrThrow({ where: { appointmentId: appointment.id } });
+  const paid = await http.request(`/api/v1/dashboard/invoices/${invoice.id}/pay`, { method: "PATCH", headers: dashboardHeaders(staffCookie), body: { paymentMethod: "CASH" } });
+  assert.equal(paid.status, 200);
+  assert.equal((await prisma.medicalRecord.findUniqueOrThrow({ where: { id: record.id } })).status, "PUBLISHED");
 });
 
 test("medicine charges are on the invoice from issue time, and dispensing needs payment with no way around it", async () => {
@@ -1364,4 +1414,22 @@ test("a VNPAY invoice needs a refund reference for the partial medicine refund, 
   });
   assert.equal(full.status, 409);
   assert.equal(full.body.code, "REFUND_PARTIAL_EXISTS");
+});
+
+test("the active queue lists unfinished visits by priority and leaves finished ones out", async () => {
+  const staff = await createDashboardUser("STAFF", "0900000075");
+  const staffCookie = await authCookie(staff.id, "STAFF");
+  const confirmed = await createStoredAppointment({ status: "CONFIRMED", bookingCode: "BK-Q-CONFIRMED", phone: "0944000081", timeSlotId: fixture.slotOne.id });
+  const checkedIn = await createStoredAppointment({ status: "CHECKED_IN", bookingCode: "BK-Q-CHECKEDIN", phone: "0944000082", timeSlotId: fixture.slotTwo.id });
+  const queue = await http.request("/api/v1/dashboard/appointments?view=ACTIVE", { headers: dashboardHeaders(staffCookie) });
+  assert.equal(queue.status, 200);
+  const codes = (queue.body.data.items as { bookingCode: string }[]).map((item) => item.bookingCode);
+  // Người đã đến chờ đứng trước lịch mới xác nhận, bất kể giờ khám.
+  assert.deepEqual(codes, [checkedIn.bookingCode, confirmed.bookingCode]);
+  assert.equal(queue.body.data.pagination.total, 2);
+
+  // Lịch đã xong rời khỏi hàng đợi.
+  await prisma.appointment.update({ where: { id: confirmed.id }, data: { status: "COMPLETED" } });
+  const after = await http.request("/api/v1/dashboard/appointments?view=ACTIVE", { headers: dashboardHeaders(staffCookie) });
+  assert.deepEqual((after.body.data.items as { bookingCode: string }[]).map((item) => item.bookingCode), [checkedIn.bookingCode]);
 });
