@@ -14,6 +14,7 @@ import type { PatientNotification } from "@/lib/patient-portal-types";
 
 import { type NotificationFilter } from "@/features/portal/api";
 import { useNotificationMutations, usePatientNotifications } from "@/features/portal/hooks";
+import { useMutationToast } from "@/components/patient/patient-toast";
 const typeConfig: Record<string, { label: string }> = {
   SYSTEM_ANNOUNCEMENT: { label: "Thông báo cơ sở khám" },
   APPOINTMENT_CONFIRMED: { label: "Lịch hẹn" },
@@ -62,13 +63,14 @@ export default function PatientNotificationsPage() {
   const [page, setPage] = useState(1);
   const query = usePatientNotifications(filter, page);
   const { markRead: markReadMutation, markAll: markAllMutation } = useNotificationMutations();
+  useMutationToast(markReadMutation, { fallbackError: "Chưa thể cập nhật trạng thái thông báo." });
+  useMutationToast(markAllMutation, { success: "Đã đánh dấu tất cả đã đọc.", fallbackError: "Chưa thể cập nhật trạng thái thông báo." });
 
   const items = query.data?.data || [];
   const meta = query.data?.meta;
   const unreadCount = meta?.unreadCount || 0;
   const totalPages = Math.max(meta?.totalPages || 1, 1);
   const isMutating = markReadMutation.isPending || markAllMutation.isPending;
-  const mutationError = markReadMutation.error || markAllMutation.error;
 
   const changeFilter = (next: NotificationFilter) => {
     setFilter(next);
@@ -107,7 +109,6 @@ export default function PatientNotificationsPage() {
         </button>
       </div>
 
-      {mutationError ? <p role="alert" className="text-sm text-[var(--public-danger)]">{mutationError instanceof Error ? mutationError.message : "Chưa thể cập nhật trạng thái thông báo."}</p> : null}
 
       {query.isLoading ? (
         <PatientPageLoading label="Đang tải thông báo..." />

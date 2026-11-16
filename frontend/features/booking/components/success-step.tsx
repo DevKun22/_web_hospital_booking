@@ -5,6 +5,7 @@ import { copyBookingCode } from "@/features/booking/components/copy-code";
 import { formatDayShort } from "@/features/booking/dates";
 import { doctorDisplayName } from "@/lib/doctor";
 import { formatCurrency } from "@/lib/format";
+import { appointmentStatusLabel } from "@/lib/appointment-status";
 
 const formatTime = (value: string) => value.slice(0, 5);
 
@@ -41,7 +42,7 @@ export function SuccessStep({ flow }: { flow: BookingFlow }) {
       <dl className="mt-5 divide-y divide-[var(--public-divider)] border-y border-[var(--public-divider)] text-sm">
         {doctor ? <Row label="Bác sĩ" value={doctorDisplayName(doctor)} /> : null}
         <Row label="Thời gian" value={`${formatTime(verified.startTime)} - ${formatTime(verified.endTime)}${day ? `, ${day}` : ""}`} />
-        <Row label="Trạng thái" value={verified.status === "CONFIRMED" ? "Đã xác nhận" : verified.status === "PENDING_CONFIRM" ? "Chờ xác nhận" : verified.status} />
+        <Row label="Trạng thái" value={appointmentStatusLabel[verified.status] ?? verified.status} />
         <Row label="Phí dự kiến" value={formatCurrency(verified.finalAmount)} strong />
       </dl>
       <p className="mt-3 text-xs leading-5 text-[var(--public-muted)]">Hóa đơn và thanh toán trực tuyến có sau khi bệnh viện hoàn tất khám.</p>

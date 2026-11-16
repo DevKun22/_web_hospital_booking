@@ -5,6 +5,7 @@ import { PatientEmptyState, PatientPageError, PatientPageHeader, PatientPageLoad
 import { usePatientSessions, useRevokeSession } from "@/features/portal/hooks";
 import { formatShortDateTime } from "@/lib/format";
 import type { PatientSession } from "@/lib/patient-portal-types";
+import { useMutationToast } from "@/components/patient/patient-toast";
 
 const deviceLabel = (session: PatientSession) =>
   session.deviceName || (session.platform === "web" ? "Trình duyệt Web" : session.platform === "android" ? "Thiết bị Android" : session.platform === "ios" ? "Thiết bị iOS" : "Thiết bị đăng nhập");
@@ -12,6 +13,7 @@ const deviceLabel = (session: PatientSession) =>
 export default function PatientSecurityPage() {
   const query = usePatientSessions();
   const revoke = useRevokeSession();
+  useMutationToast(revoke, { success: "Đã đăng xuất thiết bị.", fallbackError: "Không thể thu hồi phiên." });
 
   return (
     <div className="space-y-5">
@@ -55,7 +57,7 @@ export default function PatientSecurityPage() {
           ))}
         </ul>
       )}
-      {revoke.isError ? <p role="alert" className="text-sm text-[var(--public-danger)]">{revoke.error instanceof Error ? revoke.error.message : "Không thể thu hồi phiên."}</p> : null}
+      
     </div>
   );
 }
