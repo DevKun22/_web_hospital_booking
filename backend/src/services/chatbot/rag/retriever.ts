@@ -86,11 +86,13 @@ export class KnowledgeIndex {
     const candidates = this.docs
       .filter((doc) => !wanted || wanted.has(doc.chunk.sourceType))
       .map((doc) => {
-        const matchedWeight = knownWords.filter((word) => doc.wordSet.has(word)).reduce((sum, word) => sum + this.idf(word), 0);
+        const matchedWords = knownWords.filter((word) => doc.wordSet.has(word));
+        const matchedWeight = matchedWords.reduce((sum, word) => sum + this.idf(word), 0);
         return {
           doc,
           lexical: this.bm25(all, doc),
-          coverage: knownWeight ? matchedWeight / knownWeight : 0,
+          // Câu từ hai từ trở lên cần khớp ít nhất hai từ: một từ trùng ngẫu nhiên (như "thời" trong "thời hạn") không đủ.
+          coverage: knownWeight && matchedWords.length >= Math.min(2, words.length) ? matchedWeight / knownWeight : 0,
           similarity: options.queryVector && doc.chunk.embedding?.length ? cosine(options.queryVector, doc.chunk.embedding) : null,
         };
       });
