@@ -1,10 +1,3 @@
-import type {
-  AIChatbotOutput,
-  ChatBookingDraft,
-  ChatIntent,
-  SuggestedAction,
-} from "./chatbot.types.js";
-
 export const chatbotReplies = {
   appointmentLookupGuide:
     "Bạn có thể tra cứu lịch hẹn bằng mã đặt lịch và số điện thoại. Nếu quên mã lịch, hãy dùng tab quên mã để nhận OTP và xem lịch gần đây.",
@@ -57,9 +50,6 @@ export const chatbotReplies = {
     hasDoctors
       ? "Đây là một số bác sĩ phù hợp với chuyên khoa đã chọn."
       : "Hiện chưa tìm thấy bác sĩ phù hợp. Bạn có thể đổi chuyên khoa hoặc liên hệ nhân viên hỗ trợ.",
-
-  symptomNeedMoreInfo:
-    "Hệ thống đã ghi nhận triệu chứng của bạn. Bạn mô tả thêm vị trí đau, mức độ và thời gian xuất hiện để được gợi ý chuyên khoa phù hợp hơn.",
 
   triageMatched: (
     departmentName: string,
@@ -128,66 +118,3 @@ export const chatbotReplies = {
     "Hiện chưa tìm thấy bác sĩ hoặc lịch trống phù hợp với thông tin đã chọn. Bạn có thể đổi chuyên khoa, đổi ngày hoặc liên hệ nhân viên hỗ trợ.",
 
 };
-
-type FAQAnswer = {
-  question: string;
-  answer: string;
-  keywords: string[];
-};
-
-type FAQComposeInput = {
-  faq: FAQAnswer;
-  intent: ChatIntent;
-  confidence: number;
-  draft: ChatBookingDraft;
-};
-
-const buildKnowledgeActions = (intent: ChatIntent): SuggestedAction[] => {
-  if (intent === "PAYMENT_GUIDE" || intent === "APPOINTMENT_LOOKUP_GUIDE") {
-    return [
-      {
-        type: "LOOKUP_APPOINTMENT",
-        label: "Tra cứu lịch hẹn",
-        payload: {},
-      },
-      {
-        type: "CONTACT_STAFF",
-        label: "Liên hệ hỗ trợ",
-        payload: {},
-      },
-    ];
-  }
-
-  return [
-    {
-      type: "VIEW_DEPARTMENTS",
-      label: "Xem chuyên khoa",
-      payload: {},
-    },
-    {
-      type: "CONTACT_STAFF",
-      label: "Liên hệ hỗ trợ",
-      payload: {},
-    },
-  ];
-};
-
-export const composeFAQOutput = ({
-  faq,
-  intent,
-  confidence,
-  draft,
-}: FAQComposeInput): AIChatbotOutput => ({
-  reply: faq.answer,
-  intent,
-  state: "BOOKING_GUIDE",
-  nextStep:
-    intent === "PAYMENT_GUIDE"
-      ? "SHOW_PAYMENT_GUIDE"
-      : intent === "APPOINTMENT_LOOKUP_GUIDE"
-        ? "SHOW_BOOKING_GUIDE"
-        : "END",
-  confidence,
-  draft,
-  suggestedActions: buildKnowledgeActions(intent),
-});

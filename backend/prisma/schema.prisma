@@ -1469,12 +1469,38 @@ model ChatbotLog {
   response String
   intent   String?
 
+  // Nguồn tri thức (ChatKnowledgeChunk.id) mà câu trả lời đã dựa vào; rỗng nếu không dùng truy hồi.
+  sourceIds String[] @default([])
+
   createdAt DateTime @default(now())
 
   @@index([userId])
   @@index([sessionId])
   @@index([guestPhone])
   @@index([intent])
+}
+
+// Kho tri thức của chatbot (RAG): mỗi dòng là một đoạn văn dựng từ FAQ, chuyên khoa, bác sĩ, gói khám, chính sách hoặc
+// thông tin cơ sở. Vector nhúng lưu dạng mảng số; kho nhỏ nên so khớp trong bộ nhớ, không cần tiện ích vector của Postgres.
+model ChatKnowledgeChunk {
+  id String @id @default(uuid())
+
+  sourceType String // FAQ | DEPARTMENT | DOCTOR | PACKAGE | POLICY | SITE
+  sourceId   String
+
+  title   String
+  content String
+
+  // Băm nội dung: chỉ nhúng lại khi nội dung đổi.
+  contentHash    String
+  embedding      Float[] @default([])
+  embeddingModel String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([sourceType, sourceId])
+  @@index([sourceType])
 }
 
 model ChatbotSession {

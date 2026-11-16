@@ -14,6 +14,7 @@ const logSelect = {
   message: true,
   response: true,
   intent: true,
+  sourceIds: true,
   createdAt: true,
   user: {
     select: {

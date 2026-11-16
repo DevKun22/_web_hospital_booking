@@ -104,6 +104,12 @@ const loadCached = async <T>(key: string, loader: () => Promise<T>) => {
 };
 
 class ChatbotContextService {
+  /** Xóa bộ nhớ đệm danh mục (khoa, gói, bác sĩ, lịch trống) để lần sau đọc lại từ DB. */
+  invalidate() {
+    contextCache.clear();
+    nluCatalogCache = undefined;
+  }
+
   async loadNLUCatalog(): Promise<NLUCatalog> {
     if (nluCatalogCache && nluCatalogCache.expiresAt > Date.now()) {
       return nluCatalogCache.value;

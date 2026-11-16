@@ -13,12 +13,12 @@ const getAIRequestTimeoutMs = () => getRuntimeConfig().chatbot.aiTimeoutMs;
 // - GEMINI_API_KEY: Gemini Developer API (generativelanguage.googleapis.com).
 // - Nếu không có, dùng proxy Firebase AI Logic với FIREBASE_API_KEY +
 //   FIREBASE_PROJECT_ID (cùng endpoint mà SDK firebase/ai đã dùng trước đây).
-const resolveEndpoint = (model: string) => {
+export const resolveGeminiEndpoint = (model: string, method: "generateContent" | "embedContent" | "batchEmbedContents" = "generateContent") => {
   const config = getRuntimeConfig().chatbot;
   const geminiKey = config.geminiApiKey;
   if (geminiKey) {
     return {
-      url: `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
+      url: `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:${method}`,
       apiKey: geminiKey,
     };
   }
@@ -32,7 +32,7 @@ const resolveEndpoint = (model: string) => {
     );
   }
   return {
-    url: `https://firebasevertexai.googleapis.com/v1beta/projects/${encodeURIComponent(projectId)}/models/${encodeURIComponent(model)}:generateContent`,
+    url: `https://firebasevertexai.googleapis.com/v1beta/projects/${encodeURIComponent(projectId)}/models/${encodeURIComponent(model)}:${method}`,
     apiKey: firebaseKey,
   };
 };
@@ -44,7 +44,7 @@ type GenerateContentResponse = {
 
 class GeminiAdapter implements AIAdapter {
   async generateReply(input: GenerateReplyInput) {
-    const endpoint = resolveEndpoint(getModel(input.model));
+    const endpoint = resolveGeminiEndpoint(getModel(input.model));
 
     try {
       const response = await fetch(endpoint.url, {

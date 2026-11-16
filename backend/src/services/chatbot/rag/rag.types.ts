@@ -1,0 +1,34 @@
+// Kiểu dùng chung của kho tri thức chatbot (RAG).
+
+const KNOWLEDGE_SOURCE_TYPES = ["FAQ", "DEPARTMENT", "DOCTOR", "PACKAGE", "POLICY", "SITE"] as const;
+export type KnowledgeSourceType = (typeof KNOWLEDGE_SOURCE_TYPES)[number];
+
+/** Một đoạn tri thức dựng từ dữ liệu nghiệp vụ, chưa nhúng. */
+export type KnowledgeDoc = {
+  sourceType: KnowledgeSourceType;
+  sourceId: string;
+  title: string;
+  content: string;
+};
+
+/** Đoạn đã lưu trong kho. `embedding` null khi chưa nhúng được (chỉ tìm theo từ). */
+export type KnowledgeChunk = KnowledgeDoc & {
+  id: string;
+  embedding: number[] | null;
+};
+
+export type RetrievedChunk = {
+  chunk: KnowledgeChunk;
+  /** Điểm xếp hạng sau khi trộn tìm theo từ và theo ngữ nghĩa (RRF). */
+  score: number;
+  /** Tỉ lệ từ của câu hỏi xuất hiện trong đoạn, 0..1. */
+  coverage: number;
+  /** Độ giống cosine với câu hỏi; null khi không có vector. */
+  similarity: number | null;
+};
+
+export type ChatbotSource = {
+  id: string;
+  type: KnowledgeSourceType;
+  title: string;
+};
