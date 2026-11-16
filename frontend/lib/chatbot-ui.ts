@@ -54,9 +54,6 @@ const statusText: Record<string, string> = {
   EMERGENCY_CARE: "Cần hỗ trợ khẩn cấp",
 };
 
-const stripActionPrefix = (label: string) =>
-  label.replace(/^(Xem|Chọn|Đổi|Mở|Tra cứu|Liên hệ)\s+/i, "").trim();
-
 export const getActionLoadingText = (action?: ChatbotSuggestedAction) =>
   action
     ? actionLoadingText[action.type] || "Đang xử lý lựa chọn..."
@@ -76,43 +73,6 @@ export const getFlowStatusText = (
   const key = state || nextStep || "";
   return statusText[key] || "";
 };
-
-export const getActionEventMessage = (action: ChatbotSuggestedAction) => {
-  const label = stripActionPrefix(action.label);
-
-  switch (action.type) {
-    case "VIEW_DEPARTMENT":
-    case "SELECT_DEPARTMENT":
-      return `Đã chọn chuyên khoa: ${label}`;
-    case "VIEW_PACKAGE":
-    case "SELECT_PACKAGE":
-      return `Đã chọn gói khám: ${label}`;
-    case "VIEW_DOCTOR":
-    case "SELECT_DOCTOR":
-      return `Đã chọn bác sĩ: ${label}`;
-    case "VIEW_AVAILABLE_SLOTS":
-    case "SELECT_SLOT":
-      return `Đã chọn khung giờ: ${label}`;
-    case "LOOKUP_APPOINTMENT":
-      return "Mở tra cứu lịch hẹn";
-    case "START_BOOKING":
-      return "Mở form đặt lịch";
-    case "CONTACT_STAFF":
-      return "Mở form tư vấn";
-    case "CHANGE_DATE":
-      return "Bạn muốn đổi ngày khám";
-    case "CHANGE_DOCTOR":
-      return "Bạn muốn đổi bác sĩ";
-    case "EMERGENCY_ADVICE":
-      return "Cần hỗ trợ khẩn cấp";
-    default:
-      return `Đã chọn: ${action.label}`;
-  }
-};
-
-export const getActionEventRole = (
-  action: ChatbotSuggestedAction,
-): ChatMessageRole => (action.type === "EMERGENCY_ADVICE" ? "alert" : "system");
 
 export const getActionRenderKey = (
   action: ChatbotSuggestedAction,
