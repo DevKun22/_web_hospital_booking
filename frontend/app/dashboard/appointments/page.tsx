@@ -2,6 +2,7 @@
 
 import { type FormEvent, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   DsButton,
@@ -26,6 +27,7 @@ import { VietnamDateInput } from "@/components/ui/vietnam-date-input";
 import { appointmentStatusLabel, appointmentStatusTone } from "@/lib/appointment-status";
 import { apiRequest } from "@/lib/api";
 import { confirmCompleteWithRecordCheck } from "@/lib/exam-completion-guard";
+import { examRecordHref } from "@/lib/exam-navigation";
 import { useAuth } from "@/lib/auth";
 import {
   useDashboardAppointmentDoctors,
@@ -125,6 +127,7 @@ const mainStatusTabs = [
 
 export default function AppointmentsPage() {
   const { user } = useAuth();
+  const router = useRouter();
   const queryClient = useQueryClient();
   const [status, setStatus] = useState(ACTIVE_TAB);
   const [doctorId, setDoctorId] = useState("");
@@ -248,6 +251,8 @@ export default function AppointmentsPage() {
       setSelected(updated);
       setNotice(message);
       await invalidateAppointments();
+      // Bác sĩ bắt đầu khám thì vào thẳng hồ sơ khám của ca đó.
+      if (path === "/start" && isDoctor) router.push(examRecordHref(appointment.bookingCode));
       return true;
     } catch (err) {
       setError(err instanceof Error ? err.message : "Không thực hiện được thao tác");

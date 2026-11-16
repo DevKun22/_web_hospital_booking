@@ -4,6 +4,10 @@ type RecordLookup = {
   items: Array<{ diagnosis: string | null; treatment: string | null }>;
 };
 
+/** Hộp hỏi lại khi hồ sơ chưa có chẩn đoán hoặc hướng điều trị. Trả về true khi bác sĩ vẫn muốn hoàn thành. */
+export const confirmCompleteWithoutConclusion = (bookingCode: string) =>
+  window.confirm(`Lịch ${bookingCode} chưa có chẩn đoán hoặc hướng điều trị trong hồ sơ khám.\n\nBạn vẫn muốn hoàn thành lịch khám này?`);
+
 /**
  * Cảnh báo mềm trước khi hoàn thành lịch khám: nếu chưa có hồ sơ hoặc hồ sơ chưa có
  * chẩn đoán/hướng điều trị thì hỏi lại bác sĩ. Không chặn: bác sĩ vẫn hoàn thành được.
@@ -20,8 +24,5 @@ export async function confirmCompleteWithRecordCheck(bookingCode: string): Promi
   } catch {
     return true;
   }
-  if (!missing) return true;
-  return window.confirm(
-    `Lịch ${bookingCode} chưa có chẩn đoán hoặc hướng điều trị trong hồ sơ khám.\n\nBạn vẫn muốn hoàn thành lịch khám này?`,
-  );
+  return missing ? confirmCompleteWithoutConclusion(bookingCode) : true;
 }

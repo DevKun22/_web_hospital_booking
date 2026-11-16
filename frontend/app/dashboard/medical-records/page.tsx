@@ -1,7 +1,6 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -23,6 +22,7 @@ import {
   type DsTone,
   useActionToast,
 } from "@/components/ds";
+import { PrescriptionEditor, confirmShortage } from "@/components/doctor/prescription-editor";
 import { VietnamDateInput } from "@/components/ui/vietnam-date-input";
 import { apiRequest, apiUrl, uploadMedicalFile } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
@@ -32,7 +32,9 @@ import {
   useDashboardMedicalRecordDoctors,
   useDashboardMedicalRecords,
 } from "@/lib/dashboard-medical-records-query";
+import { useDashboardPrescription } from "@/lib/dashboard-prescriptions-query";
 import { formatVietnamDate, getVietnamDateInput } from "@/lib/date";
+import { confirmCompleteWithoutConclusion } from "@/lib/exam-completion-guard";
 import { useDebouncedValue } from "@/lib/use-debounced-value";
 
 import { can } from "@/lib/permissions";
@@ -219,14 +221,19 @@ export default function MedicalRecordsPage() {
   const doctors = doctorsQuery.data?.items ?? [];
   const pagination = recordsQuery.data?.pagination ?? { page, limit: 20, total: 0, totalPages: 1 };
   const selected = selectedRecordQuery.data ?? selectedSnapshot;
-  const queryError = recordsQuery.error || doctorsQuery.error || selectedRecordQuery.error;
+  // Đơn thuốc của hồ sơ đang mở, soạn ngay trong khung hồ sơ (không phải sang trang Đơn thuốc).
+  const prescriptionQuery = useDashboardPrescription(selected?.prescriptionRecord?.id);
+  const prescription = prescriptionQuery.data ?? null;
+  const queryError = recordsQuery.error || doctorsQuery.error || selectedRecordQuery.error || prescriptionQuery.error;
   const queryErrorMessage = queryError ? (queryError instanceof Error ? queryError.message : "Không tải được dữ liệu hồ sơ khám") : "";
   const visibleError = error || queryErrorMessage;
   // Kết quả thao tác hiện thành thông báo nổi ngay chỗ đang làm việc (không nằm ở đầu trang).
   useActionToast({ notice, error: visibleError, clear: () => { setNotice(""); setError(""); } });
 
+  // Mở từ liên kết (?recordCode=MÃ HỒ SƠ hoặc MÃ LỊCH): lọc đúng hồ sơ đó và mở sẵn khung làm việc.
+  const linkedRecordCode = searchParams.get("recordCode")?.trim().toUpperCase() ?? "";
+  const [openedLink, setOpenedLink] = useState("");
   useEffect(() => {
-    const linkedRecordCode = searchParams.get("recordCode")?.trim().toUpperCase();
     if (!linkedRecordCode) return;
 
     const timeoutId = window.setTimeout(() => {
@@ -235,7 +242,7 @@ export default function MedicalRecordsPage() {
       setPage(1);
     }, 0);
     return () => window.clearTimeout(timeoutId);
-  }, [searchParams]);
+  }, [linkedRecordCode]);
 
   useEffect(() => {
     if (!notice && !error) return;
@@ -275,6 +282,17 @@ export default function MedicalRecordsPage() {
   };
 
   const closeDetail = () => setSelected(null);
+
+  useEffect(() => {
+    if (!linkedRecordCode || openedLink === linkedRecordCode) return;
+    const match = records.find((record) => record.recordCode.toUpperCase() === linkedRecordCode || record.appointment.bookingCode.toUpperCase() === linkedRecordCode);
+    if (!match) return;
+    const timeoutId = window.setTimeout(() => {
+      setOpenedLink(linkedRecordCode);
+      openDetail(match);
+    }, 0);
+    return () => window.clearTimeout(timeoutId);
+  });
 
   const dirty = Boolean(selected) && JSON.stringify(recordForm) !== JSON.stringify(selected ? toRecordForm(selected) : emptyRecordForm);
 
@@ -371,6 +389,37 @@ export default function MedicalRecordsPage() {
       await invalidateMedicalRecords();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Không tạo được đơn thuốc từ hồ sơ");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // "Kết thúc khám": lưu hồ sơ nếu có thay đổi, phát hành đơn nháp có thuốc, rồi hoàn thành lịch (hóa đơn tự tạo ở máy chủ).
+  // Mỗi bước dùng lại API sẵn có; dừng ở bước nào lỗi thì các bước trước vẫn giữ nguyên và bấm lại để làm tiếp.
+  const finishExam = async () => {
+    if (!selected) return;
+    setBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      let record = selected;
+      if (dirty) {
+        record = await apiRequest<MedicalRecord>(`/dashboard/medical-records/${selected.id}`, { method: "PATCH", body: buildRecordPayload(recordForm) });
+        setSelected(record);
+        setRecordForm(toRecordForm(record));
+      }
+      if (prescription && prescription.status === "DRAFT" && prescription.items.length > 0) {
+        const { proceed, acknowledgeShortage } = confirmShortage(prescription);
+        if (!proceed) return;
+        await apiRequest(`/dashboard/prescriptions/${prescription.id}/issue`, { method: "PATCH", body: acknowledgeShortage ? { acknowledgeShortage: true } : undefined });
+      }
+      if (!record.diagnosis?.trim() && !record.treatment?.trim() && !confirmCompleteWithoutConclusion(record.appointment.bookingCode)) return;
+      await apiRequest(`/dashboard/appointments/${record.appointment.id}/complete`, { method: "PATCH" });
+      setNotice("Đã kết thúc khám. Hóa đơn được tạo tự động, người khám sẽ thấy kết quả sau khi thanh toán.");
+      await Promise.all([refreshSelectedRecord(record.id), invalidateMedicalRecords()]);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Không kết thúc được ca khám");
+      await invalidateMedicalRecords();
     } finally {
       setBusy(false);
     }
@@ -598,19 +647,13 @@ export default function MedicalRecordsPage() {
 
       <div className="ds-savebar" style={{ borderTop: 0, position: "static", paddingTop: 12 }}>
         {selected.status !== "PUBLISHED" && canEdit ? (
-          <DsButton variant="primary" loading={busy} onClick={() => void simpleRecordAction(selected, "/publish", "Đã công bố kết quả cho người khám")}>
-            Công bố cho người khám
+          <DsButton
+            disabled={busy}
+            title="Hồ sơ tự công bố khi hóa đơn đã thanh toán; bấm đây để công bố sớm hơn"
+            onClick={() => void simpleRecordAction(selected, "/publish", "Đã công bố kết quả cho người khám")}
+          >
+            Công bố sớm
           </DsButton>
-        ) : null}
-        {canCreatePrescription && !selected.prescriptionRecord ? (
-          <DsButton loading={busy} onClick={() => void createPrescriptionFromRecord(selected)}>
-            Tạo đơn thuốc
-          </DsButton>
-        ) : null}
-        {selected.prescriptionRecord ? (
-          <Link href="/dashboard/prescriptions" className="ds-btn">
-            Mở đơn thuốc
-          </Link>
         ) : null}
         <span style={{ flex: 1 }} />
         {canArchive && selected.status !== "ARCHIVED" ? (
@@ -790,54 +833,48 @@ export default function MedicalRecordsPage() {
               </form>
             ) : null}
           </div>
-
-          <div className="ds-card">
-            <div className="ds-card__head">
-              <h3>Trước khi công bố</h3>
-            </div>
-            <div className="ds-card__body">
-              <div className="ds-check">
-                <span className={`ds-step__n${recordForm.diagnosis.trim() ? " is-done" : ""}`} aria-hidden="true">
-                  {recordForm.diagnosis.trim() ? "✓" : "!"}
-                </span>
-                <div>
-                  <strong>{recordForm.diagnosis.trim() ? "Có chẩn đoán" : "Chưa có chẩn đoán"}</strong>
-                </div>
-              </div>
-              <div className="ds-check">
-                <span className={`ds-step__n${hasFile || selected.labResults.length > 0 ? " is-done" : ""}`} aria-hidden="true">
-                  {hasFile || selected.labResults.length > 0 ? "✓" : "–"}
-                </span>
-                <div>
-                  <strong>{hasFile || selected.labResults.length > 0 ? "Có kết quả đính kèm" : "Chưa có kết quả đính kèm"}</strong>
-                  <small>Không bắt buộc.</small>
-                </div>
-              </div>
-              <div className="ds-check">
-                <span className={`ds-step__n${selected.prescriptionRecord ? " is-done" : ""}`} aria-hidden="true">
-                  {selected.prescriptionRecord ? "✓" : "–"}
-                </span>
-                <div>
-                  <strong>{selected.prescriptionRecord ? "Đã có đơn thuốc" : "Chưa có đơn thuốc"}</strong>
-                  <small>Có thể công bố trước, kê đơn sau.</small>
-                </div>
-              </div>
-              <p className="ds-hint" style={{ margin: 0 }}>
-                Công bố sẽ gửi thông báo cho người khám và mở hồ sơ cho họ xem.
-              </p>
-            </div>
-          </div>
         </div>
       </div>
+
+      {canCreatePrescription || selected.prescriptionRecord ? (
+        <section aria-label="Đơn thuốc" style={{ borderTop: "1px solid var(--ds-line)" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "14px 16px 0" }}>
+            <h3 style={{ margin: 0, fontSize: 15 }}>Đơn thuốc</h3>
+            {prescription ? (
+              <DsStatusPill tone={prescription.status === "ISSUED" ? "good" : prescription.status === "CANCELLED" ? "bad" : "warn"}>
+                {prescription.status === "ISSUED" ? "Đã phát hành" : prescription.status === "CANCELLED" ? "Đã huỷ" : "Bản nháp"}
+              </DsStatusPill>
+            ) : null}
+          </div>
+          {prescription ? (
+            <PrescriptionEditor key={prescription.id} prescription={prescription} canEdit={canCreatePrescription} onChange={() => void refreshSelectedRecord(selected.id)} />
+          ) : selected.prescriptionRecord ? (
+            <p style={{ margin: 0, padding: 16, color: "var(--ds-muted)" }}>Đang tải đơn thuốc...</p>
+          ) : canCreatePrescription && selected.status !== "ARCHIVED" && ["IN_PROGRESS", "COMPLETED"].includes(selected.appointment.status) ? (
+            <div style={{ padding: 16 }}>
+              <DsButton loading={busy} onClick={() => void createPrescriptionFromRecord(selected)}>
+                Kê đơn thuốc
+              </DsButton>
+            </div>
+          ) : (
+            <p style={{ margin: 0, padding: 16, color: "var(--ds-muted)" }}>Chưa có đơn thuốc.</p>
+          )}
+        </section>
+      ) : null}
 
       <div className="ds-savebar">
         <span className="ds-savebar__msg">{dirty ? <DsStatusPill tone="warn">Có thay đổi chưa lưu</DsStatusPill> : "Mọi thay đổi đã được lưu"}</span>
         <DsButton disabled={!dirty || busy} onClick={() => selected && setRecordForm(toRecordForm(selected))}>
           Hủy thay đổi
         </DsButton>
-        <DsButton type="submit" form="record-form" variant="primary" disabled={!dirty || busy || uploadingRecordFile || !canEdit}>
+        <DsButton type="submit" form="record-form" variant={selected.appointment.status === "IN_PROGRESS" ? "default" : "primary"} disabled={!dirty || busy || uploadingRecordFile || !canEdit}>
           Lưu hồ sơ
         </DsButton>
+        {selected.appointment.status === "IN_PROGRESS" && canEdit && isDoctor ? (
+          <DsButton variant="primary" loading={busy} disabled={uploadingRecordFile} onClick={() => void finishExam()}>
+            Kết thúc khám
+          </DsButton>
+        ) : null}
       </div>
     </DsPane>
   ) : null;
