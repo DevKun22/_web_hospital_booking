@@ -22,6 +22,7 @@ import {
   DsToolbar,
   type DsColumn,
   type DsTone,
+  useActionToast,
 } from "@/components/ds";
 import { MedicinePicker, availabilityLabel, availabilityTone, medicineDisplayName } from "@/components/dashboard/medicine-picker";
 import { PrintButton, PrintablePrescription } from "@/components/dashboard/printable-documents";
@@ -150,6 +151,8 @@ export default function PrescriptionsPage() {
   const queryError = prescriptionsQuery.error || doctorsQuery.error || selectedPrescriptionQuery.error;
   const queryErrorMessage = queryError ? (queryError instanceof Error ? queryError.message : "Không tải được dữ liệu đơn thuốc") : "";
   const visibleError = error || queryErrorMessage;
+  // Kết quả thao tác hiện thành thông báo nổi ngay chỗ đang làm việc (không nằm ở đầu trang).
+  useActionToast({ notice, error: visibleError, clear: () => { setNotice(""); setError(""); } });
   const isDraft = selected?.status === "DRAFT";
   const editable = canEdit && isDraft;
 
@@ -512,7 +515,7 @@ export default function PrescriptionsPage() {
         </DsField>
         <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
           <DsButton onClick={closeDetail}>Hủy</DsButton>
-          <DsButton type="submit" variant="primary" disabled={busy}>
+          <DsButton type="submit" variant="primary" loading={busy}>
             {busy ? "Đang tạo..." : "Tạo đơn"}
           </DsButton>
         </div>
@@ -559,13 +562,13 @@ export default function PrescriptionsPage() {
           confirmCancel ? (
             <>
               <span style={{ fontSize: 13 }}>Huỷ đơn này?</span>
-              <DsButton variant="danger" disabled={busy} onClick={() => void simpleAction(selected, "/cancel", "Đã huỷ đơn thuốc")}>
+              <DsButton variant="danger" loading={busy} onClick={() => void simpleAction(selected, "/cancel", "Đã huỷ đơn thuốc")}>
                 Huỷ đơn
               </DsButton>
               <DsButton onClick={() => setConfirmCancel(false)}>Giữ lại</DsButton>
             </>
           ) : (
-            <DsButton variant="ghost" disabled={busy} onClick={() => setConfirmCancel(true)}>
+            <DsButton variant="ghost" loading={busy} onClick={() => setConfirmCancel(true)}>
               Huỷ đơn
             </DsButton>
           )
@@ -632,10 +635,10 @@ export default function PrescriptionsPage() {
                   {item.fulfillmentStatus === "DISPENSED" ? <small style={{ color: "var(--ds-muted)" }}>Đã cấp tại cơ sở.</small> : null}
                   {canEdit && selected?.status === "ISSUED" && selected.dispenseStatus !== "DISPENSED" && item.fulfillmentStatus === "PENDING" && item.medicineId ? (
                     <span style={{ display: "flex", gap: 8, marginTop: 6, flexWrap: "wrap" }}>
-                      <DsButton variant="ghost" disabled={busy} onClick={() => void resolveItem(selected, item, "OUT_OF_STOCK")}>
+                      <DsButton variant="ghost" loading={busy} onClick={() => void resolveItem(selected, item, "OUT_OF_STOCK")}>
                         Kho hết thuốc này
                       </DsButton>
-                      <DsButton variant="ghost" disabled={busy} onClick={() => void resolveItem(selected, item, "OUTSIDE")}>
+                      <DsButton variant="ghost" loading={busy} onClick={() => void resolveItem(selected, item, "OUTSIDE")}>
                         Người khám tự mua
                       </DsButton>
                     </span>
@@ -643,7 +646,7 @@ export default function PrescriptionsPage() {
                   {deleteItemTarget?.id === item.id ? (
                     <div style={{ display: "flex", gap: 8, marginTop: 8, alignItems: "center", flexWrap: "wrap" }}>
                       <span style={{ fontSize: 13 }}>Xoá thuốc này khỏi đơn?</span>
-                      <DsButton variant="danger" disabled={busy} onClick={() => void deleteItem()}>
+                      <DsButton variant="danger" loading={busy} onClick={() => void deleteItem()}>
                         Xoá
                       </DsButton>
                       <DsButton onClick={() => setDeleteItemTarget(null)}>Giữ lại</DsButton>
@@ -724,7 +727,7 @@ export default function PrescriptionsPage() {
                 </DsField>
                 <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
                   <DsButton onClick={resetItemEditor}>Hủy</DsButton>
-                  <DsButton type="submit" variant="primary" disabled={busy}>
+                  <DsButton type="submit" variant="primary" loading={busy}>
                     {busy ? "Đang lưu..." : editingItem ? "Lưu thuốc" : "Thêm thuốc"}
                   </DsButton>
                 </div>
@@ -798,8 +801,6 @@ export default function PrescriptionsPage() {
         }
       />
       <div style={{ display: "grid", gap: 12, marginBottom: 16 }}>
-        {visibleError ? <DsNotice tone="bad">{visibleError}</DsNotice> : null}
-        {notice ? <DsNotice tone="good">{notice}</DsNotice> : null}
       </div>
       <DsSplit wide list={list} pane={detailPane ?? createPane} />
     </>

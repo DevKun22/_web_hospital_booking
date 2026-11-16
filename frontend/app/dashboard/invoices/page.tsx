@@ -22,6 +22,7 @@ import {
   DsToolbar,
   type DsColumn,
   type DsTone,
+  useActionToast,
 } from "@/components/ds";
 import { ExportCsvButton } from "@/components/dashboard/export-csv-button";
 import { MedicineRefundPanel } from "@/components/dashboard/medicine-refund-panel";
@@ -48,9 +49,10 @@ type InsuranceForm = {
   note: string;
 };
 
+// "Chưa thanh toán" đứng đầu và là tab mặc định: đó là việc của thu ngân; hóa đơn tự tạo khi bác sĩ hoàn thành khám.
 const statusTabs = [
-  { id: "", label: "Tất cả" },
   { id: "UNPAID", label: "Chưa thanh toán" },
+  { id: "", label: "Tất cả" },
   { id: "PAID", label: "Đã thanh toán" },
   { id: "CANCELLED", label: "Đã hủy" },
   { id: "REFUNDED", label: "Đã hoàn tiền" },
@@ -213,11 +215,12 @@ function InsuranceFields({
 export default function InvoicesPage() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const [status, setStatus] = useState("");
+  const [status, setStatus] = useState("UNPAID");
   const [paymentMethod, setPaymentMethod] = useState("");
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [busy, setBusy] = useState(false);
+  const [busyId, setBusyId] = useState("");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [creating, setCreating] = useState(false);
@@ -265,6 +268,8 @@ export default function InvoicesPage() {
   const queryError = invoicesQuery.error || selectedInvoiceQuery.error || appointmentPreviewQuery.error;
   const queryErrorMessage = queryError ? (queryError instanceof Error ? queryError.message : "Không tải được dữ liệu hóa đơn") : "";
   const visibleError = error || queryErrorMessage;
+  // Kết quả thao tác hiện thành thông báo nổi ngay chỗ đang làm việc (không nằm ở đầu trang).
+  useActionToast({ notice, error: visibleError, clear: () => { setNotice(""); setError(""); } });
   const appointmentReadyForInvoice = Boolean(appointmentPreview && appointmentPreview.status === "COMPLETED" && !appointmentPreview.invoice);
   const previewSettled = Boolean(appointmentLookupKey) && appointmentLookupKey === appointmentId.trim().toUpperCase() && !appointmentPreviewQuery.isFetching;
 
@@ -392,6 +397,31 @@ export default function InvoicesPage() {
       setError(err instanceof Error ? err.message : "Không tạo được hóa đơn");
     } finally {
       setBusy(false);
+    }
+  };
+
+  // Thu tiền mặt ngay từ dòng danh sách: bấm lần một để chọn, bấm lần hai (trong 4 giây) để xác nhận, tránh thu nhầm.
+  const [quickPayId, setQuickPayId] = useState("");
+  const quickPayCash = async (invoice: Invoice) => {
+    if (quickPayId !== invoice.id) {
+      setQuickPayId(invoice.id);
+      window.setTimeout(() => setQuickPayId((current) => (current === invoice.id ? "" : current)), 4000);
+      return;
+    }
+    setQuickPayId("");
+    setBusy(true);
+    setBusyId(invoice.id);
+    setError("");
+    setNotice("");
+    try {
+      await apiRequest<Invoice>(`/dashboard/invoices/${invoice.id}/pay`, { method: "PATCH", body: { paymentMethod: "CASH" } });
+      setNotice(`Đã thu ${formatCurrency(invoice.finalAmount)} tiền mặt · ${invoice.invoiceCode}`);
+      await invalidateInvoices();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Không thanh toán được hóa đơn");
+    } finally {
+      setBusy(false);
+      setBusyId("");
     }
   };
 
@@ -577,12 +607,15 @@ export default function InvoicesPage() {
       cell: (row) =>
         row.status === "UNPAID" ? (
           <DsButton
+            variant={quickPayId === row.id ? "primary" : "default"}
+            disabled={busy}
+            loading={busy && busyId === row.id}
             onClick={(event) => {
               event.stopPropagation();
-              startAction("pay", row);
+              void quickPayCash(row);
             }}
           >
-            Thu tiền
+            {quickPayId === row.id ? `Xác nhận thu ${formatCurrency(row.finalAmount)}` : "Thu tiền mặt"}
           </DsButton>
         ) : null,
     },
@@ -764,21 +797,21 @@ export default function InvoicesPage() {
       <div className="ds-savebar" style={{ borderTop: 0, position: "static", paddingTop: 12 }}>
         {selected.status === "UNPAID" ? (
           <>
-            <DsButton variant="primary" disabled={busy} onClick={() => startAction("pay", selected)}>
+            <DsButton variant="primary" loading={busy} onClick={() => startAction("pay", selected)}>
               Ghi nhận thu tại quầy
             </DsButton>
-            <DsButton disabled={busy} onClick={() => startAction("adjust", selected)}>
+            <DsButton loading={busy} onClick={() => startAction("adjust", selected)}>
               Chỉnh giảm BHYT
             </DsButton>
           </>
         ) : null}
         {selected.status === "CANCELLED" ? (
-          <DsButton disabled={busy} onClick={() => startAction("adjust", selected)}>
+          <DsButton loading={busy} onClick={() => startAction("adjust", selected)}>
             Chỉnh và mở lại
           </DsButton>
         ) : null}
         {canRefund && selected.status === "PAID" ? (
-          <DsButton disabled={busy} onClick={() => startAction("refund", selected)}>
+          <DsButton loading={busy} onClick={() => startAction("refund", selected)}>
             Hoàn tiền
           </DsButton>
         ) : null}
@@ -786,7 +819,7 @@ export default function InvoicesPage() {
         <PrintableInvoice invoice={selected} />
         <span style={{ flex: 1 }} />
         {selected.status === "UNPAID" ? (
-          <DsButton variant="ghost" disabled={busy} onClick={() => startAction("cancel", selected)}>
+          <DsButton variant="ghost" loading={busy} onClick={() => startAction("cancel", selected)}>
             Hủy hóa đơn
           </DsButton>
         ) : null}
@@ -825,7 +858,7 @@ export default function InvoicesPage() {
                 <DsKeyValue items={[{ label: "Số tiền cần thu", value: <strong>{formatCurrency(selected.finalAmount)}</strong> }]} />
                 <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
                   <DsButton onClick={() => setActionTarget(null)}>Đóng</DsButton>
-                  <DsButton variant="primary" disabled={busy} onClick={() => void payInvoice()}>
+                  <DsButton variant="primary" loading={busy} onClick={() => void payInvoice()}>
                     Xác nhận đã thu
                   </DsButton>
                 </div>
@@ -844,7 +877,7 @@ export default function InvoicesPage() {
                 </p>
                 <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
                   <DsButton onClick={() => setActionTarget(null)}>Giữ hóa đơn</DsButton>
-                  <DsButton variant="danger" disabled={busy} onClick={() => void cancelInvoice()}>
+                  <DsButton variant="danger" loading={busy} onClick={() => void cancelInvoice()}>
                     Xác nhận hủy
                   </DsButton>
                 </div>
@@ -904,7 +937,7 @@ export default function InvoicesPage() {
                       Hoàn tự động qua VNPay
                     </DsButton>
                   ) : null}
-                  <DsButton variant="primary" disabled={busy} onClick={() => void refundInvoice()}>
+                  <DsButton variant="primary" loading={busy} onClick={() => void refundInvoice()}>
                     Hoàn tiền
                   </DsButton>
                 </div>
@@ -1044,8 +1077,6 @@ export default function InvoicesPage() {
         }
       />
       <div style={{ display: "grid", gap: 12, marginBottom: 16 }}>
-        {visibleError ? <DsNotice tone="bad">{visibleError}</DsNotice> : null}
-        {notice ? <DsNotice tone="good">{notice}</DsNotice> : null}
       </div>
       <DsSplit wide list={list} pane={detailPane ?? createPane} />
     </>

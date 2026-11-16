@@ -10,7 +10,6 @@ import {
   DsField,
   DsInput,
   DsKeyValue,
-  DsNotice,
   DsPageHeader,
   DsPane,
   DsPanel,
@@ -21,6 +20,7 @@ import {
   DsTextarea,
   DsToolbar,
   type DsColumn,
+  useActionToast,
 } from "@/components/ds";
 import { VietnamDateInput } from "@/components/ui/vietnam-date-input";
 import { appointmentStatusLabel, appointmentStatusTone } from "@/lib/appointment-status";
@@ -30,7 +30,6 @@ import { useAuth } from "@/lib/auth";
 import {
   useDashboardAppointmentDoctors,
   useDashboardAppointments,
-  useDashboardPendingInvoiceAppointments,
 } from "@/lib/dashboard-appointments-query";
 import { formatVietnamDate, getVietnamDateInput, getVietnamYesterdayDateInput } from "@/lib/date";
 import { can } from "@/lib/permissions";
@@ -112,7 +111,10 @@ const otherStatuses: { value: AppointmentStatus; label: string }[] = [
   { value: "CANCELLED_BY_ADMIN", label: "Quản trị hủy" },
 ];
 
+// "Cần xử lý" là hàng đợi mặc định: ca đang khám, người đã đến chờ, lịch đã xác nhận, lịch chờ xác nhận theo thứ tự ưu tiên.
+const ACTIVE_TAB = "ACTIVE";
 const mainStatusTabs = [
+  { id: ACTIVE_TAB, label: "Cần xử lý" },
   { id: "all", label: "Tất cả" },
   { id: "PENDING_CONFIRM", label: "Chờ xác nhận" },
   { id: "CONFIRMED", label: "Đã xác nhận" },
@@ -124,15 +126,16 @@ const mainStatusTabs = [
 export default function AppointmentsPage() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const [status, setStatus] = useState("");
+  const [status, setStatus] = useState(ACTIVE_TAB);
   const [doctorId, setDoctorId] = useState("");
-  const [date, setDate] = useState(today());
+  const [date, setDate] = useState("");
   const [search, setSearch] = useState("");
-  const [billingState, setBillingState] = useState<"" | "PENDING_INVOICE" | "HAS_INVOICE">("");
   const [page, setPage] = useState(1);
   // Khi khung chi tiết đang mở, cột danh sách hẹp nên chỉ giữ ô tìm; các bộ lọc khác gập sau nút "Bộ lọc".
   const [showFilters, setShowFilters] = useState(false);
   const [busy, setBusy] = useState(false);
+  // Dòng đang xử lý: nút ở các dòng khác chỉ khóa, không quay spinner.
+  const [busyId, setBusyId] = useState("");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [selectedSnapshot, setSelected] = useState<Appointment | null>(null);
@@ -151,21 +154,21 @@ export default function AppointmentsPage() {
   // Gõ đến đâu lọc đến đó (chờ ngừng gõ một chút rồi mới gọi máy chủ).
   const term = useDebouncedValue(search.trim());
 
+  const activeView = status === ACTIVE_TAB;
   const query = useMemo(
     () => ({
-      status: status || undefined,
+      status: activeView ? undefined : status || undefined,
+      view: activeView ? ("ACTIVE" as const) : undefined,
       doctorId: isDoctor ? undefined : doctorId || undefined,
-      date: date || undefined,
+      date: activeView ? undefined : date || undefined,
       q: term || undefined,
-      billingState: canStaffActions ? billingState || undefined : undefined,
       page,
       limit: 20,
     }),
-    [billingState, canStaffActions, date, doctorId, isDoctor, page, status, term],
+    [activeView, date, doctorId, isDoctor, page, status, term],
   );
   const doctorQuery = useMemo(() => ({ limit: 100 }), []);
   const appointmentsQuery = useDashboardAppointments(query);
-  const pendingInvoiceQuery = useDashboardPendingInvoiceAppointments(canStaffActions);
   const doctorsQuery = useDashboardAppointmentDoctors(doctorQuery, !isDoctor && can(user, "catalog.view"));
   const rescheduleSlotsQuery = usePublicAvailableSlots({
     doctorId: rescheduleTarget?.doctor.id,
@@ -174,14 +177,15 @@ export default function AppointmentsPage() {
   const loading = appointmentsQuery.isLoading;
   const appointments = appointmentsQuery.data?.items ?? [];
   const doctors = doctorsQuery.data?.items ?? [];
-  const pendingInvoiceCount = pendingInvoiceQuery.data?.pagination.total ?? 0;
   const selected = selectedSnapshot ? appointments.find((appointment) => appointment.id === selectedSnapshot.id) ?? selectedSnapshot : null;
   const canEditSelectedPatientInfo =
     canStaffActions && Boolean(selected) && !selected?.invoice && Boolean(selected && canEditPatientInfoStatus(selected.status));
   const pagination = appointmentsQuery.data?.pagination ?? { page, limit: 20, total: 0, totalPages: 1 };
-  const queryError = appointmentsQuery.error || doctorsQuery.error || pendingInvoiceQuery.error;
+  const queryError = appointmentsQuery.error || doctorsQuery.error;
   const queryErrorMessage = queryError ? (queryError instanceof Error ? queryError.message : "Không tải được dữ liệu lịch hẹn") : "";
   const visibleError = error || queryErrorMessage;
+  // Kết quả thao tác hiện thành thông báo nổi ngay chỗ đang làm việc (không nằm ở đầu trang).
+  useActionToast({ notice, error: visibleError, clear: () => { setNotice(""); setError(""); } });
 
   const invalidateAppointments = async () => {
     await Promise.all([
@@ -226,17 +230,17 @@ export default function AppointmentsPage() {
   };
 
   const resetFilters = () => {
-    setStatus("");
+    setStatus(ACTIVE_TAB);
     setDoctorId("");
-    setDate(today());
+    setDate("");
     setSearch("");
-    setBillingState("");
     setPage(1);
   };
 
   const runAction = async (appointment: Appointment, path: string, message: string, body?: unknown) => {
     if (path === "/complete" && !(await confirmCompleteWithRecordCheck(appointment.bookingCode))) return false;
     setBusy(true);
+    setBusyId(appointment.id);
     setError("");
     setNotice("");
     try {
@@ -391,22 +395,10 @@ export default function AppointmentsPage() {
       ? `/dashboard/invoices?invoiceCode=${appointment.invoice.invoiceCode}`
       : `/dashboard/invoices?appointment=${appointment.bookingCode}`;
 
-  // Tab đang chọn: "Chờ lập hóa đơn" là một chế độ lọc riêng (hoàn thành + chưa có hóa đơn, mọi ngày).
-  const tabValue = billingState === "PENDING_INVOICE" ? "billing" : status === "" ? "all" : status;
-  const tabs = [
-    ...mainStatusTabs,
-    ...(canStaffActions ? [{ id: "billing", label: "Chờ lập hóa đơn", count: pendingInvoiceCount }] : []),
-  ];
+  // Hóa đơn tự tạo khi hoàn thành khám nên không còn tab "Chờ lập hóa đơn".
+  const tabValue = status === "" ? "all" : status;
   const changeTab = (id: string) => {
     setPage(1);
-    if (id === "billing") {
-      setStatus("COMPLETED");
-      setBillingState("PENDING_INVOICE");
-      setDoctorId("");
-      setDate("");
-      return;
-    }
-    setBillingState("");
     setStatus(id === "all" ? "" : id);
   };
 
@@ -456,6 +448,7 @@ export default function AppointmentsPage() {
           return (
             <DsButton
               disabled={busy}
+              loading={busy && busyId === row.id}
               onClick={(event) => {
                 event.stopPropagation();
                 void runAction(row, step.path, step.message);
@@ -501,6 +494,8 @@ export default function AppointmentsPage() {
           ) : null}
           {!open || showFilters ? (
             <>
+          {!activeView ? (
+            <>
           <div style={{ minWidth: 150, flex: "0 1 170px" }}>
             <VietnamDateInput
               value={date}
@@ -532,6 +527,8 @@ export default function AppointmentsPage() {
               Mọi ngày
             </DsButton>
           ) : null}
+            </>
+          ) : null}
           {!isDoctor ? (
             <div style={{ minWidth: 160, flex: "1 1 180px" }}>
               <DsSelect
@@ -556,7 +553,6 @@ export default function AppointmentsPage() {
               aria-label="Trạng thái khác"
               value={otherStatuses.some((item) => item.value === status) ? status : ""}
               onChange={(event) => {
-                setBillingState("");
                 setStatus(event.target.value);
                 setPage(1);
               }}
@@ -576,7 +572,7 @@ export default function AppointmentsPage() {
           ) : null}
         </DsToolbar>
       </form>
-      <DsTabs label="Lọc lịch hẹn theo trạng thái" items={tabs} value={tabValue} onChange={changeTab} />
+      <DsTabs label="Lọc lịch hẹn theo trạng thái" items={mainStatusTabs} value={tabValue} onChange={changeTab} />
       {open ? (
         appointments.length ? (
           <div role="listbox" aria-label="Danh sách lịch hẹn">
@@ -648,7 +644,7 @@ export default function AppointmentsPage() {
           {(() => {
             const step = nextStep(selected);
             return step ? (
-              <DsButton variant="primary" disabled={busy} onClick={() => void runAction(selected, step.path, step.message)}>
+              <DsButton variant="primary" loading={busy} onClick={() => void runAction(selected, step.path, step.message)}>
                 {step.label}
               </DsButton>
             ) : null;
@@ -664,18 +660,18 @@ export default function AppointmentsPage() {
             </Link>
           ) : null}
           {canStaffActions && selected.status === "CONFIRMED" ? (
-            <DsButton disabled={busy} onClick={() => startReschedule(selected)}>
+            <DsButton loading={busy} onClick={() => startReschedule(selected)}>
               Đổi lịch
             </DsButton>
           ) : null}
           {canStaffActions && ["CONFIRMED", "CHECKED_IN"].includes(selected.status) ? (
-            <DsButton disabled={busy} onClick={() => void runAction(selected, "/no-show", "Đã đánh dấu người khám vắng mặt")}>
+            <DsButton loading={busy} onClick={() => void runAction(selected, "/no-show", "Đã đánh dấu người khám vắng mặt")}>
               Vắng mặt
             </DsButton>
           ) : null}
           <span style={{ flex: 1 }} />
           {selected.status !== "PENDING_OTP" && selected.status !== "COMPLETED" ? (
-            <DsButton variant="ghost" disabled={busy} onClick={() => startCancel(selected)}>
+            <DsButton variant="ghost" loading={busy} onClick={() => startCancel(selected)}>
               Hủy lịch
             </DsButton>
           ) : null}
@@ -850,7 +846,7 @@ export default function AppointmentsPage() {
                 </DsField>
                 <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
                   <DsButton onClick={() => { setEditingPatientInfo(false); setPatientInfoForm(buildPatientInfoForm(selected)); }}>Đóng</DsButton>
-                  <DsButton type="submit" variant="primary" disabled={busy}>
+                  <DsButton type="submit" variant="primary" loading={busy}>
                     {busy ? "Đang lưu..." : "Lưu thông tin"}
                   </DsButton>
                 </div>
@@ -892,8 +888,6 @@ export default function AppointmentsPage() {
         }
       />
       <div style={{ display: "grid", gap: 12, marginBottom: 16 }}>
-        {visibleError ? <DsNotice tone="bad">{visibleError}</DsNotice> : null}
-        {notice ? <DsNotice tone="good">{notice}</DsNotice> : null}
       </div>
       <DsSplit wide list={list} pane={pane} />
     </>
