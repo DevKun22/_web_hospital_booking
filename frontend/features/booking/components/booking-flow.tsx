@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { AlertCircle } from "lucide-react";
+import { useMessageToast } from "@/components/patient/patient-toast";
 import { ActionBar } from "@/features/booking/components/action-bar";
 import { BookingSummary, MobileSummaryLine } from "@/features/booking/components/booking-summary";
 import { DetailsStep } from "@/features/booking/components/details-step";
@@ -23,7 +23,6 @@ export function BookingFlow({ catalog, loading, hotline }: BookingFlowProps) {
   const flow = useBookingFlow(catalog);
   const { state, slotsError, actions } = flow;
   const stepRef = useRef<HTMLDivElement | null>(null);
-  const errorRef = useRef<HTMLDivElement | null>(null);
   const firstRender = useRef(true);
 
   // Đổi bước thì đưa tiêu đề bước mới vào tầm nhìn và chuyển tiêu điểm cho trình đọc màn hình.
@@ -38,9 +37,9 @@ export function BookingFlow({ catalog, loading, hotline }: BookingFlowProps) {
   }, [state.step]);
 
   const error = state.error || (state.step === "schedule" ? slotsError : "");
-  useEffect(() => {
-    if (error) errorRef.current?.focus();
-  }, [error]);
+  // Lỗi và thông báo của luồng hiện thành thông báo nổi góc trên phải (lỗi có role=alert nên trình đọc màn hình vẫn đọc ngay).
+  useMessageToast(error, "error");
+  useMessageToast(state.notice ?? "", "success");
 
   const summary = <MobileSummaryLine flow={flow} />;
   const bar = {
@@ -69,18 +68,6 @@ export function BookingFlow({ catalog, loading, hotline }: BookingFlowProps) {
               <StepProgress step={state.step} />
             </div>
           </header>
-
-          {error ? (
-            <div ref={errorRef} tabIndex={-1} role="alert" className="flex scroll-mt-24 items-start gap-2 rounded-lg border border-[var(--public-danger)] bg-[var(--public-danger-soft)] px-3 py-2.5 text-sm font-medium text-[var(--public-danger)] focus:outline-none">
-              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
-              <span>{error}</span>
-            </div>
-          ) : null}
-          {state.notice ? (
-            <p className="rounded-lg bg-[var(--public-success-soft)] px-3 py-2.5 text-sm font-medium text-[var(--public-success)]" role="status" aria-live="polite">
-              {state.notice}
-            </p>
-          ) : null}
 
           <div ref={stepRef}>
             {state.step === "service" ? <ServiceStep flow={flow} loading={loading} /> : null}

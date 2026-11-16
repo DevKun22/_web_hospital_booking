@@ -197,7 +197,7 @@ export function useBookingFlow(catalog: BookingCatalog) {
     try {
       const appointment = await verifyAppointmentOtp(pending.appointmentId, state.otp);
       clearPendingAppointment();
-      dispatch({ type: "verified", appointment, notice: "Xác thực OTP thành công. Lịch hẹn đang chờ bệnh viện xác nhận." });
+      dispatch({ type: "verified", appointment, notice: "Xác thực OTP thành công. Lịch hẹn đã được xác nhận." });
       void refreshSlots();
     } catch (err) {
       fail(messageOf(err, "Xác thực OTP thất bại"));

@@ -75,7 +75,7 @@ export function BookingSummary({ flow, hotline }: { flow: BookingFlow; hotline: 
           <span className="text-sm text-[var(--public-muted)]">Tạm tính</span>
           <strong className="text-xl tabular-nums text-[var(--public-primary-dark)]">{amount ? formatCurrency(amount) : "—"}</strong>
         </div>
-        <p className="mt-2 text-xs leading-5 text-[var(--public-muted)]">Chi phí cuối cùng có thể thay đổi sau khi bệnh viện xác nhận.</p>
+        <p className="mt-2 text-xs leading-5 text-[var(--public-muted)]">Chi phí cuối cùng có thể thay đổi sau khi khám xong.</p>
       </div>
 
       {hotline ? (

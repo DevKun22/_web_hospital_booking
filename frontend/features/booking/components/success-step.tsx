@@ -5,6 +5,7 @@ import { copyBookingCode } from "@/features/booking/components/copy-code";
 import { formatDayShort } from "@/features/booking/dates";
 import { doctorDisplayName } from "@/lib/doctor";
 import { formatCurrency } from "@/lib/format";
+import { appointmentStatusLabel } from "@/lib/appointment-status";
 
 const formatTime = (value: string) => value.slice(0, 5);
 
@@ -19,9 +20,9 @@ export function SuccessStep({ flow }: { flow: BookingFlow }) {
     <section aria-labelledby="booking-success" className="rounded-xl border border-[var(--public-border)] bg-[var(--public-surface)] p-4 sm:p-6" role="status">
       <h2 id="booking-success" tabIndex={-1} className="flex items-start gap-3 text-xl font-bold leading-snug text-[var(--public-ink)] focus:outline-none">
         <CircleCheck className="mt-0.5 h-6 w-6 shrink-0 text-[var(--public-success)]" aria-hidden="true" />
-        Đã gửi yêu cầu đặt lịch. Chờ bệnh viện xác nhận.
+        Đặt lịch thành công. Lịch hẹn đã được xác nhận.
       </h2>
-      <p className="mt-2 text-sm leading-6 text-[var(--public-muted)]">Bạn sẽ nhận thông báo khi lịch được xác nhận. Lưu mã lịch dưới đây để tra cứu, thanh toán hoặc hủy lịch.</p>
+      <p className="mt-2 text-sm leading-6 text-[var(--public-muted)]">Chúng tôi đã gửi thông báo xác nhận cho bạn. Lưu mã lịch dưới đây để tra cứu, thanh toán hoặc hủy lịch.</p>
 
       <div className="mt-5 rounded-lg border border-[var(--public-border)] p-3">
         <p className="text-xs font-semibold uppercase tracking-wide text-[var(--public-muted)]">Mã lịch</p>
@@ -41,7 +42,7 @@ export function SuccessStep({ flow }: { flow: BookingFlow }) {
       <dl className="mt-5 divide-y divide-[var(--public-divider)] border-y border-[var(--public-divider)] text-sm">
         {doctor ? <Row label="Bác sĩ" value={doctorDisplayName(doctor)} /> : null}
         <Row label="Thời gian" value={`${formatTime(verified.startTime)} - ${formatTime(verified.endTime)}${day ? `, ${day}` : ""}`} />
-        <Row label="Trạng thái" value={verified.status === "PENDING_CONFIRM" ? "Chờ bệnh viện xác nhận" : verified.status} />
+        <Row label="Trạng thái" value={appointmentStatusLabel[verified.status] ?? verified.status} />
         <Row label="Phí dự kiến" value={formatCurrency(verified.finalAmount)} strong />
       </dl>
       <p className="mt-3 text-xs leading-5 text-[var(--public-muted)]">Hóa đơn và thanh toán trực tuyến có sau khi bệnh viện hoàn tất khám.</p>

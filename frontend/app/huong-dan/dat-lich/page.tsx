@@ -31,7 +31,7 @@ const steps = [
   },
   {
     title: "Xác thực OTP",
-    text: "Sau khi tạo lịch, hệ thống gửi OTP qua SMS hoặc email. Xác thực thành công thì lịch chuyển sang trạng thái chờ xác nhận.",
+    text: "Sau khi tạo lịch, hệ thống gửi OTP qua SMS hoặc email. Xác thực thành công thì lịch được xác nhận ngay.",
     href: "/tai-khoan/dang-nhap?next=/tai-khoan/lich-hen",
     action: "Tra cứu lịch",
   },

@@ -9,6 +9,7 @@ import { useCancelAppointment, usePatientAppointments } from "@/features/portal/
 import { formatWeekdayDate } from "@/lib/format";
 import type { PatientAppointment } from "@/lib/patient-portal-types";
 import { ACTIVE_APPOINTMENT_STATUSES, CANCELLABLE_APPOINTMENT_STATUSES, CANCELLED_APPOINTMENT_STATUSES } from "@/lib/patient-status";
+import { useMutationToast } from "@/components/patient/patient-toast";
 
 type Filter = "upcoming" | "history" | "cancelled";
 
@@ -42,6 +43,7 @@ export default function PatientAppointmentsPage() {
     setCancelId(null);
     setReason("");
   });
+  useMutationToast(cancel, { success: "Đã hủy lịch hẹn.", fallbackError: "Không hủy được lịch. Thử lại sau." });
   const items = useMemo(() => applyFilter(query.data || [], filter), [filter, query.data]);
   const tab = TABS.find((item) => item.key === filter)!;
 
@@ -119,7 +121,7 @@ export default function PatientAppointmentsPage() {
                         className="ui-field mt-1.5 w-full px-3 py-2.5 text-base font-normal text-[var(--public-ink)] sm:text-sm"
                       />
                     </label>
-                    {cancel.isError ? <p role="alert" className="mt-2 text-sm font-medium text-[var(--public-danger)]">{cancel.error instanceof Error ? cancel.error.message : "Không hủy được lịch. Thử lại sau."}</p> : null}
+                    
                     <div className="mt-3 flex flex-wrap gap-2">
                       <button
                         type="button"

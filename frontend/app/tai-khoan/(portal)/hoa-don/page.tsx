@@ -7,11 +7,13 @@ import { PatientEmptyState, PatientPageError, PatientPageHeader, PatientPageLoad
 import { usePatientInvoices, usePayInvoice } from "@/features/portal/hooks";
 import { formatMoney, formatShortDate } from "@/lib/format";
 import { invoiceStatusDisplay } from "@/lib/patient-status";
+import { useMutationToast } from "@/components/patient/patient-toast";
 
 export default function PatientInvoicesPage() {
   const [selected, setSelected] = useState<{ invoiceId: string; provider: string } | null>(null);
   const query = usePatientInvoices();
   const payment = usePayInvoice(() => setSelected(null));
+  useMutationToast(payment, { fallbackError: "Không thể tạo giao dịch." });
 
   return (
     <div className="space-y-5">
@@ -28,7 +30,6 @@ export default function PatientInvoicesPage() {
           {query.data.invoices.map((invoice) => {
             const status = invoiceStatusDisplay(invoice.status);
             const discount = invoice.insuranceDiscountAmount || invoice.bhytDiscount;
-            const pendingHere = payment.isError && selected?.invoiceId === invoice.id;
             return (
               <li key={invoice.id} className="p-4 sm:p-5">
                 <div className="flex items-start justify-between gap-4">
@@ -74,7 +75,7 @@ export default function PatientInvoicesPage() {
                     ) : (
                       <p className="text-sm text-[var(--public-text-soft)]">Chưa có cổng thanh toán trực tuyến. Thanh toán trực tiếp theo hướng dẫn của cơ sở khám.</p>
                     )}
-                    {pendingHere ? <p role="alert" className="mt-3 text-sm text-[var(--public-danger)]">{payment.error instanceof Error ? payment.error.message : "Không thể tạo giao dịch."}</p> : null}
+                    
                   </div>
                 ) : null}
 
