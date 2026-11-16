@@ -5,6 +5,7 @@ import AuthSessionService from "../services/authSession.service.js";
 
 import { STAFF_ROLES, type PermissionCode } from "../config/permissions.js";
 import { roleHasAnyPermission } from "../services/rbac.service.js";
+import { logger } from "../observability/logger.js";
 
 const DASHBOARD_ROLES: Role[] = [...STAFF_ROLES];
 const SLOW_AUTH_LOOKUP_MS = 100;
@@ -17,7 +18,7 @@ const warnSlowAuthLookup = (userId: string, durationMs: number) => {
   const now = Date.now();
   if (now - lastSlowAuthWarnAt < SLOW_AUTH_WARN_INTERVAL_MS) return;
   lastSlowAuthWarnAt = now;
-  console.warn(`[SLOW_AUTH_LOOKUP] user=${userId} ${durationMs.toFixed(1)}ms`);
+  logger.warn(`[SLOW_AUTH_LOOKUP] user=${userId} ${durationMs.toFixed(1)}ms`);
 };
 
 const createAuthDashboard =

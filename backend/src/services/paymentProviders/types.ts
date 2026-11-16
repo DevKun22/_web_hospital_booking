@@ -1,7 +1,7 @@
 import type { PaymentProvider } from "../../../generated/prisma/enums.js";
 import type { Prisma } from "../../../generated/prisma/client.js";
 
-export type CreateProviderPaymentInput = {
+type CreateProviderPaymentInput = {
   provider: PaymentProvider;
   transactionCode: string;
   invoiceId: string;

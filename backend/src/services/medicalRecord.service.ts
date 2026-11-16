@@ -2,7 +2,6 @@ import { logClinicalAction } from "./clinicalLog.service.js";
 import { Prisma } from "../../generated/prisma/client.js";
 import type {
   MedicalResultStatus,
-  Role,
 } from "../../generated/prisma/enums.js";
 import { prisma } from "../config/prisma.js";
 import { AppError } from "../utils/appError.js";
@@ -10,11 +9,11 @@ import { parseDateOnly } from "../utils/time.js";
 import { generateRecordCode } from "../utils/recordCode.js";
 import MediaAssetService from "./mediaAsset.service.js";
 import PatientEventNotificationService from "./patientEventNotification.service.js";
+import { normalizeOptionalString } from "../utils/text.js";
+import { generateUniqueCode } from "../utils/uniqueCode.js";
+import type { Actor } from "../types/actor.js";
+import { logger } from "../observability/logger.js";
 
-type Actor = {
-  userId: string;
-  role: Role;
-};
 
 type UpdateMedicalRecordInput = {
   symptoms?: string | null;
@@ -115,9 +114,6 @@ export const medicalRecordSelect = {
     },
   },
 } satisfies Prisma.MedicalRecordSelect;
-
-const normalizeOptionalString = (value?: string | null) =>
-  value === undefined ? undefined : value || null;
 
 class MedicalRecordService {
   async ensureForAppointment(
@@ -305,7 +301,7 @@ class MedicalRecordService {
     // Bác sĩ ghi kết luận sau khi hóa đơn đã thu: hồ sơ đủ điều kiện nên mở cho người khám ngay.
     if (input.diagnosis !== undefined || input.treatment !== undefined) {
       await this.publishWhenReady(current.appointment.id).catch((error) => {
-        console.error("[AUTO_PUBLISH] cannot publish after record update:", error);
+        logger.error("[AUTO_PUBLISH] cannot publish after record update:", error);
       });
     }
     return result;
@@ -516,20 +512,12 @@ class MedicalRecordService {
     return labResult;
   }
 
-  private async generateUniqueRecordCode(tx: Prisma.TransactionClient) {
-    for (let index = 0; index < 10; index += 1) {
-      const recordCode = generateRecordCode();
-      const existing = await tx.medicalRecord.findUnique({
-        where: { recordCode },
-        select: { id: true },
-      });
-
-      if (!existing) {
-        return recordCode;
-      }
-    }
-
-    throw new AppError("Không thể tạo mã hồ sơ khám", 500);
+  private generateUniqueRecordCode(tx: Prisma.TransactionClient) {
+    return generateUniqueCode(
+      generateRecordCode,
+      async (recordCode) => Boolean(await tx.medicalRecord.findUnique({ where: { recordCode }, select: { id: true } })),
+      "Không thể tạo mã hồ sơ khám",
+    );
   }
 }
 

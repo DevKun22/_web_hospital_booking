@@ -86,7 +86,3 @@ export const verifyPatientAccessToken = (token: string): TokenPayload => {
 
   return payload;
 };
-
-export const decodeToken = (token: string) => {
-  return jwt.decode(token);
-};

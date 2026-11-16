@@ -73,7 +73,7 @@ export const createReadinessCheck = (options: ReadinessOptions = {}) => {
   };
 };
 
-export type RedisReadinessStatus = "up" | "down" | "not_configured";
+type RedisReadinessStatus = "up" | "down" | "not_configured";
 
 export type ReadinessReport = {
   ready: boolean;

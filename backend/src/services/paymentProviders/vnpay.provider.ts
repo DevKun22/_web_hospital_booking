@@ -208,7 +208,7 @@ const safeEqualHex = (received: string, expected: string) =>
   received.length === expected.length &&
   crypto.timingSafeEqual(Buffer.from(received.toLowerCase()), Buffer.from(expected.toLowerCase()));
 
-export type VnpayQueryOutcome = "PAID" | "FAILED" | "PENDING" | "NOT_FOUND" | "UNKNOWN";
+type VnpayQueryOutcome = "PAID" | "FAILED" | "PENDING" | "NOT_FOUND" | "UNKNOWN";
 
 export type VerifiedVnpayQuery = {
   outcome: VnpayQueryOutcome;

@@ -4,6 +4,7 @@ import { AppError } from "../utils/appError.js";
 import { createSlug } from "../utils/slug.js";
 import MediaAssetService from "./mediaAsset.service.js";
 import { publicCompletePackageWhere } from "./publicCatalogEligibility.js";
+import { normalizeOptionalString } from "../utils/text.js";
 
 type PackageItemInput = {
   name: string;
@@ -115,9 +116,6 @@ const publicPackageSelect = {
     },
   },
 } satisfies Prisma.PackageSelect;
-
-const normalizeOptionalString = (value?: string | null) =>
-  value === undefined ? undefined : value || null;
 
 const getIncludedItemsTotal = (
   items?: { price: number; included: boolean }[],

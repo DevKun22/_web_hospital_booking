@@ -9,7 +9,7 @@ const UPCOMING_APPOINTMENT_STATUSES = [
   "CHECKED_IN",
 ] as const;
 
-export type HospitalAnnouncementAudience =
+type HospitalAnnouncementAudience =
   | "ALL_PATIENTS"
   | "UPCOMING_APPOINTMENTS"
   | "DEPARTMENT_APPOINTMENTS"
@@ -31,7 +31,7 @@ const isStaffAudience = (audience: HospitalAnnouncementAudience) =>
   audience === "ONE_USER" || audience in STAFF_AUDIENCE_ROLES;
 
 
-export type CreateHospitalAnnouncementInput = {
+type CreateHospitalAnnouncementInput = {
   createdById: string;
   title: string;
   body: string;

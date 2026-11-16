@@ -5,7 +5,7 @@ import { AppError } from "./appError.js";
 // BOM, xuống dòng CRLF), không bị chèn công thức, và không bao giờ trả về lượng dữ liệu quá lớn.
 
 export const EXPORT_MAX_ROWS = 5000;
-export const EXPORT_MAX_RANGE_DAYS = 366;
+const EXPORT_MAX_RANGE_DAYS = 366;
 const DAY_MS = 24 * 60 * 60 * 1000;
 const VN_OFFSET_MS = 7 * 60 * 60 * 1000;
 
@@ -14,7 +14,7 @@ export type CsvCell = string | number | boolean | Date | null | undefined;
 const pad = (value: number) => String(value).padStart(2, "0");
 
 // Thời điểm hiển thị theo giờ Việt Nam để khớp với cách người dùng đọc báo cáo.
-export const formatVnDateTime = (date: Date) => {
+const formatVnDateTime = (date: Date) => {
   const vn = new Date(date.getTime() + VN_OFFSET_MS);
   return (
     `${vn.getUTCFullYear()}-${pad(vn.getUTCMonth() + 1)}-${pad(vn.getUTCDate())} ` +

@@ -51,8 +51,6 @@ const readTimePeriod = (
     : undefined;
 };
 
-export const getOrCreateSessionId = (sessionId?: string) => sessionId || randomUUID();
-
 const DEFAULT_SESSION_EXPIRES_DAYS = 7;
 
 const getSessionExpiresAt = (sessionExpiresDays = DEFAULT_SESSION_EXPIRES_DAYS) =>

@@ -7,6 +7,7 @@ import { prisma } from "../config/prisma.js";
 import { mapWithConcurrency } from "../utils/concurrency.js";
 import FcmPushService from "./fcmPush.service.js";
 import { isNotificationPushEnabled } from "./notificationPreference.service.js";
+import { logger } from "../observability/logger.js";
 
 const RETRY_BASE_DELAY_MS = 30_000;
 const DELIVERY_LEASE_MS = 60_000;
@@ -261,7 +262,7 @@ class NotificationDeliveryService {
             error: null,
           };
         } catch (error) {
-          console.error(
+          logger.error(
             `[NOTIFICATION_WORKER] notification=${item.notificationId} dispatch failed:`,
             error,
           );

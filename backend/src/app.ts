@@ -111,14 +111,14 @@ export const createApp = (options: CreateAppOptions = {}) => {
   app.use(cookieParser());
   app.use(protectDashboardCookieRequest);
 
-  app.get("/", (req, res) => {
+  app.get("/", (_req, res) => {
     res.json({
       status: "Medical Booking API Running...",
       time: new Date().toISOString(),
     });
   });
 
-  app.get("/health", (req, res) => {
+  app.get("/health", (_req, res) => {
     res.json({
       status: "ok",
       uptime: process.uptime(),
@@ -126,7 +126,7 @@ export const createApp = (options: CreateAppOptions = {}) => {
     });
   });
 
-  app.get("/ready", async (req, res) => {
+  app.get("/ready", async (_req, res) => {
     const result = await readinessCheck();
     const report: ReadinessReport =
       typeof result === "boolean"

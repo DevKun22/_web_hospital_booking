@@ -9,9 +9,10 @@ import AuditLogService from "./auditLog.service.js";
 import type { AccountChangeKind } from "./emailTemplates/accountChange.template.js";
 import AuthSessionService from "./authSession.service.js";
 import OutboxEventService from "./outboxEvent.service.js";
+import { normalizeOptionalString } from "../utils/text.js";
+import type { Actor } from "../types/actor.js";
 
 type DashboardRole = StaffRole;
-type Actor = { userId: string; role: Role };
 
 type CreateDashboardUserInput = {
   fullName: string;
@@ -59,9 +60,6 @@ const ensureDashboardRole = (role: Role) => {
     throw new AppError("Vai trò không hợp lệ cho dashboard", 400);
   }
 };
-
-const normalizeOptionalString = (value?: string | null) =>
-  value === undefined ? undefined : value || null;
 
 const SERIALIZABLE_TRANSACTION_RETRIES = 3;
 

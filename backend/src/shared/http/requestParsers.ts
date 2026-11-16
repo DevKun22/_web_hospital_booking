@@ -1,6 +1,6 @@
 import { AppError } from "../../utils/appError.js";
 
-export type PathParam = string | string[] | undefined;
+type PathParam = string | string[] | undefined;
 
 /**
  * Reads one Express path parameter while preserving the existing API error

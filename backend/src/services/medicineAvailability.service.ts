@@ -9,7 +9,7 @@ import { getVietnamNowParts, toDateOnly } from "../utils/time.js";
 
 // Thông tin khả dụng của thuốc cho bác sĩ khi kê đơn. Bác sĩ không có quyền xem kho, nên mọi giá trị
 // trả ra ở đây chỉ gồm mức (còn, sắp hết, hết) và cờ "vượt tồn"; không bao giờ có số tồn, giá hay lô.
-export type MedicineOption = {
+type MedicineOption = {
   id: string;
   code: string;
   name: string;
@@ -20,7 +20,7 @@ export type MedicineOption = {
   availability: AvailabilityLevel;
 };
 
-export type ItemAvailability = { level: AvailabilityLevel; short: boolean };
+type ItemAvailability = { level: AvailabilityLevel; short: boolean };
 
 const stockSelect = {
   stockQuantity: true,

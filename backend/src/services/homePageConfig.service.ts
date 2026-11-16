@@ -3,7 +3,7 @@ import { prisma } from "../config/prisma.js";
 
 const HOME_PAGE_CONFIG_KEY = "public_home_config";
 
-export type HomePageSectionConfig = {
+type HomePageSectionConfig = {
   enabled: boolean;
   eyebrow: string;
   title: string;
@@ -11,7 +11,7 @@ export type HomePageSectionConfig = {
   limit: number;
 };
 
-export type HomePageConfigValue = {
+type HomePageConfigValue = {
   announcement: {
     enabled: boolean;
     label: string;
@@ -30,7 +30,7 @@ export type HomePageConfigValue = {
   };
 };
 
-export const defaultHomePageConfig: HomePageConfigValue = {
+const defaultHomePageConfig: HomePageConfigValue = {
   announcement: {
     enabled: true,
     label: "Chương trình sức khỏe",

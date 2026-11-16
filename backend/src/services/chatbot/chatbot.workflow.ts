@@ -245,18 +245,6 @@ const getMatchingSlots = (
   doctorId?: string,
 ) => context.availableSlots.filter((slot) => !doctorId || slot.doctorId === doctorId);
 
-const formatSlotLine = (
-  context: ChatbotContext,
-  slot: ChatbotContext["availableSlots"][number],
-  includeDoctor: boolean,
-) => {
-  const doctor = context.doctors.find((item) => item.id === slot.doctorId);
-  const doctorName = doctor ? `${doctor.title || ""} ${doctor.fullName}`.trim() : "";
-  const prefix = includeDoctor && doctorName ? `${doctorName} - ` : "";
-
-  return `${prefix}${formatDateLabel(slot.date)} ${slot.startTime}-${slot.endTime}`;
-};
-
 const buildSlotResults = (
   context: ChatbotContext,
   doctorId?: string,

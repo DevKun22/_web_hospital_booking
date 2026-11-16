@@ -10,6 +10,7 @@ import { databaseSchema, prisma } from "../config/prisma.js";
 import { mapWithConcurrency } from "../utils/concurrency.js";
 import AccountChangeNoticeService from "./accountChangeNotice.service.js";
 import type { AccountChangeKind } from "./emailTemplates/accountChange.template.js";
+import { logger } from "../observability/logger.js";
 
 type DatabaseClient = Prisma.TransactionClient | typeof prisma;
 
@@ -147,7 +148,7 @@ class OutboxEventService {
               ).slice(0, 1_000),
             },
           });
-          console.error(
+          logger.error(
             `[OUTBOX] event=${event.id} type=${event.type} attempt=${event.attempts} failed:`,
             error,
           );

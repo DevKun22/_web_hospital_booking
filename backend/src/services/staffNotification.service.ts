@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import type { Role } from "../../generated/prisma/enums.js";
 import type { NotificationType } from "../../generated/prisma/enums.js";
 import { prisma } from "../config/prisma.js";
+import { logger } from "../observability/logger.js";
 
 type StaffEventInput = {
   type: NotificationType;
@@ -50,7 +51,7 @@ class StaffNotificationService {
     try {
       return await this.deliver(userIds, input);
     } catch (error) {
-      console.error("[STAFF_NOTIFICATION] notifyUsers failed:", error);
+      logger.error("[STAFF_NOTIFICATION] notifyUsers failed:", error);
       return 0;
     }
   }
@@ -66,7 +67,7 @@ class StaffNotificationService {
         input,
       );
     } catch (error) {
-      console.error("[STAFF_NOTIFICATION] notifyRoles failed:", error);
+      logger.error("[STAFF_NOTIFICATION] notifyRoles failed:", error);
       return 0;
     }
   }
@@ -145,7 +146,7 @@ class StaffNotificationService {
         });
       }
     } catch (error) {
-      console.error("[STAFF_NOTIFICATION] appointment event failed:", error);
+      logger.error("[STAFF_NOTIFICATION] appointment event failed:", error);
     }
   }
 }

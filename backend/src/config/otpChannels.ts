@@ -43,7 +43,7 @@ export const canDeliverSms = (target?: string) =>
   isLocalOtpDebugEnabled() ||
   (target ? isDemoOtpPhone(target) : false);
 
-export const isEmailOtpConfigured = () =>
+const isEmailOtpConfigured = () =>
   Boolean(getRuntimeConfig().otp.resendApiKey) || !isProductionLike();
 
 // Kênh hiển thị cho người dùng phổ thông (không tính số demo).

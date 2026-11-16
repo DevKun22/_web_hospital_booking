@@ -6,6 +6,7 @@ import {
   isDatabaseQueryMetricsEnabled,
   isPerformanceHeadersEnabled,
 } from "../config/environment.js";
+import { logger } from "./logger.js";
 
 type RequestPerformanceContext = {
   requestId: string;
@@ -156,7 +157,7 @@ export const requestPerformance = (
           ? ` dbQueries=${snapshot.databaseQueryCount} dbDurationMs=${snapshot.databaseDurationMs.toFixed(1)}`
           : "";
 
-        console.warn(
+        logger.warn(
           `[SLOW_REQUEST] requestId=${req.requestId} method=${req.method} route=${getSafeRequestPath(req.originalUrl)} status=${res.statusCode} durationMs=${durationMs.toFixed(1)}${databaseMetrics}`,
         );
       });

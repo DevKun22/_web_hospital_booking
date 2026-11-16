@@ -6,7 +6,7 @@ import {
 } from "../config/environment.js";
 import { AppError } from "../utils/appError.js";
 
-export const POLICY_KEY = "policy";
+const POLICY_KEY = "policy";
 const CACHE_TTL_MS = 15_000;
 
 // Khoảng cho phép của từng tham số; ngoài khoảng bị từ chối khi lưu và bị bỏ
@@ -18,10 +18,10 @@ export const POLICY_LIMITS = {
   noShowGraceMinutes: { min: 0, max: 240 },
 } as const;
 
-export type PolicyKey = keyof typeof POLICY_LIMITS;
-export type Policy = Record<PolicyKey, number>;
+type PolicyKey = keyof typeof POLICY_LIMITS;
+type Policy = Record<PolicyKey, number>;
 
-export const getPolicyDefaults = (env: NodeJS.ProcessEnv = process.env): Policy => ({
+const getPolicyDefaults = (env: NodeJS.ProcessEnv = process.env): Policy => ({
   bookingHoldMinutes: getBookingHoldMinutes(env),
   reminderLeadMinutes: getAppointmentReminderLeadMinutes(env),
   // Người khám không tự hủy trong 2 giờ trước giờ khám.
@@ -36,7 +36,7 @@ const isValid = (key: PolicyKey, value: unknown): value is number =>
   value >= POLICY_LIMITS[key].min &&
   value <= POLICY_LIMITS[key].max;
 
-export const resolvePolicy = (
+const resolvePolicy = (
   stored: unknown,
   env: NodeJS.ProcessEnv = process.env,
 ): Policy => {

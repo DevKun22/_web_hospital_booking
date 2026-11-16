@@ -1,6 +1,6 @@
 import { logClinicalAction } from "./clinicalLog.service.js";
 import { Prisma } from "../../generated/prisma/client.js";
-import type { PrescriptionStatus, Role } from "../../generated/prisma/enums.js";
+import type { PrescriptionStatus } from "../../generated/prisma/enums.js";
 import { prisma } from "../config/prisma.js";
 import { AppError } from "../utils/appError.js";
 import { generatePrescriptionCode } from "../utils/prescriptionCode.js";
@@ -8,11 +8,11 @@ import InvoiceService from "./invoice.service.js";
 import MedicineAvailabilityService from "./medicineAvailability.service.js";
 import PatientEventNotificationService from "./patientEventNotification.service.js";
 import StaffNotificationService from "./staffNotification.service.js";
+import { normalizeOptionalString } from "../utils/text.js";
+import { generateUniqueCode } from "../utils/uniqueCode.js";
+import type { Actor } from "../types/actor.js";
+import { logger } from "../observability/logger.js";
 
-type Actor = {
-  userId: string;
-  role: Role;
-};
 
 type PrescriptionItemInput = {
   // Gắn thuốc trong danh mục kho (null/bỏ trống = thuốc ngoài danh mục, người khám tự mua).
@@ -107,9 +107,6 @@ export const prescriptionSelect = {
     ],
   },
 } satisfies Prisma.PrescriptionSelect;
-
-const normalizeOptionalString = (value?: string | null) =>
-  value === undefined ? undefined : value || null;
 
 class PrescriptionService {
   async list(
@@ -340,7 +337,7 @@ class PrescriptionService {
     // Tiền thuốc vào hóa đơn ngay khi phát hành (nếu lịch đã có hóa đơn chưa thanh toán). Lỗi ở đây không được
     // làm hỏng việc phát hành đơn đã hoàn tất; hóa đơn lập sau sẽ tự tính tiền thuốc.
     await InvoiceService.syncMedicineLines(transition.updatedPrescription.id, actor).catch((error) => {
-      console.error("[INVOICE_MEDICINE] cannot add prescribed medicines to invoice:", error);
+      logger.error("[INVOICE_MEDICINE] cannot add prescribed medicines to invoice:", error);
     });
     return transition.updatedPrescription;
   }
@@ -380,7 +377,7 @@ class PrescriptionService {
     });
     // Đơn đã hủy thì gỡ dòng tiền thuốc khỏi hóa đơn chưa thu (hoặc hóa đơn bổ sung chưa thu).
     await InvoiceService.syncMedicineLines(id, actor).catch((error) => {
-      console.error("[INVOICE_MEDICINE] cannot remove cancelled medicines from invoice:", error);
+      logger.error("[INVOICE_MEDICINE] cannot remove cancelled medicines from invoice:", error);
     });
     return cancelled;
   }
@@ -425,7 +422,7 @@ class PrescriptionService {
       });
     });
     await InvoiceService.syncMedicineLines(prescriptionId, actor).catch((error) => {
-      console.error("[INVOICE_MEDICINE] cannot sync after resolving item:", error);
+      logger.error("[INVOICE_MEDICINE] cannot sync after resolving item:", error);
     });
     return this.getById(prescriptionId, actor);
   }
@@ -600,20 +597,12 @@ class PrescriptionService {
     return item;
   }
 
-  private async generateUniquePrescriptionCode(tx: Prisma.TransactionClient) {
-    for (let index = 0; index < 10; index += 1) {
-      const prescriptionCode = generatePrescriptionCode();
-      const existing = await tx.prescription.findUnique({
-        where: { prescriptionCode },
-        select: { id: true },
-      });
-
-      if (!existing) {
-        return prescriptionCode;
-      }
-    }
-
-    throw new AppError("Không thể tạo mã đơn thuốc", 500);
+  private generateUniquePrescriptionCode(tx: Prisma.TransactionClient) {
+    return generateUniqueCode(
+      generatePrescriptionCode,
+      async (prescriptionCode) => Boolean(await tx.prescription.findUnique({ where: { prescriptionCode }, select: { id: true } })),
+      "Không thể tạo mã đơn thuốc",
+    );
   }
 }
 

@@ -1,12 +1,9 @@
 import { Prisma } from "../../../generated/prisma/client.js";
-import type { AppointmentStatus, Gender, OtpChannel, OtpDeliveryStatus, Role } from "../../../generated/prisma/enums.js";
+import type { AppointmentStatus, Gender, OtpChannel, OtpDeliveryStatus } from "../../../generated/prisma/enums.js";
 import { prisma } from "../../config/prisma.js";
 import { AppError } from "../../utils/appError.js";
 import { parseDateOnly } from "../../utils/time.js";
-export type Actor = {
-  userId: string;
-  role: Role;
-};
+export type { Actor } from "../../types/actor.js";
 
 export type RescheduleAppointmentInput = {
   timeSlotId: string;
@@ -325,8 +322,7 @@ export const appointmentSelect = {
   },
 } satisfies Prisma.AppointmentSelect;
 
-export const normalizeOptionalString = (value?: string | null) =>
-  value === undefined ? undefined : value || null;
+export { normalizeOptionalString } from "../../utils/text.js";
 
 export const parseOptionalDate = (value?: string | null) =>
   value ? parseDateOnly(value) : null;

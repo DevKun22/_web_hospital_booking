@@ -10,7 +10,7 @@ export const notificationPreferenceKeys = [
   "generalAnnouncementsPush",
 ] as const;
 
-export type NotificationPreferenceKey =
+type NotificationPreferenceKey =
   (typeof notificationPreferenceKeys)[number];
 
 export type NotificationPushPreferences = Record<

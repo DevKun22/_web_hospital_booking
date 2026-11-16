@@ -10,6 +10,7 @@ import {
 } from "../config/environment.js";
 import { canDeliverSms, shouldExposeDebugOtp } from "../config/otpChannels.js";
 import { getRuntimeConfig } from "../config/runtimeConfig.js";
+import { logger } from "../observability/logger.js";
 
 type SendOtpOptions = {
   channel?: OtpChannel;
@@ -66,7 +67,7 @@ const deliverOtpDirectly = async (
     return "SENT";
   } catch (error) {
     const message = getErrorMessage(error, "Không gửi được OTP");
-    console.error("[OTP_DIRECT] Cannot deliver OTP directly:", message);
+    logger.error("[OTP_DIRECT] Cannot deliver OTP directly:", message);
     await prisma.otpCode
       .update({
         where: { id: otpCodeId },
@@ -430,7 +431,7 @@ class AuthOtpService {
                 )
               : "Chưa cấu hình hàng đợi gửi OTP";
 
-          console.error(
+          logger.error(
             "[OTP_QUEUE] Cannot enqueue OTP delivery job:",
             message,
           );
@@ -438,7 +439,7 @@ class AuthOtpService {
           await deliverOtpDirectly(otpRecord.id, deliveryJob);
         })
         .catch((error) => {
-          console.error(
+          logger.error(
             "[OTP_QUEUE] Cannot update timed out OTP delivery status:",
             error,
           );
@@ -457,20 +458,20 @@ class AuthOtpService {
             )
           : "Chưa cấu hình hàng đợi gửi OTP";
 
-      console.error("[OTP_QUEUE] Cannot enqueue OTP delivery job, sending directly:", message);
+      logger.error("[OTP_QUEUE] Cannot enqueue OTP delivery job, sending directly:", message);
       deliveryStatus = await deliverOtpDirectly(otpRecord.id, deliveryJob);
     }
 
     if (!isProductionLike()) {
-      console.log("=================================");
-      console.log(`OTP DEV: ${otp}`);
-      console.log(`Target: ${target}`);
-      console.log(`Channel: ${channel}`);
-      console.log(`Purpose: ${purpose}`);
-      console.log(`IP: ${ipAddress}`);
-      console.log(`Challenge: ${options.challengeId || "none"}`);
-      console.log(`Expires At: ${otpRecord.expiresAt.toISOString()}`);
-      console.log("=================================");
+      logger.info("=================================");
+      logger.info(`OTP DEV: ${otp}`);
+      logger.info(`Target: ${target}`);
+      logger.info(`Channel: ${channel}`);
+      logger.info(`Purpose: ${purpose}`);
+      logger.info(`IP: ${ipAddress}`);
+      logger.info(`Challenge: ${options.challengeId || "none"}`);
+      logger.info(`Expires At: ${otpRecord.expiresAt.toISOString()}`);
+      logger.info("=================================");
     }
 
     return {

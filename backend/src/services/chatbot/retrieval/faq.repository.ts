@@ -2,7 +2,7 @@ import FAQService from "../../faq.service.js";
 import type { ChatIntent } from "../chatbot.types.js";
 import { foldVietnamese, hasPhrase } from "../rules/text-normalizer.js";
 
-export type ChatbotFAQMatch = {
+type ChatbotFAQMatch = {
   faq: {
     question: string;
     answer: string;

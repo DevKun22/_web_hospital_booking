@@ -1,5 +1,4 @@
 import { randomUUID } from "node:crypto";
-import type { Role } from "../../generated/prisma/enums.js";
 import { prisma } from "../config/prisma.js";
 import { AppError } from "../utils/appError.js";
 import {
@@ -11,14 +10,15 @@ import {
   toDateOnly,
 } from "../utils/time.js";
 import StaffNotificationService from "./staffNotification.service.js";
+import type { Actor } from "../types/actor.js";
+import { logger } from "../observability/logger.js";
 
 // Số ngày tới được tự sinh khung giờ từ lịch mẫu theo tuần.
-export const ROLLING_WINDOW_DAYS = 14;
+const ROLLING_WINDOW_DAYS = 14;
 // Giới hạn một lần sinh hoặc đóng/mở theo khoảng ngày.
-export const MAX_RANGE_DAYS = 62;
+const MAX_RANGE_DAYS = 62;
 const ROLLING_THROTTLE_MS = 30 * 60 * 1000;
 
-type Actor = { userId: string; role: Role };
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const addDays = (date: Date, days: number) => new Date(date.getTime() + days * DAY_MS);
@@ -26,7 +26,7 @@ const vietnamToday = () => parseDateOnly(getVietnamNowParts().date);
 const overlaps = (aStart: string, aEnd: string, bStart: string, bEnd: string) =>
   aStart < bEnd && bStart < aEnd;
 
-export type AffectedAppointment = {
+type AffectedAppointment = {
   appointmentId: string;
   bookingCode: string;
   patientName: string;
@@ -143,7 +143,7 @@ class SlotPlannerService {
         const result = await this.generateRange(doctor.id, today, addDays(today, ROLLING_WINDOW_DAYS - 1));
         generatedCount += result.generatedCount;
       } catch (error) {
-        console.error(`[SLOT_PLANNER] doctor=${doctor.id} failed:`, error);
+        logger.error(`[SLOT_PLANNER] doctor=${doctor.id} failed:`, error);
       }
     }
     return { skipped: false, doctors: doctors.length, generatedCount };

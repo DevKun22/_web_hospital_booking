@@ -2,6 +2,7 @@ import "dotenv/config";
 import PaymentService from "../services/payment.service.js";
 import { startRuntimeMetrics } from "../observability/runtimeMetrics.js";
 import { getRuntimeConfig } from "../config/runtimeConfig.js";
+import { logger } from "../observability/logger.js";
 
 // Đối soát định kỳ giao dịch VNPAY treo PENDING bằng API querydr. Dùng vòng lặp trong
 // tiến trình (không cần Redis) vì tác vụ idempotent và nhẹ; chạy nhiều bản cùng lúc
@@ -19,16 +20,16 @@ const tick = async () => {
   try {
     const summary = await PaymentService.reconcilePendingVnpay();
     if (summary.scanned > 0) {
-      console.log(
+      logger.info(
         `[PAYMENT_RECONCILIATION] scanned=${summary.scanned} paid=${summary.paid} failed=${summary.failed} expired=${summary.expired} pending=${summary.pending} errors=${summary.errors}`,
       );
     }
   } catch (error) {
-    console.error("[PAYMENT_RECONCILIATION] sweep failed:", error);
+    logger.error("[PAYMENT_RECONCILIATION] sweep failed:", error);
   } finally {
     running = false;
   }
 };
 
 setInterval(() => void tick(), INTERVAL_MS);
-console.log(`[PAYMENT_RECONCILIATION] started, interval=${INTERVAL_MS}ms`);
+logger.info(`[PAYMENT_RECONCILIATION] started, interval=${INTERVAL_MS}ms`);

@@ -3,6 +3,7 @@ import {
   getCacheRedisConnectionOptions,
   hasCacheRedisUrl,
 } from "../config/redis.js";
+import { logger } from "../observability/logger.js";
 
 const RBAC_INVALIDATION_CHANNEL = "rbac:matrix:invalidated";
 const RETRY_DELAY_MS = 60_000;
@@ -17,7 +18,7 @@ const warnDegraded = (error: unknown) => {
   const now = Date.now();
   if (now - lastWarningAt < RETRY_DELAY_MS) return;
   lastWarningAt = now;
-  console.warn(
+  logger.warn(
     `[RBAC] Cross-instance invalidation unavailable; local cache TTL remains active: ${
       error instanceof Error ? error.message : String(error)
     }`,

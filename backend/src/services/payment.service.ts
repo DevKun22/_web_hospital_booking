@@ -19,6 +19,8 @@ import {
 } from "./paymentProviders/index.js";
 import InvoiceService from "./invoice.service.js";
 import PatientEventNotificationService from "./patientEventNotification.service.js";
+import { generateUniqueCode } from "../utils/uniqueCode.js";
+import { logger } from "../observability/logger.js";
 
 const PAYMENT_EXPIRES_MINUTES = 15;
 // Chỉ đối soát giao dịch đã treo đủ lâu để Return URL/IPN bình thường kịp tới trước.
@@ -28,7 +30,7 @@ const RECONCILE_EXPIRY_GRACE_MS = 2 * 60 * 1000;
 // Giới hạn tần suất gọi VNPAY khi người dùng liên tục tải lại trang kết quả.
 const RECONCILE_THROTTLE_MS = 30 * 1000;
 
-export type VnpayReconcileOutcome =
+type VnpayReconcileOutcome =
   | "PAID"
   | "FAILED"
   | "EXPIRED"
@@ -40,7 +42,7 @@ type CreatePaymentTransactionInput = {
   provider: PaymentProvider;
 };
 
-export const paymentTransactionSelect = {
+const paymentTransactionSelect = {
   id: true,
   provider: true,
   status: true,
@@ -406,7 +408,7 @@ class PaymentService {
     }
 
     const paidAt = new Date();
-    const transition = await prisma.$transaction(async (tx) => {
+    await prisma.$transaction(async (tx) => {
       await tx.$queryRaw(
         Prisma.sql`SELECT "id" FROM "Invoice" WHERE "id" = ${transaction.invoice.id} FOR UPDATE`,
       );
@@ -599,7 +601,7 @@ class PaymentService {
           const { outcome } = await this.reconcileVnpayTransaction(candidate.id, now);
           return { outcome, error: false };
         } catch (error) {
-          console.error(
+          logger.error(
             "[PAYMENT_RECONCILIATION]",
             candidate.id,
             error instanceof AppError ? (error.code ?? error.message) : error,
@@ -644,7 +646,7 @@ class PaymentService {
       await this.reconcileVnpayTransaction(id);
     } catch (error) {
       // Đối soát chỉ là tối ưu: lỗi mạng tới VNPAY không được làm hỏng việc xem giao dịch.
-      console.error(
+      logger.error(
         "[PAYMENT_RECONCILIATION]",
         id,
         error instanceof AppError ? (error.code ?? error.message) : error,
@@ -686,20 +688,12 @@ class PaymentService {
     return transaction;
   }
 
-  private async generateUniqueTransactionCode(tx: Prisma.TransactionClient) {
-    for (let index = 0; index < 10; index += 1) {
-      const transactionCode = generatePaymentTransactionCode();
-      const existing = await tx.paymentTransaction.findUnique({
-        where: { transactionCode },
-        select: { id: true },
-      });
-
-      if (!existing) {
-        return transactionCode;
-      }
-    }
-
-    throw new AppError("Không thể tạo mã giao dịch thanh toán", 500);
+  private generateUniqueTransactionCode(tx: Prisma.TransactionClient) {
+    return generateUniqueCode(
+      generatePaymentTransactionCode,
+      async (transactionCode) => Boolean(await tx.paymentTransaction.findUnique({ where: { transactionCode }, select: { id: true } })),
+      "Không thể tạo mã giao dịch thanh toán",
+    );
   }
 }
 

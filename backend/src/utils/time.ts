@@ -2,7 +2,7 @@ import { AppError } from "./appError.js";
 
 const timeRegex = /^([01]\d|2[0-3]):([0-5]\d)$/;
 
-export const parseTimeToMinutes = (time: string) => {
+const parseTimeToMinutes = (time: string) => {
   const match = time.match(timeRegex);
 
   if (!match) {
@@ -12,7 +12,7 @@ export const parseTimeToMinutes = (time: string) => {
   return Number(match[1]) * 60 + Number(match[2]);
 };
 
-export const formatMinutesToTime = (minutes: number) => {
+const formatMinutesToTime = (minutes: number) => {
   const hours = Math.floor(minutes / 60)
     .toString()
     .padStart(2, "0");
@@ -91,9 +91,6 @@ export const getVietnamNowParts = (now = new Date()) => {
       .padStart(2, "0")}`,
   };
 };
-
-export const isDateBeforeVietnamToday = (date: Date) =>
-  toDateOnly(date) < getVietnamNowParts().date;
 
 export const isSlotStartInPastVietnamTime = (date: Date, startTime: string) => {
   const now = getVietnamNowParts();

@@ -302,8 +302,6 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@index([phone])
-  @@index([email])
   @@index([role])
 }
 
@@ -414,6 +412,7 @@ model OtpCode {
   @@index([expiresAt])
   @@index([ipAddress])
   @@index([challengeId])
+  @@index([userId])
 }
 
 model OtpSecurityBlock {
@@ -562,7 +561,6 @@ model DashboardSession {
   refreshTokens AuthRefreshToken[]
   notificationDeliveries NotificationDelivery[]
 
-  @@index([userId])
   @@index([userId, kind, revokedAt])
   @@index([expiresAt])
   @@index([revokedAt])
@@ -821,6 +819,8 @@ model ScheduleChangeRequest {
   @@index([doctorId, status])
   @@index([requestedById, status])
   @@index([status, createdAt])
+  @@index([reviewedById])
+  @@index([scheduleId])
 }
 
 // Slot khám cụ thể theo ngày để đặt lịch, chống trùng lịch
@@ -1001,7 +1001,6 @@ model Appointment {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@index([patientId])
   @@index([doctorId, appointmentDate])
   @@index([departmentId])
   @@index([appointmentDate])
@@ -1012,6 +1011,7 @@ model Appointment {
   @@index([patientId, status, appointmentDate])
   @@index([dependentProfileId, appointmentDate])
   @@index([rescheduledFromId])
+  @@index([packageId])
 }
 
 // ===================== APPOINTMENT / SCHEDULE LOGS =====================
@@ -1102,9 +1102,7 @@ model MedicalRecord {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
-  @@index([patientId])
   @@index([doctorId])
-  @@index([recordCode])
   @@index([patientId, status, publishedAt])
 }
 
@@ -1162,12 +1160,10 @@ model Prescription {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
-  @@index([patientId])
   @@index([doctorId])
-  @@index([prescriptionCode])
-  @@index([status])
   @@index([patientId, status, issuedAt])
   @@index([status, dispenseStatus, issuedAt])
+  @@index([dispensedById])
 }
 
 model PrescriptionItem {
@@ -1342,9 +1338,6 @@ model Invoice {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@index([barcode])
-  @@index([invoiceCode])
-  @@index([patientId])
   @@index([patientId, status, createdAt])
 }
 
@@ -1455,7 +1448,6 @@ model PaymentTransaction {
   @@index([invoiceId])
   @@index([provider])
   @@index([status])
-  @@index([transactionCode])
   @@index([providerOrderId])
   @@index([expiredAt])
 }

@@ -6,9 +6,9 @@ import {
 import { getRedisConnectionOptions, hasRedisUrl } from "./redis.js";
 
 export const APPOINTMENT_LIFECYCLE_QUEUE_NAME = "appointment-lifecycle";
-export const APPOINTMENT_RECONCILIATION_SCHEDULER_ID =
+const APPOINTMENT_RECONCILIATION_SCHEDULER_ID =
   "appointment-pending-otp-reconciliation";
-export const SLOT_RECONCILIATION_SCHEDULER_ID =
+const SLOT_RECONCILIATION_SCHEDULER_ID =
   "doctor-slot-consistency-reconciliation";
 
 export type AppointmentLifecycleJobData =

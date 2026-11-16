@@ -5,9 +5,10 @@
 
 import { isProductionLike } from "../config/environment.js";
 import { getRuntimeConfig } from "../config/runtimeConfig.js";
+import { logger } from "../observability/logger.js";
 
-export const INLINE_WORKER_NAMES = ["otp", "appointments", "notifications", "payments"] as const;
-export type InlineWorkerName = (typeof INLINE_WORKER_NAMES)[number];
+const INLINE_WORKER_NAMES = ["otp", "appointments", "notifications", "payments"] as const;
+type InlineWorkerName = (typeof INLINE_WORKER_NAMES)[number];
 
 export const parseInlineWorkers = (value?: string): InlineWorkerName[] => {
   const requested = (value || "")
@@ -38,16 +39,16 @@ export const startInlineWorkers = async (value = getRuntimeConfig().workers.inli
   try {
     names = parseInlineWorkers(value);
   } catch (error) {
-    console.error("[INLINE_WORKER]", error instanceof Error ? error.message : error);
+    logger.error("[INLINE_WORKER]", error instanceof Error ? error.message : error);
     if (isProductionLike()) throw error;
     return [];
   }
   for (const name of names) {
     try {
       await loaders[name]();
-      console.log(`[INLINE_WORKER] started: ${name}`);
+      logger.info(`[INLINE_WORKER] started: ${name}`);
     } catch (error) {
-      console.error(`[INLINE_WORKER] cannot start ${name}:`, error);
+      logger.error(`[INLINE_WORKER] cannot start ${name}:`, error);
       // Production phải fail-fast để readiness/host khởi động lại thay vì chạy
       // âm thầm thiếu một tác vụ nền. Local vẫn cho phép chẩn đoán từng worker.
       if (isProductionLike()) throw error;

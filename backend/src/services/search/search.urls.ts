@@ -1,4 +1,4 @@
-export const normalizeSearchText = (value: string) =>
+const normalizeSearchText = (value: string) =>
   value
     .toLowerCase()
     .normalize("NFD")

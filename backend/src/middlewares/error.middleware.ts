@@ -1,6 +1,7 @@
 import { isProductionLike } from "../config/environment.js";
 import { Request, Response, NextFunction } from "express";
 import { getSafeRequestPath } from "../observability/requestPerformance.js";
+import { logger } from "../observability/logger.js";
 
 export const errorMiddleware = (
   err: Error & { statusCode?: number; code?: string },
@@ -23,8 +24,8 @@ export const errorMiddleware = (
       : err.message || "Internal server error";
 
   const logMessage = `[HTTP_ERROR] requestId=${req.requestId} method=${req.method} path=${getSafeRequestPath(req.originalUrl)} status=${statusCode} code=${code} message=${err.message}`;
-  if (statusCode >= 500) console.error(logMessage, err.stack || "");
-  else console.warn(logMessage);
+  if (statusCode >= 500) logger.error(logMessage, err.stack || "");
+  else logger.warn(logMessage);
 
   res.status(statusCode).json({
     success: false,

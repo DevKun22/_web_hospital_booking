@@ -12,6 +12,7 @@ import {
 } from "./environment.js";
 import { recordDatabaseQuery } from "../observability/requestPerformance.js";
 import { getRuntimeConfig } from "./runtimeConfig.js";
+import { logger } from "../observability/logger.js";
 
 const configuredDatabaseUrl = getRuntimeConfig().database.url;
 if (!configuredDatabaseUrl) {
@@ -39,7 +40,7 @@ const adapter = new PrismaPg(databasePool, {
   ...(configuredSchema ? { schema: configuredSchema } : {}),
   disposeExternalPool: true,
   onPoolError(error) {
-    console.error("[DATABASE_POOL] idle client error:", error);
+    logger.error("[DATABASE_POOL] idle client error:", error);
   },
 });
 const queryMetricsEnabled = isDatabaseQueryMetricsEnabled();

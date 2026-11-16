@@ -4,14 +4,14 @@ import {
   isFirebaseAdminConfigured,
 } from "../config/firebaseAdmin.js";
 
-export type PushSendInput = {
+type PushSendInput = {
   token: string;
   title: string;
   body: string;
   data: Record<string, string>;
 };
 
-export type PushSendResult =
+type PushSendResult =
   | { outcome: "DISABLED" }
   | { outcome: "SENT"; providerMessageId: string }
   | { outcome: "INVALID_TOKEN"; error: string }

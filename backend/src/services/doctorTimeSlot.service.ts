@@ -1,5 +1,5 @@
 import { Prisma } from "../../generated/prisma/client.js";
-import type { Role, TimeSlotStatus } from "../../generated/prisma/enums.js";
+import type { TimeSlotStatus } from "../../generated/prisma/enums.js";
 import { prisma } from "../config/prisma.js";
 import { AppError } from "../utils/appError.js";
 import {
@@ -8,11 +8,9 @@ import {
   isSlotStartInPastVietnamTime,
   parseDateOnly,
 } from "../utils/time.js";
+import type { Actor } from "../types/actor.js";
+import { logger } from "../observability/logger.js";
 
-type Actor = {
-  userId: string;
-  role: Role;
-};
 
 const doctorTimeSlotSelect = {
   id: true,
@@ -275,7 +273,7 @@ class DoctorTimeSlotService {
       }),
     ]);
     const mutationMs = performance.now() - mutationStartedAt;
-    console.info(
+    logger.info(
       `[SLOT_LOCK] slot=${id} lookup=${slotLookupMs.toFixed(1)}ms mutation=${mutationMs.toFixed(1)}ms total=${(performance.now() - startedAt).toFixed(1)}ms`,
     );
     return updated;
@@ -370,24 +368,6 @@ class DoctorTimeSlotService {
     }
   }
 
-  private async createChangeLog(
-    slot: { doctorId: string; date: Date; startTime: string; endTime: string },
-    actor: Actor,
-    type: "LOCK_SLOT" | "UNLOCK_SLOT",
-    note: string,
-  ) {
-    await prisma.scheduleChangeLog.create({
-      data: {
-        doctorId: slot.doctorId,
-        changedById: actor.userId,
-        type,
-        note,
-        date: slot.date,
-        startTime: slot.startTime,
-        endTime: slot.endTime,
-      },
-    });
-  }
   private async getSlotForMutation(id: string) {
     const slot = await prisma.doctorTimeSlot.findUnique({
       where: { id },

@@ -1,4 +1,3 @@
-import { Prisma } from "../../generated/prisma/client.js";
 import type {
   AppointmentStatus,
   InvoiceStatus,

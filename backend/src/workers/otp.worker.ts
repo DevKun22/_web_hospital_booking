@@ -13,6 +13,7 @@ import {
   stopRuntimeMetrics,
 } from "../observability/runtimeMetrics.js";
 import { getRuntimeConfig } from "../config/runtimeConfig.js";
+import { logger } from "../observability/logger.js";
 
 validateRuntimeEnvironment();
 startRuntimeMetrics("otp-worker");
@@ -63,27 +64,27 @@ const worker = new Worker<OtpDeliveryJobData, void, "send-otp">(
 );
 
 worker.on("ready", () => {
-  console.log(`OTP worker is listening on queue "${OTP_DELIVERY_QUEUE_NAME}"`);
+  logger.info(`OTP worker is listening on queue "${OTP_DELIVERY_QUEUE_NAME}"`);
 });
 
 worker.on("active", (job) => {
-  console.log(`[OTP] Job ${job.id} is being processed`);
+  logger.info(`[OTP] Job ${job.id} is being processed`);
 });
 
 worker.on("completed", (job) => {
-  console.log(`[OTP] Job ${job.id} completed successfully`);
+  logger.info(`[OTP] Job ${job.id} completed successfully`);
 });
 
 worker.on("failed", (job, error) => {
-  console.error(`[OTP] Job ${job?.id || "unknown"} failed:`, error);
+  logger.error(`[OTP] Job ${job?.id || "unknown"} failed:`, error);
 });
 
 worker.on("error", (error) => {
-  console.error("[OTP Worker] error:", error);
+  logger.error("[OTP Worker] error:", error);
 });
 
 const shutdown = async (signal: string) => {
-  console.log(`${signal} received, closing OTP worker...`);
+  logger.info(`${signal} received, closing OTP worker...`);
   stopRuntimeMetrics();
   await worker.close();
   await prisma.$disconnect();

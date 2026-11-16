@@ -8,6 +8,7 @@ import { AppError } from "../utils/appError.js";
 import EmailService from "./email.service.js";
 import { buildOtpEmailTemplate } from "./emailTemplates/otpEmail.template.js";
 import { sendSms } from "./smsProviders.js";
+import { logger } from "../observability/logger.js";
 
 type SendOtpInput = {
   target: string;
@@ -47,7 +48,7 @@ class OtpSenderService {
     }
 
     if (isLocalOtpDebugEnabled() || isDemoOtpPhone(input.target)) {
-      console.log(
+      logger.info(
         `[OTP_DEBUG_SMS] phone=${input.target} purpose=${input.purpose} otp=${input.otp}`,
       );
       return;

@@ -2,6 +2,7 @@ import { Prisma } from "../../generated/prisma/client.js";
 import { prisma } from "../config/prisma.js";
 import { AppError } from "../utils/appError.js";
 import { createSlug } from "../utils/slug.js";
+import { normalizeOptionalString } from "../utils/text.js";
 
 type CreateDoctorProfileInput = {
   userId: string;
@@ -61,9 +62,6 @@ const doctorProfileSelect = {
     },
   },
 } satisfies Prisma.DoctorProfileSelect;
-
-const normalizeOptionalString = (value?: string | null) =>
-  value === undefined ? undefined : value || null;
 
 class DoctorService {
   private async createUniqueSlug(fullName: string, userId: string) {

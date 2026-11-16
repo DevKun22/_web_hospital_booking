@@ -9,12 +9,12 @@ import type { OtpChannel } from "../../generated/prisma/enums.js";
 // email đó vào tài khoản nạn nhân rồi đăng nhập bằng email. Hàm dưới đây quyết
 // định khi nào được gắn lịch hẹn và ghi dữ liệu xác thực vào tài khoản đã có.
 
-export type ExistingPatientAccount = {
+type ExistingPatientAccount = {
   email: string | null;
   isPhoneVerified: boolean;
 };
 
-export type GuestBookingIdentityDecision =
+type GuestBookingIdentityDecision =
   // Chưa có tài khoản cho SĐT này: tạo mới.
   | "NEW_ACCOUNT"
   // OTP gửi qua SMS nên chính người nhận mã đã chứng minh sở hữu SĐT.

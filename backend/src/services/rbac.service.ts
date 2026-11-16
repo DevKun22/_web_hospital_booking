@@ -18,16 +18,16 @@ import {
   publishRbacInvalidation,
 } from "./rbacInvalidation.service.js";
 
-export const RBAC_MATRIX_KEY = "rbac.matrix";
+const RBAC_MATRIX_KEY = "rbac.matrix";
 const CACHE_TTL_MS = 15_000;
 
 let cache: { grants: PermissionGrants; expiresAt: number } | null = null;
 
-export const invalidateRbacCache = () => {
+const invalidateRbacCache = () => {
   cache = null;
 };
 
-export const loadGrants = async (): Promise<PermissionGrants> => {
+const loadGrants = async (): Promise<PermissionGrants> => {
   ensureRbacInvalidationSubscriber(invalidateRbacCache);
   if (cache && cache.expiresAt > Date.now()) return cache.grants;
 
