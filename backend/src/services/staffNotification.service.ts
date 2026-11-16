@@ -98,7 +98,7 @@ class StaffNotificationService {
         CREATED: {
           type: "APPOINTMENT_CREATED",
           title: "Có lịch hẹn mới",
-          body: `Lịch ${label} vừa được đặt cho ${when}, đang chờ xác nhận.`,
+          body: `Lịch ${label} vừa được đặt cho ${when}.`,
         },
         CONFIRMED: {
           type: "APPOINTMENT_CONFIRMED",
