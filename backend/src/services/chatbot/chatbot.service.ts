@@ -1,63 +1,46 @@
 import { prisma } from "../../config/prisma.js";
 import { AppError } from "../../utils/appError.js";
 import ChatbotNLUService from "./ai/nlu.service.js";
-import GroundedResponseService from "./ai/grounded-response.service.js";
 import type { NLUResult } from "./ai/nlu.schema.js";
 import ChatbotActionService from "./chatbot.actions.js";
 import ChatbotContextService from "./chatbot.context.js";
-import ChatbotEntityResolver from "./retrieval/entity.resolver.js";
-import ChatbotFAQRepository from "./retrieval/faq.repository.js";
-import TriageRepository from "./retrieval/triage.repository.js";
-import { composeFAQOutput } from "./chatbot.responses.js";
 import ChatbotSettingsService from "./chatbot.settings.js";
-import ChatbotWorkflowService from "./chatbot.workflow.js";
+import BookingFlow from "./flows/booking.flow.js";
+import InfoFlow, { noInformationOutput } from "./flows/info.flow.js";
+import {
+  capabilitiesOutput,
+  emergencyOutput,
+  fallbackOutput,
+  greetingOutput,
+  resetOutput,
+} from "./flows/system.replies.js";
+import TriageFlow from "./flows/triage.flow.js";
+import { routeByRules } from "./router/route.js";
+import ChatbotEntityResolver from "./retrieval/entity.resolver.js";
 import { hasEmergencySignal } from "./rules/emergency-detector.js";
-import { normalizeMessage } from "./rules/text-normalizer.js";
 import { sanitizeBookingDraft } from "./rules/draft-sanitizer.js";
-import {
-  getOrCreateChatSession,
-  mergeDrafts,
-  updateChatSession,
-} from "./chatbot.session.js";
+import { sanitizeReplyText } from "./rules/reply-sanitizer.js";
+import { normalizeMessage } from "./rules/text-normalizer.js";
+import { getOrCreateChatSession, mergeDrafts, updateChatSession } from "./chatbot.session.js";
 import ChatbotDraftReducer from "./workflow/draft.reducer.js";
-import {
-  operationFromAction,
-  operationToIntent,
-} from "./workflow/operation.js";
+import { operationFromAction, operationToIntent } from "./workflow/operation.js";
 import type {
   AIChatbotOutput,
   ChatBookingDraft,
+  ChatOperation,
   ChatbotRequestInput,
   ChatbotResponse,
   ChatbotResponseSource,
 } from "./chatbot.types.js";
 
-const normalizeReplyKey = (value: string) =>
-  value
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/đ/g, "d")
-    .toLowerCase()
-    .replace(/\s+/g, " ")
-    .trim();
+// Đường đi của một tin nhắn (mỗi bước chỉ chạy khi bước trước chưa trả lời được, bước rẻ đi trước):
+//   1. Rào an toàn: dấu hiệu cấp cứu → trả lời khẩn cấp, không qua AI.
+//   2. Định tuyến: nút bấm hoặc quy tắc (chào, hỏi chức năng, làm lại) → không tốn AI; còn lại AI phân tích ý định một lần.
+//   3. Hỏi thông tin → RAG (truy hồi trong kho tri thức, AI trả lời có căn cứ).
+//   4. Gợi ý chuyên khoa theo triệu chứng → truy hồi chuyên khoa; đặt lịch → luồng do máy chủ điều khiển từ dữ liệu DB.
 
-const sanitizeReplyText = (reply: string) => {
-  const seen = new Set<string>();
-
-  return reply
-    .replace(/\r\n/g, "\n")
-    .split(/\n{2,}/)
-    .map((part) => part.trim())
-    .filter((part) => {
-      const key = normalizeReplyKey(part);
-      if (!key || !seen.has(key)) {
-        seen.add(key);
-        return true;
-      }
-      return false;
-    })
-    .join("\n\n");
-};
+/** Các ý định ưu tiên trả lời bằng kho tri thức; luồng đặt lịch chỉ nhận khi kho không có câu trả lời. */
+const INFO_OPERATIONS = new Set<ChatOperation>(["ASK_INFORMATION", "ASK_PAYMENT", "LOOKUP_APPOINTMENT", "UNKNOWN"]);
 
 const emptyNLUResult = (): NLUResult => ({
   operation: "UNKNOWN",
@@ -74,157 +57,27 @@ const emptyNLUResult = (): NLUResult => ({
     associatedSymptoms: [],
     reason: null,
   },
-  triage: {
-    summary: null,
-    clarificationQuestion: null,
-    missingDetails: [],
-  },
+  triage: { summary: null, clarificationQuestion: null, missingDetails: [] },
   correction: { clearFields: [] },
   confidence: 0,
 });
 
-const greetingOutput = (draft: ChatBookingDraft): AIChatbotOutput => ({
-  reply:
-    "Xin chào, hệ thống có thể hỗ trợ bạn tìm chuyên khoa, gói khám, bác sĩ, lịch trống hoặc tra cứu lịch hẹn.",
-  intent: "GENERAL_HOSPITAL_INFO",
-  state: "BOOKING_GUIDE",
-  nextStep: "SHOW_BOOKING_GUIDE",
-  confidence: 1,
-  draft,
-  suggestedActions: [
-    { type: "VIEW_DEPARTMENTS", label: "Xem chuyên khoa", payload: {} },
-    { type: "VIEW_PACKAGES", label: "Xem gói khám", payload: {} },
-    {
-      type: "LOOKUP_APPOINTMENT",
-      label: "Tra cứu lịch hẹn",
-      payload: {},
-    },
-  ],
-});
-
-const capabilitiesOutput = (draft: ChatBookingDraft): AIChatbotOutput => ({
-  reply:
-    "Tôi có thể giúp bạn tìm chuyên khoa, gói khám, bác sĩ và lịch trống; đồng thời hỗ trợ đặt lịch hoặc hướng dẫn tra cứu lịch hẹn. Bạn muốn bắt đầu từ đâu?",
-  intent: "GENERAL_HOSPITAL_INFO",
-  state: "BOOKING_GUIDE",
-  nextStep: "SHOW_BOOKING_GUIDE",
-  confidence: 1,
-  draft,
-  suggestedActions: [
-    { type: "VIEW_DEPARTMENTS", label: "Tìm chuyên khoa", payload: {} },
-    { type: "VIEW_PACKAGES", label: "Xem gói khám", payload: {} },
-    {
-      type: "LOOKUP_APPOINTMENT",
-      label: "Tra cứu lịch hẹn",
-      payload: {},
-    },
-  ],
-});
-const unsupportedInformationOutput = (
-  draft: ChatBookingDraft,
-): AIChatbotOutput => ({
-  reply:
-    "Tôi đang tập trung hỗ trợ thông tin cơ sở khám và đặt lịch khám nên chưa thể trả lời chính xác câu hỏi này. Bạn có thể hỏi về chuyên khoa, bác sĩ, gói khám, lịch trống hoặc tra cứu lịch hẹn.",
-  intent: "GENERAL_HOSPITAL_INFO",
-  state: "BOOKING_GUIDE",
-  nextStep: "SHOW_BOOKING_GUIDE",
-  confidence: 0.8,
-  draft,
-  suggestedActions: [
-    { type: "VIEW_DEPARTMENTS", label: "Xem chuyên khoa", payload: {} },
-    { type: "VIEW_PACKAGES", label: "Xem gói khám", payload: {} },
-  ],
-});
-const resetOutput = (): AIChatbotOutput => ({
-  reply:
-    "Thông tin lựa chọn trước đó đã được xóa. Bạn có thể bắt đầu lại bằng cách chọn chuyên khoa hoặc mô tả nhu cầu khám.",
-  intent: "BOOKING_START",
-  state: "BOOKING_GUIDE",
-  nextStep: "CHOOSE_DEPARTMENT",
-  confidence: 1,
-  draft: {},
-  suggestedActions: [
-    { type: "VIEW_DEPARTMENTS", label: "Xem chuyên khoa", payload: {} },
-    { type: "VIEW_PACKAGES", label: "Xem gói khám", payload: {} },
-  ],
-});
-
-const emergencyOutput = (draft: ChatBookingDraft): AIChatbotOutput => ({
-  reply:
-    "Triệu chứng bạn mô tả có thể cần được xử lý khẩn cấp. Hãy đến cơ sở y tế gần nhất hoặc gọi cấp cứu ngay để được hỗ trợ kịp thời.",
-  intent: "SYMPTOM_TRIAGE",
-  state: "EMERGENCY_CARE",
-  nextStep: "EMERGENCY_CARE",
-  confidence: 1,
-  draft,
-  suggestedActions: [
-    {
-      type: "EMERGENCY_ADVICE",
-      label: "Đến cơ sở y tế gần nhất",
-      payload: {},
-    },
-    {
-      type: "CONTACT_STAFF",
-      label: "Liên hệ nhân viên hỗ trợ",
-      payload: {},
-    },
-  ],
-});
-
-const fallbackOutput = (
-  draft: ChatBookingDraft,
-  aiUnavailable: boolean,
-): AIChatbotOutput => ({
-  reply: aiUnavailable
-    ? "AI đang tạm thời không phản hồi. Hệ thống vẫn có thể hỗ trợ bạn qua các lựa chọn bên dưới."
-    : "Hệ thống chưa xác định rõ yêu cầu. Bạn có thể chọn một chức năng bên dưới hoặc mô tả cụ thể hơn.",
-  intent: "UNKNOWN",
-  state: "BOOKING_GUIDE",
-  nextStep: "CHOOSE_DEPARTMENT",
-  confidence: 0.3,
-  draft,
-  suggestedActions: [
-    { type: "VIEW_DEPARTMENTS", label: "Xem chuyên khoa", payload: {} },
-    { type: "VIEW_PACKAGES", label: "Xem gói khám", payload: {} },
-    {
-      type: "LOOKUP_APPOINTMENT",
-      label: "Tra cứu lịch hẹn",
-      payload: {},
-    },
-  ],
-});
+const hasSelection = (draft: ChatBookingDraft) => Boolean(draft.departmentId || draft.packageId || draft.doctorId || draft.timeSlotId);
 
 class ChatbotService {
   async handleMessage(input: ChatbotRequestInput): Promise<ChatbotResponse> {
-    // Chặn từ đầu nếu quản trị viên đã tắt chatbot.
     const runtimeSetting = await ChatbotSettingsService.getRuntimeSettings();
     if (!runtimeSetting.isActive) {
-      throw new AppError(
-        "Chatbot đang tạm tắt. Vui lòng gửi yêu cầu tư vấn để nhân viên hỗ trợ.",
-        503,
-      );
+      throw new AppError("Chatbot đang tạm tắt. Vui lòng gửi yêu cầu tư vấn để nhân viên hỗ trợ.", 503);
     }
 
     const settings = runtimeSetting.value;
-    const session = await getOrCreateChatSession(
-      input.sessionId,
-      input.phone,
-      settings.sessionExpiresDays,
-    );
+    const session = await getOrCreateChatSession(input.sessionId, input.phone, settings.sessionExpiresDays);
     const sessionId = session.id;
-    const normalizedMessage = normalizeMessage(input.message);
-    const requestDraft = sanitizeBookingDraft(
-      mergeDrafts(session.draft, input.draft),
-    );
-    const actionDraft = ChatbotDraftReducer.reduceAction(
-      requestDraft,
-      input.action,
-    );
+    const requestDraft = sanitizeBookingDraft(mergeDrafts(session.draft, input.draft));
+    const actionDraft = ChatbotDraftReducer.reduceAction(requestDraft, input.action);
 
-    const finish = async (
-      output: AIChatbotOutput,
-      source: ChatbotResponseSource,
-    ) => {
+    const finish = async (output: AIChatbotOutput, source: ChatbotResponseSource, sourceIds: string[] = []) => {
       const suggestedActions = await ChatbotActionService.validateActions(
         output.suggestedActions,
         output.draft,
@@ -237,47 +90,43 @@ class ChatbotService {
         reply: sanitizeReplyText(output.reply),
         suggestedActions,
       };
-
       await Promise.all([
-        updateChatSession(
-          sessionId,
-          response,
-          input.message,
-          input.phone,
-          settings.sessionExpiresDays,
-        ),
-        this.saveLog(input, response),
+        updateChatSession(sessionId, response, input.message, input.phone, settings.sessionExpiresDays),
+        this.saveLog(input, response, sourceIds),
       ]);
       return response;
     };
 
-    if (hasEmergencySignal(normalizedMessage)) {
+    // 1. Rào an toàn
+    if (hasEmergencySignal(normalizeMessage(input.message))) {
       return finish(emergencyOutput(actionDraft), "EMERGENCY");
     }
 
+    // 2. Định tuyến
     const actionOperation = operationFromAction(input.action);
+    const rule = actionOperation ? "NEEDS_NLU" : routeByRules(input.message);
+    if (rule === "RESET") return finish(resetOutput(), "SYSTEM");
+    if (rule === "GREETING") return finish(greetingOutput(actionDraft), "SYSTEM");
+    if (rule === "CAPABILITIES") return finish(capabilitiesOutput(actionDraft), "SYSTEM");
+
     let nlu = emptyNLUResult();
     let aiUnavailable = false;
-
     if (actionOperation) {
       nlu.operation = actionOperation;
       nlu.confidence = 1;
     } else if (settings.aiEnabled) {
       try {
-        const catalog = await ChatbotContextService.loadNLUCatalog();
         nlu = await ChatbotNLUService.extract({
           message: input.message,
           draft: actionDraft,
-          catalog,
+          catalog: await ChatbotContextService.loadNLUCatalog(),
           model: settings.model,
         });
       } catch (error) {
         aiUnavailable = true;
         if (!settings.fallbackEnabled) {
           throw new AppError(
-            error instanceof Error
-              ? "AI không thể phân tích yêu cầu: " + error.message
-              : "AI không thể phân tích yêu cầu",
+            error instanceof Error ? `AI không thể phân tích yêu cầu: ${error.message}` : "AI không thể phân tích yêu cầu",
             502,
           );
         }
@@ -286,128 +135,65 @@ class ChatbotService {
       aiUnavailable = true;
     }
 
-    if (nlu.operation === "RESET_FLOW") {
-      return finish(resetOutput(), "SYSTEM");
+    if (nlu.operation === "RESET_FLOW") return finish(resetOutput(), "SYSTEM");
+    if (nlu.operation === "GREETING") return finish(greetingOutput(actionDraft), "SYSTEM");
+    if (nlu.operation === "ASK_CAPABILITIES") return finish(capabilitiesOutput(actionDraft), "SYSTEM");
+
+    // Thực thể AI trích ra (tên khoa, bác sĩ, ngày...) được đối chiếu với DB, chỉ giữ phần xác minh được.
+    const resolved = actionOperation || nlu.confidence < 0.25 ? { patch: {} } : await ChatbotEntityResolver.resolve(nlu);
+    let draft = ChatbotDraftReducer.reduce(actionDraft, resolved.patch, nlu.correction);
+
+    // 3. Hỏi thông tin → RAG. Câu chưa rõ ý (UNKNOWN) khi đang giữa luồng đặt lịch thì để luồng đặt lịch xử lý trước.
+    const wantsInfo =
+      !actionOperation &&
+      settings.faqEnabled &&
+      INFO_OPERATIONS.has(nlu.operation) &&
+      !(nlu.operation === "UNKNOWN" && hasSelection(draft));
+    if (wantsInfo) {
+      const info = await InfoFlow.answer({ message: input.message, draft, aiEnabled: settings.aiEnabled && !aiUnavailable, model: settings.model });
+      if (info) return finish(info.output, info.source, info.sourceIds);
+      if (nlu.operation === "ASK_INFORMATION") return finish(noInformationOutput(draft), "SYSTEM");
     }
 
-    const resolved =
-      actionOperation || nlu.confidence < 0.25
-        ? { patch: {} }
-        : await ChatbotEntityResolver.resolve(nlu);
-
-    let draft = ChatbotDraftReducer.reduce(
-      actionDraft,
-      resolved.patch,
-      nlu.correction,
-    );
-    const shouldResolveTriage =
-      !actionOperation &&
-      nlu.operation === "SEARCH_DEPARTMENT" &&
-      Boolean(draft.symptoms?.length);
-    const triageRecommendation = shouldResolveTriage
-      ? await TriageRepository.findRecommendation(draft)
-      : null;
-
-    const shouldApplyTriageDepartment =
-      triageRecommendation &&
-      !resolved.patch.departmentId &&
-      (!draft.departmentId ||
-        (triageRecommendation.matched &&
-          draft.departmentId !== triageRecommendation.departmentId));
-
-    if (shouldApplyTriageDepartment && triageRecommendation) {
+    // 4. Gợi ý chuyên khoa theo triệu chứng
+    const wantsTriage = !actionOperation && nlu.operation === "SEARCH_DEPARTMENT" && Boolean(draft.symptoms?.length);
+    const triage = wantsTriage ? await TriageFlow.recommend(draft) : null;
+    if (triage && !resolved.patch.departmentId && (!draft.departmentId || (triage.matched && draft.departmentId !== triage.departmentId))) {
       draft = ChatbotDraftReducer.reduce(
         draft,
-        {
-          departmentId: triageRecommendation.departmentId,
-          departmentSlug: triageRecommendation.departmentSlug || undefined,
-        },
+        { departmentId: triage.departmentId, departmentSlug: triage.departmentSlug || undefined },
         { clearFields: [] },
       );
     }
 
+    // 5. Luồng đặt lịch: máy chủ quyết định bước tiếp theo và dựng kết quả, nút bấm từ DB.
     const intent = operationToIntent(nlu.operation, draft, nlu);
-
-    if (nlu.operation === "GREETING") {
-      return finish(greetingOutput(draft), "SYSTEM");
-    }
-    if (nlu.operation === "ASK_CAPABILITIES") {
-      return finish(capabilitiesOutput(draft), "SYSTEM");
-    }
-
-    // Chỉ tải khoa/gói/bác sĩ/slot cần cho intent hiện tại để giảm truy vấn.
     const context = await ChatbotContextService.load(intent, draft);
-    const shouldSearchFAQ =
-      settings.faqEnabled &&
-      [
-        "GENERAL_HOSPITAL_INFO",
-        "PAYMENT_GUIDE",
-        "APPOINTMENT_LOOKUP_GUIDE",
-        "UNKNOWN",
-      ].includes(intent);
-
-    if (shouldSearchFAQ) {
-      const faqMatch = await ChatbotFAQRepository.findDirectAnswer(
-        input.message,
-        intent,
-      );
-
-      if (faqMatch) {
-        return finish(
-          composeFAQOutput({
-            faq: faqMatch.faq,
-            intent: faqMatch.intent,
-            confidence: faqMatch.confidence,
-            draft,
-          }),
-          "FAQ",
-        );
-      }
-    }
-
-    if (nlu.operation === "ASK_INFORMATION") {
-      return finish(unsupportedInformationOutput(draft), "SYSTEM");
-    }
-
-    // Workflow server quyết định bước tiếp theo và dựng results/actions từ DB.
-    const workflowOutput = ChatbotWorkflowService.resolve({
+    const output = BookingFlow.resolve({
       message: input.message,
       detectedIntent: intent,
       context,
       draft,
       action: input.action,
       nlu,
-      triageRecommendation,
+      triageRecommendation: triage,
     });
+    if (!output) return finish(fallbackOutput(draft, aiUnavailable), "FALLBACK");
 
-    if (workflowOutput) {
-      const source =
-        intent === "SYMPTOM_TRIAGE" && !actionOperation && !aiUnavailable
-          ? "AI"
-          : "SYSTEM";
-
-      if (
-        source === "AI" &&
-        triageRecommendation &&
-        workflowOutput.intent === "SYMPTOM_TRIAGE" &&
-        workflowOutput.state === "SUGGESTING_DEPARTMENT"
-      ) {
-        workflowOutput.reply = await GroundedResponseService.composeTriageReply({
-          userMessage: input.message,
-          nlu,
-          recommendation: triageRecommendation,
-          fallbackReply: workflowOutput.reply,
-          model: settings.model,
-        });
-      }
-
-      return finish(workflowOutput, source);
+    const aiPhrased = intent === "SYMPTOM_TRIAGE" && !actionOperation && !aiUnavailable;
+    if (aiPhrased && triage && output.intent === "SYMPTOM_TRIAGE" && output.state === "SUGGESTING_DEPARTMENT") {
+      output.reply = await TriageFlow.composeReply({
+        userMessage: input.message,
+        nlu,
+        recommendation: triage,
+        fallbackReply: output.reply,
+        model: settings.model,
+      });
     }
-
-    return finish(fallbackOutput(draft, aiUnavailable), "FALLBACK");
+    return finish(output, aiPhrased ? "AI" : "SYSTEM");
   }
 
-  private async saveLog(input: ChatbotRequestInput, response: ChatbotResponse) {
+  private async saveLog(input: ChatbotRequestInput, response: ChatbotResponse, sourceIds: string[]) {
     await prisma.chatbotLog.create({
       data: {
         guestPhone: input.phone,
@@ -415,6 +201,7 @@ class ChatbotService {
         message: input.message,
         response: response.reply,
         intent: response.intent,
+        sourceIds,
       },
     });
   }

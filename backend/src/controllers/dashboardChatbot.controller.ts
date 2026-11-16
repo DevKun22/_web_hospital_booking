@@ -1,6 +1,7 @@
 import type { Request, Response, NextFunction } from "express";
 import DashboardChatbotService from "../services/dashboardChatbot.service.js";
 import ChatbotSettingsService from "../services/chatbot/chatbot.settings.js";
+import KnowledgeService from "../services/chatbot/rag/knowledge.service.js";
 import { AppError } from "../utils/appError.js";
 
 const parseBooleanQuery = (value: unknown) => {
@@ -33,6 +34,23 @@ const getParam = (value: string | string[] | undefined) => {
   }
 
   return param;
+};
+
+export const getDashboardChatbotKnowledgeHandler = async (_req: Request, res: Response, next: NextFunction) => {
+  try {
+    return res.json({ success: true, data: await KnowledgeService.stats() });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const syncDashboardChatbotKnowledgeHandler = async (_req: Request, res: Response, next: NextFunction) => {
+  try {
+    const result = await KnowledgeService.sync();
+    return res.json({ success: true, data: { ...result, stats: await KnowledgeService.stats() } });
+  } catch (error) {
+    next(error);
+  }
 };
 
 export const getDashboardChatbotOverviewHandler = async (

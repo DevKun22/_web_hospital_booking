@@ -177,6 +177,8 @@ export type ChatbotRequestInput = {
   action?: ChatAction;
 };
 
+import type { ChatbotSource } from "./rag/rag.types.js";
+
 export type AIChatbotOutput = {
   reply: string;
   intent: ChatIntent;
@@ -186,6 +188,8 @@ export type AIChatbotOutput = {
   draft: ChatBookingDraft;
   results?: ChatbotResultGroup[];
   suggestedActions: SuggestedAction[];
+  /** Nguồn tri thức mà câu trả lời dựa vào (chỉ có với câu trả lời từ kho tri thức). */
+  sources?: ChatbotSource[];
 };
 
 export type ChatbotResponse = AIChatbotOutput & {
