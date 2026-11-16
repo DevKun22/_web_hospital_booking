@@ -1,3 +1,5 @@
+"use client";
+
 import * as React from "react";
 import { X } from "lucide-react";
 import { DsButton } from "@/components/ds/button";
@@ -44,8 +46,16 @@ export function DsPane({
   bodyClassName?: string;
   children: React.ReactNode;
 }) {
+  // Màn hẹp xếp khung chi tiết xuống dưới danh sách: mở một mục thì cuộn tới khung đó ngay, người dùng không phải tự kéo.
+  const ref = React.useRef<HTMLElement>(null);
+  React.useEffect(() => {
+    if (window.matchMedia("(max-width: 1100px)").matches) {
+      ref.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, [title]);
+
   return (
-    <aside className={cn("ds-pane", wide && "ds-pane--wide")} aria-label={title}>
+    <aside ref={ref} className={cn("ds-pane", wide && "ds-pane--wide")} aria-label={title}>
       <div className="ds-pane__head">
         <h2 className="ds-pane__title">{title}</h2>
         {badge}
