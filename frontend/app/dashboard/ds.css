@@ -332,7 +332,8 @@
 
 /* ---- Tab ---- */
 /* Tab xuống dòng khi hẹp thay vì cuộn ngang, để không tab nào bị giấu. */
-.ds .ds-tabs { display: flex; flex-wrap: wrap; gap: 0 4px; padding: 0 6px; border-bottom: 1px solid var(--ds-line); }
+/* Tab dính dưới thanh trên khi cuộn danh sách dài, để đổi nhóm việc mà không phải kéo lên đầu trang. */
+.ds .ds-tabs { display: flex; flex-wrap: wrap; gap: 0 4px; padding: 0 6px; border-bottom: 1px solid var(--ds-line); position: sticky; top: 56px; z-index: 5; background: var(--ds-surface); }
 .ds .ds-tab {
   display: inline-flex; align-items: center; gap: 8px; padding: 12px 12px; margin-bottom: -1px;
   border: 0; border-bottom: 2px solid transparent; background: transparent; color: var(--ds-muted);
@@ -408,6 +409,11 @@
 }
 .ds .ds-pane { display: flex; flex-direction: column; background: var(--ds-surface); border: 1px solid var(--ds-line); border-radius: var(--ds-radius); max-height: calc(100dvh - 88px); }
 @media (max-width: 1100px) { .ds .ds-pane { max-height: none; } }
+/* Màn hẹp: khung chi tiết xếp dưới danh sách và cuộn theo trang, nên tiêu đề và hàng nút chính dính mép để luôn thao tác được. */
+@media (max-width: 1100px) {
+  .ds .ds-pane__head { position: sticky; top: 56px; z-index: 4; background: var(--ds-surface); border-radius: var(--ds-radius) var(--ds-radius) 0 0; }
+  .ds .ds-pane__foot { position: sticky; bottom: 0; z-index: 4; background: var(--ds-surface); border-radius: 0 0 var(--ds-radius) var(--ds-radius); box-shadow: 0 -6px 12px -10px rgb(8 12 14 / 0.35); }
+}
 .ds .ds-pane { scroll-margin-top: 68px; }
 .ds .ds-pane__head { display: flex; align-items: center; gap: 10px; padding: 14px 14px 14px 20px; border-bottom: 1px solid var(--ds-line); }
 .ds .ds-pane__title { margin: 0; flex: 1; min-width: 0; font-size: 16px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
