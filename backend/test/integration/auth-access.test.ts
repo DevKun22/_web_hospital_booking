@@ -59,7 +59,7 @@ import {
   withStubbedVnpayRefund,
 } from "./support/context.js";
 
-test("booking OTP verification moves PENDING_OTP to PENDING_CONFIRM", async () => {
+test("booking OTP verification moves PENDING_OTP to CONFIRMED (auto-confirm)", async () => {
   const booking = await http.request("/api/v1/appointments", {
     method: "POST",
     body: bookingBody({ phone: "0912345678" }),
@@ -75,7 +75,7 @@ test("booking OTP verification moves PENDING_OTP to PENDING_CONFIRM", async () =
 
   assert.equal(verification.status, 200);
   assert.equal(verification.body.success, true);
-  assert.equal(verification.body.data.status, "PENDING_CONFIRM");
+  assert.equal(verification.body.data.status, "CONFIRMED");
 });
 
 test("an email OTP cannot attach a booking to a phone account owned by another email", async () => {
@@ -259,11 +259,11 @@ test("OTP verification and expiry race leaves one valid final state", async () =
     select: { status: true, timeSlotId: true },
   });
   assert.ok(
-    stored.status === "PENDING_CONFIRM" ||
+    stored.status === "CONFIRMED" ||
       stored.status === "CANCELLED_BY_ADMIN",
   );
 
-  if (stored.status === "PENDING_CONFIRM") {
+  if (stored.status === "CONFIRMED") {
     assert.equal(verification.status, 200);
     assert.equal(expiry.outcome, "NOOP");
     assert.equal(stored.timeSlotId, fixture.slotOne.id);
@@ -278,7 +278,7 @@ test("OTP verification and expiry race leaves one valid final state", async () =
         where: { id: fixture.slotOne.id },
       })
     ).status,
-    stored.status === "PENDING_CONFIRM" ? "BOOKED" : "AVAILABLE",
+    stored.status === "CONFIRMED" ? "BOOKED" : "AVAILABLE",
   );
 });
 
