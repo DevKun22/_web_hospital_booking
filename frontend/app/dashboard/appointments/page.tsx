@@ -22,6 +22,7 @@ import {
   DsToolbar,
   type DsColumn,
   useActionToast,
+  useConfirm,
 } from "@/components/ds";
 import { VietnamDateInput } from "@/components/ui/vietnam-date-input";
 import { appointmentStatusLabel, appointmentStatusTone } from "@/lib/appointment-status";
@@ -128,6 +129,7 @@ const mainStatusTabs = [
 export default function AppointmentsPage() {
   const { user } = useAuth();
   const router = useRouter();
+  const confirm = useConfirm();
   const queryClient = useQueryClient();
   const [status, setStatus] = useState(ACTIVE_TAB);
   const [doctorId, setDoctorId] = useState("");
@@ -241,7 +243,7 @@ export default function AppointmentsPage() {
   };
 
   const runAction = async (appointment: Appointment, path: string, message: string, body?: unknown) => {
-    if (path === "/complete" && !(await confirmCompleteWithRecordCheck(appointment.bookingCode))) return false;
+    if (path === "/complete" && !(await confirmCompleteWithRecordCheck(appointment.bookingCode, confirm))) return false;
     setBusy(true);
     setBusyId(appointment.id);
     setError("");

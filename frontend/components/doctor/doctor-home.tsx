@@ -18,6 +18,7 @@ import {
   DsStepList,
   DsTabs,
   type DsColumn,
+  useConfirm,
 } from "@/components/ds";
 import { apiRequest } from "@/lib/api";
 import { examRecordHref } from "@/lib/exam-navigation";
@@ -45,6 +46,7 @@ const slotLabel: Record<string, string> = {
 export function DoctorHome() {
   const { user } = useAuth();
   const router = useRouter();
+  const confirm = useConfirm();
   const queryClient = useQueryClient();
   const today = useMemo(() => getVietnamDateInput(), []);
   const result = useDoctorDashboardOverview(today, true);
@@ -124,7 +126,7 @@ export function DoctorHome() {
   ].slice(0, 6);
 
   const runExamAction = async (appointment: Appointment, path: "/start" | "/complete", message: string) => {
-    if (path === "/complete" && !(await confirmCompleteWithRecordCheck(appointment.bookingCode))) return;
+    if (path === "/complete" && !(await confirmCompleteWithRecordCheck(appointment.bookingCode, confirm))) return;
     setBusy(true);
     setError("");
     setNotice("");

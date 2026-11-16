@@ -90,8 +90,8 @@
 /* ---- Thông báo nổi ---- */
 .ds .ds-toasts {
   position: fixed;
+  top: 68px;
   right: 16px;
-  bottom: 16px;
   z-index: 80;
   display: flex;
   flex-direction: column;
@@ -139,7 +139,86 @@
   .ds .ds-toast { animation: ds-toast-in 0.18s ease-out; }
 }
 @keyframes ds-toast-in {
-  from { opacity: 0; transform: translateY(8px); }
+  from { opacity: 0; transform: translateY(-8px); }
+}
+
+/* ---- Vòng quay, vùng đang tải, thanh tiến trình ---- */
+.ds .ds-spinner {
+  display: inline-block;
+  flex: none;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: ds-spin 0.7s linear infinite;
+}
+.ds .ds-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 28px 16px;
+  color: var(--ds-muted);
+  font-size: 14px;
+}
+.ds .ds-loading--inline { justify-content: flex-start; padding: 6px 0; font-size: 13px; }
+.ds .ds-progress {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 90;
+  height: 3px;
+  overflow: hidden;
+  background: var(--ds-accent-soft);
+  pointer-events: none;
+}
+.ds .ds-progress__bar {
+  display: block;
+  width: 40%;
+  height: 100%;
+  background: var(--ds-accent);
+  animation: ds-progress 1.1s ease-in-out infinite;
+}
+@keyframes ds-progress {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(260%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ds .ds-spinner { animation-duration: 2s; }
+  .ds .ds-progress__bar { animation-duration: 2.4s; }
+}
+
+/* ---- Hộp thoại giữa màn hình ---- */
+.ds-dialog-overlay { position: fixed; inset: 0; z-index: 70; background: rgb(8 12 14 / 0.5); }
+.ds-dialog {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  z-index: 71;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  width: min(480px, calc(100vw - 32px));
+  max-height: calc(100dvh - 48px);
+  background: var(--ds-surface);
+  color: var(--ds-ink);
+  border: 1px solid var(--ds-line);
+  border-radius: var(--ds-radius);
+  box-shadow: 0 20px 48px rgb(0 0 0 / 0.28);
+}
+.ds-dialog--sm { width: min(400px, calc(100vw - 32px)); }
+.ds-dialog--lg { width: min(640px, calc(100vw - 32px)); }
+.ds-dialog__head { display: flex; align-items: flex-start; gap: 12px; padding: 18px 12px 12px 20px; }
+.ds-dialog__heading { flex: 1; min-width: 0; }
+.ds-dialog__title { margin: 0; font-size: 17px; font-weight: 600; line-height: 1.3; }
+.ds-dialog__desc { margin: 6px 0 0; color: var(--ds-muted); font-size: 14px; line-height: 1.5; white-space: pre-line; }
+.ds-dialog__body { padding: 4px 20px 18px; overflow-y: auto; display: flex; flex-direction: column; gap: 16px; }
+.ds-dialog__foot { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 10px; padding: 14px 20px; border-top: 1px solid var(--ds-line); }
+@media (prefers-reduced-motion: no-preference) {
+  .ds-dialog { animation: ds-dialog-in 0.16s ease-out; }
+}
+@keyframes ds-dialog-in {
+  from { opacity: 0; transform: translate(-50%, -48%); }
 }
 
 /* ---- Nút ---- */

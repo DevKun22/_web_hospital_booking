@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { DsButton, DsEmptyState, DsNotice, DsPageHeader, DsPanel, DsStatusPill, DsTabs, DsToolbar, DsToolbarSpacer } from "@/components/ds";
+import { DsButton, DsEmptyState, DsNotice, DsPageHeader, DsPanel, DsStatusPill, DsTabs, DsToolbar, DsToolbarSpacer, DsLoading } from "@/components/ds";
 import { apiRequest } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { formatVietnamDateTime } from "@/lib/date";
@@ -107,7 +107,7 @@ export default function DashboardInboxPage() {
           </DsButton>
         </DsToolbar>
         {query.isLoading ? (
-          <p className="ds-hint" style={{ padding: 16 }}>Đang tải...</p>
+          <DsLoading />
         ) : items.length ? (
           <div role="listbox" aria-label="Danh sách thông báo">
             {items.map((item) => (

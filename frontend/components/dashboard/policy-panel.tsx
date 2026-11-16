@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { DsButton, DsField, DsInput, DsNotice, DsPanel } from "@/components/ds";
+import { DsButton, DsField, DsInput, DsNotice, DsPanel, DsLoading } from "@/components/ds";
 import { apiRequest } from "@/lib/api";
 
 type PolicyKey = "bookingHoldMinutes" | "reminderLeadMinutes" | "patientCancelCutoffHours" | "noShowGraceMinutes";
@@ -81,7 +81,7 @@ export function PolicyPanel() {
         </p>
         {error ? <DsNotice tone="bad">{error.message}</DsNotice> : null}
         {notice ? <DsNotice tone="good">{notice}</DsNotice> : null}
-        {policyQuery.isLoading ? <p className="ds-hint">Đang tải chính sách...</p> : null}
+        {policyQuery.isLoading ? <DsLoading label="Đang tải chính sách..." /> : null}
         {policyQuery.error ? <DsNotice tone="bad">{policyQuery.error instanceof Error ? policyQuery.error.message : "Không tải được chính sách"}</DsNotice> : null}
         {data ? (
           <div className="ds-grid-fields">

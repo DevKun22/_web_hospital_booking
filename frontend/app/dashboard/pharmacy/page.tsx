@@ -17,6 +17,7 @@ import {
   DsTabs,
   DsToolbar,
   useActionToast,
+  DsLoading,
 } from "@/components/ds";
 import { apiRequest } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
@@ -226,7 +227,7 @@ export default function PharmacyQueuePage() {
         }}
       />
       {queueError ? <DsNotice tone="bad">{queueError}</DsNotice> : null}
-      {queueQuery.isLoading ? <p style={{ margin: 0, padding: 16, color: "var(--ds-muted)" }}>Đang tải...</p> : null}
+      {queueQuery.isLoading ? <DsLoading /> : null}
       {queueQuery.data && queue.length === 0 ? (
         <DsEmptyState
           title={status === "NOT_DISPENSED" ? "Không có đơn chờ cấp" : "Chưa có đơn đã cấp"}

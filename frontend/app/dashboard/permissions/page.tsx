@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { RefreshCw } from "lucide-react";
-import { DsButton, DsInput, DsNotice, DsPageHeader, DsPanel, DsTabs, DsToolbar } from "@/components/ds";
+import { DsButton, DsInput, DsNotice, DsPageHeader, DsPanel, DsTabs, DsToolbar, DsLoading } from "@/components/ds";
 import { PolicyPanel } from "@/components/dashboard/policy-panel";
 import { apiRequest } from "@/lib/api";
 import { dashboardRoleLabels } from "@/lib/dashboard-navigation";
@@ -144,7 +144,7 @@ export default function DashboardPermissionsPage() {
                   </DsButton>
                 )}
               </DsToolbar>
-              {matrixQuery.isLoading ? <p style={{ margin: 0, padding: 16, color: "var(--ds-muted)" }}>Đang tải phân quyền...</p> : null}
+              {matrixQuery.isLoading ? <DsLoading label="Đang tải phân quyền..." /> : null}
             </DsPanel>
 
             {matrixQuery.data

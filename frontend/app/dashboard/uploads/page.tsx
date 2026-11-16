@@ -19,6 +19,7 @@ import {
   DsStatusPill,
   DsTabs,
   DsToolbar,
+  DsLoading,
 } from "@/components/ds";
 import { apiRequest } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
@@ -198,7 +199,7 @@ export default function UploadsPage() {
           closePane();
         }}
       />
-      {uploadsQuery.isLoading ? <p style={{ margin: 0, padding: 16, color: "var(--ds-muted)" }}>Đang tải thư viện ảnh...</p> : null}
+      {uploadsQuery.isLoading ? <DsLoading label="Đang tải thư viện ảnh..." /> : null}
       {!uploadsQuery.isLoading && assets.length === 0 ? <DsEmptyState title="Không có ảnh phù hợp" description="Hãy thay đổi trạng thái hoặc thư mục đang lọc." /> : null}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: 12, padding: 12 }}>
         {assets.map((asset) => (

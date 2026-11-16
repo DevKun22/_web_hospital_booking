@@ -21,6 +21,8 @@ import {
   type DsColumn,
   type DsTone,
   useActionToast,
+  useConfirm,
+  DsLoading,
 } from "@/components/ds";
 import { PrescriptionEditor, confirmShortage } from "@/components/doctor/prescription-editor";
 import { VietnamDateInput } from "@/components/ui/vietnam-date-input";
@@ -175,6 +177,7 @@ function FileDrop({ inputId, busy, onFile }: { inputId: string; busy: boolean; o
 
 export default function MedicalRecordsPage() {
   const { user } = useAuth();
+  const confirm = useConfirm();
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
   const [status, setStatus] = useState("");
@@ -353,9 +356,11 @@ export default function MedicalRecordsPage() {
   const simpleRecordAction = async (record: MedicalRecord, path: string, message: string) => {
     // Cảnh báo mềm: hồ sơ chưa có chẩn đoán hoặc hướng điều trị thì hỏi lại trước khi gửi cho người khám.
     if (path === "/publish" && !record.diagnosis?.trim() && !record.treatment?.trim()) {
-      const proceed = window.confirm(
-        "Hồ sơ này chưa có chẩn đoán hoặc hướng điều trị (đã lưu). Người khám sẽ nhận thông báo \"Kết quả khám đã sẵn sàng\" với nội dung trống.\n\nBạn vẫn muốn công bố?",
-      );
+      const proceed = await confirm({
+        title: "Công bố hồ sơ chưa có kết luận?",
+        message: "Hồ sơ này chưa có chẩn đoán hoặc hướng điều trị (đã lưu). Người khám sẽ nhận thông báo \"Kết quả khám đã sẵn sàng\" với nội dung trống.",
+        confirmLabel: "Vẫn công bố",
+      });
       if (!proceed) return;
     }
     setBusy(true);
@@ -409,11 +414,11 @@ export default function MedicalRecordsPage() {
         setRecordForm(toRecordForm(record));
       }
       if (prescription && prescription.status === "DRAFT" && prescription.items.length > 0) {
-        const { proceed, acknowledgeShortage } = confirmShortage(prescription);
+        const { proceed, acknowledgeShortage } = await confirmShortage(prescription, confirm);
         if (!proceed) return;
         await apiRequest(`/dashboard/prescriptions/${prescription.id}/issue`, { method: "PATCH", body: acknowledgeShortage ? { acknowledgeShortage: true } : undefined });
       }
-      if (!record.diagnosis?.trim() && !record.treatment?.trim() && !confirmCompleteWithoutConclusion(record.appointment.bookingCode)) return;
+      if (!record.diagnosis?.trim() && !record.treatment?.trim() && !(await confirmCompleteWithoutConclusion(record.appointment.bookingCode, confirm))) return;
       await apiRequest(`/dashboard/appointments/${record.appointment.id}/complete`, { method: "PATCH" });
       setNotice("Đã kết thúc khám. Hóa đơn được tạo tự động, người khám sẽ thấy kết quả sau khi thanh toán.");
       await Promise.all([refreshSelectedRecord(record.id), invalidateMedicalRecords()]);
@@ -849,7 +854,7 @@ export default function MedicalRecordsPage() {
           {prescription ? (
             <PrescriptionEditor key={prescription.id} prescription={prescription} canEdit={canCreatePrescription} onChange={() => void refreshSelectedRecord(selected.id)} />
           ) : selected.prescriptionRecord ? (
-            <p style={{ margin: 0, padding: 16, color: "var(--ds-muted)" }}>Đang tải đơn thuốc...</p>
+            <DsLoading label="Đang tải đơn thuốc..." />
           ) : canCreatePrescription && selected.status !== "ARCHIVED" && ["IN_PROGRESS", "COMPLETED"].includes(selected.appointment.status) ? (
             <div style={{ padding: 16 }}>
               <DsButton loading={busy} onClick={() => void createPrescriptionFromRecord(selected)}>

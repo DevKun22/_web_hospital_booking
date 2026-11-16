@@ -19,6 +19,7 @@ import {
   DsTabs,
   DsToolbar,
   type DsColumn,
+  DsLoading,
 } from "@/components/ds";
 import { apiRequest } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
@@ -495,10 +496,10 @@ export default function ChatbotPage() {
         <DsTabs label="Mục trợ lý tư vấn" items={tabs} value={activeTab} onChange={changeTab} />
       </DsPanel>
       <div style={{ marginTop: 16 }}>
-        {activeTab === "overview" ? (overviewQuery.isLoading ? <p className="ds-hint">Đang tải dữ liệu trợ lý tư vấn...</p> : overviewView) : null}
+        {activeTab === "overview" ? (overviewQuery.isLoading ? <DsLoading label="Đang tải dữ liệu trợ lý tư vấn..." /> : overviewView) : null}
         {activeTab === "sessions" ? <DsSplit list={sessionList} pane={sessionPane} /> : null}
         {activeTab === "logs" ? logsView : null}
-        {activeTab === "settings" ? (settingsQuery.isLoading ? <p className="ds-hint">Đang tải cấu hình...</p> : settingsView) : null}
+        {activeTab === "settings" ? (settingsQuery.isLoading ? <DsLoading label="Đang tải cấu hình..." /> : settingsView) : null}
       </div>
     </>
   );
