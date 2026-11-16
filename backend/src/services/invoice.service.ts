@@ -878,61 +878,97 @@ class InvoiceService {
       });
       if (pendingPayment > 0) return { outcome: "BLOCKED" as const, delta: diff.delta };
 
-      let nextOrder = Math.max(-1, ...invoice.items.map((line) => line.sortOrder)) + 1;
-      if (diff.add.length > 0) {
-        await tx.invoiceItem.createMany({
-          data: diff.add.map((line) => ({
-            invoiceId: invoiceRef.id,
-            type: "MEDICINE" as const,
-            description: line.description,
-            quantity: line.quantity,
-            unitPrice: line.unitPrice,
-            amount: line.amount,
-            sortOrder: nextOrder++,
-            prescriptionItemId: line.prescriptionItemId,
-          })),
-        });
-      }
-      for (const line of diff.update) {
-        await tx.invoiceItem.update({ where: { id: line.id }, data: { quantity: line.quantity, amount: line.amount } });
-      }
-      if (diff.remove.length > 0) {
-        await tx.invoiceItem.deleteMany({ where: { id: { in: diff.remove.map((line) => line.id) } } });
-      }
-      await tx.invoice.update({
-        where: { id: invoiceRef.id },
-        data: { totalAmount: invoice.totalAmount + diff.delta, finalAmount: invoice.finalAmount + diff.delta },
+      await this.applyMedicineDiff(tx, {
+        invoiceId: invoiceRef.id,
+        appointmentId: prescription.appointmentId,
+        prescriptionId,
+        invoice,
+        diff,
+        actor,
       });
-      await tx.appointment.update({
-        where: { id: prescription.appointmentId },
-        data: {
-          finalAmount: invoice.finalAmount + diff.delta,
-          logs: { create: { action: "INVOICE_CREATED", note: "Đã cập nhật tiền thuốc trong hóa đơn", createdById: actor?.userId } },
-        },
-      });
-      await AuditLogService.record(
-        {
-          actor: actor ? { userId: actor.userId, role: actor.role } : null,
-          action: "INVOICE_ADJUSTED",
-          targetType: "INVOICE",
-          targetId: invoiceRef.id,
-          meta: {
-            reason: "MEDICINE_SYNC",
-            prescriptionId,
-            before: { finalAmount: invoice.finalAmount },
-            after: { finalAmount: invoice.finalAmount + diff.delta },
-          },
-        },
-        tx,
-      );
       return { outcome: "SYNCED" as const, delta: diff.delta };
     });
 
+    await this.notifyMedicineSync(result, prescription, invoiceRef);
+    return { outcome: result.outcome, amount: result.delta };
+  }
+
+
+  /** Ghi chênh lệch dòng thuốc vào hóa đơn chưa thanh toán (gọi trong giao dịch đã khóa hóa đơn). */
+  private async applyMedicineDiff(
+    tx: Prisma.TransactionClient,
+    params: {
+      invoiceId: string;
+      appointmentId: string;
+      prescriptionId: string;
+      invoice: { totalAmount: number; finalAmount: number; items: { sortOrder: number }[] };
+      diff: ReturnType<typeof diffMedicineLines>;
+      actor?: { userId: string; role: string };
+    },
+  ) {
+    const { invoiceId, appointmentId, prescriptionId, invoice, diff, actor } = params;
+    let nextOrder = Math.max(-1, ...invoice.items.map((line) => line.sortOrder)) + 1;
+    if (diff.add.length > 0) {
+      await tx.invoiceItem.createMany({
+        data: diff.add.map((line) => ({
+          invoiceId: invoiceId,
+          type: "MEDICINE" as const,
+          description: line.description,
+          quantity: line.quantity,
+          unitPrice: line.unitPrice,
+          amount: line.amount,
+          sortOrder: nextOrder++,
+          prescriptionItemId: line.prescriptionItemId,
+        })),
+      });
+    }
+    for (const line of diff.update) {
+      await tx.invoiceItem.update({ where: { id: line.id }, data: { quantity: line.quantity, amount: line.amount } });
+    }
+    if (diff.remove.length > 0) {
+      await tx.invoiceItem.deleteMany({ where: { id: { in: diff.remove.map((line) => line.id) } } });
+    }
+    await tx.invoice.update({
+      where: { id: invoiceId },
+      data: { totalAmount: invoice.totalAmount + diff.delta, finalAmount: invoice.finalAmount + diff.delta },
+    });
+    await tx.appointment.update({
+      where: { id: appointmentId },
+      data: {
+        finalAmount: invoice.finalAmount + diff.delta,
+        logs: { create: { action: "INVOICE_CREATED", note: "Đã cập nhật tiền thuốc trong hóa đơn", createdById: actor?.userId } },
+      },
+    });
+    await AuditLogService.record(
+      {
+        actor: actor ? { userId: actor.userId, role: actor.role } : null,
+        action: "INVOICE_ADJUSTED",
+        targetType: "INVOICE",
+        targetId: invoiceId,
+        meta: {
+          reason: "MEDICINE_SYNC",
+          prescriptionId,
+          before: { finalAmount: invoice.finalAmount },
+          after: { finalAmount: invoice.finalAmount + diff.delta },
+        },
+      },
+      tx,
+    );
+  }
+
+  /** Báo nhân viên khi tiền thuốc phát sinh hóa đơn bổ sung hoặc không sửa được hóa đơn. */
+  private async notifyMedicineSync(
+    result: { outcome: string; delta?: number; supplementCode?: string | null },
+    prescription: { id: string; prescriptionCode: string },
+    invoiceRef: { id: string; invoiceCode: string },
+  ) {
+    const prescriptionId = prescription.id;
+    const delta = result.delta ?? 0;
     if (result.outcome === "SUPPLEMENT" && "supplementCode" in result && result.supplementCode) {
       await StaffNotificationService.notifyRoles(["STAFF", "ADMIN"], {
         type: "INVOICE_CREATED",
         title: "Có hóa đơn bổ sung tiền thuốc cần thu",
-        body: `Đơn ${prescription.prescriptionCode} phát hành sau khi hóa đơn ${invoiceRef.invoiceCode} đã thanh toán. Hóa đơn bổ sung ${result.supplementCode} (${Math.abs(result.delta).toLocaleString("vi-VN")} đ) cần thu trước khi dược sĩ cấp thuốc.`,
+        body: `Đơn ${prescription.prescriptionCode} phát hành sau khi hóa đơn ${invoiceRef.invoiceCode} đã thanh toán. Hóa đơn bổ sung ${result.supplementCode} (${Math.abs(delta).toLocaleString("vi-VN")} đ) cần thu trước khi dược sĩ cấp thuốc.`,
         entityType: "INVOICE",
         entityId: invoiceRef.id,
         eventKey: `invoice:${invoiceRef.id}:supplement:${result.supplementCode}`,
@@ -942,15 +978,13 @@ class InvoiceService {
       await StaffNotificationService.notifyRoles(["STAFF", "ADMIN"], {
         type: "INVOICE_CREATED",
         title: "Tiền thuốc chưa tính vào hóa đơn",
-        body: `Đơn ${prescription.prescriptionCode} có thay đổi tiền thuốc (${Math.abs(result.delta).toLocaleString("vi-VN")} đ) nhưng hóa đơn ${invoiceRef.invoiceCode} không còn sửa được. ${result.delta < 0 ? "Thuốc không được cấp: quản trị viên ghi nhận hoàn tiền thuốc ở chi tiết hóa đơn sau khi hoàn tiền cho người khám." : "Tiền thuốc sẽ được tính thành hóa đơn bổ sung khi hóa đơn này được thanh toán."}`,
+        body: `Đơn ${prescription.prescriptionCode} có thay đổi tiền thuốc (${Math.abs(delta).toLocaleString("vi-VN")} đ) nhưng hóa đơn ${invoiceRef.invoiceCode} không còn sửa được. ${delta < 0 ? "Thuốc không được cấp: quản trị viên ghi nhận hoàn tiền thuốc ở chi tiết hóa đơn sau khi hoàn tiền cho người khám." : "Tiền thuốc sẽ được tính thành hóa đơn bổ sung khi hóa đơn này được thanh toán."}`,
         entityType: "INVOICE",
         entityId: invoiceRef.id,
-        eventKey: `invoice:${invoiceRef.id}:medicine-blocked:${prescriptionId}:${result.delta}`,
+        eventKey: `invoice:${invoiceRef.id}:medicine-blocked:${prescriptionId}:${delta}`,
       });
     }
-    return { outcome: result.outcome, amount: result.delta };
   }
-
 
   // ---- Hóa đơn bổ sung tiền thuốc ----------------------------------------------------------------------------
 
