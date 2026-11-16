@@ -13,6 +13,15 @@ import {
   type UpdateAppointmentPatientInfoInput,
 } from "./appointment.shared.js";
 import { AppointmentServiceSupport } from "./appointment.support.js";
+// Hàng đợi "Cần xử lý": lịch chưa xong, ca đang làm lên đầu rồi đến người đã đến chờ, lịch đã xác nhận, lịch chờ xác nhận.
+const ACTIVE_STATUS_RANK: Partial<Record<AppointmentStatus, number>> = {
+  IN_PROGRESS: 0,
+  CHECKED_IN: 1,
+  CONFIRMED: 2,
+  PENDING_CONFIRM: 3,
+};
+const ACTIVE_QUEUE_LIMIT = 500;
+
 export class AppointmentDashboardUseCases extends AppointmentServiceSupport {
   async dashboardList(
     query: {
@@ -24,6 +33,8 @@ export class AppointmentDashboardUseCases extends AppointmentServiceSupport {
       /** Tìm gần đúng theo mã lịch, số điện thoại hoặc tên người khám (gõ đến đâu lọc đến đó). */
       q?: string;
       billingState?: "PENDING_INVOICE" | "HAS_INVOICE";
+      /** ACTIVE: chỉ lịch còn việc phải làm, xếp theo mức ưu tiên (xem ACTIVE_STATUS_RANK) rồi theo ngày giờ. */
+      view?: "ACTIVE";
       page?: number;
       limit?: number;
     },
@@ -34,8 +45,9 @@ export class AppointmentDashboardUseCases extends AppointmentServiceSupport {
     const skip = (page - 1) * limit;
     const searchTerm = query.q?.trim() || undefined;
 
+    const activeView = query.view === "ACTIVE" && !query.status;
     const where: Prisma.AppointmentWhereInput = {
-      status: query.status,
+      status: activeView ? { in: Object.keys(ACTIVE_STATUS_RANK) as AppointmentStatus[] } : query.status,
       doctorId: query.doctorId,
       appointmentDate: query.date ? parseDateOnly(query.date) : undefined,
       patientPhone: query.phone ? { contains: query.phone } : undefined,
@@ -57,16 +69,9 @@ export class AppointmentDashboardUseCases extends AppointmentServiceSupport {
       };
     }
 
-    const [items, total] = await prisma.$transaction([
-      prisma.appointment.findMany({
-        where,
-        select: appointmentSelect,
-        orderBy: [{ appointmentDate: "desc" }, { startTime: "asc" }],
-        skip,
-        take: limit,
-      }),
-      prisma.appointment.count({ where }),
-    ]);
+    const { items, total } = activeView
+      ? await this.listActiveQueue(where, skip, limit)
+      : await this.listByDate(where, skip, limit);
 
     const canViewClinical = await roleHasAnyPermission(actor.role, ["record.view"]);
 
@@ -79,6 +84,35 @@ export class AppointmentDashboardUseCases extends AppointmentServiceSupport {
         totalPages: Math.ceil(total / limit),
       },
     };
+  }
+
+  // Danh sách thường: ngày mới nhất trước, trong ngày theo giờ khám.
+  private async listByDate(where: Prisma.AppointmentWhereInput, skip: number, take: number) {
+    const [items, total] = await prisma.$transaction([
+      prisma.appointment.findMany({
+        where,
+        select: appointmentSelect,
+        orderBy: [{ appointmentDate: "desc" }, { startTime: "asc" }],
+        skip,
+        take,
+      }),
+      prisma.appointment.count({ where }),
+    ]);
+    return { items, total };
+  }
+
+  // Hàng đợi ưu tiên: thứ hạng theo trạng thái không biểu diễn được bằng ORDER BY của Prisma, nên lấy các lịch còn
+  // việc (số lượng nhỏ, có giới hạn), xếp trong bộ nhớ rồi mới cắt trang.
+  private async listActiveQueue(where: Prisma.AppointmentWhereInput, skip: number, take: number) {
+    const rows = await prisma.appointment.findMany({
+      where,
+      select: appointmentSelect,
+      orderBy: [{ appointmentDate: "asc" }, { startTime: "asc" }],
+      take: ACTIVE_QUEUE_LIMIT,
+    });
+    const rank = (status: AppointmentStatus) => ACTIVE_STATUS_RANK[status] ?? 99;
+    rows.sort((left, right) => rank(left.status) - rank(right.status));
+    return { items: rows.slice(skip, skip + take), total: rows.length };
   }
 
   async dashboardGetById(id: string, actor: Actor) {

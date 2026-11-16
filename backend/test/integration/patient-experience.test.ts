@@ -858,8 +858,9 @@ test("care progress states create one deep-linkable notification each", async ()
   await AppointmentService.start(appointment.id, actor);
   await AppointmentService.complete(appointment.id, actor);
 
+  // Hóa đơn tự tạo khi hoàn thành khám có thông báo riêng; ở đây chỉ kiểm các thông báo tiến trình khám.
   const notifications = await prisma.notification.findMany({
-    where: { userId: appointment.patientId },
+    where: { userId: appointment.patientId, type: { not: "INVOICE_CREATED" } },
     orderBy: { createdAt: "asc" },
   });
   assert.deepEqual(
@@ -1281,16 +1282,8 @@ test("patient journey is consistent across public booking dashboard care and mob
     clinicalLogs.every((item) => !/Đau đầu|Paracetamol|Theo dõi đau đầu/.test(item.note || "")),
   );
 
-  const createdInvoice = await http.request(
-    `/api/v1/dashboard/invoices/appointments/${activeAppointmentId}`,
-    {
-      method: "POST",
-      headers: dashboardHeaders(dashboardCookie),
-      body: {},
-    },
-  );
-  assert.equal(createdInvoice.status, 201);
-  const invoiceId = createdInvoice.body.data.id as string;
+  // Hóa đơn đã được tạo tự động khi bác sĩ hoàn thành khám.
+  const invoiceId = (await prisma.invoice.findUniqueOrThrow({ where: { appointmentId: activeAppointmentId } })).id;
 
   const paidInvoice = await http.request(
     `/api/v1/dashboard/invoices/${invoiceId}/pay`,

@@ -479,10 +479,7 @@ class PaymentService {
       return { notificationId: notification.id };
     });
 
-    // Đơn thuốc phát hành lúc hóa đơn còn chờ thanh toán: nay đã thu thì tính thành hóa đơn bổ sung.
-    await InvoiceService.syncAppointmentMedicine(transaction.invoice.appointment.id).catch((error) => {
-      console.error("[INVOICE_MEDICINE] cannot sync medicines after online payment:", error);
-    });
+    await InvoiceService.afterPaid(transaction.invoice.appointment.id);
     return this.getById(transaction.id, transaction.invoice.patientId);
   }
 

@@ -137,6 +137,7 @@ export const listDashboardAppointmentsHandler = async (
           req.query.billingState === "HAS_INVOICE"
             ? req.query.billingState
             : undefined,
+        view: req.query.view === "ACTIVE" ? "ACTIVE" : undefined,
         page: parseNumberQuery(req.query.page),
         limit: parseNumberQuery(req.query.limit),
       },
