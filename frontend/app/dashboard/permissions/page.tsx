@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { RefreshCw } from "lucide-react";
-import { DsButton, DsInput, DsNotice, DsPageHeader, DsPanel, DsTabs, DsToolbar, DsLoading } from "@/components/ds";
+import { DsButton, DsInput, DsNotice, DsPageHeader, DsPanel, DsTabs, DsToolbar, DsLoading, useActionToast } from "@/components/ds";
 import { PolicyPanel } from "@/components/dashboard/policy-panel";
 import { apiRequest } from "@/lib/api";
 import { dashboardRoleLabels } from "@/lib/dashboard-navigation";
@@ -67,12 +67,6 @@ export default function DashboardPermissionsPage() {
     },
   });
 
-  useEffect(() => {
-    if (!notice) return;
-    const timeoutId = window.setTimeout(() => setNotice(""), 4500);
-    return () => window.clearTimeout(timeoutId);
-  }, [notice]);
-
   const toggle = (row: PermissionRow, role: DashboardRole) => {
     setNotice("");
     setEdits((current) => {
@@ -91,6 +85,7 @@ export default function DashboardPermissionsPage() {
   }, [rows, term]);
 
   const mutationError = [saveMutation.error, resetMutation.error].find((error) => error instanceof Error) as Error | undefined;
+  useActionToast({ notice, error: mutationError?.message, clear: () => setNotice("") });
 
   return (
     <>
@@ -99,9 +94,7 @@ export default function DashboardPermissionsPage() {
         description="Bật hoặc tắt quyền cho từng vai trò. Ô xám là quyền cố định hoặc vai trò không đủ điều kiện nhận quyền đó (ví dụ chỉ bác sĩ được kê đơn)."
       />
       <div style={{ display: "grid", gap: 12, marginBottom: 16 }}>
-        {mutationError ? <DsNotice tone="bad">{mutationError.message}</DsNotice> : null}
         {matrixQuery.error ? <DsNotice tone="bad">{matrixQuery.error instanceof Error ? matrixQuery.error.message : "Không tải được phân quyền"}</DsNotice> : null}
-        {notice ? <DsNotice tone="good">{notice}</DsNotice> : null}
       </div>
 
       <DsPanel flush>

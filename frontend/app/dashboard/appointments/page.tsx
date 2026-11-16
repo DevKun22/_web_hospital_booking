@@ -7,6 +7,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import {
   DsButton,
   DsDataTable,
+  DsDialog,
   DsEmptyState,
   DsField,
   DsInput,
@@ -23,6 +24,7 @@ import {
   type DsColumn,
   useActionToast,
   useConfirm,
+  DsNotice,
 } from "@/components/ds";
 import { VietnamDateInput } from "@/components/ui/vietnam-date-input";
 import { appointmentStatusLabel, appointmentStatusTone } from "@/lib/appointment-status";
@@ -188,9 +190,8 @@ export default function AppointmentsPage() {
   const pagination = appointmentsQuery.data?.pagination ?? { page, limit: 20, total: 0, totalPages: 1 };
   const queryError = appointmentsQuery.error || doctorsQuery.error;
   const queryErrorMessage = queryError ? (queryError instanceof Error ? queryError.message : "Không tải được dữ liệu lịch hẹn") : "";
-  const visibleError = error || queryErrorMessage;
   // Kết quả thao tác hiện thành thông báo nổi ngay chỗ đang làm việc (không nằm ở đầu trang).
-  useActionToast({ notice, error: visibleError, clear: () => { setNotice(""); setError(""); } });
+  useActionToast({ notice, error, clear: () => { setNotice(""); setError(""); } });
 
   const invalidateAppointments = async () => {
     await Promise.all([
@@ -687,84 +688,87 @@ export default function AppointmentsPage() {
 
       <div className="ds-editor">
         <div className="ds-editor__col">
-          {cancelTarget?.id === selected.id ? (
-            <div className="ds-card">
-              <div className="ds-card__head">
-                <h3>Xác nhận hủy lịch</h3>
-              </div>
-              <div className="ds-card__body">
-                <DsField label="Lý do hủy" htmlFor="cancel-reason" required>
-                  <DsTextarea id="cancel-reason" rows={3} value={cancelReason} placeholder="Ví dụ: người khám yêu cầu hủy lịch" onChange={(event) => setCancelReason(event.target.value)} />
-                </DsField>
-                <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-                  <DsButton onClick={() => { setCancelTarget(null); setCancelReason(""); }}>Giữ lịch</DsButton>
-                  <DsButton variant="danger" disabled={busy || cancelReason.trim().length < 2} onClick={() => void cancelAppointment()}>
-                    Xác nhận hủy
-                  </DsButton>
-                </div>
-              </div>
-            </div>
-          ) : null}
+          <DsDialog
+            open={cancelTarget?.id === selected.id}
+            onOpenChange={(open) => {
+              if (!open) { setCancelTarget(null); setCancelReason(""); }
+            }}
+            title="Hủy lịch hẹn"
+            description="Lịch hẹn được hủy và khung giờ được giải phóng; người khám sẽ nhận thông báo."
+            size="md"
+            footer={
+              <>
+                <DsButton onClick={() => { setCancelTarget(null); setCancelReason(""); }}>Giữ lịch</DsButton>
+                <DsButton variant="danger" disabled={busy || cancelReason.trim().length < 2} onClick={() => void cancelAppointment()}>
+                  Xác nhận hủy
+                </DsButton>
+              </>
+            }
+          >
+            <DsField label="Lý do hủy" htmlFor="cancel-reason" required>
+              <DsTextarea id="cancel-reason" rows={3} value={cancelReason} placeholder="Ví dụ: người khám yêu cầu hủy lịch" onChange={(event) => setCancelReason(event.target.value)} />
+            </DsField>
+          </DsDialog>
 
-          {rescheduleTarget?.id === selected.id ? (
-            <div className="ds-card">
-              <div className="ds-card__head">
-                <h3>Đổi lịch hẹn</h3>
-              </div>
-              <div className="ds-card__body">
-                <p className="ds-hint" style={{ margin: 0 }}>
-                  Giữ nguyên bác sĩ và thông tin khám; hệ thống phát hành mã lịch mới, giải phóng khung giờ cũ và gửi thông báo cho người khám.
+          <DsDialog
+            open={rescheduleTarget?.id === selected.id}
+            onOpenChange={(open) => {
+              if (!open) { setRescheduleTarget(null); setRescheduleSlotId(""); setRescheduleReason(""); }
+            }}
+            title="Đổi lịch hẹn"
+            description="Giữ nguyên bác sĩ và thông tin khám; hệ thống phát hành mã lịch mới, giải phóng khung giờ cũ và gửi thông báo cho người khám."
+            size="lg"
+            footer={
+              <>
+                <DsButton onClick={() => { setRescheduleTarget(null); setRescheduleSlotId(""); setRescheduleReason(""); }}>Đóng</DsButton>
+                <DsButton
+                  variant="primary"
+                  disabled={busy || !rescheduleSlotId || rescheduleReason.trim().length < 2}
+                  title={!rescheduleSlotId ? "Chọn khung giờ mới" : rescheduleReason.trim().length < 2 ? "Nhập lý do đổi lịch" : undefined}
+                  onClick={() => void rescheduleAppointment()}
+                >
+                  {busy ? "Đang đổi lịch..." : "Xác nhận đổi lịch"}
+                </DsButton>
+              </>
+            }
+          >
+            <DsField label="Ngày khám mới" htmlFor="reschedule-date">
+              <VietnamDateInput
+                value={rescheduleDate}
+                min={today()}
+                ariaLabel="Ngày khám mới"
+                onChange={(value) => {
+                  setRescheduleDate(value);
+                  setRescheduleSlotId("");
+                }}
+                className="ds-input"
+                required
+              />
+            </DsField>
+            <div>
+              <strong style={{ fontSize: 13 }}>Khung giờ còn trống</strong>
+              {rescheduleSlotsQuery.isLoading || rescheduleSlotsQuery.isFetching ? (
+                <p className="ds-hint">Đang cập nhật khung giờ...</p>
+              ) : rescheduleSlotsQuery.isError ? (
+                <p>
+                  <DsButton onClick={() => void rescheduleSlotsQuery.refetch()}>Không tải được khung giờ. Thử lại</DsButton>
                 </p>
-                <DsField label="Ngày khám mới" htmlFor="reschedule-date">
-                  <VietnamDateInput
-                    value={rescheduleDate}
-                    min={today()}
-                    ariaLabel="Ngày khám mới"
-                    onChange={(value) => {
-                      setRescheduleDate(value);
-                      setRescheduleSlotId("");
-                    }}
-                    className="ds-input"
-                    required
-                  />
-                </DsField>
-                <div>
-                  <strong style={{ fontSize: 13 }}>Khung giờ còn trống</strong>
-                  {rescheduleSlotsQuery.isLoading || rescheduleSlotsQuery.isFetching ? (
-                    <p className="ds-hint">Đang cập nhật khung giờ...</p>
-                  ) : rescheduleSlotsQuery.isError ? (
-                    <p>
-                      <DsButton onClick={() => void rescheduleSlotsQuery.refetch()}>Không tải được khung giờ. Thử lại</DsButton>
-                    </p>
-                  ) : (rescheduleSlotsQuery.data?.length || 0) === 0 ? (
-                    <p className="ds-hint">Bác sĩ chưa còn khung giờ trống trong ngày này.</p>
-                  ) : (
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(110px, 1fr))", gap: 8, marginTop: 8 }}>
-                      {rescheduleSlotsQuery.data?.map((slot) => (
-                        <DsButton key={slot.id} variant={rescheduleSlotId === slot.id ? "primary" : "default"} aria-pressed={rescheduleSlotId === slot.id} onClick={() => setRescheduleSlotId(slot.id)}>
-                          {slot.startTime} - {slot.endTime}
-                        </DsButton>
-                      ))}
-                    </div>
-                  )}
+              ) : (rescheduleSlotsQuery.data?.length || 0) === 0 ? (
+                <p className="ds-hint">Bác sĩ chưa còn khung giờ trống trong ngày này.</p>
+              ) : (
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(110px, 1fr))", gap: 8, marginTop: 8 }}>
+                  {rescheduleSlotsQuery.data?.map((slot) => (
+                    <DsButton key={slot.id} variant={rescheduleSlotId === slot.id ? "primary" : "default"} aria-pressed={rescheduleSlotId === slot.id} onClick={() => setRescheduleSlotId(slot.id)}>
+                      {slot.startTime} - {slot.endTime}
+                    </DsButton>
+                  ))}
                 </div>
-                <DsField label="Lý do đổi lịch" htmlFor="reschedule-reason" required>
-                  <DsTextarea id="reschedule-reason" rows={2} value={rescheduleReason} placeholder="Ví dụ: bác sĩ thay đổi lịch làm việc" onChange={(event) => setRescheduleReason(event.target.value)} />
-                </DsField>
-                <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-                  <DsButton onClick={() => { setRescheduleTarget(null); setRescheduleSlotId(""); setRescheduleReason(""); }}>Đóng</DsButton>
-                  <DsButton
-                    variant="primary"
-                    disabled={busy || !rescheduleSlotId || rescheduleReason.trim().length < 2}
-                    title={!rescheduleSlotId ? "Chọn khung giờ mới" : rescheduleReason.trim().length < 2 ? "Nhập lý do đổi lịch" : undefined}
-                    onClick={() => void rescheduleAppointment()}
-                  >
-                    {busy ? "Đang đổi lịch..." : "Xác nhận đổi lịch"}
-                  </DsButton>
-                </div>
-              </div>
+              )}
             </div>
-          ) : null}
+            <DsField label="Lý do đổi lịch" htmlFor="reschedule-reason" required>
+              <DsTextarea id="reschedule-reason" rows={2} value={rescheduleReason} placeholder="Ví dụ: bác sĩ thay đổi lịch làm việc" onChange={(event) => setRescheduleReason(event.target.value)} />
+            </DsField>
+          </DsDialog>
 
           <div className="ds-card">
             <div className="ds-card__head">
@@ -791,75 +795,77 @@ export default function AppointmentsPage() {
             </div>
           </div>
 
-          {editingPatientInfo && canEditSelectedPatientInfo ? (
-            <form className="ds-card" onSubmit={updatePatientInfo} aria-label="Thông tin tiếp nhận">
-              <div className="ds-card__head">
-                <h3>Thông tin tiếp nhận</h3>
-              </div>
-              <div className="ds-card__body">
-                <p className="ds-hint" style={{ margin: 0 }}>
-                  Dùng để xác minh thông tin người khám và BHYT trước khi phát hành hóa đơn.
-                </p>
-                <DsField label="Họ tên người khám" htmlFor="pi-name" required>
-                  <DsInput id="pi-name" value={patientInfoForm.patientName} required onChange={(event) => updatePatientInfoField("patientName", event.target.value)} />
-                </DsField>
-                <div className="ds-grid-fields">
-                  <DsField label="Email" htmlFor="pi-email">
-                    <DsInput id="pi-email" type="email" value={patientInfoForm.patientEmail} onChange={(event) => updatePatientInfoField("patientEmail", event.target.value)} />
-                  </DsField>
-                  <DsField label="Giới tính" htmlFor="pi-gender">
-                    <DsSelect id="pi-gender" value={patientInfoForm.gender} onChange={(event) => updatePatientInfoField("gender", event.target.value as PatientInfoForm["gender"])}>
-                      <option value="">Chưa cập nhật</option>
-                      <option value="MALE">Nam</option>
-                      <option value="FEMALE">Nữ</option>
-                      <option value="OTHER">Khác</option>
-                    </DsSelect>
-                  </DsField>
-                  <DsField label="Ngày sinh" htmlFor="pi-dob">
-                    <VietnamDateInput value={patientInfoForm.dateOfBirth} max={getVietnamYesterdayDateInput()} ariaLabel="Ngày sinh người khám" onChange={(value) => updatePatientInfoField("dateOfBirth", value)} className="ds-input" />
-                  </DsField>
-                  <DsField label="Căn cước công dân" htmlFor="pi-cccd">
-                    <DsInput id="pi-cccd" value={patientInfoForm.cccd} onChange={(event) => updatePatientInfoField("cccd", event.target.value)} />
-                  </DsField>
-                </div>
-                <DsField label="Địa chỉ" htmlFor="pi-address">
-                  <DsInput id="pi-address" value={patientInfoForm.address} onChange={(event) => updatePatientInfoField("address", event.target.value)} />
-                </DsField>
-                <label className="ds-check" style={{ cursor: "pointer" }}>
-                  <input type="checkbox" checked={patientInfoForm.hasBHYT} onChange={(event) => updatePatientInfoField("hasBHYT", event.target.checked)} style={{ marginTop: 3 }} />
-                  <span>
-                    <strong>Người khám có BHYT</strong>
-                    <small style={{ display: "block", color: "var(--ds-muted)" }}>Tắt mục này sẽ đặt giảm trừ BHYT về 0.</small>
-                  </span>
-                </label>
-                {patientInfoForm.hasBHYT ? (
-                  <div className="ds-grid-fields">
-                    <DsField label="Mã thẻ BHYT" htmlFor="pi-bhyt" required>
-                      <DsInput id="pi-bhyt" value={patientInfoForm.healthInsuranceCode} required onChange={(event) => updatePatientInfoField("healthInsuranceCode", event.target.value)} />
+          <DsDialog
+            open={editingPatientInfo && canEditSelectedPatientInfo}
+            onOpenChange={(open) => {
+              if (!open) { setEditingPatientInfo(false); setPatientInfoForm(buildPatientInfoForm(selected)); }
+            }}
+            title="Thông tin tiếp nhận"
+            description="Dùng để xác minh thông tin người khám và BHYT trước khi phát hành hóa đơn."
+            size="lg"
+            footer={
+              <>
+                <DsButton onClick={() => { setEditingPatientInfo(false); setPatientInfoForm(buildPatientInfoForm(selected)); }}>Đóng</DsButton>
+                <DsButton type="submit" variant="primary" loading={busy}>
+                  {busy ? "Đang lưu..." : "Lưu thông tin"}
+                </DsButton>
+              </>
+            }
+          >
+            <form id="pi-form" onSubmit={updatePatientInfo} aria-label="Thông tin tiếp nhận" className="ds-dialog__form">
+                    <DsField label="Họ tên người khám" htmlFor="pi-name" required>
+                      <DsInput id="pi-name" value={patientInfoForm.patientName} required onChange={(event) => updatePatientInfoField("patientName", event.target.value)} />
                     </DsField>
-                    <DsField label="Nơi đăng ký khám chữa bệnh" htmlFor="pi-hospital">
-                      <DsInput id="pi-hospital" value={patientInfoForm.registeredHospital} onChange={(event) => updatePatientInfoField("registeredHospital", event.target.value)} />
+                    <div className="ds-grid-fields">
+                      <DsField label="Email" htmlFor="pi-email">
+                        <DsInput id="pi-email" type="email" value={patientInfoForm.patientEmail} onChange={(event) => updatePatientInfoField("patientEmail", event.target.value)} />
+                      </DsField>
+                      <DsField label="Giới tính" htmlFor="pi-gender">
+                        <DsSelect id="pi-gender" value={patientInfoForm.gender} onChange={(event) => updatePatientInfoField("gender", event.target.value as PatientInfoForm["gender"])}>
+                          <option value="">Chưa cập nhật</option>
+                          <option value="MALE">Nam</option>
+                          <option value="FEMALE">Nữ</option>
+                          <option value="OTHER">Khác</option>
+                        </DsSelect>
+                      </DsField>
+                      <DsField label="Ngày sinh" htmlFor="pi-dob">
+                        <VietnamDateInput value={patientInfoForm.dateOfBirth} max={getVietnamYesterdayDateInput()} ariaLabel="Ngày sinh người khám" onChange={(value) => updatePatientInfoField("dateOfBirth", value)} className="ds-input" />
+                      </DsField>
+                      <DsField label="Căn cước công dân" htmlFor="pi-cccd">
+                        <DsInput id="pi-cccd" value={patientInfoForm.cccd} onChange={(event) => updatePatientInfoField("cccd", event.target.value)} />
+                      </DsField>
+                    </div>
+                    <DsField label="Địa chỉ" htmlFor="pi-address">
+                      <DsInput id="pi-address" value={patientInfoForm.address} onChange={(event) => updatePatientInfoField("address", event.target.value)} />
                     </DsField>
-                  </div>
-                ) : null}
-                <DsField label="Dị ứng" htmlFor="pi-allergies">
-                  <DsTextarea id="pi-allergies" rows={2} value={patientInfoForm.allergies} onChange={(event) => updatePatientInfoField("allergies", event.target.value)} />
-                </DsField>
-                <DsField label="Tiền sử bệnh" htmlFor="pi-history">
-                  <DsTextarea id="pi-history" rows={2} value={patientInfoForm.medicalHistory} onChange={(event) => updatePatientInfoField("medicalHistory", event.target.value)} />
-                </DsField>
-                <DsField label="Tiền sử gia đình" htmlFor="pi-family">
-                  <DsTextarea id="pi-family" rows={2} value={patientInfoForm.familyHistory} onChange={(event) => updatePatientInfoField("familyHistory", event.target.value)} />
-                </DsField>
-                <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-                  <DsButton onClick={() => { setEditingPatientInfo(false); setPatientInfoForm(buildPatientInfoForm(selected)); }}>Đóng</DsButton>
-                  <DsButton type="submit" variant="primary" loading={busy}>
-                    {busy ? "Đang lưu..." : "Lưu thông tin"}
-                  </DsButton>
-                </div>
-              </div>
+                    <label className="ds-check" style={{ cursor: "pointer" }}>
+                      <input type="checkbox" checked={patientInfoForm.hasBHYT} onChange={(event) => updatePatientInfoField("hasBHYT", event.target.checked)} style={{ marginTop: 3 }} />
+                      <span>
+                        <strong>Người khám có BHYT</strong>
+                        <small style={{ display: "block", color: "var(--ds-muted)" }}>Tắt mục này sẽ đặt giảm trừ BHYT về 0.</small>
+                      </span>
+                    </label>
+                    {patientInfoForm.hasBHYT ? (
+                      <div className="ds-grid-fields">
+                        <DsField label="Mã thẻ BHYT" htmlFor="pi-bhyt" required>
+                          <DsInput id="pi-bhyt" value={patientInfoForm.healthInsuranceCode} required onChange={(event) => updatePatientInfoField("healthInsuranceCode", event.target.value)} />
+                        </DsField>
+                        <DsField label="Nơi đăng ký khám chữa bệnh" htmlFor="pi-hospital">
+                          <DsInput id="pi-hospital" value={patientInfoForm.registeredHospital} onChange={(event) => updatePatientInfoField("registeredHospital", event.target.value)} />
+                        </DsField>
+                      </div>
+                    ) : null}
+                    <DsField label="Dị ứng" htmlFor="pi-allergies">
+                      <DsTextarea id="pi-allergies" rows={2} value={patientInfoForm.allergies} onChange={(event) => updatePatientInfoField("allergies", event.target.value)} />
+                    </DsField>
+                    <DsField label="Tiền sử bệnh" htmlFor="pi-history">
+                      <DsTextarea id="pi-history" rows={2} value={patientInfoForm.medicalHistory} onChange={(event) => updatePatientInfoField("medicalHistory", event.target.value)} />
+                    </DsField>
+                    <DsField label="Tiền sử gia đình" htmlFor="pi-family">
+                      <DsTextarea id="pi-family" rows={2} value={patientInfoForm.familyHistory} onChange={(event) => updatePatientInfoField("familyHistory", event.target.value)} />
+                    </DsField>
             </form>
-          ) : null}
+          </DsDialog>
         </div>
 
         <div className="ds-editor__col">
@@ -896,6 +902,7 @@ export default function AppointmentsPage() {
       />
       <div style={{ display: "grid", gap: 12, marginBottom: 16 }}>
       </div>
+      {queryErrorMessage ? <DsNotice tone="bad">{queryErrorMessage}</DsNotice> : null}
       <DsSplit wide list={list} pane={pane} />
     </>
   );

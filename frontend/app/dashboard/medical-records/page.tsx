@@ -23,6 +23,7 @@ import {
   useActionToast,
   useConfirm,
   DsLoading,
+  DsNotice,
 } from "@/components/ds";
 import { PrescriptionEditor, confirmShortage } from "@/components/doctor/prescription-editor";
 import { VietnamDateInput } from "@/components/ui/vietnam-date-input";
@@ -229,9 +230,8 @@ export default function MedicalRecordsPage() {
   const prescription = prescriptionQuery.data ?? null;
   const queryError = recordsQuery.error || doctorsQuery.error || selectedRecordQuery.error || prescriptionQuery.error;
   const queryErrorMessage = queryError ? (queryError instanceof Error ? queryError.message : "Không tải được dữ liệu hồ sơ khám") : "";
-  const visibleError = error || queryErrorMessage;
   // Kết quả thao tác hiện thành thông báo nổi ngay chỗ đang làm việc (không nằm ở đầu trang).
-  useActionToast({ notice, error: visibleError, clear: () => { setNotice(""); setError(""); } });
+  useActionToast({ notice, error, clear: () => { setNotice(""); setError(""); } });
 
   // Mở từ liên kết (?recordCode=MÃ HỒ SƠ hoặc MÃ LỊCH): lọc đúng hồ sơ đó và mở sẵn khung làm việc.
   const linkedRecordCode = searchParams.get("recordCode")?.trim().toUpperCase() ?? "";
@@ -896,6 +896,7 @@ export default function MedicalRecordsPage() {
       />
       <div style={{ display: "grid", gap: 12, marginBottom: 16 }}>
       </div>
+      {queryErrorMessage ? <DsNotice tone="bad">{queryErrorMessage}</DsNotice> : null}
       <DsSplit wide list={list} pane={pane} />
     </>
   );

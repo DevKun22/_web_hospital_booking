@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
 import {
@@ -21,6 +21,7 @@ import {
   DsTextarea,
   DsToolbar,
   type DsColumn,
+  useActionToast,
 } from "@/components/ds";
 import { apiRequest } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
@@ -143,7 +144,6 @@ export default function DoctorsPage() {
   const pagination = doctorsQuery.data?.pagination ?? { page, limit: 10, total: 0, totalPages: 1 };
   const queryError = doctorsQuery.error || departmentsQuery.error || doctorUsersResult.error;
   const queryErrorMessage = queryError ? (queryError instanceof Error ? queryError.message : "Không tải được dữ liệu bác sĩ") : "";
-  const visibleError = error || queryErrorMessage;
   const editing = pane?.kind === "edit" ? doctors.find((item) => item.id === pane.id) ?? null : null;
   const open = pane?.kind === "new" ? canWrite : pane?.kind === "edit" && Boolean(editing);
 
@@ -156,14 +156,8 @@ export default function DoctorsPage() {
     ]);
   };
 
-  useEffect(() => {
-    if (!notice && !error) return;
-    const timeoutId = window.setTimeout(() => {
-      setNotice("");
-      setError("");
-    }, 4500);
-    return () => window.clearTimeout(timeoutId);
-  }, [error, notice]);
+  // Kết quả thao tác hiện thành thông báo nổi ở góc trên phải; lỗi tải dữ liệu vẫn hiện trong trang vì cần giữ lại.
+  useActionToast({ notice, error, clear: () => { setNotice(""); setError(""); } });
 
   const startCreate = () => {
     setForm(emptyForm);
@@ -479,8 +473,7 @@ export default function DoctorsPage() {
     <>
       <DsPageHeader title="Bác sĩ" description="Hồ sơ chuyên môn, chuyên khoa, phí khám và trạng thái nhận lịch" />
       <div style={{ display: "grid", gap: 12, marginBottom: 16 }}>
-        {visibleError ? <DsNotice tone="bad">{visibleError}</DsNotice> : null}
-        {notice ? <DsNotice tone="good">{notice}</DsNotice> : null}
+        {queryErrorMessage ? <DsNotice tone="bad">{queryErrorMessage}</DsNotice> : null}
       </div>
       <DsSplit list={list} pane={paneNode} />
     </>

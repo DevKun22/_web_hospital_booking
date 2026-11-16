@@ -9,7 +9,6 @@ import {
   DsEmptyState,
   DsField,
   DsInput,
-  DsNotice,
   DsPageHeader,
   DsPane,
   DsPanel,
@@ -18,6 +17,7 @@ import {
   DsTabs,
   DsToolbar,
   type DsColumn,
+  useActionToast,
 } from "@/components/ds";
 import { ExportCsvButton } from "@/components/dashboard/export-csv-button";
 import { ImportCsvPanel } from "@/components/dashboard/import-csv-panel";
@@ -234,6 +234,7 @@ export default function MedicinesPage() {
   const mutations = [createMutation, receiveMutation, adjustMutation, writeOffMutation, priceMutation];
   const failed = mutations.find((item) => item.error instanceof Error)?.error as Error | undefined;
   const succeeded = mutations.some((item) => item.isSuccess);
+  useActionToast({ notice: succeeded && !failed ? "Đã lưu thay đổi kho" : "", error: failed?.message });
   const submit = (action: () => void) => (event: FormEvent) => {
     event.preventDefault();
     action();
@@ -651,8 +652,6 @@ export default function MedicinesPage() {
         }
       />
       <div style={{ display: "grid", gap: 12, marginBottom: 16 }}>
-        {failed ? <DsNotice tone="bad">{failed.message}</DsNotice> : null}
-        {succeeded && !failed ? <DsNotice tone="good">Đã lưu thay đổi kho</DsNotice> : null}
       </div>
       <DsSplit wide list={list} pane={detailPane ?? createPane} />
     </>

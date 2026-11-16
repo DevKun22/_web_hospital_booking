@@ -17,7 +17,7 @@ import {
   DsToolbar,
   type DsColumn,
   type DsTone,
-  useActionToast,
+  DsNotice,
 } from "@/components/ds";
 import { PrescriptionEditor } from "@/components/doctor/prescription-editor";
 import { useAuth } from "@/lib/auth";
@@ -84,7 +84,7 @@ export default function PrescriptionsPage() {
   const selected = selectedPrescriptionQuery.data ?? selectedSnapshot;
 
   const queryError = prescriptionsQuery.error || doctorsQuery.error || selectedPrescriptionQuery.error;
-  useActionToast({ error: queryError ? (queryError instanceof Error ? queryError.message : "Không tải được dữ liệu đơn thuốc") : "" });
+  const queryErrorMessage = queryError ? (queryError instanceof Error ? queryError.message : "Không tải được dữ liệu đơn thuốc") : "";
 
   const draftCount = prescriptions.filter((item) => item.status === "DRAFT").length;
   const emptyDraft = prescriptions.filter((item) => item.status === "DRAFT" && item.items.length === 0).length;
@@ -255,6 +255,7 @@ export default function PrescriptionsPage() {
         title="Đơn thuốc"
         description={isDoctor ? `${draftCount} đơn nháp trong danh sách · ${emptyDraft} đơn chưa có thuốc` : "Quản lý thuốc trong đơn và theo dõi trạng thái phát hành"}
       />
+      {queryErrorMessage ? <DsNotice tone="bad">{queryErrorMessage}</DsNotice> : null}
       <DsSplit wide list={list} pane={detailPane} />
     </>
   );

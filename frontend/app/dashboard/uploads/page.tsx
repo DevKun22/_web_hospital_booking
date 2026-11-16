@@ -2,7 +2,7 @@
 
 /* eslint-disable @next/next/no-img-element */
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   DsButton,
@@ -20,6 +20,7 @@ import {
   DsTabs,
   DsToolbar,
   DsLoading,
+  useActionToast,
 } from "@/components/ds";
 import { apiRequest } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
@@ -86,14 +87,8 @@ export default function UploadsPage() {
     await queryClient.invalidateQueries({ queryKey: queryKeys.dashboardUploads });
   };
 
-  useEffect(() => {
-    if (!notice && !error) return;
-    const timeoutId = window.setTimeout(() => {
-      setNotice("");
-      setError("");
-    }, 4500);
-    return () => window.clearTimeout(timeoutId);
-  }, [error, notice]);
+  // Kết quả thao tác hiện thành thông báo nổi ở góc trên phải; lỗi tải dữ liệu vẫn hiện trong trang vì cần giữ lại.
+  useActionToast({ notice, error, clear: () => { setNotice(""); setError(""); } });
 
   const closePane = () => {
     setPane(null);
@@ -327,8 +322,7 @@ export default function UploadsPage() {
     <>
       <DsPageHeader title="Thư viện ảnh" description="Ảnh đã dùng, ảnh tạm chưa gắn với dữ liệu và dọn ảnh thừa trên Cloudinary" />
       <div style={{ display: "grid", gap: 12, marginBottom: 16 }}>
-        {error || queryError ? <DsNotice tone="bad">{error || queryError}</DsNotice> : null}
-        {notice ? <DsNotice tone="good">{notice}</DsNotice> : null}
+        {queryError ? <DsNotice tone="bad">{queryError}</DsNotice> : null}
       </div>
       <DsSplit list={list} pane={paneNode} />
     </>

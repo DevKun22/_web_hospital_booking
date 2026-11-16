@@ -2,7 +2,7 @@
 
 import { FormEvent, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { DsButton, DsField, DsInput, DsNotice, DsSelect } from "@/components/ds";
+import { DsButton, DsField, DsInput, DsNotice, DsSelect, useToast } from "@/components/ds";
 import { apiRequest } from "@/lib/api";
 import { formatVietnamDateTime } from "@/lib/date";
 import { formatCurrency } from "@/lib/format";
@@ -36,27 +36,24 @@ export function SupplementPanel({
   const [method, setMethod] = useState<Exclude<PaymentMethod, "VNPAY">>("CASH");
   const [reference, setReference] = useState("");
   const [busyId, setBusyId] = useState("");
-  const [error, setError] = useState("");
-  const [done, setDone] = useState("");
+  const toast = useToast();
   if (supplements.length === 0) return null;
   const needsReference = method === "CARD" || method === "BANK_TRANSFER";
 
   const pay = async (event: FormEvent<HTMLFormElement>, supplement: Supplement) => {
     event.preventDefault();
     setBusyId(supplement.id);
-    setError("");
-    setDone("");
     try {
       await apiRequest(`/dashboard/invoices/${invoiceId}/supplements/${supplement.id}/pay`, {
         method: "PATCH",
         body: { paymentMethod: method, paymentReference: reference.trim() || null },
       });
-      setDone(`Đã thu ${formatCurrency(supplement.amount)} hóa đơn bổ sung ${supplement.supplementCode}.`);
+      toast.success(`Đã thu ${formatCurrency(supplement.amount)} hóa đơn bổ sung ${supplement.supplementCode}.`);
       setReference("");
       await queryClient.invalidateQueries({ queryKey: ["dashboard", "invoices"] });
       await onChanged();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Không thu được hóa đơn bổ sung");
+      toast.error(err instanceof Error ? err.message : "Không thu được hóa đơn bổ sung");
     } finally {
       setBusyId("");
     }
@@ -64,7 +61,6 @@ export function SupplementPanel({
 
   return (
     <div style={{ marginTop: 12, display: "grid", gap: 8 }}>
-      {done ? <DsNotice tone="good">{done}</DsNotice> : null}
       {supplements.map((supplement) => (
         <div key={supplement.id} className="ds-card">
           <div className="ds-card__head">
@@ -106,7 +102,6 @@ export function SupplementPanel({
                     <DsInput id={`supplement-reference-${supplement.id}`} value={reference} onChange={(event) => setReference(event.target.value)} />
                   </DsField>
                 ) : null}
-                {error ? <DsNotice tone="bad">{error}</DsNotice> : null}
                 <div>
                   <DsButton type="submit" variant="primary" disabled={busyId === supplement.id || (needsReference && !reference.trim())}>
                     {busyId === supplement.id ? "Đang ghi nhận..." : `Ghi nhận thu ${formatCurrency(supplement.amount)}`}

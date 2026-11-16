@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
 import {
@@ -19,6 +19,7 @@ import {
   DsTabs,
   DsToolbar,
   type DsColumn,
+  useActionToast,
 } from "@/components/ds";
 import { apiRequest, uploadImages } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
@@ -142,14 +143,8 @@ export default function UsersPage() {
     ]);
   };
 
-  useEffect(() => {
-    if (!notice && !error) return;
-    const timeoutId = window.setTimeout(() => {
-      setNotice("");
-      setError("");
-    }, 4500);
-    return () => window.clearTimeout(timeoutId);
-  }, [error, notice]);
+  // Kết quả thao tác hiện thành thông báo nổi ở góc trên phải; lỗi tải dữ liệu vẫn hiện trong trang vì cần giữ lại.
+  useActionToast({ notice, error, clear: () => { setNotice(""); setError(""); } });
 
   const closePane = () => {
     setPane(null);
@@ -542,8 +537,7 @@ export default function UsersPage() {
     <>
       <DsPageHeader title="Nhân sự" description="Tài khoản quản trị, nhân viên, bác sĩ và dược sĩ; kiểm soát quyền truy cập và trạng thái hoạt động" />
       <div style={{ display: "grid", gap: 12, marginBottom: 16 }}>
-        {error || queryError ? <DsNotice tone="bad">{error || queryError}</DsNotice> : null}
-        {notice ? <DsNotice tone="good">{notice}</DsNotice> : null}
+        {queryError ? <DsNotice tone="bad">{queryError}</DsNotice> : null}
       </div>
       <DsSplit list={list} pane={passwordPane ?? formPane} />
     </>
