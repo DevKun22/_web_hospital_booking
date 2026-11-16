@@ -1,6 +1,7 @@
 import { prisma } from "../../config/prisma.js";
 import { AppError } from "../../utils/appError.js";
 import { isSlotStartInPastVietnamTime } from "../../utils/time.js";
+import InvoiceService from "../invoice.service.js";
 import MedicalRecordService from "../medicalRecord.service.js";
 import NotificationService from "../notification.service.js";
 import StaffNotificationService from "../staffNotification.service.js";
@@ -355,7 +356,13 @@ export class AppointmentTransitionUseCases extends AppointmentServiceSupport {
       return { appointment, notificationId: notification.id };
     });
 
-    // Lễ tân cần lập hóa đơn cho lịch vừa khám xong.
+    // Hóa đơn (phí khám + tiền thuốc đã kê) tự tạo ngay khi khám xong; lễ tân chỉ còn việc thu tiền. Lỗi ở đây không được
+    // làm hỏng việc hoàn thành khám: hóa đơn vẫn lập tay được ở mục Hóa đơn.
+    await InvoiceService.createForAppointment(id, {}).catch((error) => {
+      if ((error as { code?: string }).code !== "INVOICE_ALREADY_EXISTS") {
+        console.error("[AUTO_INVOICE] cannot create invoice after completion:", error);
+      }
+    });
     await StaffNotificationService.notifyAppointmentEvent(id, "COMPLETED", {
       actorId: actor.userId,
       includeDoctor: false,

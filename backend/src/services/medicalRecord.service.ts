@@ -302,7 +302,35 @@ class MedicalRecordService {
         previousUrl: current.resultPdfUrl,
       });
     }
+    // Bác sĩ ghi kết luận sau khi hóa đơn đã thu: hồ sơ đủ điều kiện nên mở cho người khám ngay.
+    if (input.diagnosis !== undefined || input.treatment !== undefined) {
+      await this.publishWhenReady(current.appointment.id).catch((error) => {
+        console.error("[AUTO_PUBLISH] cannot publish after record update:", error);
+      });
+    }
     return result;
+  }
+
+  /**
+   * Tự công bố hồ sơ khi đủ ba điều kiện: lịch đã hoàn thành, hóa đơn đã thanh toán, hồ sơ có chẩn đoán hoặc hướng
+   * điều trị. Gọi sau khi hóa đơn được thu và sau khi bác sĩ cập nhật hồ sơ; chưa đủ điều kiện thì không làm gì.
+   * Bác sĩ vẫn có thể công bố sớm bằng tay (`publish`).
+   */
+  async publishWhenReady(appointmentId: string) {
+    const record = await prisma.medicalRecord.findFirst({
+      where: {
+        appointmentId,
+        status: "DRAFT",
+        appointment: { status: "COMPLETED", invoice: { status: "PAID" } },
+        OR: [{ diagnosis: { not: null } }, { treatment: { not: null } }],
+      },
+      select: { id: true, recordCode: true, patientId: true, appointment: { select: { bookingCode: true } } },
+    });
+    if (!record) return false;
+    return this.markPublished(
+      { id: record.id, recordCode: record.recordCode, patientId: record.patientId, bookingCode: record.appointment.bookingCode },
+      { onlyIfDraft: true },
+    );
   }
 
   async publish(id: string, actor: Actor) {
@@ -315,36 +343,36 @@ class MedicalRecordService {
       );
     }
 
-    const transition = await prisma.$transaction(async (tx) => {
-      const updatedRecord = await tx.medicalRecord.update({
-        where: { id },
-        data: {
-          status: "PUBLISHED",
-          publishedAt: new Date(),
-        },
-        select: medicalRecordSelect,
+    await this.markPublished(
+      { id, recordCode: record.recordCode, patientId: record.patient.id, bookingCode: record.appointment.bookingCode },
+      { actorId: actor.userId },
+    );
+    return prisma.medicalRecord.findUniqueOrThrow({ where: { id }, select: medicalRecordSelect });
+  }
+
+  /** Đánh dấu đã công bố, ghi nhật ký và báo người khám trong cùng một giao dịch. `onlyIfDraft` chống công bố hai lần. */
+  private async markPublished(
+    record: { id: string; recordCode: string; patientId: string; bookingCode: string },
+    options: { actorId?: string; onlyIfDraft?: boolean } = {},
+  ) {
+    return prisma.$transaction(async (tx) => {
+      const claimed = await tx.medicalRecord.updateMany({
+        where: { id: record.id, ...(options.onlyIfDraft ? { status: "DRAFT" as const } : {}) },
+        data: { status: "PUBLISHED", publishedAt: new Date() },
       });
+      if (claimed.count !== 1) return false;
       await logClinicalAction(tx, {
         action: "MEDICAL_RESULT_PUBLISHED",
-        actorId: actor.userId,
-        medicalRecordId: id,
-        note: "Công bố kết quả khám cho người khám",
+        actorId: options.actorId,
+        medicalRecordId: record.id,
+        note: options.actorId ? "Công bố kết quả khám cho người khám" : "Tự công bố kết quả khám sau khi thanh toán",
       });
-      const notification =
-        await PatientEventNotificationService.createMedicalResultPublished(
-          {
-            userId: record.patient.id,
-            recordId: record.id,
-            recordCode: record.recordCode,
-            bookingCode: record.appointment.bookingCode,
-          },
-          tx,
-        );
-
-      return { updatedRecord, notificationId: notification.id };
+      await PatientEventNotificationService.createMedicalResultPublished(
+        { userId: record.patientId, recordId: record.id, recordCode: record.recordCode, bookingCode: record.bookingCode },
+        tx,
+      );
+      return true;
     });
-
-    return transition.updatedRecord;
   }
 
   async archive(id: string, actor: Actor) {

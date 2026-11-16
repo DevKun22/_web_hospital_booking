@@ -16,6 +16,7 @@ import {
 } from "../utils/invoiceCode.js";
 import { refundVnpayTransaction } from "./paymentProviders/index.js";
 import AuditLogService from "./auditLog.service.js";
+import MedicalRecordService from "./medicalRecord.service.js";
 import PatientEventNotificationService from "./patientEventNotification.service.js";
 import StaffNotificationService from "./staffNotification.service.js";
 
@@ -803,11 +804,21 @@ class InvoiceService {
       return { paidInvoice, notificationId: notification.id };
     });
 
-    // Đơn phát hành lúc hóa đơn còn chờ thanh toán chưa vào được hóa đơn: nay hóa đơn đã thu thì tính thành hóa đơn bổ sung.
-    await this.syncAppointmentMedicine(transition.paidInvoice.appointment.id, actorId ? { userId: actorId, role: "STAFF" } : undefined).catch((error) => {
+    await this.afterPaid(transition.paidInvoice.appointment.id, actorId ? { userId: actorId, role: "STAFF" } : undefined);
+    return transition.paidInvoice;
+  }
+
+  /**
+   * Việc tự động sau khi hóa đơn được thu (tiền mặt hoặc VNPay), mỗi việc độc lập và không làm hỏng việc thu tiền:
+   * đơn phát hành lúc hóa đơn còn chờ thì nay tính thành hóa đơn bổ sung; hồ sơ đủ điều kiện thì tự công bố.
+   */
+  async afterPaid(appointmentId: string, actor?: { userId: string; role: string }) {
+    await this.syncAppointmentMedicine(appointmentId, actor).catch((error) => {
       console.error("[INVOICE_MEDICINE] cannot sync medicines after payment:", error);
     });
-    return transition.paidInvoice;
+    await MedicalRecordService.publishWhenReady(appointmentId).catch((error) => {
+      console.error("[AUTO_PUBLISH] cannot publish after payment:", error);
+    });
   }
 
   /** Đồng bộ tiền thuốc của mọi đơn đã phát hành của một lịch (gọi sau khi hóa đơn được thanh toán). */

@@ -14,6 +14,8 @@ export type DashboardAppointmentFilters = {
   /** Tìm gần đúng theo mã lịch, SĐT hoặc tên người khám. */
   q?: string;
   billingState?: "PENDING_INVOICE" | "HAS_INVOICE";
+  /** ACTIVE: chỉ lịch còn việc phải làm, máy chủ xếp theo mức ưu tiên. */
+  view?: "ACTIVE";
   page?: number;
   limit?: number;
 };

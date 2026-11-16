@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { RefreshCw } from "lucide-react";
 import {
@@ -16,6 +16,7 @@ import {
   DsStatusPill,
   DsTabs,
   DsToolbar,
+  useActionToast,
 } from "@/components/ds";
 import { apiRequest } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
@@ -166,7 +167,11 @@ export default function PharmacyQueuePage() {
   };
   const applySearch = (event: FormEvent) => event.preventDefault();
 
-  const queue = queueQuery.data?.items ?? [];
+  // Đơn đã thanh toán (cấp được ngay) lên trước đơn còn chờ thu tiền; trong mỗi nhóm giữ thứ tự phát hành.
+  const queue = useMemo(() => {
+    const items = [...(queueQuery.data?.items ?? [])];
+    return items.sort((left, right) => Number(paymentInfo(right.appointment.invoice).paid) - Number(paymentInfo(left.appointment.invoice).paid));
+  }, [queueQuery.data]);
   const queuePagination = queueQuery.data?.pagination;
   const queueTotalPages = queuePagination?.totalPages ?? 1;
 
@@ -178,6 +183,7 @@ export default function PharmacyQueuePage() {
     return () => window.clearTimeout(timeoutId);
   }, [dispenseMutation.isSuccess, resetDispense]);
   const errorMessage = dispenseMutation.error instanceof Error ? dispenseMutation.error.message : "";
+  useActionToast({ notice: dispenseMutation.isSuccess ? "Đã cấp thuốc và trừ kho" : "", error: errorMessage });
   const queueError = queueQuery.error ? (queueQuery.error instanceof Error ? queueQuery.error.message : "Không tải được hàng đợi") : "";
 
   const selectedPayment = selected ? paymentInfo(selected.appointment.invoice) : null;
@@ -373,7 +379,7 @@ export default function PharmacyQueuePage() {
                   <input type="checkbox" checked={confirmed} onChange={(event) => setConfirmed(event.target.checked)} style={{ marginTop: 3 }} />
                   <span>Tôi đã kiểm tra đơn: dị ứng, liều dùng và thuốc cấp đúng với đơn của bác sĩ.</span>
                 </label>
-                <DsButton variant="primary" disabled={Boolean(blockReason) || dispenseMutation.isPending} onClick={() => dispenseMutation.mutate()}>
+                <DsButton variant="primary" disabled={Boolean(blockReason)} loading={dispenseMutation.isPending} onClick={() => dispenseMutation.mutate()}>
                   {dispenseMutation.isPending ? "Đang cấp..." : "Cấp thuốc cho cả đơn"}
                 </DsButton>
                 {blockReason ? <p className="ds-hint" style={{ margin: 0 }}>{blockReason}.</p> : null}
@@ -401,8 +407,6 @@ export default function PharmacyQueuePage() {
         }
       />
       <div style={{ display: "grid", gap: 12, marginBottom: 16 }}>
-        {errorMessage ? <DsNotice tone="bad">{errorMessage}</DsNotice> : null}
-        {dispenseMutation.isSuccess ? <DsNotice tone="good">Đã cấp thuốc và trừ kho</DsNotice> : null}
       </div>
       <DsSplit wide list={list} pane={pane} />
     </>

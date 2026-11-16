@@ -8,6 +8,7 @@ import "@fontsource/ibm-plex-sans/700.css";
 import "@fontsource/ibm-plex-mono/400.css";
 import "@fontsource/ibm-plex-mono/500.css";
 import { cn } from "@/lib/utils";
+import { DsToastProvider } from "./toast";
 
 // Phần tử gốc của nền thiết kế: mang biến màu/chữ (`.ds`) và là nơi ngăn bên, hộp thoại gắn vào,
 // để chúng cũng nhận đúng biến màu dù được render ra ngoài cây thường.
@@ -26,7 +27,9 @@ export function DsRoot({
 
   return (
     <div ref={setElement} className={cn("ds", className)} {...rest}>
-      <DsRootContext.Provider value={element}>{children}</DsRootContext.Provider>
+      <DsRootContext.Provider value={element}>
+        <DsToastProvider>{children}</DsToastProvider>
+      </DsRootContext.Provider>
     </div>
   );
 }
