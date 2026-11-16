@@ -354,7 +354,7 @@ test("the owner of the registered email can still book as a guest", async () => 
     { method: "POST", body: { otp: booking.body.data.debugOtp } },
   );
   assert.equal(verification.status, 200);
-  assert.equal(verification.body.data.status, "PENDING_CONFIRM");
+  assert.equal(verification.body.data.status, "CONFIRMED");
 
   const appointment = await prisma.appointment.findUniqueOrThrow({
     where: { id: booking.body.data.appointmentId },

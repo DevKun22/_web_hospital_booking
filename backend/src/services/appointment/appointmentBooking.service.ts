@@ -462,7 +462,7 @@ export class AppointmentBookingUseCases extends AppointmentServiceSupport {
   }
 
   /**
-   * Chuyển lịch từ PENDING_OTP sang PENDING_CONFIRM và cập nhật hồ sơ người khám.
+   * Chuyển lịch từ PENDING_OTP sang CONFIRMED (tự xác nhận) và cập nhật hồ sơ người khám.
    * Chỉ căn cứ OTP mới được ghi email/SĐT "đã xác thực" vào tài khoản; căn cứ phiên
    * đăng nhập thì giữ nguyên các cờ xác thực vì chưa có bằng chứng mới.
    */
@@ -474,8 +474,9 @@ export class AppointmentBookingUseCases extends AppointmentServiceSupport {
       await this.claimAppointmentTransition(tx, {
         id: appointment.id,
         expectedStatuses: ["PENDING_OTP"],
-        nextStatus: "PENDING_CONFIRM",
-        data: { holdExpiresAt: null },
+        // Đặt online đã xác thực thì xác nhận luôn: lễ tân không phải bấm thêm một bước cho mọi lịch.
+        nextStatus: "CONFIRMED",
+        data: { holdExpiresAt: null, confirmedAt: new Date() },
       });
 
       if (appointment.dependentProfileId) {
@@ -610,6 +611,14 @@ export class AppointmentBookingUseCases extends AppointmentServiceSupport {
               : "Người khám đang đăng nhập, đặt cho chính mình nên không cần OTP",
         },
       });
+
+      await this.createTransitionLog(tx, {
+        appointmentId: appointment.id,
+        action: "CONFIRMED",
+        note: "Lịch hẹn được xác nhận tự động sau khi xác thực",
+      });
+      await this.createAppointmentConfirmationNotification(tx, appointment.id);
+      await this.createAppointmentReminderNotification(tx, appointment.id);
 
       return tx.appointment.findUniqueOrThrow({
         where: { id: appointment.id },

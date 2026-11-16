@@ -331,9 +331,9 @@ function ShellFrame({ children, collapsed }: { children: React.ReactNode; collap
     queryKey: ["dashboard", "inbox", "unread-count"],
     queryFn: () => apiRequest<{ unreadCount: number }>("/dashboard/inbox/unread-count"),
     enabled: Boolean(user),
-    refetchInterval: 5 * 60_000,
+    refetchInterval: 30_000,
     refetchOnWindowFocus: true,
-    staleTime: 60_000,
+    staleTime: 15_000,
   });
   const unreadCount = unreadQuery.data?.unreadCount ?? 0;
   const { theme, toggleTheme } = useTheme();

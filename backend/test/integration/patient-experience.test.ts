@@ -1151,19 +1151,12 @@ test("patient journey is consistent across public booking dashboard care and mob
     },
   );
   assert.equal(verifiedBooking.status, 200);
-  assert.equal(verifiedBooking.body.data.status, "PENDING_CONFIRM");
+  assert.equal(verifiedBooking.body.data.status, "CONFIRMED");
 
   const patient = await loginPatient(phone);
   const patientHeaders = {
     authorization: `Bearer ${patient.accessToken}`,
   };
-
-  const confirmed = await http.request(
-    `/api/v1/dashboard/appointments/${originalAppointmentId}/confirm`,
-    { method: "PATCH", headers: dashboardHeaders(dashboardCookie) },
-  );
-  assert.equal(confirmed.status, 200);
-  assert.equal(confirmed.body.data.status, "CONFIRMED");
 
   const rescheduled = await http.request(
     `/api/v1/dashboard/appointments/${originalAppointmentId}/reschedule`,
@@ -2023,14 +2016,14 @@ test("a logged-in patient booking for themself skips the booking OTP", async () 
   });
   assert.equal(booking.status, 201);
   assert.equal(booking.body.data.otpRequired, false);
-  assert.equal(booking.body.data.appointment.status, "PENDING_CONFIRM");
+  assert.equal(booking.body.data.appointment.status, "CONFIRMED");
   assert.equal(booking.body.data.appointment.bookingCode, booking.body.data.bookingCode);
   assert.equal(booking.body.data.debugOtp, undefined);
 
   const stored = await prisma.appointment.findUniqueOrThrow({
     where: { id: booking.body.data.appointmentId },
   });
-  assert.equal(stored.status, "PENDING_CONFIRM");
+  assert.equal(stored.status, "CONFIRMED");
   assert.equal(stored.holdExpiresAt, null);
   assert.equal(stored.patientId, patient.id);
   assert.equal(stored.patientPhone, patient.phone);

@@ -443,7 +443,7 @@ export const getNotificationWorkerIntervalMs = (
   env: NodeJS.ProcessEnv = process.env,
 ) =>
   Math.max(
-    positiveInteger(env.NOTIFICATION_WORKER_INTERVAL_MS, 2 * 60_000),
+    positiveInteger(env.NOTIFICATION_WORKER_INTERVAL_MS, 15_000),
     5_000,
   );
 
