@@ -12,13 +12,12 @@ import {
   DsPageHeader,
   DsPane,
   DsPanel,
-  DsSelect,
   DsSplit,
   DsStatusPill,
   DsTabs,
   DsToolbar,
 } from "@/components/ds";
-import { ApiError, apiRequest } from "@/lib/api";
+import { apiRequest } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { formatVietnamDateTime } from "@/lib/date";
 import { useDebouncedValue } from "@/lib/use-debounced-value";
@@ -67,35 +66,9 @@ type QueuePrescription = {
 
 type Paged<T> = { items: T[]; pagination: { total: number; totalPages?: number } };
 
-const OUTSIDE = "";
-// Giá trị riêng của ô chọn: kho hết thuốc này nên không cấp (người khám mua ngoài); không phải mã thuốc.
-const OUT_OF_STOCK = "__out_of_stock__";
 const QUEUE_PAGE_SIZE = 20;
 
-const normalizeName = (text: string) =>
-  text
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .toLowerCase()
-    .replace(/đ/g, "d")
-    .replace(/[^a-z0-9 ]/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-
-// Gợi ý thuốc kho khi dòng đơn chưa gắn sẵn: tên thuốc trong kho nằm trong tên ở đơn (hoặc ngược lại); lấy tên dài nhất.
-const suggestMedicine = (itemName: string, medicines: StockMedicine[]) => {
-  const target = normalizeName(itemName);
-  if (!target) return null;
-  let best: StockMedicine | null = null;
-  for (const medicine of medicines) {
-    const name = normalizeName(medicine.name);
-    if (!name) continue;
-    if ((target.includes(name) || name.includes(target)) && (!best || name.length > normalizeName(best.name).length)) best = medicine;
-  }
-  return best;
-};
-
-// Tình trạng thanh toán của lịch khám chứa đơn: chỉ để dược sĩ nắm; chưa chặn cấp thuốc ở máy chủ.
+// Tình trạng thanh toán của lịch khám chứa đơn. Máy chủ chỉ cho cấp khi hóa đơn đã thanh toán và mọi dòng sắp cấp đã được thu tiền.
 const paymentInfo = (invoice: QueuePrescription["appointment"]["invoice"]) => {
   if (!invoice) return { label: "Chưa có hóa đơn", tone: "warn" as const, paid: false };
   if (invoice.status === "PAID") return { label: "Đã thanh toán", tone: "good" as const, paid: true };
@@ -119,13 +92,7 @@ export default function PharmacyQueuePage() {
   const appliedSearch = useDebouncedValue(search.trim());
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [page, setPage] = useState(1);
-  // Lựa chọn thuốc kho của dược sĩ theo từng dòng; dòng chưa chọn dùng thuốc đã gắn sẵn.
-  const [picks, setPicks] = useState<Record<string, string>>({});
   const [confirmed, setConfirmed] = useState(false);
-  // Lý do cấp thuốc khi hóa đơn chưa thanh toán hoặc chưa tính tiền thuốc này (máy chủ bắt buộc, lưu vào nhật ký cấp thuốc).
-  const [unpaidReason, setUnpaidReason] = useState("");
-  // Máy chủ vừa từ chối vì thanh toán: mở ô lý do ngay cả khi giao diện thấy hóa đơn đã trả (chưa tính thuốc này).
-  const [paymentRejected, setPaymentRejected] = useState(false);
   const [note, setNote] = useState("");
 
   const queueQuery = useQuery({
@@ -157,22 +124,18 @@ export default function PharmacyQueuePage() {
   const selected = queueQuery.data?.items.find((item) => item.id === selectedId) || null;
   const medicines = medicinesQuery.data?.items || [];
 
-  // Dòng đơn chưa gắn thuốc kho thì gợi ý theo tên; dược sĩ vẫn phải kiểm tra lại trước khi cấp.
-  const suggestedFor = (item: PrescriptionItem) => (item.medicineId ? null : suggestMedicine(item.medicineName, medicines));
-  const pickedMedicineId = (item: PrescriptionItem) => (item.id in picks ? picks[item.id] : (item.medicineId ?? suggestedFor(item)?.id ?? OUTSIDE));
-
-  // Cộng dồn số cần cấp theo từng thuốc kho, để cảnh báo cả khi nhiều dòng cùng lấy một thuốc.
+  // Dược sĩ chỉ cấp đúng thuốc bác sĩ đã gắn; cộng dồn số cần cấp theo từng thuốc để cảnh báo cả khi nhiều dòng cùng một thuốc.
   const neededByMedicine = (prescription: QueuePrescription, medicineId: string) =>
     prescription.items
-      .filter((other) => other.fulfillmentStatus === "PENDING" && pickedMedicineId(other) === medicineId)
+      .filter((other) => other.fulfillmentStatus === "PENDING" && other.medicineId === medicineId)
       .reduce((sum, other) => sum + (other.quantity || 0), 0);
 
   const stockWarnings = selected
     ? selected.items.flatMap((item) => {
         // Dòng đã được đánh dấu từ lúc kê đơn (kho không đủ thuốc) không còn là việc cần cấp.
         if (item.fulfillmentStatus !== "PENDING") return [];
-        const medicineId = pickedMedicineId(item);
-        if (!medicineId || medicineId === OUT_OF_STOCK) return [];
+        const medicineId = item.medicineId;
+        if (!medicineId) return [];
         const medicine = medicines.find((entry) => entry.id === medicineId);
         if (!medicine) return [];
         const needed = neededByMedicine(selected, medicineId);
@@ -185,40 +148,19 @@ export default function PharmacyQueuePage() {
     mutationFn: () =>
       apiRequest(`/dashboard/pharmacy/prescriptions/${selected!.id}/dispense`, {
         method: "POST",
-        body: {
-          confirmed,
-          note: note.trim() || null,
-          unpaidReason: needsPaymentReason ? unpaidReason.trim() : undefined,
-          lines: selected!.items.filter((item) => item.fulfillmentStatus === "PENDING").map((item) => {
-            const picked = pickedMedicineId(item);
-            return {
-              itemId: item.id,
-              medicineId: picked === OUT_OF_STOCK ? null : picked || null,
-              action: picked === OUT_OF_STOCK ? "OUT_OF_STOCK" : picked === OUTSIDE ? "OUTSIDE" : "DISPENSE",
-            };
-          }),
-        },
+        body: { confirmed, note: note.trim() || null },
       }),
     onSuccess: async () => {
       setSelectedId(null);
-      setPicks({});
       setConfirmed(false);
-      setUnpaidReason("");
-      setPaymentRejected(false);
       setNote("");
       await queryClient.invalidateQueries({ queryKey: ["dashboard", "pharmacy"] });
-    },
-    onError: (error) => {
-      setPaymentRejected(error instanceof ApiError && error.status === 409 && /thanh toán|hóa đơn/i.test(error.message));
     },
   });
 
   const select = (id: string) => {
     setSelectedId(id);
-    setPicks({});
     setConfirmed(false);
-    setUnpaidReason("");
-    setPaymentRejected(false);
     setNote("");
     dispenseMutation.reset();
   };
@@ -239,13 +181,13 @@ export default function PharmacyQueuePage() {
   const queueError = queueQuery.error ? (queueQuery.error instanceof Error ? queueQuery.error.message : "Không tải được hàng đợi") : "";
 
   const selectedPayment = selected ? paymentInfo(selected.appointment.invoice) : null;
-  // Máy chủ chặn cấp thuốc khi hóa đơn chưa thanh toán hoặc chưa tính tiền thuốc, trừ khi có lý do. Hóa đơn đã
-  // thanh toán nhưng chưa tính thuốc này chỉ lộ ra khi máy chủ từ chối, nên cũng mở ô lý do theo lỗi đó.
-  const needsPaymentReason = Boolean((selectedPayment && !selectedPayment.paid) || paymentRejected);
+  // Không có đường cấp khi chưa thu tiền. Tiền thuốc bổ sung chưa thu (đơn phát hành sau khi đã thanh toán) chỉ lộ ra khi
+  // máy chủ từ chối; thông báo của máy chủ được hiện ngay phía trên.
+  const hasPendingLine = Boolean(selected?.items.some((item) => item.fulfillmentStatus === "PENDING" && item.medicineId));
   const blockReason = !confirmed
     ? "Tick xác nhận đã kiểm tra đơn trước khi cấp"
-    : needsPaymentReason && unpaidReason.trim().length < 5
-      ? "Chưa thu tiền: nhập lý do cấp trước (ít nhất 5 ký tự)"
+    : hasPendingLine && selectedPayment && !selectedPayment.paid
+      ? "Chưa thu tiền: cần thanh toán hóa đơn trước khi cấp"
       : uniqueWarnings.length > 0
         ? "Có thuốc không đủ tồn kho"
         : "";
@@ -360,9 +302,9 @@ export default function PharmacyQueuePage() {
               <h3>Thuốc trong đơn ({selected.items.length})</h3>
             </div>
             {selected.items.map((item) => {
-              const medicineId = pickedMedicineId(item);
-              const medicine = medicines.find((entry) => entry.id === medicineId);
-              const short = medicine ? neededByMedicine(selected, medicineId) > availableOf(medicine) : false;
+              const medicineId = item.medicineId;
+              const medicine = medicineId ? medicines.find((entry) => entry.id === medicineId) : undefined;
+              const short = medicine && medicineId ? neededByMedicine(selected, medicineId) > availableOf(medicine) : false;
               return (
                 <div key={item.id} className="ds-labrow" style={{ display: "block" }}>
                   <div className="ds-labrow__main">
@@ -383,30 +325,16 @@ export default function PharmacyQueuePage() {
                           ? `Kho hết thuốc, người khám mua ngoài${item.fulfillmentNote ? ` · ${item.fulfillmentNote}` : ""}`
                           : item.medicine && item.dispensedQuantity > 0
                             ? `Đã cấp ${item.dispensedQuantity} · ${item.medicine.name}`
-                            : "Thuốc mua ngoài"}
+                            : `Thuốc mua ngoài${item.fulfillmentNote ? ` · ${item.fulfillmentNote}` : ""}`}
+                      </small>
+                    ) : medicine ? (
+                      <small style={{ color: short ? "var(--ds-bad)" : "var(--ds-muted)" }}>
+                        Cấp từ kho: {medicine.name} · còn hạn {availableOf(medicine)} {medicine.unit}
+                        {medicine.expiredQuantity ? ` (đã loại ${medicine.expiredQuantity} hết hạn)` : ""}
+                        {short && medicineId ? ` · không đủ, cần ${neededByMedicine(selected, medicineId)}` : ""}
                       </small>
                     ) : (
-                      <DsField label="Thuốc trong kho" htmlFor={`pick-${item.id}`} hint={short ? undefined : medicine ? `${!item.medicineId && !(item.id in picks) ? "Gợi ý theo tên thuốc, kiểm tra lại. " : ""}Còn hạn ${availableOf(medicine)} ${medicine.unit}${medicine.expiredQuantity ? ` (đã loại ${medicine.expiredQuantity} hết hạn)` : ""}` : undefined}>
-                        <DsSelect
-                          id={`pick-${item.id}`}
-                          value={medicineId}
-                          disabled={!canDispense}
-                          onChange={(event) => setPicks((current) => ({ ...current, [item.id]: event.target.value }))}
-                        >
-                          <option value={OUTSIDE}>Thuốc mua ngoài (không trừ kho)</option>
-                          <option value={OUT_OF_STOCK}>Kho hết thuốc này (không cấp, người khám mua ngoài)</option>
-                          {medicines.map((entry) => (
-                            <option key={entry.id} value={entry.id}>
-                              {entry.name} — còn hạn {availableOf(entry)} {entry.unit}
-                            </option>
-                          ))}
-                        </DsSelect>
-                        {short && medicine ? (
-                          <span style={{ color: "var(--ds-bad)", fontSize: 12 }}>
-                            Không đủ: cần {neededByMedicine(selected, medicineId)}, còn hạn {availableOf(medicine)}
-                          </span>
-                        ) : null}
-                      </DsField>
+                      <small style={{ color: "var(--ds-muted)" }}>Thuốc mua ngoài, người khám tự mua (không trừ kho)</small>
                     )}
                   </div>
                 </div>
@@ -436,25 +364,15 @@ export default function PharmacyQueuePage() {
               </div>
               <div className="ds-card__body">
                 {uniqueWarnings.length > 0 ? (
-                  <DsNotice tone="bad">Không đủ tồn kho: {uniqueWarnings.join("; ")}. Nhập thêm thuốc hoặc đổi thuốc trước khi cấp.</DsNotice>
+                  <DsNotice tone="bad">Không đủ tồn kho: {uniqueWarnings.join("; ")}. Nhập thêm thuốc, hoặc báo bác sĩ đổi thuốc / đánh dấu người khám tự mua trước khi cấp.</DsNotice>
                 ) : null}
                 <DsField label="Ghi chú cấp thuốc (không bắt buộc)" htmlFor="dispense-note">
                   <DsInput id="dispense-note" value={note} onChange={(event) => setNote(event.target.value)} />
                 </DsField>
                 <label className="ds-check" style={{ cursor: "pointer" }}>
                   <input type="checkbox" checked={confirmed} onChange={(event) => setConfirmed(event.target.checked)} style={{ marginTop: 3 }} />
-                  <span>Tôi đã kiểm tra đơn: dị ứng, liều dùng và thuốc được chọn đúng với đơn của bác sĩ.</span>
+                  <span>Tôi đã kiểm tra đơn: dị ứng, liều dùng và thuốc cấp đúng với đơn của bác sĩ.</span>
                 </label>
-                {needsPaymentReason ? (
-                  <DsField
-                    label="Lý do cấp thuốc khi chưa thu tiền"
-                    htmlFor="unpaid-reason"
-                    required
-                    hint={`Hóa đơn: ${selectedPayment?.label.toLowerCase() ?? "chưa tính tiền thuốc này"}. Lý do được lưu vào nhật ký cấp thuốc (ví dụ cấp cứu, quản lý đã duyệt).`}
-                  >
-                    <DsInput id="unpaid-reason" value={unpaidReason} onChange={(event) => setUnpaidReason(event.target.value)} />
-                  </DsField>
-                ) : null}
                 <DsButton variant="primary" disabled={Boolean(blockReason) || dispenseMutation.isPending} onClick={() => dispenseMutation.mutate()}>
                   {dispenseMutation.isPending ? "Đang cấp..." : "Cấp thuốc cho cả đơn"}
                 </DsButton>
@@ -474,7 +392,7 @@ export default function PharmacyQueuePage() {
     <>
       <DsPageHeader
         title="Cấp thuốc theo đơn"
-        description="Kiểm tra đơn, chọn thuốc trong kho cho từng dòng rồi cấp nguyên đơn."
+        description="Kiểm tra đơn đã kê và đã thu tiền, rồi cấp đúng thuốc theo đơn."
         actions={
           <DsButton onClick={() => void queueQuery.refetch()}>
             <RefreshCw aria-hidden="true" className={queueQuery.isFetching ? "animate-spin" : undefined} />

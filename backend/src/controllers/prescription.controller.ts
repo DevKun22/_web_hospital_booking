@@ -229,6 +229,29 @@ export const updatePrescriptionItemHandler = async (
   }
 };
 
+export const resolvePrescriptionItemHandler = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const prescription = await PrescriptionService.resolveItem(
+      getParam(req.params.id, "prescriptionId"),
+      getParam(req.params.itemId, "itemId"),
+      req.body,
+      getActor(req),
+    );
+
+    return res.json({
+      success: true,
+      message: "Đã cập nhật dòng thuốc",
+      data: prescription,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 export const deletePrescriptionItemHandler = async (
   req: Request,
   res: Response,

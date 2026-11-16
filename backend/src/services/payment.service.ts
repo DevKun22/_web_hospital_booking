@@ -17,6 +17,7 @@ import {
   vnpayFailureStatus,
   queryVnpayTransaction,
 } from "./paymentProviders/index.js";
+import InvoiceService from "./invoice.service.js";
 import PatientEventNotificationService from "./patientEventNotification.service.js";
 
 const PAYMENT_EXPIRES_MINUTES = 15;
@@ -478,6 +479,10 @@ class PaymentService {
       return { notificationId: notification.id };
     });
 
+    // Đơn thuốc phát hành lúc hóa đơn còn chờ thanh toán: nay đã thu thì tính thành hóa đơn bổ sung.
+    await InvoiceService.syncAppointmentMedicine(transaction.invoice.appointment.id).catch((error) => {
+      console.error("[INVOICE_MEDICINE] cannot sync medicines after online payment:", error);
+    });
     return this.getById(transaction.id, transaction.invoice.patientId);
   }
 

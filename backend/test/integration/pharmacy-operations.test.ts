@@ -400,17 +400,14 @@ test("two pharmacists dispensing the same prescription deduct stock once", async
   const medicine = await createMedicineViaApi(cookie, { code: "MED-C", name: "Thuốc C" });
   await receiveViaApi(cookie, medicine.id, 10);
 
-  // Dòng đơn chưa gắn thuốc kho: dược sĩ chọn thuốc khi cấp.
+  // Bác sĩ đã gắn thuốc kho cho dòng đơn; dược sĩ chỉ xác nhận cấp.
   const { prescription } = await createIssuedPrescription({
     code: "RX-RACE",
     phone: "0922222222",
     timeSlotId: fixture.slotOne.id,
-    items: [{ medicineName: "Thuốc C (gõ tay)", quantity: 4 }],
+    items: [{ medicineName: "Thuốc C", quantity: 4, medicineId: medicine.id }],
   });
-  const body = {
-    confirmed: true,
-    lines: [{ itemId: prescription.items[0].id, medicineId: medicine.id }],
-  };
+  const body = { confirmed: true };
   const responses = await Promise.all(
     [1, 2].map(() =>
       http.request(`/api/v1/dashboard/pharmacy/prescriptions/${prescription.id}/dispense`, {
@@ -812,9 +809,10 @@ test("doctors see only availability levels for medicines and get a short-stock f
   assert.equal((await addItem({ medicineId: randomUUID(), medicineName: "Không có", quantity: 1 })).status, 400);
 });
 
-test("a line marked out of stock or outside is skipped without blocking the rest, and each line keeps its own status", async () => {
+test("the pharmacist only dispenses what the doctor prescribed and the patient paid; the doctor marks lines the stock cannot supply", async () => {
   const pharmacist = await createDashboardUser("PHARMACIST", "0900000041");
   const cookie = await authCookie(pharmacist.id, "PHARMACIST");
+  const doctorCookie = await authCookie(fixture.doctorOneUser.id, "DOCTOR");
   const medicineA = await createMedicineViaApi(cookie, { code: "FL-A", name: "Thuốc A", unitPrice: 1000 });
   const medicineB = await createMedicineViaApi(cookie, { code: "FL-B", name: "Thuốc B", unitPrice: 2000 });
   await receiveViaApi(cookie, medicineA.id, 10);
@@ -827,7 +825,7 @@ test("a line marked out of stock or outside is skipped without blocking the rest
     timeSlotId: fixture.slotTwo.id,
     items: [
       { medicineName: "Thuốc A", quantity: 6, medicineId: medicineA.id },
-      { medicineName: "Thuốc B", quantity: 5, medicineId: medicineB.id },
+      { medicineName: "Thuốc B", quantity: 2, medicineId: medicineB.id },
       { medicineName: "Thuốc ngoài danh mục", quantity: 2 },
     ],
   });
@@ -837,12 +835,27 @@ test("a line marked out of stock or outside is skipped without blocking the rest
       headers: dashboardHeaders(cookie),
       body,
     });
+  const resolve = (prescriptionId: string, itemId: string, body: unknown, who = doctorCookie) =>
+    http.request(`/api/v1/dashboard/prescriptions/${prescriptionId}/items/${itemId}/fulfillment`, {
+      method: "PATCH",
+      headers: dashboardHeaders(who),
+      body,
+    });
   const [itemA, itemB, itemOutside] = mixed.prescription.items;
 
-  // Thuốc có giá mà chưa có hóa đơn thì cần ghi lý do cấp trước (điều kiện thanh toán của G5).
-  const unpaidReason = "Thử nghiệm: cấp trước khi lập hóa đơn";
-  // Mặc định không đổi: thuốc B thiếu thì cả đơn bị từ chối và không dòng nào đổi trạng thái.
-  const refused = await dispense(mixed.prescription.id, { confirmed: true, unpaidReason });
+  // Chưa có hóa đơn: không cấp được, và không còn lối "ghi lý do cấp trước".
+  const noInvoice = await dispense(mixed.prescription.id, { confirmed: true, unpaidReason: "Cấp cứu, quản lý duyệt" });
+  assert.equal(noInvoice.status, 409);
+  assert.equal(noInvoice.body.code, "PAYMENT_REQUIRED");
+  const invoice = await InvoiceService.createForAppointment(mixed.appointment.id, {});
+  const unpaid = await dispense(mixed.prescription.id, { confirmed: true, unpaidReason: "Cấp cứu, quản lý duyệt" });
+  assert.equal(unpaid.status, 409);
+  assert.equal(unpaid.body.code, "PAYMENT_REQUIRED");
+
+  // Đã thanh toán nhưng sau lúc kê kho chỉ còn đủ cho A: thuốc B thiếu thì cả đơn bị từ chối, không dòng nào đổi.
+  await prisma.invoice.update({ where: { id: invoice.id }, data: { status: "PAID", paidAt: new Date() } });
+  await prisma.medicine.update({ where: { id: medicineB.id }, data: { stockQuantity: 1 } });
+  const refused = await dispense(mixed.prescription.id, { confirmed: true });
   assert.equal(refused.status, 409);
   assert.equal(refused.body.code, "INSUFFICIENT_STOCK");
   assert.equal(
@@ -850,18 +863,24 @@ test("a line marked out of stock or outside is skipped without blocking the rest
     3,
   );
 
-  // Đánh dấu thuốc B hết hàng: phần còn lại vẫn được cấp, kho chỉ trừ thuốc A.
-  const ok = await dispense(mixed.prescription.id, {
-    confirmed: true,
-    unpaidReason,
-    lines: [
-      { itemId: itemA.id, action: "DISPENSE" },
-      { itemId: itemB.id, action: "OUT_OF_STOCK", note: "Chờ nhập hàng" },
-    ],
+  // Dược sĩ không có quyền đánh dấu dòng; việc này thuộc về bác sĩ.
+  assert.equal((await resolve(mixed.prescription.id, itemB.id, { status: "OUT_OF_STOCK" }, cookie)).status, 403);
+  const marked = await resolve(mixed.prescription.id, itemB.id, { status: "OUT_OF_STOCK", note: "Chờ nhập hàng" });
+  assert.equal(marked.status, 200);
+  assert.equal((await resolve(mixed.prescription.id, itemB.id, { status: "OUTSIDE" })).status, 409);
+
+  // Dòng đã thu tiền mà không cấp thì vào danh sách hoàn tiền thuốc.
+  const refundable = await http.request(`/api/v1/dashboard/invoices/${invoice.id}/medicine-refund`, {
+    headers: dashboardHeaders(await authCookie(fixture.adminUser.id, "ADMIN")),
   });
+  assert.equal(refundable.status, 200);
+  assert.equal(refundable.body.data.total, 4000);
+
+  // Dược sĩ cấp đúng phần còn lại: A trừ kho, B không đụng kho, thuốc ngoài danh mục là người khám tự mua.
+  const ok = await dispense(mixed.prescription.id, { confirmed: true });
   assert.equal(ok.status, 200);
   assert.equal(await stock(medicineA.id), 4);
-  assert.equal(await stock(medicineB.id), 3);
+  assert.equal(await stock(medicineB.id), 1);
   const items = await prisma.prescriptionItem.findMany({
     where: { prescriptionId: mixed.prescription.id },
     orderBy: { sortOrder: "asc" },
@@ -879,15 +898,11 @@ test("a line marked out of stock or outside is skipped without blocking the rest
     "DISPENSED",
   );
   assert.equal(await prisma.stockMovement.count({ where: { type: "DISPENSE", prescriptionItemId: itemB.id } }), 0);
-  assert.equal(
-    await prisma.notification.count({
-      where: { userId: mixed.appointment.patientId, type: "PRESCRIPTION_DISPENSED" },
-    }),
-    1,
-  );
+  // Đã cấp thì bác sĩ không đổi dòng được nữa.
+  assert.equal((await resolve(mixed.prescription.id, itemA.id, { status: "OUTSIDE" })).status, 409);
 
-  // Mọi dòng đều không cấp (người khám tự mua hoặc hết hàng): đơn vẫn được xử lý xong, kho không đổi,
-  // và người khám không nhận thông báo "đã cấp thuốc" sai sự thật.
+  // Mọi dòng đều không cấp: bác sĩ đánh dấu hết, không còn gì cần thu nên cấp xử lý xong mà không cần hóa đơn,
+  // kho không đổi và người khám không nhận thông báo "đã cấp thuốc" sai sự thật.
   const nothing = await createIssuedPrescription({
     code: "RX-FULFIL-NONE",
     phone: "0955555552",
@@ -897,27 +912,17 @@ test("a line marked out of stock or outside is skipped without blocking the rest
       { medicineName: "Thuốc mua ngoài", quantity: 1 },
     ],
   });
-  const none = await dispense(nothing.prescription.id, {
-    confirmed: true,
-    lines: [
-      { itemId: nothing.prescription.items[0].id, action: "OUT_OF_STOCK" },
-      { itemId: nothing.prescription.items[1].id, action: "OUTSIDE" },
-    ],
-  });
+  assert.equal((await resolve(nothing.prescription.id, nothing.prescription.items[0].id, { status: "OUT_OF_STOCK" })).status, 200);
+  assert.equal((await resolve(nothing.prescription.id, nothing.prescription.items[1].id, { status: "OUTSIDE" })).status, 200);
+  const none = await dispense(nothing.prescription.id, { confirmed: true });
   assert.equal(none.status, 200);
-  assert.equal(await stock(medicineB.id), 3);
+  assert.equal(await stock(medicineB.id), 1);
   assert.equal(
     await prisma.notification.count({
       where: { userId: nothing.appointment.patientId, type: "PRESCRIPTION_DISPENSED" },
     }),
     0,
   );
-
-  // Hóa đơn chỉ tính dòng đã cấp: A (4 hộp còn lại không liên quan) 6 x 1000; dòng hết hàng và tự mua không tính tiền.
-  const invoice = await InvoiceService.createForAppointment(mixed.appointment.id, {});
-  const medicineLines = invoice.items.filter((line: { type: string }) => line.type === "MEDICINE");
-  assert.equal(medicineLines.length, 1);
-  assert.equal(medicineLines[0].amount, 6000);
 });
 
 test("issuing with a line beyond stock needs the doctor to acknowledge it; that line is then neither billed nor dispensed", async () => {

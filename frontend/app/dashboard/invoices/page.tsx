@@ -25,6 +25,7 @@ import {
 } from "@/components/ds";
 import { ExportCsvButton } from "@/components/dashboard/export-csv-button";
 import { MedicineRefundPanel } from "@/components/dashboard/medicine-refund-panel";
+import { SupplementPanel } from "@/components/dashboard/supplement-panel";
 import { PrintButton, PrintableInvoice } from "@/components/dashboard/printable-documents";
 import { ApiError, apiRequest } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
@@ -982,6 +983,9 @@ export default function InvoicesPage() {
               ) : (
                 <p style={{ margin: 0, color: "var(--ds-muted)" }}>Chưa thanh toán.</p>
               )}
+              {selected.status === "PAID" && selected.supplements && selected.supplements.length > 0 ? (
+                <SupplementPanel invoiceId={selected.id} supplements={selected.supplements} canCollect={can(user, "invoice.collect")} onChanged={invalidateInvoices} />
+              ) : null}
               {canRefund && selected.status === "PAID" ? <MedicineRefundPanel invoiceId={selected.id} onChanged={invalidateInvoices} /> : null}
               {selected.status === "REFUNDED" ? (
                 <DsKeyValue

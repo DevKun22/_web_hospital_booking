@@ -223,6 +223,21 @@ export const invoiceSelect = {
       refundedAt: true,
     },
   },
+  supplements: {
+    where: { status: { not: "CANCELLED" } },
+    orderBy: { createdAt: "asc" },
+    select: {
+      id: true,
+      supplementCode: true,
+      amount: true,
+      status: true,
+      paymentMethod: true,
+      paymentReference: true,
+      paidAt: true,
+      createdAt: true,
+      items: { orderBy: { createdAt: "asc" }, select: { id: true, description: true, quantity: true, unitPrice: true, amount: true } },
+    },
+  },
   paymentTransactions: {
     orderBy: { createdAt: "desc" },
     take: 10,
@@ -788,7 +803,23 @@ class InvoiceService {
       return { paidInvoice, notificationId: notification.id };
     });
 
+    // Đơn phát hành lúc hóa đơn còn chờ thanh toán chưa vào được hóa đơn: nay hóa đơn đã thu thì tính thành hóa đơn bổ sung.
+    await this.syncAppointmentMedicine(transition.paidInvoice.appointment.id, actorId ? { userId: actorId, role: "STAFF" } : undefined).catch((error) => {
+      console.error("[INVOICE_MEDICINE] cannot sync medicines after payment:", error);
+    });
     return transition.paidInvoice;
+  }
+
+  /** Đồng bộ tiền thuốc của mọi đơn đã phát hành của một lịch (gọi sau khi hóa đơn được thanh toán). */
+  async syncAppointmentMedicine(appointmentId: string, actor?: { userId: string; role: string }) {
+    const prescriptions = await prisma.prescription.findMany({
+      where: { appointmentId, status: "ISSUED" },
+      orderBy: { issuedAt: "asc" },
+      select: { id: true },
+    });
+    for (const prescription of prescriptions) {
+      await this.syncMedicineLines(prescription.id, actor);
+    }
   }
 
   /**
@@ -806,7 +837,7 @@ class InvoiceService {
     if (!prescription) return { outcome: "NO_PRESCRIPTION" as const, amount: 0 };
     const invoiceRef = await prisma.invoice.findUnique({
       where: { appointmentId: prescription.appointmentId },
-      select: { id: true, invoiceCode: true },
+      select: { id: true, invoiceCode: true, patientId: true },
     });
     if (!invoiceRef) return { outcome: "NO_INVOICE" as const, amount: 0 };
     // Đơn đã hủy thì không còn dòng nào cần tính tiền.
@@ -828,6 +859,16 @@ class InvoiceService {
         .filter((line) => line.prescriptionItemId && itemIds.has(line.prescriptionItemId))
         .map((line) => ({ id: line.id, prescriptionItemId: line.prescriptionItemId as string, quantity: line.quantity, unitPrice: line.unitPrice }));
       const diff = diffMedicineLines(items, existing);
+      if (invoice.status === "PAID") {
+        // Hóa đơn đã thu thì không sửa: tiền thuốc mới thành hóa đơn bổ sung thu tại quầy; dòng đã thu mà nay không cấp thì
+        // báo hoàn tiền (đã có luồng ghi nhận hoàn tiền thuốc).
+        const supplement = await this.syncSupplement(tx, invoiceRef.id, prescription.items, items);
+        const blockedDelta = diff.remove.reduce((sum, line) => sum - line.amount, 0) + diff.update.reduce((sum, line) => sum + line.amount, 0);
+        if (diff.remove.length > 0 || diff.update.length > 0) return { outcome: "BLOCKED" as const, delta: blockedDelta, supplementCode: supplement.createdCode };
+        return supplement.changed
+          ? { outcome: "SUPPLEMENT" as const, delta: supplement.delta, supplementCode: supplement.createdCode }
+          : { outcome: "NO_CHANGE" as const, delta: 0 };
+      }
       if (diff.add.length === 0 && diff.update.length === 0 && diff.remove.length === 0) {
         return { outcome: "NO_CHANGE" as const, delta: 0 };
       }
@@ -887,11 +928,21 @@ class InvoiceService {
       return { outcome: "SYNCED" as const, delta: diff.delta };
     });
 
+    if (result.outcome === "SUPPLEMENT" && "supplementCode" in result && result.supplementCode) {
+      await StaffNotificationService.notifyRoles(["STAFF", "ADMIN"], {
+        type: "INVOICE_CREATED",
+        title: "Có hóa đơn bổ sung tiền thuốc cần thu",
+        body: `Đơn ${prescription.prescriptionCode} phát hành sau khi hóa đơn ${invoiceRef.invoiceCode} đã thanh toán. Hóa đơn bổ sung ${result.supplementCode} (${Math.abs(result.delta).toLocaleString("vi-VN")} đ) cần thu trước khi dược sĩ cấp thuốc.`,
+        entityType: "INVOICE",
+        entityId: invoiceRef.id,
+        eventKey: `invoice:${invoiceRef.id}:supplement:${result.supplementCode}`,
+      });
+    }
     if (result.outcome === "BLOCKED") {
       await StaffNotificationService.notifyRoles(["STAFF", "ADMIN"], {
         type: "INVOICE_CREATED",
         title: "Tiền thuốc chưa tính vào hóa đơn",
-        body: `Đơn ${prescription.prescriptionCode} có thay đổi tiền thuốc (${Math.abs(result.delta).toLocaleString("vi-VN")} đ) nhưng hóa đơn ${invoiceRef.invoiceCode} không còn sửa được. ${result.delta < 0 ? "Thuốc không được cấp: quản trị viên ghi nhận hoàn tiền thuốc ở chi tiết hóa đơn sau khi hoàn tiền cho người khám." : "Vui lòng thu thêm tiền thuốc tại quầy."}`,
+        body: `Đơn ${prescription.prescriptionCode} có thay đổi tiền thuốc (${Math.abs(result.delta).toLocaleString("vi-VN")} đ) nhưng hóa đơn ${invoiceRef.invoiceCode} không còn sửa được. ${result.delta < 0 ? "Thuốc không được cấp: quản trị viên ghi nhận hoàn tiền thuốc ở chi tiết hóa đơn sau khi hoàn tiền cho người khám." : "Tiền thuốc sẽ được tính thành hóa đơn bổ sung khi hóa đơn này được thanh toán."}`,
         entityType: "INVOICE",
         entityId: invoiceRef.id,
         eventKey: `invoice:${invoiceRef.id}:medicine-blocked:${prescriptionId}:${result.delta}`,
@@ -900,6 +951,139 @@ class InvoiceService {
     return { outcome: result.outcome, amount: result.delta };
   }
 
+
+  // ---- Hóa đơn bổ sung tiền thuốc ----------------------------------------------------------------------------
+
+  /**
+   * Đồng bộ hóa đơn bổ sung của một hóa đơn đã thanh toán (gọi trong giao dịch đã khóa hóa đơn). Dòng thuốc cần tính
+   * tiền mà chưa có trên hóa đơn chính hay hóa đơn bổ sung nào thì vào hóa đơn bổ sung chưa thu (tạo mới nếu chưa có);
+   * dòng trên hóa đơn bổ sung chưa thu mà nay không cấp nữa thì gỡ ra. Hóa đơn bổ sung đã thu không sửa.
+   */
+  private async syncSupplement(
+    tx: Prisma.TransactionClient,
+    invoiceId: string,
+    allItems: BillableItem[],
+    wantedItems: BillableItem[],
+  ) {
+    const itemIds = new Set(allItems.map((item) => item.id));
+    const mainLines = await tx.invoiceItem.findMany({
+      where: { invoiceId, prescriptionItemId: { in: [...itemIds] } },
+      select: { prescriptionItemId: true },
+    });
+    const onMain = new Set(mainLines.map((line) => line.prescriptionItemId as string));
+    const supplementLines = await tx.invoiceSupplementItem.findMany({
+      where: { prescriptionItemId: { in: [...itemIds] }, supplement: { invoiceId, status: { not: "CANCELLED" } } },
+      select: { id: true, supplementId: true, prescriptionItemId: true, amount: true, supplement: { select: { status: true } } },
+    });
+    const onSupplement = new Map(supplementLines.map((line) => [line.prescriptionItemId, line]));
+
+    const toAdd: NonNullable<ReturnType<typeof desiredMedicineLine>>[] = [];
+    const wantedIds = new Set<string>();
+    for (const item of wantedItems) {
+      const line = desiredMedicineLine(item);
+      if (!line) continue;
+      wantedIds.add(item.id);
+      if (!onMain.has(item.id) && !onSupplement.has(item.id)) toAdd.push(line);
+    }
+    // Dòng trên hóa đơn bổ sung chưa thu mà không còn cần tính tiền.
+    const toRemove = supplementLines.filter((line) => line.supplement.status === "UNPAID" && !wantedIds.has(line.prescriptionItemId));
+    if (toAdd.length === 0 && toRemove.length === 0) return { changed: false, delta: 0, createdCode: null as string | null };
+
+    let target = await tx.invoiceSupplement.findFirst({
+      where: { invoiceId, status: "UNPAID" },
+      orderBy: { createdAt: "asc" },
+      select: { id: true, supplementCode: true, amount: true },
+    });
+    let createdCode: string | null = null;
+    if (!target && toAdd.length > 0) {
+      const supplementCode = await this.generateUniqueSupplementCode(tx);
+      target = await tx.invoiceSupplement.create({ data: { supplementCode, invoiceId, amount: 0 }, select: { id: true, supplementCode: true, amount: true } });
+      createdCode = supplementCode;
+    }
+    let delta = 0;
+    if (target) {
+      if (toRemove.length > 0) {
+        await tx.invoiceSupplementItem.deleteMany({ where: { id: { in: toRemove.map((line) => line.id) } } });
+        delta -= toRemove.reduce((sum, line) => sum + line.amount, 0);
+      }
+      if (toAdd.length > 0) {
+        await tx.invoiceSupplementItem.createMany({
+          data: toAdd.map((line) => ({
+            supplementId: target!.id,
+            prescriptionItemId: line.prescriptionItemId,
+            description: line.description,
+            quantity: line.quantity,
+            unitPrice: line.unitPrice,
+            amount: line.amount,
+          })),
+        });
+        delta += toAdd.reduce((sum, line) => sum + line.amount, 0);
+      }
+      const amount = target.amount + delta;
+      await tx.invoiceSupplement.update({
+        where: { id: target.id },
+        data: { amount, status: amount <= 0 ? "CANCELLED" : "UNPAID" },
+      });
+    }
+    return { changed: true, delta, createdCode: createdCode ?? (target && toAdd.length > 0 ? target.supplementCode : null) };
+  }
+
+  /** Thu tại quầy một hóa đơn bổ sung tiền thuốc. Không thu qua cổng online. */
+  async paySupplement(invoiceId: string, supplementId: string, input: PayInvoiceInput, actorId?: string) {
+    if (input.paymentMethod === "VNPAY") {
+      throw new AppError("Hóa đơn bổ sung chỉ thu tại quầy", 400, "SUPPLEMENT_ONLINE_NOT_SUPPORTED");
+    }
+    const paymentReference = normalizeOptionalString(input.paymentReference);
+    if (["CARD", "BANK_TRANSFER"].includes(input.paymentMethod) && !paymentReference) {
+      throw new AppError("Vui lòng nhập mã tham chiếu cho thanh toán thẻ hoặc chuyển khoản", 400, "PAYMENT_REFERENCE_REQUIRED");
+    }
+    return prisma.$transaction(async (tx) => {
+      await tx.$queryRaw(Prisma.sql`SELECT "id" FROM "Invoice" WHERE "id" = ${invoiceId} FOR UPDATE`);
+      const supplement = await tx.invoiceSupplement.findFirst({
+        where: { id: supplementId, invoiceId },
+        select: { id: true, status: true, supplementCode: true, amount: true, invoice: { select: { appointmentId: true, status: true } } },
+      });
+      if (!supplement) throw new AppError("Không tìm thấy hóa đơn bổ sung", 404);
+      if (supplement.status !== "UNPAID" || supplement.invoice.status !== "PAID") {
+        throw new AppError("Hóa đơn bổ sung đã được xử lý ở thao tác khác. Vui lòng tải lại dữ liệu.", 409, "INVOICE_STATE_CONFLICT");
+      }
+      const claimed = await tx.invoiceSupplement.updateMany({
+        where: { id: supplementId, status: "UNPAID" },
+        data: { status: "PAID", paymentMethod: input.paymentMethod, paymentReference, paidAt: new Date(), collectedById: actorId },
+      });
+      if (claimed.count !== 1) {
+        throw new AppError("Hóa đơn bổ sung đã được xử lý ở thao tác khác. Vui lòng tải lại dữ liệu.", 409, "INVOICE_STATE_CONFLICT");
+      }
+      await tx.appointmentLog.create({
+        data: {
+          appointmentId: supplement.invoice.appointmentId,
+          action: "PAYMENT_RECORDED",
+          note: `Đã thu hóa đơn bổ sung tiền thuốc ${supplement.supplementCode} (${input.paymentMethod}${paymentReference ? ` · ${paymentReference}` : ""})`,
+          createdById: actorId,
+        },
+      });
+      await AuditLogService.record(
+        {
+          actor: actorId ? { userId: actorId, role: "STAFF" } : null,
+          action: "INVOICE_ADJUSTED",
+          targetType: "INVOICE",
+          targetId: invoiceId,
+          meta: { reason: "SUPPLEMENT_PAID", supplementCode: supplement.supplementCode, amount: supplement.amount, paymentMethod: input.paymentMethod, paymentReference },
+        },
+        tx,
+      );
+      return tx.invoice.findUniqueOrThrow({ where: { id: invoiceId }, select: invoiceSelect });
+    });
+  }
+
+  private async generateUniqueSupplementCode(tx: Prisma.TransactionClient) {
+    for (let index = 0; index < 10; index += 1) {
+      const supplementCode = `BS${generateInvoiceCode().replace(/^INV/, "")}`;
+      const existing = await tx.invoiceSupplement.findUnique({ where: { supplementCode }, select: { id: true } });
+      if (!existing) return supplementCode;
+    }
+    throw new AppError("Không thể tạo mã hóa đơn bổ sung", 500);
+  }
 
   // ---- Hoàn tiền thuốc một phần ------------------------------------------------------------------------------
 
@@ -1044,7 +1228,7 @@ class InvoiceService {
 
   /**
    * Hóa đơn đã "phủ" tiền thuốc của đơn chưa: có hóa đơn đã thanh toán và mọi dòng thuốc sắp cấp đều đã có dòng
-   * tiền trên hóa đơn đó. Dùng để chặn cấp thuốc khi chưa thu tiền. billableAmount = 0 (thuốc miễn phí hoặc
+   * tiền trên hóa đơn đó hoặc trên hóa đơn bổ sung đã thu. Dùng để chặn cấp thuốc khi chưa thu tiền. billableAmount = 0 (thuốc miễn phí hoặc
    * ngoài danh mục) thì không cần hóa đơn. `excludeItemIds` là các dòng sẽ không cấp (hết hàng, tự mua).
    */
   async medicineCoverage(prescriptionId: string, excludeItemIds: string[] = []) {
@@ -1063,10 +1247,17 @@ class InvoiceService {
 
     const invoice = await prisma.invoice.findUnique({
       where: { appointmentId: prescription.appointmentId },
-      select: { status: true, items: { select: { prescriptionItemId: true } } },
+      select: {
+        status: true,
+        items: { select: { prescriptionItemId: true } },
+        supplements: { where: { status: "PAID" }, select: { items: { select: { prescriptionItemId: true } } } },
+      },
     });
     if (!invoice) return { billableAmount, invoiceStatus: null, covered: false };
-    const linked = new Set(invoice.items.map((line) => line.prescriptionItemId).filter(Boolean));
+    const linked = new Set([
+      ...invoice.items.map((line) => line.prescriptionItemId),
+      ...invoice.supplements.flatMap((supplement) => supplement.items.map((line) => line.prescriptionItemId)),
+    ].filter(Boolean));
     const allLinked = wanted.every((line) => linked.has(line.prescriptionItemId));
     return { billableAmount, invoiceStatus: invoice.status, covered: invoice.status === "PAID" && allLinked };
   }

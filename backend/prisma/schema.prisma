@@ -1337,6 +1337,7 @@ model Invoice {
 
   paymentTransactions PaymentTransaction[]
   items               InvoiceItem[]
+  supplements         InvoiceSupplement[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1373,6 +1374,56 @@ model InvoiceItem {
 
   @@index([invoiceId, sortOrder])
   @@index([prescriptionItemId])
+}
+
+enum InvoiceSupplementStatus {
+  UNPAID
+  PAID
+  CANCELLED
+}
+
+// Hóa đơn bổ sung tiền thuốc phát sinh sau khi hóa đơn chính đã thanh toán (đơn phát hành muộn). Thu tại quầy;
+// hóa đơn chính không bị sửa. Mỗi dòng gắn đúng một dòng đơn thuốc.
+model InvoiceSupplement {
+  id String @id @default(uuid())
+
+  supplementCode String @unique
+
+  invoiceId String
+  invoice   Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  amount Int
+  status InvoiceSupplementStatus @default(UNPAID)
+
+  paymentMethod    PaymentMethod?
+  paymentReference String?
+  paidAt           DateTime?
+  collectedById    String?
+
+  items InvoiceSupplementItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([invoiceId, status])
+}
+
+model InvoiceSupplementItem {
+  id String @id @default(uuid())
+
+  supplementId String
+  supplement   InvoiceSupplement @relation(fields: [supplementId], references: [id], onDelete: Cascade)
+
+  prescriptionItemId String @unique
+
+  description String
+  quantity    Int
+  unitPrice   Int
+  amount      Int
+
+  createdAt DateTime @default(now())
+
+  @@index([supplementId])
 }
 
 model PaymentTransaction {

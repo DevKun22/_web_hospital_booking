@@ -7,6 +7,7 @@ import {
   issuePrescriptionHandler,
   listMedicineOptionsHandler,
   listPrescriptionsHandler,
+  resolvePrescriptionItemHandler,
   updatePrescriptionHandler,
   updatePrescriptionItemHandler,
 } from "../controllers/prescription.controller.js";
@@ -14,6 +15,7 @@ import { authDashboard, requirePermission } from "../middlewares/auth.middleware
 import { validate } from "../middlewares/validate.middleware.js";
 import {
   createPrescriptionItemSchema,
+  resolvePrescriptionItemSchema,
   updatePrescriptionItemSchema,
   updatePrescriptionSchema,
 } from "../validations/prescription.validation.js";
@@ -65,6 +67,13 @@ router.patch(
   requirePermission("prescription.write"),
   validate(updatePrescriptionItemSchema),
   updatePrescriptionItemHandler,
+);
+// Đơn đã phát hành: bác sĩ đánh dấu dòng kho không cấp được (hết hàng sau khi kê / người khám tự mua).
+router.patch(
+  "/:id/items/:itemId/fulfillment",
+  requirePermission("prescription.write"),
+  validate(resolvePrescriptionItemSchema),
+  resolvePrescriptionItemHandler,
 );
 router.delete(
   "/:id/items/:itemId",

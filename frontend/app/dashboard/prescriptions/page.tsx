@@ -254,6 +254,29 @@ export default function PrescriptionsPage() {
     }
   };
 
+  // Đơn đã phát hành mà kho không cấp được dòng này (hết hàng sau lúc kê, hoặc người khám tự mua): bác sĩ đánh dấu,
+  // tiền thuốc dòng đó được gỡ khỏi hóa đơn chưa thu (hóa đơn đã thu thì chuyển sang luồng hoàn tiền thuốc).
+  const resolveItem = async (prescription: Prescription, item: PrescriptionItem, status: "OUTSIDE" | "OUT_OF_STOCK") => {
+    const label = status === "OUTSIDE" ? "người khám tự mua" : "kho hết thuốc, người khám mua ngoài";
+    if (!window.confirm(`Đánh dấu "${item.medicineName}" là ${label}? Dòng này sẽ không tính tiền và dược sĩ không cấp. Không hoàn tác được.`)) return;
+    setBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      const updated = await apiRequest<Prescription>(`/dashboard/prescriptions/${prescription.id}/items/${item.id}/fulfillment`, {
+        method: "PATCH",
+        body: { status },
+      });
+      setSelected(updated);
+      setNotice("Đã cập nhật dòng thuốc");
+      await invalidatePrescriptions();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Không cập nhật được dòng thuốc");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const simpleAction = async (prescription: Prescription, path: string, message: string) => {
     // Dòng vượt khả năng cấp của kho sẽ được đánh dấu "kho hết hàng, người khám tự mua" và không tính tiền: bác sĩ xác nhận rõ.
     let acknowledgeShortage = false;
@@ -603,7 +626,20 @@ export default function PrescriptionsPage() {
                   {item.fulfillmentStatus === "OUT_OF_STOCK" ? (
                     <small style={{ color: "var(--ds-warn, #b45309)" }}>Kho hết thuốc lúc cấp, người khám mua ngoài{item.fulfillmentNote ? ` · ${item.fulfillmentNote}` : ""}.</small>
                   ) : null}
+                  {item.fulfillmentStatus === "OUTSIDE" && item.medicineId ? (
+                    <small style={{ color: "var(--ds-warn, #b45309)" }}>Người khám tự mua{item.fulfillmentNote ? ` · ${item.fulfillmentNote}` : ""}.</small>
+                  ) : null}
                   {item.fulfillmentStatus === "DISPENSED" ? <small style={{ color: "var(--ds-muted)" }}>Đã cấp tại cơ sở.</small> : null}
+                  {canEdit && selected?.status === "ISSUED" && selected.dispenseStatus !== "DISPENSED" && item.fulfillmentStatus === "PENDING" && item.medicineId ? (
+                    <span style={{ display: "flex", gap: 8, marginTop: 6, flexWrap: "wrap" }}>
+                      <DsButton variant="ghost" disabled={busy} onClick={() => void resolveItem(selected, item, "OUT_OF_STOCK")}>
+                        Kho hết thuốc này
+                      </DsButton>
+                      <DsButton variant="ghost" disabled={busy} onClick={() => void resolveItem(selected, item, "OUTSIDE")}>
+                        Người khám tự mua
+                      </DsButton>
+                    </span>
+                  ) : null}
                   {deleteItemTarget?.id === item.id ? (
                     <div style={{ display: "flex", gap: 8, marginTop: 8, alignItems: "center", flexWrap: "wrap" }}>
                       <span style={{ fontSize: 13 }}>Xoá thuốc này khỏi đơn?</span>

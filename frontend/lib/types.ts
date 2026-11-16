@@ -437,6 +437,18 @@ export type Invoice = {
   createdAt: string;
   updatedAt: string;
   items: InvoiceItem[];
+  // Hóa đơn bổ sung tiền thuốc (đơn phát hành sau khi hóa đơn chính đã thanh toán), thu tại quầy.
+  supplements?: Array<{
+    id: string;
+    supplementCode: string;
+    amount: number;
+    status: "UNPAID" | "PAID" | "CANCELLED";
+    paymentMethod: PaymentMethod | null;
+    paymentReference: string | null;
+    paidAt: string | null;
+    createdAt: string;
+    items: Array<{ id: string; description: string; quantity: number; unitPrice: number; amount: number }>;
+  }>;
   paymentTransactions: Array<{
     id: string;
     provider: PaymentProvider;
@@ -549,6 +561,8 @@ export type Prescription = {
   status: PrescriptionStatus;
   note: string | null;
   issuedAt: string | null;
+  // Trạng thái cấp thuốc của dược sĩ; đơn đã cấp thì bác sĩ không đổi dòng thuốc được nữa.
+  dispenseStatus?: "NOT_DISPENSED" | "DISPENSED";
   cancelledAt: string | null;
   createdAt: string;
   updatedAt: string;
