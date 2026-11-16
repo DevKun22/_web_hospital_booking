@@ -20,6 +20,7 @@
     "test:types": "tsc --noEmit -p tsconfig.test.json",
     "test:all": "prisma generate && tsc --noEmit -p tsconfig.test.json && tsx --test test/smoke/app.test.ts && npm run test:unit && tsx test/runIntegrationTests.ts",
     "seed:clinic": "tsx src/scripts/seedClinicData.ts",
+    "seed:demo": "tsx src/scripts/seedDemoFlows.ts",
     "seed:chatbot-faq": "tsx src/scripts/seedChatbotFAQ.ts",
     "check:queue-redis": "tsx src/scripts/checkQueueRedis.ts",
     "prisma:generate": "prisma generate",
