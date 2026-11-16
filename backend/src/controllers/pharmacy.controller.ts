@@ -1,5 +1,6 @@
 import type { NextFunction, Request, Response } from "express";
 import PharmacyService from "../services/pharmacy.service.js";
+import PharmacyDispenseService from "../services/pharmacyDispense.service.js";
 import PharmacyImportService, { type ImportKind } from "../services/pharmacyImport.service.js";
 import { getClientIp } from "../utils/clientIp.js";
 import { AppError } from "../utils/appError.js";
@@ -114,7 +115,7 @@ export const listPrescriptionsHandler = wrap(async (req, res) => {
   const status = str(req.query.dispenseStatus);
   res.json({
     success: true,
-    data: await PharmacyService.listPrescriptions({
+    data: await PharmacyDispenseService.listPrescriptions({
       dispenseStatus:
         status === "DISPENSED" || status === "NOT_DISPENSED" ? status : undefined,
       q: str(req.query.q),
@@ -127,7 +128,7 @@ export const listPrescriptionsHandler = wrap(async (req, res) => {
 export const getPrescriptionHandler = wrap(async (req, res) =>
   res.json({
     success: true,
-    data: await PharmacyService.getPrescription(param(req.params.id)),
+    data: await PharmacyDispenseService.getPrescription(param(req.params.id)),
   }),
 );
 
@@ -135,7 +136,7 @@ export const dispensePrescriptionHandler = wrap(async (req, res) =>
   res.json({
     success: true,
     message: "Đã cấp thuốc",
-    data: await PharmacyService.dispense(param(req.params.id), req.body, actorOf(req)),
+    data: await PharmacyDispenseService.dispense(param(req.params.id), req.body, actorOf(req)),
   }),
 );
 
