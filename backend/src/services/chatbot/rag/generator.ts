@@ -75,7 +75,10 @@ export const extractiveAnswer = (chunks: RetrievedChunk[]): GroundedAnswer | nul
   const top = chunks[0];
   if (!top) return null;
   const answerMatch = top.chunk.content.match(/Trả lời:\s*([\s\S]+)$/);
-  const reply = (answerMatch ? answerMatch[1] : top.chunk.content).trim().slice(0, MAX_REPLY_CHARS);
+  const text = (answerMatch ? answerMatch[1] : top.chunk.content).replace(/\s*\n\s*/g, " ").trim();
+  // Gợi ý chuyên khoa là định hướng ban đầu, không phải chẩn đoán.
+  const note = top.chunk.sourceType === "DEPARTMENT" ? " Đây là gợi ý định hướng, không thay thế chẩn đoán của bác sĩ." : "";
+  const reply = `${text.slice(0, MAX_REPLY_CHARS - note.length)}${note}`.trim();
   return reply ? { reply, sourceIds: [top.chunk.id] } : null;
 };
 

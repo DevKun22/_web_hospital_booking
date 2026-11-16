@@ -55,13 +55,17 @@ export class KnowledgeIndex {
     return this.docs.filter((doc) => doc.chunk.embedding?.length).length;
   }
 
+  private idf(term: string) {
+    const df = this.docFreq.get(term) || 0;
+    return Math.log(1 + (this.docs.length - df + 0.5) / (df + 0.5));
+  }
+
   private bm25(queryTerms: string[], doc: IndexedChunk) {
     let score = 0;
     for (const term of new Set(queryTerms)) {
       const frequency = doc.terms.get(term);
       if (!frequency) continue;
-      const df = this.docFreq.get(term) || 0;
-      const idf = Math.log(1 + (this.docs.length - df + 0.5) / (df + 0.5));
+      const idf = this.idf(term);
       score += (idf * frequency * (BM25_K1 + 1)) / (frequency + BM25_K1 * (1 - BM25_B + (BM25_B * doc.length) / this.avgLength));
     }
     return score;
@@ -75,15 +79,18 @@ export class KnowledgeIndex {
     if (!all.length && !options.queryVector) return [];
     const wanted = options.types ? new Set<string>(options.types) : null;
     const limit = options.limit ?? 5;
+    // Từ không có trong kho (từ đệm như "lâu", "thì") không được tính vào mẫu số; từ hiếm có trọng số cao hơn từ phổ biến.
+    const knownWords = words.filter((word) => this.docFreq.has(word));
+    const knownWeight = knownWords.reduce((sum, word) => sum + this.idf(word), 0);
 
     const candidates = this.docs
       .filter((doc) => !wanted || wanted.has(doc.chunk.sourceType))
       .map((doc) => {
-        const matched = words.filter((word) => doc.wordSet.has(word)).length;
+        const matchedWeight = knownWords.filter((word) => doc.wordSet.has(word)).reduce((sum, word) => sum + this.idf(word), 0);
         return {
           doc,
           lexical: this.bm25(all, doc),
-          coverage: words.length ? matched / words.length : 0,
+          coverage: knownWeight ? matchedWeight / knownWeight : 0,
           similarity: options.queryVector && doc.chunk.embedding?.length ? cosine(options.queryVector, doc.chunk.embedding) : null,
         };
       });

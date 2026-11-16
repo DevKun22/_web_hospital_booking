@@ -143,3 +143,18 @@ test("định tuyến bằng quy tắc: chào, hỏi chức năng, làm lại kh
   assert.equal(routeByRules("chào bác sĩ Hùng cho tôi hỏi giá khám"), "NEEDS_NLU");
   assert.equal(routeByRules("tôi bị đau đầu 3 ngày"), "NEEDS_NLU");
 });
+
+test("câu hỏi tự nhiên nhiều từ đệm vẫn tìm được đoạn đúng nhờ trọng số từ hiếm", () => {
+  const index = new KnowledgeIndex([
+    ...corpus,
+    chunk("policy", { sourceType: "POLICY", title: "Chính sách đặt lịch, hủy lịch và nhắc lịch", content: "Người khám tự hủy lịch được cho đến 2 giờ trước giờ khám; sau mốc này cần liên hệ nhân viên." }),
+  ]);
+  const hits = index.search("hủy lịch trong bao lâu thì được");
+  assert.equal(hits[0]?.chunk.id, "policy");
+});
+
+test("đường lùi cho chuyên khoa nối thành một đoạn và kèm lưu ý không phải chẩn đoán", () => {
+  const answer = extractiveAnswer(retrieved([corpus[2]]));
+  assert.doesNotMatch(answer?.reply ?? "", /\n/);
+  assert.match(answer?.reply ?? "", /không thay thế chẩn đoán/);
+});
