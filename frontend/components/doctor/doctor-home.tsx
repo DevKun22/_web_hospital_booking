@@ -19,6 +19,7 @@ import {
   DsTabs,
   type DsColumn,
   useConfirm,
+  useActionToast,
 } from "@/components/ds";
 import { apiRequest } from "@/lib/api";
 import { examRecordHref } from "@/lib/exam-navigation";
@@ -57,6 +58,7 @@ export function DoctorHome() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  useActionToast({ notice, error, clear: () => { setNotice(""); setError(""); } });
 
   const appointments = useMemo(() => data?.todayAppointments ?? [], [data]);
   const waiting = appointments.filter((item) => waitingStatuses.includes(item.status));
@@ -267,8 +269,6 @@ export function DoctorHome() {
             {result.error instanceof Error ? result.error.message : "Không tải được dữ liệu hôm nay"}
           </DsNotice>
         ) : null}
-        {error ? <DsNotice tone="bad">{error}</DsNotice> : null}
-        {notice ? <DsNotice tone="good">{notice}</DsNotice> : null}
       </div>
 
       <DsSplit

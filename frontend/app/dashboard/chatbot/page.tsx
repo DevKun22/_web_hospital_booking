@@ -20,6 +20,7 @@ import {
   DsToolbar,
   type DsColumn,
   DsLoading,
+  useActionToast,
 } from "@/components/ds";
 import { apiRequest } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
@@ -159,14 +160,8 @@ export default function ChatbotPage() {
     return () => window.clearTimeout(timeoutId);
   }, [settingsQuery.data]);
 
-  useEffect(() => {
-    if (!notice && !error) return;
-    const timeoutId = window.setTimeout(() => {
-      setNotice("");
-      setError("");
-    }, 4500);
-    return () => window.clearTimeout(timeoutId);
-  }, [error, notice]);
+  // Kết quả thao tác hiện thành thông báo nổi ở góc trên phải; lỗi tải dữ liệu vẫn hiện trong trang vì cần giữ lại.
+  useActionToast({ notice, error, clear: () => { setNotice(""); setError(""); } });
 
   const saveSettings = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -489,8 +484,7 @@ export default function ChatbotPage() {
     <>
       <DsPageHeader title="Trợ lý tư vấn" description="Theo dõi hội thoại và cấu hình trí tuệ nhân tạo. Câu hỏi thường gặp được quản lý chung tại Cấu hình website." />
       <div style={{ display: "grid", gap: 12, marginBottom: 16 }}>
-        {error || queryError ? <DsNotice tone="bad">{error || queryError}</DsNotice> : null}
-        {notice ? <DsNotice tone="good">{notice}</DsNotice> : null}
+        {queryError ? <DsNotice tone="bad">{queryError}</DsNotice> : null}
       </div>
       <DsPanel flush className="ds-tabs-host">
         <DsTabs label="Mục trợ lý tư vấn" items={tabs} value={activeTab} onChange={changeTab} />

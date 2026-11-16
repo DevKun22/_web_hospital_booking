@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { DsButton, DsField, DsInput, DsNotice, DsPanel, DsLoading } from "@/components/ds";
+import { DsButton, DsField, DsInput, DsNotice, DsPanel, DsLoading, useActionToast } from "@/components/ds";
 import { apiRequest } from "@/lib/api";
 
 type PolicyKey = "bookingHoldMinutes" | "reminderLeadMinutes" | "patientCancelCutoffHours" | "noShowGraceMinutes";
@@ -48,6 +48,7 @@ export function PolicyPanel() {
 
   const error = [saveMutation.error, resetMutation.error].find((item) => item instanceof Error) as Error | undefined;
   const notice = saveMutation.isSuccess ? "Đã lưu chính sách" : resetMutation.isSuccess ? "Đã khôi phục chính sách mặc định" : undefined;
+  useActionToast({ notice, error: error?.message });
 
   return (
     <DsPanel
@@ -79,8 +80,6 @@ export function PolicyPanel() {
         <p className="ds-hint" style={{ margin: 0 }}>
           Áp dụng cho lịch hẹn mới và các lần xử lý tiếp theo.
         </p>
-        {error ? <DsNotice tone="bad">{error.message}</DsNotice> : null}
-        {notice ? <DsNotice tone="good">{notice}</DsNotice> : null}
         {policyQuery.isLoading ? <DsLoading label="Đang tải chính sách..." /> : null}
         {policyQuery.error ? <DsNotice tone="bad">{policyQuery.error instanceof Error ? policyQuery.error.message : "Không tải được chính sách"}</DsNotice> : null}
         {data ? (

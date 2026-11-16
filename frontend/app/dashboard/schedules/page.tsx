@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Plus, ShieldCheck, Wrench } from "lucide-react";
 import {
@@ -22,6 +22,7 @@ import {
   DsToolbar,
   type DsColumn,
   type DsTone,
+  useActionToast,
 } from "@/components/ds";
 import { ScheduleRequestForm, requestTypeLabels, scheduleDays } from "@/components/schedules/schedule-request-form";
 import { VietnamDateInput } from "@/components/ui/vietnam-date-input";
@@ -243,7 +244,6 @@ export default function SchedulesPage() {
   const slotPagination = slotsQuery.data?.pagination ?? { page: slotPage, limit: 30, total: 0, totalPages: 1 };
   const queryError = doctorsQuery.error || schedulesQuery.error || slotsQuery.error || requestsQuery.error;
   const queryErrorMessage = queryError ? (queryError instanceof Error ? queryError.message : "Không tải được dữ liệu lịch khám") : "";
-  const visibleError = error || queryErrorMessage;
   const hasRepairable = Boolean(reconciliationResult?.findings.some((finding) => finding.type !== "APPOINTMENT_SLOT_MISMATCH" && !finding.repaired));
 
   const selectedSlot = pane?.kind === "slot" ? slots.find((item) => item.id === pane.id) ?? null : null;
@@ -266,14 +266,8 @@ export default function SchedulesPage() {
     ]);
   };
 
-  useEffect(() => {
-    if (!notice && !error) return;
-    const timeoutId = window.setTimeout(() => {
-      setNotice("");
-      setError("");
-    }, 4500);
-    return () => window.clearTimeout(timeoutId);
-  }, [error, notice]);
+  // Kết quả thao tác hiện thành thông báo nổi ở góc trên phải; lỗi tải dữ liệu vẫn hiện trong trang vì cần giữ lại.
+  useActionToast({ notice, error, clear: () => { setNotice(""); setError(""); } });
 
   const resetEditors = () => {
     setConfirmDelete(false);
@@ -1285,8 +1279,7 @@ export default function SchedulesPage() {
         }
       />
       <div style={{ display: "grid", gap: 12, marginBottom: 16 }}>
-        {visibleError ? <DsNotice tone="bad">{visibleError}</DsNotice> : null}
-        {notice ? <DsNotice tone="good">{notice}</DsNotice> : null}
+        {queryErrorMessage ? <DsNotice tone="bad">{queryErrorMessage}</DsNotice> : null}
         {view !== "requests" && !pane ? (
           <DsNotice tone="info">Khung giờ 14 ngày tới được hệ thống tự sinh từ lịch mẫu theo tuần. Đổi hoặc tắt lịch mẫu sẽ gỡ các khung giờ còn trống; lịch đã đặt được giữ và báo cho nhân viên xử lý.</DsNotice>
         ) : null}

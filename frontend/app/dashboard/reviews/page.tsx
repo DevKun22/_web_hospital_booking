@@ -16,6 +16,7 @@ import {
   DsStatusPill,
   DsToolbar,
   DsLoading,
+  useActionToast,
 } from "@/components/ds";
 import { apiRequest } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
@@ -94,7 +95,8 @@ export default function DashboardReviewsPage() {
     ["Cơ sở vật chất", data?.metrics.averageFacilityRating ?? 0],
   ] as const;
 
-  const errorMessage = visibilityMutation.error instanceof Error ? visibilityMutation.error.message : reviewsQuery.error instanceof Error ? reviewsQuery.error.message : reviewsQuery.error ? "Không tải được đánh giá" : "";
+  const errorMessage = reviewsQuery.error instanceof Error ? reviewsQuery.error.message : reviewsQuery.error ? "Không tải được đánh giá" : ""
+  useActionToast({ notice: visibilityMutation.isSuccess ? "Đã cập nhật trạng thái hiển thị đánh giá" : "", error: visibilityMutation.error instanceof Error ? visibilityMutation.error.message : "" });
 
   const list = (
     <DsPanel flush>
@@ -245,7 +247,6 @@ export default function DashboardReviewsPage() {
       </section>
       <div style={{ display: "grid", gap: 12, marginBottom: 16 }}>
         {errorMessage ? <DsNotice tone="bad">{errorMessage}</DsNotice> : null}
-        {visibilityMutation.isSuccess ? <DsNotice tone="good">Đã cập nhật trạng thái hiển thị đánh giá</DsNotice> : null}
       </div>
       <DsSplit list={list} pane={pane} />
     </>

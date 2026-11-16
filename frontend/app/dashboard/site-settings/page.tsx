@@ -20,6 +20,7 @@ import {
   DsTextarea,
   DsToolbar,
   DsLoading,
+  useActionToast,
 } from "@/components/ds";
 import { NumberStepper } from "@/components/ui/number-stepper";
 import { VietnamDateTimeInput } from "@/components/ui/vietnam-datetime-input";
@@ -332,14 +333,8 @@ export default function SiteSettingsPage() {
     return () => window.clearTimeout(timeoutId);
   }, [homeConfigQuery.data, homeReady]);
 
-  useEffect(() => {
-    if (!notice && !error) return;
-    const timeoutId = window.setTimeout(() => {
-      setNotice("");
-      setError("");
-    }, 4500);
-    return () => window.clearTimeout(timeoutId);
-  }, [error, notice]);
+  // Kết quả thao tác hiện thành thông báo nổi ở góc trên phải; lỗi tải dữ liệu vẫn hiện trong trang vì cần giữ lại.
+  useActionToast({ notice, error, clear: () => { setNotice(""); setError(""); } });
 
   const closePane = () => {
     setPane(null);
@@ -975,8 +970,7 @@ export default function SiteSettingsPage() {
     <>
       <DsPageHeader title="Cài đặt trang" description="Thông tin công khai, bố cục trang chủ, ảnh quảng bá và câu hỏi thường gặp trên trang người dùng." />
       <div style={{ display: "grid", gap: 12, marginBottom: 16 }}>
-        {error || queryError ? <DsNotice tone="bad">{error || queryError}</DsNotice> : null}
-        {notice ? <DsNotice tone="good">{notice}</DsNotice> : null}
+        {queryError ? <DsNotice tone="bad">{queryError}</DsNotice> : null}
         {tabBar}
       </div>
       {activeTab === "settings" ? settingsTab : null}
