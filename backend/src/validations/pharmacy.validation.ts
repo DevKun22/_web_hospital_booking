@@ -51,20 +51,6 @@ export const adjustStockSchema = z.object({
 export const dispenseSchema = z.object({
   confirmed: z.boolean(),
   note: nullableText(500),
-  // Lý do cấp thuốc khi hóa đơn chưa thanh toán hoặc chưa tính tiền thuốc này (bắt buộc trong trường hợp đó).
-  unpaidReason: nullableText(300),
-  lines: z
-    .array(
-      z.object({
-        itemId: z.string().uuid(),
-        medicineId: z.string().uuid().nullable().optional(),
-        // Mặc định DISPENSE (cấp từ kho; dòng không gắn thuốc kho coi là người khám tự mua).
-        action: z.enum(["DISPENSE", "OUTSIDE", "OUT_OF_STOCK"]).optional(),
-        note: nullableText(200),
-      }),
-    )
-    .max(100)
-    .optional(),
 });
 
 export const importCsvSchema = z.object({

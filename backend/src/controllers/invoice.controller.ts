@@ -128,6 +128,29 @@ export const updateInvoiceHandler = async (
   }
 };
 
+export const paySupplementHandler = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const invoice = await InvoiceService.paySupplement(
+      getParam(req.params.id),
+      getParam(req.params.supplementId, "supplementId"),
+      req.body,
+      getActorId(req),
+    );
+
+    return res.json({
+      success: true,
+      message: "Đã thu hóa đơn bổ sung tiền thuốc",
+      data: invoice,
+    });
+  } catch (error) {
+    return next(error);
+  }
+};
+
 export const payInvoiceHandler = async (
   req: Request,
   res: Response,

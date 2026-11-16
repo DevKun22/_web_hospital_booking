@@ -5,6 +5,7 @@ import {
   getInvoiceHandler,
   listInvoicesHandler,
   payInvoiceHandler,
+  paySupplementHandler,
   listRefundableMedicineHandler,
   recordMedicineRefundHandler,
   refundInvoiceHandler,
@@ -48,6 +49,13 @@ router.patch(
   requirePermission("invoice.collect"),
   validate(payInvoiceSchema),
   payInvoiceHandler,
+);
+// Thu tại quầy hóa đơn bổ sung tiền thuốc (đơn phát hành sau khi hóa đơn chính đã thanh toán).
+router.patch(
+  "/:id/supplements/:supplementId/pay",
+  requirePermission("invoice.collect"),
+  validate(payInvoiceSchema),
+  paySupplementHandler,
 );
 router.patch(
   "/:id/cancel",

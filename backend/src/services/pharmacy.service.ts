@@ -83,8 +83,6 @@ const queueSelect = {
   },
 } satisfies Prisma.PrescriptionSelect;
 
-export type DispenseAction = "DISPENSE" | "OUTSIDE" | "OUT_OF_STOCK";
-export type DispenseLine = { itemId: string; medicineId?: string | null; action?: DispenseAction; note?: string | null };
 
 type MoveOptions = {
   batch?: { batchNumber: string; expiryDate: string };
@@ -566,7 +564,7 @@ class PharmacyService {
   // cấp, hoặc không đổi gì. `confirmed` là hộp xác nhận dược sĩ đã kiểm tra đơn.
   async dispense(
     prescriptionId: string,
-    input: { lines?: DispenseLine[]; confirmed: boolean; note?: string | null; unpaidReason?: string | null },
+    input: { confirmed: boolean; note?: string | null },
     actor: Actor,
   ) {
     if (input.confirmed !== true) {
@@ -577,24 +575,20 @@ class PharmacyService {
       );
     }
 
-    // Chỉ cấp thuốc khi hóa đơn đã thanh toán và đã tính tiền các dòng sắp cấp. Nếu chưa, dược sĩ phải ghi lý do
-    // (ví dụ cấp cứu, được quản lý duyệt); lý do được lưu vào nhật ký cấp thuốc. Dòng hết hàng hoặc người khám
-    // tự mua không tính vào điều kiện này. Thuốc miễn phí hoặc ngoài danh mục thì không cần hóa đơn.
-    const skippedIds = (input.lines || []).filter((line) => line.action && line.action !== "DISPENSE").map((line) => line.itemId);
-    const coverage = await InvoiceService.medicineCoverage(prescriptionId, skippedIds);
-    const unpaidReason = normalize(input.unpaidReason);
+    // Dược sĩ chỉ cấp đúng những dòng bác sĩ đã kê và đã thu tiền: hóa đơn đã thanh toán và mọi dòng sắp cấp đều có
+    // dòng tiền (trên hóa đơn chính hoặc hóa đơn bổ sung đã thu). Không có đường cấp trước khi thu tiền. Thuốc miễn
+    // phí hoặc ngoài danh mục thì không cần hóa đơn.
+    const coverage = await InvoiceService.medicineCoverage(prescriptionId);
     if (!coverage.covered) {
-      if (!unpaidReason || unpaidReason.length < 5) {
-        throw new AppError(
-          coverage.invoiceStatus === null
-            ? "Chưa có hóa đơn cho lịch khám này. Cần thu tiền thuốc trước khi cấp, hoặc ghi lý do cấp trước."
-            : coverage.invoiceStatus === "PAID"
-              ? "Hóa đơn đã thanh toán nhưng chưa tính tiền thuốc này. Cần xử lý tiền thuốc trước khi cấp, hoặc ghi lý do cấp trước."
-              : "Hóa đơn chưa thanh toán. Cần thu tiền trước khi cấp thuốc, hoặc ghi lý do cấp trước.",
-          409,
-          "PAYMENT_REQUIRED",
-        );
-      }
+      throw new AppError(
+        coverage.invoiceStatus === null
+          ? "Chưa có hóa đơn cho lịch khám này. Cần lập hóa đơn và thu tiền thuốc trước khi cấp."
+          : coverage.invoiceStatus === "PAID"
+            ? "Tiền thuốc phát sinh sau khi thanh toán chưa được thu (hóa đơn bổ sung). Cần thu tiền trước khi cấp."
+            : "Hóa đơn chưa thanh toán. Cần thu tiền trước khi cấp thuốc.",
+        409,
+        "PAYMENT_REQUIRED",
+      );
     }
 
     await prisma.$transaction(async (tx) => {
@@ -633,20 +627,9 @@ class PharmacyService {
         },
       });
 
-      // medicineId bỏ trống (undefined) = giữ thuốc đã gắn; null = bỏ gắn (thuốc mua ngoài); có giá trị = đổi sang thuốc đó.
-      const overrides = new Map(
-        (input.lines || []).filter((line) => line.medicineId !== undefined).map((line) => [line.itemId, line.medicineId]),
-      );
-      for (const line of input.lines || []) {
-        if (!prescription.items.some((item) => item.id === line.itemId)) {
-          throw new AppError("Dòng thuốc không thuộc đơn này", 400, "ITEM_NOT_IN_PRESCRIPTION");
-        }
-      }
-      // Mỗi dòng mặc định là cấp từ kho. Dược sĩ có thể đánh dấu dòng là người khám tự mua hoặc kho hết hàng:
-      // dòng đó không trừ kho, không tính tiền và không làm cả đơn bị từ chối.
-      const actions = new Map((input.lines || []).map((line) => [line.itemId, { action: line.action ?? "DISPENSE", note: normalize(line.note) }]));
-      // Kết quả xử lý các dòng không cấp từ kho; dòng cấp từ kho được ghi DISPENSED ngay khi trừ kho.
-      const skipped: { itemId: string; status: "OUTSIDE" | "OUT_OF_STOCK"; note: string | null }[] = [];
+      // Dược sĩ cấp đúng thuốc bác sĩ đã gắn. Dòng bác sĩ đã đánh dấu mua ngoài hoặc hết hàng không còn ở trạng thái chờ
+      // cấp nên bị bỏ qua; dòng không gắn thuốc kho là thuốc người khám tự mua.
+      const skipped: { itemId: string; status: "OUTSIDE"; note: string | null }[] = [];
       let dispensedLines = 0;
 
       // Gom theo thuốc để trừ kho một lần mỗi thuốc, theo thứ tự id để tránh deadlock.
@@ -654,12 +637,7 @@ class PharmacyService {
       for (const item of prescription.items) {
         // Dòng đã được xử lý từ lúc phát hành (kho không đủ thuốc nên đã đánh dấu hết hàng): không cấp, không đổi.
         if (item.fulfillmentStatus !== "PENDING") continue;
-        const decision = actions.get(item.id);
-        if (decision && decision.action !== "DISPENSE") {
-          skipped.push({ itemId: item.id, status: decision.action, note: decision.note });
-          continue;
-        }
-        const medicineId = overrides.has(item.id) ? overrides.get(item.id) : item.medicineId;
+        const medicineId = item.medicineId;
         // Không gắn thuốc kho = thuốc mua ngoài, không trừ kho.
         if (!medicineId) {
           skipped.push({ itemId: item.id, status: "OUTSIDE", note: null });
@@ -767,7 +745,7 @@ class PharmacyService {
       if (shortages.length > 0) {
         // Ném lỗi để cả transaction (kể cả việc giành đơn) bị hủy: cấp nguyên đơn hoặc không.
         throw new AppError(
-          `Không đủ tồn kho: ${shortages.join(", ")}`,
+          `Không đủ tồn kho: ${shortages.join(", ")}. Báo bác sĩ đổi thuốc hoặc đánh dấu người khám tự mua.`,
           409,
           "INSUFFICIENT_STOCK",
         );
@@ -784,12 +762,7 @@ class PharmacyService {
         action: "PRESCRIPTION_DISPENSED",
         actorId: actor.userId,
         prescriptionId,
-        note: [
-          skipped.some((line) => line.status === "OUT_OF_STOCK") ? "Cấp phát thuốc theo đơn (có dòng hết hàng)" : "Cấp phát thuốc theo đơn",
-          !coverage.covered && unpaidReason ? `Cấp khi chưa thu tiền: ${unpaidReason}` : null,
-        ]
-          .filter(Boolean)
-          .join(". "),
+        note: "Cấp phát thuốc theo đơn",
       });
       // Chỉ báo "thuốc đã được cấp" khi có ít nhất một dòng thực sự được cấp.
       if (dispensedLines > 0) {

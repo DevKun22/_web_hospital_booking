@@ -28,4 +28,10 @@ export const updatePrescriptionSchema = z.object({
 
 export const createPrescriptionItemSchema = prescriptionItemSchema;
 
+// Bác sĩ đánh dấu dòng thuốc của đơn đã phát hành mà kho không cấp được.
+export const resolvePrescriptionItemSchema = z.object({
+  status: z.enum(["OUTSIDE", "OUT_OF_STOCK"]),
+  note: z.string().trim().max(200).nullable().optional(),
+});
+
 export const updatePrescriptionItemSchema = prescriptionItemSchema.partial();

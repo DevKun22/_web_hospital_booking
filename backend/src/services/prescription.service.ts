@@ -42,6 +42,7 @@ export const prescriptionSelect = {
   status: true,
   note: true,
   issuedAt: true,
+  dispenseStatus: true,
   cancelledAt: true,
   createdAt: true,
   updatedAt: true,
@@ -360,7 +361,7 @@ class PrescriptionService {
       throw new AppError("Đơn thuốc đã được cấp phát, không thể hủy", 409, "PRESCRIPTION_DISPENSED");
     }
 
-    return prisma.$transaction(async (tx) => {
+    const cancelled = await prisma.$transaction(async (tx) => {
       const cancelled = await tx.prescription.update({
         where: { id },
         data: {
@@ -377,6 +378,56 @@ class PrescriptionService {
       });
       return cancelled;
     });
+    // Đơn đã hủy thì gỡ dòng tiền thuốc khỏi hóa đơn chưa thu (hoặc hóa đơn bổ sung chưa thu).
+    await InvoiceService.syncMedicineLines(id, actor).catch((error) => {
+      console.error("[INVOICE_MEDICINE] cannot remove cancelled medicines from invoice:", error);
+    });
+    return cancelled;
+  }
+
+  /**
+   * Bác sĩ xử lý dòng thuốc của đơn ĐÃ phát hành mà kho không cấp được (hết hàng sau lúc kê, hoặc người khám tự mua):
+   * đánh dấu dòng, rồi tiền thuốc được gỡ khỏi hóa đơn (hóa đơn đã thu thì chuyển sang luồng hoàn tiền thuốc). Dược sĩ
+   * không có quyền này; chỉ dòng còn chờ cấp của đơn chưa cấp mới đánh dấu được.
+   */
+  async resolveItem(
+    prescriptionId: string,
+    itemId: string,
+    input: { status: "OUTSIDE" | "OUT_OF_STOCK"; note?: string | null },
+    actor: Actor,
+  ) {
+    const prescription = await this.getById(prescriptionId, actor);
+    if (prescription.status !== "ISSUED") {
+      throw new AppError("Chỉ xử lý dòng thuốc của đơn đã phát hành", 409, "PRESCRIPTION_NOT_ISSUED");
+    }
+    const state = await prisma.prescription.findUniqueOrThrow({ where: { id: prescriptionId }, select: { dispenseStatus: true } });
+    if (state.dispenseStatus === "DISPENSED") {
+      throw new AppError("Đơn thuốc đã được cấp phát, không thể đổi", 409, "PRESCRIPTION_DISPENSED");
+    }
+    const item = await this.getItem(prescriptionId, itemId);
+    if (item.fulfillmentStatus !== "PENDING") {
+      throw new AppError("Dòng thuốc này đã được xử lý", 409, "ITEM_ALREADY_RESOLVED");
+    }
+    const note =
+      normalizeOptionalString(input.note) ??
+      (input.status === "OUTSIDE" ? "Bác sĩ chuyển sang người khám tự mua" : "Kho hết thuốc sau khi kê đơn");
+    await prisma.$transaction(async (tx) => {
+      const claimed = await tx.prescriptionItem.updateMany({
+        where: { id: itemId, prescriptionId, fulfillmentStatus: "PENDING" },
+        data: { fulfillmentStatus: input.status, fulfillmentNote: note },
+      });
+      if (claimed.count !== 1) throw new AppError("Dòng thuốc này đã được xử lý", 409, "ITEM_ALREADY_RESOLVED");
+      await logClinicalAction(tx, {
+        action: "PRESCRIPTION_ISSUED",
+        actorId: actor.userId,
+        prescriptionId,
+        note: "Bác sĩ đánh dấu một dòng thuốc không cấp từ kho",
+      });
+    });
+    await InvoiceService.syncMedicineLines(prescriptionId, actor).catch((error) => {
+      console.error("[INVOICE_MEDICINE] cannot sync after resolving item:", error);
+    });
+    return this.getById(prescriptionId, actor);
   }
 
   async createItem(
