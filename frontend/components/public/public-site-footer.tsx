@@ -63,6 +63,7 @@ export function PublicSiteFooter({
             <Link className="block transition hover:text-[var(--public-primary)]" href="/chuyen-khoa">Chuyên khoa</Link>
             <Link className="block transition hover:text-[var(--public-primary)]" href="/bac-si">Đội ngũ bác sĩ</Link>
             <Link className="block transition hover:text-[var(--public-primary)]" href="/goi-kham">Gói khám sức khỏe</Link>
+            <Link className="block transition hover:text-[var(--public-primary)]" href="/kien-thuc">Kiến thức sức khỏe</Link>
             <Link className="block transition hover:text-[var(--public-primary)]" href="/tim-kiem">Tìm kiếm dịch vụ</Link>
           </div>
         </div>

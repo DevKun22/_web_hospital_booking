@@ -31,6 +31,7 @@ const navItems = [
   { href: "/chuyen-khoa", label: "Chuyên khoa", aliases: [] },
   { href: "/bac-si", label: "Bác sĩ", aliases: [] },
   { href: "/goi-kham", label: "Gói khám", aliases: [] },
+  { href: "/kien-thuc", label: "Kiến thức", aliases: [] },
   { href: "/ho-tro", label: "Hỗ trợ", aliases: ["/hoi-dap", "/huong-dan"] },
 ] as const;
 

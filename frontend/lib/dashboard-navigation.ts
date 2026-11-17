@@ -2,6 +2,7 @@ import {
   Bell,
   BellRing,
   Bot,
+  BookOpenText,
   Building2,
   CalendarCheck,
   CalendarClock,
@@ -215,6 +216,15 @@ export const dashboardNavItems: readonly DashboardNavItem[] = [
     icon: Settings,
     permissions: ["settings.view"],
     group: "system",
+  },
+  {
+    key: "articles",
+    href: "/dashboard/articles",
+    label: "Kiến thức sức khỏe",
+    description: "Bài viết và nguồn tri thức chatbot",
+    icon: BookOpenText,
+    permissions: ["article.write"],
+    group: "engagement",
   },
   {
     key: "uploads",
