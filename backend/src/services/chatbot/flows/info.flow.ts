@@ -26,11 +26,11 @@ const toSources = (chunks: RetrievedChunk[], ids: string[]): ChatbotSource[] =>
   ids
     .map((id) => chunks.find((item) => item.chunk.id === id))
     .filter((item): item is RetrievedChunk => Boolean(item))
-    .map((item) => ({ id: item.chunk.id, type: item.chunk.sourceType, title: item.chunk.title }));
+    .map((item) => ({ id: item.chunk.id, type: item.chunk.sourceType, title: item.chunk.title, url: item.chunk.url }));
 
 export const noInformationOutput = (draft: ChatBookingDraft): AIChatbotOutput => ({
   reply:
-    "Mình chưa tìm thấy thông tin phù hợp trong dữ liệu của cơ sở khám cho câu hỏi này. Bạn có thể hỏi về chuyên khoa, bác sĩ, gói khám, giá, giờ làm việc và chính sách đặt lịch, hoặc liên hệ nhân viên để được hỗ trợ.",
+    "Mình chưa tìm thấy thông tin phù hợp về câu hỏi này. Bạn có thể hỏi mình về chuyên khoa, bác sĩ, gói khám, giá, giờ làm việc và chính sách đặt lịch, hoặc nhờ nhân viên hỗ trợ nhé.",
   intent: "GENERAL_HOSPITAL_INFO",
   state: "BOOKING_GUIDE",
   nextStep: "SHOW_BOOKING_GUIDE",

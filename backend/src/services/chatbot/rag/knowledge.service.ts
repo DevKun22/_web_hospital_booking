@@ -35,6 +35,7 @@ const toChunk = (row: {
   sourceId: string;
   title: string;
   content: string;
+  url: string | null;
   embedding: number[];
 }): KnowledgeChunk => ({
   id: row.id,
@@ -42,6 +43,7 @@ const toChunk = (row: {
   sourceId: row.sourceId,
   title: row.title,
   content: row.content,
+  url: row.url,
   embedding: row.embedding.length ? row.embedding : null,
 });
 
@@ -57,7 +59,7 @@ class KnowledgeService {
   private async loadIndex() {
     if (loaded && loaded.expiresAt > Date.now()) return loaded.index;
     const rows = await prisma.chatKnowledgeChunk.findMany({
-      select: { id: true, sourceType: true, sourceId: true, title: true, content: true, embedding: true },
+      select: { id: true, sourceType: true, sourceId: true, title: true, content: true, url: true, embedding: true },
     });
     const index = new KnowledgeIndex(rows.map(toChunk));
     loaded = { index, expiresAt: Date.now() + INDEX_TTL_MS };
@@ -118,6 +120,7 @@ class KnowledgeService {
       const data = {
         title: item.doc.title,
         content: item.doc.content,
+        url: item.doc.url,
         contentHash: item.hash,
         ...(embedding ? { embedding, embeddingModel: vector ? model : null } : {}),
       };

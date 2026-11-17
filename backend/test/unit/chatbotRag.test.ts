@@ -8,9 +8,10 @@ import { KnowledgeIndex, tokenize } from "../../src/services/chatbot/rag/retriev
 import type { KnowledgeChunk, KnowledgeDoc, RetrievedChunk } from "../../src/services/chatbot/rag/rag.types.js";
 import { routeByRules } from "../../src/services/chatbot/router/route.js";
 
-const chunk = (id: string, doc: Omit<KnowledgeDoc, "sourceId">, embedding: number[] | null = null): KnowledgeChunk => ({
+const chunk = (id: string, doc: Omit<KnowledgeDoc, "sourceId" | "url">, embedding: number[] | null = null): KnowledgeChunk => ({
   id,
   sourceId: id,
+  url: null,
   embedding,
   ...doc,
 });
@@ -109,18 +110,22 @@ test("diễn đạt gợi ý chuyên khoa phải giữ đúng tên khoa, nếu k
 test("dựng đoạn tri thức: đủ thông tin nghiệp vụ và băm ổn định theo nội dung", () => {
   const faq = faqDoc({ id: "1", question: "Giờ làm việc?", answer: "7h đến 17h." });
   assert.match(faq.content, /Trả lời: 7h đến 17h\./);
+  assert.equal(faq.url, "/hoi-dap");
   assert.equal(contentHash(faq), contentHash({ ...faq }));
   assert.notEqual(contentHash(faq), contentHash({ ...faq, content: `${faq.content} thêm` }));
 
-  const dept = departmentDoc({ id: "d", name: "Nhi", description: "Khám trẻ em", triageDescription: null, symptomKeywords: ["sốt", "ho"] });
+  const dept = departmentDoc({ id: "d", name: "Nhi", slug: "khoa-nhi", description: "Khám trẻ em", triageDescription: null, symptomKeywords: ["sốt", "ho"] });
   assert.match(dept.content, /sốt, ho/);
+  assert.equal(dept.url, "/chuyen-khoa/khoa-nhi");
 
-  const doctor = doctorDoc({ id: "x", title: "BS.CKII", specialization: "Nội tim mạch", bio: null, experience: 18, consultationFee: 200000, user: { fullName: "Nguyễn Minh Hùng" }, department: { name: "Khoa tổng quát" } });
+  const doctor = doctorDoc({ id: "x", slug: "nguyen-minh-hung", title: "BS.CKII", specialization: "Nội tim mạch", bio: null, experience: 18, consultationFee: 200000, user: { fullName: "Nguyễn Minh Hùng" }, department: { name: "Khoa tổng quát" } });
   assert.equal(doctor.title, "BS.CKII Nguyễn Minh Hùng");
   assert.match(doctor.content, /18 năm/);
+  assert.equal(doctor.url, "/bac-si/nguyen-minh-hung");
 
-  const pack = packageDoc({ id: "p", name: "Gói A", summary: null, description: null, note: null, basePrice: 800000, serviceFee: 50000, isBHYTSupport: true, department: null, items: [{ name: "Điện tim", included: true }, { name: "CT", included: false }] });
+  const pack = packageDoc({ id: "p", name: "Gói A", slug: null, summary: null, description: null, note: null, basePrice: 800000, serviceFee: 50000, isBHYTSupport: true, department: null, items: [{ name: "Điện tim", included: true }, { name: "CT", included: false }] });
   assert.match(pack.content, /850\.000 đồng/);
+  assert.equal(pack.url, null);
   assert.match(pack.content, /Điện tim/);
   assert.doesNotMatch(pack.content, /CT/);
   assert.match(pack.content, /bảo hiểm y tế/);

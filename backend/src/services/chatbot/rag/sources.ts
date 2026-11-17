@@ -13,13 +13,14 @@ export const buildKnowledgeDocs = async (): Promise<KnowledgeDoc[]> => {
     FAQService.listForChatbot(),
     prisma.department.findMany({
       where: { isActive: true },
-      select: { id: true, name: true, description: true, triageDescription: true, symptomKeywords: true },
+      select: { id: true, name: true, slug: true, description: true, triageDescription: true, symptomKeywords: true },
       take: 200,
     }),
     prisma.doctorProfile.findMany({
       where: { isAvailable: true, user: { isActive: true } },
       select: {
         id: true,
+        slug: true,
         title: true,
         specialization: true,
         bio: true,
@@ -35,6 +36,7 @@ export const buildKnowledgeDocs = async (): Promise<KnowledgeDoc[]> => {
       select: {
         id: true,
         name: true,
+        slug: true,
         summary: true,
         description: true,
         note: true,

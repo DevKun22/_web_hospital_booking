@@ -132,6 +132,13 @@ class ChatbotDraftReducer {
     const prefill = readPrefill(payload);
     let patch: Partial<ChatBookingDraft> = {};
 
+    if (action.type === "CLEAR_SELECTION") {
+      const field = readString(payload, "field");
+      const allowed = ["department", "package", "doctor", "date", "slot"] as const;
+      const clearable = allowed.find((item) => item === field);
+      return sanitizeBookingDraft(clearRequestedFields(current, clearable ? [clearable] : []));
+    }
+
     if (action.type === "VIEW_DEPARTMENTS") {
       return sanitizeBookingDraft({
         ...current,
