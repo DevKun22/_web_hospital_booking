@@ -46,6 +46,7 @@ test("hỏi thông tin: trả lời từ FAQ, kèm nguồn, và nhật ký lưu 
   assert.equal(response.body.data.reply, "Bạn nên nhịn ăn 8 giờ trước khi lấy máu xét nghiệm.");
   assert.equal(response.body.data.sources.length, 1);
   assert.equal(response.body.data.sources[0].type, "FAQ");
+  assert.equal(response.body.data.sources[0].url, "/hoi-dap");
 
   const log = await prisma.chatbotLog.findFirstOrThrow();
   assert.deepEqual(log.sourceIds, [response.body.data.sources[0].id]);
@@ -67,6 +68,7 @@ test("hỏi giá gói khám và chính sách: lấy từ dữ liệu nghiệp v�
   assert.equal(price.status, 200);
   assert.match(price.body.data.reply, /1\.250\.000 đồng/);
   assert.equal(price.body.data.sources[0].type, "PACKAGE");
+  assert.equal(price.body.data.sources[0].url, "/goi-kham/goi-tim-mach-nang-cao");
 
   const policy = await ask("giữ lịch bao nhiêu phút để xác thực OTP");
   assert.equal(policy.body.data.sources[0].type, "POLICY");
@@ -95,6 +97,18 @@ test("luồng đặt lịch bằng nút bấm vẫn do máy chủ dựng từ DB
   });
   assert.equal(selected.status, 200);
   assert.equal(selected.body.data.draft.departmentId, fixture.department.id);
+  // Giao diện hiện lựa chọn bằng tên, không phải mã.
+  assert.equal(selected.body.data.draftSummary.department.name, fixture.department.name);
+
+  // Bỏ một lựa chọn: bản nháp và phần tóm tắt cùng sạch.
+  const cleared = await ask("Bỏ chuyên khoa", {
+    sessionId: departments.body.data.sessionId,
+    draft: selected.body.data.draft,
+    action: { type: "CLEAR_SELECTION", payload: { field: "department" } },
+  });
+  assert.equal(cleared.status, 200);
+  assert.equal(cleared.body.data.draft.departmentId, undefined);
+  assert.equal(cleared.body.data.draftSummary, undefined);
 });
 
 test("đồng bộ tri thức: chỉ dựng lại phần đổi, xóa đoạn của bản ghi đã bỏ, và cần quyền cấu hình", async () => {

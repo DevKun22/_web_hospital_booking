@@ -9,6 +9,8 @@ export type KnowledgeDoc = {
   sourceId: string;
   title: string;
   content: string;
+  /** Trang gốc trên website; null nếu không có trang riêng. */
+  url: string | null;
 };
 
 /** Đoạn đã lưu trong kho. `embedding` null khi chưa nhúng được (chỉ tìm theo từ). */
@@ -31,4 +33,5 @@ export type ChatbotSource = {
   id: string;
   type: KnowledgeSourceType;
   title: string;
+  url: string | null;
 };

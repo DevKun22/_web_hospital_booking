@@ -20,6 +20,8 @@ export const operationFromAction = (action?: ChatAction): ChatOperation | null =
     return "SEARCH_SLOT";
   }
   if (action.type === "LOOKUP_APPOINTMENT") return "LOOKUP_APPOINTMENT";
+  // Người dùng bỏ một lựa chọn đã chọn: bước tiếp theo suy ra từ phần còn lại của bản nháp.
+  if (action.type === "CLEAR_SELECTION") return "CHANGE_SELECTION";
   if (action.type === "START_BOOKING") return "START_BOOKING";
   if (
     action.type === "VIEW_DEPARTMENT" ||

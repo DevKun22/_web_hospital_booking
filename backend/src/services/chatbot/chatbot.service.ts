@@ -5,6 +5,7 @@ import ChatbotNLUService from "./ai/nlu.service.js";
 import type { NLUResult } from "./ai/nlu.schema.js";
 import ChatbotActionService from "./chatbot.actions.js";
 import ChatbotContextService from "./chatbot.context.js";
+import { buildDraftSummary } from "./chatbot.summary.js";
 import ChatbotSettingsService from "./chatbot.settings.js";
 import BookingFlow from "./flows/booking.flow.js";
 import InfoFlow, { noInformationOutput } from "./flows/info.flow.js";
@@ -95,6 +96,7 @@ class ChatbotService {
         ...output,
         reply: sanitizeReplyText(output.reply),
         suggestedActions,
+        draftSummary: await buildDraftSummary(output.draft),
       };
       await Promise.all([
         updateChatSession(sessionId, response, input.message, input.phone, settings.sessionExpiresDays),

@@ -192,7 +192,17 @@ export type AIChatbotOutput = {
   sources?: ChatbotSource[];
 };
 
+/** Các lựa chọn đang giữ trong bản nháp đặt lịch, kèm tên để hiển thị. */
+export type ChatbotDraftSummary = {
+  department?: { id: string; name: string };
+  package?: { id: string; name: string; price: number };
+  doctor?: { id: string; name: string; departmentName: string; fee: number };
+  slot?: { id: string; date: string; startTime: string; endTime: string };
+  date?: string;
+};
+
 export type ChatbotResponse = AIChatbotOutput & {
   sessionId: string;
   source: ChatbotResponseSource;
+  draftSummary?: ChatbotDraftSummary;
 };

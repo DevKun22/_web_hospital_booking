@@ -1490,6 +1490,8 @@ model ChatKnowledgeChunk {
 
   title   String
   content String
+  // Trang gốc của đoạn (chuyên khoa, bác sĩ, gói, hỏi đáp...) để dẫn người dùng tới nguồn.
+  url     String?
 
   // Băm nội dung: chỉ nhúng lại khi nội dung đổi.
   contentHash    String

@@ -16,12 +16,14 @@ export const faqDoc = (faq: { id: string; question: string; answer: string }): K
   sourceType: "FAQ",
   sourceId: faq.id,
   title: faq.question,
+  url: "/hoi-dap",
   content: lines(`Câu hỏi: ${faq.question}`, `Trả lời: ${faq.answer}`),
 });
 
 export const departmentDoc = (department: {
   id: string;
   name: string;
+  slug: string | null;
   description: string | null;
   triageDescription: string | null;
   symptomKeywords: string[];
@@ -29,6 +31,7 @@ export const departmentDoc = (department: {
   sourceType: "DEPARTMENT",
   sourceId: department.id,
   title: department.name,
+  url: department.slug ? `/chuyen-khoa/${department.slug}` : null,
   content: lines(
     `Chuyên khoa ${department.name}.`,
     department.description,
@@ -39,6 +42,7 @@ export const departmentDoc = (department: {
 
 export const doctorDoc = (doctor: {
   id: string;
+  slug: string;
   title: string | null;
   specialization: string | null;
   bio: string | null;
@@ -52,6 +56,7 @@ export const doctorDoc = (doctor: {
     sourceType: "DOCTOR",
     sourceId: doctor.id,
     title: name,
+    url: `/bac-si/${doctor.slug}`,
     content: lines(
       `Bác sĩ ${name}, chuyên khoa ${doctor.department.name}.`,
       doctor.specialization && `Chuyên môn: ${doctor.specialization}.`,
@@ -65,6 +70,7 @@ export const doctorDoc = (doctor: {
 export const packageDoc = (pack: {
   id: string;
   name: string;
+  slug: string | null;
   summary: string | null;
   description: string | null;
   note: string | null;
@@ -79,6 +85,7 @@ export const packageDoc = (pack: {
     sourceType: "PACKAGE",
     sourceId: pack.id,
     title: pack.name,
+    url: pack.slug ? `/goi-kham/${pack.slug}` : null,
     content: lines(
       `Gói khám ${pack.name}${pack.department ? `, thuộc chuyên khoa ${pack.department.name}` : ""}.`,
       pack.summary,
@@ -99,6 +106,7 @@ export const policyDoc = (policy: {
   sourceType: "POLICY",
   sourceId: "booking-policy",
   title: "Chính sách đặt lịch, hủy lịch và nhắc lịch",
+  url: "/huong-dan/dat-lich",
   content: lines(
     `Khi đặt lịch, khung giờ được giữ ${policy.bookingHoldMinutes} phút để người khám xác thực OTP; quá thời hạn mà chưa xác thực thì khung giờ được nhả ra.`,
     policy.patientCancelCutoffHours > 0
@@ -130,9 +138,10 @@ export const siteDoc = (site: {
     sourceType: "SITE",
     sourceId: "site-contact",
     title: `Thông tin liên hệ ${name}`,
+    url: "/ho-tro",
     content: `Thông tin liên hệ và giờ làm việc của ${name}.\n${content}`,
   };
 };
 
 export const contentHash = (doc: KnowledgeDoc) =>
-  createHash("sha256").update(`${doc.title}\n${doc.content}`).digest("hex");
+  createHash("sha256").update(`${doc.title}\n${doc.url ?? ""}\n${doc.content}`).digest("hex");

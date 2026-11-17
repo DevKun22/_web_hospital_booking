@@ -5,7 +5,7 @@ import type { AIChatbotOutput, ChatBookingDraft } from "../chatbot.types.js";
 
 export const greetingOutput = (draft: ChatBookingDraft): AIChatbotOutput => ({
   reply:
-    "Xin chào, hệ thống có thể hỗ trợ bạn tìm chuyên khoa, gói khám, bác sĩ, lịch trống hoặc tra cứu lịch hẹn.",
+    "Chào bạn, mình là Kun, trợ lý ảo của DevKunCare. Mình có thể giúp bạn tìm chuyên khoa, gói khám, bác sĩ, lịch trống hoặc tra cứu lịch hẹn. Bạn cần gì nào?",
   intent: "GENERAL_HOSPITAL_INFO",
   state: "BOOKING_GUIDE",
   nextStep: "SHOW_BOOKING_GUIDE",
@@ -24,7 +24,7 @@ export const greetingOutput = (draft: ChatBookingDraft): AIChatbotOutput => ({
 
 export const capabilitiesOutput = (draft: ChatBookingDraft): AIChatbotOutput => ({
   reply:
-    "Tôi có thể giúp bạn tìm chuyên khoa, gói khám, bác sĩ và lịch trống; đồng thời hỗ trợ đặt lịch hoặc hướng dẫn tra cứu lịch hẹn. Bạn muốn bắt đầu từ đâu?",
+    "Mình có thể giúp bạn tìm chuyên khoa, gói khám, bác sĩ và lịch trống, hỗ trợ đặt lịch, trả lời các câu hỏi về giá, giờ làm việc, chính sách, và hướng dẫn tra cứu lịch hẹn. Bạn muốn bắt đầu từ đâu?",
   intent: "GENERAL_HOSPITAL_INFO",
   state: "BOOKING_GUIDE",
   nextStep: "SHOW_BOOKING_GUIDE",
@@ -43,7 +43,7 @@ export const capabilitiesOutput = (draft: ChatBookingDraft): AIChatbotOutput => 
 
 export const resetOutput = (): AIChatbotOutput => ({
   reply:
-    "Thông tin lựa chọn trước đó đã được xóa. Bạn có thể bắt đầu lại bằng cách chọn chuyên khoa hoặc mô tả nhu cầu khám.",
+    "Mình đã xóa các lựa chọn trước đó. Bạn chọn một chuyên khoa hoặc kể cho mình nghe nhu cầu khám nhé.",
   intent: "BOOKING_START",
   state: "BOOKING_GUIDE",
   nextStep: "CHOOSE_DEPARTMENT",
@@ -57,7 +57,7 @@ export const resetOutput = (): AIChatbotOutput => ({
 
 export const emergencyOutput = (draft: ChatBookingDraft): AIChatbotOutput => ({
   reply:
-    "Triệu chứng bạn mô tả có thể cần được xử lý khẩn cấp. Hãy đến cơ sở y tế gần nhất hoặc gọi cấp cứu ngay để được hỗ trợ kịp thời.",
+    "Triệu chứng bạn kể có thể cần được xử lý khẩn cấp. Bạn hãy gọi cấp cứu hoặc đến cơ sở y tế gần nhất ngay để được hỗ trợ kịp thời.",
   intent: "SYMPTOM_TRIAGE",
   state: "EMERGENCY_CARE",
   nextStep: "EMERGENCY_CARE",
@@ -82,8 +82,8 @@ export const fallbackOutput = (
   aiUnavailable: boolean,
 ): AIChatbotOutput => ({
   reply: aiUnavailable
-    ? "AI đang tạm thời không phản hồi. Hệ thống vẫn có thể hỗ trợ bạn qua các lựa chọn bên dưới."
-    : "Hệ thống chưa xác định rõ yêu cầu. Bạn có thể chọn một chức năng bên dưới hoặc mô tả cụ thể hơn.",
+    ? "Mình đang hơi chậm một chút nên chưa hiểu hết ý bạn. Bạn chọn một mục bên dưới, mình hỗ trợ ngay nhé."
+    : "Mình chưa hiểu rõ bạn cần gì. Bạn chọn một mục bên dưới hoặc nói cụ thể hơn giúp mình nhé.",
   intent: "UNKNOWN",
   state: "BOOKING_GUIDE",
   nextStep: "CHOOSE_DEPARTMENT",
