@@ -158,3 +158,20 @@ test("đường lùi cho chuyên khoa nối thành một đoạn và kèm lưu �
   assert.doesNotMatch(answer?.reply ?? "", /\n/);
   assert.match(answer?.reply ?? "", /không thay thế chẩn đoán/);
 });
+
+test("bộ nhớ đệm: hết hạn theo thời gian, theo phiên bản kho và loại mục cũ nhất khi đầy", async () => {
+  const { TtlCache } = await import("../../src/services/chatbot/rag/ttl-cache.js");
+  const cache = new TtlCache<string>(2, 30);
+  cache.set("a", "1", 1);
+  assert.equal(cache.get("a", 1), "1");
+  assert.equal(cache.get("a", 2), undefined);
+
+  cache.set("a", "1", 1);
+  cache.set("b", "2", 1);
+  cache.set("c", "3", 1);
+  assert.equal(cache.get("a", 1), undefined);
+  assert.equal(cache.get("c", 1), "3");
+
+  await new Promise((resolve) => setTimeout(resolve, 40));
+  assert.equal(cache.get("c", 1), undefined);
+});
