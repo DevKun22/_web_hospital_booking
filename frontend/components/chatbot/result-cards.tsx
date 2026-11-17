@@ -15,6 +15,8 @@ import type {
 import { formatCurrency } from "@/lib/format";
 type ChatbotResultCardsProps = {
   groups?: ChatbotResultGroup[];
+  /** Khung giờ người dùng đang chọn, để đánh dấu trong danh sách. */
+  selectedSlotId?: string;
   disabled?: boolean;
   onAction: (action: ChatbotSuggestedAction) => void;
 };
@@ -92,7 +94,7 @@ function ResultCard({
   const action = buildAction(item);
 
   return (
-    <article className="flex min-h-[112px] flex-col overflow-hidden rounded-md border border-[var(--border)] bg-[var(--surface-soft)] p-2">
+    <article className="kun-pop flex min-h-[112px] flex-col overflow-hidden rounded-md border border-[var(--border)] bg-[var(--surface-soft)] p-2">
       {item.type === "department" ? (
         <div className="flex gap-2">
           <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-[var(--primary-soft)] text-[var(--primary)]">
@@ -210,10 +212,12 @@ const groupSlots = (items: SlotItem[]) => {
 
 function SlotResults({
   items,
+  selectedSlotId,
   disabled,
   onAction,
 }: {
   items: SlotItem[];
+  selectedSlotId?: string;
   disabled?: boolean;
   onAction: (action: ChatbotSuggestedAction) => void;
 }) {
@@ -242,14 +246,20 @@ function SlotResults({
           <div className="mt-2 grid grid-cols-2 gap-1.5">
             {group.slots.map((slot) => {
               const action = buildAction(slot);
+              const selected = slot.id === selectedSlotId;
 
               return (
                 <button
                   key={slot.id}
                   type="button"
                   disabled={disabled || !action}
+                  aria-pressed={selected}
                   onClick={() => action && onAction(action)}
-                  className="inline-flex min-h-9 min-w-0 items-center justify-center gap-1 rounded-md border border-[var(--border)] bg-[var(--surface)] px-1.5 text-[11px] font-semibold text-[var(--primary)] transition hover:border-[var(--primary)] hover:bg-[var(--primary-soft)] disabled:opacity-60"
+                  className={`kun-pop inline-flex min-h-9 min-w-0 items-center justify-center gap-1 rounded-md border px-1.5 text-[11px] font-semibold transition disabled:opacity-60 ${
+                    selected
+                      ? "border-[var(--primary)] bg-[var(--primary-soft)] text-[var(--primary)] ring-1 ring-[var(--primary)]"
+                      : "border-[var(--border)] bg-[var(--surface)] text-[var(--primary)] hover:border-[var(--primary)] hover:bg-[var(--primary-soft)]"
+                  }`}
                   aria-label={`Chọn khung giờ ${slot.startTime} đến ${slot.endTime}`}
                 >
                   <Clock className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
@@ -268,6 +278,7 @@ function SlotResults({
 
 export function ChatbotResultCards({
   groups,
+  selectedSlotId,
   disabled,
   onAction,
 }: ChatbotResultCardsProps) {
@@ -299,17 +310,17 @@ export function ChatbotResultCards({
                   {group.description}
                 </p>
               ) : null}
-              <p className="mt-0.5 text-[11px] text-[var(--text-soft)]">
-                Hiển thị {group.items.length}/{group.total} kết quả
-                {group.total > group.items.length
-                  ? ". Xem đầy đủ trong phần đặt lịch."
-                  : "."}
-              </p>
+              {group.total > group.items.length ? (
+                <p className="mt-0.5 text-[11px] text-[var(--text-soft)]">
+                  Đang hiện {group.items.length}/{group.total} kết quả. Xem đầy đủ ở phần đặt lịch.
+                </p>
+              ) : null}
             </div>
 
             {slotItems.length ? (
               <SlotResults
                 items={slotItems}
+                selectedSlotId={selectedSlotId}
                 disabled={disabled}
                 onAction={onAction}
               />

@@ -14,8 +14,8 @@ type PublicHomeViewProps = {
   error: string;
 };
 
-const PublicChatbotWidget = dynamic(
-  () => import("@/components/public/public-chatbot-widget").then((module) => module.PublicChatbotWidget),
+const ChatbotWidget = dynamic(
+  () => import("@/components/chatbot/chatbot-widget").then((module) => module.ChatbotWidget),
   { ssr: false },
 );
 
@@ -58,7 +58,7 @@ export function PublicHomeView({ data, loading, error }: PublicHomeViewProps) {
 
       <PublicSiteFooter settings={data.settings} />
       <BackToTopButton />
-      <PublicChatbotWidget />
+      <ChatbotWidget />
       <PublicBottomNav />
     </main>
   );

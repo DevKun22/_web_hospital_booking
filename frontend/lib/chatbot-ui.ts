@@ -1,9 +1,11 @@
 import type {
   ChatBookingDraft,
-  ChatbotResponseSource,
+  ChatbotDraftSummary,
   ChatbotResultGroup,
   ChatbotSuggestedAction,
 } from "@/lib/types";
+
+// Phần logic thuần của khung trợ lý Kun (không có React): nhãn, tiến trình đặt lịch, đường dẫn sang trang đặt lịch.
 
 export type ChatMessageRole = "user" | "assistant" | "system" | "alert";
 
@@ -11,111 +13,115 @@ export type ChatWidgetMessage = {
   id: string;
   role: ChatMessageRole;
   content: string;
-  source?: ChatbotResponseSource;
   results?: ChatbotResultGroup[];
+  sources?: { id: string; title: string; url: string | null }[];
+  /** Tin lỗi gửi: hiện nút "Thử lại". */
+  retryable?: boolean;
 };
 
-const responseSourceLabel: Record<ChatbotResponseSource, string> = {
-  SYSTEM: "Hệ thống gợi ý",
-  FAQ: "Kho FAQ trả lời",
-  AI: "AI phân tích · dữ liệu hệ thống",
-  FALLBACK: "Phản hồi dự phòng",
-  EMERGENCY: "Cảnh báo an toàn",
-};
-
-export const getResponseSourceLabel = (source?: ChatbotResponseSource) =>
-  source ? responseSourceLabel[source] : "Trợ lý trả lời";
+// ---- Chờ phản hồi: lời nhắn thân thiện theo việc Kun đang làm ----
 
 const actionLoadingText: Record<string, string> = {
-  VIEW_DEPARTMENT: "Đang kiểm tra chuyên khoa...",
-  SELECT_DEPARTMENT: "Đang kiểm tra chuyên khoa...",
-  VIEW_PACKAGE: "Đang kiểm tra gói khám...",
-  SELECT_PACKAGE: "Đang kiểm tra gói khám...",
-  VIEW_DOCTOR: "Đang tìm lịch trống...",
-  SELECT_DOCTOR: "Đang tìm lịch trống...",
-  VIEW_AVAILABLE_SLOTS: "Đang kiểm tra khung giờ...",
-  SELECT_SLOT: "Đang chuẩn bị đặt lịch...",
-  LOOKUP_APPOINTMENT: "Đang mở tra cứu lịch hẹn...",
-  START_BOOKING: "Đang mở form đặt lịch...",
-  CONTACT_STAFF: "Đang mở tư vấn...",
-  CHANGE_DATE: "Bạn có thể nhập ngày khám mong muốn...",
-  CHANGE_DOCTOR: "Đang đổi bác sĩ...",
-  EMERGENCY_ADVICE: "Đang hiển thị hướng dẫn khẩn cấp...",
+  VIEW_DEPARTMENT: "Kun đang xem chuyên khoa này giúp bạn…",
+  SELECT_DEPARTMENT: "Kun đang xem chuyên khoa này giúp bạn…",
+  VIEW_PACKAGE: "Kun đang mở gói khám cho bạn…",
+  SELECT_PACKAGE: "Kun đang mở gói khám cho bạn…",
+  VIEW_DOCTOR: "Kun đang tìm lịch trống của bác sĩ…",
+  SELECT_DOCTOR: "Kun đang tìm lịch trống của bác sĩ…",
+  VIEW_AVAILABLE_SLOTS: "Kun đang giữ khung giờ này cho bạn…",
+  SELECT_SLOT: "Kun đang chuẩn bị lịch cho bạn…",
+  CHANGE_DOCTOR: "Kun đang tìm bác sĩ khác…",
+  CLEAR_SELECTION: "Kun đang cập nhật lựa chọn của bạn…",
 };
 
-const statusText: Record<string, string> = {
-  SUGGESTING_DEPARTMENT: "Đang chọn chuyên khoa",
-  SUGGESTING_PACKAGE: "Đang chọn gói khám",
-  CHOOSING_DOCTOR: "Đang chọn bác sĩ",
-  CHOOSING_DATE: "Đang chọn ngày khám",
-  CHOOSING_SLOT: "Đang chọn lịch trống",
-  READY_TO_BOOK: "Sẵn sàng đặt lịch",
-  BOOKING_GUIDE: "Hướng dẫn đặt lịch",
-  EMERGENCY_CARE: "Cần hỗ trợ khẩn cấp",
+export const getLoadingText = (action?: ChatbotSuggestedAction) =>
+  action ? actionLoadingText[action.type] || "Kun đang xử lý lựa chọn của bạn…" : "Kun đang suy nghĩ…";
+
+/** Sau vài giây vẫn chưa có phản hồi thì nói thật là đang lâu, để người dùng không tưởng bị treo. */
+export const SLOW_LOADING_TEXT = "Kun vẫn đang tìm, bạn chờ thêm chút nhé…";
+
+export const getInputPlaceholder = (action?: ChatbotSuggestedAction) => {
+  if (action?.type === "CHANGE_DATE") return "Nhập ngày khám, ví dụ: ngày mai";
+  if (action?.type === "CHANGE_DOCTOR") return "Nhập tên bác sĩ hoặc chuyên khoa";
+  return "Hỏi Kun về bác sĩ, gói khám, lịch khám…";
 };
 
-export const getActionLoadingText = (action?: ChatbotSuggestedAction) =>
-  action
-    ? actionLoadingText[action.type] || "Đang xử lý lựa chọn..."
-    : "Chatbot đang trả lời...";
+// ---- Tiến trình đặt lịch ----
 
-export const getActionInputPlaceholder = (action?: ChatbotSuggestedAction) => {
-  if (action?.type === "CHANGE_DATE") return "Nhập ngày khám mong muốn...";
-  if (action?.type === "CHANGE_DOCTOR")
-    return "Nhập tên bác sĩ hoặc chuyên khoa...";
-  return "Nhập câu hỏi...";
-};
+export type ClearableField = "department" | "package" | "doctor" | "slot";
 
-export const getFlowStatusText = (
-  state?: string | null,
-  nextStep?: string | null,
-) => {
-  const key = state || nextStep || "";
-  return statusText[key] || "";
-};
+export type BookingStep = { key: "department" | "doctor" | "slot" | "confirm"; label: string; done: boolean };
 
-export const getActionRenderKey = (
-  action: ChatbotSuggestedAction,
-  index: number,
-) => {
-  const payload = action.payload || {};
-  const identity = [
-    typeof payload.departmentId === "string" ? payload.departmentId : "",
-    typeof payload.packageId === "string" ? payload.packageId : "",
-    typeof payload.doctorId === "string" ? payload.doctorId : "",
-    typeof payload.timeSlotId === "string" ? payload.timeSlotId : "",
-    typeof payload.date === "string" ? payload.date : "",
-  ]
-    .filter(Boolean)
-    .join(":");
-
-  return `${action.type}:${identity || action.label}:${index}`;
-};
-
-export const buildBookingHref = (
-  action?: ChatbotSuggestedAction,
-  draft?: ChatBookingDraft,
-) => {
-  const prefill = action?.payload?.prefill as
-    | Partial<ChatBookingDraft>
-    | undefined;
-  const source = { ...(draft || {}), ...(prefill || {}) };
-  const params = new URLSearchParams();
-
-  (
-    ["departmentId", "packageId", "doctorId", "date", "timeSlotId"] as const
-  ).forEach((key) => {
-    const value = source[key];
-    if (typeof value === "string" && value.trim()) params.set(key, value);
-  });
-
-  const query = params.toString();
-  return `/dat-lich${query ? `?${query}` : ""}`;
+/** Bốn bước đặt lịch; bước đang làm là bước đầu tiên chưa xong. Chưa chọn gì thì chưa có tiến trình để hiện. */
+export const getBookingProgress = (summary?: ChatbotDraftSummary) => {
+  if (!summary || (!summary.department && !summary.package && !summary.doctor && !summary.slot)) return null;
+  const steps: BookingStep[] = [
+    { key: "department", label: "Khoa", done: Boolean(summary.department || summary.doctor) },
+    { key: "doctor", label: "Bác sĩ", done: Boolean(summary.doctor) },
+    { key: "slot", label: "Giờ khám", done: Boolean(summary.slot) },
+    { key: "confirm", label: "Xác nhận", done: false },
+  ];
+  const activeIndex = steps.findIndex((step) => !step.done);
+  return { steps, activeIndex: activeIndex === -1 ? steps.length - 1 : activeIndex };
 };
 
 export const formatChatbotDate = (value: string) => {
   const match = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if (!match) return value;
+  return match ? `${match[3]}/${match[2]}/${match[1]}` : value;
+};
 
-  return `${match[3]}/${match[2]}/${match[1]}`;
+/** Các lựa chọn có thể bỏ, theo thứ tự hiện, kèm nhãn cho nút xóa. */
+export const getSelectionChips = (summary?: ChatbotDraftSummary) => {
+  if (!summary) return [];
+  const chips: { field: ClearableField; label: string }[] = [];
+  if (summary.department) chips.push({ field: "department", label: summary.department.name });
+  if (summary.package) chips.push({ field: "package", label: summary.package.name });
+  if (summary.doctor) chips.push({ field: "doctor", label: summary.doctor.name });
+  if (summary.slot) {
+    chips.push({ field: "slot", label: `${summary.slot.startTime}, ${formatChatbotDate(summary.slot.date)}` });
+  }
+  return chips;
+};
+
+// ---- Gợi ý nhanh ----
+
+const MAX_QUICK_REPLIES = 4;
+/** Nút gợi ý trùng với thẻ kết quả đang hiện (chọn khoa, gói, bác sĩ, giờ) thì bỏ: thẻ đã là nơi chọn. */
+const RESULT_ACTION: Record<ChatbotResultGroup["type"], string> = {
+  departments: "VIEW_DEPARTMENT",
+  packages: "VIEW_PACKAGE",
+  doctors: "VIEW_DOCTOR",
+  slots: "VIEW_AVAILABLE_SLOTS",
+};
+
+export const getQuickReplies = (actions: ChatbotSuggestedAction[], latestResults?: ChatbotResultGroup[]) => {
+  const covered = new Set((latestResults || []).map((group) => RESULT_ACTION[group.type]));
+  return actions
+    // EMERGENCY_ADVICE chỉ là lời khuyên đã nằm trong thẻ cảnh báo, bấm không làm gì thêm.
+    .filter((action) => !covered.has(action.type) && action.type !== "EMERGENCY_ADVICE")
+    .slice(0, MAX_QUICK_REPLIES);
+};
+
+// ---- Sang trang đặt lịch ----
+
+/** Đường dẫn trang đặt lịch kèm các lựa chọn đã có (khoa, gói, bác sĩ, ngày, giờ). */
+export const buildBookingHref = (draft?: ChatBookingDraft, prefill?: Partial<ChatBookingDraft>) => {
+  const source = { ...(draft || {}), ...(prefill || {}) };
+  const params = new URLSearchParams();
+  (["departmentId", "packageId", "doctorId", "date", "timeSlotId"] as const).forEach((key) => {
+    const value = source[key];
+    if (typeof value === "string" && value.trim()) params.set(key, value);
+  });
+  const query = params.toString();
+  return `/dat-lich${query ? `?${query}` : ""}`;
+};
+
+/** Đường dẫn trang đích của nút gợi ý chuyển trang (không cần hỏi máy chủ); null nếu là nút trao đổi với Kun. */
+export const getNavigationTarget = (action: ChatbotSuggestedAction, draft?: ChatBookingDraft) => {
+  if (action.type === "LOOKUP_APPOINTMENT") return "/tai-khoan/dang-nhap?next=/tai-khoan/lich-hen";
+  if (action.type === "CONTACT_STAFF") return "/ho-tro";
+  if (action.type === "START_BOOKING") {
+    return buildBookingHref(draft, action.payload?.prefill as Partial<ChatBookingDraft> | undefined);
+  }
+  return null;
 };

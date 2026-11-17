@@ -778,6 +778,23 @@ export type ChatbotResultGroup = {
 };
 export type ChatbotResponseSource = "SYSTEM" | "FAQ" | "AI" | "FALLBACK" | "EMERGENCY";
 
+/** Nguồn tri thức mà câu trả lời dựa vào; `url` là trang gốc trên website (null nếu không có trang riêng). */
+export type ChatbotSource = {
+  id: string;
+  type: "FAQ" | "DEPARTMENT" | "DOCTOR" | "PACKAGE" | "POLICY" | "SITE";
+  title: string;
+  url: string | null;
+};
+
+/** Các lựa chọn đang giữ trong bản nháp đặt lịch, kèm tên để hiển thị. */
+export type ChatbotDraftSummary = {
+  department?: { id: string; name: string };
+  package?: { id: string; name: string; price: number };
+  doctor?: { id: string; name: string; departmentName: string; fee: number };
+  slot?: { id: string; date: string; startTime: string; endTime: string };
+  date?: string;
+};
+
 export type ChatbotMessageResponse = {
   sessionId: string;
   source: ChatbotResponseSource;
@@ -787,7 +804,9 @@ export type ChatbotMessageResponse = {
   nextStep: string;
   confidence: number;
   draft: ChatBookingDraft;
+  draftSummary?: ChatbotDraftSummary;
   results?: ChatbotResultGroup[];
+  sources?: ChatbotSource[];
   suggestedActions: ChatbotSuggestedAction[];
 };
 

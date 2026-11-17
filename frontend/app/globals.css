@@ -1479,3 +1479,39 @@ button:disabled {
   line-height: 1.3;
   text-wrap: pretty;
 }
+
+/* ---- Trợ lý ảo Kun: linh vật và chuyển động ----
+   Chuyển động ngắn (0,2 đến 0,3 giây), mỗi thứ một việc: báo có thứ mới xuất hiện, hoặc cho biết Kun đang nghĩ.
+   Người dùng chọn giảm chuyển động thì tắt hết (cuối khối). */
+.kun { display: block; flex: none; overflow: visible; }
+.kun__eyes { transform-origin: 24px 21px; animation: kun-blink 4.8s infinite; }
+.kun--idle { animation: kun-float 3.6s ease-in-out infinite; }
+.kun--thinking { animation: kun-think 1.2s ease-in-out infinite; }
+.kun--thinking .kun__eyes { transform: translate(1.5px, -1.5px); animation: none; }
+.kun--alert { animation: kun-shake 0.5s ease-in-out 2; }
+.kun-launcher { animation: kun-pop-in 0.35s cubic-bezier(0.2, 0.9, 0.3, 1.3) both; }
+.kun-launcher:hover .kun { animation: kun-wave 0.7s ease-in-out; }
+.kun-panel { transform-origin: bottom right; animation: kun-panel-in 0.22s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+.kun-enter { animation: kun-fade-up 0.22s ease-out both; }
+.kun-rise { animation: kun-rise 0.28s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+.kun-pop { animation: kun-pop-in 0.26s cubic-bezier(0.2, 0.9, 0.3, 1.2) both; }
+.kun-scroll-x { scrollbar-width: none; }
+.kun-scroll-x::-webkit-scrollbar { display: none; }
+.kun-dots { display: inline-flex; gap: 3px; align-items: center; }
+.kun-dots i { width: 6px; height: 6px; border-radius: 9999px; background: var(--dk-teal); animation: kun-dot 1.2s ease-in-out infinite; }
+.kun-dots i:nth-child(2) { animation-delay: 0.15s; }
+.kun-dots i:nth-child(3) { animation-delay: 0.3s; }
+@keyframes kun-blink { 0%, 92%, 100% { transform: scaleY(1); } 95% { transform: scaleY(0.1); } }
+@keyframes kun-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-1.5px); } }
+@keyframes kun-think { 0%, 100% { transform: rotate(-3deg); } 50% { transform: rotate(3deg); } }
+@keyframes kun-shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-2px); } 75% { transform: translateX(2px); } }
+@keyframes kun-wave { 0%, 100% { transform: rotate(0); } 25% { transform: rotate(-10deg); } 75% { transform: rotate(10deg); } }
+@keyframes kun-dot { 0%, 60%, 100% { transform: translateY(0); opacity: 0.45; } 30% { transform: translateY(-4px); opacity: 1; } }
+@keyframes kun-fade-up { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@keyframes kun-rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+@keyframes kun-pop-in { from { opacity: 0; transform: scale(0.85); } to { opacity: 1; transform: scale(1); } }
+@keyframes kun-panel-in { from { opacity: 0; transform: translateY(10px) scale(0.97); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) {
+  .kun, .kun__eyes, .kun--idle, .kun--thinking, .kun--alert, .kun-launcher, .kun-launcher:hover .kun, .kun-panel, .kun-enter, .kun-rise, .kun-pop { animation: none; }
+  .kun-dots i { animation: none; opacity: 0.7; }
+}
