@@ -47,8 +47,6 @@ class GeminiAdapter implements AIAdapter {
             topP: 0.8,
             maxOutputTokens: 2048,
             responseMimeType: "application/json",
-            // Việc ở đây là phân loại và diễn đạt ngắn từ dữ liệu cho sẵn: tắt "suy nghĩ" để phản hồi trong ngân sách thời gian.
-            thinkingConfig: { thinkingBudget: 0 },
           },
         }),
         signal: AbortSignal.timeout(getAIRequestTimeoutMs()),
