@@ -90,6 +90,9 @@ test("luồng đặt lịch bằng nút bấm vẫn do máy chủ dựng từ DB
   const group = departments.body.data.results[0];
   assert.equal(group.type, "departments");
   assert.ok(group.items.some((item: { id: string }) => item.id === fixture.department.id));
+  // Kun hỏi triệu chứng trước và chỉ hiện vài khoa, không đổ cả danh mục vào khung chat.
+  assert.match(departments.body.data.reply, /triệu chứng/);
+  assert.ok(group.items.length <= 4);
 
   const selected = await ask("Chọn chuyên khoa", {
     sessionId: departments.body.data.sessionId,

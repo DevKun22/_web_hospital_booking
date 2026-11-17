@@ -14,7 +14,7 @@ export const chatbotReplies = {
       : "Chuyên khoa đã được ghi nhận. Bạn muốn chọn gói khám hay khám theo phí của bác sĩ?",
 
   departmentListGuide:
-    "Bạn có thể chọn nhanh một chuyên khoa bên dưới để xem gói khám, bác sĩ và lịch trống phù hợp.",
+    "Bạn đang gặp vấn đề gì? Cứ mô tả vài triệu chứng (ví dụ \"đau đầu, chóng mặt mấy ngày nay\"), mình sẽ gợi ý chuyên khoa phù hợp. Nếu đã biết mình cần khám gì, bạn chọn nhanh một chuyên khoa bên dưới.",
 
   packageList: (hasPackages: boolean) =>
     hasPackages
