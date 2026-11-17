@@ -7,6 +7,7 @@ import { normalizeVector } from "../../src/services/chatbot/rag/embedder.js";
 import { KnowledgeIndex, tokenize } from "../../src/services/chatbot/rag/retriever.js";
 import type { KnowledgeChunk, KnowledgeDoc, RetrievedChunk } from "../../src/services/chatbot/rag/rag.types.js";
 import { routeByRules } from "../../src/services/chatbot/router/route.js";
+import { withConversationTopic } from "../../src/services/chatbot/flows/info.flow.js";
 
 const chunk = (id: string, doc: Omit<KnowledgeDoc, "sourceId" | "url">, embedding: number[] | null = null): KnowledgeChunk => ({
   id,
@@ -222,4 +223,13 @@ test("đoạn thông tin liên hệ dùng các cách gọi người dùng hay h�
   const index = new KnowledgeIndex([{ ...(doc as KnowledgeDoc), id: "site", embedding: null }, ...corpus]);
   assert.equal(index.search("cho mình số điện thoại liên hệ")[0]?.chunk.id, "site");
   assert.equal(index.search("bệnh viện mở cửa mấy giờ làm việc")[0]?.chunk.id, "site");
+});
+
+test("câu nối tiếp ngắn được ghép với câu hỏi thông tin trước đó; câu dài, câu đầu và luồng đặt lịch giữ nguyên", () => {
+  const info = { message: "Khi trời nắng nóng nên làm gì?", intent: "GENERAL_HOSPITAL_INFO" };
+  assert.equal(withConversationTopic("Dấu hiệu gì?", info), "Khi trời nắng nóng nên làm gì. Dấu hiệu gì?");
+  const long = "cho tôi biết các dấu hiệu say nắng ở trẻ nhỏ";
+  assert.equal(withConversationTopic(long, info), long);
+  assert.equal(withConversationTopic("Dấu hiệu gì?", { message: null, intent: null }), "Dấu hiệu gì?");
+  assert.equal(withConversationTopic("ngày mai", { message: "đặt lịch khám tim", intent: "BOOK_APPOINTMENT" }), "ngày mai");
 });

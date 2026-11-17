@@ -181,3 +181,17 @@ test("hỏi lại đúng câu chưa có thông tin thì Kun không lặp y nguy�
   assert.notEqual(second.body.data.reply, first.body.data.reply);
   assert.equal(second.body.data.suggestedActions[0].type, "CONTACT_STAFF");
 });
+
+test("câu hỏi nối tiếp ngắn vẫn hiểu chủ đề của câu trước và dẫn tới đúng bài viết", async () => {
+  const { admin, doctor } = await cookies();
+  const article = await createArticle(admin);
+  await dashboardCall("POST", `/api/v1/dashboard/articles/${article.id}/review`, doctor);
+  await dashboardCall("POST", `/api/v1/dashboard/articles/${article.id}/publish`, admin);
+  await dashboardCall("POST", "/api/v1/dashboard/chatbot/knowledge/sync", admin);
+
+  const first = await ask("ăn uống thế nào khi trời nắng nóng");
+  assert.equal(first.body.data.sources[0].type, "ARTICLE");
+  const next = await http.request("/api/v1/chatbot/message", { method: "POST", body: { sessionId: first.body.data.sessionId, message: "khi nào cần đi khám" } });
+  assert.equal(next.status, 200);
+  assert.equal(next.body.data.sources[0].url, "/kien-thuc/an-uong-khi-troi-nang-nong#khi-nao-can-di-kham");
+});

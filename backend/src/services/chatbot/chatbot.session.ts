@@ -116,6 +116,7 @@ export const getOrCreateChatSession = async (
           id: resetSession.id,
           draft: {},
           lastMessage: null as string | null,
+          lastIntent: null as string | null,
         };
       }
 
@@ -123,6 +124,7 @@ export const getOrCreateChatSession = async (
         id: existingSession.id,
         draft: readDraft(existingSession.draft),
         lastMessage: existingSession.lastMessage,
+        lastIntent: existingSession.currentIntent,
       };
     }
   }
@@ -139,6 +141,7 @@ export const getOrCreateChatSession = async (
     id: session.id,
     draft: readDraft(session.draft),
     lastMessage: null as string | null,
+    lastIntent: null as string | null,
   };
 };
 

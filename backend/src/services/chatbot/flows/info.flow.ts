@@ -37,6 +37,18 @@ const toSources = (chunks: RetrievedChunk[], ids: string[]): ChatbotSource[] => 
     .map((item) => ({ id: item.chunk.id, type: item.chunk.sourceType, title: item.chunk.title, url: item.chunk.url }));
 };
 
+/**
+ * Câu hỏi nối tiếp rất ngắn ("Dấu hiệu gì?", "Còn trẻ em thì sao?") không tự mang chủ đề. Khi câu trước cũng là câu hỏi thông tin,
+ * ghép câu trước vào để truy hồi và AI hiểu đang nói về gì; câu dài đủ ý hoặc đang giữa luồng đặt lịch thì giữ nguyên.
+ */
+const FOLLOW_UP_MAX_WORDS = 5;
+export const withConversationTopic = (message: string, previous: { message: string | null; intent: string | null }) => {
+  if (!previous.message || previous.intent !== "GENERAL_HOSPITAL_INFO") return message;
+  const words = message.trim().split(/\s+/).filter(Boolean);
+  if (words.length > FOLLOW_UP_MAX_WORDS) return message;
+  return `${previous.message.trim().replace(/[?!.\s]+$/g, "")}. ${message.trim()}`;
+};
+
 /** Nội dung sức khỏe luôn kèm lời nhắc, do mã thêm vào chứ không nhờ AI nhớ. */
 const HEALTH_DISCLAIMER = "Đây là thông tin tham khảo, không thay thế tư vấn của bác sĩ.";
 

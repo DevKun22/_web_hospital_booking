@@ -8,7 +8,7 @@ import ChatbotContextService from "./chatbot.context.js";
 import { buildDraftSummary } from "./chatbot.summary.js";
 import ChatbotSettingsService from "./chatbot.settings.js";
 import BookingFlow from "./flows/booking.flow.js";
-import InfoFlow, { noInformationOutput, noInformationRepeatOutput } from "./flows/info.flow.js";
+import InfoFlow, { noInformationOutput, noInformationRepeatOutput, withConversationTopic } from "./flows/info.flow.js";
 import {
   capabilitiesOutput,
   emergencyOutput,
@@ -120,20 +120,23 @@ class ChatbotService {
     if (rule === "GREETING") return finish(greetingOutput(actionDraft), "SYSTEM");
     if (rule === "CAPABILITIES") return finish(capabilitiesOutput(actionDraft), "SYSTEM");
 
+    // Câu nối tiếp ngắn được ghép với câu hỏi thông tin ngay trước đó để hiểu đúng chủ đề.
+    const question = actionOperation ? input.message : withConversationTopic(input.message, { message: session.lastMessage, intent: session.lastIntent });
+
     // Câu hỏi thông tin đã trả lời trước đó (còn trong bộ nhớ đệm): trả ngay, khỏi gọi AI.
     const infoEligible = !actionOperation && settings.faqEnabled;
     if (infoEligible && settings.aiEnabled) {
-      const hit = InfoFlow.cached({ message: input.message, draft: actionDraft, aiEnabled: true, model: settings.model });
+      const hit = InfoFlow.cached({ message: question, draft: actionDraft, aiEnabled: true, model: settings.model });
       if (hit) return finish(hit.output, hit.source, hit.sourceIds);
     }
     // Truy hồi chạy song song với việc AI phân tích ý định: hai bước độc lập, gộp lại tiết kiệm một vòng chờ.
-    const retrieval = infoEligible ? InfoFlow.retrieve(input.message).catch(() => null) : null;
+    const retrieval = infoEligible ? InfoFlow.retrieve(question).catch(() => null) : null;
     // Sinh câu trả lời cũng bắt đầu ngay khi có đoạn tri thức, song song với phân tích ý định: tổng thời gian là lần chậm hơn
     // thay vì cộng hai lần. Nếu hóa ra không phải câu hỏi thông tin thì bỏ kết quả (tốn thêm một lần gọi AI). Phân tích ý định
     // hết hạn mà câu trả lời đã sẵn thì vẫn dùng được câu trả lời.
     const generation =
       retrieval && settings.aiEnabled
-        ? retrieval.then((chunks) => (chunks?.length ? InfoFlow.generate({ message: input.message, chunks, model: settings.model }) : null))
+        ? retrieval.then((chunks) => (chunks?.length ? InfoFlow.generate({ message: question, chunks, model: settings.model }) : null))
         : null;
 
     let nlu = emptyNLUResult();
@@ -144,7 +147,7 @@ class ChatbotService {
     } else if (settings.aiEnabled) {
       try {
         nlu = await ChatbotNLUService.extract({
-          message: input.message,
+          message: question,
           draft: actionDraft,
           catalog: await ChatbotContextService.loadNLUCatalog(),
           model: settings.model,
@@ -183,7 +186,7 @@ class ChatbotService {
       !(nlu.operation === "UNKNOWN" && hasSelection(draft));
     if (wantsInfo) {
       const info = await InfoFlow.answer({
-        message: input.message,
+        message: question,
         draft,
         aiEnabled: settings.aiEnabled,
         model: settings.model,
