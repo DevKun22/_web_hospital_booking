@@ -2,40 +2,29 @@ import { AppError } from "../../../utils/appError.js";
 import type { AIAdapter, GenerateReplyInput } from "./ai.adapter.js";
 import { getRuntimeConfig } from "../../../config/runtimeConfig.js";
 
-const getModel = (model?: string) =>
-  model || getRuntimeConfig().chatbot.model;
+// Gọi REST trực tiếp tới Gemini Developer API bằng GEMINI_API_KEY (khóa tạo ở Google AI Studio).
+// Không dùng cổng Firebase AI Logic: cổng đó đòi App Check của ứng dụng khách nên máy chủ gọi bị từ chối (401).
 
-// Giữ ngân sách AI phía server thấp hơn timeout nhận mặc định 15 giây của mobile
-// để chatbot vẫn có thể trả lời bằng fallback xác định.
+const getModel = (model?: string) => model || getRuntimeConfig().chatbot.model;
+
+// Giữ ngân sách AI phía máy chủ thấp hơn timeout nhận mặc định 15 giây của mobile
+// để chatbot vẫn có thể trả lời bằng đường lùi xác định.
 const getAIRequestTimeoutMs = () => getRuntimeConfig().chatbot.aiTimeoutMs;
 
-// Gọi REST trực tiếp thay vì kéo cả Firebase client SDK vào backend.
-// - GEMINI_API_KEY: Gemini Developer API (generativelanguage.googleapis.com).
-// - Nếu không có, dùng proxy Firebase AI Logic với FIREBASE_API_KEY +
-//   FIREBASE_PROJECT_ID (cùng endpoint mà SDK firebase/ai đã dùng trước đây).
-export const resolveGeminiEndpoint = (model: string, method: "generateContent" | "embedContent" | "batchEmbedContents" = "generateContent") => {
-  const config = getRuntimeConfig().chatbot;
-  const geminiKey = config.geminiApiKey;
-  if (geminiKey) {
-    return {
-      url: `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:${method}`,
-      apiKey: geminiKey,
-    };
-  }
-
-  const firebaseKey = config.firebaseApiKey;
-  const projectId = config.projectId;
-  if (!firebaseKey || !projectId) {
-    throw new AppError(
-      "Chưa cấu hình GEMINI_API_KEY hoặc FIREBASE_API_KEY + FIREBASE_PROJECT_ID",
-      500,
-    );
-  }
+export const resolveGeminiEndpoint = (
+  model: string,
+  method: "generateContent" | "embedContent" | "batchEmbedContents" = "generateContent",
+) => {
+  const apiKey = getRuntimeConfig().chatbot.geminiApiKey;
+  if (!apiKey) throw new AppError("Chưa cấu hình GEMINI_API_KEY", 500);
   return {
-    url: `https://firebasevertexai.googleapis.com/v1beta/projects/${encodeURIComponent(projectId)}/models/${encodeURIComponent(model)}:${method}`,
-    apiKey: firebaseKey,
+    url: `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:${method}`,
+    apiKey,
   };
 };
+
+/** Có khóa API để gọi Gemini hay không; không có thì chatbot chỉ dùng quy tắc và tìm theo từ. */
+export const isGeminiConfigured = () => Boolean(getRuntimeConfig().chatbot.geminiApiKey);
 
 type GenerateContentResponse = {
   candidates?: { content?: { parts?: { text?: string }[] } }[];
@@ -49,18 +38,17 @@ class GeminiAdapter implements AIAdapter {
     try {
       const response = await fetch(endpoint.url, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-goog-api-key": endpoint.apiKey,
-        },
+        headers: { "Content-Type": "application/json", "x-goog-api-key": endpoint.apiKey },
         body: JSON.stringify({
           systemInstruction: { role: "system", parts: [{ text: input.systemPrompt }] },
           contents: [{ role: "user", parts: [{ text: input.userPrompt }] }],
           generationConfig: {
             temperature: 0.2,
             topP: 0.8,
-            maxOutputTokens: 4096,
+            maxOutputTokens: 2048,
             responseMimeType: "application/json",
+            // Việc ở đây là phân loại và diễn đạt ngắn từ dữ liệu cho sẵn: tắt "suy nghĩ" để phản hồi trong ngân sách thời gian.
+            thinkingConfig: { thinkingBudget: 0 },
           },
         }),
         signal: AbortSignal.timeout(getAIRequestTimeoutMs()),
@@ -84,21 +72,11 @@ class GeminiAdapter implements AIAdapter {
         .map((part) => part.text || "")
         .join("")
         .trim();
-
-      if (!text) {
-        throw new AppError("Gemini không trả về nội dung", 502);
-      }
-
+      if (!text) throw new AppError("Gemini không trả về nội dung", 502);
       return text;
     } catch (error) {
       if (error instanceof AppError) throw error;
-
-      throw new AppError(
-        error instanceof Error
-          ? error.message
-          : "Gemini không phản hồi thành công",
-        502,
-      );
+      throw new AppError(error instanceof Error ? error.message : "Gemini không phản hồi thành công", 502);
     }
   }
 }

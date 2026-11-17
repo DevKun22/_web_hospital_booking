@@ -102,15 +102,14 @@ export const getRuntimeConfig = (env: NodeJS.ProcessEnv = process.env) => {
       vnpayReturnUrl: trimmed(env.VNPAY_RETURN_URL),
     },
     chatbot: {
-      model: trimmed(env.GEMINI_MODEL) || "gemini-2.5-flash",
+      // Bí danh "-latest" tự trỏ về bản Flash-Lite hiện hành nên không bị ngừng cấp như tên phiên bản cố định.
+      model: trimmed(env.GEMINI_MODEL) || "gemini-flash-lite-latest",
       embeddingModel: trimmed(env.GEMINI_EMBEDDING_MODEL) || "gemini-embedding-001",
       aiTimeoutMs: Math.min(
         Math.max(positiveInteger(env.CHATBOT_AI_TIMEOUT_MS, 8_000), 1_000),
         12_000,
       ),
       geminiApiKey: trimmed(env.GEMINI_API_KEY),
-      firebaseApiKey: trimmed(env.FIREBASE_API_KEY) || trimmed(env.API_KEY),
-      projectId: trimmed(env.FIREBASE_PROJECT_ID) || trimmed(env.PROJECT_ID),
       contextCacheTtlMs: Math.min(
         nonNegativeInteger(env.CHATBOT_CONTEXT_CACHE_TTL_MS, 30_000),
         5 * 60_000,
