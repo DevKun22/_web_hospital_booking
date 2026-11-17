@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { createSlug } from "../../../utils/slug.js";
 import type { KnowledgeDoc } from "./rag.types.js";
 
 // Dựng kho tri thức từ dữ liệu đang có: không có nguồn tri thức thứ hai để quản trị. Mỗi bản ghi nghiệp vụ thành một đoạn
@@ -142,6 +143,101 @@ export const siteDoc = (site: {
     content: `Thông tin liên hệ và giờ làm việc của ${name}.\n${content}`,
   };
 };
+
+// ---- Bài viết kiến thức sức khỏe ----
+
+/** Mỗi đoạn tri thức của bài dài tối đa chừng này ký tự: đủ ý, không loãng. */
+const ARTICLE_CHUNK_CHARS = 1200;
+/** Mục quá ngắn được gộp với mục kế tiếp. */
+const ARTICLE_MIN_SECTION_CHARS = 250;
+
+/** Bỏ ký hiệu Markdown, giữ chữ: AI và tìm theo từ đọc văn bản thuần. */
+export const stripMarkdown = (value: string) =>
+  value
+    .replace(/!\[[^\]]*\]\([^)]*\)/g, "")
+    .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1")
+    .replace(/(\*\*|__|\*|_|`)/g, "")
+    .replace(/^[ \t]*>[ \t]?/gm, "")
+    .replace(/^[ \t]*[-*+][ \t]+/gm, "- ")
+    .replace(/[ \t]+/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+
+type Section = { heading: string | null; body: string };
+
+/** Cắt bài Markdown theo tiêu đề mục (## hoặc ###), rồi gộp mục ngắn và tách mục dài theo đoạn văn. */
+export const splitArticleSections = (markdown: string): Section[] => {
+  const raw: Section[] = [];
+  let current: Section = { heading: null, body: "" };
+  for (const line of markdown.replace(/\r\n/g, "\n").split("\n")) {
+    const heading = line.match(/^#{2,3}\s+(.+?)\s*#*$/);
+    if (heading) {
+      raw.push(current);
+      current = { heading: stripMarkdown(heading[1]), body: "" };
+    } else {
+      current.body += `${line}\n`;
+    }
+  }
+  raw.push(current);
+
+  const sections: Section[] = [];
+  for (const section of raw) {
+    const body = stripMarkdown(section.body);
+    if (!body && !section.heading) continue;
+    const previous = sections[sections.length - 1];
+    // Mục trước quá ngắn thì nhập vào mục này (mục này giữ tiêu đề và neo của nó, để liên kết nguồn trỏ đúng chỗ).
+    if (previous && previous.body.length < ARTICLE_MIN_SECTION_CHARS) {
+      sections.pop();
+      const lead = previous.heading ? `${previous.heading}. ${previous.body}` : previous.body;
+      sections.push({ heading: section.heading, body: `${lead}\n${body}`.trim() });
+      continue;
+    }
+    sections.push({ heading: section.heading, body });
+  }
+
+  const result: Section[] = [];
+  for (const section of sections) {
+    if (section.body.length <= ARTICLE_CHUNK_CHARS) {
+      result.push(section);
+      continue;
+    }
+    let buffer = "";
+    for (const paragraph of section.body.split(/\n{2,}/)) {
+      if (buffer && buffer.length + paragraph.length > ARTICLE_CHUNK_CHARS) {
+        result.push({ heading: section.heading, body: buffer.trim() });
+        buffer = "";
+      }
+      buffer += `${paragraph}\n\n`;
+    }
+    if (buffer.trim()) result.push({ heading: section.heading, body: buffer.trim() });
+  }
+  return result;
+};
+
+/** Một bài viết thành nhiều đoạn tri thức; đường dẫn trỏ tới đúng mục (neo theo slug của tiêu đề mục). */
+export const articleDocs = (article: {
+  id: string;
+  slug: string;
+  title: string;
+  summary: string | null;
+  content: string;
+  department: { name: string } | null;
+}): KnowledgeDoc[] =>
+  splitArticleSections(article.content).map((section, index) => {
+    const anchor = section.heading ? createSlug(section.heading) : "";
+    return {
+      sourceType: "ARTICLE" as const,
+      sourceId: `${article.id}#${index}`,
+      title: article.title,
+      url: `/kien-thuc/${article.slug}${anchor ? `#${anchor}` : ""}`,
+      content: lines(
+        `Bài viết kiến thức sức khỏe "${article.title}"${section.heading ? `, mục "${section.heading}"` : ""}.`,
+        index === 0 && article.summary,
+        index === 0 && article.department && `Liên quan chuyên khoa ${article.department.name}.`,
+        section.body,
+      ),
+    };
+  });
 
 export const contentHash = (doc: KnowledgeDoc) =>
   createHash("sha256").update(`${doc.title}\n${doc.url ?? ""}\n${doc.content}`).digest("hex");

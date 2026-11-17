@@ -8,7 +8,7 @@ import ChatbotContextService from "./chatbot.context.js";
 import { buildDraftSummary } from "./chatbot.summary.js";
 import ChatbotSettingsService from "./chatbot.settings.js";
 import BookingFlow from "./flows/booking.flow.js";
-import InfoFlow, { noInformationOutput } from "./flows/info.flow.js";
+import InfoFlow, { noInformationOutput, noInformationRepeatOutput } from "./flows/info.flow.js";
 import {
   capabilitiesOutput,
   emergencyOutput,
@@ -22,7 +22,7 @@ import ChatbotEntityResolver from "./retrieval/entity.resolver.js";
 import { hasEmergencySignal } from "./rules/emergency-detector.js";
 import { sanitizeBookingDraft } from "./rules/draft-sanitizer.js";
 import { sanitizeReplyText } from "./rules/reply-sanitizer.js";
-import { normalizeMessage } from "./rules/text-normalizer.js";
+import { foldVietnamese, normalizeMessage } from "./rules/text-normalizer.js";
 import { getOrCreateChatSession, mergeDrafts, updateChatSession } from "./chatbot.session.js";
 import ChatbotDraftReducer from "./workflow/draft.reducer.js";
 import { operationFromAction, operationToIntent } from "./workflow/operation.js";
@@ -165,6 +165,9 @@ class ChatbotService {
     const resolved = actionOperation || nlu.confidence < 0.25 ? { patch: {} } : await ChatbotEntityResolver.resolve(nlu);
     let draft = ChatbotDraftReducer.reduce(actionDraft, resolved.patch, nlu.correction);
 
+    // Hỏi lại đúng câu vừa hỏi: nếu vẫn chưa có thông tin thì không trả lời y nguyên lần trước.
+    const repeated = session.lastMessage !== null && foldVietnamese(session.lastMessage) === foldVietnamese(input.message);
+
     // 3. Hỏi thông tin → RAG. Câu chưa rõ ý (UNKNOWN) khi đang giữa luồng đặt lịch thì để luồng đặt lịch xử lý trước.
     const wantsInfo =
       !actionOperation &&
@@ -181,7 +184,7 @@ class ChatbotService {
       });
       mark("info");
       if (info) return finish(info.output, info.source, info.sourceIds);
-      if (nlu.operation === "ASK_INFORMATION") return finish(noInformationOutput(draft), "SYSTEM");
+      if (nlu.operation === "ASK_INFORMATION") return finish(repeated ? noInformationRepeatOutput(draft) : noInformationOutput(draft), "SYSTEM");
     }
 
     // 4. Gợi ý chuyên khoa theo triệu chứng
@@ -207,7 +210,7 @@ class ChatbotService {
       nlu,
       triageRecommendation: triage,
     });
-    if (!output) return finish(fallbackOutput(draft, aiUnavailable), "FALLBACK");
+    if (!output) return finish(repeated ? noInformationRepeatOutput(draft) : fallbackOutput(draft, aiUnavailable), "FALLBACK");
 
     const aiPhrased = intent === "SYMPTOM_TRIAGE" && !actionOperation && !aiUnavailable;
     if (aiPhrased && triage && output.intent === "SYMPTOM_TRIAGE" && output.state === "SUGGESTING_DEPARTMENT") {
