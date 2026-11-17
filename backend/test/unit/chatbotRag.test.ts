@@ -207,3 +207,19 @@ test("bài viết Markdown: cắt theo mục, gộp mục ngắn, tách mục d�
 
   assert.equal(stripMarkdown("**Đậm** và [liên kết](https://x.test) cùng `mã`\n\n\n\n- mục"), "Đậm và liên kết cùng mã\n\n- mục");
 });
+
+test("đường lùi chỉ trả lời khi đoạn đầu khớp rõ; khớp lơ mơ thì để Kun nói chưa có thông tin", () => {
+  const weak: RetrievedChunk = { chunk: corpus[0], score: 1, coverage: 0.5, similarity: 0.5 };
+  const strongByWords: RetrievedChunk = { chunk: corpus[0], score: 1, coverage: 0.9, similarity: null };
+  const strongByMeaning: RetrievedChunk = { chunk: corpus[0], score: 1, coverage: 0.3, similarity: 0.8 };
+  assert.equal(extractiveAnswer([weak]), null);
+  assert.ok(extractiveAnswer([strongByWords]));
+  assert.ok(extractiveAnswer([strongByMeaning]));
+});
+
+test("đoạn thông tin liên hệ dùng các cách gọi người dùng hay hỏi để tìm theo từ cũng bắt được", () => {
+  const doc = siteDoc({ hospitalName: "DevKunCare", hotline: "0352412318", address: "Số 1 Võ Văn Ngân", workingHours: "8h-17h", email: "a@b.vn" });
+  const index = new KnowledgeIndex([{ ...(doc as KnowledgeDoc), id: "site", embedding: null }, ...corpus]);
+  assert.equal(index.search("cho mình số điện thoại liên hệ")[0]?.chunk.id, "site");
+  assert.equal(index.search("bệnh viện mở cửa mấy giờ làm việc")[0]?.chunk.id, "site");
+});

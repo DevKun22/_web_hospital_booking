@@ -128,10 +128,11 @@ export const siteDoc = (site: {
 }): KnowledgeDoc | null => {
   const name = site.hospitalName || "cơ sở khám";
   const content = lines(
-    site.address && `Địa chỉ: ${site.address}.`,
-    site.workingHours && `Giờ làm việc: ${site.workingHours}.`,
-    site.hotline && `Đường dây nóng: ${site.hotline}.`,
-    site.emergencyHotline && `Số cấp cứu: ${site.emergencyHotline}.`,
+    // Gọi cùng một thông tin bằng các từ người dùng hay hỏi (số điện thoại, đường dây nóng; giờ làm việc, giờ mở cửa) để tìm theo từ cũng bắt được.
+    site.address && `Địa chỉ cơ sở khám: ${site.address}.`,
+    site.workingHours && `Giờ làm việc (giờ mở cửa, giờ khám): ${site.workingHours}.`,
+    site.hotline && `Số điện thoại liên hệ (đường dây nóng, hotline): ${site.hotline}.`,
+    site.emergencyHotline && `Số điện thoại cấp cứu của cơ sở: ${site.emergencyHotline}.`,
     site.email && `Email liên hệ: ${site.email}.`,
   );
   if (!content) return null;
