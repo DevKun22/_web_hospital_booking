@@ -19,21 +19,17 @@ test("runtime config parses bounded numeric values and explicit zero TTL", () =>
   assert.equal(config.publicSearch.cacheTtlMs, 0);
 });
 
-test("runtime config normalizes URLs, flags and credential fallbacks", () => {
+test("runtime config normalizes URLs, flags and flags", () => {
   const config = getRuntimeConfig({
     FRONTEND_URLS: " https://web.example.test,https://admin.example.test ",
     PAYMENT_VNPAY_ENABLED: "YES",
     PAYMENT_RESULT_URL: " ",
-    FIREBASE_API_KEY: " firebase-key ",
-    PROJECT_ID: " project-id ",
     TEXTBEE_API_URL: "https://sms.example.test/",
     DASHBOARD_REFRESH_TOKEN_DAYS: "14d",
   });
 
   assert.equal(config.payment.resultUrl, "https://web.example.test/thanh-toan/ket-qua");
   assert.equal(config.payment.vnpayEnabled, true);
-  assert.equal(config.chatbot.firebaseApiKey, "firebase-key");
-  assert.equal(config.chatbot.projectId, "project-id");
   assert.equal(config.sms.baseUrl, "https://sms.example.test");
   assert.equal(config.dashboardAuth.refreshTokenDays, 14);
 });

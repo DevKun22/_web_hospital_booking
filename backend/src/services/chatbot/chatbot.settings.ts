@@ -17,7 +17,7 @@ const DEFAULT_CHATBOT_RUNTIME_SETTINGS: ChatbotRuntimeSettings = {
   aiEnabled: true,
   fallbackEnabled: true,
   faqEnabled: true,
-  model: "gemini-2.5-flash",
+  model: "gemini-flash-lite-latest",
   maxSuggestedActions: 3,
   sessionExpiresDays: 7,
 };

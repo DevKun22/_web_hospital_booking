@@ -1,6 +1,6 @@
 import { AppError } from "../../../utils/appError.js";
 import { getRuntimeConfig } from "../../../config/runtimeConfig.js";
-import { resolveGeminiEndpoint } from "../ai/gemini.adapter.js";
+import { isGeminiConfigured, resolveGeminiEndpoint } from "../ai/gemini.adapter.js";
 
 // Biến văn bản thành vector bằng Gemini embedding (cùng khóa API với phần sinh câu trả lời).
 // Vector 768 chiều là đủ cho kho vài trăm đoạn và nhẹ khi lưu.
@@ -18,10 +18,7 @@ const queryCache = new Map<string, number[]>();
 export const embeddingModelName = () => getRuntimeConfig().chatbot.embeddingModel;
 
 /** Có khóa API để gọi dịch vụ nhúng hay không; không có thì chatbot chỉ tìm theo từ. */
-export const isEmbeddingConfigured = () => {
-  const config = getRuntimeConfig().chatbot;
-  return Boolean(config.geminiApiKey || (config.firebaseApiKey && config.projectId));
-};
+export const isEmbeddingConfigured = isGeminiConfigured;
 
 const request = async <T>(method: "embedContent" | "batchEmbedContents", body: unknown): Promise<T> => {
   const model = embeddingModelName();
