@@ -1,4 +1,5 @@
 import { prisma } from "../../config/prisma.js";
+import { logger } from "../../observability/logger.js";
 import { AppError } from "../../utils/appError.js";
 import ChatbotNLUService from "./ai/nlu.service.js";
 import type { NLUResult } from "./ai/nlu.schema.js";
@@ -124,6 +125,7 @@ class ChatbotService {
         });
       } catch (error) {
         aiUnavailable = true;
+        logger.warn("[CHATBOT] Không phân tích được ý định bằng AI, dùng đường lùi:", error);
         if (!settings.fallbackEnabled) {
           throw new AppError(
             error instanceof Error ? `AI không thể phân tích yêu cầu: ${error.message}` : "AI không thể phân tích yêu cầu",

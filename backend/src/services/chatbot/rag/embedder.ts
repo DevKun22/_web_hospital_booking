@@ -32,9 +32,17 @@ const request = async <T>(method: "embedContent" | "batchEmbedContents", body: u
     body: JSON.stringify(body),
     signal: AbortSignal.timeout(15_000),
   });
-  const payload = (await response.json().catch(() => ({}))) as T & { error?: { message?: string } };
+  const raw = await response.text();
+  const payload = (() => {
+    try {
+      return JSON.parse(raw) as T & { error?: { message?: string } };
+    } catch {
+      return {} as T & { error?: { message?: string } };
+    }
+  })();
   if (!response.ok) {
-    throw new AppError(payload.error?.message || `Dịch vụ nhúng trả về lỗi HTTP ${response.status}`, 502);
+    // Kèm đoạn đầu phản hồi để quản trị chẩn đoán được (sai mô hình, khóa không có quyền, endpoint không hỗ trợ).
+    throw new AppError(`Dịch vụ nhúng lỗi HTTP ${response.status}: ${payload.error?.message || raw.slice(0, 200) || "không có nội dung"}`, 502);
   }
   return payload;
 };

@@ -66,10 +66,16 @@ class GeminiAdapter implements AIAdapter {
         signal: AbortSignal.timeout(getAIRequestTimeoutMs()),
       });
 
-      const payload = (await response.json().catch(() => ({}))) as GenerateContentResponse;
+      const raw = await response.text();
+      let payload: GenerateContentResponse = {};
+      try {
+        payload = JSON.parse(raw) as GenerateContentResponse;
+      } catch {
+        // Phản hồi không phải JSON: giữ đoạn đầu để chẩn đoán.
+      }
       if (!response.ok) {
         throw new AppError(
-          payload.error?.message || `Gemini trả về lỗi HTTP ${response.status}`,
+          `Gemini lỗi HTTP ${response.status}: ${payload.error?.message || raw.slice(0, 200) || "không có nội dung"}`,
           502,
         );
       }
