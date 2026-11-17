@@ -46,8 +46,12 @@ const toChunk = (row: {
 });
 
 class KnowledgeService {
+  /** Tăng sau mỗi lần đồng bộ: bộ nhớ đệm câu trả lời gắn với phiên bản này sẽ hết hiệu lực. */
+  version = 0;
+
   invalidate() {
     loaded = null;
+    this.version += 1;
   }
 
   private async loadIndex() {

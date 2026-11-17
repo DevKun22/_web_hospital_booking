@@ -67,6 +67,11 @@ const hasSelection = (draft: ChatBookingDraft) => Boolean(draft.departmentId || 
 
 class ChatbotService {
   async handleMessage(input: ChatbotRequestInput): Promise<ChatbotResponse> {
+    const startedAt = Date.now();
+    const stages: Record<string, number> = {};
+    const mark = (stage: string) => {
+      stages[stage] = Date.now() - startedAt;
+    };
     const runtimeSetting = await ChatbotSettingsService.getRuntimeSettings();
     if (!runtimeSetting.isActive) {
       throw new AppError("Chatbot đang tạm tắt. Vui lòng gửi yêu cầu tư vấn để nhân viên hỗ trợ.", 503);
@@ -95,6 +100,9 @@ class ChatbotService {
         updateChatSession(sessionId, response, input.message, input.phone, settings.sessionExpiresDays),
         this.saveLog(input, response, sourceIds),
       ]);
+      mark("total");
+      // Mốc thời gian từng bước (ms từ lúc nhận tin) để thấy chậm ở đâu: nlu = phân tích ý định, info = truy hồi + sinh câu trả lời.
+      logger.info("[CHATBOT_TIMING]", JSON.stringify({ source, intent: response.intent, ...stages }));
       return response;
     };
 
@@ -109,6 +117,15 @@ class ChatbotService {
     if (rule === "RESET") return finish(resetOutput(), "SYSTEM");
     if (rule === "GREETING") return finish(greetingOutput(actionDraft), "SYSTEM");
     if (rule === "CAPABILITIES") return finish(capabilitiesOutput(actionDraft), "SYSTEM");
+
+    // Câu hỏi thông tin đã trả lời trước đó (còn trong bộ nhớ đệm): trả ngay, khỏi gọi AI.
+    const infoEligible = !actionOperation && settings.faqEnabled;
+    if (infoEligible && settings.aiEnabled) {
+      const hit = InfoFlow.cached({ message: input.message, draft: actionDraft, aiEnabled: true, model: settings.model });
+      if (hit) return finish(hit.output, hit.source, hit.sourceIds);
+    }
+    // Truy hồi chạy song song với việc AI phân tích ý định: hai bước độc lập, gộp lại tiết kiệm một vòng chờ.
+    const retrieval = infoEligible ? InfoFlow.retrieve(input.message).catch(() => null) : null;
 
     let nlu = emptyNLUResult();
     let aiUnavailable = false;
@@ -137,6 +154,7 @@ class ChatbotService {
       aiUnavailable = true;
     }
 
+    mark("nlu");
     if (nlu.operation === "RESET_FLOW") return finish(resetOutput(), "SYSTEM");
     if (nlu.operation === "GREETING") return finish(greetingOutput(actionDraft), "SYSTEM");
     if (nlu.operation === "ASK_CAPABILITIES") return finish(capabilitiesOutput(actionDraft), "SYSTEM");
@@ -152,7 +170,14 @@ class ChatbotService {
       INFO_OPERATIONS.has(nlu.operation) &&
       !(nlu.operation === "UNKNOWN" && hasSelection(draft));
     if (wantsInfo) {
-      const info = await InfoFlow.answer({ message: input.message, draft, aiEnabled: settings.aiEnabled && !aiUnavailable, model: settings.model });
+      const info = await InfoFlow.answer({
+        message: input.message,
+        draft,
+        aiEnabled: settings.aiEnabled && !aiUnavailable,
+        model: settings.model,
+        chunks: retrieval ? await retrieval : undefined,
+      });
+      mark("info");
       if (info) return finish(info.output, info.source, info.sourceIds);
       if (nlu.operation === "ASK_INFORMATION") return finish(noInformationOutput(draft), "SYSTEM");
     }
