@@ -18,6 +18,7 @@ export function DsDialog({
   description,
   footer,
   size = "md",
+  dismissOnOutsideClick = true,
   children,
 }: {
   open: boolean;
@@ -27,7 +28,10 @@ export function DsDialog({
   description?: string;
   /** Hàng nút hành động cuối hộp thoại. */
   footer?: React.ReactNode;
-  size?: "sm" | "md" | "lg";
+  /** xl: gần kín màn hình, cho việc dài như soạn bài (điện thoại thì kín hẳn). */
+  size?: "sm" | "md" | "lg" | "xl";
+  /** false: bấm ra ngoài không đóng (hộp có dữ liệu chưa lưu); Esc và nút đóng vẫn dùng được. */
+  dismissOnOutsideClick?: boolean;
   children?: React.ReactNode;
 }) {
   const container = useDsRoot();
@@ -39,6 +43,9 @@ export function DsDialog({
         <Dialog.Overlay className="ds-dialog-overlay" />
         <Dialog.Content
           className={cn("ds ds-dialog", `ds-dialog--${size}`)}
+          onInteractOutside={(event) => {
+            if (!dismissOnOutsideClick) event.preventDefault();
+          }}
           onOpenAutoFocus={() => {
             openerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
           }}
