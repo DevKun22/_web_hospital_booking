@@ -208,6 +208,11 @@
 }
 .ds-dialog--sm { width: min(400px, calc(100vw - 32px)); }
 .ds-dialog--lg { width: min(640px, calc(100vw - 32px)); }
+.ds-dialog--xl { width: min(1180px, calc(100vw - 32px)); height: calc(100dvh - 48px); }
+.ds-dialog--xl .ds-dialog__body { flex: 1; min-height: 0; padding-bottom: 12px; overflow: hidden; }
+@media (max-width: 720px) {
+  .ds-dialog--xl { width: 100vw; height: 100dvh; max-height: none; border-radius: 0; border: 0; }
+}
 .ds-dialog__head { display: flex; align-items: flex-start; gap: 12px; padding: 18px 12px 12px 20px; }
 .ds-dialog__heading { flex: 1; min-width: 0; }
 .ds-dialog__title { margin: 0; font-size: 17px; font-weight: 600; line-height: 1.3; }
@@ -495,3 +500,44 @@
 .ds .ds-savebar__msg { flex: 1; color: var(--ds-muted); font-size: 13px; }
 .ds .ds-pager { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 14px 18px; border-top: 1px solid var(--ds-line); color: var(--ds-muted); font-size: 14px; flex-wrap: wrap; }
 .ds .ds-pane__body--flush { padding: 0; gap: 0; overflow-y: auto; min-height: 0; display: flex; flex-direction: column; }
+
+/* ---- Soạn bài viết (TipTap): khung soạn, thanh công cụ, kiểu chữ trong vùng soạn ---- */
+.ds .ds-editor-shell { display: flex; flex-direction: column; min-height: 0; flex: 1; border: 1px solid var(--ds-line); border-radius: var(--ds-radius); background: var(--ds-surface); }
+.ds .ds-editor-shell--loading { min-height: 240px; background: var(--ds-sunken); }
+.ds .ds-editor-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 2px; padding: 6px 8px; border-bottom: 1px solid var(--ds-line); background: var(--ds-sunken); position: sticky; top: 0; z-index: 1; }
+.ds .ds-editor-toolbar__sep { width: 1px; height: 20px; margin: 0 6px; background: var(--ds-line-strong); }
+.ds .ds-editor-toolbar__btn { display: inline-grid; place-items: center; width: 34px; height: 34px; border: 0; border-radius: var(--ds-radius-sm); background: transparent; color: var(--ds-ink); cursor: pointer; }
+.ds .ds-editor-toolbar__btn svg { width: 18px; height: 18px; }
+.ds .ds-editor-toolbar__btn:hover:not(:disabled) { background: var(--ds-line); }
+.ds .ds-editor-toolbar__btn[aria-pressed="true"] { background: var(--ds-accent-soft, var(--ds-line)); color: var(--ds-accent); }
+.ds .ds-editor-toolbar__btn:disabled { opacity: 0.4; cursor: default; }
+.ds .ds-editor-link { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px; border-bottom: 1px solid var(--ds-line); }
+.ds .ds-editor-link .ds-input { flex: 1 1 220px; min-width: 0; }
+.ds .ds-editor-link__error { flex-basis: 100%; color: var(--ds-bad); font-size: 12px; }
+.ds .ds-editor-content { flex: 1; min-height: 0; overflow-y: auto; }
+.ds .ds-prose { min-height: 100%; padding: 16px 20px; outline: none; font-size: 15px; line-height: 1.75; color: var(--ds-ink); }
+.ds .ds-prose > * + * { margin-top: 0.9em; }
+.ds .ds-prose h2 { margin-top: 1.4em; font-size: 20px; line-height: 1.35; font-weight: 600; }
+.ds .ds-prose h3 { margin-top: 1.1em; font-size: 17px; line-height: 1.4; font-weight: 600; }
+.ds .ds-prose ul, .ds .ds-prose ol { padding-left: 1.4em; }
+.ds .ds-prose ul { list-style: disc; }
+.ds .ds-prose ol { list-style: decimal; }
+.ds .ds-prose li > p { margin: 0; }
+.ds .ds-prose blockquote { margin-left: 0; padding: 6px 14px; border-left: 3px solid var(--ds-accent); background: var(--ds-sunken); }
+.ds .ds-prose a { color: var(--ds-accent); text-decoration: underline; text-underline-offset: 2px; cursor: text; }
+
+/* ---- Hộp soạn bài: lưới hai cột (soạn bên trái, thông tin bài bên phải), một cột trên màn hẹp ---- */
+.ds .ds-article-grid, .ds-dialog .ds-article-grid { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 16px; height: 100%; min-height: 0; }
+.ds-dialog .ds-article-main { display: flex; flex-direction: column; gap: 10px; min-height: 0; min-width: 0; }
+.ds-dialog .ds-article-side { display: flex; flex-direction: column; gap: 12px; overflow-y: auto; min-height: 0; padding-right: 2px; }
+.ds-dialog .ds-article-title { width: 100%; padding: 6px 2px; border: 0; border-bottom: 1px solid var(--ds-line); background: transparent; color: var(--ds-ink); font: 600 22px/1.3 var(--ds-font); outline: none; }
+.ds-dialog .ds-article-title:focus { border-bottom-color: var(--ds-accent); }
+.ds-dialog .ds-article-title:disabled { color: var(--ds-muted); }
+.ds-dialog .ds-article-slug { display: flex; align-items: center; gap: 6px; }
+.ds-dialog .ds-article-slug code { flex: 1; min-width: 0; overflow-wrap: anywhere; font: 12px/1.4 var(--ds-mono); color: var(--ds-muted); }
+.ds-dialog .ds-article-foot-note { margin-right: auto; align-self: center; color: var(--ds-muted); font-size: 13px; }
+@media (max-width: 900px) {
+  .ds-dialog .ds-article-grid { grid-template-columns: minmax(0, 1fr); height: auto; overflow-y: auto; align-content: start; }
+  .ds-dialog .ds-article-main { min-height: 420px; }
+  .ds-dialog .ds-article-side { overflow: visible; }
+}

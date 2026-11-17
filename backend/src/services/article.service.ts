@@ -6,11 +6,16 @@ import { createSlug } from "../utils/slug.js";
 import KnowledgeService from "./chatbot/rag/knowledge.service.js";
 import { roleHasAnyPermission } from "./rbac.service.js";
 
-// Bài viết kiến thức sức khỏe. Người viết (quản trị, nhân viên, bác sĩ) lưu bản nháp; chỉ quản trị xuất bản, và phải ghi người
-// duyệt nội dung chuyên môn. Bài đã xuất bản hiện ở /kien-thuc và là nguồn tri thức cho chatbot (đồng bộ ngay khi đổi).
+// Bài viết kiến thức sức khỏe, đi qua ba giai đoạn:
+//   chờ duyệt  → bác sĩ duyệt nội dung bằng tài khoản của mình (người duyệt không gõ tay, người viết không tự duyệt)
+//   đã duyệt   → quản trị xuất bản
+//   đã xuất bản → hiện ở /kien-thuc và là nguồn tri thức cho chatbot (đồng bộ ngay khi đổi)
+// Sửa nội dung (tiêu đề, tóm tắt, nội dung) thì dấu duyệt bị xóa và bài về bản nháp: thứ người khám đọc luôn là bản đã được duyệt.
 
 /** Bài quá ngắn không đủ làm tài liệu tham khảo. */
 const MIN_PUBLISH_CONTENT = 300;
+
+export type ArticleStage = "PENDING_REVIEW" | "READY" | "PUBLISHED";
 
 type Actor = { userId: string; role: string };
 
@@ -21,8 +26,6 @@ type ArticleInput = {
   content?: string;
   category?: string | null;
   departmentId?: string | null;
-  authorName?: string | null;
-  reviewerName?: string | null;
 };
 
 const blankToNull = (value?: string | null) => {
@@ -30,7 +33,10 @@ const blankToNull = (value?: string | null) => {
   return trimmed ? trimmed : null;
 };
 
-const listSelect = {
+const departmentSelect = { select: { id: true, name: true, slug: true } } as const;
+
+/** Trang công khai không bao giờ thấy mã tài khoản nhân sự. */
+const publicListSelect = {
   id: true,
   slug: true,
   title: true,
@@ -42,10 +48,21 @@ const listSelect = {
   status: true,
   publishedAt: true,
   updatedAt: true,
-  department: { select: { id: true, name: true, slug: true } },
+  department: departmentSelect,
 } satisfies Prisma.ArticleSelect;
 
-const detailSelect = { ...listSelect, content: true, createdAt: true, departmentId: true } satisfies Prisma.ArticleSelect;
+const publicDetailSelect = { ...publicListSelect, content: true, createdAt: true, departmentId: true } satisfies Prisma.ArticleSelect;
+
+const dashboardListSelect = { ...publicListSelect, authorId: true, reviewedById: true } satisfies Prisma.ArticleSelect;
+
+const dashboardDetailSelect = { ...dashboardListSelect, content: true, createdAt: true, departmentId: true } satisfies Prisma.ArticleSelect;
+
+const stageWhere = (stage?: ArticleStage): Prisma.ArticleWhereInput => {
+  if (stage === "PENDING_REVIEW") return { status: "DRAFT", reviewedAt: null };
+  if (stage === "READY") return { status: "DRAFT", reviewedAt: { not: null } };
+  if (stage === "PUBLISHED") return { status: "PUBLISHED" };
+  return {};
+};
 
 class ArticleService {
   // ---- Công khai ----
@@ -60,7 +77,7 @@ class ArticleService {
         : {}),
     };
     const [items, total, categories] = await Promise.all([
-      prisma.article.findMany({ where, select: listSelect, orderBy: { publishedAt: "desc" }, skip: query.skip, take: query.limit }),
+      prisma.article.findMany({ where, select: publicListSelect, orderBy: { publishedAt: "desc" }, skip: query.skip, take: query.limit }),
       prisma.article.count({ where }),
       prisma.article.groupBy({ by: ["category"], where: { status: "PUBLISHED", category: { not: null } }, _count: { _all: true } }),
     ]);
@@ -72,27 +89,27 @@ class ArticleService {
   }
 
   async getPublicBySlug(slug: string) {
-    const article = await prisma.article.findFirst({ where: { slug, status: "PUBLISHED" }, select: detailSelect });
+    const article = await prisma.article.findFirst({ where: { slug, status: "PUBLISHED" }, select: publicDetailSelect });
     if (!article) throw new AppError("Không tìm thấy bài viết", 404);
     return article;
   }
 
   // ---- Dashboard ----
 
-  async listDashboard(query: { status?: "DRAFT" | "PUBLISHED"; search?: string; skip: number; limit: number }) {
+  async listDashboard(query: { stage?: ArticleStage; search?: string; skip: number; limit: number }) {
     const where: Prisma.ArticleWhereInput = {
-      ...(query.status ? { status: query.status } : {}),
+      ...stageWhere(query.stage),
       ...(query.search ? { title: { contains: query.search, mode: "insensitive" } } : {}),
     };
     const [items, total] = await Promise.all([
-      prisma.article.findMany({ where, select: listSelect, orderBy: { updatedAt: "desc" }, skip: query.skip, take: query.limit }),
+      prisma.article.findMany({ where, select: dashboardListSelect, orderBy: { updatedAt: "desc" }, skip: query.skip, take: query.limit }),
       prisma.article.count({ where }),
     ]);
     return { items, total };
   }
 
   async getById(id: string) {
-    const article = await prisma.article.findUnique({ where: { id }, select: detailSelect });
+    const article = await prisma.article.findUnique({ where: { id }, select: dashboardDetailSelect });
     if (!article) throw new AppError("Không tìm thấy bài viết", 404);
     return article;
   }
@@ -109,25 +126,39 @@ class ArticleService {
         content: input.content,
         category: blankToNull(input.category),
         departmentId: input.departmentId || null,
-        authorName: blankToNull(input.authorName) ?? blankToNull(author?.fullName),
-        reviewerName: blankToNull(input.reviewerName),
+        authorId: actor.userId,
+        authorName: author?.fullName ?? null,
       },
-      select: detailSelect,
+      select: dashboardDetailSelect,
     });
     this.refreshKnowledge();
     return article;
   }
 
   async update(id: string, input: ArticleInput, actor: Actor) {
-    const current = await prisma.article.findUnique({ where: { id }, select: { status: true, slug: true, title: true } });
+    const current = await prisma.article.findUnique({
+      where: { id },
+      select: { status: true, slug: true, title: true, summary: true, content: true, publishedAt: true },
+    });
     if (!current) throw new AppError("Không tìm thấy bài viết", 404);
-    // Bài đã xuất bản đang hiển thị cho người khám và chatbot: chỉ người có quyền xuất bản mới sửa được.
+    // Bài đã xuất bản đang hiển thị cho người khám và chatbot: chỉ người có quyền xuất bản sửa được.
     if (current.status === "PUBLISHED" && !(await roleHasAnyPermission(actor.role, ["article.publish"]))) {
-      throw new AppError("Bài đã xuất bản chỉ quản trị sửa được. Hãy tạo bản nháp mới hoặc nhờ quản trị.", 403);
+      throw new AppError("Bài đã xuất bản chỉ quản trị sửa được. Hãy tạo bài nháp mới hoặc nhờ quản trị.", 403);
     }
     if (input.departmentId !== undefined) await this.assertDepartment(input.departmentId);
 
-    const slug = input.slug !== undefined && input.slug !== current.slug ? await this.uniqueSlug(input.slug || current.title, id) : undefined;
+    // Đường dẫn khóa sau lần xuất bản đầu: đổi sẽ làm hỏng liên kết đã chia sẻ, kết quả tìm kiếm và nguồn trích của chatbot.
+    const wantsNewSlug = input.slug !== undefined && input.slug !== current.slug;
+    if (wantsNewSlug && current.publishedAt) {
+      throw new AppError("Đường dẫn không đổi được sau khi bài đã xuất bản", 400);
+    }
+    const slug = wantsNewSlug ? await this.uniqueSlug(input.slug || input.title || current.title, id) : undefined;
+
+    const contentChanged =
+      (input.title !== undefined && input.title !== current.title) ||
+      (input.content !== undefined && input.content !== current.content) ||
+      (input.summary !== undefined && blankToNull(input.summary) !== blankToNull(current.summary));
+
     const article = await prisma.article.update({
       where: { id },
       data: {
@@ -137,34 +168,56 @@ class ArticleService {
         content: input.content,
         category: input.category === undefined ? undefined : blankToNull(input.category),
         departmentId: input.departmentId === undefined ? undefined : input.departmentId || null,
-        authorName: input.authorName === undefined ? undefined : blankToNull(input.authorName),
-        reviewerName: input.reviewerName === undefined ? undefined : blankToNull(input.reviewerName),
+        // Nội dung đổi: dấu duyệt không còn đúng, bài đang xuất bản trở về bản nháp chờ duyệt lại.
+        ...(contentChanged ? { reviewedById: null, reviewerName: null, reviewedAt: null, status: "DRAFT" as const } : {}),
       },
-      select: detailSelect,
+      select: dashboardDetailSelect,
     });
-    this.refreshKnowledge();
+    if (contentChanged || current.status === "PUBLISHED") this.refreshKnowledge();
     return article;
   }
 
-  async publish(id: string, reviewerName: string) {
-    const article = await prisma.article.findUnique({ where: { id }, select: { content: true, publishedAt: true } });
+  /** Bác sĩ duyệt nội dung bằng tài khoản của mình; người viết không tự duyệt bài của mình. */
+  async review(id: string, actor: Actor) {
+    const article = await prisma.article.findUnique({ where: { id }, select: { authorId: true } });
     if (!article) throw new AppError("Không tìm thấy bài viết", 404);
+    if (article.authorId === actor.userId) {
+      throw new AppError("Bạn là người viết bài này nên không tự duyệt được. Hãy nhờ bác sĩ khác duyệt.", 403);
+    }
+    const reviewer = await prisma.user.findUnique({
+      where: { id: actor.userId },
+      select: { fullName: true, doctorProfile: { select: { title: true } } },
+    });
+    if (!reviewer) throw new AppError("Không tìm thấy tài khoản người duyệt", 404);
+    const displayName = [reviewer.doctorProfile?.title, reviewer.fullName].filter(Boolean).join(" ");
+    return prisma.article.update({
+      where: { id },
+      data: { reviewedById: actor.userId, reviewerName: displayName, reviewedAt: new Date() },
+      select: dashboardDetailSelect,
+    });
+  }
+
+  async publish(id: string) {
+    const article = await prisma.article.findUnique({ where: { id }, select: { content: true, publishedAt: true, reviewedAt: true } });
+    if (!article) throw new AppError("Không tìm thấy bài viết", 404);
+    if (!article.reviewedAt) throw new AppError("Bài chưa được bác sĩ duyệt nội dung nên chưa xuất bản được", 400);
     if (article.content.trim().length < MIN_PUBLISH_CONTENT) {
       throw new AppError(`Nội dung cần ít nhất ${MIN_PUBLISH_CONTENT} ký tự mới xuất bản được`, 400);
     }
     const published = await prisma.article.update({
       where: { id },
-      data: { status: "PUBLISHED", reviewerName, reviewedAt: new Date(), publishedAt: article.publishedAt ?? new Date() },
-      select: detailSelect,
+      data: { status: "PUBLISHED", publishedAt: article.publishedAt ?? new Date() },
+      select: dashboardDetailSelect,
     });
     this.refreshKnowledge();
     return published;
   }
 
+  /** Gỡ khỏi website và chatbot nhưng giữ dấu duyệt: nội dung không đổi nên xuất bản lại được ngay. */
   async unpublish(id: string) {
     const exists = await prisma.article.findUnique({ where: { id }, select: { id: true } });
     if (!exists) throw new AppError("Không tìm thấy bài viết", 404);
-    const article = await prisma.article.update({ where: { id }, data: { status: "DRAFT" }, select: detailSelect });
+    const article = await prisma.article.update({ where: { id }, data: { status: "DRAFT" }, select: dashboardDetailSelect });
     this.refreshKnowledge();
     return article;
   }

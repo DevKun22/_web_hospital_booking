@@ -291,6 +291,10 @@ model User {
   mediaAssets MediaAsset[]
   dependents               DependentProfile[]        @relation("DependentOwner")
 
+  // Bài viết kiến thức sức khỏe (người viết và bác sĩ duyệt nội dung)
+  articlesAuthored Article[] @relation("ArticleAuthor")
+  articlesReviewed Article[] @relation("ArticleReviewer")
+
   // Pharmacy (dược sĩ cấp thuốc và thao tác kho)
   dispensedPrescriptions Prescription[]  @relation("PrescriptionDispensedBy")
   stockMovements         StockMovement[]
@@ -1487,7 +1491,8 @@ enum ArticleStatus {
 }
 
 // Bài viết kiến thức sức khỏe (Markdown) trên trang /kien-thuc; bài đã xuất bản cũng là nguồn tri thức cho chatbot.
-// Chỉ quản trị mới xuất bản, và phải ghi người duyệt nội dung chuyên môn.
+// Bác sĩ duyệt nội dung chuyên môn bằng tài khoản của mình (người duyệt không gõ tay); quản trị chỉ xuất bản bài đã được duyệt.
+// Sửa nội dung thì dấu duyệt bị xóa và bài về bản nháp chờ duyệt lại.
 model Article {
   id String @id @default(uuid())
 
@@ -1500,8 +1505,13 @@ model Article {
   departmentId String?
   department   Department? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
 
-  authorName   String?
-  reviewerName String?
+  authorId   String?
+  author     User?   @relation("ArticleAuthor", fields: [authorId], references: [id], onDelete: SetNull)
+  authorName String?
+
+  reviewedById String?
+  reviewedBy   User?     @relation("ArticleReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+  reviewerName String? // Tên hiển thị công khai (kèm học hàm), chụp lại lúc duyệt
   reviewedAt   DateTime?
 
   status      ArticleStatus @default(DRAFT)
@@ -1512,6 +1522,8 @@ model Article {
 
   @@index([status, publishedAt])
   @@index([departmentId])
+  @@index([authorId])
+  @@index([reviewedById])
 }
 
 // Kho tri thức của chatbot (RAG): mỗi dòng là một đoạn văn dựng từ FAQ, chuyên khoa, bác sĩ, gói khám, chính sách hoặc

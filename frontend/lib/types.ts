@@ -1052,7 +1052,9 @@ export type ArticleSummary = {
   title: string;
   summary: string | null;
   category: string | null;
+  authorId?: string | null; // chỉ có ở dashboard, trang công khai không trả mã tài khoản
   authorName: string | null;
+  reviewedById?: string | null;
   reviewerName: string | null;
   reviewedAt: string | null;
   status: ArticleStatus;
