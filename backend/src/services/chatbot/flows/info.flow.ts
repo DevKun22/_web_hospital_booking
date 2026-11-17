@@ -65,6 +65,9 @@ export const noInformationOutput = (draft: ChatBookingDraft): AIChatbotOutput =>
   suggestedActions: knowledgeActions(false),
 });
 
+/** Kết quả một lần nhờ AI sinh câu trả lời: có câu trả lời, AI báo không đủ căn cứ (grounded null), hoặc không gọi được AI (failed). */
+export type Generation = { grounded: GroundedAnswer | null; failed: boolean };
+
 class InfoFlow {
   /** Câu trả lời đã có trong bộ nhớ đệm cho đúng câu hỏi này, nếu có. */
   cached(input: { message: string; draft: ChatBookingDraft; aiEnabled: boolean; model?: string }): InfoResult | null {
@@ -77,8 +80,31 @@ class InfoFlow {
     return KnowledgeService.retrieve(message, { limit: RETRIEVED_LIMIT });
   }
 
-  /** Trả lời một câu hỏi thông tin; null khi kho không có đoạn nào liên quan. `chunks` có sẵn thì khỏi truy hồi lại. */
-  async answer(input: { message: string; draft: ChatBookingDraft; aiEnabled: boolean; model?: string; chunks?: RetrievedChunk[] | null }): Promise<InfoResult | null> {
+  /**
+   * Nhờ AI sinh câu trả lời từ các đoạn tìm được. Không bao giờ ném lỗi (lỗi thành `failed`), để có thể bắt đầu sớm,
+   * chạy song song với việc AI phân tích ý định, và bỏ kết quả đi nếu câu hóa ra không phải câu hỏi thông tin.
+   */
+  generate(input: { message: string; chunks: RetrievedChunk[]; model?: string }): Promise<Generation> {
+    return answerFromSources({ question: input.message, chunks: input.chunks, model: input.model })
+      .then((grounded) => ({ grounded, failed: false }))
+      .catch((error) => {
+        logger.warn("[CHATBOT_RAG] Không gọi được AI, dùng đoạn khớp nhất:", error);
+        return { grounded: null, failed: true };
+      });
+  }
+
+  /**
+   * Trả lời một câu hỏi thông tin; null khi kho không có đoạn nào liên quan. `chunks` có sẵn thì khỏi truy hồi lại;
+   * `generation` có sẵn (đã bắt đầu từ trước) thì chờ nó thay vì gọi AI lần nữa.
+   */
+  async answer(input: {
+    message: string;
+    draft: ChatBookingDraft;
+    aiEnabled: boolean;
+    model?: string;
+    chunks?: RetrievedChunk[] | null;
+    generation?: Promise<Generation | null> | null;
+  }): Promise<InfoResult | null> {
     const version = KnowledgeService.version;
     const chunks = input.chunks ?? (await this.retrieve(input.message));
     if (!chunks.length) return null;
@@ -86,13 +112,16 @@ class InfoFlow {
     // AI trả lời "không đủ căn cứ" thì tôn trọng; chỉ khi AI tắt hoặc không gọi được mới trả nguyên văn đoạn khớp nhất.
     let grounded: GroundedAnswer | null = null;
     let aiFailed = !input.aiEnabled;
-    if (input.aiEnabled) {
-      try {
-        grounded = await answerFromSources({ question: input.message, chunks, model: input.model });
-      } catch (error) {
-        aiFailed = true;
-        logger.warn("[CHATBOT_RAG] Không gọi được AI, dùng đoạn khớp nhất:", error);
+    if (input.generation) {
+      const generation = await input.generation;
+      if (generation) {
+        grounded = generation.grounded;
+        aiFailed = generation.failed;
       }
+    } else if (input.aiEnabled) {
+      const generation = await this.generate({ message: input.message, chunks, model: input.model });
+      grounded = generation.grounded;
+      aiFailed = generation.failed;
     }
     const answer = grounded ?? (aiFailed ? extractiveAnswer(chunks) : null);
     if (!answer) return null;

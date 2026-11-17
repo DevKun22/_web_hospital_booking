@@ -70,10 +70,14 @@ export const answerFromSources = async (input: {
   }
 };
 
+/** Đường lùi chỉ dùng khi đoạn đầu khớp rất rõ (phủ phần lớn từ khóa hoặc rất gần về ý nghĩa): trả lời sai còn tệ hơn nói chưa có thông tin. */
+const EXTRACTIVE_MIN_COVERAGE = 0.7;
+const EXTRACTIVE_MIN_SIMILARITY = 0.75;
+
 /** Đường lùi khi AI không dùng được: trả nguyên văn đoạn khớp nhất (câu trả lời của FAQ, hoặc nội dung đoạn). */
 export const extractiveAnswer = (chunks: RetrievedChunk[]): GroundedAnswer | null => {
   const top = chunks[0];
-  if (!top) return null;
+  if (!top || (top.coverage < EXTRACTIVE_MIN_COVERAGE && (top.similarity ?? 0) < EXTRACTIVE_MIN_SIMILARITY)) return null;
   const answerMatch = top.chunk.content.match(/Trả lời:\s*([\s\S]+)$/);
   const text = (answerMatch ? answerMatch[1] : top.chunk.content).replace(/\s*\n\s*/g, " ").trim();
   // Gợi ý chuyên khoa là định hướng ban đầu, không phải chẩn đoán.

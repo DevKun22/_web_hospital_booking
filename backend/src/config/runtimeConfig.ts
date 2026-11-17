@@ -106,7 +106,7 @@ export const getRuntimeConfig = (env: NodeJS.ProcessEnv = process.env) => {
       model: trimmed(env.GEMINI_MODEL) || "gemini-flash-lite-latest",
       embeddingModel: trimmed(env.GEMINI_EMBEDDING_MODEL) || "gemini-embedding-001",
       aiTimeoutMs: Math.min(
-        Math.max(positiveInteger(env.CHATBOT_AI_TIMEOUT_MS, 8_000), 1_000),
+        Math.max(positiveInteger(env.CHATBOT_AI_TIMEOUT_MS, 10_000), 1_000),
         12_000,
       ),
       geminiApiKey: trimmed(env.GEMINI_API_KEY),

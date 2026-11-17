@@ -128,6 +128,13 @@ class ChatbotService {
     }
     // Truy hồi chạy song song với việc AI phân tích ý định: hai bước độc lập, gộp lại tiết kiệm một vòng chờ.
     const retrieval = infoEligible ? InfoFlow.retrieve(input.message).catch(() => null) : null;
+    // Sinh câu trả lời cũng bắt đầu ngay khi có đoạn tri thức, song song với phân tích ý định: tổng thời gian là lần chậm hơn
+    // thay vì cộng hai lần. Nếu hóa ra không phải câu hỏi thông tin thì bỏ kết quả (tốn thêm một lần gọi AI). Phân tích ý định
+    // hết hạn mà câu trả lời đã sẵn thì vẫn dùng được câu trả lời.
+    const generation =
+      retrieval && settings.aiEnabled
+        ? retrieval.then((chunks) => (chunks?.length ? InfoFlow.generate({ message: input.message, chunks, model: settings.model }) : null))
+        : null;
 
     let nlu = emptyNLUResult();
     let aiUnavailable = false;
@@ -178,9 +185,10 @@ class ChatbotService {
       const info = await InfoFlow.answer({
         message: input.message,
         draft,
-        aiEnabled: settings.aiEnabled && !aiUnavailable,
+        aiEnabled: settings.aiEnabled,
         model: settings.model,
         chunks: retrieval ? await retrieval : undefined,
+        generation,
       });
       mark("info");
       if (info) return finish(info.output, info.source, info.sourceIds);
