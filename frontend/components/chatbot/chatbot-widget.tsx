@@ -3,6 +3,7 @@
 import { RotateCcw, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
+import type { ChatbotSuggestedAction } from "@/lib/types";
 import { BookingCard } from "@/components/chatbot/booking-card";
 import { ChatComposer } from "@/components/chatbot/chat-composer";
 import { ChatMessage } from "@/components/chatbot/chat-message";
@@ -33,6 +34,12 @@ export function ChatbotWidget() {
   const close = useCallback(() => setOpen(false), []);
 
   useDialogA11y(open, dialogRef, close);
+
+  // Mở khung chat; bấm nút trong tin nổi thì gửi luôn yêu cầu đó, khỏi bắt người dùng gõ.
+  const openChat = (start?: ChatbotSuggestedAction) => {
+    setOpen(true);
+    if (start) void chat.send(start.label, { action: start });
+  };
 
   useEffect(() => {
     const openChat = () => setOpen(true);
@@ -137,7 +144,7 @@ export function ChatbotWidget() {
           </div>
         </section>
       ) : (
-        <ChatbotLauncher online={online} statusText={statusText} onOpen={() => setOpen(true)} />
+        <ChatbotLauncher online={online} statusText={statusText} onOpen={openChat} />
       )}
     </div>
   );

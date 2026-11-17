@@ -125,3 +125,22 @@ export const getNavigationTarget = (action: ChatbotSuggestedAction, draft?: Chat
   }
   return null;
 };
+
+export type KunTeaser = { message: string; chips: ChatbotSuggestedAction[] };
+
+const findDepartmentChip: ChatbotSuggestedAction = { type: "VIEW_DEPARTMENTS", label: "Tìm chuyên khoa", payload: {} };
+const viewPackagesChip: ChatbotSuggestedAction = { type: "VIEW_PACKAGES", label: "Xem gói khám", payload: {} };
+
+/**
+ * Tin nhắn nổi của Kun theo trang đang xem (thay vì một câu chung cho mọi trang), kèm vài nút bấm để hỏi ngay.
+ * Trang người dùng đang điền biểu mẫu hay thanh toán thì im lặng, không chen ngang.
+ */
+export const getKunTeaser = (pathname: string): KunTeaser | null => {
+  if (/^\/(dat-lich|thanh-toan|login|tai-khoan)(\/|$)/.test(pathname)) return null;
+  if (pathname.startsWith("/kien-thuc/")) return { message: "Cần hỏi thêm về bài viết này? Cứ hỏi mình, mình trả lời kèm nguồn nhé.", chips: [findDepartmentChip] };
+  if (pathname.startsWith("/kien-thuc")) return { message: "Bạn đang thắc mắc về sức khỏe? Hỏi Kun, mình tìm trong các bài đã được bác sĩ duyệt.", chips: [findDepartmentChip] };
+  if (pathname.startsWith("/bac-si")) return { message: "Chưa biết nên chọn bác sĩ nào? Kể mình nghe triệu chứng, mình gợi ý giúp.", chips: [findDepartmentChip] };
+  if (pathname.startsWith("/chuyen-khoa")) return { message: "Không rõ nên khám chuyên khoa nào? Mô tả triệu chứng, Kun gợi ý cho bạn.", chips: [findDepartmentChip, viewPackagesChip] };
+  if (pathname.startsWith("/goi-kham")) return { message: "Cần chọn gói khám phù hợp? Hỏi Kun về giá và nội dung gói nhé.", chips: [viewPackagesChip, findDepartmentChip] };
+  return { message: "Chào bạn, mình là Kun. Cần tìm bác sĩ hay đặt lịch khám, cứ hỏi mình nhé.", chips: [findDepartmentChip, viewPackagesChip] };
+};

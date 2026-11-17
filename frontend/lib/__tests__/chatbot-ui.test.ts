@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   buildBookingHref,
   getBookingProgress,
+  getKunTeaser,
   getNavigationTarget,
   getQuickReplies,
   getSelectionChips,
@@ -67,4 +68,15 @@ test("gợi ý nhanh bỏ nút trùng thẻ kết quả và nút cấp cứu, gi
     results,
   );
   assert.deepEqual(replies.map((item) => item.type), ["A", "B", "C", "D"]);
+});
+
+test("tin nhắn nổi của Kun theo trang; im lặng ở trang đặt lịch, thanh toán và tài khoản", () => {
+  assert.equal(getKunTeaser("/dat-lich"), null);
+  assert.equal(getKunTeaser("/thanh-toan/abc"), null);
+  assert.equal(getKunTeaser("/tai-khoan/lich-hen"), null);
+  assert.match(getKunTeaser("/kien-thuc/an-uong")!.message, /bài viết này/);
+  assert.match(getKunTeaser("/chuyen-khoa")!.message, /triệu chứng/);
+  const home = getKunTeaser("/")!;
+  assert.match(home.message, /Kun/);
+  assert.ok(home.chips.length >= 1 && home.chips.every((chip) => chip.label));
 });
