@@ -180,3 +180,30 @@ test("bộ nhớ đệm: hết hạn theo thời gian, theo phiên bản kho và
   await new Promise((resolve) => setTimeout(resolve, 40));
   assert.equal(cache.get("c", 1), undefined);
 });
+
+test("bài viết Markdown: cắt theo mục, gộp mục ngắn, tách mục dài và neo đúng theo tiêu đề mục", async () => {
+  const { articleDocs, splitArticleSections, stripMarkdown } = await import("../../src/services/chatbot/rag/chunker.js");
+  const long = "Câu dài về dinh dưỡng và nước uống mỗi ngày. ".repeat(18);
+  const markdown = [
+    "Giới thiệu ngắn về bài.",
+    "## Uống đủ nước",
+    long,
+    "## Mục ngắn",
+    "Chỉ một câu.",
+    "## Khi nào cần đi khám",
+    long + "\n\n" + long + "\n\n" + long,
+  ].join("\n\n");
+
+  const sections = splitArticleSections(markdown);
+  assert.ok(sections.length >= 4);
+  assert.ok(sections.every((section) => section.body.length <= 1500));
+  assert.ok(sections.some((section) => section.body.includes("Chỉ một câu")), "mục ngắn vẫn còn nội dung");
+
+  const docs = articleDocs({ id: "a1", slug: "an-uong", title: "Ăn uống mùa nóng", summary: "Tóm tắt", content: markdown, department: { name: "Khoa tổng quát" } });
+  assert.ok(docs.every((doc) => doc.sourceType === "ARTICLE" && doc.title === "Ăn uống mùa nóng"));
+  assert.equal(new Set(docs.map((doc) => doc.sourceId)).size, docs.length, "mỗi đoạn có mã riêng");
+  assert.ok(docs.some((doc) => doc.url === "/kien-thuc/an-uong#khi-nao-can-di-kham"));
+  assert.match(docs[0].content, /Liên quan chuyên khoa Khoa tổng quát/);
+
+  assert.equal(stripMarkdown("**Đậm** và [liên kết](https://x.test) cùng `mã`\n\n\n\n- mục"), "Đậm và liên kết cùng mã\n\n- mục");
+});

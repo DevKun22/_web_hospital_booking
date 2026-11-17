@@ -22,11 +22,37 @@ const knowledgeActions = (hasAnswer: boolean): AIChatbotOutput["suggestedActions
   { type: "CONTACT_STAFF", label: hasAnswer ? "Liên hệ hỗ trợ" : "Hỏi nhân viên hỗ trợ", payload: {} },
 ];
 
-const toSources = (chunks: RetrievedChunk[], ids: string[]): ChatbotSource[] =>
-  ids
+/** Nhiều đoạn của cùng một bài viết chỉ hiện một nguồn (đoạn đầu tiên được dùng, trỏ đúng mục đó). */
+const toSources = (chunks: RetrievedChunk[], ids: string[]): ChatbotSource[] => {
+  const seen = new Set<string>();
+  return ids
     .map((id) => chunks.find((item) => item.chunk.id === id))
     .filter((item): item is RetrievedChunk => Boolean(item))
+    .filter((item) => {
+      const key = `${item.chunk.sourceType}:${item.chunk.sourceId.split("#")[0]}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
     .map((item) => ({ id: item.chunk.id, type: item.chunk.sourceType, title: item.chunk.title, url: item.chunk.url }));
+};
+
+/** Nội dung sức khỏe luôn kèm lời nhắc, do mã thêm vào chứ không nhờ AI nhớ. */
+const HEALTH_DISCLAIMER = "Đây là thông tin tham khảo, không thay thế tư vấn của bác sĩ.";
+
+/** Hỏi lại đúng câu vừa hỏi mà vẫn chưa có thông tin: nói thẳng và đưa người dùng tới nhân viên, không lặp y nguyên. */
+export const noInformationRepeatOutput = (draft: ChatBookingDraft): AIChatbotOutput => ({
+  reply: "Mình vẫn chưa có thông tin về câu này nên không muốn nói bừa. Bạn thử hỏi cách khác, hoặc nhờ nhân viên hỗ trợ trả lời trực tiếp giúp bạn nhé.",
+  intent: "GENERAL_HOSPITAL_INFO",
+  state: "BOOKING_GUIDE",
+  nextStep: "SHOW_BOOKING_GUIDE",
+  confidence: 0.3,
+  draft,
+  suggestedActions: [
+    { type: "CONTACT_STAFF", label: "Hỏi nhân viên hỗ trợ", payload: {} },
+    { type: "VIEW_DEPARTMENTS", label: "Xem chuyên khoa", payload: {} },
+  ],
+});
 
 export const noInformationOutput = (draft: ChatBookingDraft): AIChatbotOutput => ({
   reply:
@@ -71,10 +97,12 @@ class InfoFlow {
     const answer = grounded ?? (aiFailed ? extractiveAnswer(chunks) : null);
     if (!answer) return null;
 
-    const hasFaq = answer.sourceIds.some((id) => chunks.find((item) => item.chunk.id === id)?.chunk.sourceType === "FAQ");
+    const usedTypes = answer.sourceIds.map((id) => chunks.find((item) => item.chunk.id === id)?.chunk.sourceType);
+    const hasFaq = usedTypes.includes("FAQ");
+    const reply = usedTypes.includes("ARTICLE") && !answer.reply.includes(HEALTH_DISCLAIMER) ? `${answer.reply} ${HEALTH_DISCLAIMER}` : answer.reply;
     const result: InfoResult = {
       output: {
-        reply: answer.reply,
+        reply,
         intent: "GENERAL_HOSPITAL_INFO",
         state: "BOOKING_GUIDE",
         nextStep: "END",

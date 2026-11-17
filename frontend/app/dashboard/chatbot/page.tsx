@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { ChatbotKnowledgePanel } from "@/components/dashboard/chatbot-knowledge-panel";
 import {
   DsButton,
   DsDataTable,
@@ -59,6 +60,12 @@ const tabs: { id: TabKey; label: string }[] = [
   { id: "sessions", label: "Phiên" },
   { id: "logs", label: "Nhật ký" },
   { id: "settings", label: "Cấu hình" },
+];
+
+/** Mô hình Gemini cho phép chọn: bí danh -latest không bị ngừng cấp như tên phiên bản cố định (gemini-2.5-flash đã ngừng với khóa mới). */
+const MODEL_OPTIONS = [
+  { value: "gemini-flash-lite-latest", label: "Flash-Lite (nhanh, tiết kiệm, khuyên dùng)" },
+  { value: "gemini-flash-latest", label: "Flash (mạnh hơn, chậm hơn)" },
 ];
 
 const formatDateTime = (value?: string | null) => (value ? formatVietnamDateTime(value) : "-");
@@ -456,11 +463,18 @@ export default function ChatbotPage() {
         </p>
         {toggle(settingsActive, setSettingsActive, "Bật trợ lý tư vấn trên trang người dùng", "Tắt sẽ ẩn cửa sổ trò chuyện ở trang người dùng.")}
         {toggle(settingsForm.aiEnabled, (next) => setSettingsForm((current) => ({ ...current, aiEnabled: next })), "Bật trí tuệ nhân tạo")}
-        {toggle(settingsForm.faqEnabled, (next) => setSettingsForm((current) => ({ ...current, faqEnabled: next })), "Bật câu hỏi thường gặp", "Câu hỏi thường gặp được quản lý tại Cấu hình website.")}
+        {toggle(settingsForm.faqEnabled, (next) => setSettingsForm((current) => ({ ...current, faqEnabled: next })), "Bật kho tri thức", "Kun tra cứu hỏi đáp, chuyên khoa, bác sĩ, gói khám, chính sách và bài viết kiến thức để trả lời.")}
         {toggle(settingsForm.fallbackEnabled, (next) => setSettingsForm((current) => ({ ...current, fallbackEnabled: next })), "Dùng câu trả lời dự phòng khi có lỗi")}
         <div className="ds-grid-fields">
-          <DsField label="Mô hình xử lý" htmlFor="cb-model">
-            <DsInput id="cb-model" value={settingsForm.model} disabled={!canAdmin} onChange={(event) => setSettingsForm((current) => ({ ...current, model: event.target.value }))} />
+          <DsField label="Mô hình xử lý" htmlFor="cb-model" hint="Bí danh -latest tự trỏ về bản hiện hành nên không bị Google ngừng cấp như tên phiên bản cố định">
+            <DsSelect id="cb-model" value={settingsForm.model} disabled={!canAdmin} onChange={(event) => setSettingsForm((current) => ({ ...current, model: event.target.value }))}>
+              {MODEL_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+              {MODEL_OPTIONS.some((option) => option.value === settingsForm.model) ? null : <option value={settingsForm.model}>{settingsForm.model} (đang dùng, tùy chỉnh)</option>}
+            </DsSelect>
           </DsField>
           <DsField label="Số hành động gợi ý" htmlFor="cb-actions" hint="1 đến 6">
             <DsInput id="cb-actions" type="number" min={1} max={6} value={settingsForm.maxSuggestedActions} disabled={!canAdmin} onChange={(event) => setSettingsForm((current) => ({ ...current, maxSuggestedActions: Number(event.target.value) }))} />
@@ -493,7 +507,7 @@ export default function ChatbotPage() {
         {activeTab === "overview" ? (overviewQuery.isLoading ? <DsLoading label="Đang tải dữ liệu trợ lý tư vấn..." /> : overviewView) : null}
         {activeTab === "sessions" ? <DsSplit list={sessionList} pane={sessionPane} /> : null}
         {activeTab === "logs" ? logsView : null}
-        {activeTab === "settings" ? (settingsQuery.isLoading ? <DsLoading label="Đang tải cấu hình..." /> : settingsView) : null}
+        {activeTab === "settings" ? (settingsQuery.isLoading ? <DsLoading label="Đang tải cấu hình..." /> : <div style={{ display: "grid", gap: 16 }}>{settingsView}<ChatbotKnowledgePanel canSync={canAdmin} /></div>) : null}
       </div>
     </>
   );

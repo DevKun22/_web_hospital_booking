@@ -1041,3 +1041,34 @@ export type DashboardFAQ = PublicFAQ & {
   showOnWeb: boolean;
   useInChatbot: boolean;
 };
+
+// ---- Bài viết kiến thức sức khỏe ----
+
+export type ArticleStatus = "DRAFT" | "PUBLISHED";
+
+export type ArticleSummary = {
+  id: string;
+  slug: string;
+  title: string;
+  summary: string | null;
+  category: string | null;
+  authorName: string | null;
+  reviewerName: string | null;
+  reviewedAt: string | null;
+  status: ArticleStatus;
+  publishedAt: string | null;
+  updatedAt: string;
+  department: { id: string; name: string; slug: string | null } | null;
+};
+
+export type Article = ArticleSummary & {
+  content: string;
+  createdAt: string;
+  departmentId: string | null;
+};
+
+export type PublicArticleList = {
+  items: ArticleSummary[];
+  categories: { name: string; count: number }[];
+  pagination: Pagination;
+};

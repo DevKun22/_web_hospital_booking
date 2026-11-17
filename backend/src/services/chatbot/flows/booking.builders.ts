@@ -86,7 +86,8 @@ export const getDepartmentActions = (context: ChatbotContext, department?: Chatb
 export const buildDepartmentResults = (
   context: ChatbotContext,
   department?: ChatbotContext["departments"][number],
-  limit = 6,
+  // Danh mục chuyên khoa nhỏ: hiện đủ để người dùng không bị giấu khoa nào (trước đây chỉ 6 khoa đầu).
+  limit = 12,
 ): ChatbotResultGroup[] => {
   const departments = department ? [department] : context.departments.slice(0, limit);
   if (!departments.length) return [];

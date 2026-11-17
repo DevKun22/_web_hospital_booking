@@ -716,6 +716,7 @@ model Department {
   doctors      DoctorProfile[]
   appointments Appointment[]
   packages     Package[]
+  articles     Article[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1478,6 +1479,39 @@ model ChatbotLog {
   @@index([sessionId])
   @@index([guestPhone])
   @@index([intent])
+}
+
+enum ArticleStatus {
+  DRAFT
+  PUBLISHED
+}
+
+// Bài viết kiến thức sức khỏe (Markdown) trên trang /kien-thuc; bài đã xuất bản cũng là nguồn tri thức cho chatbot.
+// Chỉ quản trị mới xuất bản, và phải ghi người duyệt nội dung chuyên môn.
+model Article {
+  id String @id @default(uuid())
+
+  slug    String  @unique
+  title   String
+  summary String?
+  content String // Markdown
+  category String?
+
+  departmentId String?
+  department   Department? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+
+  authorName   String?
+  reviewerName String?
+  reviewedAt   DateTime?
+
+  status      ArticleStatus @default(DRAFT)
+  publishedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status, publishedAt])
+  @@index([departmentId])
 }
 
 // Kho tri thức của chatbot (RAG): mỗi dòng là một đoạn văn dựng từ FAQ, chuyên khoa, bác sĩ, gói khám, chính sách hoặc

@@ -2,14 +2,20 @@ import { prisma } from "../../../config/prisma.js";
 import FAQService from "../../faq.service.js";
 import PolicyService from "../../policy.service.js";
 import SiteSettingsService from "../../siteSettings.service.js";
-import { departmentDoc, doctorDoc, faqDoc, packageDoc, policyDoc, siteDoc } from "./chunker.js";
+import { articleDocs, departmentDoc, doctorDoc, faqDoc, packageDoc, policyDoc, siteDoc } from "./chunker.js";
 import type { KnowledgeDoc } from "./rag.types.js";
 
 // Đọc các nguồn dữ liệu nghiệp vụ đang hoạt động (chỉ đọc) để dựng kho tri thức; cách dựng từng đoạn nằm ở chunker.ts.
 
 /** Đọc mọi nguồn đang hoạt động và dựng thành các đoạn tri thức. */
 export const buildKnowledgeDocs = async (): Promise<KnowledgeDoc[]> => {
-  const [faqs, departments, doctors, packages, policy, site] = await Promise.all([
+  const [articles, faqs, departments, doctors, packages, policy, site] = await Promise.all([
+    // Chỉ bài đã xuất bản (đã có người duyệt nội dung chuyên môn) mới thành tri thức của chatbot.
+    prisma.article.findMany({
+      where: { status: "PUBLISHED" },
+      select: { id: true, slug: true, title: true, summary: true, content: true, department: { select: { name: true } } },
+      take: 300,
+    }),
     FAQService.listForChatbot(),
     prisma.department.findMany({
       where: { isActive: true },
@@ -59,6 +65,7 @@ export const buildKnowledgeDocs = async (): Promise<KnowledgeDoc[]> => {
     ...departments.map(departmentDoc),
     ...doctors.map(doctorDoc),
     ...packages.map(packageDoc),
+    ...articles.flatMap(articleDocs),
     policyDoc(policy),
     ...(siteInfo ? [siteInfo] : []),
   ];

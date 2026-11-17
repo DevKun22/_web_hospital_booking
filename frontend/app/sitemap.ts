@@ -17,6 +17,10 @@ type PublicDoctor = {
   updatedAt?: string;
 };
 
+type PublicArticleList = {
+  items: { slug: string; updatedAt?: string }[];
+};
+
 type PublicPackage = {
   slug: string | null;
   id: string;
@@ -59,7 +63,8 @@ async function fetchPublicData<T>(path: string): Promise<T | null> {
 }
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const [departments, doctors, packages] = await Promise.all([
+  const [articles, departments, doctors, packages] = await Promise.all([
+    fetchPublicData<PublicArticleList>("/articles?limit=30"),
     fetchPublicData<PublicDepartment[]>("/departments"),
     fetchPublicData<PublicDoctor[]>("/doctors?seo=slug-v1"),
     fetchPublicData<PublicPackage[]>("/packages"),
@@ -71,6 +76,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     route("/chuyen-khoa", "weekly", 0.85),
     route("/bac-si", "weekly", 0.85),
     route("/goi-kham", "weekly", 0.85),
+    route("/kien-thuc", "weekly", 0.8),
     route("/ho-tro", "weekly", 0.8),
     route("/hoi-dap", "weekly", 0.7),
     route("/huong-dan/dat-lich", "monthly", 0.7),
@@ -86,10 +92,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const packageRoutes =
     packages?.map((item) => route(`/goi-kham/${encodeURIComponent(item.slug || item.id)}`, "weekly", 0.75, item.updatedAt)) || [];
 
+  const articleRoutes = articles?.items.map((item) => route(`/kien-thuc/${encodeURIComponent(item.slug)}`, "monthly", 0.65, item.updatedAt)) || [];
+
   return [
     ...staticRoutes,
     ...departmentRoutes,
     ...doctorRoutes,
     ...packageRoutes,
+    ...articleRoutes,
   ];
 }

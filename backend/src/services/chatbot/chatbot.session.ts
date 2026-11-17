@@ -115,12 +115,14 @@ export const getOrCreateChatSession = async (
         return {
           id: resetSession.id,
           draft: {},
+          lastMessage: null as string | null,
         };
       }
 
       return {
         id: existingSession.id,
         draft: readDraft(existingSession.draft),
+        lastMessage: existingSession.lastMessage,
       };
     }
   }
@@ -136,6 +138,7 @@ export const getOrCreateChatSession = async (
   return {
     id: session.id,
     draft: readDraft(session.draft),
+    lastMessage: null as string | null,
   };
 };
 
