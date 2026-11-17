@@ -173,18 +173,31 @@ class KnowledgeService {
   }
 
   async stats() {
-    const [byType, latest] = await Promise.all([
-      prisma.chatKnowledgeChunk.groupBy({ by: ["sourceType"], _count: { _all: true } }),
+    const [rows, latest] = await Promise.all([
+      prisma.chatKnowledgeChunk.findMany({ select: { sourceType: true, sourceId: true } }),
       prisma.chatKnowledgeChunk.findFirst({ orderBy: { updatedAt: "desc" }, select: { updatedAt: true } }),
     ]);
     const index = await this.loadIndex();
+    // Một nguồn (một bài viết, một bác sĩ...) có thể được cắt thành nhiều đoạn (bài viết cắt theo mục, id nguồn có đuôi #mục):
+    // đếm riêng số nguồn và số đoạn để quản trị không nhầm hai con số.
+    const byType: Record<string, { sources: number; chunks: number }> = {};
+    const seen = new Set<string>();
+    for (const row of rows) {
+      const entry = (byType[row.sourceType] ??= { sources: 0, chunks: 0 });
+      entry.chunks += 1;
+      const key = `${row.sourceType}:${row.sourceId.split("#")[0]}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        entry.sources += 1;
+      }
+    }
     return {
       total: index.size,
       embedded: index.embeddedCount,
       embeddingConfigured: isEmbeddingConfigured(),
       embeddingModel: embeddingModelName(),
       lastUpdatedAt: latest?.updatedAt ?? null,
-      byType: Object.fromEntries(byType.map((row) => [row.sourceType, row._count._all])),
+      byType,
     };
   }
 }

@@ -157,7 +157,9 @@ test("bài đã xuất bản thành nguồn tri thức: chatbot trả lời kèm
 
   const sync = await dashboardCall("POST", "/api/v1/dashboard/chatbot/knowledge/sync", admin);
   assert.equal(sync.status, 200);
-  assert.ok(sync.body.data.stats.byType.ARTICLE >= 2, "mỗi mục của bài là một đoạn tri thức");
+  const articleStats = sync.body.data.stats.byType.ARTICLE;
+  assert.equal(articleStats.sources, 1, "một bài là một nguồn");
+  assert.ok(articleStats.chunks >= 2, "mỗi mục của bài là một đoạn tri thức");
 
   const answer = await ask("khi nào cần đi khám nếu mệt lả chóng mặt trời nóng");
   assert.equal(answer.status, 200);
