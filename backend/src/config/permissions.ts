@@ -66,8 +66,9 @@ export const PERMISSIONS = {
   // Nội dung công khai và đánh giá
   "content.manage": { group: "Nội dung", label: "Quản lý banner, FAQ, ảnh", eligibleRoles: [A, S], fixedRoles: [], defaultRoles: [A, S] },
   "notification.broadcast": { group: "Nội dung", label: "Soạn và gửi thông báo cho người khám hoặc nhân sự", eligibleRoles: [A, S], fixedRoles: [], defaultRoles: [A, S] },
-  "article.write": { group: "Nội dung", label: "Soạn và sửa bản nháp bài viết kiến thức sức khỏe", eligibleRoles: [A, S, D], fixedRoles: [], defaultRoles: [A, D] },
-  "article.publish": { group: "Nội dung", label: "Xuất bản, gỡ và xóa bài viết kiến thức sức khỏe (người duyệt nội dung)", eligibleRoles: [A], fixedRoles: [A], defaultRoles: [A] },
+  "article.write": { group: "Nội dung", label: "Soạn và sửa bài viết kiến thức sức khỏe", eligibleRoles: [A, S, D], fixedRoles: [], defaultRoles: [A, D] },
+  "article.review": { group: "Nội dung", label: "Duyệt nội dung chuyên môn bài viết kiến thức sức khỏe (bác sĩ, bằng tài khoản của mình)", eligibleRoles: [D], fixedRoles: [D], defaultRoles: [D] },
+  "article.publish": { group: "Nội dung", label: "Xuất bản, gỡ và xóa bài viết kiến thức sức khỏe đã được duyệt", eligibleRoles: [A], fixedRoles: [A], defaultRoles: [A] },
   "content.delete": { group: "Nội dung", label: "Xóa banner, FAQ, ảnh", eligibleRoles: [A], fixedRoles: [A], defaultRoles: [A] },
   "review.view": { group: "Đánh giá", label: "Xem đánh giá", eligibleRoles: [A, S, D], fixedRoles: [], defaultRoles: [A, S, D] },
   "review.moderate": { group: "Đánh giá", label: "Ẩn, hiện đánh giá", eligibleRoles: [A, S], fixedRoles: [], defaultRoles: [A, S] },

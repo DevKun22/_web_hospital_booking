@@ -47,8 +47,8 @@ export const getPublicArticleHandler = async (req: Request, res: Response, next:
 export const listDashboardArticlesHandler = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { page, limit, skip } = parsePagination(req.query, { defaultLimit: 20, maxLimit: 50 });
-    const status = req.query.status === "DRAFT" || req.query.status === "PUBLISHED" ? req.query.status : undefined;
-    const result = await ArticleService.listDashboard({ status, search: text(req.query.q), skip, limit });
+    const stage = req.query.stage === "PENDING_REVIEW" || req.query.stage === "READY" || req.query.stage === "PUBLISHED" ? req.query.stage : undefined;
+    const result = await ArticleService.listDashboard({ stage, search: text(req.query.q), skip, limit });
     return res.json({ success: true, data: { items: result.items, pagination: paginationMeta(page, limit, result.total) } });
   } catch (error) {
     next(error);
@@ -79,9 +79,17 @@ export const updateArticleHandler = async (req: Request, res: Response, next: Ne
   }
 };
 
+export const reviewArticleHandler = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    return res.json({ success: true, data: await ArticleService.review(getParam(req.params.id), actorOf(req)) });
+  } catch (error) {
+    next(error);
+  }
+};
+
 export const publishArticleHandler = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    return res.json({ success: true, data: await ArticleService.publish(getParam(req.params.id), req.body.reviewerName) });
+    return res.json({ success: true, data: await ArticleService.publish(getParam(req.params.id)) });
   } catch (error) {
     next(error);
   }
