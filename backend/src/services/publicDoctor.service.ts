@@ -1,8 +1,10 @@
 import { Prisma } from "../../generated/prisma/client.js";
-import { prisma } from "../config/prisma.js";
+import { databaseSchema, prisma } from "../config/prisma.js";
 import { AppError } from "../utils/appError.js";
 import { getVietnamNowParts, parseDateOnly } from "../utils/time.js";
-import { buildFeaturedSlotWhere } from "./publicCatalogEligibility.js";
+import { buildFeaturedSlotWhere, getFeaturedAvailabilityWindow } from "./publicCatalogEligibility.js";
+
+const doctorTimeSlotTable = Prisma.raw(`"${databaseSchema}"."DoctorTimeSlot"`);
 
 const publicDoctorSelect = {
   id: true,
@@ -71,29 +73,44 @@ class PublicDoctorService {
     return doctors;
   }
 
+  // Khung giờ trống sớm nhất của mỗi bác sĩ, xếp theo giờ sớm nhất. Dùng DISTINCT ON để cơ sở dữ liệu trả đúng một dòng mỗi bác
+  // sĩ: `distinct` của Prisma chạy trong bộ nhớ nên bản cũ kéo về mọi khung giờ trống (hàng nghìn dòng) trên mỗi lần mở trang chủ.
+  private async earliestSlotPerDoctor(doctorIds: string[], limit: number) {
+    if (doctorIds.length === 0) return [];
+    const { today, nowTime, tomorrow, endExclusive } = getFeaturedAvailabilityWindow();
+
+    return prisma.$queryRaw<
+      Array<{ id: string; doctorId: string; date: Date; startTime: string; endTime: string }>
+    >(Prisma.sql`
+      SELECT earliest."id", earliest."doctorId", earliest."date", earliest."startTime", earliest."endTime"
+      FROM (
+        SELECT DISTINCT ON (slot."doctorId") slot."id", slot."doctorId", slot."date", slot."startTime", slot."endTime"
+        FROM ${doctorTimeSlotTable} AS slot
+        WHERE slot."doctorId" IN (${Prisma.join(doctorIds)})
+          AND slot."status" = 'AVAILABLE'
+          AND slot."isActive" = true
+          AND (
+            (slot."date" = ${today} AND slot."startTime" > ${nowTime})
+            OR (slot."date" >= ${tomorrow} AND slot."date" < ${endExclusive})
+          )
+        ORDER BY slot."doctorId", slot."date", slot."startTime"
+      ) AS earliest
+      ORDER BY earliest."date", earliest."startTime"
+      LIMIT ${limit}
+    `);
+  }
+
   private async listFeatured(
     where: Prisma.DoctorProfileWhereInput,
     requestedLimit?: number,
   ) {
     const limit = Math.min(Math.max(Math.trunc(requestedLimit || 3), 1), 50);
     const candidateLimit = Math.min(limit * 5, 100);
-    const slotWhere = buildFeaturedSlotWhere();
-    const earliestSlots = await prisma.doctorTimeSlot.findMany({
-      where: {
-        ...slotWhere,
-        doctor: { is: where },
-      },
-      select: {
-        id: true,
-        doctorId: true,
-        date: true,
-        startTime: true,
-        endTime: true,
-      },
-      orderBy: [{ date: "asc" }, { startTime: "asc" }],
-      distinct: ["doctorId"],
-      take: candidateLimit,
-    });
+    const doctorRows = await prisma.doctorProfile.findMany({ where, select: { id: true } });
+    const earliestSlots = await this.earliestSlotPerDoctor(
+      doctorRows.map((doctor) => doctor.id),
+      candidateLimit,
+    );
     const rankedDoctorIds = earliestSlots.map((slot) => slot.doctorId);
     const nextSlotByDoctorId = new Map(
       earliestSlots.map((slot) => [slot.doctorId, slot]),

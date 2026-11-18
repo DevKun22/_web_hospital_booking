@@ -10,12 +10,14 @@ import { startRuntimeMetrics, stopRuntimeMetrics } from "../observability/runtim
 import { getRuntimeConfig } from "../config/runtimeConfig.js";
 import { logger } from "../observability/logger.js";
 import { unsealOtp } from "../utils/otpJobSeal.js";
+import { createWorkerSupervisor } from "./workerSupervisor.js";
 
 validateRuntimeEnvironment();
 startRuntimeMetrics("background-worker");
 const logNoop = shouldLogWorkerNoop();
 
-const worker = new Worker<BackgroundJobData>(
+const createWorker = () => {
+  const worker = new Worker<BackgroundJobData>(
   BACKGROUND_QUEUE_NAME,
   async (job) => {
     if (job.data.type === "EXPIRE_PENDING_OTP") {
@@ -47,16 +49,21 @@ const worker = new Worker<BackgroundJobData>(
     concurrency: getRuntimeConfig().workers.otpConcurrency,
     ...idleRedisOptions,
   },
-);
+  );
 
-worker.on("ready", () => logger.info(`Background worker is listening on queue "${BACKGROUND_QUEUE_NAME}"`));
-worker.on("failed", (job, error) => logger.error(`[BACKGROUND] job=${job?.id || "unknown"} (${job?.name}) failed:`, error));
-worker.on("error", (error) => logger.error("[Background Worker] error:", error));
+  worker.on("ready", () => logger.info(`Background worker is listening on queue "${BACKGROUND_QUEUE_NAME}"`));
+  worker.on("failed", (job, error) => logger.error(`[BACKGROUND] job=${job?.id || "unknown"} (${job?.name}) failed:`, error));
+  return worker;
+};
+
+// Lỗi Redis (đặc biệt hết hạn mức) do bộ giám sát xử lý: dừng và thử lại thưa dần thay vì ghi log dồn dập.
+const supervisor = createWorkerSupervisor({ name: "Background Worker", create: createWorker, logger });
+supervisor.start();
 
 const shutdown = async (signal: string) => {
   logger.info(`${signal} received, closing background worker...`);
   stopRuntimeMetrics();
-  await worker.close();
+  await supervisor.stop();
   await prisma.$disconnect();
   process.exit(0);
 };

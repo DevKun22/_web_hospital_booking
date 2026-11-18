@@ -52,11 +52,16 @@ class TriageFlow {
     if (!query) return null;
 
     const hits = await KnowledgeService.retrieve(query, { types: ["DEPARTMENT"], limit: 3 });
+    // Một truy vấn cho cả ba kết quả (bản cũ hỏi tuần tự từng khoa), rồi duyệt theo thứ tự độ khớp.
+    const candidates = hits.length
+      ? await prisma.department.findMany({
+          where: { id: { in: hits.map((hit) => hit.chunk.sourceId) }, isActive: true, isTriageFallback: false },
+          select: departmentSelect,
+        })
+      : [];
+    const candidateById = new Map(candidates.map((department) => [department.id, department]));
     for (const hit of hits) {
-      const department = await prisma.department.findFirst({
-        where: { id: hit.chunk.sourceId, isActive: true, isTriageFallback: false },
-        select: departmentSelect,
-      });
+      const department = candidateById.get(hit.chunk.sourceId);
       if (!department) continue;
       const strength = Math.max(hit.coverage, hit.similarity ?? 0);
       return toRecommendation(department, { confidence: Math.min(0.95, Math.max(0.58, 0.5 + strength * 0.45)), matched: true });
