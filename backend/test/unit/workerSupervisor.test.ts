@@ -20,14 +20,20 @@ const setup = () => {
 
   class FakeWorker {
     closed = false;
-    forced = false;
+    pauses = 0;
+    resumes = 0;
     listener: ((error: Error) => void) | null = null;
     on(_event: "error", listener: (error: Error) => void) {
       this.listener = listener;
     }
-    async close(force?: boolean) {
+    async pause() {
+      this.pauses += 1;
+    }
+    resume() {
+      this.resumes += 1;
+    }
+    async close() {
       this.closed = true;
-      this.forced = Boolean(force);
     }
     emit(error: Error) {
       this.listener?.(error);
@@ -67,46 +73,48 @@ const setup = () => {
   return { supervisor, workers, logs, advance, pendingTimers: () => timers.filter((item) => !item.cancelled).length };
 };
 
-test("a quota error closes the worker once, logs once, and restarts it later", () => {
+test("a quota error pauses the worker once (never closes it), logs once, and resumes it later", () => {
   const { supervisor, workers, logs, advance } = setup();
   supervisor.start();
   assert.equal(workers.length, 1);
 
-  // Hàng trăm lỗi hạn mức liên tiếp chỉ gây một lần dừng và một dòng log.
+  // Hàng trăm lỗi hạn mức liên tiếp chỉ gây một lần tạm dừng và một dòng log.
   for (let index = 0; index < 300; index += 1) workers[0].emit(quotaError());
-  assert.equal(workers[0].closed, true);
-  assert.equal(workers[0].forced, true);
+  assert.equal(workers[0].pauses, 1);
+  // Không đóng worker: đóng sẽ gỡ bộ lắng nghe lỗi và làm sập tiến trình khi socket còn phát lỗi.
+  assert.equal(workers[0].closed, false);
   assert.equal(supervisor.isPausedForQuota(), true);
   assert.equal(logs.filter((entry) => entry.level === "warn").length, 1);
   assert.equal(logs.filter((entry) => entry.level === "error").length, 0);
 
   advance(QUOTA_RETRY_BASE_MS - 1);
-  assert.equal(workers.length, 1);
+  assert.equal(workers[0].resumes, 0);
   advance(1);
-  assert.equal(workers.length, 2);
+  assert.equal(workers[0].resumes, 1);
+  assert.equal(workers.length, 1);
   assert.equal(supervisor.isPausedForQuota(), false);
 });
 
 test("repeated quota failures back off up to the cap, and stability resets the backoff", () => {
   const { supervisor, workers, advance } = setup();
   supervisor.start();
+  const worker = workers[0];
 
   const expectedDelays = [QUOTA_RETRY_BASE_MS, QUOTA_RETRY_BASE_MS * 2, QUOTA_RETRY_BASE_MS * 4, QUOTA_RETRY_MAX_MS, QUOTA_RETRY_MAX_MS];
   expectedDelays.forEach((delay, index) => {
-    workers[index].emit(quotaError());
+    worker.emit(quotaError());
     advance(delay - 1);
-    assert.equal(workers.length, index + 1, "no restart before the delay elapses");
+    assert.equal(worker.resumes, index, "no resume before the delay elapses");
     advance(1);
-    assert.equal(workers.length, index + 2);
+    assert.equal(worker.resumes, index + 1);
   });
 
   // Chạy ổn định đủ lâu thì lần lỗi tiếp theo lại bắt đầu từ mức lùi nhỏ nhất.
   advance(STABLE_AFTER_MS);
-  const last = workers[workers.length - 1];
-  last.emit(quotaError());
-  const before = workers.length;
+  worker.emit(quotaError());
+  const resumesBefore = worker.resumes;
   advance(QUOTA_RETRY_BASE_MS);
-  assert.equal(workers.length, before + 1);
+  assert.equal(worker.resumes, resumesBefore + 1);
 });
 
 test("other errors are logged at most once per interval with the suppressed count", () => {
@@ -116,7 +124,7 @@ test("other errors are logged at most once per interval with the suppressed coun
   for (let index = 0; index < 50; index += 1) workers[0].emit(new Error("connect ECONNRESET"));
   assert.equal(logs.filter((entry) => entry.level === "error").length, 1);
   assert.equal(supervisor.isPausedForQuota(), false);
-  assert.equal(workers[0].closed, false);
+  assert.equal(workers[0].pauses, 0);
 
   advance(ERROR_LOG_INTERVAL_MS);
   workers[0].emit(new Error("connect ECONNRESET"));
@@ -125,17 +133,13 @@ test("other errors are logged at most once per interval with the suppressed coun
   assert.match(errors[1].message, /49 lỗi/);
 });
 
-test("stop closes the worker and cancels any pending restart", async () => {
+test("stop closes the worker and cancels any pending resume", async () => {
   const { supervisor, workers, advance, pendingTimers } = setup();
   supervisor.start();
   workers[0].emit(quotaError());
   await supervisor.stop();
+  assert.equal(workers[0].closed, true);
   assert.equal(pendingTimers(), 0);
   advance(QUOTA_RETRY_MAX_MS * 2);
-  assert.equal(workers.length, 1);
-
-  const fresh = setup();
-  fresh.supervisor.start();
-  await fresh.supervisor.stop();
-  assert.equal(fresh.workers[0].closed, true);
+  assert.equal(workers[0].resumes, 0);
 });

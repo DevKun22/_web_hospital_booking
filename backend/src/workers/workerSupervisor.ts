@@ -2,8 +2,10 @@ import { isQuotaError } from "../queues/queueGuard.js";
 
 // Giám sát worker BullMQ khi Redis lỗi. Không có lớp này, khi Upstash trả "max requests limit exceeded" mỗi lệnh lỗi ngay và
 // vòng lặp của worker gọi lại liên tục: hàng trăm dòng log mỗi giây (kèm stack trace) và CPU của máy chủ gói miễn phí bị chiếm.
-//  - Lỗi hạn mức: đóng worker, thử dựng lại sau một khoảng giãn dần (10 phút, 20 phút... tối đa 60 phút). Trong lúc đó không
-//    gọi Redis nữa; việc gửi OTP đã có đường gửi trực tiếp và việc định kỳ chạy trên cơ sở dữ liệu.
+//  - Lỗi hạn mức: TẠM DỪNG worker (pause) rồi tiếp tục (resume) sau một khoảng giãn dần (10 phút, 20 phút... tối đa 60 phút).
+//    Trong lúc dừng không gọi Redis nữa; việc gửi OTP đã có đường gửi trực tiếp và việc định kỳ chạy trên cơ sở dữ liệu.
+//    Không đóng (close) worker: đóng sẽ gỡ bộ lắng nghe lỗi của kết nối trong khi socket còn phát sự kiện "error"/từ chối
+//    lệnh đang chờ, nên lỗi không ai bắt làm Node thoát với mã 1 (đã xảy ra trên production ở PR 218).
 //  - Lỗi khác (đứt kết nối thoáng qua): ghi log nhưng tối đa một dòng mỗi 30 giây, kèm số lỗi đã bị gộp.
 
 export const QUOTA_RETRY_BASE_MS = 10 * 60_000;
@@ -14,6 +16,8 @@ export const STABLE_AFTER_MS = 5 * 60_000;
 
 export type SupervisedWorker = {
   on(event: "error", listener: (error: Error) => void): unknown;
+  pause(doNotWaitActive?: boolean): Promise<void>;
+  resume(): void;
   close(force?: boolean): Promise<void>;
 };
 
@@ -47,8 +51,15 @@ export const createWorkerSupervisor = <W extends SupervisedWorker>(options: {
   let quotaPauses = 0;
   let lastErrorLogAt = 0;
   let suppressedErrors = 0;
-  let cancelRestart: Cancel | null = null;
+  let cancelResume: Cancel | null = null;
   let cancelStable: Cancel | null = null;
+
+  const armStableTimer = () => {
+    cancelStable?.();
+    cancelStable = schedule(() => {
+      quotaPauses = 0;
+    }, STABLE_AFTER_MS);
+  };
 
   const pauseForQuota = (current: W, error: Error) => {
     pausedForQuota = true;
@@ -59,11 +70,14 @@ export const createWorkerSupervisor = <W extends SupervisedWorker>(options: {
     options.logger.warn(
       `[${options.name}] Redis hết hạn mức lệnh, tạm dừng worker và thử lại sau ${Math.round(delayMs / 60_000)} phút: ${error.message}`,
     );
-    void current.close(true).catch(() => undefined);
-    worker = null;
-    cancelRestart = schedule(() => {
-      cancelRestart = null;
-      if (!stopped) start();
+    // doNotWaitActive: không chờ job đang chạy để khỏi treo bộ xử lý lỗi.
+    current.pause(true).catch(() => undefined);
+    cancelResume = schedule(() => {
+      cancelResume = null;
+      if (stopped || worker !== current) return;
+      pausedForQuota = false;
+      armStableTimer();
+      current.resume();
     }, delayMs);
   };
 
@@ -84,24 +98,21 @@ export const createWorkerSupervisor = <W extends SupervisedWorker>(options: {
     }
   };
 
-  const start = () => {
-    pausedForQuota = false;
-    const created = options.create();
-    worker = created;
-    created.on("error", (error) => handleError(created, error));
-    cancelStable = schedule(() => {
-      quotaPauses = 0;
-    }, STABLE_AFTER_MS);
-    return created;
-  };
-
   return {
-    start,
+    start() {
+      pausedForQuota = false;
+      const created = options.create();
+      worker = created;
+      // Bộ lắng nghe này tồn tại suốt vòng đời worker (kể cả lúc tạm dừng) nên mọi lỗi kết nối đều có nơi nhận.
+      created.on("error", (error) => handleError(created, error));
+      armStableTimer();
+      return created;
+    },
     isPausedForQuota: () => pausedForQuota,
     current: () => worker,
     async stop() {
       stopped = true;
-      cancelRestart?.();
+      cancelResume?.();
       cancelStable?.();
       const current = worker;
       worker = null;
