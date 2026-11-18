@@ -9,6 +9,7 @@ import {
 } from "../services/redisHealth.service.js";
 import { AppError } from "../utils/appError.js";
 import { logger } from "../observability/logger.js";
+import { getRuntimeConfig } from "../config/runtimeConfig.js";
 
 // Giới hạn tần suất theo cửa sổ cố định. Đếm bằng Redis khi có (dùng chung giữa
 // các tiến trình), nếu không có hoặc Redis lỗi thì đếm trong bộ nhớ tiến trình
@@ -104,22 +105,37 @@ const warnStoreFailure = (error: unknown) => {
   );
 };
 
+// `cooldownMs` > 0: sau khi kho chính lỗi thì tạm bỏ qua nó trong khoảng đó, không gọi Redis ở từng request
+// (tránh thêm độ trễ và thêm lệnh vô ích khi Redis đang lỗi hoặc hết hạn mức).
 export const createFallbackRateLimitStore = (
   primary: RateLimitStore,
   fallback: RateLimitStore,
-): RateLimitStore => ({
-  async hit(key, windowMs) {
-    try {
-      const hit = await primary.hit(key, windowMs);
-      reportRedisAvailable("cache", "rate-limit");
-      return hit;
-    } catch (error) {
-      warnStoreFailure(error);
-      reportRedisUnavailable("cache", "rate-limit", error);
-      return { ...(await fallback.hit(key, windowMs)), degraded: true };
-    }
-  },
-});
+  options: { cooldownMs?: number; now?: () => number } = {},
+): RateLimitStore => {
+  const cooldownMs = options.cooldownMs ?? 0;
+  const now = options.now ?? Date.now;
+  let skipPrimaryUntil = 0;
+
+  return {
+    async hit(key, windowMs) {
+      if (cooldownMs > 0 && now() < skipPrimaryUntil) {
+        return { ...(await fallback.hit(key, windowMs)), degraded: true };
+      }
+      try {
+        const hit = await primary.hit(key, windowMs);
+        reportRedisAvailable("cache", "rate-limit");
+        return hit;
+      } catch (error) {
+        warnStoreFailure(error);
+        reportRedisUnavailable("cache", "rate-limit", error);
+        if (cooldownMs > 0) skipPrimaryUntil = now() + cooldownMs;
+        return { ...(await fallback.hit(key, windowMs)), degraded: true };
+      }
+    },
+  };
+};
+
+const RATE_LIMIT_PRIMARY_COOLDOWN_MS = 30_000;
 
 const createDegradedRateLimitStore = (store: RateLimitStore): RateLimitStore => ({
   async hit(key, windowMs) {
@@ -132,6 +148,12 @@ let defaultStore: RateLimitStore | null = null;
 const getDefaultStore = (): RateLimitStore => {
   if (defaultStore) return defaultStore;
 
+  if (getRuntimeConfig().redis.rateLimitStore === "memory") {
+    // Một instance: đếm trong bộ nhớ là đủ chính xác và không tốn lệnh Redis nào (xem REDIS_PROFILE).
+    defaultStore = createMemoryRateLimitStore();
+    return defaultStore;
+  }
+
   const memory = createMemoryRateLimitStore();
   const client = getCacheRedisClient();
   if (!client) {
@@ -142,6 +164,7 @@ const getDefaultStore = (): RateLimitStore => {
   defaultStore = createFallbackRateLimitStore(
     createRedisRateLimitStore(client),
     memory,
+    { cooldownMs: RATE_LIMIT_PRIMARY_COOLDOWN_MS },
   );
   return defaultStore;
 };

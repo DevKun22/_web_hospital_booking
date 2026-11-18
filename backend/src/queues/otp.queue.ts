@@ -1,5 +1,8 @@
 import { Queue } from "bullmq";
 import type { OtpChannel, OtpPurpose } from "../../generated/prisma/enums.js";
+import { getRuntimeConfig } from "../config/runtimeConfig.js";
+import { reportRedisUnavailable } from "../services/redisHealth.service.js";
+import { guardedEnqueue } from "./queueGuard.js";
 import { getRedisConnectionOptions, hasRedisUrl } from "./redis.js";
 
 export const OTP_DELIVERY_QUEUE_NAME = "otp-delivery";
@@ -35,6 +38,8 @@ export const getOtpDeliveryQueue = () => {
         },
       },
     });
+    // Không có bộ lắng nghe lỗi thì lỗi kết nối Redis có thể làm sập tiến trình.
+    otpDeliveryQueue.on("error", (error) => reportRedisUnavailable("queue", "otp-queue", error));
   }
 
   return otpDeliveryQueue;
@@ -43,11 +48,14 @@ export const getOtpDeliveryQueue = () => {
 export const enqueueOtpDeliveryJob = async (data: OtpDeliveryJobData) => {
   if (!hasRedisUrl()) return false;
 
-  const queue = getOtpDeliveryQueue();
+  // Redis chậm, lỗi hoặc hết hạn mức: trả về false (đang ngắt mạch) hoặc ném lỗi để nơi gọi gửi OTP trực tiếp.
+  const added = await guardedEnqueue(
+    () =>
+      getOtpDeliveryQueue().add("send-otp", data, {
+        jobId: `otp-${data.otpCodeId}`,
+      }),
+    { timeoutMs: getRuntimeConfig().redis.enqueueTimeoutMs },
+  );
 
-  await queue.add("send-otp", data, {
-    jobId: `otp-${data.otpCodeId}`,
-  });
-
-  return true;
+  return added !== false;
 };

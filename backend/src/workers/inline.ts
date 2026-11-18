@@ -34,7 +34,10 @@ const loaders: Record<InlineWorkerName, () => Promise<unknown>> = {
   payments: () => import("./paymentReconciliation.worker.js"),
 };
 
-export const startInlineWorkers = async (value = getRuntimeConfig().workers.inline) => {
+export const startInlineWorkers = async (
+  value = getRuntimeConfig().workers.inline,
+  load: Record<InlineWorkerName, () => Promise<unknown>> = loaders,
+) => {
   let names: InlineWorkerName[];
   try {
     names = parseInlineWorkers(value);
@@ -45,13 +48,12 @@ export const startInlineWorkers = async (value = getRuntimeConfig().workers.inli
   }
   for (const name of names) {
     try {
-      await loaders[name]();
+      await load[name]();
       logger.info(`[INLINE_WORKER] started: ${name}`);
     } catch (error) {
-      logger.error(`[INLINE_WORKER] cannot start ${name}:`, error);
-      // Production phải fail-fast để readiness/host khởi động lại thay vì chạy
-      // âm thầm thiếu một tác vụ nền. Local vẫn cho phép chẩn đoán từng worker.
-      if (isProductionLike()) throw error;
+      // Một worker lỗi không được kéo sập API (đặt lịch, đăng nhập vẫn phải phục vụ được): ghi lỗi rõ ràng và chạy
+      // tiếp. Cấu hình sai INLINE_WORKERS vẫn dừng ngay lúc khởi động ở bước phân tích phía trên.
+      logger.error(`[INLINE_WORKER] cannot start ${name}; API continues without it:`, error);
     }
   }
   return names;

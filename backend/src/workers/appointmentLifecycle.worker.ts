@@ -27,7 +27,22 @@ const INVOICE_REMINDER_EVERY_MS = 30 * 60 * 1000;
 let lastInvoiceReminderAt = 0;
 
 validateRuntimeEnvironment();
-await ensurePendingOtpReconciliation();
+
+// Đăng ký lịch lặp lên Redis. Redis chưa sẵn sàng hoặc hết hạn mức thì thử lại có giãn cách ở nền, không làm sập tiến trình
+// (trước đây `await` ở đây khiến lỗi Redis làm API không khởi động được).
+const registerSchedulers = async (attempt = 1): Promise<void> => {
+  try {
+    await ensurePendingOtpReconciliation();
+  } catch (error) {
+    const delayMs = Math.min(30_000 * 2 ** (attempt - 1), 10 * 60_000);
+    logger.error(
+      `[APPOINTMENT_LIFECYCLE] cannot register schedulers (attempt ${attempt}), retrying in ${Math.round(delayMs / 1000)}s:`,
+      error,
+    );
+    setTimeout(() => void registerSchedulers(attempt + 1), delayMs).unref();
+  }
+};
+void registerSchedulers();
 startRuntimeMetrics("appointment-worker");
 const logNoop = shouldLogWorkerNoop();
 

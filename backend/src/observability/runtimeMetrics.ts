@@ -6,6 +6,7 @@ import {
 } from "../config/environment.js";
 import { getDatabasePoolSnapshot } from "../config/prisma.js";
 import { hasQueueRedisUrl } from "../config/redis.js";
+import { getRuntimeConfig } from "../config/runtimeConfig.js";
 import {
   APPOINTMENT_LIFECYCLE_QUEUE_NAME,
   getAppointmentLifecycleQueue,
@@ -27,7 +28,7 @@ type QueueCounts = {
 type QueueMetric = QueueCounts & { name: string };
 
 type QueueMetricsResult = {
-  status: "up" | "down" | "not_configured";
+  status: "up" | "down" | "not_configured" | "disabled";
   queues: QueueMetric[];
   error?: string;
 };
@@ -52,6 +53,10 @@ const readQueue = async (name: string, queue: Queue): Promise<QueueMetric> => {
 };
 
 const getQueueMetrics = async (): Promise<QueueMetricsResult> => {
+  // Mỗi lần đọc tốn vài lệnh Redis nhân số hàng đợi; hồ sơ free tắt đo định kỳ để giữ hạn mức lệnh cho việc thật.
+  if (!getRuntimeConfig().redis.queueMetrics) {
+    return { status: "disabled" as const, queues: [] as QueueMetric[] };
+  }
   if (!hasQueueRedisUrl()) {
     return { status: "not_configured" as const, queues: [] as QueueMetric[] };
   }
