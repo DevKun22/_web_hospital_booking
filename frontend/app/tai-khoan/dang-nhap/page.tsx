@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
   Loader2,
-  Phone,
+  Mail,
   RotateCcw,
 } from "lucide-react";
 import { DebugOtpBox } from "@/components/ui/debug-otp-box";
@@ -15,7 +15,7 @@ import { usePatientAuth } from "@/lib/patient-auth";
 
 import { BrandLogo } from "@/components/branding/brand-logo";
 import { BRAND_NAME } from "@/lib/brand";
-type Step = "phone" | "otp";
+type Step = "email" | "otp";
 
 // Chỉ cho phép quay về trang trong cổng người khám để tránh open redirect.
 function readSafeNextPath() {
@@ -27,8 +27,8 @@ function readSafeNextPath() {
 export default function PatientLoginPage() {
   const router = useRouter();
   const { user, loading, requestOtp, verifyOtp } = usePatientAuth();
-  const [step, setStep] = useState<Step>("phone");
-  const [phone, setPhone] = useState("");
+  const [step, setStep] = useState<Step>("email");
+  const [email, setEmail] = useState("");
   const [otp, setOtp] = useState("");
   const [challengeId, setChallengeId] = useState("");
   const [debugOtp, setDebugOtp] = useState("");
@@ -42,11 +42,11 @@ export default function PatientLoginPage() {
     if (!loading && user) router.replace(readSafeNextPath());
   }, [loading, router, user]);
 
-  // Điền sẵn SĐT khi được chuyển từ trang tra cứu cũ (?phone=...).
+  // Điền sẵn email khi được chuyển từ trang đặt lịch (?email=...).
   useEffect(() => {
-    const presetPhone = new URLSearchParams(window.location.search).get("phone");
-    if (!presetPhone) return;
-    const timeoutId = window.setTimeout(() => setPhone(presetPhone.replace(/\D/g, "").slice(0, 10)), 0);
+    const presetEmail = new URLSearchParams(window.location.search).get("email");
+    if (!presetEmail) return;
+    const timeoutId = window.setTimeout(() => setEmail(presetEmail.trim().slice(0, 120)), 0);
     return () => window.clearTimeout(timeoutId);
   }, []);
 
@@ -60,14 +60,10 @@ export default function PatientLoginPage() {
     setError("");
     setSubmitting(true);
     try {
-      const challenge = await requestOtp(phone);
+      const challenge = await requestOtp(email);
       setChallengeId(challenge.challengeId);
       setDebugOtp(challenge.debugOtp || "");
-      setSentTo(
-        challenge.maskedTarget
-          ? `${challenge.channel === "EMAIL" ? "email" : "số điện thoại"} ${challenge.maskedTarget}`
-          : phone,
-      );
+      setSentTo(`email ${challenge.maskedTarget ?? email}`);
       setSeconds(challenge.expiresIn || 300);
       setOtp("");
       setStep("otp");
@@ -79,7 +75,7 @@ export default function PatientLoginPage() {
     }
   };
 
-  const handlePhone = async (event: FormEvent) => {
+  const handleEmail = async (event: FormEvent) => {
     event.preventDefault();
     await sendOtp();
   };
@@ -112,21 +108,21 @@ export default function PatientLoginPage() {
       <div className="ui-container py-8 sm:py-12">
         <section className="mx-auto w-full max-w-md">
           <h1 className="text-2xl font-bold sm:text-3xl">
-            {step === "phone" ? "Đăng nhập" : "Nhập mã xác thực"}
+            {step === "email" ? "Đăng nhập" : "Nhập mã xác thực"}
           </h1>
           <p className="mt-2 text-base leading-7 text-[var(--public-text-soft)]">
-            {step === "phone" ? "Dùng số điện thoại hoặc email đã dùng khi đặt lịch. Chúng tôi gửi mã OTP để xác nhận, không cần mật khẩu. Tài khoản dùng chung với ứng dụng di động." : `Mã gồm 6 chữ số đã được gửi đến ${sentTo}.`}
+            {step === "email" ? "Dùng email đã dùng khi đặt lịch. Chúng tôi gửi mã OTP đến email để xác nhận, không cần mật khẩu. Tài khoản dùng chung với ứng dụng di động." : `Mã gồm 6 chữ số đã được gửi đến ${sentTo}.`}
           </p>
 
           {error ? <div role="alert" className="mt-5 rounded-lg border border-[var(--public-danger)] bg-[var(--public-danger-soft)] px-4 py-3 text-sm font-medium text-[var(--public-danger)]">{error}</div> : null}
 
-          {step === "phone" ? (
-            <form onSubmit={handlePhone} className="mt-6 space-y-4">
+          {step === "email" ? (
+            <form onSubmit={handleEmail} className="mt-6 space-y-4">
               <label className="block text-sm font-semibold">
-                Số điện thoại hoặc email
+                Email
                 <span className="ui-input-shell mt-2 flex min-h-12 items-center border border-[var(--public-border)] bg-[var(--public-surface)] px-3">
-                  <Phone className="h-4 w-4 text-[var(--public-muted)]" aria-hidden="true" />
-                  <input value={phone} onChange={(event) => { const value = event.target.value.trim(); setPhone(/[a-zA-Z@]/.test(value) ? value.slice(0, 120) : value.replace(/\D/g, "").slice(0, 10)); }} autoComplete="username" placeholder="0912 345 678 hoặc ban@email.com" className="min-w-0 flex-1 bg-transparent px-3 py-3 text-base font-normal outline-none" required />
+                  <Mail className="h-4 w-4 text-[var(--public-muted)]" aria-hidden="true" />
+                  <input type="email" inputMode="email" value={email} onChange={(event) => setEmail(event.target.value.trim().slice(0, 120))} autoComplete="username email" placeholder="ban@email.com" className="min-w-0 flex-1 bg-transparent px-3 py-3 text-base font-normal outline-none" required />
                 </span>
               </label>
               <button disabled={submitting} className="public-button-primary flex min-h-12 w-full items-center justify-center gap-2 rounded-lg px-4 text-base font-semibold disabled:cursor-wait disabled:opacity-70">
@@ -144,7 +140,7 @@ export default function PatientLoginPage() {
                 {submitting ? <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" /> : null} Đăng nhập
               </button>
               <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
-                <button type="button" onClick={() => { setStep("phone"); setOtp(""); setError(""); }} className="min-h-11 font-semibold text-[var(--public-text-soft)] hover:text-[var(--public-primary)]">Đổi SĐT / email</button>
+                <button type="button" onClick={() => { setStep("email"); setOtp(""); setError(""); }} className="min-h-11 font-semibold text-[var(--public-text-soft)] hover:text-[var(--public-primary)]">Đổi email</button>
                 <button type="button" disabled={seconds > 0 || submitting} onClick={sendOtp} className="inline-flex min-h-11 items-center gap-1.5 font-semibold text-[var(--public-primary)] disabled:text-[var(--public-muted)]">
                   <RotateCcw className="h-4 w-4" aria-hidden="true" /> {seconds > 0 ? `Gửi lại sau ${seconds}s` : "Gửi lại mã"}
                 </button>

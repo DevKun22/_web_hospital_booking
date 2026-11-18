@@ -31,9 +31,10 @@ export const validateSchedule = (draft: BookingDraft, today: string) => {
 export const validateDetails = (draft: BookingDraft, today: string) => {
   if (draft.patientName.trim().length < 2) return "Họ tên người khám tối thiểu 2 ký tự.";
   if (!isValidPhone(draft.patientPhone)) return "Số điện thoại không hợp lệ.";
+  // Email là định danh của người khám: nhận mã OTP và dùng để đăng nhập xem lại lịch hẹn.
   const email = draft.patientEmail.trim();
-  if (email && !EMAIL_PATTERN.test(email)) return "Email không hợp lệ.";
-  if (draft.otpChannel === "EMAIL" && !email) return "Email là bắt buộc khi xác thực OTP qua email.";
+  if (!email) return "Email là bắt buộc để nhận mã OTP và đăng nhập xem lại lịch hẹn.";
+  if (!EMAIL_PATTERN.test(email)) return "Email không hợp lệ.";
   if (draft.dateOfBirth && draft.dateOfBirth >= today) return "Ngày sinh phải nhỏ hơn ngày hiện tại.";
   if (draft.hasBHYT && !draft.healthInsuranceCode.trim()) return "Vui lòng nhập mã thẻ BHYT.";
   if (hasHealthDeclaration(draft) && !draft.healthConsent) {

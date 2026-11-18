@@ -17,7 +17,6 @@ type LoginResult = {
   challengeId: string;
   // Nơi nhận mã OTP đã được máy chủ che bớt (ví dụ nq*******@gmail.com).
   otpTarget: string;
-  otpChannel: "SMS" | "EMAIL";
   otpDeliveryStatus?: "PENDING" | "SENT" | "FAILED";
   debugOtp?: string;
   expiresAt: string;
@@ -35,7 +34,7 @@ type AuthContextValue = {
   user: DashboardUser | null;
   loading: boolean;
   refreshUser: () => Promise<DashboardUser | null>;
-  login: (phone: string, password: string) => Promise<LoginResult>;
+  login: (email: string, password: string) => Promise<LoginResult>;
   verifyOtp: (challengeId: string, otp: string) => Promise<VerifyResult>;
   logout: () => Promise<void>;
 };
@@ -104,10 +103,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       window.removeEventListener(AUTH_EXPIRED_EVENT, handleAuthExpired);
   }, [router]);
 
-  const login = useCallback((phone: string, password: string) => {
+  const login = useCallback((email: string, password: string) => {
     return apiRequest<LoginResult>("/auth/dashboard/login", {
       method: "POST",
-      body: { phone, password },
+      body: { email: email.trim().toLowerCase(), password },
     });
   }, []);
 

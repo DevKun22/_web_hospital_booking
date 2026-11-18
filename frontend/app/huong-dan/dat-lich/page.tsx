@@ -25,19 +25,19 @@ const steps = [
   },
   {
     title: "Nhập thông tin người khám",
-    text: "Thông tin bắt buộc gồm họ tên, số điện thoại, kênh OTP và lý do khám. Thông tin bổ sung có thể nhập khi cần.",
+    text: "Thông tin bắt buộc gồm họ tên, email, số điện thoại liên hệ và khung giờ khám. Thông tin bổ sung có thể nhập khi cần.",
     href: "/dat-lich",
     action: "Mở form",
   },
   {
     title: "Xác thực OTP",
-    text: "Sau khi tạo lịch, hệ thống gửi OTP qua SMS hoặc email. Xác thực thành công thì lịch được xác nhận ngay.",
+    text: "Sau khi tạo lịch, hệ thống gửi OTP về email bạn đã nhập. Xác thực thành công thì lịch được xác nhận ngay.",
     href: "/tai-khoan/dang-nhap?next=/tai-khoan/lich-hen",
     action: "Tra cứu lịch",
   },
   {
     title: "Theo dõi trạng thái",
-    text: "Dùng mã lịch và số điện thoại để tra cứu. Nếu quên mã lịch, xác thực OTP bằng số điện thoại để xem lịch gần đây.",
+    text: "Đăng nhập bằng email đã đặt lịch (mã OTP gửi về email) để xem trạng thái và lịch gần đây.",
     href: "/tai-khoan/dang-nhap?next=/tai-khoan/lich-hen",
     action: "Tra cứu ngay",
   },

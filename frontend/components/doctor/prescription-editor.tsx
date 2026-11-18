@@ -23,9 +23,11 @@ type ItemForm = {
   quantity: string;
   unit: string;
   instruction: string;
+  // Thuốc có trong kho nhưng người khám tự mua ngoài: không trừ kho, không tính tiền.
+  buyOutside: boolean;
 };
 
-const emptyItemForm: ItemForm = { medicineId: null, medicineName: "", dosage: "", frequency: "", duration: "", quantity: "", unit: "", instruction: "" };
+const emptyItemForm: ItemForm = { medicineId: null, medicineName: "", dosage: "", frequency: "", duration: "", quantity: "", unit: "", instruction: "", buyOutside: false };
 
 const toItemForm = (item: PrescriptionItem): ItemForm => ({
   medicineId: item.medicineId,
@@ -36,6 +38,7 @@ const toItemForm = (item: PrescriptionItem): ItemForm => ({
   quantity: item.quantity === null ? "" : String(item.quantity),
   unit: item.unit || "",
   instruction: item.instruction || "",
+  buyOutside: item.fulfillmentStatus === "OUTSIDE" && Boolean(item.medicineId),
 });
 
 const buildItemPayload = (form: ItemForm, sortOrder: number) => ({
@@ -47,6 +50,8 @@ const buildItemPayload = (form: ItemForm, sortOrder: number) => ({
   quantity: form.quantity ? Number(form.quantity) : null,
   unit: form.unit.trim() || null,
   instruction: form.instruction.trim() || null,
+  // Dòng không gắn thuốc kho luôn là mua ngoài (máy chủ tự xác định).
+  buyOutside: Boolean(form.medicineId) && form.buyOutside,
   sortOrder,
 });
 
@@ -188,6 +193,14 @@ export function PrescriptionEditor({
     if (ok) setConfirmCancel(false);
   };
 
+  // Đơn nháp: bác sĩ quyết định ngay lúc kê dòng nào người khám tự mua ngoài (kho hết hoặc thuốc không cấp tại cơ sở).
+  const setBuyOutside = (item: PrescriptionItem, buyOutside: boolean) =>
+    run(
+      () => apiRequest<Prescription>(`/dashboard/prescriptions/${prescription.id}/items/${item.id}`, { method: "PATCH", body: { buyOutside } }),
+      buyOutside ? "Đã đánh dấu mua ngoài" : "Đã chuyển lại cấp từ kho",
+      "Không cập nhật được dòng thuốc",
+    );
+
   // Đơn đã phát hành mà kho không cấp được dòng này (hết hàng sau lúc kê, hoặc người khám tự mua): bác sĩ đánh dấu,
   // tiền thuốc dòng đó được gỡ khỏi hóa đơn chưa thu (hóa đơn đã thu thì chuyển sang luồng hoàn tiền thuốc).
   const resolveItem = async (item: PrescriptionItem, status: "OUTSIDE" | "OUT_OF_STOCK") => {
@@ -206,7 +219,7 @@ export function PrescriptionEditor({
     );
   };
 
-  const setField = (field: keyof ItemForm, value: string) => setItemForm((current) => ({ ...current, [field]: value }));
+  const setField = <K extends keyof ItemForm>(field: K, value: ItemForm[K]) => setItemForm((current) => ({ ...current, [field]: value }));
 
   return (
     <>
@@ -286,8 +299,8 @@ export function PrescriptionEditor({
                   {editable && item.availability && (item.availability.short || item.availability.level === "OUT") ? (
                     <small style={warnColor}>
                       {item.availability.level === "OUT"
-                        ? "Kho hiện hết thuốc này. Cân nhắc đổi thuốc tương đương, hoặc giữ nguyên nếu người khám tự mua."
-                        : "Số lượng kê vượt khả năng cấp của kho. Cân nhắc giảm số lượng, đổi thuốc, hoặc giữ nguyên nếu phần thiếu do người khám tự mua."}
+                        ? "Kho hiện hết thuốc này. Cân nhắc đổi thuốc tương đương, hoặc đánh dấu mua ngoài nếu người khám tự mua."
+                        : "Số lượng kê vượt khả năng cấp của kho. Cân nhắc giảm số lượng, đổi thuốc, hoặc đánh dấu mua ngoài nếu phần thiếu do người khám tự mua."}
                     </small>
                   ) : null}
                   <small>
@@ -301,6 +314,23 @@ export function PrescriptionEditor({
                   ) : null}
                   {item.fulfillmentStatus === "OUTSIDE" && item.medicineId ? (
                     <small style={warnColor}>Người khám tự mua{item.fulfillmentNote ? ` · ${item.fulfillmentNote}` : ""}.</small>
+                  ) : null}
+                  {item.fulfillmentStatus === "OUTSIDE" && !item.medicineId ? (
+                    <small style={warnColor}>Thuốc ngoài danh mục kho: người khám tự mua, không tính tiền.</small>
+                  ) : null}
+                  {editable && item.medicineId && item.fulfillmentStatus === "PENDING" ? (
+                    <span style={{ display: "flex", gap: 8, marginTop: 6, flexWrap: "wrap" }}>
+                      <DsButton variant="ghost" disabled={busy} onClick={() => void setBuyOutside(item, true)}>
+                        Đánh dấu mua ngoài
+                      </DsButton>
+                    </span>
+                  ) : null}
+                  {editable && item.medicineId && item.fulfillmentStatus === "OUTSIDE" ? (
+                    <span style={{ display: "flex", gap: 8, marginTop: 6, flexWrap: "wrap" }}>
+                      <DsButton variant="ghost" disabled={busy} onClick={() => void setBuyOutside(item, false)}>
+                        Lấy từ kho
+                      </DsButton>
+                    </span>
                   ) : null}
                   {item.fulfillmentStatus === "DISPENSED" ? <small style={{ color: "var(--ds-muted)" }}>Đã cấp tại cơ sở.</small> : null}
                   {canResolve && item.fulfillmentStatus === "PENDING" && item.medicineId ? (
@@ -387,6 +417,12 @@ export function PrescriptionEditor({
                     <DsInput id="item-unit" value={itemForm.unit} onChange={(event) => setField("unit", event.target.value)} />
                   </DsField>
                 </div>
+                {itemForm.medicineId ? (
+                  <label className="ds-check" style={{ cursor: "pointer" }}>
+                    <input type="checkbox" checked={itemForm.buyOutside} onChange={(event) => setField("buyOutside", event.target.checked)} />
+                    <span>Người khám tự mua ngoài (không trừ kho, không tính tiền)</span>
+                  </label>
+                ) : null}
                 <DsField label="Hướng dẫn dùng thuốc" htmlFor="item-instruction">
                   <DsTextarea id="item-instruction" rows={2} value={itemForm.instruction} onChange={(event) => setField("instruction", event.target.value)} />
                 </DsField>

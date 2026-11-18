@@ -12,7 +12,6 @@ export type DashboardUser = {
   // Tài khoản do quản trị tạo hoặc đặt lại mật khẩu phải tự đổi mật khẩu trước khi làm việc.
   mustChangePassword?: boolean;
   isActive?: boolean;
-  isPhoneVerified?: boolean;
   isEmailVerified?: boolean;
   createdAt?: string;
   updatedAt?: string;
@@ -152,7 +151,6 @@ export type DoctorSchedule = {
   startTime: string;
   endTime: string;
   slotDuration: number;
-  maxPatients: number;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
@@ -211,7 +209,6 @@ export type ScheduleChangeRequest = {
   startTime: string;
   endTime: string;
   slotDuration: number;
-  maxPatients: number;
   isActive: boolean;
   effectiveFrom: string;
   reason: string;
@@ -277,8 +274,8 @@ export type Appointment = {
     id: string;
     fullName: string;
     phone: string | null;
-    email: string | null;
-    isPhoneVerified: boolean;
+    email: string;
+    isEmailVerified: boolean;
   };
   doctor: {
     id: string;
@@ -590,7 +587,6 @@ export type MedicalRecord = {
   symptoms: string | null;
   diagnosis: string | null;
   treatment: string | null;
-  prescription: string | null;
   doctorNotes: string | null;
   status: MedicalResultStatus;
   resultPdfUrl: string | null;
@@ -630,7 +626,8 @@ export type MedicalRecord = {
     reason: string | null;
   };
   labResults: LabResult[];
-  prescriptionRecord: PrescriptionSummary | null;
+  // Một hồ sơ khám có thể có nhiều đơn: đơn chính và các đơn bổ sung, theo thứ tự tạo.
+  prescriptions: PrescriptionSummary[];
 };
 
 export type ChatbotRuntimeValue = {

@@ -11,7 +11,7 @@ import { usePatientAuth } from "@/lib/patient-auth";
 import type { PatientDependent, PatientUser } from "@/lib/patient-portal-types";
 
 import { useArchiveDependent, useCreateDependent, usePatientProfile, useUpdateProfile } from "@/features/portal/hooks";
-type ProfileDraft = { fullName: string; email: string; dateOfBirth: string; gender: string; cccd: string; address: string; hasBHYT: boolean; healthInsuranceCode: string; registeredHospital: string; bloodType: string; height: string; weight: string; allergies: string; medicalHistory: string };
+type ProfileDraft = { fullName: string; dateOfBirth: string; gender: string; cccd: string; address: string; hasBHYT: boolean; healthInsuranceCode: string; registeredHospital: string; bloodType: string; height: string; weight: string; allergies: string; medicalHistory: string };
 const nullable = (value: string) => value.trim() || null;
 // Phải khớp HEALTH_CONSENT_VERSION ở backend/src/services/appointment.service.ts.
 const HEALTH_CONSENT_VERSION = "2026-11";
@@ -19,10 +19,10 @@ const HEALTH_CONSENT_VERSION = "2026-11";
 function ProfileForm({ profile }: { profile: PatientUser }) {
   const { refreshUser } = usePatientAuth();
   const detail = profile.patientProfile;
-  const [draft, setDraft] = useState<ProfileDraft>({ fullName: profile.fullName || "", email: profile.email || "", dateOfBirth: detail?.dateOfBirth?.slice(0, 10) || "", gender: detail?.gender || "", cccd: detail?.cccd || "", address: detail?.address || "", hasBHYT: detail?.hasBHYT || false, healthInsuranceCode: detail?.healthInsuranceCode || "", registeredHospital: detail?.registeredHospital || "", bloodType: detail?.bloodType || "", height: detail?.height?.toString() || "", weight: detail?.weight?.toString() || "", allergies: detail?.allergies || "", medicalHistory: detail?.medicalHistory || "" });
+  const [draft, setDraft] = useState<ProfileDraft>({ fullName: profile.fullName || "", dateOfBirth: detail?.dateOfBirth?.slice(0, 10) || "", gender: detail?.gender || "", cccd: detail?.cccd || "", address: detail?.address || "", hasBHYT: detail?.hasBHYT || false, healthInsuranceCode: detail?.healthInsuranceCode || "", registeredHospital: detail?.registeredHospital || "", bloodType: detail?.bloodType || "", height: detail?.height?.toString() || "", weight: detail?.weight?.toString() || "", allergies: detail?.allergies || "", medicalHistory: detail?.medicalHistory || "" });
   const [healthConsent, setHealthConsent] = useState(false);
   const [consentError, setConsentError] = useState(false);
-  const buildBody = () => ({ fullName: draft.fullName.trim(), email: nullable(draft.email), dateOfBirth: nullable(draft.dateOfBirth), gender: draft.gender || null, cccd: nullable(draft.cccd), address: nullable(draft.address), hasBHYT: draft.hasBHYT, healthInsuranceCode: draft.hasBHYT ? nullable(draft.healthInsuranceCode) : null, registeredHospital: draft.hasBHYT ? nullable(draft.registeredHospital) : null, bloodType: nullable(draft.bloodType), height: draft.height ? Number(draft.height) : null, weight: draft.weight ? Number(draft.weight) : null, allergies: nullable(draft.allergies), medicalHistory: nullable(draft.medicalHistory), ...(healthConsent ? { healthConsent: true } : {}) });
+  const buildBody = () => ({ fullName: draft.fullName.trim(), dateOfBirth: nullable(draft.dateOfBirth), gender: draft.gender || null, cccd: nullable(draft.cccd), address: nullable(draft.address), hasBHYT: draft.hasBHYT, healthInsuranceCode: draft.hasBHYT ? nullable(draft.healthInsuranceCode) : null, registeredHospital: draft.hasBHYT ? nullable(draft.registeredHospital) : null, bloodType: nullable(draft.bloodType), height: draft.height ? Number(draft.height) : null, weight: draft.weight ? Number(draft.weight) : null, allergies: nullable(draft.allergies), medicalHistory: nullable(draft.medicalHistory), ...(healthConsent ? { healthConsent: true } : {}) });
   const mutation = useUpdateProfile(async () => { await refreshUser(); });
   useMutationToast(mutation, { success: "Đã cập nhật hồ sơ.", fallbackError: "Không thể lưu hồ sơ." });
   const set = <K extends keyof ProfileDraft>(key: K, value: ProfileDraft[K]) => setDraft((current) => ({ ...current, [key]: value }));
@@ -37,7 +37,7 @@ function ProfileForm({ profile }: { profile: PatientUser }) {
     <div className="mt-6 grid gap-4 sm:grid-cols-2">
       <label className="text-sm font-semibold">Họ và tên <span className="text-[var(--public-danger)]">*</span><input className={input} value={draft.fullName} onChange={(e) => set("fullName", e.target.value)} required minLength={2} /></label>
       <label className="text-sm font-semibold">Số điện thoại<input className={`${input} bg-[var(--public-surface-muted)]`} value={profile.phone || ""} readOnly aria-readonly="true" /></label>
-      <label className="text-sm font-semibold">Email<input className={input} type="email" value={draft.email} onChange={(e) => set("email", e.target.value)} /></label>
+      <label className="text-sm font-semibold">Email đăng nhập<input className={`${input} bg-[var(--public-surface-muted)]`} value={profile.email || ""} readOnly aria-readonly="true" /></label>
       <label className="text-sm font-semibold">Ngày sinh<VietnamDateInput className={input} ariaLabel="Ngày sinh" value={draft.dateOfBirth} max={new Date().toISOString().slice(0, 10)} onChange={(value) => set("dateOfBirth", value)} /></label>
       <label className="text-sm font-semibold">Giới tính<select className={input} value={draft.gender} onChange={(e) => set("gender", e.target.value)}><option value="">Chưa cập nhật</option><option value="MALE">Nam</option><option value="FEMALE">Nữ</option><option value="OTHER">Khác</option></select></label>
       <label className="text-sm font-semibold">CCCD/Định danh<input className={input} value={draft.cccd} onChange={(e) => set("cccd", e.target.value.replace(/\D/g, "").slice(0, 20))} inputMode="numeric" /></label>
