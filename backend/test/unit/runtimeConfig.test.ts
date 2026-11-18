@@ -9,14 +9,14 @@ test("runtime config parses bounded numeric values and explicit zero TTL", () =>
     CHATBOT_AI_TIMEOUT_MS: "250",
     CHATBOT_CONTEXT_CACHE_TTL_MS: "0",
     CHATBOT_SETTINGS_CACHE_TTL_MS: "9999999",
-    PUBLIC_SEARCH_INDEX_TTL_MS: "1",
+    PUBLIC_SEARCH_REFRESH_INTERVAL_MS: "1",
   });
 
   assert.equal(config.server.port, 4000);
   assert.equal(config.chatbot.aiTimeoutMs, 1_000);
   assert.equal(config.chatbot.contextCacheTtlMs, 0);
   assert.equal(config.chatbot.settingsCacheTtlMs, 10 * 60_000);
-  assert.equal(config.publicSearch.indexTtlMs, 5_000);
+  assert.equal(config.publicSearch.refreshIntervalMs, 60_000);
 });
 
 test("runtime config normalizes URLs, flags and flags", () => {

@@ -1,6 +1,7 @@
 import { Prisma } from "../../generated/prisma/client.js";
 import { prisma } from "../config/prisma.js";
 import { AppError } from "../utils/appError.js";
+import PublicSearchService from "./search/search.service.js";
 
 // Một nguồn FAQ cho trang Hỏi đáp (showOnWeb) và trợ lý ảo (useInChatbot).
 type FAQInput = {
@@ -76,7 +77,7 @@ class FAQService {
   async create(
     input: Required<Pick<FAQInput, "question" | "answer">> & FAQInput,
   ) {
-    return prisma.fAQ.create({
+    const created = await prisma.fAQ.create({
       data: {
         question: input.question,
         answer: input.answer,
@@ -89,11 +90,13 @@ class FAQService {
       },
       select: dashboardFAQSelect,
     });
+    PublicSearchService.invalidateIndex();
+    return created;
   }
 
   async update(id: string, input: FAQInput) {
     await this.getById(id);
-    return prisma.fAQ.update({
+    const updated = await prisma.fAQ.update({
       where: { id },
       data: {
         question: input.question,
@@ -107,11 +110,14 @@ class FAQService {
       },
       select: dashboardFAQSelect,
     });
+    PublicSearchService.invalidateIndex();
+    return updated;
   }
 
   async delete(id: string) {
     const faq = await this.getById(id);
     await prisma.fAQ.delete({ where: { id } });
+    PublicSearchService.invalidateIndex();
     return faq;
   }
 }
