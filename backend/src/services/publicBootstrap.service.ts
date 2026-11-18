@@ -5,6 +5,7 @@ import PublicDoctorService from "./publicDoctor.service.js";
 import PublicFAQService from "./faq.service.js";
 import SiteSettingsService from "./siteSettings.service.js";
 import HomePageConfigService from "./homePageConfig.service.js";
+import PublicSearchService from "./search/search.service.js";
 
 export type PublicBootstrapView = "full" | "featured" | "catalog";
 
@@ -37,8 +38,10 @@ class PublicBootstrapService {
     Promise<PublicBootstrapData>
   >();
 
+  // Quản trị sửa nội dung công khai: bỏ cache trang chủ và đánh dấu chỉ mục tìm kiếm hết hạn.
   invalidate() {
     this.cache.clear();
+    PublicSearchService.invalidateIndex();
   }
 
   async get(view: PublicBootstrapView): Promise<PublicBootstrapData> {

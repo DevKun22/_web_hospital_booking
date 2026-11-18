@@ -176,9 +176,10 @@ export const getRuntimeConfig = (env: NodeJS.ProcessEnv = process.env) => {
       apiKey: trimmed(env.TEXTBEE_API_KEY),
     },
     publicSearch: {
-      cacheTtlMs: Math.min(
-        nonNegativeInteger(env.PUBLIC_SEARCH_CACHE_TTL_MS, 30_000),
-        5 * 60 * 1_000,
+      // Chỉ mục tìm kiếm trong bộ nhớ được dựng lại sau chừng này thời gian (hoặc ngay khi quản trị sửa nội dung).
+      indexTtlMs: Math.min(
+        Math.max(nonNegativeInteger(env.PUBLIC_SEARCH_INDEX_TTL_MS, 60_000), 5_000),
+        10 * 60 * 1_000,
       ),
     },
     demoSeed: {
