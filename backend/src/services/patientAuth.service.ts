@@ -192,6 +192,49 @@ class PatientAuthService {
     };
   }
 
+  // Sau khi OTP đặt lịch được xác thực: người nhập đúng mã đã chứng minh sở hữu email của lịch, tương đương bước đăng nhập OTP,
+  // nên cấp luôn phiên người khám để không bắt nhập OTP lần hai. Chỉ cấp khi lịch đã qua bước xác thực và email khớp tài khoản.
+  async issueSessionForVerifiedAppointment(appointmentId: string, meta?: SessionMeta) {
+    const appointment = await prisma.appointment.findUnique({
+      where: { id: appointmentId },
+      select: {
+        status: true,
+        patientEmail: true,
+        patient: { select: { id: true, fullName: true, phone: true, email: true, avatar: true, role: true, isActive: true } },
+      },
+    });
+
+    if (
+      !appointment ||
+      appointment.status === "PENDING_OTP" ||
+      appointment.patient.role !== "PATIENT" ||
+      !appointment.patient.isActive ||
+      appointment.patient.email.toLowerCase() !== appointment.patientEmail.toLowerCase()
+    ) {
+      return null;
+    }
+
+    const user = await prisma.user.update({
+      where: { id: appointment.patient.id },
+      data: { isEmailVerified: true },
+    });
+    const refreshExpiresAt = getPatientAbsoluteExpiry(meta?.platform);
+    const authSession = await AuthSessionService.create({
+      userId: user.id,
+      kind: "PATIENT",
+      expiresAt: refreshExpiresAt,
+      meta,
+    });
+
+    return {
+      tokenType: "Bearer" as const,
+      accessToken: createAccessToken(user.id, authSession.session.id),
+      refreshToken: authSession.refreshToken,
+      refreshExpiresAt,
+      user: toPatientUser(user),
+    };
+  }
+
   async refresh(refreshToken: string, meta?: SessionMeta) {
     const rotated = await AuthSessionService.rotate({
       refreshToken,

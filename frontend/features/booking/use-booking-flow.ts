@@ -193,14 +193,16 @@ export function useBookingFlow(catalog: BookingCatalog) {
 
     dispatch({ type: "submitting", value: true });
     try {
-      const appointment = await verifyAppointmentOtp(pending.appointmentId, state.otp);
+      const { appointment, user } = await verifyAppointmentOtp(pending.appointmentId, state.otp);
+      // Máy chủ đã đăng nhập cổng người khám bằng cookie: cập nhật phiên để nút "Xem lịch của tôi" vào thẳng cổng.
+      if (user) queryClient.setQueryData(patientSessionQueryKey, user);
       clearPendingAppointment();
       dispatch({ type: "verified", appointment, notice: "Xác thực OTP thành công. Lịch hẹn đã được xác nhận." });
       void refreshSlots();
     } catch (err) {
       fail(messageOf(err, "Xác thực OTP thất bại"));
     }
-  }, [pending, state.otp, dispatch, fail, refreshSlots]);
+  }, [pending, state.otp, dispatch, fail, refreshSlots, queryClient]);
 
   const resendOtp = useCallback(async () => {
     if (!pending) return;

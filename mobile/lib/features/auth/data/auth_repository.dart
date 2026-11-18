@@ -72,6 +72,12 @@ class AuthRepository {
     });
   }
 
+  /// Lưu phiên do máy chủ cấp ngoài luồng đăng nhập (ví dụ sau khi xác thực OTP đặt lịch).
+  Future<void> adoptSession(AuthSession session) => _refreshCoordinator.persist(
+    accessToken: session.accessToken,
+    refreshToken: session.refreshToken,
+  );
+
   Future<AuthSession?> restoreSession() async {
     final refreshToken = await _tokenStorage.readRefreshToken();
     if (refreshToken == null || refreshToken.isEmpty) return null;

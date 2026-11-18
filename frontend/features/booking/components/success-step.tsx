@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { useQueryClient } from "@tanstack/react-query";
 import { CircleCheck, Copy } from "lucide-react";
 import type { BookingFlow } from "@/features/booking/use-booking-flow";
 import { copyBookingCode } from "@/features/booking/components/copy-code";
@@ -6,13 +7,22 @@ import { formatDayShort } from "@/features/booking/dates";
 import { doctorDisplayName } from "@/lib/doctor";
 import { formatCurrency } from "@/lib/format";
 import { appointmentStatusLabel } from "@/lib/appointment-status";
+import { patientApiRequest } from "@/lib/patient-portal-api";
+import { patientSessionQueryKey } from "@/lib/patient-session-client";
 
 const formatTime = (value: string) => value.slice(0, 5);
 
 // Chỉ hiển thị sau khi máy chủ đã xác nhận OTP hợp lệ.
 export function SuccessStep({ flow }: { flow: BookingFlow }) {
   const { verified, slot, selection } = flow.state;
+  const queryClient = useQueryClient();
   if (!verified) return null;
+  // Đã đăng nhập (vừa được cấp phiên sau OTP, hoặc đã có sẵn): vào thẳng cổng, không bắt nhập OTP lần hai.
+  const signedInEmail = flow.patient?.email;
+  const signOut = async () => {
+    await patientApiRequest("/auth/logout", { method: "POST", allowEmpty: true }).catch(() => null);
+    queryClient.setQueryData(patientSessionQueryKey, null);
+  };
   const doctor = flow.catalog.doctors.find((item) => item.id === selection.doctorId);
   const day = slot ? formatDayShort(slot.date.slice(0, 10)) : "";
 
@@ -48,13 +58,21 @@ export function SuccessStep({ flow }: { flow: BookingFlow }) {
       <p className="mt-3 text-xs leading-5 text-[var(--public-muted)]">Hóa đơn và thanh toán trực tuyến có sau khi bệnh viện hoàn tất khám.</p>
 
       <div className="mt-5 flex flex-col gap-2 sm:flex-row">
-        <Link href={`/tai-khoan/dang-nhap?next=/tai-khoan/lich-hen&email=${encodeURIComponent(flow.state.draft.patientEmail.trim().toLowerCase())}`} className="public-button-primary inline-flex min-h-12 items-center justify-center rounded-lg px-5 text-sm font-semibold">
+        <Link href={signedInEmail ? "/tai-khoan/lich-hen" : `/tai-khoan/dang-nhap?next=/tai-khoan/lich-hen&email=${encodeURIComponent(flow.state.draft.patientEmail.trim().toLowerCase())}`} className="public-button-primary inline-flex min-h-12 items-center justify-center rounded-lg px-5 text-sm font-semibold">
           Xem lịch của tôi
         </Link>
         <button type="button" onClick={flow.actions.startNewBooking} className="public-button-secondary inline-flex min-h-12 items-center justify-center rounded-lg px-5 text-sm font-semibold">
           Đặt lịch khác
         </button>
       </div>
+      {signedInEmail ? (
+        <p className="mt-3 text-xs leading-5 text-[var(--public-muted)]">
+          Đã đăng nhập bằng email {signedInEmail}. Dùng máy chung?{" "}
+          <button type="button" onClick={() => void signOut()} className="font-semibold text-[var(--public-primary)] underline underline-offset-2">
+            Đăng xuất
+          </button>
+        </p>
+      ) : null}
     </section>
   );
 }
