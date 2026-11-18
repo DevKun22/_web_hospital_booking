@@ -4,7 +4,10 @@ import { isProductionLike, validateRuntimeEnvironment } from "./config/environme
 import { configureHttpServer } from "./config/httpServer.js";
 import { getRuntimeConfig } from "./config/runtimeConfig.js";
 import { logger } from "./observability/logger.js";
+import { installRedisErrorGuard } from "./observability/redisErrorGuard.js";
 
+// Redis chỉ phục vụ việc nền: lỗi từ Redis không được làm sập cả API (xem redisErrorGuard).
+installRedisErrorGuard();
 validateRuntimeEnvironment();
 
 const [
