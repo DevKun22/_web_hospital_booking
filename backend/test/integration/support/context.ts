@@ -20,6 +20,8 @@ if (process.env.NODE_ENV !== "test") {
 // Integration verifies that Prisma query events are attributed to the active
 // HTTP request without exposing SQL or parameters.
 process.env.DATABASE_QUERY_METRICS_ENABLED = "true";
+// Test mô phỏng môi trường chưa có Redis: giữ đường đếm "degraded" bảo thủ mà các test giới hạn tốc độ kiểm tra.
+process.env.RATE_LIMIT_STORE ??= "redis";
 
 export const activeDatabaseUrl = process.env.DATABASE_URL || "";
 export const activeDatabase = new URL(activeDatabaseUrl);

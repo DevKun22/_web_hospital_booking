@@ -1,6 +1,6 @@
 import "dotenv/config";
 
-import { validateRuntimeEnvironment } from "./config/environment.js";
+import { isProductionLike, validateRuntimeEnvironment } from "./config/environment.js";
 import { configureHttpServer } from "./config/httpServer.js";
 import { getRuntimeConfig } from "./config/runtimeConfig.js";
 import { logger } from "./observability/logger.js";
@@ -32,8 +32,12 @@ configureHttpServer(server);
 startRuntimeMetrics("api");
 
 // Gói free chỉ có một tiến trình: cho phép chạy worker OTP/lịch hẹn ngay tại đây.
-const { startInlineWorkers } = await import("./workers/inline.js");
-void startInlineWorkers();
+const { parseInlineWorkers, startInlineWorkers } = await import("./workers/inline.js");
+// Cấu hình sai thì dừng ngay lúc khởi động; còn lỗi khi chạy worker không được làm sập API.
+if (isProductionLike()) parseInlineWorkers(getRuntimeConfig().workers.inline);
+startInlineWorkers().catch((error) => {
+  logger.error("[INLINE_WORKER] startup failed; API continues without background workers:", error);
+});
 
 const shutdown = (signal: string) => {
   logger.info(`${signal} received, shutting down gracefully...`);

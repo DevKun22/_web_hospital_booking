@@ -3,6 +3,9 @@ import {
   getAppointmentReconciliationIntervalMs,
   getSlotReconciliationIntervalMs,
 } from "../config/environment.js";
+import { getRuntimeConfig } from "../config/runtimeConfig.js";
+import { reportRedisUnavailable } from "../services/redisHealth.service.js";
+import { guardedEnqueue } from "./queueGuard.js";
 import { getRedisConnectionOptions, hasRedisUrl } from "./redis.js";
 
 export const APPOINTMENT_LIFECYCLE_QUEUE_NAME = "appointment-lifecycle";
@@ -32,6 +35,10 @@ export const getAppointmentLifecycleQueue = () => {
         },
       },
     );
+    // Không có bộ lắng nghe lỗi thì lỗi kết nối Redis có thể làm sập tiến trình.
+    appointmentLifecycleQueue.on("error", (error) =>
+      reportRedisUnavailable("queue", "appointment-lifecycle-queue", error),
+    );
   }
 
   return appointmentLifecycleQueue;
@@ -43,16 +50,22 @@ export const enqueuePendingOtpExpiry = async (
 ) => {
   if (!hasRedisUrl()) return false;
 
-  await getAppointmentLifecycleQueue().add(
-    "expire-pending-otp",
-    { type: "EXPIRE_PENDING_OTP", appointmentId },
-    {
-      jobId: `expire-pending-otp-${appointmentId}`,
-      delay: Math.max(holdExpiresAt.getTime() - Date.now(), 0),
-    },
+  // Không để request đặt lịch treo khi Redis lỗi: quá hạn hoặc ngắt mạch thì bỏ qua job hẹn giờ, vòng đối soát định kỳ
+  // vẫn giải phóng khung giờ khi hết hạn giữ chỗ (chậm hơn tối đa một chu kỳ đối soát).
+  const added = await guardedEnqueue(
+    () =>
+      getAppointmentLifecycleQueue().add(
+        "expire-pending-otp",
+        { type: "EXPIRE_PENDING_OTP", appointmentId },
+        {
+          jobId: `expire-pending-otp-${appointmentId}`,
+          delay: Math.max(holdExpiresAt.getTime() - Date.now(), 0),
+        },
+      ),
+    { timeoutMs: getRuntimeConfig().redis.enqueueTimeoutMs },
   );
 
-  return true;
+  return added !== false;
 };
 
 export const ensurePendingOtpReconciliation = async () => {

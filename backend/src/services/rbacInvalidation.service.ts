@@ -4,6 +4,7 @@ import {
   hasCacheRedisUrl,
 } from "../config/redis.js";
 import { logger } from "../observability/logger.js";
+import { getRuntimeConfig } from "../config/runtimeConfig.js";
 
 const RBAC_INVALIDATION_CHANNEL = "rbac:matrix:invalidated";
 const RETRY_DELAY_MS = 60_000;
@@ -39,6 +40,8 @@ const createClient = (name: string) =>
 export const ensureRbacInvalidationSubscriber = (
   invalidateLocalCache: () => void,
 ) => {
+  // RBAC_SYNC=local (một instance): bộ nhớ đệm cục bộ có TTL là đủ, không giữ kết nối đăng ký Redis thường trực.
+  if (getRuntimeConfig().redis.rbacSync !== "redis") return;
   if (!hasCacheRedisUrl() || subscriber || subscriberStart || Date.now() < retryAfter) return;
 
   const client = createClient("rbac-invalidation-subscriber");
@@ -68,6 +71,7 @@ export const ensureRbacInvalidationSubscriber = (
 };
 
 export const publishRbacInvalidation = async () => {
+  if (getRuntimeConfig().redis.rbacSync !== "redis") return;
   if (!hasCacheRedisUrl()) return;
 
   try {
