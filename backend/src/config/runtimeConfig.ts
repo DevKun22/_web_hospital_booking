@@ -176,10 +176,10 @@ export const getRuntimeConfig = (env: NodeJS.ProcessEnv = process.env) => {
       apiKey: trimmed(env.TEXTBEE_API_KEY),
     },
     publicSearch: {
-      // Chỉ mục tìm kiếm trong bộ nhớ được dựng lại sau chừng này thời gian (hoặc ngay khi quản trị sửa nội dung).
-      indexTtlMs: Math.min(
-        Math.max(nonNegativeInteger(env.PUBLIC_SEARCH_INDEX_TTL_MS, 60_000), 5_000),
-        10 * 60 * 1_000,
+      // Làm mới định kỳ view vật chất SearchDocument (ngoài lần làm mới ngay khi quản trị sửa nội dung).
+      refreshIntervalMs: Math.min(
+        Math.max(positiveInteger(env.PUBLIC_SEARCH_REFRESH_INTERVAL_MS, 10 * 60_000), 60_000),
+        60 * 60_000,
       ),
     },
     demoSeed: {
