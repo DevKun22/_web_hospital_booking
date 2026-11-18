@@ -17,6 +17,8 @@ type PushSendResult =
   | { outcome: "INVALID_TOKEN"; error: string }
   | { outcome: "FAILED"; error: string };
 
+const FCM_BATCH_LIMIT = 500;
+
 const invalidTokenCodes = new Set([
   "messaging/invalid-registration-token",
   "messaging/registration-token-not-registered",
@@ -43,41 +45,46 @@ class FcmPushService {
     return isFirebaseAdminConfigured();
   }
 
-  async send(input: PushSendInput): Promise<PushSendResult> {
-    if (!this.isConfigured()) return { outcome: "DISABLED" };
+  // Gửi nhiều tin trong một lệnh gọi (Firebase Admin sendEach, tối đa 500 tin mỗi lô). Kết quả cùng thứ tự đầu vào;
+  // lỗi của từng tin không làm hỏng cả lô.
+  async sendBatch(inputs: PushSendInput[]): Promise<PushSendResult[]> {
+    if (!this.isConfigured()) return inputs.map(() => ({ outcome: "DISABLED" as const }));
 
-    try {
-      const providerMessageId = await getMessaging(
-        getFirebaseAdminApp(),
-      ).send({
-        token: input.token,
-        notification: {
-          title: input.title,
-          body: input.body,
-        },
-        data: input.data,
-        android: {
-          priority: "high",
-          notification: {
-            channelId: "appointment_updates",
-            sound: "default",
-          },
-        },
-        apns: {
-          payload: {
-            aps: {
-              sound: "default",
+    const results: PushSendResult[] = [];
+    for (let start = 0; start < inputs.length; start += FCM_BATCH_LIMIT) {
+      const chunk = inputs.slice(start, start + FCM_BATCH_LIMIT);
+      try {
+        const response = await getMessaging(getFirebaseAdminApp()).sendEach(
+          chunk.map((input) => ({
+            token: input.token,
+            notification: { title: input.title, body: input.body },
+            data: input.data,
+            android: {
+              priority: "high" as const,
+              notification: { channelId: "appointment_updates", sound: "default" },
             },
-          },
-        },
-      });
-      return { outcome: "SENT", providerMessageId };
-    } catch (error) {
-      const details = errorDetails(error);
-      return invalidTokenCodes.has(details.code)
-        ? { outcome: "INVALID_TOKEN", error: details.message }
-        : { outcome: "FAILED", error: details.message };
+            apns: { payload: { aps: { sound: "default" } } },
+          })),
+        );
+        for (const item of response.responses) {
+          if (item.success) {
+            results.push({ outcome: "SENT", providerMessageId: item.messageId ?? "" });
+            continue;
+          }
+          const details = errorDetails(item.error);
+          results.push(
+            invalidTokenCodes.has(details.code)
+              ? { outcome: "INVALID_TOKEN", error: details.message }
+              : { outcome: "FAILED", error: details.message },
+          );
+        }
+      } catch (error) {
+        // Cả lô lỗi (mạng, xác thực): mọi tin đều thử lại sau.
+        const details = errorDetails(error);
+        for (let index = 0; index < chunk.length; index += 1) results.push({ outcome: "FAILED", error: details.message });
+      }
     }
+    return results;
   }
 }
 
