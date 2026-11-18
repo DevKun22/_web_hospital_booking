@@ -73,10 +73,10 @@ class _FakeSubmissionRepository extends BookingSubmissionRepository {
   }
 
   @override
-  Future<BookedAppointment> verify({
+  Future<VerifiedBooking> verify({
     required PendingBooking pending,
     required String otp,
-  }) async => _appointment;
+  }) async => VerifiedBooking(appointment: _appointment);
 
   @override
   Future<void> abandon(PendingBooking pending) async {

@@ -40,8 +40,14 @@ export const createAppointmentSchema = z.object({
   }
 });
 
+// issueSession: client muốn nhận luôn phiên đăng nhập người khám (web qua proxy cookie, mobile lưu token) để khỏi nhập OTP lần hai.
 export const verifyAppointmentOtpSchema = z.object({
   otp: z.string().length(6, "OTP phai co 6 so").regex(/^[0-9]+$/, "OTP chi duoc chua so"),
+  issueSession: z.boolean().optional(),
+  deviceId: z.string().trim().min(1).max(128).optional(),
+  deviceName: z.string().trim().min(1).max(128).optional(),
+  platform: z.enum(["ios", "android", "web"]).optional(),
+  appVersion: z.string().trim().min(1).max(40).optional(),
 });
 
 export const abandonPendingAppointmentSchema = z.object({

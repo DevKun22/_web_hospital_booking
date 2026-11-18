@@ -6,6 +6,7 @@ import 'package:hospital_booking_mobile/core/errors/swallowed_error.dart';
 import 'package:hospital_booking_mobile/core/providers/app_providers.dart';
 import 'package:hospital_booking_mobile/features/auth/application/auth_providers.dart';
 import 'package:hospital_booking_mobile/features/auth/application/auth_state.dart';
+import 'package:hospital_booking_mobile/features/auth/domain/auth_session.dart';
 import 'package:hospital_booking_mobile/features/auth/domain/patient_user.dart';
 import 'package:hospital_booking_mobile/features/notifications/data/push_messaging_gateway.dart';
 
@@ -120,6 +121,16 @@ class AuthController extends Notifier<AuthState> {
         errorOrigin: AuthErrorOrigin.verifyOtp,
       );
       return false;
+    }
+  }
+
+  /// Đăng nhập bằng phiên máy chủ vừa cấp (sau OTP đặt lịch). Lỗi lưu phiên chỉ khiến người dùng phải đăng nhập lại như cũ.
+  Future<void> adoptSession(AuthSession session) async {
+    try {
+      await ref.read(authRepositoryProvider).adoptSession(session);
+      state = AuthState(status: AuthStatus.authenticated, user: session.user);
+    } catch (error) {
+      logSwallowedError('auth_controller.adoptSession', error);
     }
   }
 

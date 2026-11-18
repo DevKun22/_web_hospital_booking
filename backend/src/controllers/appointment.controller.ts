@@ -1,6 +1,7 @@
 import type { Request, Response, NextFunction } from "express";
 import type { AppointmentStatus, Role } from "../../generated/prisma/enums.js";
 import AppointmentService from "../services/appointment.service.js";
+import PatientAuthService from "../services/patientAuth.service.js";
 import {
   getRequiredPathParam as getParam,
   parseNumberQuery,
@@ -98,10 +99,26 @@ export const verifyAppointmentOtpHandler = async (
       getIpAddress(req),
     );
 
+    // Chỉ cấp phiên khi client yêu cầu; lỗi cấp phiên không làm hỏng việc xác nhận lịch đã thành công.
+    let session = null;
+    if (req.body.issueSession === true) {
+      session = await PatientAuthService.issueSessionForVerifiedAppointment(
+        appointment.id,
+        {
+          ipAddress: getIpAddress(req),
+          userAgent: req.headers["user-agent"],
+          deviceId: req.body.deviceId,
+          deviceName: req.body.deviceName,
+          platform: req.body.platform,
+          appVersion: req.body.appVersion,
+        },
+      ).catch(() => null);
+    }
+
     return res.json({
       success: true,
       message: "Xác thực đặt lịch thành công",
-      data: appointment,
+      data: session ? { ...appointment, session } : appointment,
     });
   } catch (error) {
     next(error);

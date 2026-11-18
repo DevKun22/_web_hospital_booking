@@ -828,3 +828,55 @@ test("doctor schedule: rolling slots, schedule changes keep booked visits, range
   assert.equal(reopened.status, 200);
   assert.equal(reopened.body.data.reopenedSlots, closed.body.data.lockedSlots);
 });
+
+// Xác thực OTP đặt lịch cũng chứng minh sở hữu email, nên client có thể xin luôn phiên người khám (khỏi nhập OTP lần hai).
+test("verifying the booking OTP can issue a patient session, only when requested", async () => {
+  const booking = await http.request("/api/v1/appointments", {
+    method: "POST",
+    body: bookingBody({ phone: "0933000001" }),
+  });
+  assert.equal(booking.status, 201);
+
+  const plain = await http.request(`/api/v1/appointments/${booking.body.data.appointmentId}/verify-otp`, {
+    method: "POST",
+    body: { otp: booking.body.data.debugOtp },
+  });
+  assert.equal(plain.status, 200);
+  assert.equal(plain.body.data.session, undefined);
+
+  const second = await http.request("/api/v1/appointments", {
+    method: "POST",
+    body: bookingBody({ phone: "0933000002", timeSlotId: fixture.slotTwo.id }),
+  });
+  assert.equal(second.status, 201);
+  const withSession = await http.request(`/api/v1/appointments/${second.body.data.appointmentId}/verify-otp`, {
+    method: "POST",
+    body: { otp: second.body.data.debugOtp, issueSession: true, platform: "android", deviceId: "device-test-1" },
+  });
+  assert.equal(withSession.status, 200);
+  const session = withSession.body.data.session;
+  assert.equal(session.user.email, emailOf("0933000002"));
+  assert.ok(session.accessToken && session.refreshToken);
+
+  const me = await http.request("/api/v1/me/payment-capabilities", {
+    headers: { Authorization: `Bearer ${session.accessToken}` },
+  });
+  assert.equal(me.status, 200);
+  const stored = await prisma.user.findUniqueOrThrow({ where: { email: emailOf("0933000002") } });
+  assert.equal(stored.isEmailVerified, true);
+});
+
+test("no session is issued while the booking is still waiting for OTP", async () => {
+  const booking = await http.request("/api/v1/appointments", {
+    method: "POST",
+    body: bookingBody({ phone: "0933000003" }),
+  });
+  assert.equal(booking.status, 201);
+  const wrong = await http.request(`/api/v1/appointments/${booking.body.data.appointmentId}/verify-otp`, {
+    method: "POST",
+    body: { otp: "000000", issueSession: true },
+  });
+  assert.notEqual(wrong.status, 200);
+  assert.equal(wrong.body.data?.session, undefined);
+  assert.equal(await prisma.authSession.count({ where: { user: { email: emailOf("0933000003") } } }), 0);
+});
