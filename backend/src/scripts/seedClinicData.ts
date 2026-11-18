@@ -58,12 +58,11 @@ async function createUser(data: { fullName: string; phone: string; email: string
     role: data.role,
     password,
     isActive: true,
-    isPhoneVerified: true,
     isEmailVerified: true,
   };
   return prisma.user.upsert({
-    where: { phone: data.phone },
-    update: fields,
+    where: { email: data.email },
+    update: { phone: data.phone, ...fields },
     create: { phone: data.phone, ...fields },
   });
 }
@@ -334,7 +333,7 @@ async function createSchedules(doctorId: string) {
   ];
   await prisma.doctorSchedule.createMany({
     data: [1, 2, 3, 4, 5, 6].flatMap((dayOfWeek) =>
-      ranges.map((range) => ({ doctorId, dayOfWeek, ...range, slotDuration: 30, maxPatients: 1, isActive: true })),
+      ranges.map((range) => ({ doctorId, dayOfWeek, ...range, slotDuration: 30, isActive: true })),
     ),
   });
 }
@@ -420,16 +419,17 @@ async function seedSiteContent() {
     workingHours: "Thứ 2 - Thứ 7, 08:00 - 16:30",
     mapUrl: "https://maps.google.com/?q=475A+Điện+Biên+Phủ,+Bình+Thạnh",
   };
-  await prisma.siteSetting.upsert({
-    where: { key: "site_settings" },
+  await prisma.appSetting.upsert({
+    where: { scope_key: { scope: "SITE", key: "site_settings" } },
     update: { value, isActive: true },
-    create: { key: "site_settings", value, description: "Thông tin liên hệ và giờ làm việc", isActive: true },
+    create: { scope: "SITE", key: "site_settings", value, description: "Thông tin liên hệ và giờ làm việc", isActive: true },
   });
 
-  await prisma.chatbotSetting.upsert({
-    where: { key: "runtime" },
+  await prisma.appSetting.upsert({
+    where: { scope_key: { scope: "CHATBOT", key: "runtime" } },
     update: {},
     create: {
+      scope: "CHATBOT",
       key: "runtime",
       value: {
         aiEnabled: false,

@@ -1,12 +1,12 @@
 import { apiRequest } from "@/lib/api";
 import type { Appointment } from "@/lib/types";
-import type { BookingDraft, BookingSelection, OtpChannel, PendingAppointment } from "@/features/booking/model";
+import type { BookingDraft, BookingSelection, PendingAppointment } from "@/features/booking/model";
 import { hasHealthDeclaration } from "@/features/booking/model";
 
 const orNull = (value: string) => value.trim() || null;
 
 // Giữ chỗ khung giờ và gửi OTP. Chỉ thành công thật khi server trả về phiếu.
-export function createAppointment(selection: BookingSelection, draft: BookingDraft, otpChannel: OtpChannel) {
+export function createAppointment(selection: BookingSelection, draft: BookingDraft) {
   return apiRequest<PendingAppointment>("/appointments", {
     method: "POST",
     body: {
@@ -16,8 +16,7 @@ export function createAppointment(selection: BookingSelection, draft: BookingDra
       timeSlotId: draft.timeSlotId,
       patientName: draft.patientName.trim(),
       patientPhone: draft.patientPhone.trim(),
-      patientEmail: orNull(draft.patientEmail),
-      otpChannel,
+      patientEmail: draft.patientEmail.trim().toLowerCase(),
       reason: orNull(draft.reason),
       gender: draft.gender || null,
       dateOfBirth: draft.dateOfBirth || null,

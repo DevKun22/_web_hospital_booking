@@ -1,63 +1,4 @@
-import {
-  AppointmentService,
-  AuthOtpService,
-  AuthSessionService,
-  InvoiceService,
-  MedicalRecordService,
-  NotificationService,
-  PolicyService,
-  PrescriptionService,
-  RbacService,
-  ScheduleReconciliationService,
-  activeDatabase,
-  activeDatabaseMarker,
-  activeDatabaseSchema,
-  activeDatabaseUrl,
-  after,
-  assert,
-  authCookie,
-  bcrypt,
-  before,
-  beforeEach,
-  bookingBody,
-  buildVnpayCallbackQuery,
-  buildVnpayQueryResponse,
-  buildVnpayRefundResponse,
-  callVnpayRefund,
-  createApp,
-  createDashboardUser,
-  createIssuedPrescription,
-  createMedicineViaApi,
-  createPayableInvoice,
-  createStoredAppointment,
-  createVnpayPaidInvoice,
-  createVnpayPayment,
-  dashboardCall,
-  dashboardHeaders,
-  dateOnly,
-  emailBookingBody,
-  fixture,
-  futureDate,
-  generateDashboardAccessToken,
-  generatePatientAccessToken,
-  getCookie,
-  http,
-  isFirebaseAdminConfigured,
-  isoDateFromToday,
-  jwt,
-  loginPatient,
-  moveAppointmentStart,
-  prisma,
-  receiveViaApi,
-  resetDatabase,
-  seedFixture,
-  startHttpServer,
-  test,
-  vietnamClock,
-  vnpayIpn,
-  withStubbedVnpayQuery,
-  withStubbedVnpayRefund,
-} from "./support/context.js";
+import { AppointmentService, AuthOtpService, AuthSessionService, InvoiceService, MedicalRecordService, NotificationService, PolicyService, PrescriptionService, RbacService, ScheduleReconciliationService, activeDatabase, activeDatabaseMarker, activeDatabaseSchema, activeDatabaseUrl, after, assert, authCookie, bcrypt, before, beforeEach, bookingBody, buildVnpayCallbackQuery, buildVnpayQueryResponse, buildVnpayRefundResponse, callVnpayRefund, createApp, createDashboardUser, createIssuedPrescription, createMedicineViaApi, createPayableInvoice, createStoredAppointment, createVnpayPaidInvoice, createVnpayPayment, dashboardCall, dashboardHeaders, dateOnly, emailBookingBody, fixture, futureDate, generateDashboardAccessToken, generatePatientAccessToken, getCookie, http, isFirebaseAdminConfigured, isoDateFromToday, jwt, loginPatient, moveAppointmentStart, prisma, receiveViaApi, resetDatabase, seedFixture, startHttpServer, test, vietnamClock, vnpayIpn, withStubbedVnpayQuery, withStubbedVnpayRefund, appointmentLogs, emailOf } from "./support/context.js";
 
 test("booking OTP verification moves PENDING_OTP to CONFIRMED (auto-confirm)", async () => {
   const booking = await http.request("/api/v1/appointments", {
@@ -78,37 +19,15 @@ test("booking OTP verification moves PENDING_OTP to CONFIRMED (auto-confirm)", a
   assert.equal(verification.body.data.status, "CONFIRMED");
 });
 
-test("an email OTP cannot attach a booking to a phone account owned by another email", async () => {
-  const victim = await prisma.user.create({
-    data: {
-      fullName: "Victim Patient",
-      phone: "0944444441",
-      email: "victim-owner@example.com",
-      role: "PATIENT",
-      isPhoneVerified: true,
-      isEmailVerified: true,
-      patientProfile: { create: { address: "Victim address" } },
-    },
-  });
-
+test("a booking with the email of a staff account is rejected and holds no slot", async () => {
   const attempt = await http.request("/api/v1/appointments", {
     method: "POST",
-    body: {
-      ...emailBookingBody({
-        phone: victim.phone!,
-        email: "attacker@example.com",
-      }),
-      patientName: "Attacker Name",
-      address: "Attacker address",
-    },
+    body: bookingBody({ phone: "0944444441", email: fixture.adminUser.email }),
   });
   assert.equal(attempt.status, 409);
-  assert.equal(attempt.body.code, "ACCOUNT_LOGIN_REQUIRED");
+  assert.equal(attempt.body.code, "EMAIL_RESERVED");
 
-  assert.equal(
-    await prisma.appointment.count({ where: { patientPhone: victim.phone! } }),
-    0,
-  );
+  assert.equal(await prisma.appointment.count(), 0);
   assert.equal(
     (await prisma.doctorTimeSlot.findUniqueOrThrow({
       where: { id: fixture.slotOne.id },
@@ -116,40 +35,21 @@ test("an email OTP cannot attach a booking to a phone account owned by another e
     })).status,
     "AVAILABLE",
   );
-
-  const stored = await prisma.user.findUniqueOrThrow({
-    where: { id: victim.id },
-    include: { patientProfile: true },
-  });
-  assert.equal(stored.email, "victim-owner@example.com");
-  assert.equal(stored.fullName, "Victim Patient");
-  assert.equal(stored.patientProfile?.address, "Victim address");
 });
 
-test("a phone-verified account without an email cannot be claimed by an email OTP", async () => {
-  const account = await prisma.user.create({
-    data: {
-      fullName: "Phone Only Patient",
-      phone: "0944444442",
-      role: "PATIENT",
-      isPhoneVerified: true,
-    },
-  });
-
-  const attempt = await http.request("/api/v1/appointments", {
+test("two patients can share a contact phone because the email is the account identity", async () => {
+  const first = await http.request("/api/v1/appointments", {
     method: "POST",
-    body: emailBookingBody({
-      phone: account.phone!,
-      email: "claimer@example.com",
-    }),
+    body: bookingBody({ phone: "0944444442", email: "first@example.com" }),
   });
-  assert.equal(attempt.status, 409);
-  assert.equal(attempt.body.code, "ACCOUNT_LOGIN_REQUIRED");
+  const second = await http.request("/api/v1/appointments", {
+    method: "POST",
+    body: bookingBody({ phone: "0944444442", email: "second@example.com", timeSlotId: fixture.slotTwo.id }),
+  });
+  assert.ok(first.status < 300 && second.status < 300, JSON.stringify([first.body, second.body]));
 
-  const stored = await prisma.user.findUniqueOrThrow({
-    where: { id: account.id },
-  });
-  assert.equal(stored.email, null);
+  const accounts = await prisma.user.findMany({ where: { phone: "0944444442" }, select: { email: true } });
+  assert.deepEqual(accounts.map((account) => account.email).sort(), ["first@example.com", "second@example.com"]);
 });
 
 test("pending OTP expiry is idempotent and releases only its own slot", async () => {
@@ -194,7 +94,7 @@ test("pending OTP expiry is idempotent and releases only its own slot", async ()
   });
   assert.equal(unrelatedSlot.status, "LOCKED");
   assert.equal(
-    await prisma.appointmentLog.count({
+    await appointmentLogs.count({
       where: { appointmentId: appointment.id, action: "CANCELLED_BY_ADMIN" },
     }),
     1,
@@ -286,7 +186,7 @@ test("dashboard cookie login, refresh and logout remain compatible", async () =>
   const login = await http.request("/api/v1/auth/dashboard/login", {
     method: "POST",
     body: {
-      phone: fixture.adminUser.phone,
+      email: fixture.adminUser.email,
       password: fixture.password,
     },
   });
@@ -381,8 +281,9 @@ test("dashboard authorization uses the current account state on every request", 
     data: {
       fullName: "Current dashboard identity",
       phone: "0900000004",
+      email: emailOf("0900000004"),
       role: "STAFF",
-      isPhoneVerified: true,
+      isEmailVerified: true,
     },
   });
   const cookie = await authCookie(staff.id, "STAFF");
@@ -425,7 +326,7 @@ test("dashboard login limits repeated password failures by account and IP", asyn
     const rejected = await http.request("/api/v1/auth/dashboard/login", {
       method: "POST",
       body: {
-        phone: fixture.adminUser.phone,
+        email: fixture.adminUser.email,
         password: "incorrect-password",
       },
     });
@@ -435,7 +336,7 @@ test("dashboard login limits repeated password failures by account and IP", asyn
   const limited = await http.request("/api/v1/auth/dashboard/login", {
     method: "POST",
     body: {
-      phone: fixture.adminUser.phone,
+      email: fixture.adminUser.email,
       password: fixture.password,
     },
   });
@@ -543,7 +444,7 @@ test("expired OTP codes are removed after a day while recent and live codes are 
   const hours = (value: number) => new Date(Date.now() + value * 60 * 60 * 1000);
   const create = (code: string, expiresAt: Date) =>
     prisma.otpCode.create({
-      data: { phone: "0966000001", code, purpose: "BOOK_APPOINTMENT", expiresAt },
+      data: { email: "otp-cleanup@example.test", code, purpose: "BOOK_APPOINTMENT", expiresAt },
     });
   await create("old-1", hours(-72));
   await create("old-2", hours(-30));
@@ -552,7 +453,7 @@ test("expired OTP codes are removed after a day while recent and live codes are 
 
   assert.deepEqual(await AuthOtpService.cleanupExpired(), { deleted: 2 });
   const remaining = await prisma.otpCode.findMany({
-    where: { phone: "0966000001" },
+    where: { email: "otp-cleanup@example.test" },
     select: { code: true },
   });
   assert.deepEqual(remaining.map((item) => item.code).sort(), ["live", "recent"]);
@@ -601,7 +502,7 @@ test("dashboard list endpoints support partial, case-insensitive search with q",
 });
 
 test("the same OTP can be consumed by exactly one concurrent request", async () => {
-  const target = "0922222222";
+  const target = "otp-concurrency@example.test";
   const sent = await AuthOtpService.sendOtp(
     target,
     "PATIENT_PORTAL_LOGIN",
@@ -622,14 +523,14 @@ test("the same OTP can be consumed by exactly one concurrent request", async () 
 
   const storedOtp = await prisma.otpCode.findUniqueOrThrow({
     where: { id: sent.id },
-    select: { isUsed: true, usedAt: true },
+    select: { usedAt: true },
   });
-  assert.equal(storedOtp.isUsed, true);
   assert.ok(storedOtp.usedAt);
 
-  const successfulAuditRecords = await prisma.otpVerifyAttempt.count({
+  // Bộ đếm lưu đích dạng băm: chỉ kiểm số lượt thành công của mục đích này.
+  const successfulAuditRecords = await prisma.authAttempt.count({
     where: {
-      target,
+      kind: "OTP_VERIFY",
       purpose: "PATIENT_PORTAL_LOGIN",
       success: true,
     },
@@ -718,7 +619,7 @@ test("password reset rolls back when session revocation fails", async () => {
   );
   await prisma.$executeRawUnsafe(
     `CREATE TRIGGER "${triggerName}"
-     BEFORE UPDATE ON "${activeDatabaseSchema}"."DashboardSession"
+     BEFORE UPDATE ON "${activeDatabaseSchema}"."AuthSession"
      FOR EACH ROW EXECUTE FUNCTION "${activeDatabaseSchema}"."${functionName}"('${target.id}')`,
   );
 
@@ -732,7 +633,7 @@ test("password reset rolls back when session revocation fails", async () => {
     assert.equal(reset.status, 500);
   } finally {
     await prisma.$executeRawUnsafe(
-      `DROP TRIGGER IF EXISTS "${triggerName}" ON "${activeDatabaseSchema}"."DashboardSession"`,
+      `DROP TRIGGER IF EXISTS "${triggerName}" ON "${activeDatabaseSchema}"."AuthSession"`,
     );
     await prisma.$executeRawUnsafe(
       `DROP FUNCTION IF EXISTS "${activeDatabaseSchema}"."${functionName}"()`,
@@ -780,16 +681,18 @@ test("concurrent role changes cannot remove every active admin", async () => {
       data: {
         fullName: "Concurrent Admin A",
         phone: "0900000106",
+        email: emailOf("0900000106"),
         role: "ADMIN",
-        isPhoneVerified: true,
+        isEmailVerified: true,
       },
     }),
     prisma.user.create({
       data: {
         fullName: "Concurrent Admin B",
         phone: "0900000107",
+        email: emailOf("0900000107"),
         role: "ADMIN",
-        isPhoneVerified: true,
+        isEmailVerified: true,
       },
     }),
   ]);
@@ -909,7 +812,7 @@ test("the account owner is warned when an admin changes their email, phone, role
         phone: "0900000201",
         email: "owner.old@example.test",
         role: "STAFF",
-        isPhoneVerified: true,
+        isEmailVerified: true,
       },
     });
     const patch = (body: unknown) =>
@@ -1211,7 +1114,7 @@ test("staff inbox: announcements by role and internal appointment events", async
 
   // Sự kiện lịch hẹn: bác sĩ phụ trách và lễ tân nhận; người thực hiện thì không tự nhận.
   const patient = await prisma.user.create({
-    data: { fullName: "Người khám sự kiện", phone: "0987000051", role: "PATIENT", isActive: true },
+    data: { fullName: "Người khám sự kiện", email: emailOf("0987000051"), phone: "0987000051", role: "PATIENT", isActive: true },
   });
   const appointment = await prisma.appointment.create({
     data: {
@@ -1222,6 +1125,8 @@ test("staff inbox: announcements by role and internal appointment events", async
       status: "PENDING_CONFIRM",
       patientName: patient.fullName,
       patientPhone: patient.phone!,
+      patientEmail: emailOf(patient.phone!),
+      patientInfo: { create: {} },
       patientId: patient.id,
       doctorId: fixture.doctorOne.id,
       departmentId: fixture.department.id,

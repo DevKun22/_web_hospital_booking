@@ -1,5 +1,5 @@
 import { Queue } from "bullmq";
-import type { OtpChannel, OtpPurpose } from "../../generated/prisma/enums.js";
+import type { OtpPurpose } from "../../generated/prisma/enums.js";
 import { getRuntimeConfig } from "../config/runtimeConfig.js";
 import { reportRedisUnavailable } from "../services/redisHealth.service.js";
 import { guardedEnqueue } from "./queueGuard.js";
@@ -9,8 +9,7 @@ export const OTP_DELIVERY_QUEUE_NAME = "otp-delivery";
 
 export type OtpDeliveryJobData = {
   otpCodeId: string;
-  target: string;
-  channel: OtpChannel;
+  email: string;
   purpose: OtpPurpose;
   otp: string;
   expiresInSeconds: number;

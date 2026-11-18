@@ -1,0 +1,77 @@
+// Trợ lý ảo Kun: kho tri thức RAG, phiên hội thoại, nhật ký và cấu hình.
+
+model ChatbotLog {
+  id String @id @default(uuid())
+
+  userId String?
+  user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  sessionId String?
+  session   ChatbotSession? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+
+  guestPhone String?
+
+  message  String
+  response String
+  intent   String?
+
+  // Nguồn tri thức (ChatKnowledgeChunk.id) mà câu trả lời đã dựa vào; rỗng nếu không dùng truy hồi.
+  sourceIds String[] @default([])
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([sessionId])
+  @@index([createdAt])
+}
+
+// Kho tri thức của chatbot (RAG): mỗi dòng là một đoạn văn dựng từ FAQ, chuyên khoa, bác sĩ, gói khám, chính sách hoặc
+// thông tin cơ sở. Vector nhúng lưu dạng mảng số; kho nhỏ nên so khớp trong bộ nhớ, không cần tiện ích vector của Postgres.
+model ChatKnowledgeChunk {
+  id String @id @default(uuid())
+
+  sourceType String // FAQ | DEPARTMENT | DOCTOR | PACKAGE | POLICY | SITE
+  sourceId   String
+
+  title   String
+  content String
+  // Trang gốc của đoạn (chuyên khoa, bác sĩ, gói, hỏi đáp...) để dẫn người dùng tới nguồn.
+  url     String?
+
+  // Băm nội dung: chỉ nhúng lại khi nội dung đổi.
+  contentHash    String
+  embedding      Float[] @default([])
+  embeddingModel String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([sourceType, sourceId])
+}
+
+model ChatbotSession {
+  id String @id @default(uuid())
+
+  userId String?
+  user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  guestPhone String?
+
+  draft         Json    @default("{}")
+  currentIntent String?
+  currentState  String?
+  lastActions   Json?
+  lastMessage   String?
+  lastResponse  String?
+
+  isActive  Boolean   @default(true)
+  expiresAt DateTime?
+
+  logs ChatbotLog[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([expiresAt])
+}

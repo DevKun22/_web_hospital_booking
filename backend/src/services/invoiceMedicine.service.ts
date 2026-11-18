@@ -1,4 +1,5 @@
 import { Prisma } from "../../generated/prisma/client.js";
+import { writeAppointmentLog } from "./appointmentLog.service.js";
 import { prisma } from "../config/prisma.js";
 import { AppError } from "../utils/appError.js";
 import { desiredMedicineLine, diffMedicineLines, type BillableItem } from "../utils/medicineBilling.js";
@@ -137,10 +138,13 @@ class InvoiceMedicineService {
     });
     await tx.appointment.update({
       where: { id: appointmentId },
-      data: {
-        finalAmount: invoice.finalAmount + diff.delta,
-        logs: { create: { action: "INVOICE_CREATED", note: "Đã cập nhật tiền thuốc trong hóa đơn", createdById: actor?.userId } },
-      },
+      data: { finalAmount: invoice.finalAmount + diff.delta },
+    });
+    await writeAppointmentLog(tx, {
+      appointmentId,
+      action: "INVOICE_CREATED",
+      note: "Đã cập nhật tiền thuốc trong hóa đơn",
+      actorId: actor?.userId,
     });
     await AuditLogService.record(
       {
@@ -291,13 +295,11 @@ class InvoiceMedicineService {
       if (claimed.count !== 1) {
         throw new AppError("Hóa đơn bổ sung đã được xử lý ở thao tác khác. Vui lòng tải lại dữ liệu.", 409, "INVOICE_STATE_CONFLICT");
       }
-      await tx.appointmentLog.create({
-        data: {
-          appointmentId: supplement.invoice.appointmentId,
-          action: "PAYMENT_RECORDED",
-          note: `Đã thu hóa đơn bổ sung tiền thuốc ${supplement.supplementCode} (${input.paymentMethod}${paymentReference ? ` · ${paymentReference}` : ""})`,
-          createdById: actorId,
-        },
+      await writeAppointmentLog(tx, {
+        appointmentId: supplement.invoice.appointmentId,
+        action: "PAYMENT_RECORDED",
+        note: `Đã thu hóa đơn bổ sung tiền thuốc ${supplement.supplementCode} (${input.paymentMethod}${paymentReference ? ` · ${paymentReference}` : ""})`,
+        actorId,
       });
       await AuditLogService.record(
         {
@@ -419,9 +421,11 @@ class InvoiceMedicineService {
       });
       const refundedAmount = invoice.refundedAmount + total;
       await tx.invoice.update({ where: { id }, data: { refundedAmount } });
-      await tx.appointment.update({
-        where: { id: (await tx.invoice.findUniqueOrThrow({ where: { id }, select: { appointmentId: true } })).appointmentId },
-        data: { logs: { create: { action: "INVOICE_CREATED", note: "Đã hoàn tiền thuốc một phần", createdById: actor.userId } } },
+      await writeAppointmentLog(tx, {
+        appointmentId: (await tx.invoice.findUniqueOrThrow({ where: { id }, select: { appointmentId: true } })).appointmentId,
+        action: "INVOICE_CREATED",
+        note: "Đã hoàn tiền thuốc một phần",
+        actorId: actor.userId,
       });
       await AuditLogService.record(
         {

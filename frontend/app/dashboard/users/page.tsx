@@ -73,8 +73,8 @@ const toForm = (user: DashboardUser): UserForm => ({
 
 const buildCreatePayload = (form: UserForm) => ({
   fullName: form.fullName.trim(),
-  email: form.email.trim() || undefined,
-  phone: form.phone.trim(),
+  email: form.email.trim(),
+  phone: form.phone.trim() || undefined,
   password: form.password,
   role: form.role,
   avatar: form.avatar.trim() || undefined,
@@ -84,8 +84,8 @@ const buildCreatePayload = (form: UserForm) => ({
 
 const buildUpdatePayload = (form: UserForm) => ({
   fullName: form.fullName.trim(),
-  email: form.email.trim() || null,
-  phone: form.phone.trim(),
+  email: form.email.trim(),
+  phone: form.phone.trim() || null,
   role: form.role,
   avatar: form.avatar.trim() || null,
   avatarAssetId: form.avatarAssetId || undefined,
@@ -292,8 +292,8 @@ export default function UsersPage() {
       header: "Liên hệ",
       cell: (row) => (
         <div>
-          {row.phone || "-"}
-          <div style={{ color: "var(--ds-muted)", fontSize: 12 }}>{row.email || "-"}</div>
+          {row.email || "-"}
+          <div style={{ color: "var(--ds-muted)", fontSize: 12 }}>{row.phone || "-"}</div>
         </div>
       ),
     },
@@ -309,7 +309,7 @@ export default function UsersPage() {
             <DsInput
               aria-label="Tìm nhân sự"
               value={search}
-              placeholder="Gõ tên, SĐT hoặc email để lọc"
+              placeholder="Gõ tên, email hoặc SĐT để lọc"
               onChange={(event) => {
                 setSearch(event.target.value);
                 setPage(1);
@@ -358,7 +358,7 @@ export default function UsersPage() {
                   <span className="ds-listrow__main">
                     <strong>{item.fullName}</strong>
                     <small>
-                      {roleLabel[item.role]} · {item.phone || item.email || "-"}
+                      {roleLabel[item.role]} · {item.email || item.phone || "-"}
                     </small>
                   </span>
                 </span>
@@ -424,8 +424,11 @@ export default function UsersPage() {
             <DsInput id="us-name" value={form.fullName} required onChange={(event) => setForm((current) => ({ ...current, fullName: event.target.value }))} />
           </DsField>
           <div className="ds-grid-fields">
-            <DsField label="Số điện thoại" htmlFor="us-phone" required>
-              <DsInput id="us-phone" value={form.phone} placeholder="0901234567" required onChange={(event) => setForm((current) => ({ ...current, phone: event.target.value }))} />
+            <DsField label="Email đăng nhập" htmlFor="us-email" required hint="Dùng để đăng nhập và nhận mã OTP">
+              <DsInput id="us-email" type="email" value={form.email} placeholder="email@example.com" required onChange={(event) => setForm((current) => ({ ...current, email: event.target.value }))} />
+            </DsField>
+            <DsField label="Số điện thoại" htmlFor="us-phone" hint="Không bắt buộc, chỉ để liên hệ">
+              <DsInput id="us-phone" value={form.phone} placeholder="0901234567" onChange={(event) => setForm((current) => ({ ...current, phone: event.target.value }))} />
             </DsField>
             <DsField label="Vai trò" htmlFor="us-role" hint={isEditingSelf ? "Không đổi được vai trò của chính mình" : undefined}>
               <DsSelect id="us-role" value={form.role} disabled={isEditingSelf} onChange={(event) => setForm((current) => ({ ...current, role: event.target.value as DashboardRole }))}>
@@ -437,9 +440,6 @@ export default function UsersPage() {
               </DsSelect>
             </DsField>
           </div>
-          <DsField label="Email" htmlFor="us-email">
-            <DsInput id="us-email" type="email" value={form.email} placeholder="email@example.com" onChange={(event) => setForm((current) => ({ ...current, email: event.target.value }))} />
-          </DsField>
           {!target ? (
             <DsField label="Mật khẩu" htmlFor="us-password" required hint="Tối thiểu 6 ký tự">
               <DsInput id="us-password" type="password" autoComplete="new-password" value={form.password} required onChange={(event) => setForm((current) => ({ ...current, password: event.target.value }))} />
@@ -525,7 +525,7 @@ export default function UsersPage() {
               </>
             ) : null}
             <DsButton onClick={closePane}>Đóng</DsButton>
-            <DsButton type="submit" variant="primary" disabled={saving || uploading || !form.fullName.trim() || !form.phone.trim() || (!target && form.password.length < 6)}>
+            <DsButton type="submit" variant="primary" disabled={saving || uploading || !form.fullName.trim() || !form.email.trim() || (!target && form.password.length < 6)}>
               {uploading ? "Đang tải ảnh..." : saving ? "Đang lưu..." : target ? "Lưu thay đổi" : "Tạo tài khoản"}
             </DsButton>
           </div>

@@ -51,7 +51,6 @@ type RecordForm = {
   symptoms: string;
   diagnosis: string;
   treatment: string;
-  prescription: string;
   doctorNotes: string;
   resultPdfUrl: string;
 };
@@ -65,7 +64,7 @@ type LabForm = {
   fileUrl: string;
 };
 
-const emptyRecordForm: RecordForm = { symptoms: "", diagnosis: "", treatment: "", prescription: "", doctorNotes: "", resultPdfUrl: "" };
+const emptyRecordForm: RecordForm = { symptoms: "", diagnosis: "", treatment: "", doctorNotes: "", resultPdfUrl: "" };
 const emptyLabForm: LabForm = { testName: "", resultValue: "", unit: "", referenceRange: "", conclusion: "", fileUrl: "" };
 
 const statusLabel: Record<MedicalResultStatus, string> = {
@@ -87,7 +86,6 @@ const toRecordForm = (record: MedicalRecord): RecordForm => ({
   symptoms: record.symptoms || "",
   diagnosis: record.diagnosis || "",
   treatment: record.treatment || "",
-  prescription: record.prescription || "",
   doctorNotes: record.doctorNotes || "",
   resultPdfUrl: record.resultPdfUrl || "",
 });
@@ -105,7 +103,6 @@ const buildRecordPayload = (form: RecordForm) => ({
   symptoms: form.symptoms.trim() || null,
   diagnosis: form.diagnosis.trim() || null,
   treatment: form.treatment.trim() || null,
-  prescription: form.prescription.trim() || null,
   doctorNotes: form.doctorNotes.trim() || null,
   resultPdfUrl: form.resultPdfUrl.trim() || null,
 });
@@ -130,7 +127,6 @@ const textFields: { key: keyof RecordForm; label: string; hint?: string; rows: n
   { key: "symptoms", label: "Triệu chứng", rows: 3 },
   { key: "diagnosis", label: "Chẩn đoán", rows: 3 },
   { key: "treatment", label: "Hướng điều trị", rows: 3 },
-  { key: "prescription", label: "Ghi chú đơn thuốc", hint: "Hiện cho người khám cùng đơn thuốc.", rows: 2 },
   { key: "doctorNotes", label: "Ghi chú của bác sĩ", hint: "Nội bộ: người khám không nhìn thấy.", rows: 2, internal: true },
 ];
 
@@ -199,6 +195,7 @@ export default function MedicalRecordsPage() {
   const [editingLab, setEditingLab] = useState<LabResult | null>(null);
   const [deleteLabTarget, setDeleteLabTarget] = useState<LabResult | null>(null);
   const [labForm, setLabForm] = useState<LabForm>(emptyLabForm);
+  const [chosenPrescriptionId, setChosenPrescriptionId] = useState<string | undefined>(undefined);
 
   const canArchive = can(user, "record.archive");
   const isDoctor = user?.role === "DOCTOR";
@@ -226,7 +223,12 @@ export default function MedicalRecordsPage() {
   const pagination = recordsQuery.data?.pagination ?? { page, limit: 20, total: 0, totalPages: 1 };
   const selected = selectedRecordQuery.data ?? selectedSnapshot;
   // Đơn thuốc của hồ sơ đang mở, soạn ngay trong khung hồ sơ (không phải sang trang Đơn thuốc).
-  const prescriptionQuery = useDashboardPrescription(selected?.prescriptionRecord?.id);
+  // Một hồ sơ có thể có nhiều đơn (đơn chính và các đơn bổ sung): mặc định mở đơn nháp, không có thì mở đơn mới nhất.
+  const prescriptions = selected?.prescriptions ?? [];
+  const defaultPrescriptionId = prescriptions.find((item) => item.status === "DRAFT")?.id ?? prescriptions[prescriptions.length - 1]?.id;
+  const activePrescriptionId = prescriptions.some((item) => item.id === chosenPrescriptionId) ? chosenPrescriptionId : defaultPrescriptionId;
+  const hasDraftPrescription = prescriptions.some((item) => item.status === "DRAFT");
+  const prescriptionQuery = useDashboardPrescription(activePrescriptionId);
   const prescription = prescriptionQuery.data ?? null;
   const queryError = recordsQuery.error || doctorsQuery.error || selectedRecordQuery.error || prescriptionQuery.error;
   const queryErrorMessage = queryError ? (queryError instanceof Error ? queryError.message : "Không tải được dữ liệu hồ sơ khám") : "";
@@ -385,12 +387,13 @@ export default function MedicalRecordsPage() {
     setError("");
     setNotice("");
     try {
-      await apiRequest(`/dashboard/medical-records/${record.id}/prescription`, {
+      const created = await apiRequest<{ id: string }>(`/dashboard/medical-records/${record.id}/prescription`, {
         method: "POST",
-        body: { note: recordForm.prescription.trim() || recordForm.doctorNotes.trim() || null, items: [] },
+        body: { note: null, items: [] },
       });
+      setChosenPrescriptionId(created.id);
       await refreshSelectedRecord(record.id);
-      setNotice("Đã tạo đơn thuốc nháp từ hồ sơ");
+      setNotice(prescriptions.length > 0 ? "Đã tạo đơn bổ sung (bản nháp)" : "Đã tạo đơn thuốc nháp từ hồ sơ");
       await invalidateMedicalRecords();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Không tạo được đơn thuốc từ hồ sơ");
@@ -484,7 +487,7 @@ export default function MedicalRecordsPage() {
   const applyRecordSearch = (event: FormEvent<HTMLFormElement>) => event.preventDefault();
 
   const draftCount = records.filter((record) => record.status === "DRAFT").length;
-  const needPrescription = records.filter((record) => !record.prescriptionRecord && ["IN_PROGRESS", "COMPLETED"].includes(record.appointment.status)).length;
+  const needPrescription = records.filter((record) => !record.prescriptions?.length && ["IN_PROGRESS", "COMPLETED"].includes(record.appointment.status)).length;
 
   const tableColumns: DsColumn<MedicalRecord>[] = [
     {
@@ -841,9 +844,9 @@ export default function MedicalRecordsPage() {
         </div>
       </div>
 
-      {canCreatePrescription || selected.prescriptionRecord ? (
+      {canCreatePrescription || prescriptions.length > 0 ? (
         <section aria-label="Đơn thuốc" style={{ borderTop: "1px solid var(--ds-line)" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "14px 16px 0" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "14px 16px 0", flexWrap: "wrap" }}>
             <h3 style={{ margin: 0, fontSize: 15 }}>Đơn thuốc</h3>
             {prescription ? (
               <DsStatusPill tone={prescription.status === "ISSUED" ? "good" : prescription.status === "CANCELLED" ? "bad" : "warn"}>
@@ -851,19 +854,40 @@ export default function MedicalRecordsPage() {
               </DsStatusPill>
             ) : null}
           </div>
+          {prescriptions.length > 1 ? (
+            <div role="tablist" aria-label="Các đơn thuốc của hồ sơ" style={{ display: "flex", gap: 8, padding: "10px 16px 0", flexWrap: "wrap" }}>
+              {prescriptions.map((item, index) => (
+                <DsButton
+                  key={item.id}
+                  variant={item.id === activePrescriptionId ? "primary" : "default"}
+                  onClick={() => setChosenPrescriptionId(item.id)}
+                  aria-pressed={item.id === activePrescriptionId}
+                >
+                  {index === 0 ? "Đơn chính" : `Đơn bổ sung ${index}`}
+                  {item.status === "DRAFT" ? " (nháp)" : item.status === "CANCELLED" ? " (đã huỷ)" : ""}
+                </DsButton>
+              ))}
+            </div>
+          ) : null}
           {prescription ? (
             <PrescriptionEditor key={prescription.id} prescription={prescription} canEdit={canCreatePrescription} onChange={() => void refreshSelectedRecord(selected.id)} />
-          ) : selected.prescriptionRecord ? (
+          ) : activePrescriptionId ? (
             <DsLoading label="Đang tải đơn thuốc..." />
-          ) : canCreatePrescription && selected.status !== "ARCHIVED" && ["IN_PROGRESS", "COMPLETED"].includes(selected.appointment.status) ? (
+          ) : null}
+          {canCreatePrescription && !hasDraftPrescription && selected.status !== "ARCHIVED" && ["IN_PROGRESS", "COMPLETED"].includes(selected.appointment.status) ? (
             <div style={{ padding: 16 }}>
               <DsButton loading={busy} onClick={() => void createPrescriptionFromRecord(selected)}>
-                Kê đơn thuốc
+                {prescriptions.length > 0 ? "Tạo đơn bổ sung" : "Kê đơn thuốc"}
               </DsButton>
+              {prescriptions.length > 0 ? (
+                <p style={{ margin: "8px 0 0", fontSize: 13, color: "var(--ds-muted)" }}>
+                  Đơn đã phát hành không sửa được. Cần thêm thuốc thì tạo đơn bổ sung; tiền thuốc đơn bổ sung sau khi hóa đơn đã thu được tính thành hóa đơn phụ.
+                </p>
+              ) : null}
             </div>
-          ) : (
+          ) : prescriptions.length === 0 ? (
             <p style={{ margin: 0, padding: 16, color: "var(--ds-muted)" }}>Chưa có đơn thuốc.</p>
-          )}
+          ) : null}
         </section>
       ) : null}
 

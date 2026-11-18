@@ -12,9 +12,8 @@ export const createAppointmentSchema = z.object({
 
   patientName: z.string().trim().min(2, "Ho ten toi thieu 2 ky tu"),
   patientPhone: z.string().regex(phoneRegex, "So dien thoai khong hop le"),
-  patientEmail: z.string().trim().email("Email khong hop le").nullable().optional(),
-  // Không đặt mặc định: backend chọn EMAIL khi có email, ngược lại SMS.
-  otpChannel: z.enum(["SMS", "EMAIL"]).optional(),
+  // Email là định danh của người đặt lịch và nơi nhận OTP xác nhận; số điện thoại chỉ để cơ sở khám liên hệ.
+  patientEmail: z.string().trim().toLowerCase().email("Email khong hop le"),
   reason: z.string().trim().nullable().optional(),
 
   gender: z.enum(["MALE", "FEMALE", "OTHER"]).nullable().optional(),
@@ -32,13 +31,6 @@ export const createAppointmentSchema = z.object({
   // dị ứng/tiền sử (kiểm tra ở AppointmentService).
   healthConsent: z.boolean().optional(),
 }).superRefine((value, ctx) => {
-  if (value.otpChannel === "EMAIL" && !value.patientEmail) {
-    ctx.addIssue({
-      code: "custom",
-      path: ["patientEmail"],
-      message: "Email la bat buoc khi chon xac thuc OTP qua email",
-    });
-  }
   if (value.hasBHYT === true && !value.healthInsuranceCode?.trim()) {
     ctx.addIssue({
       code: "custom",

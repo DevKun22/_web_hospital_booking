@@ -44,8 +44,7 @@ describe("validation", () => {
     assert.equal(validateDetails({ ...readyDraft(), patientPhone: "123" }, TODAY), "Số điện thoại không hợp lệ.");
     assert.equal(validateDetails({ ...readyDraft(), patientPhone: "+84901234567" }, TODAY), "");
     assert.equal(validateDetails({ ...readyDraft(), patientEmail: "sai" }, TODAY), "Email không hợp lệ.");
-    assert.equal(validateDetails({ ...readyDraft(), patientEmail: "" }, TODAY), "Email là bắt buộc khi xác thực OTP qua email.");
-    assert.equal(validateDetails({ ...readyDraft(), patientEmail: "", otpChannel: "SMS" }, TODAY), "");
+    assert.equal(validateDetails({ ...readyDraft(), patientEmail: "" }, TODAY), "Email là bắt buộc để nhận mã OTP và đăng nhập xem lại lịch hẹn.");
     assert.equal(validateDetails({ ...readyDraft(), dateOfBirth: TODAY }, TODAY), "Ngày sinh phải nhỏ hơn ngày hiện tại.");
     assert.equal(validateDetails({ ...readyDraft(), hasBHYT: true }, TODAY), "Vui lòng nhập mã thẻ BHYT.");
     assert.match(validateDetails({ ...readyDraft(), allergies: "penicillin" }, TODAY), /đồng ý/);

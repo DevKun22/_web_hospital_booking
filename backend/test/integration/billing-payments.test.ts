@@ -1,65 +1,4 @@
-import {
-  AppointmentService,
-  AuthOtpService,
-  AuthSessionService,
-  InvoiceService,
-  InvoiceMedicineService,
-  InvoiceRefundService,
-  MedicalRecordService,
-  NotificationService,
-  PolicyService,
-  PrescriptionService,
-  RbacService,
-  ScheduleReconciliationService,
-  activeDatabase,
-  activeDatabaseMarker,
-  activeDatabaseSchema,
-  activeDatabaseUrl,
-  after,
-  assert,
-  authCookie,
-  bcrypt,
-  before,
-  beforeEach,
-  bookingBody,
-  buildVnpayCallbackQuery,
-  buildVnpayQueryResponse,
-  buildVnpayRefundResponse,
-  callVnpayRefund,
-  createApp,
-  createDashboardUser,
-  createIssuedPrescription,
-  createMedicineViaApi,
-  createPayableInvoice,
-  createStoredAppointment,
-  createVnpayPaidInvoice,
-  createVnpayPayment,
-  dashboardCall,
-  dashboardHeaders,
-  dateOnly,
-  emailBookingBody,
-  fixture,
-  futureDate,
-  generateDashboardAccessToken,
-  generatePatientAccessToken,
-  getCookie,
-  http,
-  isFirebaseAdminConfigured,
-  isoDateFromToday,
-  jwt,
-  loginPatient,
-  moveAppointmentStart,
-  prisma,
-  receiveViaApi,
-  resetDatabase,
-  seedFixture,
-  startHttpServer,
-  test,
-  vietnamClock,
-  vnpayIpn,
-  withStubbedVnpayQuery,
-  withStubbedVnpayRefund,
-} from "./support/context.js";
+import { AppointmentService, AuthOtpService, AuthSessionService, InvoiceService, InvoiceMedicineService, InvoiceRefundService, MedicalRecordService, NotificationService, PolicyService, PrescriptionService, RbacService, ScheduleReconciliationService, activeDatabase, activeDatabaseMarker, activeDatabaseSchema, activeDatabaseUrl, after, assert, authCookie, bcrypt, before, beforeEach, bookingBody, buildVnpayCallbackQuery, buildVnpayQueryResponse, buildVnpayRefundResponse, callVnpayRefund, createApp, createDashboardUser, createIssuedPrescription, createMedicineViaApi, createPayableInvoice, createStoredAppointment, createVnpayPaidInvoice, createVnpayPayment, dashboardCall, dashboardHeaders, dateOnly, emailBookingBody, fixture, futureDate, generateDashboardAccessToken, generatePatientAccessToken, getCookie, http, isFirebaseAdminConfigured, isoDateFromToday, jwt, loginPatient, moveAppointmentStart, prisma, receiveViaApi, resetDatabase, seedFixture, startHttpServer, test, vietnamClock, vnpayIpn, withStubbedVnpayQuery, withStubbedVnpayRefund, appointmentLogs, emailOf } from "./support/context.js";
 
 test("invoice creation is rejected until the appointment is COMPLETED", async () => {
   const appointment = await createStoredAppointment({ status: "CONFIRMED" });
@@ -140,7 +79,7 @@ test("concurrent invoice publication creates one invoice and one notification", 
         type: "INVOICE_CREATED",
       },
     }),
-    prisma.appointmentLog.count({
+    appointmentLogs.count({
       where: {
         appointmentId: appointment.id,
         action: "INVOICE_CREATED",
@@ -180,7 +119,7 @@ test("concurrent manual collection records one payment receipt", async () => {
     prisma.notification.count({
       where: { userId: appointment.patientId, type: "PAYMENT_SUCCEEDED" },
     }),
-    prisma.appointmentLog.count({
+    appointmentLogs.count({
       where: { appointmentId: appointment.id, action: "PAYMENT_RECORDED" },
     }),
   ]);
@@ -283,8 +222,9 @@ test("patient payment APIs enforce ownership, idempotency and the capability gat
     data: {
       fullName: "Payment Patient B",
       phone: "0944444444",
+      email: emailOf("0944444444"),
       role: "PATIENT",
-      isPhoneVerified: true,
+      isEmailVerified: true,
     },
   });
   const patientBAuthorization = `Bearer ${(await loginPatient("0944444444")).accessToken}`;
@@ -384,7 +324,7 @@ test("VNPay IPN rejects forged callbacks and settles a payment exactly once", as
     "SUCCESS",
   );
   assert.equal(
-    await prisma.appointmentLog.count({
+    await appointmentLogs.count({
       where: { appointmentId: appointment.id, action: "PAYMENT_RECORDED" },
     }),
     1,
@@ -535,6 +475,7 @@ test("clinical and billing transitions create deep-linkable patient notification
       items: {
         create: {
           medicineName: "Mock medicine",
+          fulfillmentStatus: "OUTSIDE",
           sortOrder: 0,
         },
       },
@@ -636,7 +577,7 @@ test("querydr reconciliation settles a payment whose Return URL and IPN were bot
     "SUCCESS",
   );
   assert.equal(
-    await prisma.appointmentLog.count({
+    await appointmentLogs.count({
       where: { appointmentId: appointment.id, action: "PAYMENT_RECORDED" },
     }),
     1,
@@ -801,7 +742,7 @@ test("VNPay refund API refunds a VNPAY-paid invoice once and records it", async 
   assert.equal(stored.refundReference, "16000001");
   assert.ok(stored.refundRequestId);
   assert.equal(
-    await prisma.appointmentLog.count({
+    await appointmentLogs.count({
       where: { appointmentId: appointment.id, action: "PAYMENT_REFUNDED" },
     }),
     1,
@@ -916,8 +857,8 @@ test("only a doctor finishes an exam by default, and invoice adjustments are aud
   const { invoice, appointment: adjustAppointment } = await createPayableInvoice({
     bookingCode: "AUDIT-ADJUST",
   });
-  await prisma.appointment.update({
-    where: { id: adjustAppointment.id },
+  await prisma.appointmentPatientInfo.update({
+    where: { appointmentId: adjustAppointment.id },
     data: { hasBHYT: true },
   });
   const adjusted = await dashboardCall(

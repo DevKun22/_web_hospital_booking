@@ -17,6 +17,8 @@ import { logger } from "../observability/logger.js";
 type PrescriptionItemInput = {
   // Gắn thuốc trong danh mục kho (null/bỏ trống = thuốc ngoài danh mục, người khám tự mua).
   medicineId?: string | null;
+  // Thuốc người khám tự mua ngoài: không trừ kho, không tính tiền. Dòng không gắn thuốc kho luôn là mua ngoài.
+  buyOutside?: boolean;
   medicineName: string;
   dosage?: string | null;
   frequency?: string | null;
@@ -107,6 +109,15 @@ export const prescriptionSelect = {
     ],
   },
 } satisfies Prisma.PrescriptionSelect;
+
+const OUTSIDE_NOTE = "Thuốc mua ngoài: người khám tự mua, không trừ kho và không tính tiền";
+
+// Trạng thái xử lý của một dòng khi soạn đơn: dòng mua ngoài đi thẳng vào OUTSIDE (ràng buộc ở cơ sở dữ liệu: dòng không có
+// medicineId bắt buộc là OUTSIDE), dòng lấy từ kho chờ dược sĩ cấp.
+const itemFulfillment = (medicineId: string | null | undefined, buyOutside: boolean | undefined) =>
+  !medicineId || buyOutside
+    ? ({ fulfillmentStatus: "OUTSIDE", fulfillmentNote: OUTSIDE_NOTE } as const)
+    : ({ fulfillmentStatus: "PENDING", fulfillmentNote: null } as const);
 
 class PrescriptionService {
   async list(
@@ -216,44 +227,64 @@ class PrescriptionService {
   ) {
     const record = await this.getRecordForWrite(recordIdOrCode, actor);
 
-    if (record.prescriptionRecord) {
-      throw new AppError("Hồ sơ khám này đã có đơn thuốc", 409);
+    // Một hồ sơ khám có thể có nhiều đơn: đơn đã phát hành là bất biến, thêm thuốc sau đó là một đơn bổ sung mới.
+    // Mỗi hồ sơ chỉ được có một đơn nháp cùng lúc (cơ sở dữ liệu cũng chặn bằng chỉ mục duy nhất có điều kiện).
+    if (record.prescriptions.some((existing) => existing.status === "DRAFT")) {
+      throw new AppError(
+        "Hồ sơ khám đang có một đơn nháp. Hãy phát hành hoặc xóa đơn nháp đó trước khi tạo đơn bổ sung",
+        409,
+        "PRESCRIPTION_DRAFT_EXISTS",
+      );
     }
 
-    return prisma.$transaction(async (tx) => {
-      const prescription = await tx.prescription.create({
-        data: {
-          prescriptionCode: await this.generateUniquePrescriptionCode(tx),
-          medicalRecordId: record.id,
-          appointmentId: record.appointmentId,
-          patientId: record.patientId,
-          doctorId: record.doctorId,
-          note: normalizeOptionalString(input.note),
-          items: {
-            create: (input.items || []).map((item, index) => ({
-              medicineName: item.medicineName,
-              dosage: normalizeOptionalString(item.dosage),
-              frequency: normalizeOptionalString(item.frequency),
-              duration: normalizeOptionalString(item.duration),
-              quantity: item.quantity,
-              unit: normalizeOptionalString(item.unit),
-              instruction: normalizeOptionalString(item.instruction),
-              sortOrder: item.sortOrder ?? index,
-            })),
-          },
-        },
-        select: {
-          id: true,
-        },
-      });
+    const itemInputs = input.items || [];
+    const medicineIds: (string | null | undefined)[] = [];
+    for (const item of itemInputs) medicineIds.push(await this.resolveMedicineId(item.medicineId));
 
-      return tx.prescription.findUniqueOrThrow({
-        where: {
-          id: prescription.id,
-        },
-        select: prescriptionSelect,
+    try {
+      return await prisma.$transaction(async (tx) => {
+        const prescription = await tx.prescription.create({
+          data: {
+            prescriptionCode: await this.generateUniquePrescriptionCode(tx),
+            medicalRecordId: record.id,
+            appointmentId: record.appointmentId,
+            patientId: record.patientId,
+            doctorId: record.doctorId,
+            note: normalizeOptionalString(input.note),
+            items: {
+              create: itemInputs.map((item, index) => ({
+                medicineId: medicineIds[index] ?? null,
+                medicineName: item.medicineName,
+                dosage: normalizeOptionalString(item.dosage),
+                frequency: normalizeOptionalString(item.frequency),
+                duration: normalizeOptionalString(item.duration),
+                quantity: item.quantity,
+                unit: normalizeOptionalString(item.unit),
+                instruction: normalizeOptionalString(item.instruction),
+                sortOrder: item.sortOrder ?? index,
+                ...itemFulfillment(medicineIds[index], item.buyOutside),
+              })),
+            },
+          },
+          select: {
+            id: true,
+          },
+        });
+
+        return tx.prescription.findUniqueOrThrow({
+          where: {
+            id: prescription.id,
+          },
+          select: prescriptionSelect,
+        });
       });
-    });
+    } catch (error) {
+      // Hai yêu cầu tạo đơn nháp cùng lúc: chỉ một yêu cầu thắng ở chỉ mục duy nhất có điều kiện.
+      if ((error as { code?: string }).code === "P2002") {
+        throw new AppError("Hồ sơ khám đang có một đơn nháp", 409, "PRESCRIPTION_DRAFT_EXISTS");
+      }
+      throw error;
+    }
   }
 
   async update(id: string, input: UpdatePrescriptionInput, actor: Actor) {
@@ -280,8 +311,10 @@ class PrescriptionService {
 
     // Dòng gắn thuốc kho mà số lượng kê vượt khả năng cấp: không tính tiền và không chờ cấp, vì cơ sở không có thuốc
     // để cấp. Bác sĩ phải xác nhận rõ; sau đó các dòng này được đánh dấu "kho hết hàng, người khám tự mua".
-    const availability = await MedicineAvailabilityService.forItems(prescription.items);
-    const shortItems = prescription.items.filter((item) => availability.get(item.id)?.short);
+    // Dòng bác sĩ đã đánh dấu mua ngoài không lấy từ kho nên không tính vào nhu cầu kho.
+    const stockItems = prescription.items.filter((item) => item.fulfillmentStatus === "PENDING");
+    const availability = await MedicineAvailabilityService.forItems(stockItems);
+    const shortItems = stockItems.filter((item) => availability.get(item.id)?.short);
     if (shortItems.length > 0 && !options.acknowledgeShortage) {
       throw new AppError(
         `Kho không đủ thuốc cho ${shortItems.length} dòng (${shortItems.map((item) => item.medicineName).join(", ")}). Giảm số lượng, đổi thuốc, hoặc xác nhận để người khám tự mua phần này.`,
@@ -455,6 +488,7 @@ class PrescriptionService {
         unit: normalizeOptionalString(input.unit),
         instruction: normalizeOptionalString(input.instruction),
         sortOrder,
+        ...itemFulfillment(medicineId, input.buyOutside),
       },
     });
 
@@ -468,14 +502,16 @@ class PrescriptionService {
     actor: Actor,
   ) {
     await this.ensureDraft(prescriptionId, actor);
-    await this.getItem(prescriptionId, itemId);
+    const current = await this.getItem(prescriptionId, itemId);
     const medicineId = await this.resolveMedicineId(input.medicineId);
+    // Thuốc sau khi sửa: undefined = giữ nguyên gắn kết cũ; null = bỏ gắn thuốc kho (thành mua ngoài).
+    const medicineIdAfter = input.medicineId === undefined ? current.medicineId : (medicineId ?? null);
+    const buyOutside = input.buyOutside ?? (input.medicineId === undefined && current.fulfillmentStatus === "OUTSIDE");
 
     await prisma.prescriptionItem.update({
       where: { id: itemId },
       data: {
-        // undefined = giữ nguyên; null = bỏ gắn thuốc kho.
-        medicineId,
+        ...itemFulfillment(medicineIdAfter, buyOutside),
         medicineName: input.medicineName,
         dosage: normalizeOptionalString(input.dosage),
         frequency: normalizeOptionalString(input.frequency),
@@ -542,9 +578,10 @@ class PrescriptionService {
             status: true,
           },
         },
-        prescriptionRecord: {
+        prescriptions: {
           select: {
             id: true,
+            status: true,
           },
         },
       },

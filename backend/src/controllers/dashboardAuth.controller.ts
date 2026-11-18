@@ -62,10 +62,10 @@ export const loginHandler = async (
   next: NextFunction,
 ) => {
   try {
-    const { phone, password } = req.body;
+    const { email, password } = req.body;
 
     const result = await DashboardAuthService.login(
-      phone,
+      email,
       password,
       getRequestMeta(req).ipAddress,
     );

@@ -19,7 +19,6 @@ type UpdateMedicalRecordInput = {
   symptoms?: string | null;
   diagnosis?: string | null;
   treatment?: string | null;
-  prescription?: string | null;
   doctorNotes?: string | null;
   resultPdfUrl?: string | null;
 };
@@ -39,7 +38,6 @@ export const medicalRecordSelect = {
   symptoms: true,
   diagnosis: true,
   treatment: true,
-  prescription: true,
   doctorNotes: true,
   status: true,
   resultPdfUrl: true,
@@ -93,7 +91,9 @@ export const medicalRecordSelect = {
       createdAt: "asc",
     },
   },
-  prescriptionRecord: {
+  // Một hồ sơ khám có thể có nhiều đơn (đơn chính và các đơn bổ sung), theo thứ tự tạo.
+  prescriptions: {
+    orderBy: { createdAt: "asc" },
     select: {
       id: true,
       prescriptionCode: true,
@@ -276,7 +276,6 @@ class MedicalRecordService {
           symptoms: normalizeOptionalString(input.symptoms),
           diagnosis: normalizeOptionalString(input.diagnosis),
           treatment: normalizeOptionalString(input.treatment),
-          prescription: normalizeOptionalString(input.prescription),
           doctorNotes: normalizeOptionalString(input.doctorNotes),
           resultPdfUrl: normalizeOptionalString(input.resultPdfUrl),
         },

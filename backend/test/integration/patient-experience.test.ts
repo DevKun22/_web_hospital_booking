@@ -1,63 +1,4 @@
-import {
-  AppointmentService,
-  AuthOtpService,
-  AuthSessionService,
-  InvoiceService,
-  MedicalRecordService,
-  NotificationService,
-  PolicyService,
-  PrescriptionService,
-  RbacService,
-  ScheduleReconciliationService,
-  activeDatabase,
-  activeDatabaseMarker,
-  activeDatabaseSchema,
-  activeDatabaseUrl,
-  after,
-  assert,
-  authCookie,
-  bcrypt,
-  before,
-  beforeEach,
-  bookingBody,
-  buildVnpayCallbackQuery,
-  buildVnpayQueryResponse,
-  buildVnpayRefundResponse,
-  callVnpayRefund,
-  createApp,
-  createDashboardUser,
-  createIssuedPrescription,
-  createMedicineViaApi,
-  createPayableInvoice,
-  createStoredAppointment,
-  createVnpayPaidInvoice,
-  createVnpayPayment,
-  dashboardCall,
-  dashboardHeaders,
-  dateOnly,
-  emailBookingBody,
-  fixture,
-  futureDate,
-  generateDashboardAccessToken,
-  generatePatientAccessToken,
-  getCookie,
-  http,
-  isFirebaseAdminConfigured,
-  isoDateFromToday,
-  jwt,
-  loginPatient,
-  moveAppointmentStart,
-  prisma,
-  receiveViaApi,
-  resetDatabase,
-  seedFixture,
-  startHttpServer,
-  test,
-  vietnamClock,
-  vnpayIpn,
-  withStubbedVnpayQuery,
-  withStubbedVnpayRefund,
-} from "./support/context.js";
+import { AppointmentService, AuthOtpService, AuthSessionService, InvoiceService, MedicalRecordService, NotificationService, PolicyService, PrescriptionService, RbacService, ScheduleReconciliationService, activeDatabase, activeDatabaseMarker, activeDatabaseSchema, activeDatabaseUrl, after, assert, authCookie, bcrypt, before, beforeEach, bookingBody, buildVnpayCallbackQuery, buildVnpayQueryResponse, buildVnpayRefundResponse, callVnpayRefund, createApp, createDashboardUser, createIssuedPrescription, createMedicineViaApi, createPayableInvoice, createStoredAppointment, createVnpayPaidInvoice, createVnpayPayment, dashboardCall, dashboardHeaders, dateOnly, emailBookingBody, fixture, futureDate, generateDashboardAccessToken, generatePatientAccessToken, getCookie, http, isFirebaseAdminConfigured, isoDateFromToday, jwt, loginPatient, moveAppointmentStart, prisma, receiveViaApi, resetDatabase, seedFixture, startHttpServer, test, vietnamClock, vnpayIpn, withStubbedVnpayQuery, withStubbedVnpayRefund, appointmentLogs, emailOf } from "./support/context.js";
 
 test("unverified booking input does not mutate an existing patient", async () => {
   const existingPatient = await prisma.user.create({
@@ -66,7 +7,7 @@ test("unverified booking input does not mutate an existing patient", async () =>
       phone: "0955555555",
       email: "verified-patient@example.com",
       role: "PATIENT",
-      isPhoneVerified: true,
+      isEmailVerified: true,
       patientProfile: {
         create: {
           address: "Verified address",
@@ -76,12 +17,12 @@ test("unverified booking input does not mutate an existing patient", async () =>
     },
   });
 
+  // Email là định danh: đặt lịch bằng email của tài khoản đã có nhưng khai báo khác chưa xác thực.
   const booking = await http.request("/api/v1/appointments", {
     method: "POST",
     body: {
-      ...bookingBody({ phone: existingPatient.phone! }),
+      ...bookingBody({ phone: existingPatient.phone!, email: existingPatient.email }),
       patientName: "Unverified New Name",
-      patientEmail: "new-patient-email@example.com",
       address: "Unverified address",
       medicalHistory: "Unverified history",
       healthConsent: true,
@@ -99,10 +40,11 @@ test("unverified booking input does not mutate an existing patient", async () =>
 
   const pendingSnapshot = await prisma.appointment.findUniqueOrThrow({
     where: { id: booking.body.data.appointmentId },
+    include: { patientInfo: true },
   });
   assert.equal(pendingSnapshot.patientName, "Unverified New Name");
-  assert.equal(pendingSnapshot.patientEmail, "new-patient-email@example.com");
-  assert.equal(pendingSnapshot.patientAddress, "Unverified address");
+  assert.equal(pendingSnapshot.patientEmail, "verified-patient@example.com");
+  assert.equal(pendingSnapshot.patientInfo?.address, "Unverified address");
 
   const verification = await http.request(
     `/api/v1/appointments/${pendingSnapshot.id}/verify-otp`,
@@ -115,7 +57,7 @@ test("unverified booking input does not mutate an existing patient", async () =>
     include: { patientProfile: true },
   });
   assert.equal(afterVerification.fullName, "Unverified New Name");
-  assert.equal(afterVerification.email, "new-patient-email@example.com");
+  assert.equal(afterVerification.email, "verified-patient@example.com");
   assert.equal(afterVerification.patientProfile?.address, "Unverified address");
   assert.equal(
     afterVerification.patientProfile?.medicalHistory,
@@ -125,16 +67,16 @@ test("unverified booking input does not mutate an existing patient", async () =>
 
 test("health consent columns are optional on appointments", async () => {
   const appointment = await createStoredAppointment({ status: "PENDING_CONFIRM" });
-  const stored = await prisma.appointment.findUniqueOrThrow({
-    where: { id: appointment.id },
+  const stored = await prisma.appointmentPatientInfo.findUniqueOrThrow({
+    where: { appointmentId: appointment.id },
     select: { healthConsentAt: true, healthConsentVersion: true },
   });
   assert.equal(stored.healthConsentAt, null);
   assert.equal(stored.healthConsentVersion, null);
 
   const consentAt = new Date();
-  const updated = await prisma.appointment.update({
-    where: { id: appointment.id },
+  const updated = await prisma.appointmentPatientInfo.update({
+    where: { appointmentId: appointment.id },
     data: { healthConsentAt: consentAt, healthConsentVersion: "v1" },
     select: { healthConsentAt: true, healthConsentVersion: true },
   });
@@ -160,8 +102,8 @@ test("health data in a booking requires explicit consent and records which versi
     },
   });
   assert.equal(withConsent.status, 201);
-  const stored = await prisma.appointment.findUniqueOrThrow({
-    where: { id: withConsent.body.data.appointmentId },
+  const stored = await prisma.appointmentPatientInfo.findUniqueOrThrow({
+    where: { appointmentId: withConsent.body.data.appointmentId },
     select: { healthConsentAt: true, healthConsentVersion: true, allergies: true },
   });
   assert.ok(stored.healthConsentAt);
@@ -174,8 +116,8 @@ test("health data in a booking requires explicit consent and records which versi
     body: bookingBody({ phone: "0955000003", timeSlotId: fixture.slotTwo.id }),
   });
   assert.equal(plain.status, 201);
-  const plainStored = await prisma.appointment.findUniqueOrThrow({
-    where: { id: plain.body.data.appointmentId },
+  const plainStored = await prisma.appointmentPatientInfo.findUniqueOrThrow({
+    where: { appointmentId: plain.body.data.appointmentId },
     select: { healthConsentAt: true },
   });
   assert.equal(plainStored.healthConsentAt, null);
@@ -243,7 +185,7 @@ test("patients review only their own completed appointments", async () => {
   assert.equal(anonymous.status, 401);
 
   await prisma.user.create({
-    data: { fullName: "Review Patient B", phone: "0955555555", role: "PATIENT", isPhoneVerified: true },
+    data: { fullName: "Review Patient B", email: emailOf("0955555555"), phone: "0955555555", role: "PATIENT", isEmailVerified: true },
   });
   const otherAuthorization = `Bearer ${(await loginPatient("0955555555")).accessToken}`;
   const crossPatient = await http.request(reviewPath, {
@@ -279,8 +221,9 @@ test("patient v1 auth scopes profile and resources to the authenticated owner", 
     data: {
       fullName: "Phase One Patient",
       phone: "0981111111",
+      email: emailOf("0981111111"),
       role: "PATIENT",
-      isPhoneVerified: true,
+      isEmailVerified: true,
       patientProfile: { create: { address: "Old address" } },
     },
   });
@@ -288,8 +231,9 @@ test("patient v1 auth scopes profile and resources to the authenticated owner", 
     data: {
       fullName: "Other Patient",
       phone: "0982222222",
+      email: emailOf("0982222222"),
       role: "PATIENT",
-      isPhoneVerified: true,
+      isEmailVerified: true,
     },
   });
   const appointmentPackage = await prisma.package.create({
@@ -309,6 +253,8 @@ test("patient v1 auth scopes profile and resources to the authenticated owner", 
       status: "COMPLETED",
       patientName: patient.fullName,
       patientPhone: patient.phone!,
+      patientEmail: emailOf(patient.phone!),
+      patientInfo: { create: {} },
       patientId: patient.id,
       doctorId: fixture.doctorOne.id,
       departmentId: fixture.department.id,
@@ -325,6 +271,8 @@ test("patient v1 auth scopes profile and resources to the authenticated owner", 
       status: "COMPLETED",
       patientName: otherPatient.fullName,
       patientPhone: otherPatient.phone!,
+      patientEmail: emailOf(otherPatient.phone!),
+      patientInfo: { create: {} },
       patientId: otherPatient.id,
       doctorId: fixture.doctorOne.id,
       departmentId: fixture.department.id,
@@ -369,7 +317,7 @@ test("patient v1 auth scopes profile and resources to the authenticated owner", 
       doctorId: fixture.doctorOne.id,
       status: "ISSUED",
       issuedAt: new Date(),
-      items: { create: { medicineName: "Paracetamol", sortOrder: 0 } },
+      items: { create: { medicineName: "Paracetamol", sortOrder: 0, fulfillmentStatus: "OUTSIDE" } },
     },
   });
   const invoice = await prisma.invoice.create({
@@ -518,7 +466,7 @@ test("dependent profiles stay owner-scoped and create appointments without overw
       phone: "0981234501",
       email: "dependent.owner@example.test",
       role: "PATIENT",
-      isPhoneVerified: true,
+      isEmailVerified: true,
       patientProfile: { create: { address: "Owner address" } },
     },
   });
@@ -526,11 +474,12 @@ test("dependent profiles stay owner-scoped and create appointments without overw
     data: {
       fullName: "Other Dependent Owner",
       phone: "0981234502",
+      email: emailOf("0981234502"),
       role: "PATIENT",
-      isPhoneVerified: true,
+      isEmailVerified: true,
     },
   });
-  const ownerAuth = await loginPatient(owner.phone!);
+  const ownerAuth = await loginPatient(owner.email);
   const otherAuth = await loginPatient(otherOwner.phone!);
   const authorization = `Bearer ${ownerAuth.accessToken}`;
   const otherAuthorization = `Bearer ${otherAuth.accessToken}`;
@@ -595,12 +544,13 @@ test("dependent profiles stay owner-scoped and create appointments without overw
 
   const pending = await prisma.appointment.findUniqueOrThrow({
     where: { id: booking.body.data.appointmentId },
+    include: { patientInfo: true },
   });
   assert.equal(pending.patientId, owner.id);
   assert.equal(pending.dependentProfileId, dependentId);
   assert.equal(pending.patientName, "Child Patient");
   assert.equal(pending.patientPhone, owner.phone);
-  assert.equal(pending.patientCccd, "079215000001");
+  assert.equal(pending.patientInfo?.cccd, "079215000001");
 
   const verified = await http.request(
     `/api/v1/appointments/${pending.id}/verify-otp`,
@@ -956,6 +906,7 @@ test("dashboard hospital announcements reuse the patient inbox and support sched
       data: {
         fullName: "Announcement Patient One",
         phone: "0987000001",
+        email: emailOf("0987000001"),
         role: "PATIENT",
         isActive: true,
       },
@@ -964,6 +915,7 @@ test("dashboard hospital announcements reuse the patient inbox and support sched
       data: {
         fullName: "Announcement Patient Two",
         phone: "0987000002",
+        email: emailOf("0987000002"),
         role: "PATIENT",
         isActive: true,
       },
@@ -972,6 +924,7 @@ test("dashboard hospital announcements reuse the patient inbox and support sched
       data: {
         fullName: "Inactive Announcement Patient",
         phone: "0987000003",
+        email: emailOf("0987000003"),
         role: "PATIENT",
         isActive: false,
       },
@@ -1065,6 +1018,8 @@ test("dashboard hospital announcements reuse the patient inbox and support sched
       status: "CONFIRMED",
       patientName: activeOne.fullName,
       patientPhone: activeOne.phone!,
+      patientEmail: emailOf(activeOne.phone!),
+      patientInfo: { create: {} },
       patientId: activeOne.id,
       doctorId: fixture.doctorOne.id,
       departmentId: fixture.department.id,
@@ -1257,14 +1212,13 @@ test("patient journey is consistent across public booking dashboard care and mob
   assert.equal(publishedRecord.body.data.status, "PUBLISHED");
 
   // Mỗi thao tác lâm sàng để lại dấu vết ai-làm-gì, không chứa nội dung y tế.
-  const clinicalLogs = await prisma.appointmentLog.findMany({
+  const clinicalLogs = await appointmentLogs.findMany({
     where: {
       appointmentId: activeAppointmentId,
       action: {
         in: ["MEDICAL_RESULT_UPDATED", "PRESCRIPTION_ISSUED", "MEDICAL_RESULT_PUBLISHED"],
       },
     },
-    select: { action: true, createdById: true, note: true },
   });
   assert.deepEqual(
     clinicalLogs.map((item) => item.action).sort(),
@@ -1395,7 +1349,7 @@ test("patient push token follows the active session and is cleared safely", asyn
   });
   assert.equal(firstRegistration.status, 200);
   assert.equal(firstRegistration.body.data.enabled, true);
-  const firstTokenSession = await prisma.dashboardSession.findFirstOrThrow({
+  const firstTokenSession = await prisma.authSession.findFirstOrThrow({
     where: { userId: first.user.id, pushToken },
     select: { id: true },
   });
@@ -1416,7 +1370,7 @@ test("patient push token follows the active session and is cleared safely", asyn
   });
   assert.equal(secondRegistration.status, 200);
 
-  const tokenOwners = await prisma.dashboardSession.findMany({
+  const tokenOwners = await prisma.authSession.findMany({
     where: { userId: first.user.id, pushToken },
     select: { id: true, pushDisabledAt: true },
   });
@@ -1430,7 +1384,7 @@ test("patient push token follows the active session and is cleared safely", asyn
   assert.equal(disabled.status, 200);
   assert.equal(disabled.body.data.enabled, false);
   assert.equal(
-    await prisma.dashboardSession.count({ where: { pushToken } }),
+    await prisma.authSession.count({ where: { pushToken } }),
     0,
   );
 
@@ -1447,7 +1401,7 @@ test("patient push token follows the active session and is cleared safely", asyn
   });
   assert.equal(loggedOut.status, 200);
   assert.equal(
-    await prisma.dashboardSession.count({ where: { pushToken } }),
+    await prisma.authSession.count({ where: { pushToken } }),
     0,
   );
 });
@@ -1656,8 +1610,9 @@ test("patient profile health data needs explicit consent that is recorded once",
     data: {
       fullName: "Health Consent Patient",
       phone: "0983333330",
+      email: emailOf("0983333330"),
       role: "PATIENT",
-      isPhoneVerified: true,
+      isEmailVerified: true,
       patientProfile: { create: {} },
     },
   });
@@ -1697,8 +1652,9 @@ test("patient profile resend of unchanged legacy health data does not need conse
     data: {
       fullName: "Legacy Health Patient",
       phone: "0983333331",
+      email: emailOf("0983333331"),
       role: "PATIENT",
-      isPhoneVerified: true,
+      isEmailVerified: true,
       patientProfile: { create: { allergies: "Penicillin", medicalHistory: "Hen suyen" } },
     },
   });
@@ -1734,7 +1690,7 @@ test("patient profile resend of unchanged legacy health data does not need conse
 test("a patient cannot read or change another patient's data, nor unpublished clinical data", async () => {
   const createPatient = (phone: string, fullName: string) =>
     prisma.user.create({
-      data: { fullName, phone, role: "PATIENT", isPhoneVerified: true },
+      data: { fullName, email: emailOf(phone), phone, role: "PATIENT", isEmailVerified: true },
     });
   const patientA = await createPatient("0971111111", "Patient A");
   const patientB = await createPatient("0972222222", "Patient B");
@@ -1749,6 +1705,8 @@ test("a patient cannot read or change another patient's data, nor unpublished cl
         status: "COMPLETED",
         patientName: owner.fullName,
         patientPhone: owner.phone!,
+        patientEmail: emailOf(owner.phone!),
+        patientInfo: { create: {} },
         patientId: owner.id,
         doctorId: fixture.doctorOne.id,
         departmentId: fixture.department.id,
@@ -1783,7 +1741,7 @@ test("a patient cannot read or change another patient's data, nor unpublished cl
       doctorId: fixture.doctorOne.id,
       status: "ISSUED",
       issuedAt: new Date(),
-      items: { create: { medicineName: "B medicine", sortOrder: 0 } },
+      items: { create: { medicineName: "B medicine", sortOrder: 0, fulfillmentStatus: "OUTSIDE" } },
     },
   });
   const invoiceB = await prisma.invoice.create({
@@ -1826,7 +1784,7 @@ test("a patient cannot read or change another patient's data, nor unpublished cl
       patientId: patientA.id,
       doctorId: fixture.doctorOne.id,
       status: "DRAFT",
-      items: { create: { medicineName: "Draft medicine", sortOrder: 0 } },
+      items: { create: { medicineName: "Draft medicine", sortOrder: 0, fulfillmentStatus: "OUTSIDE" } },
     },
   });
 
@@ -1999,18 +1957,16 @@ test("a logged-in patient booking for themself skips the booking OTP", async () 
       phone: "0933333333",
       email: "logged-in@example.com",
       role: "PATIENT",
-      isPhoneVerified: true,
       isEmailVerified: true,
     },
   });
-  const authorization = `Bearer ${(await loginPatient(patient.phone!)).accessToken}`;
+  const authorization = `Bearer ${(await loginPatient(patient.email)).accessToken}`;
 
   const booking = await http.request("/api/v1/appointments", {
     method: "POST",
     headers: { authorization },
     body: {
-      ...bookingBody({ phone: "0900000000" }),
-      patientEmail: "typed-by-client@example.com",
+      ...bookingBody({ phone: "0900000000", email: "typed-by-client@example.com" }),
       address: "Booked address",
     },
   });
@@ -2028,7 +1984,7 @@ test("a logged-in patient booking for themself skips the booking OTP", async () 
   assert.equal(stored.patientId, patient.id);
   assert.equal(stored.patientPhone, patient.phone);
   assert.equal(
-    await prisma.appointmentLog.count({
+    await appointmentLogs.count({
       where: { appointmentId: stored.id, action: "OTP_SENT" },
     }),
     0,

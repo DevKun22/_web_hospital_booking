@@ -47,7 +47,7 @@ const appointmentProjection = Prisma.sql`
   a."reason",
   a."estimatedPrice",
   a."serviceFee",
-  a."hasBHYT",
+  COALESCE(info."hasBHYT", false) AS "hasBHYT",
   a."bhytDiscount",
   a."finalAmount",
   a."confirmedAt",
@@ -79,9 +79,11 @@ const userTable = qualifiedTable("User");
 const departmentTable = qualifiedTable("Department");
 const packageTable = qualifiedTable("Package");
 const appointmentStatusType = qualifiedTable("AppointmentStatus");
+const patientInfoTable = qualifiedTable("AppointmentPatientInfo");
 
 const appointmentJoins = Prisma.sql`
   FROM ${appointmentTable} AS a
+  LEFT JOIN ${patientInfoTable} AS info ON info."appointmentId" = a."id"
   INNER JOIN ${doctorProfileTable} AS doctor ON doctor."id" = a."doctorId"
   INNER JOIN ${userTable} AS doctor_user ON doctor_user."id" = doctor."userId"
   INNER JOIN ${departmentTable} AS department ON department."id" = a."departmentId"

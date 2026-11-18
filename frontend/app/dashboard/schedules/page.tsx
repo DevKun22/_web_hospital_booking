@@ -51,7 +51,6 @@ type ScheduleForm = {
   startTime: string;
   endTime: string;
   slotDuration: string;
-  maxPatients: string;
   isActive: boolean;
 };
 
@@ -88,7 +87,7 @@ const reconciliationFindingLabels: Record<SlotReconciliationFinding["type"], str
   APPOINTMENT_SLOT_MISMATCH: "Thông tin lịch hẹn và khung giờ không khớp",
 };
 
-const emptyScheduleForm: ScheduleForm = { doctorId: "", dayOfWeek: "1", startTime: "08:00", endTime: "11:30", slotDuration: "30", maxPatients: "1", isActive: true };
+const emptyScheduleForm: ScheduleForm = { doctorId: "", dayOfWeek: "1", startTime: "08:00", endTime: "11:30", slotDuration: "30", isActive: true };
 
 const dayOptions = scheduleDays.map((label, index) => ({ value: String(index), label }));
 
@@ -146,7 +145,6 @@ const toScheduleForm = (schedule: DoctorSchedule): ScheduleForm => ({
   startTime: schedule.startTime,
   endTime: schedule.endTime,
   slotDuration: String(schedule.slotDuration),
-  maxPatients: String(schedule.maxPatients),
   isActive: schedule.isActive,
 });
 
@@ -155,7 +153,6 @@ const buildUpdateSchedulePayload = (form: ScheduleForm) => ({
   startTime: form.startTime,
   endTime: form.endTime,
   slotDuration: Number(form.slotDuration || 30),
-  maxPatients: Number(form.maxPatients || 1),
   isActive: form.isActive,
 });
 
@@ -579,7 +576,7 @@ export default function SchedulesPage() {
     },
     { key: "day", header: "Thứ", cell: (row) => dayLabel(row.dayOfWeek) },
     { key: "hours", header: "Giờ", cell: (row) => `${row.startTime} - ${row.endTime}` },
-    { key: "slot", header: "Khung giờ", cell: (row) => `${row.slotDuration} phút / tối đa ${row.maxPatients}` },
+    { key: "slot", header: "Khung giờ", cell: (row) => `${row.slotDuration} phút / khung giờ` },
     { key: "active", header: "Trạng thái", cell: (row) => <DsStatusPill tone={row.isActive ? "good" : "neutral"}>{row.isActive ? "Đang dùng" : "Tạm tắt"}</DsStatusPill> },
   ];
 
@@ -865,9 +862,6 @@ export default function SchedulesPage() {
         <DsField label="Thời lượng khung giờ (phút)" htmlFor="sf-duration">
           <DsInput id="sf-duration" inputMode="numeric" value={scheduleForm.slotDuration} required onChange={(event) => setScheduleForm((current) => ({ ...current, slotDuration: event.target.value.replace(/\D/g, "") }))} />
         </DsField>
-        <DsField label="Số người khám tối đa" htmlFor="sf-max">
-          <DsInput id="sf-max" inputMode="numeric" value={scheduleForm.maxPatients} required onChange={(event) => setScheduleForm((current) => ({ ...current, maxPatients: event.target.value.replace(/\D/g, "") }))} />
-        </DsField>
       </div>
       <label className="ds-check" style={{ cursor: "pointer" }}>
         <input type="checkbox" checked={scheduleForm.isActive} onChange={(event) => setScheduleForm((current) => ({ ...current, isActive: event.target.checked }))} style={{ marginTop: 3 }} />
@@ -1002,7 +996,7 @@ export default function SchedulesPage() {
                 { label: "Bác sĩ", value: doctorName(selectedSchedule.doctor) },
                 { label: "Thứ", value: dayLabel(selectedSchedule.dayOfWeek) },
                 { label: "Giờ", value: `${selectedSchedule.startTime} - ${selectedSchedule.endTime}` },
-                { label: "Khung giờ", value: `${selectedSchedule.slotDuration} phút / tối đa ${selectedSchedule.maxPatients}` },
+                { label: "Khung giờ", value: `${selectedSchedule.slotDuration} phút / khung giờ` },
               ]}
             />
             {isDoctor ? (
@@ -1198,7 +1192,7 @@ export default function SchedulesPage() {
             items={[
               ...(!isDoctor ? [{ label: "Loại yêu cầu", value: requestTypeLabels[selectedRequest.type] }] : []),
               { label: "Lịch mẫu đề xuất", value: `${dayLabel(selectedRequest.dayOfWeek)} · ${selectedRequest.startTime} - ${selectedRequest.endTime}` },
-              { label: "Khung giờ", value: `${selectedRequest.slotDuration} phút / tối đa ${selectedRequest.maxPatients}` },
+              { label: "Khung giờ", value: `${selectedRequest.slotDuration} phút / khung giờ` },
               { label: "Áp dụng từ", value: formatVietnamDate(selectedRequest.effectiveFrom) },
               { label: "Lý do", value: selectedRequest.reason },
               ...(selectedRequest.reviewerNote ? [{ label: "Phản hồi", value: selectedRequest.reviewerNote }] : []),

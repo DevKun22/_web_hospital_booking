@@ -18,12 +18,10 @@ const OTP_LENGTH = 6;
 // Chờ trước khi cho gửi lại mã, để không gửi dồn dập.
 const RESEND_COOLDOWN_SECONDS = 45;
 
-const buildOtpNotice = (channel: "SMS" | "EMAIL", target: string, status?: OtpDeliveryStatus) => {
-  const targetLabel = channel === "EMAIL" ? "email" : "số điện thoại";
-
-  if (status === "SENT") return `Đã gửi mã OTP đến ${targetLabel} ${target}.`;
-  if (status === "FAILED") return `Chưa gửi được mã OTP đến ${targetLabel} ${target}. Hãy thử gửi lại.`;
-  return `Đã tiếp nhận yêu cầu gửi OTP. Kiểm tra ${targetLabel} ${target} trong giây lát.`;
+const buildOtpNotice = (target: string, status?: OtpDeliveryStatus) => {
+  if (status === "SENT") return `Đã gửi mã OTP đến email ${target}.`;
+  if (status === "FAILED") return `Chưa gửi được mã OTP đến email ${target}. Hãy thử gửi lại.`;
+  return `Đã tiếp nhận yêu cầu gửi OTP. Kiểm tra email ${target} trong giây lát.`;
 };
 
 const subscribeNever = () => () => undefined;
@@ -35,13 +33,12 @@ export default function LoginPage() {
   const router = useRouter();
   const { user, loading, login, verifyOtp } = useAuth();
   const [step, setStep] = useState<LoginStep>("credentials");
-  const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [digits, setDigits] = useState<string[]>(() => Array(OTP_LENGTH).fill(""));
   const [challengeId, setChallengeId] = useState("");
   const [otpTarget, setOtpTarget] = useState("");
-  const [otpChannel, setOtpChannel] = useState<"SMS" | "EMAIL">("SMS");
   const [debugOtp, setDebugOtp] = useState("");
   const [expiresLeft, setExpiresLeft] = useState(0);
   const [resendLeft, setResendLeft] = useState(0);
@@ -51,7 +48,7 @@ export default function LoginPage() {
   // Đọc ?expired=1 qua useSyncExternalStore: an toàn khi dựng tĩnh (bản máy chủ luôn rỗng).
   const search = useSyncExternalStore(subscribeNever, () => window.location.search, () => "");
   const sessionExpired = new URLSearchParams(search).get("expired") === "1";
-  const phoneInputRef = useRef<HTMLInputElement>(null);
+  const emailInputRef = useRef<HTMLInputElement>(null);
   const otpRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   const otp = digits.join("");
@@ -72,15 +69,13 @@ export default function LoginPage() {
 
   const applyChallenge = (result: Awaited<ReturnType<typeof login>>) => {
     const target = maskContactForDisplay(result.otpTarget);
-    const channel = result.otpChannel || "SMS";
     setChallengeId(result.challengeId);
     setOtpTarget(target);
-    setOtpChannel(channel);
     setDebugOtp(result.debugOtp || "");
     setExpiresLeft(result.otpExpiresIn);
     setResendLeft(RESEND_COOLDOWN_SECONDS);
     setDigits(Array(OTP_LENGTH).fill(""));
-    setNotice(buildOtpNotice(channel, target, result.otpDeliveryStatus));
+    setNotice(buildOtpNotice(target, result.otpDeliveryStatus));
   };
 
   const handleLogin = async (event: FormEvent<HTMLFormElement>) => {
@@ -89,7 +84,7 @@ export default function LoginPage() {
     setSubmitting(true);
 
     try {
-      applyChallenge(await login(phone.trim(), password));
+      applyChallenge(await login(email, password));
       setStep("otp");
       window.requestAnimationFrame(() => otpRefs.current[0]?.focus());
     } catch (err) {
@@ -103,7 +98,7 @@ export default function LoginPage() {
     setError("");
     setSubmitting(true);
     try {
-      applyChallenge(await login(phone.trim(), password));
+      applyChallenge(await login(email, password));
       window.requestAnimationFrame(() => otpRefs.current[0]?.focus());
     } catch (err) {
       setError(err instanceof Error ? err.message : "Không gửi lại được mã OTP");
@@ -133,9 +128,9 @@ export default function LoginPage() {
     }
   };
 
-  const handleChangePhone = () => {
+  const handleChangeEmail = () => {
     setStep("credentials");
-    setPhone("");
+    setEmail("");
     setPassword("");
     setDigits(Array(OTP_LENGTH).fill(""));
     setChallengeId("");
@@ -146,7 +141,7 @@ export default function LoginPage() {
     setSubmitting(false);
     setError("");
     setNotice("");
-    window.requestAnimationFrame(() => phoneInputRef.current?.focus());
+    window.requestAnimationFrame(() => emailInputRef.current?.focus());
   };
 
   const setDigitAt = (index: number, value: string) => {
@@ -196,8 +191,6 @@ export default function LoginPage() {
 
   const fillDebugOtp = (value: string) => setDigits(value.replace(/\D/g, "").slice(0, OTP_LENGTH).padEnd(OTP_LENGTH, " ").split("").map((item) => item.trim()));
 
-  const otpTargetLabel = otpChannel === "EMAIL" ? "email" : "số điện thoại";
-
   return (
     <DsRoot className="ds-login">
       <main className="ds-login__main">
@@ -220,8 +213,8 @@ export default function LoginPage() {
           <h1>{step === "credentials" ? "Đăng nhập quản trị" : "Nhập mã OTP"}</h1>
           <p className="ds-login__lead">
             {step === "credentials"
-              ? "Dùng số điện thoại và mật khẩu của tài khoản được cấp."
-              : `Mã 6 số đã được gửi đến ${otpTargetLabel} ${otpTarget}.${otpChannel === "EMAIL" ? " Nếu chưa thấy, hãy kiểm tra cả thư rác." : ""}`}
+              ? "Dùng email và mật khẩu của tài khoản được cấp."
+              : `Mã 6 số đã được gửi đến email ${otpTarget}. Nếu chưa thấy, hãy kiểm tra cả thư rác.`}
           </p>
 
           {sessionExpired && step === "credentials" && !error ? (
@@ -232,17 +225,16 @@ export default function LoginPage() {
 
           {step === "credentials" ? (
             <form className="ds-login__form" onSubmit={handleLogin}>
-              <DsField label="Số điện thoại" htmlFor="login-phone" required>
+              <DsField label="Email" htmlFor="login-email" required>
                 <DsInput
-                  id="login-phone"
-                  ref={phoneInputRef}
-                  value={phone}
-                  onChange={(event) => setPhone(event.target.value)}
-                  type="tel"
-                  inputMode="numeric"
-                  pattern="[0-9]*"
-                  placeholder="0901234567"
-                  autoComplete="username tel"
+                  id="login-email"
+                  ref={emailInputRef}
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                  type="email"
+                  inputMode="email"
+                  placeholder="ten@benhvien.vn"
+                  autoComplete="username email"
                   autoFocus
                   required
                 />
@@ -313,9 +305,9 @@ export default function LoginPage() {
                 <button type="button" className="ds-login__link" onClick={handleResend} disabled={submitting || resendLeft > 0}>
                   {resendLeft > 0 ? `Gửi lại mã sau ${resendLeft} giây` : "Gửi lại mã"}
                 </button>
-                <button type="button" className="ds-login__link" onClick={handleChangePhone}>
+                <button type="button" className="ds-login__link" onClick={handleChangeEmail}>
                   <ArrowLeft aria-hidden="true" style={{ width: 13, height: 13, verticalAlign: "-2px", marginRight: 4 }} />
-                  Đổi số điện thoại
+                  Đổi email
                 </button>
               </div>
             </form>

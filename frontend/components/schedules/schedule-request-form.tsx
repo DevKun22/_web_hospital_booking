@@ -17,9 +17,9 @@ export const requestTypeLabels: Record<ScheduleChangeRequestType, string> = {
   DEACTIVATE_WEEKLY_SCHEDULE: "Tạm ngừng lịch mẫu",
 };
 
-type Proposal = { dayOfWeek: number; startTime: string; endTime: string; slotDuration: number; maxPatients: number };
+type Proposal = { dayOfWeek: number; startTime: string; endTime: string; slotDuration: number };
 
-const initialProposal: Proposal = { dayOfWeek: 1, startTime: "08:00", endTime: "11:30", slotDuration: 30, maxPatients: 1 };
+const initialProposal: Proposal = { dayOfWeek: 1, startTime: "08:00", endTime: "11:30", slotDuration: 30 };
 
 const proposalFrom = (schedule: DoctorSchedule | undefined): Proposal =>
   schedule
@@ -28,7 +28,6 @@ const proposalFrom = (schedule: DoctorSchedule | undefined): Proposal =>
         startTime: schedule.startTime,
         endTime: schedule.endTime,
         slotDuration: schedule.slotDuration,
-        maxPatients: schedule.maxPatients,
       }
     : initialProposal;
 
@@ -133,9 +132,6 @@ export function ScheduleRequestForm({
         </DsField>
         <DsField label="Kết thúc" htmlFor="req-end">
           <DsInput id="req-end" type="time" value={proposal.endTime} required onChange={(event) => update("endTime", event.target.value)} />
-        </DsField>
-        <DsField label="Số người khám tối đa mỗi khung giờ" htmlFor="req-max">
-          <DsInput id="req-max" type="number" min={1} max={20} value={proposal.maxPatients} required onChange={(event) => update("maxPatients", Number(event.target.value) || 0)} />
         </DsField>
         <DsField label="Ngày dự kiến áp dụng" htmlFor="req-effective">
           <VietnamDateInput value={effectiveFrom} min={getVietnamDateInput()} onChange={setEffectiveFrom} ariaLabel="Ngày dự kiến áp dụng" className="ds-input" required />

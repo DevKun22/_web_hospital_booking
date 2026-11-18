@@ -16,8 +16,9 @@ type DashboardRole = StaffRole;
 
 type CreateDashboardUserInput = {
   fullName: string;
-  email?: string;
-  phone: string;
+  // Email là định danh đăng nhập và nơi nhận OTP; số điện thoại chỉ là liên hệ.
+  email: string;
+  phone?: string;
   password: string;
   role: DashboardRole;
   avatar?: string;
@@ -27,8 +28,8 @@ type CreateDashboardUserInput = {
 
 type UpdateDashboardUserInput = {
   fullName?: string;
-  email?: string | null;
-  phone?: string;
+  email?: string;
+  phone?: string | null;
   role?: DashboardRole;
   avatar?: string | null;
   avatarAssetId?: string | null;
@@ -45,7 +46,6 @@ const dashboardUserSelect = {
   role: true,
   avatar: true,
   isActive: true,
-  isPhoneVerified: true,
   isEmailVerified: true,
   createdAt: true,
   updatedAt: true,
@@ -157,19 +157,14 @@ class DashboardUserService {
       : null;
 
     const existingUser = await prisma.user.findFirst({
-      where: {
-        OR: [
-          { phone: input.phone },
-          ...(input.email ? [{ email: input.email }] : []),
-        ],
-      },
+      where: { email: input.email },
       select: {
         id: true,
       },
     });
 
     if (existingUser) {
-      throw new AppError("Số điện thoại hoặc email đã tồn tại", 409);
+      throw new AppError("Email đã tồn tại", 409);
     }
 
     const user = await prisma.user.create({
@@ -181,7 +176,8 @@ class DashboardUserService {
         role: input.role,
         avatar: avatarAsset?.url || input.avatar,
         isActive: input.isActive ?? true,
-        isPhoneVerified: true,
+        // Quản trị xác nhận email lúc tạo tài khoản; OTP đăng nhập sẽ chứng minh người dùng thật sự nhận được thư.
+        isEmailVerified: true,
         // Quản trị biết mật khẩu ban đầu nên người dùng phải tự đổi ở lần đăng nhập đầu.
         mustChangePassword: true,
       },
@@ -219,16 +215,13 @@ class DashboardUserService {
     }
     this.assertSelfAdministration(id, input, actor);
 
-    if (input.phone || input.email) {
+    if (input.email) {
       const existingUser = await prisma.user.findFirst({
         where: {
           id: {
             not: id,
           },
-          OR: [
-            ...(input.phone ? [{ phone: input.phone }] : []),
-            ...(input.email ? [{ email: input.email }] : []),
-          ],
+          email: input.email,
         },
         select: {
           id: true,
@@ -236,7 +229,7 @@ class DashboardUserService {
       });
 
       if (existingUser) {
-        throw new AppError("Số điện thoại hoặc email đã tồn tại", 409);
+        throw new AppError("Email đã tồn tại", 409);
       }
     }
 
@@ -259,7 +252,7 @@ class DashboardUserService {
         where: { id },
         data: {
           fullName: input.fullName,
-          email: normalizeOptionalString(input.email),
+          email: input.email,
           phone: input.phone,
           role: input.role,
           avatar:

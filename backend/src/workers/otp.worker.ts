@@ -21,13 +21,11 @@ startRuntimeMetrics("otp-worker");
 const worker = new Worker<OtpDeliveryJobData, void, "send-otp">(
   OTP_DELIVERY_QUEUE_NAME,
   async (job) => {
-    const { otpCodeId, target, channel, purpose, otp, expiresInSeconds } =
-      job.data;
+    const { otpCodeId, email, purpose, otp, expiresInSeconds } = job.data;
 
     try {
       await OtpSenderService.send({
-        target,
-        channel,
+        email,
         purpose,
         otp,
         expiresInSeconds,

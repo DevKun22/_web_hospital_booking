@@ -1,5 +1,5 @@
 import { Prisma } from "../../../generated/prisma/client.js";
-import type { AppointmentStatus, Gender, OtpChannel, OtpDeliveryStatus } from "../../../generated/prisma/enums.js";
+import type { AppointmentStatus, Gender, OtpDeliveryStatus } from "../../../generated/prisma/enums.js";
 import { prisma } from "../../config/prisma.js";
 import { AppError } from "../../utils/appError.js";
 import { parseDateOnly } from "../../utils/time.js";
@@ -18,8 +18,8 @@ export type CreateAppointmentInput = {
   timeSlotId: string;
   patientName: string;
   patientPhone: string;
-  patientEmail?: string | null;
-  otpChannel?: OtpChannel;
+  // Email là định danh người đặt lịch và nơi nhận OTP; số điện thoại chỉ để cơ sở khám liên hệ.
+  patientEmail: string;
   reason?: string | null;
   gender?: Gender | null;
   dateOfBirth?: string | null;
@@ -62,13 +62,15 @@ export const resolveBookingIdentity = async (
     where: { id: actor.userId, role: "PATIENT", isActive: true },
     select: { id: true, phone: true, email: true },
   });
-  if (!owner?.phone) {
+  if (!owner) {
     throw new AppError("Không tìm thấy tài khoản người khám hợp lệ", 401);
   }
+  // Số điện thoại tài khoản có thể trống (chỉ là liên hệ): dùng số người đặt nhập trong yêu cầu.
+  const contactPhone = owner.phone ?? input.patientPhone;
 
   if (!input.dependentProfileId) {
     return {
-      input: { ...input, patientPhone: owner.phone },
+      input: { ...input, patientEmail: owner.email, patientPhone: contactPhone },
       patientId: owner.id,
       dependentProfileId: null,
     };
@@ -107,7 +109,7 @@ export const resolveBookingIdentity = async (
     input: {
       ...input,
       patientName: dependent.fullName,
-      patientPhone: owner.phone,
+      patientPhone: contactPhone,
       patientEmail: owner.email,
       gender: dependent.gender,
       dateOfBirth: dependent.dateOfBirth
@@ -129,7 +131,7 @@ export const resolveBookingIdentity = async (
 
 export type UpdateAppointmentPatientInfoInput = {
   patientName?: string;
-  patientEmail?: string | null;
+  patientEmail?: string;
   gender?: Gender | null;
   dateOfBirth?: string | null;
   cccd?: string | null;
@@ -153,25 +155,6 @@ export const getOtpLogNote = (label: string, status: OtpDeliveryStatus) => {
   return `${label} đã được gửi`;
 };
 
-export const resolveAppointmentOtpTarget = (appointment: {
-  patientPhone: string;
-  patientEmail?: string | null;
-  otpChannel?: OtpChannel | null;
-}) => {
-  const channel: OtpChannel =
-    appointment.otpChannel === "EMAIL" && appointment.patientEmail
-      ? "EMAIL"
-      : "SMS";
-
-  return {
-    channel,
-    target:
-      channel === "EMAIL"
-        ? appointment.patientEmail || ""
-        : appointment.patientPhone,
-  };
-};
-
 export const PATIENT_CANCEL_ALLOWED_STATUSES: AppointmentStatus[] = [
   "PENDING_CONFIRM",
   "CONFIRMED",
@@ -186,6 +169,40 @@ export const DASHBOARD_CANCEL_ALLOWED_STATUSES: AppointmentStatus[] = [
   "NO_SHOW",
 ];
 
+// Thông tin người khám khai lúc đặt lịch (bảng AppointmentPatientInfo, dữ liệu nhạy cảm): chỉ tải khi chi tiết lịch cần.
+export const patientInfoSelect = {
+  gender: true,
+  dateOfBirth: true,
+  address: true,
+  cccd: true,
+  hasBHYT: true,
+  healthInsuranceCode: true,
+  registeredHospital: true,
+  allergies: true,
+  medicalHistory: true,
+  familyHistory: true,
+} satisfies Prisma.AppointmentPatientInfoSelect;
+
+export type PatientInfoRow = Prisma.AppointmentPatientInfoGetPayload<{ select: typeof patientInfoSelect }>;
+
+// Giữ nguyên hợp đồng API: web và mobile vẫn nhận các trường phẳng cũ (patientGender, allergies, ...) từ patientInfo.
+export const flattenPatientInfo = <T extends { patientInfo: PatientInfoRow | null }>(appointment: T) => {
+  const { patientInfo, ...rest } = appointment;
+  return {
+    ...rest,
+    patientGender: patientInfo?.gender ?? null,
+    patientDateOfBirth: patientInfo?.dateOfBirth ?? null,
+    patientAddress: patientInfo?.address ?? null,
+    patientCccd: patientInfo?.cccd ?? null,
+    hasBHYT: patientInfo?.hasBHYT ?? false,
+    healthInsuranceCode: patientInfo?.healthInsuranceCode ?? null,
+    registeredHospital: patientInfo?.registeredHospital ?? null,
+    allergies: patientInfo?.allergies ?? null,
+    medicalHistory: patientInfo?.medicalHistory ?? null,
+    familyHistory: patientInfo?.familyHistory ?? null,
+  };
+};
+
 export const appointmentSelect = {
   id: true,
   bookingCode: true,
@@ -198,17 +215,7 @@ export const appointmentSelect = {
   patientName: true,
   patientPhone: true,
   patientEmail: true,
-  otpChannel: true,
-  patientGender: true,
-  patientDateOfBirth: true,
-  patientAddress: true,
-  patientCccd: true,
-  hasBHYT: true,
-  healthInsuranceCode: true,
-  registeredHospital: true,
-  allergies: true,
-  medicalHistory: true,
-  familyHistory: true,
+  patientInfo: { select: patientInfoSelect },
   estimatedPrice: true,
   serviceFee: true,
   bhytDiscount: true,
@@ -224,7 +231,7 @@ export const appointmentSelect = {
       fullName: true,
       phone: true,
       email: true,
-      isPhoneVerified: true,
+      isEmailVerified: true,
     },
   },
   doctor: {

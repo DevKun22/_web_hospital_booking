@@ -3,17 +3,17 @@ import { CheckCircle2 } from "lucide-react";
 import type { BookingDraft } from "@/features/booking/model";
 import type { BookingFlow } from "@/features/booking/use-booking-flow";
 import { HealthSection } from "@/features/booking/components/health-section";
-import { Field, GroupLabel, INPUT_CLASS, StepFrame } from "@/features/booking/components/step-frame";
+import { Field, INPUT_CLASS, StepFrame } from "@/features/booking/components/step-frame";
 import { sanitizePhoneInput } from "@/features/booking/validation";
 
 export function DetailsStep({ flow }: { flow: BookingFlow }) {
-  const { state, dispatch, otpChannels, otpChannel, profilePrefilled } = flow;
+  const { state, dispatch, emailOtpAvailable, profilePrefilled } = flow;
   const { draft } = state;
   const set = (patch: Partial<BookingDraft>) => dispatch({ type: "draft_changed", patch });
 
   return (
     <div className="space-y-4">
-      <StepFrame title="Thông tin người khám" description="Họ tên và số điện thoại dùng để tạo lịch, gửi mã OTP và xem lại lịch hẹn.">
+      <StepFrame title="Thông tin người khám" description="Họ tên và email dùng để tạo lịch, gửi mã OTP và đăng nhập xem lại lịch hẹn.">
         {profilePrefilled ? (
           <p className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-[var(--public-success-soft)] px-3 py-2.5 text-sm text-[var(--public-success)]" role="status">
             <span className="flex items-center gap-2 font-semibold">
@@ -28,7 +28,16 @@ export function DetailsStep({ flow }: { flow: BookingFlow }) {
           <input value={draft.patientName} onChange={(event) => set({ patientName: event.target.value })} className={INPUT_CLASS} autoComplete="name" required />
         </Field>
 
-        <Field label="Số điện thoại" required hint="Bắt đầu bằng 0 hoặc +84. Số này cũng dùng để đăng nhập xem lại lịch hẹn.">
+        <Field label="Email" required hint="Mã OTP gửi tới email này. Email cũng dùng để đăng nhập xem lại lịch hẹn.">
+          <input value={draft.patientEmail} onChange={(event) => set({ patientEmail: event.target.value })} placeholder="ten@email.com" type="email" autoComplete="email" inputMode="email" className={INPUT_CLASS} required />
+        </Field>
+        {emailOtpAvailable ? null : (
+          <p role="alert" className="rounded-lg bg-[var(--public-danger-soft)] px-3 py-2.5 text-sm font-medium text-[var(--public-danger)]">
+            Hệ thống tạm thời chưa gửi được mã xác thực qua email. Vui lòng thử lại sau hoặc liên hệ cơ sở khám.
+          </p>
+        )}
+
+        <Field label="Số điện thoại" required hint="Để cơ sở khám liên hệ khi cần. Bắt đầu bằng 0 hoặc +84.">
           <input
             value={draft.patientPhone}
             onChange={(event) => set({ patientPhone: sanitizePhoneInput(event.target.value) })}
@@ -40,34 +49,6 @@ export function DetailsStep({ flow }: { flow: BookingFlow }) {
             className={INPUT_CLASS}
             required
           />
-        </Field>
-
-        <fieldset>
-          <GroupLabel>Nhận mã OTP qua</GroupLabel>
-          <div className="mt-1.5 grid grid-cols-2 rounded-lg border border-[var(--public-border)] p-1" role="group">
-            {(["EMAIL", "SMS"] as const).map((channel) => {
-              const available = otpChannels.includes(channel);
-              const active = otpChannel === channel;
-              return (
-                <button
-                  key={channel}
-                  type="button"
-                  aria-pressed={active}
-                  disabled={!available}
-                  onClick={() => set({ otpChannel: channel })}
-                  className={`min-h-11 rounded-md px-3 text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
-                    active ? "bg-[var(--public-primary)] text-white" : "text-[var(--public-text-soft)] hover:bg-[var(--public-surface-muted)]"
-                  }`}
-                >
-                  {channel === "EMAIL" ? "Email" : "Tin nhắn SMS"}
-                </button>
-              );
-            })}
-          </div>
-        </fieldset>
-
-        <Field label="Email" required={otpChannel === "EMAIL"} hint={otpChannel === "EMAIL" ? "Mã OTP sẽ gửi tới email này." : "Không bắt buộc khi nhận OTP qua tin nhắn."}>
-          <input value={draft.patientEmail} onChange={(event) => set({ patientEmail: event.target.value })} placeholder="ten@email.com" type="email" autoComplete="email" inputMode="email" className={INPUT_CLASS} />
         </Field>
 
         <Field label="Lý do khám" hint="Không bắt buộc. Giúp bác sĩ chuẩn bị trước.">

@@ -147,7 +147,7 @@ class NotificationService {
     userId: string,
     now: Date,
   ) {
-    const sessions = await client.dashboardSession.findMany({
+    const sessions = await client.authSession.findMany({
       where: {
         userId,
         kind: "PATIENT",
