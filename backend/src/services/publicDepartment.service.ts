@@ -160,57 +160,46 @@ class PublicDepartmentService {
         }),
       ]);
 
-    const departmentIds = departments.map((department) => department.id);
-    const doctorIds = departments.flatMap((department) =>
-      department.doctors.map((doctor) => doctor.id),
-    );
-    const [reviews, availableSlots] = departmentIds.length
+    // Đếm đánh giá và giờ trống NGAY TRONG cơ sở dữ liệu (groupBy theo bác sĩ, tối đa một dòng mỗi bác sĩ) rồi gộp theo khoa.
+    // Cách cũ kéo về từng dòng đánh giá và từng khung giờ trống của 14 ngày tới (hàng nghìn dòng) chỉ để cộng lại.
+    // Chỉ bác sĩ đang nhận lịch (`doctorWhere`) được tính, khớp với số bác sĩ và với việc giờ của bác sĩ tạm ngừng không đặt được.
+    const departmentOfDoctor = new Map<string, string>();
+    for (const department of departments) {
+      for (const doctor of department.doctors) departmentOfDoctor.set(doctor.id, department.id);
+    }
+    const doctorIds = [...departmentOfDoctor.keys()];
+    const [reviewGroups, slotGroups] = doctorIds.length
       ? await Promise.all([
-          prisma.review.findMany({
-            where: {
-              isVisible: true,
-              doctorId: { in: doctorIds },
-            },
-            select: {
-              rating: true,
-              doctor: { select: { departmentId: true } },
-            },
+          prisma.review.groupBy({
+            by: ["doctorId"],
+            where: { isVisible: true, doctorId: { in: doctorIds } },
+            _count: { _all: true },
+            _sum: { rating: true },
           }),
-          prisma.doctorTimeSlot.findMany({
-            where: {
-              ...slotWhere,
-              doctor: { departmentId: { in: departmentIds } },
-            },
-            select: {
-              doctor: { select: { departmentId: true } },
-            },
+          prisma.doctorTimeSlot.groupBy({
+            by: ["doctorId"],
+            where: { ...slotWhere, doctorId: { in: doctorIds } },
+            _count: { _all: true },
           }),
         ])
       : [[], []];
 
-    const reviewsByDepartment = new Map<
-      string,
-      { count: number; total: number }
-    >();
-    reviews.forEach((review) => {
-      const departmentId = review.doctor.departmentId;
-      const current = reviewsByDepartment.get(departmentId) || {
-        count: 0,
-        total: 0,
-      };
-      current.count += 1;
-      current.total += review.rating;
+    const reviewsByDepartment = new Map<string, { count: number; total: number }>();
+    for (const group of reviewGroups) {
+      const departmentId = departmentOfDoctor.get(group.doctorId);
+      if (!departmentId) continue;
+      const current = reviewsByDepartment.get(departmentId) ?? { count: 0, total: 0 };
+      current.count += group._count._all;
+      current.total += group._sum.rating ?? 0;
       reviewsByDepartment.set(departmentId, current);
-    });
+    }
 
     const slotsByDepartment = new Map<string, number>();
-    availableSlots.forEach((slot) => {
-      const departmentId = slot.doctor.departmentId;
-      slotsByDepartment.set(
-        departmentId,
-        (slotsByDepartment.get(departmentId) || 0) + 1,
-      );
-    });
+    for (const group of slotGroups) {
+      const departmentId = departmentOfDoctor.get(group.doctorId);
+      if (!departmentId) continue;
+      slotsByDepartment.set(departmentId, (slotsByDepartment.get(departmentId) ?? 0) + group._count._all);
+    }
 
     const catalogItems = departments.map(({ doctors: _doctors, _count, ...department }) => {
       const review = reviewsByDepartment.get(department.id);
