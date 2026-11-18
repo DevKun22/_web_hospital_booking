@@ -34,7 +34,6 @@ model Medicine {
   updatedAt DateTime @updatedAt
 
   @@index([name])
-  @@index([isActive])
 }
 
 // Lô thuốc có hạn dùng. stockQuantity của thuốc vẫn là tổng tồn; phần tồn chưa gắn lô (nhập trước khi có

@@ -40,9 +40,9 @@ model OutboxEvent {
   dedupeKey String @unique
   payload   Json
 
-  status      String   @default("PENDING")
-  attempts    Int      @default(0)
-  availableAt DateTime @default(now())
+  status      String    @default("PENDING")
+  attempts    Int       @default(0)
+  availableAt DateTime  @default(now())
   lockedAt    DateTime?
   processedAt DateTime?
   lastError   String?

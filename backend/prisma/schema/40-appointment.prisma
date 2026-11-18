@@ -54,14 +54,13 @@ model Appointment {
   reason String?
 
   // Thông tin đặt lịch snapshot để không mất dữ liệu nếu user đổi profile
-  patientName  String
-  patientPhone String
-  patientEmail String?
-  otpChannel   OtpChannel @default(SMS)
-  patientGender Gender?
+  patientName        String
+  patientPhone       String
+  patientEmail       String
+  patientGender      Gender?
   patientDateOfBirth DateTime?
-  patientAddress String?
-  patientCccd String?
+  patientAddress     String?
+  patientCccd        String?
 
   hasBHYT             Boolean @default(false)
   healthInsuranceCode String?
@@ -127,7 +126,6 @@ model Appointment {
   @@index([doctorId, appointmentDate])
   @@index([departmentId])
   @@index([appointmentDate])
-  @@index([patientPhone])
   @@index([status, holdExpiresAt])
   @@index([status, appointmentDate])
   @@index([status, createdAt])
@@ -161,24 +159,23 @@ model AppointmentLog {
   createdAt DateTime @default(now())
 
   @@index([appointmentId])
-  @@index([action])
   @@index([createdById])
 }
 
 model Review {
-  id      String  @id @default(uuid())
+  id String @id @default(uuid())
 
   // Diem tong hop do he thong tinh tu ba tieu chi, de phuc vu thong ke nhanh.
-  rating          Float
-  doctorRating    Int
-  serviceRating   Int
-  facilityRating  Int
-  comment         String?
+  rating         Float
+  doctorRating   Int
+  serviceRating  Int
+  facilityRating Int
+  comment        String?
 
   // Nhan vien co the an danh gia khoi bao cao noi bo khi can kiem duyet.
-  isVisible       Boolean   @default(false)
-  moderationNote  String?
-  moderatedAt     DateTime?
+  isVisible      Boolean   @default(false)
+  moderationNote String?
+  moderatedAt    DateTime?
 
   appointmentId String      @unique
   appointment   Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
@@ -189,7 +186,7 @@ model Review {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@index([doctorId])
-  @@index([isVisible])
+  // Đếm và tính điểm trung bình theo bác sĩ chỉ trên đánh giá đang hiển thị.
+  @@index([doctorId, isVisible])
   @@index([createdAt])
 }

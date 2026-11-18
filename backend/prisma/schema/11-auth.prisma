@@ -9,11 +9,6 @@ enum OtpPurpose {
   PHARMACIST_LOGIN
 }
 
-enum OtpChannel {
-  SMS
-  EMAIL
-}
-
 enum OtpDeliveryStatus {
   PENDING
   SENT
@@ -26,23 +21,23 @@ enum SessionKind {
 }
 
 model OtpCode {
-  id      String     @id @default(uuid())
-  phone   String
-  email   String?
-  target  String?
-  channel OtpChannel @default(SMS)
+  id String @id @default(uuid())
+
+  // Đích nhận OTP (email). Chỉ lưu băm của mã, không lưu mã rõ.
+  email   String
   code    String
   purpose OtpPurpose
+
   deliveryStatus OtpDeliveryStatus @default(PENDING)
   deliveryError  String?
   deliveredAt    DateTime?
 
-  ipAddress String?
+  ipAddress   String?
   challengeId String?
   challenge   DashboardLoginChallenge? @relation(fields: [challengeId], references: [id], onDelete: Cascade)
 
   expiresAt DateTime
-  isUsed    Boolean   @default(false)
+  // Có giá trị khi mã đã dùng; null là chưa dùng.
   usedAt    DateTime?
 
   userId String?
@@ -50,14 +45,13 @@ model OtpCode {
 
   createdAt DateTime @default(now())
 
-  @@index([phone])
-  @@index([email])
-  @@index([target])
-  @@index([channel])
-  @@index([deliveryStatus])
-  @@index([purpose])
+  // Chống spam gửi OTP và tìm mã theo (email, mục đích) trong cửa sổ thời gian.
+  @@index([email, purpose, createdAt])
+  // Chống spam theo địa chỉ IP.
+  @@index([ipAddress, createdAt])
+  // Tác vụ dọn mã hết hạn.
   @@index([expiresAt])
-  @@index([ipAddress])
+  // Khóa ngoại: xóa lan theo thử thách đăng nhập, gỡ liên kết khi xóa người dùng.
   @@index([challengeId])
   @@index([userId])
 }
@@ -73,28 +67,23 @@ model OtpSecurityBlock {
   blockedUntil DateTime
   createdAt    DateTime @default(now())
 
-  @@index([targetType, target])
-  @@index([purpose])
-  @@index([blockedUntil])
+  // Tìm khối còn hiệu lực của một đích: targetType + target và blockedUntil > now.
+  @@index([targetType, target, blockedUntil])
 }
 
 model OtpVerifyAttempt {
   id String @id @default(uuid())
 
-  phone     String
-  email     String?
-  target    String?
-  channel   OtpChannel @default(SMS)
+  email     String
   purpose   OtpPurpose
   ipAddress String?
-  success   Boolean @default(false)
+  success   Boolean    @default(false)
 
   createdAt DateTime @default(now())
 
-  @@index([phone, purpose, createdAt])
-  @@index([target, channel, purpose, createdAt])
+  // Đếm lần nhập sai theo (email, mục đích) hoặc theo IP trong cửa sổ thời gian.
+  @@index([email, purpose, createdAt])
   @@index([ipAddress, createdAt])
-  @@index([success])
 }
 
 model DashboardLoginChallenge {
@@ -106,8 +95,8 @@ model DashboardLoginChallenge {
   purpose   OtpPurpose
   ipAddress String?
 
-  attempts Int @default(0)
-  isUsed   Boolean @default(false)
+  attempts Int       @default(0)
+  // Có giá trị khi thử thách đã dùng; null là chưa dùng.
   usedAt   DateTime?
 
   expiresAt DateTime
@@ -117,7 +106,6 @@ model DashboardLoginChallenge {
 
   @@index([userId])
   @@index([expiresAt])
-  @@index([isUsed])
 }
 
 // Lưu dấu vết đăng nhập thất bại dưới dạng HMAC để giới hạn brute-force trên
@@ -162,15 +150,15 @@ model DashboardSession {
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  refreshTokenHash String      @unique
-  kind             SessionKind @default(DASHBOARD)
-  tokenFamilyId    String      @unique @default(uuid())
-  ipAddress        String?
-  userAgent        String?
-  deviceId         String?
-  deviceName       String?
-  platform         String?
-  appVersion       String?
+  refreshTokenHash   String      @unique
+  kind               SessionKind @default(DASHBOARD)
+  tokenFamilyId      String      @unique @default(uuid())
+  ipAddress          String?
+  userAgent          String?
+  deviceId           String?
+  deviceName         String?
+  platform           String?
+  appVersion         String?
   pushToken          String?     @unique
   pushTokenUpdatedAt DateTime?
   pushDisabledAt     DateTime?
@@ -182,12 +170,11 @@ model DashboardSession {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  refreshTokens AuthRefreshToken[]
+  refreshTokens          AuthRefreshToken[]
   notificationDeliveries NotificationDelivery[]
 
   @@index([userId, kind, revokedAt])
   @@index([expiresAt])
-  @@index([revokedAt])
 }
 
 model AuthRefreshToken {
@@ -197,17 +184,16 @@ model AuthRefreshToken {
   session   DashboardSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
 
   userId String
-  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  tokenHash           String @unique
+  tokenHash           String    @unique
   replacedByTokenHash String?
   expiresAt           DateTime
   usedAt              DateTime?
   revokedAt           DateTime?
-  createdAt           DateTime @default(now())
+  createdAt           DateTime  @default(now())
 
   @@index([sessionId, createdAt])
   @@index([userId, expiresAt])
   @@index([expiresAt])
-  @@index([revokedAt])
 }

@@ -22,8 +22,7 @@ model ChatbotLog {
 
   @@index([userId])
   @@index([sessionId])
-  @@index([guestPhone])
-  @@index([intent])
+  @@index([createdAt])
 }
 
 // Kho tri thức của chatbot (RAG): mỗi dòng là một đoạn văn dựng từ FAQ, chuyên khoa, bác sĩ, gói khám, chính sách hoặc
@@ -48,7 +47,6 @@ model ChatKnowledgeChunk {
   updatedAt DateTime @updatedAt
 
   @@unique([sourceType, sourceId])
-  @@index([sourceType])
 }
 
 model ChatbotSession {
@@ -59,14 +57,14 @@ model ChatbotSession {
 
   guestPhone String?
 
-  draft        Json    @default("{}")
+  draft         Json    @default("{}")
   currentIntent String?
   currentState  String?
   lastActions   Json?
   lastMessage   String?
   lastResponse  String?
 
-  isActive  Boolean  @default(true)
+  isActive  Boolean   @default(true)
   expiresAt DateTime?
 
   logs ChatbotLog[]
@@ -75,10 +73,6 @@ model ChatbotSession {
   updatedAt DateTime @updatedAt
 
   @@index([userId])
-  @@index([guestPhone])
-  @@index([currentIntent])
-  @@index([currentState])
-  @@index([isActive])
   @@index([expiresAt])
 }
 
@@ -93,6 +87,4 @@ model ChatbotSetting {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-
-  @@index([isActive])
 }

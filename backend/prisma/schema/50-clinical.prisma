@@ -40,18 +40,17 @@ model MedicalRecord {
   doctorId String
   doctor   DoctorProfile @relation("DoctorRecords", fields: [doctorId], references: [id])
 
-  symptoms     String?
-  diagnosis    String?
-  treatment    String?
-  prescription String?
-  doctorNotes  String?
+  symptoms    String?
+  diagnosis   String?
+  treatment   String?
+  doctorNotes String?
 
   status MedicalResultStatus @default(DRAFT)
 
   // File PDF kết quả hoặc hồ sơ khám nếu có
   resultPdfUrl String?
 
-  labResults LabResult[]
+  labResults         LabResult[]
   prescriptionRecord Prescription?
 
   publishedAt DateTime?
@@ -81,7 +80,7 @@ model LabResult {
   @@index([medicalRecordId])
 }
 
-// Don thuoc tu do, khong quan ly kho va khong tinh gia thuoc
+// Đơn thuốc do bác sĩ kê; dược sĩ cấp phát và trừ kho theo từng dòng thuốc.
 model Prescription {
   id String @id @default(uuid())
 
@@ -140,7 +139,7 @@ model PrescriptionItem {
   quantity     Int?
   unit         String?
   instruction  String?
-  sortOrder    Int @default(0)
+  sortOrder    Int     @default(0)
 
   dispensedQuantity Int @default(0)
 
@@ -154,6 +153,5 @@ model PrescriptionItem {
   updatedAt DateTime @updatedAt
 
   @@index([prescriptionId])
-  @@index([sortOrder])
   @@index([medicineId])
 }

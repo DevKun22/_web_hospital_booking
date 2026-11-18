@@ -25,7 +25,7 @@ model MediaAsset {
 
   ownerType MediaOwnerType?
   ownerId   String?
-  isUsed    Boolean @default(false)
+  isUsed    Boolean         @default(false)
 
   uploadedById String?
   uploadedBy   User?   @relation(fields: [uploadedById], references: [id], onDelete: SetNull)
@@ -34,7 +34,6 @@ model MediaAsset {
   updatedAt DateTime @updatedAt
 
   @@index([ownerType, ownerId])
-  @@index([isUsed])
   @@index([uploadedById])
   @@index([createdAt])
 }
@@ -50,10 +49,10 @@ enum ArticleStatus {
 model Article {
   id String @id @default(uuid())
 
-  slug    String  @unique
-  title   String
-  summary String?
-  content String // Markdown
+  slug     String  @unique
+  title    String
+  summary  String?
+  content  String // Markdown
   category String?
 
   departmentId String?
@@ -76,8 +75,6 @@ model Article {
 
   @@index([status, publishedAt])
   @@index([departmentId])
-  @@index([authorId])
-  @@index([reviewedById])
 }
 
 // Một nguồn FAQ duy nhất cho trang Hỏi đáp và trợ lý ảo.
@@ -113,8 +110,6 @@ model SiteSetting {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-
-  @@index([isActive])
 }
 
 model Banner {
@@ -137,7 +132,5 @@ model Banner {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@index([position])
-  @@index([isActive])
-  @@index([order])
+  @@index([position, isActive])
 }

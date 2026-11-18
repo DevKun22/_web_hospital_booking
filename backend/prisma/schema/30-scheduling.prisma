@@ -1,14 +1,3 @@
-// Lịch làm việc: ca mẫu theo tuần, khung giờ cụ thể và yêu cầu đổi lịch.
-
-enum ScheduleChangeType {
-  CREATE_SLOT
-  UPDATE_SLOT
-  LOCK_SLOT
-  UNLOCK_SLOT
-  DELETE_SLOT
-  UPDATE_WEEKLY_SCHEDULE
-}
-
 enum ScheduleChangeRequestType {
   CREATE_WEEKLY_SCHEDULE
   UPDATE_WEEKLY_SCHEDULE
@@ -32,10 +21,10 @@ enum TimeSlotStatus {
 // Lịch làm việc lặp lại theo tuần của bác sĩ
 // Ví dụ: Thứ 2, 08:00 - 11:30
 model DoctorSchedule {
-  id       String        @id @default(uuid())
+  id             String                  @id @default(uuid())
   changeRequests ScheduleChangeRequest[]
   // Khung giờ cụ thể được sinh từ ca này; xóa ca thì khung giờ còn lịch đặt vẫn giữ (scheduleId về null).
-  timeSlots DoctorTimeSlot[]
+  timeSlots      DoctorTimeSlot[]
 
   doctorId String
   doctor   DoctorProfile @relation(fields: [doctorId], references: [id], onDelete: Cascade)
@@ -47,14 +36,12 @@ model DoctorSchedule {
   endTime   String
 
   slotDuration Int     @default(30) // phút
-  maxPatients  Int     @default(1)
   isActive     Boolean @default(true)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([doctorId])
-  @@index([dayOfWeek])
 }
 
 // Yêu cầu do bác sĩ gửi để Staff/Admin duyệt trước khi thay đổi lịch mẫu.
@@ -68,10 +55,10 @@ model ScheduleChangeRequest {
   schedule   DoctorSchedule? @relation(fields: [scheduleId], references: [id], onDelete: SetNull)
 
   requestedById String
-  requestedBy   User @relation("RequestedScheduleChanges", fields: [requestedById], references: [id], onDelete: Cascade)
+  requestedBy   User   @relation("RequestedScheduleChanges", fields: [requestedById], references: [id], onDelete: Cascade)
 
   reviewedById String?
-  reviewedBy   User? @relation("ReviewedScheduleChanges", fields: [reviewedById], references: [id], onDelete: SetNull)
+  reviewedBy   User?   @relation("ReviewedScheduleChanges", fields: [reviewedById], references: [id], onDelete: SetNull)
 
   type   ScheduleChangeRequestType
   status ScheduleChangeRequestStatus @default(PENDING)
@@ -80,8 +67,7 @@ model ScheduleChangeRequest {
   startTime     String
   endTime       String
   slotDuration  Int
-  maxPatients   Int
-  isActive      Boolean @default(true)
+  isActive      Boolean   @default(true)
   effectiveFrom DateTime
   reason        String
   reviewerNote  String?
@@ -93,7 +79,6 @@ model ScheduleChangeRequest {
   @@index([doctorId, status])
   @@index([requestedById, status])
   @@index([status, createdAt])
-  @@index([reviewedById])
   @@index([scheduleId])
 }
 
@@ -128,28 +113,4 @@ model DoctorTimeSlot {
   @@index([date])
   @@index([status, isActive, date, startTime])
   @@index([scheduleId])
-}
-
-// Lưu lịch sử bác sĩ/Admin điều chỉnh lịch làm việc hoặc slot khám
-model ScheduleChangeLog {
-  id String @id @default(uuid())
-
-  doctorId String
-  doctor   DoctorProfile @relation(fields: [doctorId], references: [id], onDelete: Cascade)
-
-  changedById String?
-  changedBy   User?   @relation(fields: [changedById], references: [id], onDelete: SetNull)
-
-  type ScheduleChangeType
-  note String?
-
-  date      DateTime?
-  startTime String?
-  endTime   String?
-
-  createdAt DateTime @default(now())
-
-  @@index([doctorId])
-  @@index([changedById])
-  @@index([type])
 }

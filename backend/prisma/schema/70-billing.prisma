@@ -60,25 +60,25 @@ model Invoice {
   bhytDiscount Int @default(0)
   finalAmount  Int
 
-  insuranceEligibleAmount Int @default(0)
-  insuranceCoverageRate   Int @default(0)
-  insuranceDiscountAmount Int @default(0)
+  insuranceEligibleAmount Int                 @default(0)
+  insuranceCoverageRate   Int                 @default(0)
+  insuranceDiscountAmount Int                 @default(0)
   insuranceRouteType      InsuranceRouteType?
   insuranceNote           String?
 
-  status        InvoiceStatus  @default(UNPAID)
-  paymentMethod PaymentMethod?
-  paymentReference String?
-  paidAt        DateTime?
-  refundReason  String?
-  refundReference String?
-  refundedAt    DateTime?
+  status            InvoiceStatus  @default(UNPAID)
+  paymentMethod     PaymentMethod?
+  paymentReference  String?
+  paidAt            DateTime?
+  refundReason      String?
+  refundReference   String?
+  refundedAt        DateTime?
   // Mã yêu cầu hoàn tiền gửi VNPAY (vnp_RequestId). Đặt trước khi gọi API để một hóa đơn
   // không bị gửi hai yêu cầu hoàn; chỉ xóa khi VNPAY từ chối rõ ràng.
-  refundRequestId   String?   @unique
+  refundRequestId   String?        @unique
   refundAttemptedAt DateTime?
   // Tổng tiền thuốc đã hoàn một phần (hóa đơn vẫn PAID). Hoàn toàn phần dùng status REFUNDED, không cộng vào đây.
-  refundedAmount    Int       @default(0)
+  refundedAmount    Int            @default(0)
 
   paymentTransactions PaymentTransaction[]
   items               InvoiceItem[]
@@ -195,8 +195,7 @@ model PaymentTransaction {
   updatedAt DateTime @updatedAt
 
   @@index([invoiceId])
-  @@index([provider])
-  @@index([status])
   @@index([providerOrderId])
-  @@index([expiredAt])
+  // Tác vụ hết hạn giao dịch đang chờ: status = PENDING và expiredAt <= now.
+  @@index([status, expiredAt])
 }

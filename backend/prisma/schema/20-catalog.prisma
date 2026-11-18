@@ -1,9 +1,9 @@
 // Danh mục công khai: chuyên khoa, bác sĩ, gói khám.
 
 model Department {
-  id          String  @id @default(uuid())
-  name        String  @unique
-  slug        String? @unique
+  id                String   @id @default(uuid())
+  name              String   @unique
+  slug              String?  @unique
   description       String?
   image             String?
   symptomKeywords   String[] @default([])
@@ -31,22 +31,21 @@ model DoctorProfile {
   departmentId String
   department   Department @relation(fields: [departmentId], references: [id])
 
-  title           String?
-  bio             String?
-  specialization  String?
+  title                  String?
+  bio                    String?
+  specialization         String?
   scheduleChangeRequests ScheduleChangeRequest[]
-  experience      Int?
-  consultationFee Int     @default(0)
+  experience             Int?
+  consultationFee        Int                     @default(0)
 
   isAvailable Boolean @default(true)
 
-  appointments       Appointment[]       @relation("DoctorAppointments")
-  schedules          DoctorSchedule[]
-  timeSlots          DoctorTimeSlot[]
-  medicalRecords     MedicalRecord[]     @relation("DoctorRecords")
-  prescriptions       Prescription[]      @relation("DoctorPrescriptions")
-  reviews            Review[]
-  scheduleChangeLogs ScheduleChangeLog[]
+  appointments   Appointment[]    @relation("DoctorAppointments")
+  schedules      DoctorSchedule[]
+  timeSlots      DoctorTimeSlot[]
+  medicalRecords MedicalRecord[]  @relation("DoctorRecords")
+  prescriptions  Prescription[]   @relation("DoctorPrescriptions")
+  reviews        Review[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
