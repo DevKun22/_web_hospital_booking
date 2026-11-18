@@ -28,8 +28,10 @@ export const parseInlineWorkers = (value?: string): InlineWorkerName[] => {
 };
 
 const loaders: Record<InlineWorkerName, () => Promise<unknown>> = {
-  otp: () => import("./otp.worker.js"),
-  appointments: () => import("./appointmentLifecycle.worker.js"),
+  // otp: hàng đợi BullMQ duy nhất (send-otp và expire-pending-otp); appointments: việc định kỳ chạy trên cơ sở dữ liệu.
+  // Giữ tên cũ để biến INLINE_WORKERS đang cấu hình trên môi trường chạy không phải đổi.
+  otp: () => import("./background.worker.js"),
+  appointments: () => import("./maintenance.worker.js"),
   notifications: () => import("./notification.worker.js"),
   payments: () => import("./paymentReconciliation.worker.js"),
 };
