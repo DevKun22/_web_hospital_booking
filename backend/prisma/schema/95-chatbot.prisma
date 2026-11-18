@@ -75,16 +75,3 @@ model ChatbotSession {
   @@index([userId])
   @@index([expiresAt])
 }
-
-model ChatbotSetting {
-  id String @id @default(uuid())
-
-  key   String @unique
-  value Json
-
-  description String?
-  isActive    Boolean @default(true)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}

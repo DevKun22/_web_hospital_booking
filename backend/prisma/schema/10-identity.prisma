@@ -56,7 +56,7 @@ model User {
   chatbotSessions          ChatbotSession[]
   otpCodes                 OtpCode[]
   dashboardLoginChallenges DashboardLoginChallenge[]
-  dashboardSessions        DashboardSession[]
+  authSessions             AuthSession[]
   authRefreshTokens        AuthRefreshToken[]
   notifications            Notification[]
   notificationPreference   NotificationPreference?
@@ -70,9 +70,6 @@ model User {
   // Pharmacy (dược sĩ cấp thuốc và thao tác kho)
   dispensedPrescriptions Prescription[]  @relation("PrescriptionDispensedBy")
   stockMovements         StockMovement[]
-
-  // Nhật ký lịch hẹn do nhân sự thực hiện
-  appointmentLogs AppointmentLog[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

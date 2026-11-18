@@ -1,4 +1,4 @@
-// Lịch hẹn, nhật ký lịch hẹn và đánh giá sau khám.
+// Lịch hẹn, thông tin người khám khai lúc đặt lịch và đánh giá sau khám. Nhật ký lịch hẹn nằm ở AuditLog.
 
 enum AppointmentStatus {
   PENDING_OTP // Đã tạo lịch nhưng chưa xác thực OTP
@@ -14,33 +14,6 @@ enum AppointmentStatus {
   NO_SHOW // Bệnh nhân không đến
 }
 
-enum AppointmentLogAction {
-  APPOINTMENT_CREATED
-  OTP_SENT
-  OTP_VERIFIED
-  CONFIRMED
-  RESCHEDULED
-  CANCELLED_BY_PATIENT
-  CANCELLED_BY_DOCTOR
-  CANCELLED_BY_ADMIN
-  CHECKED_IN
-  IN_PROGRESS
-  COMPLETED
-  NO_SHOW
-  MEDICAL_RESULT_CREATED
-  INVOICE_CREATED
-  PAYMENT_RECORDED
-  INVOICE_CANCELLED
-  PAYMENT_REFUNDED
-  // Nhật ký thao tác lâm sàng (chỉ ghi ai làm gì, không ghi nội dung y tế)
-  MEDICAL_RESULT_UPDATED
-  MEDICAL_RESULT_PUBLISHED
-  LAB_RESULT_CHANGED
-  PRESCRIPTION_ISSUED
-  PRESCRIPTION_CANCELLED
-  PRESCRIPTION_DISPENSED
-}
-
 model Appointment {
   id          String @id @default(uuid())
   bookingCode String @unique
@@ -53,26 +26,11 @@ model Appointment {
 
   reason String?
 
-  // Thông tin đặt lịch snapshot để không mất dữ liệu nếu user đổi profile
-  patientName        String
-  patientPhone       String
-  patientEmail       String
-  patientGender      Gender?
-  patientDateOfBirth DateTime?
-  patientAddress     String?
-  patientCccd        String?
-
-  hasBHYT             Boolean @default(false)
-  healthInsuranceCode String?
-  registeredHospital  String?
-  allergies           String?
-  medicalHistory      String?
-  familyHistory       String?
-
-  // Thời điểm và phiên bản thông báo người đặt lịch đã đồng ý khi nhập dữ liệu
-  // sức khỏe (dị ứng, tiền sử). Null khi không nhập dữ liệu sức khỏe.
-  healthConsentAt      DateTime?
-  healthConsentVersion String?
+  // Liên hệ chụp lại lúc đặt lịch để không mất nếu hồ sơ đổi sau này. Nhân khẩu, bảo hiểm và khai báo sức khỏe
+  // nằm ở AppointmentPatientInfo (dữ liệu nhạy cảm, không đi theo mọi truy vấn danh sách).
+  patientName  String
+  patientPhone String
+  patientEmail String
 
   estimatedPrice Int @default(0)
   serviceFee     Int @default(0)
@@ -111,10 +69,10 @@ model Appointment {
   cancelledReason String?
 
   medicalRecord MedicalRecord?
-  prescription  Prescription?
+  patientInfo   AppointmentPatientInfo?
+  prescriptions Prescription[]
   invoice       Invoice?
   review        Review?
-  logs          AppointmentLog[]
 
   confirmedAt DateTime?
   cancelledAt DateTime?
@@ -135,31 +93,29 @@ model Appointment {
   @@index([packageId])
 }
 
-// Lưu lịch sử thay đổi lịch hẹn: tạo lịch, xác thực OTP, dời lịch, hủy lịch, hoàn thành...
-model AppointmentLog {
-  id String @id @default(uuid())
-
-  appointmentId String
+// Thông tin người khám khai lúc đặt lịch, chụp lại để không mất nếu hồ sơ đổi sau này. Tách khỏi Appointment vì là dữ liệu
+// nhạy cảm (dị ứng, tiền sử, CCCD): chỉ tải khi thật sự cần (chi tiết lịch, bác sĩ khám), không đi theo truy vấn danh sách.
+// Khóa chính chính là appointmentId (quan hệ 1-1); mỗi lịch hẹn luôn có đúng một dòng.
+model AppointmentPatientInfo {
+  appointmentId String      @id
   appointment   Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
 
-  action AppointmentLogAction
-  note   String?
+  gender      Gender?
+  dateOfBirth DateTime?
+  address     String?
+  cccd        String?
 
-  oldDate      DateTime?
-  oldStartTime String?
-  oldEndTime   String?
+  hasBHYT             Boolean @default(false)
+  healthInsuranceCode String?
+  registeredHospital  String?
 
-  newDate      DateTime?
-  newStartTime String?
-  newEndTime   String?
+  allergies      String?
+  medicalHistory String?
+  familyHistory  String?
 
-  createdById String?
-  createdBy   User?   @relation(fields: [createdById], references: [id], onDelete: SetNull)
-
-  createdAt DateTime @default(now())
-
-  @@index([appointmentId])
-  @@index([createdById])
+  // Thời điểm và phiên bản thông báo người đặt lịch đã đồng ý khi nhập dữ liệu sức khỏe. Null khi không nhập.
+  healthConsentAt      DateTime?
+  healthConsentVersion String?
 }
 
 model Review {

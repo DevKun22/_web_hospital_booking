@@ -50,8 +50,8 @@ model MedicalRecord {
   // File PDF kết quả hoặc hồ sơ khám nếu có
   resultPdfUrl String?
 
-  labResults         LabResult[]
-  prescriptionRecord Prescription?
+  labResults    LabResult[]
+  prescriptions Prescription[]
 
   publishedAt DateTime?
   createdAt   DateTime  @default(now())
@@ -80,16 +80,16 @@ model LabResult {
   @@index([medicalRecordId])
 }
 
-// Đơn thuốc do bác sĩ kê; dược sĩ cấp phát và trừ kho theo từng dòng thuốc.
+// Đơn thuốc do bác sĩ kê (kể cả đơn bổ sung); dược sĩ cấp phát và trừ kho theo từng dòng thuốc.
 model Prescription {
   id String @id @default(uuid())
 
   prescriptionCode String @unique
 
-  medicalRecordId String        @unique
+  medicalRecordId String
   medicalRecord   MedicalRecord @relation(fields: [medicalRecordId], references: [id], onDelete: Cascade)
 
-  appointmentId String      @unique
+  appointmentId String
   appointment   Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
 
   patientId String
@@ -115,6 +115,10 @@ model Prescription {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
+  // Một hồ sơ khám có thể có nhiều đơn: đơn đã phát hành là bất biến, thêm thuốc sau đó là một đơn bổ sung mới.
+  // Mỗi hồ sơ tối đa MỘT đơn nháp cùng lúc (chỉ mục duy nhất có điều kiện, viết tay trong migration).
+  @@index([medicalRecordId])
+  @@index([appointmentId])
   @@index([doctorId])
   @@index([patientId, status, issuedAt])
   @@index([status, dispenseStatus, issuedAt])

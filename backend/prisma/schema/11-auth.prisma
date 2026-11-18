@@ -71,19 +71,27 @@ model OtpSecurityBlock {
   @@index([targetType, target, blockedUntil])
 }
 
-model OtpVerifyAttempt {
+// Mỗi lần thử xác thực (nhập OTP, đăng nhập bảng điều khiển) để giới hạn dò mã và mật khẩu trên mọi instance backend.
+// Đích và IP lưu dạng băm HMAC, không lưu email hay địa chỉ IP dạng rõ. Dữ liệu ngắn hạn, được dọn định kỳ.
+enum AuthAttemptKind {
+  OTP_VERIFY
+  DASHBOARD_LOGIN
+}
+
+model AuthAttempt {
   id String @id @default(uuid())
 
-  email     String
-  purpose   OtpPurpose
-  ipAddress String?
-  success   Boolean    @default(false)
+  kind      AuthAttemptKind
+  targetKey String
+  ipKey     String?
+  purpose   OtpPurpose?
+  success   Boolean         @default(false)
 
   createdAt DateTime @default(now())
 
-  // Đếm lần nhập sai theo (email, mục đích) hoặc theo IP trong cửa sổ thời gian.
-  @@index([email, purpose, createdAt])
-  @@index([ipAddress, createdAt])
+  // Đếm lần thử theo đích hoặc theo IP trong cửa sổ thời gian.
+  @@index([kind, targetKey, createdAt])
+  @@index([kind, ipKey, createdAt])
 }
 
 model DashboardLoginChallenge {
@@ -108,19 +116,6 @@ model DashboardLoginChallenge {
   @@index([expiresAt])
 }
 
-// Lưu dấu vết đăng nhập thất bại dưới dạng HMAC để giới hạn brute-force trên
-// toàn bộ các instance backend mà không lưu thêm số điện thoại/IP dạng rõ.
-model DashboardLoginFailure {
-  id String @id @default(uuid())
-
-  targetHash String
-  ipHash     String
-  createdAt  DateTime @default(now())
-
-  @@index([targetHash, createdAt])
-  @@index([ipHash, createdAt])
-}
-
 // Nhật ký truy cập và thao tác nhạy cảm (ai làm gì, trên đối tượng nào, từ đâu). Không ghi
 // nội dung y tế. Chỉ thêm dòng (trigger chặn sửa, xóa). actorId cố ý không phải khóa ngoại để
 // nhật ký còn nguyên khi tài khoản bị xóa.
@@ -140,11 +135,13 @@ model AuditLog {
   createdAt DateTime @default(now())
 
   @@index([createdAt])
+  // Dòng thời gian của một đối tượng (ví dụ một lịch hẹn: targetType = APPOINTMENT).
+  @@index([targetType, targetId, createdAt])
   @@index([action, createdAt])
   @@index([actorId, createdAt])
 }
 
-model DashboardSession {
+model AuthSession {
   id String @id @default(uuid())
 
   userId String
@@ -181,7 +178,7 @@ model AuthRefreshToken {
   id String @id @default(uuid())
 
   sessionId String
-  session   DashboardSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  session   AuthSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
 
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)

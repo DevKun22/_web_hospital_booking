@@ -103,7 +103,7 @@ model NotificationDelivery {
   notification   Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
 
   sessionId String
-  session   DashboardSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  session   AuthSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
 
   status            NotificationDeliveryStatus @default(PENDING)
   attempts          Int                        @default(0)

@@ -99,19 +99,6 @@ model FAQ {
   @@index([category])
 }
 
-model SiteSetting {
-  id String @id @default(uuid())
-
-  key   String @unique
-  value Json
-
-  description String?
-  isActive    Boolean @default(true)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
 model Banner {
   id String @id @default(uuid())
 
@@ -133,4 +120,26 @@ model Banner {
   updatedAt DateTime @updatedAt
 
   @@index([position, isActive])
+}
+
+// Cấu hình dạng khóa-giá trị: SITE cho trang công khai, CHATBOT cho trợ lý ảo Kun.
+enum SettingScope {
+  SITE
+  CHATBOT
+}
+
+model AppSetting {
+  id String @id @default(uuid())
+
+  scope SettingScope
+  key   String
+  value Json
+
+  description String?
+  isActive    Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([scope, key])
 }
