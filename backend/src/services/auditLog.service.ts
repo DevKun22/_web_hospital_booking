@@ -1,8 +1,8 @@
 import { Prisma } from "../../generated/prisma/client.js";
 import { prisma } from "../config/prisma.js";
 
-// Nhật ký truy cập và thao tác nhạy cảm. Khác với AppointmentLog (gắn với một lịch hẹn và
-// hiện trên dòng thời gian lịch), đây là nhật ký bảo mật chỉ quản trị đọc.
+// Nhật ký truy cập và thao tác nhạy cảm. Nhật ký của riêng một lịch hẹn nằm cùng bảng nhưng ghi qua
+// appointmentLog.service (targetType = APPOINTMENT); nhật ký bảo mật này chỉ quản trị đọc.
 // Không ghi nội dung y tế: chỉ ai, làm gì, trên đối tượng nào, từ đâu.
 export const AUDIT_ACTIONS = [
   "USER_CREATED",
@@ -19,6 +19,9 @@ export const AUDIT_ACTIONS = [
   "INVOICE_REFUND_UNVERIFIED",
   "DATA_EXPORTED",
   "DATA_IMPORTED",
+  "SCHEDULE_SLOT_LOCKED",
+  "SCHEDULE_SLOT_UNLOCKED",
+  "SCHEDULE_UPDATED",
 ] as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
 

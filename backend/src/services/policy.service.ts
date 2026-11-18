@@ -60,8 +60,8 @@ class PolicyService {
   async get(): Promise<Policy> {
     if (cache && cache.expiresAt > Date.now()) return cache.policy;
 
-    const setting = await prisma.siteSetting.findUnique({
-      where: { key: POLICY_KEY },
+    const setting = await prisma.appSetting.findUnique({
+      where: { scope_key: { scope: "SITE", key: POLICY_KEY } },
       select: { value: true, isActive: true },
     });
     const policy = resolvePolicy(setting?.isActive ? setting.value : undefined);
@@ -86,9 +86,9 @@ class PolicyService {
 
     const next = { ...(await this.get()), ...input };
     const value = next as unknown as Prisma.InputJsonValue;
-    await prisma.siteSetting.upsert({
-      where: { key: POLICY_KEY },
-      create: { key: POLICY_KEY, value, description: "Tham số chính sách đặt lịch" },
+    await prisma.appSetting.upsert({
+      where: { scope_key: { scope: "SITE", key: POLICY_KEY } },
+      create: { scope: "SITE", key: POLICY_KEY, value, description: "Tham số chính sách đặt lịch" },
       update: { value, isActive: true },
     });
     this.invalidate();
@@ -96,7 +96,7 @@ class PolicyService {
   }
 
   async reset() {
-    await prisma.siteSetting.deleteMany({ where: { key: POLICY_KEY } });
+    await prisma.appSetting.deleteMany({ where: { scope: "SITE", key: POLICY_KEY } });
     this.invalidate();
     return this.get();
   }

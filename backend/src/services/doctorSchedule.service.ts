@@ -12,7 +12,6 @@ type CreateDoctorScheduleInput = {
   startTime: string;
   endTime: string;
   slotDuration?: number;
-  maxPatients?: number;
   isActive?: boolean;
 };
 
@@ -21,7 +20,6 @@ type UpdateDoctorScheduleInput = {
   startTime?: string;
   endTime?: string;
   slotDuration?: number;
-  maxPatients?: number;
   isActive?: boolean;
 };
 
@@ -31,7 +29,6 @@ const doctorScheduleSelect = {
   startTime: true,
   endTime: true,
   slotDuration: true,
-  maxPatients: true,
   isActive: true,
   createdAt: true,
   updatedAt: true,
@@ -132,10 +129,6 @@ class DoctorScheduleService {
 
   async create(input: CreateDoctorScheduleInput) {
     validateTimeRange(input.startTime, input.endTime);
-    if ((input.maxPatients ?? 1) !== 1) {
-      throw new AppError("Mỗi khung giờ hiện chỉ hỗ trợ một người khám", 400);
-    }
-
     const doctor = await prisma.doctorProfile.findUnique({
       where: { id: input.doctorId },
       select: { id: true },
@@ -161,7 +154,6 @@ class DoctorScheduleService {
         startTime: input.startTime,
         endTime: input.endTime,
         slotDuration: input.slotDuration ?? 30,
-        maxPatients: input.maxPatients ?? 1,
         isActive: input.isActive ?? true,
       },
       select: doctorScheduleSelect,
@@ -186,13 +178,9 @@ class DoctorScheduleService {
       startTime: input.startTime ?? current.startTime,
       endTime: input.endTime ?? current.endTime,
       isActive: input.isActive ?? current.isActive,
-      maxPatients: input.maxPatients ?? current.maxPatients,
     };
 
     validateTimeRange(next.startTime, next.endTime);
-    if (next.maxPatients !== 1) {
-      throw new AppError("Mỗi khung giờ hiện chỉ hỗ trợ một người khám", 400);
-    }
     if (next.isActive) {
       await this.ensureNoOverlap({ ...next, excludeId: id });
     }

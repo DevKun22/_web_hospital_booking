@@ -166,7 +166,7 @@ class HospitalAnnouncementService {
 
     const deliveryCount = await prisma.$transaction(async (tx) => {
       await tx.notification.createMany({ data: notifications });
-      const sessions = await tx.dashboardSession.findMany({
+      const sessions = await tx.authSession.findMany({
         where: {
           userId: { in: patients.map((patient) => patient.id) },
           kind: "PATIENT",

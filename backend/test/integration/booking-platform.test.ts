@@ -1,63 +1,4 @@
-import {
-  AppointmentService,
-  AuthOtpService,
-  AuthSessionService,
-  InvoiceService,
-  MedicalRecordService,
-  NotificationService,
-  PolicyService,
-  PrescriptionService,
-  RbacService,
-  ScheduleReconciliationService,
-  activeDatabase,
-  activeDatabaseMarker,
-  activeDatabaseSchema,
-  activeDatabaseUrl,
-  after,
-  assert,
-  authCookie,
-  bcrypt,
-  before,
-  beforeEach,
-  bookingBody,
-  buildVnpayCallbackQuery,
-  buildVnpayQueryResponse,
-  buildVnpayRefundResponse,
-  callVnpayRefund,
-  createApp,
-  createDashboardUser,
-  createIssuedPrescription,
-  createMedicineViaApi,
-  createPayableInvoice,
-  createStoredAppointment,
-  createVnpayPaidInvoice,
-  createVnpayPayment,
-  dashboardCall,
-  dashboardHeaders,
-  dateOnly,
-  emailBookingBody,
-  fixture,
-  futureDate,
-  generateDashboardAccessToken,
-  generatePatientAccessToken,
-  getCookie,
-  http,
-  isFirebaseAdminConfigured,
-  isoDateFromToday,
-  jwt,
-  loginPatient,
-  moveAppointmentStart,
-  prisma,
-  receiveViaApi,
-  resetDatabase,
-  seedFixture,
-  startHttpServer,
-  test,
-  vietnamClock,
-  vnpayIpn,
-  withStubbedVnpayQuery,
-  withStubbedVnpayRefund,
-} from "./support/context.js";
+import { AppointmentService, AuthOtpService, AuthSessionService, InvoiceService, MedicalRecordService, NotificationService, PolicyService, PrescriptionService, RbacService, ScheduleReconciliationService, activeDatabase, activeDatabaseMarker, activeDatabaseSchema, activeDatabaseUrl, after, assert, authCookie, bcrypt, before, beforeEach, bookingBody, buildVnpayCallbackQuery, buildVnpayQueryResponse, buildVnpayRefundResponse, callVnpayRefund, createApp, createDashboardUser, createIssuedPrescription, createMedicineViaApi, createPayableInvoice, createStoredAppointment, createVnpayPaidInvoice, createVnpayPayment, dashboardCall, dashboardHeaders, dateOnly, emailBookingBody, fixture, futureDate, generateDashboardAccessToken, generatePatientAccessToken, getCookie, http, isFirebaseAdminConfigured, isoDateFromToday, jwt, loginPatient, moveAppointmentStart, prisma, receiveViaApi, resetDatabase, seedFixture, startHttpServer, test, vietnamClock, vnpayIpn, withStubbedVnpayQuery, withStubbedVnpayRefund, appointmentLogs, emailOf } from "./support/context.js";
 
 test("readiness checks the dedicated PostgreSQL database", async () => {
   const health = await http.request("/health");
@@ -234,7 +175,7 @@ test("verified booking preserves profile fields omitted by the client", async ()
       phone: "0955555556",
       email: "keep-email@example.com",
       role: "PATIENT",
-      isPhoneVerified: true,
+      isEmailVerified: true,
       patientProfile: {
         create: {
           gender: "FEMALE",
@@ -300,7 +241,7 @@ test("canonical ownership conflicts do not transition the appointment", async ()
       phone: "0966666666",
       email: "owned@example.com",
       role: "PATIENT",
-      isPhoneVerified: true,
+      isEmailVerified: true,
       patientProfile: { create: { cccd: "012345678901" } },
     },
   });
@@ -308,8 +249,8 @@ test("canonical ownership conflicts do not transition the appointment", async ()
   const booking = await http.request("/api/v1/appointments", {
     method: "POST",
     body: {
-      ...bookingBody({ phone: "0977777777" }),
-      patientEmail: "owned@example.com",
+      // Người khác (email khác) khai trùng CCCD đã thuộc hồ sơ của tài khoản khác: không được xác nhận.
+      ...bookingBody({ phone: "0977777777", email: "someone-else@example.com" }),
       cccd: "012345678901",
     },
   });
@@ -335,7 +276,7 @@ test("the owner of the registered email can still book as a guest", async () => 
       phone: "0944444443",
       email: "registered-owner@example.com",
       role: "PATIENT",
-      isPhoneVerified: true,
+      isEmailVerified: true,
     },
   });
 
@@ -363,77 +304,7 @@ test("the owner of the registered email can still book as a guest", async () => 
   assert.equal(appointment.patientId, owner.id);
 });
 
-test("a brand new phone is claimed by the first verified email and marks it verified", async () => {
-  const booking = await http.request("/api/v1/appointments", {
-    method: "POST",
-    body: emailBookingBody({
-      phone: "0944444444",
-      email: "first-claim@example.com",
-    }),
-  });
-  assert.equal(booking.status, 201);
-
-  const verification = await http.request(
-    `/api/v1/appointments/${booking.body.data.appointmentId}/verify-otp`,
-    { method: "POST", body: { otp: booking.body.data.debugOtp } },
-  );
-  assert.equal(verification.status, 200);
-
-  const claimed = await prisma.user.findUniqueOrThrow({
-    where: { phone: "0944444444" },
-  });
-  assert.equal(claimed.email, "first-claim@example.com");
-  assert.equal(claimed.isEmailVerified, true);
-});
-
-test("an account claimed between booking and verification blocks the second claimer", async () => {
-  // Two guests book the same unverified phone with different emails.
-  const first = await http.request("/api/v1/appointments", {
-    method: "POST",
-    body: emailBookingBody({
-      phone: "0944444445",
-      email: "claim-one@example.com",
-      timeSlotId: fixture.slotOne.id,
-    }),
-  });
-  const second = await http.request("/api/v1/appointments", {
-    method: "POST",
-    body: emailBookingBody({
-      phone: "0944444445",
-      email: "claim-two@example.com",
-      timeSlotId: fixture.slotTwo.id,
-    }),
-  });
-  assert.equal(first.status, 201);
-  assert.equal(second.status, 201);
-
-  const firstVerified = await http.request(
-    `/api/v1/appointments/${first.body.data.appointmentId}/verify-otp`,
-    { method: "POST", body: { otp: first.body.data.debugOtp } },
-  );
-  assert.equal(firstVerified.status, 200);
-
-  const secondVerified = await http.request(
-    `/api/v1/appointments/${second.body.data.appointmentId}/verify-otp`,
-    { method: "POST", body: { otp: second.body.data.debugOtp } },
-  );
-  assert.equal(secondVerified.status, 409);
-  assert.equal(secondVerified.body.code, "ACCOUNT_LOGIN_REQUIRED");
-
-  const owner = await prisma.user.findUniqueOrThrow({
-    where: { phone: "0944444445" },
-  });
-  assert.equal(owner.email, "claim-one@example.com");
-  assert.equal(
-    (await prisma.appointment.findUniqueOrThrow({
-      where: { id: second.body.data.appointmentId },
-      select: { status: true },
-    })).status,
-    "PENDING_OTP",
-  );
-});
-
-test("public booking uses the conservative phone limit while Redis is degraded", async () => {
+test("public booking uses the conservative email limit while Redis is degraded", async () => {
   // The limiter is off in the test environment so the suite can call the API in
   // bulk; this test turns it on for its own requests only.
   process.env.RATE_LIMIT_ENABLED = "true";
@@ -587,11 +458,10 @@ test("competing transitions produce exactly one committed state", async () => {
     select: {
       status: true,
       timeSlotId: true,
-      logs: {
-        where: { action: { in: ["IN_PROGRESS", "NO_SHOW"] } },
-        select: { action: true },
-      },
     },
+  });
+  const storedLogs = await appointmentLogs.findMany({
+    where: { appointmentId: appointment.id, action: { in: ["IN_PROGRESS", "NO_SHOW"] } },
   });
   assert.ok(stored.status === "IN_PROGRESS" || stored.status === "NO_SHOW");
   assert.equal(
@@ -606,8 +476,8 @@ test("competing transitions produce exactly one committed state", async () => {
     ).status,
     stored.status === "IN_PROGRESS" ? "BOOKED" : "AVAILABLE",
   );
-  assert.equal(stored.logs.length, 1);
-  assert.equal(stored.logs[0].action, stored.status);
+  assert.equal(storedLogs.length, 1);
+  assert.equal(storedLogs[0].action, stored.status);
   assert.equal(
     await prisma.medicalRecord.count({
       where: { appointmentId: appointment.id },
@@ -646,7 +516,7 @@ test("starting the same appointment twice creates one medical record and log", a
     1,
   );
   assert.equal(
-    await prisma.appointmentLog.count({
+    await appointmentLogs.count({
       where: { appointmentId: appointment.id, action: "IN_PROGRESS" },
     }),
     1,
@@ -659,8 +529,8 @@ test("staff without record.view see appointments without health history", async 
     status: "CONFIRMED",
     bookingCode: "RBAC-MASK",
   });
-  await prisma.appointment.update({
-    where: { id: appointment.id },
+  await prisma.appointmentPatientInfo.update({
+    where: { appointmentId: appointment.id },
     data: { allergies: "Penicillin", medicalHistory: "Hen suyen", familyHistory: "Tim mach" },
   });
   const read = async (cookie: string) =>
@@ -721,7 +591,7 @@ test("auto no-show is off by default and honours the grace period when enabled",
     assert.equal(await status(inGrace.id), "CONFIRMED");
     assert.equal(await status(checkedIn.id), "CHECKED_IN");
 
-    const log = await prisma.appointmentLog.findFirstOrThrow({
+    const log = await appointmentLogs.findFirstOrThrow({
       where: { appointmentId: late.id, action: "NO_SHOW" },
     });
     assert.equal(log.createdById, null);
@@ -755,8 +625,9 @@ test("slot reconciliation repairs only deterministic inconsistencies", async () 
     data: {
       fullName: "Reconciliation Patient",
       phone: "0985555555",
+      email: emailOf("0985555555"),
       role: "PATIENT",
-      isPhoneVerified: true,
+      isEmailVerified: true,
     },
   });
   const appointment = await prisma.appointment.create({
@@ -768,6 +639,8 @@ test("slot reconciliation repairs only deterministic inconsistencies", async () 
       status: "CONFIRMED",
       patientName: patient.fullName,
       patientPhone: patient.phone!,
+      patientEmail: emailOf(patient.phone!),
+      patientInfo: { create: {} },
       patientId: patient.id,
       doctorId: fixture.doctorOne.id,
       departmentId: fixture.department.id,
@@ -814,7 +687,7 @@ test("status changes roll back when session revocation fails", async () => {
   );
   await prisma.$executeRawUnsafe(
     `CREATE TRIGGER "${triggerName}"
-     BEFORE UPDATE ON "${activeDatabaseSchema}"."DashboardSession"
+     BEFORE UPDATE ON "${activeDatabaseSchema}"."AuthSession"
      FOR EACH ROW EXECUTE FUNCTION "${activeDatabaseSchema}"."${functionName}"('${target.id}')`,
   );
 
@@ -828,7 +701,7 @@ test("status changes roll back when session revocation fails", async () => {
     assert.equal(changed.status, 500);
   } finally {
     await prisma.$executeRawUnsafe(
-      `DROP TRIGGER IF EXISTS "${triggerName}" ON "${activeDatabaseSchema}"."DashboardSession"`,
+      `DROP TRIGGER IF EXISTS "${triggerName}" ON "${activeDatabaseSchema}"."AuthSession"`,
     );
     await prisma.$executeRawUnsafe(
       `DROP FUNCTION IF EXISTS "${activeDatabaseSchema}"."${functionName}"()`,
@@ -889,7 +762,7 @@ test("doctor schedule: rolling slots, schedule changes keep booked visits, range
     orderBy: { date: "asc" },
   });
   const patient = await prisma.user.create({
-    data: { fullName: "Người khám lịch mẫu", phone: "0987000061", role: "PATIENT", isActive: true },
+    data: { fullName: "Người khám lịch mẫu", email: emailOf("0987000061"), phone: "0987000061", role: "PATIENT", isActive: true },
   });
   const appointment = await prisma.appointment.create({
     data: {
@@ -900,6 +773,8 @@ test("doctor schedule: rolling slots, schedule changes keep booked visits, range
       status: "CONFIRMED",
       patientName: patient.fullName,
       patientPhone: patient.phone!,
+      patientEmail: emailOf(patient.phone!),
+      patientInfo: { create: {} },
       patientId: patient.id,
       doctorId: fixture.doctorOne.id,
       departmentId: fixture.department.id,

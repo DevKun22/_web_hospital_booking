@@ -27,14 +27,15 @@ const toPrismaJson = (value: unknown) =>
 
 class SiteSettingsService {
   async get() {
-    const existingSetting = await prisma.siteSetting.findUnique({
-      where: { key: SITE_SETTINGS_KEY },
+    const existingSetting = await prisma.appSetting.findUnique({
+      where: { scope_key: { scope: "SITE", key: SITE_SETTINGS_KEY } },
     });
 
     const setting =
       existingSetting ||
-      (await prisma.siteSetting.create({
+      (await prisma.appSetting.create({
         data: {
+          scope: "SITE",
           key: SITE_SETTINGS_KEY,
           value: toPrismaJson(defaultSiteSettings),
           description: "Public website display settings",
@@ -82,8 +83,8 @@ class SiteSettingsService {
       ...(faviconAsset ? { favicon: faviconAsset.url } : {}),
     };
 
-    const setting = await prisma.siteSetting.update({
-      where: { key: SITE_SETTINGS_KEY },
+    const setting = await prisma.appSetting.update({
+      where: { scope_key: { scope: "SITE", key: SITE_SETTINGS_KEY } },
       data: {
         value: toPrismaJson(nextValue),
       },

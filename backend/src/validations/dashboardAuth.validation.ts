@@ -1,9 +1,7 @@
 import { z } from "zod";
 
-const phoneRegex = /^(0|\+84)[0-9]{9,10}$/;
-
 export const dashboardLoginSchema = z.object({
-  phone: z.string().regex(phoneRegex, "So dien thoai khong hop le"),
+  email: z.string().trim().toLowerCase().email("Email khong hop le"),
   password: z.string().min(6, "Mat khau toi thieu 6 ky tu"),
 });
 

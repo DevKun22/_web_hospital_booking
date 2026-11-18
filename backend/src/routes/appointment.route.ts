@@ -9,7 +9,7 @@ import { validate } from "../middlewares/validate.middleware.js";
 import { optionalAuthPatient } from "../middlewares/patientAuth.middleware.js";
 import {
   bookingCreateIpLimiter,
-  bookingCreatePhoneLimiter,
+  bookingCreateEmailLimiter,
 } from "../middlewares/publicRateLimits.js";
 import {
   abandonPendingAppointmentSchema,
@@ -24,7 +24,7 @@ const router = Router();
 router.post(
   "/",
   bookingCreateIpLimiter,
-  bookingCreatePhoneLimiter,
+  bookingCreateEmailLimiter,
   optionalAuthPatient,
   validate(createAppointmentSchema),
   createAppointmentHandler,

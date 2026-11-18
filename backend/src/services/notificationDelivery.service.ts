@@ -162,7 +162,7 @@ class NotificationDeliveryService {
               nextAttemptAt: null,
             },
           }),
-          prisma.dashboardSession.updateMany({
+          prisma.authSession.updateMany({
             where: { id: delivery.session.id, pushToken: token },
             data: {
               pushToken: null,

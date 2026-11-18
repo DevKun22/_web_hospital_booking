@@ -13,7 +13,6 @@ const medicalRecordSelect = {
   symptoms: true,
   diagnosis: true,
   treatment: true,
-  prescription: true,
   status: true,
   publishedAt: true,
   createdAt: true,
@@ -179,7 +178,7 @@ class PatientPortalService {
         phone: true,
         email: true,
         avatar: true,
-        isPhoneVerified: true,
+        isEmailVerified: true,
         patientProfile: {
           select: {
             dateOfBirth: true,
@@ -222,9 +221,9 @@ class PatientPortalService {
       throw new AppError("Ngày sinh phải nhỏ hơn ngày hiện tại", 400);
     }
 
+    // Email là định danh đăng nhập (đã xác minh bằng OTP) nên không đổi được qua hồ sơ.
     const userData = {
       fullName: input.fullName as string | undefined,
-      email: input.email as string | null | undefined,
     };
     const profileData = {
       dateOfBirth,

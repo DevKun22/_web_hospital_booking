@@ -1,4 +1,5 @@
 import { Prisma } from "../../generated/prisma/client.js";
+import { writeAppointmentLog } from "./appointmentLog.service.js";
 import type { InvoiceStatus, PaymentMethod } from "../../generated/prisma/enums.js";
 import { prisma } from "../config/prisma.js";
 import { getReminderDispatchConcurrency } from "../config/environment.js";
@@ -119,7 +120,7 @@ class InvoiceService {
         bookingCode: true,
         status: true,
         patientId: true,
-        hasBHYT: true,
+        patientInfo: { select: { hasBHYT: true } },
         estimatedPrice: true,
         serviceFee: true,
         bhytDiscount: true,
@@ -179,7 +180,7 @@ class InvoiceService {
     const insurance = calculateInsurance(
       input,
       totalAmount,
-      appointment,
+      { hasBHYT: appointment.patientInfo?.hasBHYT ?? false, package: appointment.package },
       appointment.bhytDiscount,
     );
 
@@ -221,13 +222,12 @@ class InvoiceService {
           data: {
             bhytDiscount: insurance.bhytDiscount,
             finalAmount: insurance.finalAmount,
-            logs: {
-              create: {
-                action: "INVOICE_CREATED",
-                note: "Hóa đơn đã được tạo",
-              },
-            },
           },
+        });
+        await writeAppointmentLog(tx, {
+          appointmentId: appointment.id,
+          action: "INVOICE_CREATED",
+          note: "Hóa đơn đã được tạo",
         });
 
         const createdInvoice = await tx.invoice.findUniqueOrThrow({
@@ -288,7 +288,7 @@ class InvoiceService {
         appointment: {
           select: {
             id: true,
-            hasBHYT: true,
+            patientInfo: { select: { hasBHYT: true } },
             package: {
               select: {
                 isBHYTSupport: true,
@@ -313,7 +313,7 @@ class InvoiceService {
     const insurance = calculateInsurance(
       input,
       invoice.totalAmount,
-      invoice.appointment,
+      { hasBHYT: invoice.appointment.patientInfo?.hasBHYT ?? false, package: invoice.appointment.package },
       invoice.bhytDiscount,
     );
 
@@ -355,16 +355,15 @@ class InvoiceService {
         data: {
           bhytDiscount: insurance.bhytDiscount,
           finalAmount: insurance.finalAmount,
-          logs: {
-            create: {
-              action: "INVOICE_CREATED",
-              note:
-                currentInvoice.status === "CANCELLED"
-                  ? "Hóa đơn đã được điều chỉnh và mở lại"
-                  : "Hóa đơn đã được điều chỉnh",
-            },
-          },
         },
+      });
+      await writeAppointmentLog(tx, {
+        appointmentId: invoice.appointment.id,
+        action: "INVOICE_CREATED",
+        note:
+          currentInvoice.status === "CANCELLED"
+            ? "Hóa đơn đã được điều chỉnh và mở lại"
+            : "Hóa đơn đã được điều chỉnh",
       });
 
       const updated = await tx.invoice.updateMany({
@@ -486,13 +485,11 @@ class InvoiceService {
           "INVOICE_STATE_CONFLICT",
         );
       }
-      await tx.appointmentLog.create({
-        data: {
-          appointmentId: invoice.appointmentId,
-          action: "PAYMENT_RECORDED",
-          note: `Đã ghi nhận thanh toán ${input.paymentMethod}${paymentReference ? ` · ${paymentReference}` : ""}`,
-          createdById: actorId,
-        },
+      await writeAppointmentLog(tx, {
+        appointmentId: invoice.appointmentId,
+        action: "PAYMENT_RECORDED",
+        note: `Đã ghi nhận thanh toán ${input.paymentMethod}${paymentReference ? ` · ${paymentReference}` : ""}`,
+        actorId,
       });
       const paidInvoice = await tx.invoice.findUniqueOrThrow({
         where: { id },
@@ -619,13 +616,11 @@ class InvoiceService {
         data: { status: "CANCELLED" },
       });
       if (claimed.count !== 1) throw new AppError("Trạng thái hóa đơn đã thay đổi", 409, "INVOICE_STATE_CONFLICT");
-      await tx.appointmentLog.create({
-        data: {
-          appointmentId: invoice.appointmentId,
-          action: "INVOICE_CANCELLED",
-          note: "Hóa đơn chưa thanh toán đã được hủy",
-          createdById: actorId,
-        },
+      await writeAppointmentLog(tx, {
+        appointmentId: invoice.appointmentId,
+        action: "INVOICE_CANCELLED",
+        note: "Hóa đơn chưa thanh toán đã được hủy",
+        actorId,
       });
       return tx.invoice.findUniqueOrThrow({ where: { id }, select: invoiceSelect });
     });

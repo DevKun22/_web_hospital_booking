@@ -6,6 +6,7 @@ import { AppError } from "../../utils/appError.js";
 import { getVietnamNowParts, parseDateOnly } from "../../utils/time.js";
 import {
   appointmentSelect,
+  flattenPatientInfo,
   maskClinicalFields,
   normalizeOptionalString,
   parseOptionalDate,
@@ -98,7 +99,7 @@ export class AppointmentDashboardUseCases extends AppointmentServiceSupport {
       }),
       prisma.appointment.count({ where }),
     ]);
-    return { items, total };
+    return { items: items.map(flattenPatientInfo), total };
   }
 
   // Hàng đợi ưu tiên: thứ hạng theo trạng thái không biểu diễn được bằng ORDER BY của Prisma, nên lấy các lịch còn
@@ -112,7 +113,7 @@ export class AppointmentDashboardUseCases extends AppointmentServiceSupport {
     });
     const rank = (status: AppointmentStatus) => ACTIVE_STATUS_RANK[status] ?? 99;
     rows.sort((left, right) => rank(left.status) - rank(right.status));
-    return { items: rows.slice(skip, skip + take), total: rows.length };
+    return { items: rows.slice(skip, skip + take).map(flattenPatientInfo), total: rows.length };
   }
 
   async dashboardGetById(id: string, actor: Actor) {
@@ -131,9 +132,10 @@ export class AppointmentDashboardUseCases extends AppointmentServiceSupport {
       throw new AppError("Không tìm thấy lịch hẹn", 404);
     }
 
+    const flat = flattenPatientInfo(appointment);
     return (await roleHasAnyPermission(actor.role, ["record.view"]))
-      ? appointment
-      : maskClinicalFields(appointment);
+      ? flat
+      : maskClinicalFields(flat);
   }
 
   async updatePatientInfo(
@@ -202,13 +204,17 @@ export class AppointmentDashboardUseCases extends AppointmentServiceSupport {
     }
 
     const hasBHYT = input.hasBHYT;
+    // Email của lịch chỉ là liên hệ chụp lại; email của TÀI KHOẢN là định danh nên không đổi ở đây.
     const appointmentData: Prisma.AppointmentUpdateInput = {
       patientName: input.patientName,
-      patientEmail: normalizeOptionalString(input.patientEmail),
-      patientGender: input.gender,
-      patientDateOfBirth,
-      patientCccd: normalizeOptionalString(input.cccd),
-      patientAddress: normalizeOptionalString(input.address),
+      patientEmail: input.patientEmail?.trim().toLowerCase(),
+      bhytDiscount: hasBHYT === false ? 0 : undefined,
+    };
+    const infoData: Prisma.AppointmentPatientInfoUpdateInput = {
+      gender: input.gender,
+      dateOfBirth: patientDateOfBirth,
+      cccd: normalizeOptionalString(input.cccd),
+      address: normalizeOptionalString(input.address),
       hasBHYT,
       healthInsuranceCode:
         hasBHYT === false
@@ -221,7 +227,6 @@ export class AppointmentDashboardUseCases extends AppointmentServiceSupport {
       allergies: normalizeOptionalString(input.allergies),
       medicalHistory: normalizeOptionalString(input.medicalHistory),
       familyHistory: normalizeOptionalString(input.familyHistory),
-      bhytDiscount: hasBHYT === false ? 0 : undefined,
     };
 
     return prisma.$transaction(async (tx) => {
@@ -267,7 +272,6 @@ export class AppointmentDashboardUseCases extends AppointmentServiceSupport {
         where: { id: appointment.patientId },
         data: {
           fullName: input.patientName,
-          email: normalizeOptionalString(input.patientEmail),
         },
       });
 
@@ -313,11 +317,18 @@ export class AppointmentDashboardUseCases extends AppointmentServiceSupport {
       });
       }
 
-      return tx.appointment.update({
-        where: { id },
-        data: appointmentData,
-        select: appointmentSelect,
+      await tx.appointmentPatientInfo.update({
+        where: { appointmentId: id },
+        data: infoData,
       });
+
+      return flattenPatientInfo(
+        await tx.appointment.update({
+          where: { id },
+          data: appointmentData,
+          select: appointmentSelect,
+        }),
+      );
     });
   }
 }

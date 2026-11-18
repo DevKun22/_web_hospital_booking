@@ -1,4 +1,5 @@
 import { Prisma } from "../../generated/prisma/client.js";
+import AuditLogService from "./auditLog.service.js";
 import SlotPlannerService from "./slotPlanner.service.js";
 import StaffNotificationService from "./staffNotification.service.js";
 import type { ScheduleChangeRequestStatus, ScheduleChangeRequestType } from "../../generated/prisma/enums.js";
@@ -14,7 +15,6 @@ type CreateInput = {
   startTime: string;
   endTime: string;
   slotDuration: number;
-  maxPatients: number;
   isActive?: boolean;
   effectiveFrom: string;
   reason: string;
@@ -28,7 +28,6 @@ const requestSelect = {
   startTime: true,
   endTime: true,
   slotDuration: true,
-  maxPatients: true,
   isActive: true,
   effectiveFrom: true,
   reason: true,
@@ -79,7 +78,6 @@ class ScheduleChangeRequestService {
   async create(input: CreateInput, actor: Actor) {
     if (actor.role !== "DOCTOR") throw new AppError("Chỉ bác sĩ mới có thể gửi yêu cầu đổi lịch", 403);
     validateTimeRange(input.startTime, input.endTime);
-    if (input.maxPatients !== 1) throw new AppError("Mỗi khung giờ hiện chỉ hỗ trợ một người khám", 400);
 
     const effectiveFrom = parseDateOnly(input.effectiveFrom);
     const today = parseDateOnly(new Intl.DateTimeFormat("sv-SE", { timeZone: "Asia/Ho_Chi_Minh" }).format(new Date()));
@@ -119,7 +117,6 @@ class ScheduleChangeRequestService {
         startTime: input.startTime,
         endTime: input.endTime,
         slotDuration: input.slotDuration,
-        maxPatients: input.maxPatients,
         isActive: input.type === "DEACTIVATE_WEEKLY_SCHEDULE" ? false : (input.isActive ?? true),
         effectiveFrom,
         reason: input.reason.trim(),
@@ -174,7 +171,7 @@ class ScheduleChangeRequestService {
           await this.ensureNoOverlap({ doctorId: request.doctorId, dayOfWeek: request.dayOfWeek, startTime: request.startTime, endTime: request.endTime }, tx);
         }
         const schedule = await tx.doctorSchedule.create({
-          data: { doctorId: request.doctorId, dayOfWeek: request.dayOfWeek, startTime: request.startTime, endTime: request.endTime, slotDuration: request.slotDuration, maxPatients: request.maxPatients, isActive: request.isActive },
+          data: { doctorId: request.doctorId, dayOfWeek: request.dayOfWeek, startTime: request.startTime, endTime: request.endTime, slotDuration: request.slotDuration, isActive: request.isActive },
           select: { id: true },
         });
         scheduleId = schedule.id;
@@ -188,22 +185,28 @@ class ScheduleChangeRequestService {
           where: { id: current.id },
           data: request.type === "DEACTIVATE_WEEKLY_SCHEDULE"
             ? { isActive: false }
-            : { dayOfWeek: request.dayOfWeek, startTime: request.startTime, endTime: request.endTime, slotDuration: request.slotDuration, maxPatients: request.maxPatients, isActive: request.isActive },
+            : { dayOfWeek: request.dayOfWeek, startTime: request.startTime, endTime: request.endTime, slotDuration: request.slotDuration, isActive: request.isActive },
         });
         scheduleId = current.id;
       }
 
-      await tx.scheduleChangeLog.create({
-        data: {
-          doctorId: request.doctorId,
-          changedById: actor.userId,
-          type: "UPDATE_WEEKLY_SCHEDULE",
-          date: request.effectiveFrom,
-          startTime: request.startTime,
-          endTime: request.endTime,
-          note: `Duyệt yêu cầu ${request.type}: ${request.reason}`,
+      await AuditLogService.record(
+        {
+          actor,
+          action: "SCHEDULE_UPDATED",
+          targetType: "DOCTOR",
+          targetId: request.doctorId,
+          meta: {
+            requestId: id,
+            type: request.type,
+            effectiveFrom: request.effectiveFrom.toISOString(),
+            startTime: request.startTime,
+            endTime: request.endTime,
+            note: `Duyệt yêu cầu ${request.type}: ${request.reason}`,
+          },
         },
-      });
+        tx,
+      );
 
       return tx.scheduleChangeRequest.update({
         where: { id },

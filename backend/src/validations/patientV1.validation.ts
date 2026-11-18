@@ -8,15 +8,10 @@ const optionalDevice = {
   appVersion: z.string().trim().min(1).max(40).optional(),
 };
 
-export const patientRequestOtpSchema = z
-  .object({
-    phone: z.string().trim().regex(phoneRegex, "Số điện thoại không hợp lệ").optional(),
-    email: z.string().trim().toLowerCase().email("Email không hợp lệ").optional(),
-  })
-  .refine((value) => Boolean(value.phone) !== Boolean(value.email), {
-    message: "Nhập số điện thoại hoặc email",
-    path: ["phone"],
-  });
+// Đăng nhập cổng người khám bằng email (định danh duy nhất, nhận OTP). Chưa có tài khoản thì tạo khi xác thực OTP thành công.
+export const patientRequestOtpSchema = z.object({
+  email: z.string().trim().toLowerCase().email("Email không hợp lệ"),
+});
 
 export const patientVerifyOtpSchema = z.object({
   challengeId: z.string().uuid("Challenge không hợp lệ"),
@@ -42,7 +37,6 @@ export const patientPushTokenSchema = z.object({
 export const patientProfileUpdateSchema = z
   .object({
     fullName: z.string().trim().min(2).max(120).optional(),
-    email: z.string().trim().email().nullable().optional(),
     dateOfBirth: z.string().date().nullable().optional(),
     gender: z.enum(["MALE", "FEMALE", "OTHER"]).nullable().optional(),
     cccd: z.string().trim().min(9).max(20).nullable().optional(),

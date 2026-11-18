@@ -1,12 +1,13 @@
 import PolicyService from "../policy.service.js";
 import { Prisma } from "../../../generated/prisma/client.js";
-import type { AppointmentLogAction, AppointmentStatus } from "../../../generated/prisma/enums.js";
+import type { AppointmentStatus } from "../../../generated/prisma/enums.js";
+import { writeAppointmentLog, type AppointmentLogAction } from "../appointmentLog.service.js";
 import { prisma } from "../../config/prisma.js";
 import { getBookingHoldMinutes } from "../../config/environment.js";
 import { AppError } from "../../utils/appError.js";
 import { generateBookingCode } from "../../utils/bookingCode.js";
 import NotificationService from "../notification.service.js";
-import { appointmentSelect, type Actor } from "./appointment.shared.js";
+import { appointmentSelect, flattenPatientInfo, type Actor } from "./appointment.shared.js";
 export class AppointmentServiceSupport {
   protected async releasePendingAppointment(appointmentId: string) {
     await prisma.$transaction(async (tx) => {
@@ -140,13 +141,11 @@ export class AppointmentServiceSupport {
       note?: string;
     },
   ) {
-    await tx.appointmentLog.create({
-      data: {
-        appointmentId: input.appointmentId,
-        action: input.action,
-        createdById: input.actor?.userId,
-        note: input.note,
-      },
+    await writeAppointmentLog(tx, {
+      appointmentId: input.appointmentId,
+      action: input.action,
+      actorId: input.actor?.userId,
+      note: input.note,
     });
   }
 
@@ -376,11 +375,13 @@ export class AppointmentServiceSupport {
   }
 
 
-  protected getTransitionResult(tx: Prisma.TransactionClient, id: string) {
-    return tx.appointment.findUniqueOrThrow({
-      where: { id },
-      select: appointmentSelect,
-    });
+  protected async getTransitionResult(tx: Prisma.TransactionClient, id: string) {
+    return flattenPatientInfo(
+      await tx.appointment.findUniqueOrThrow({
+        where: { id },
+        select: appointmentSelect,
+      }),
+    );
   }
 
   protected async generateUniqueBookingCode(tx: Prisma.TransactionClient) {
