@@ -54,7 +54,7 @@ class ProfileHeader extends StatelessWidget {
                   color: Colors.white.withValues(alpha: 0.86),
                 ),
               ),
-              if (profile.isPhoneVerified) ...[
+              if (profile.isEmailVerified) ...[
                 const SizedBox(height: 8),
                 const AppStatusBadge(
                   label: 'Đã xác thực',

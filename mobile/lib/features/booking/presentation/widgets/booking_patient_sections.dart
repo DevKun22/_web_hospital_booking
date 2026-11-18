@@ -3,9 +3,8 @@ import 'package:hospital_booking_mobile/core/design/app_colors.dart';
 import 'package:hospital_booking_mobile/features/booking/presentation/booking_date_format.dart';
 import 'package:hospital_booking_mobile/core/errors/api_exception.dart';
 import 'package:hospital_booking_mobile/core/widgets/app_error_banner.dart';
-import 'package:hospital_booking_mobile/features/booking/domain/booking_submission.dart';
 
-/// Họ tên, số điện thoại, email và kênh nhận OTP của người đến khám.
+/// Họ tên, số điện thoại và email (nơi nhận OTP) của người đến khám.
 class BookingPatientContactFields extends StatelessWidget {
   const BookingPatientContactFields({
     super.key,
@@ -13,9 +12,6 @@ class BookingPatientContactFields extends StatelessWidget {
     required this.phone,
     required this.email,
     required this.isRelative,
-    required this.otpChannel,
-    required this.availableOtpChannels,
-    required this.onOtpChannelChanged,
     required this.isSubmitting,
     this.skipsOtp = false,
   });
@@ -26,12 +22,9 @@ class BookingPatientContactFields extends StatelessWidget {
 
   /// Đặt cho người thân: các trường lấy từ hồ sơ người thân nên chỉ đọc.
   final bool isRelative;
-  final BookingOtpChannel otpChannel;
-  final List<BookingOtpChannel> availableOtpChannels;
-  final ValueChanged<BookingOtpChannel> onOtpChannelChanged;
   final bool isSubmitting;
 
-  /// Người đã đăng nhập đặt cho chính mình: không cần OTP nên không hỏi kênh nhận mã.
+  /// Người đã đăng nhập đặt cho chính mình: không cần OTP nên không hiện dòng nhắc gửi mã.
   final bool skipsOtp;
 
   @override
@@ -77,21 +70,14 @@ class BookingPatientContactFields extends StatelessWidget {
         keyboardType: TextInputType.emailAddress,
         textInputAction: TextInputAction.next,
         autofillHints: const [AutofillHints.email],
-        decoration: InputDecoration(
-          labelText: !skipsOtp && otpChannel == BookingOtpChannel.email
-              ? 'Email *'
-              : 'Email (không bắt buộc)',
-          prefixIcon: const Icon(Icons.email_outlined),
+        decoration: const InputDecoration(
+          labelText: 'Email *',
+          prefixIcon: Icon(Icons.email_outlined),
         ),
         validator: (value) {
           final email = value?.trim() ?? '';
-          if (!skipsOtp &&
-              otpChannel == BookingOtpChannel.email &&
-              email.isEmpty) {
-            return 'Email là bắt buộc khi nhận OTP qua email.';
-          }
-          if (email.isNotEmpty &&
-              !RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(email)) {
+          if (email.isEmpty) return 'Email là bắt buộc.';
+          if (!RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(email)) {
             return 'Email không hợp lệ.';
           }
           return null;
@@ -99,58 +85,22 @@ class BookingPatientContactFields extends StatelessWidget {
       ),
       if (!skipsOtp) ...[
         const SizedBox(height: 18),
-        if (availableOtpChannels.length == 1)
-          Row(
-            children: [
-              Icon(
-                availableOtpChannels.first == BookingOtpChannel.sms
-                    ? Icons.sms_outlined
-                    : Icons.email_outlined,
-                size: 18,
-                color: Theme.of(context).colorScheme.primary,
+        Row(
+          children: [
+            Icon(
+              Icons.email_outlined,
+              size: 18,
+              color: Theme.of(context).colorScheme.primary,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'Mã xác thực sẽ gửi qua email.',
+                style: Theme.of(context).textTheme.bodyMedium,
               ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  availableOtpChannels.first == BookingOtpChannel.sms
-                      ? 'Mã xác thực sẽ gửi qua SMS.'
-                      : 'Mã xác thực sẽ gửi qua email.',
-                  style: Theme.of(context).textTheme.bodyMedium,
-                ),
-              ),
-            ],
-          )
-        else ...[
-          Text(
-            'Nhận mã xác thực qua',
-            style: Theme.of(context).textTheme.labelLarge,
-          ),
-          const SizedBox(height: 8),
-          SegmentedButton<BookingOtpChannel>(
-            segments: [
-              for (final channel in availableOtpChannels)
-                ButtonSegment(
-                  value: channel,
-                  icon: Icon(
-                    channel == BookingOtpChannel.sms
-                        ? Icons.sms_outlined
-                        : Icons.email_outlined,
-                  ),
-                  label: Text(
-                    channel == BookingOtpChannel.sms ? 'SMS' : 'Email',
-                  ),
-                ),
-            ],
-            selected: {
-              availableOtpChannels.contains(otpChannel)
-                  ? otpChannel
-                  : availableOtpChannels.first,
-            },
-            onSelectionChanged: isSubmitting
-                ? null
-                : (value) => onOtpChannelChanged(value.first),
-          ),
-        ],
+            ),
+          ],
+        ),
       ],
     ],
   );

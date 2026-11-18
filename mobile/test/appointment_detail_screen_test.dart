@@ -15,7 +15,7 @@ const _patient = PatientUser(
   id: 'patient-1',
   fullName: 'Nguyễn Văn An',
   phone: '0912345678',
-  isPhoneVerified: true,
+  isEmailVerified: true,
 );
 
 final _appointment = PatientAppointment(

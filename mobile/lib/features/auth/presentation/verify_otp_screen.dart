@@ -66,8 +66,7 @@ class _VerifyOtpScreenState extends ConsumerState<VerifyOtpScreen> {
                     const SizedBox(height: 8),
                     Text(
                       'Mã xác thực đã được gửi đến '
-                      '${auth.challenge?.maskedTarget ?? auth.phone ?? ''}'
-                      '${auth.challenge?.channel == 'EMAIL' ? ' (email)' : ''}.',
+                      'email ${auth.challenge?.maskedTarget ?? auth.email ?? ''}.',
                     ),
                     const SizedBox(height: 24),
                     if (visibleError != null) ...[

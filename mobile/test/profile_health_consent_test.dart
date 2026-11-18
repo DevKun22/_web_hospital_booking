@@ -11,7 +11,7 @@ PatientProfile _profile({String? allergies, String? consentVersion}) =>
       fullName: 'Nguyễn Văn An',
       phone: '0912345678',
       email: 'an@example.test',
-      isPhoneVerified: true,
+      isEmailVerified: true,
       hasBhyt: false,
       allergies: allergies,
       healthConsentVersion: consentVersion,

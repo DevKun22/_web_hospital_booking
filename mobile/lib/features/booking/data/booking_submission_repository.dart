@@ -44,12 +44,9 @@ class BookingSubmissionRepository {
         }
         return BookingCreation.confirmed(confirmed);
       }
-      final pending = PendingBooking.fromJson(data).copyWith(
-        otpChannel: patient.otpChannel,
-        otpTarget: patient.otpChannel == BookingOtpChannel.email
-            ? patient.patientEmail?.trim()
-            : patient.patientPhone.trim(),
-      );
+      final pending = PendingBooking.fromJson(
+        data,
+      ).copyWith(otpTarget: patient.patientEmail.trim());
       if (pending.appointmentId.isEmpty ||
           pending.bookingCode.isEmpty ||
           pending.holdReleaseToken == null) {
@@ -80,7 +77,6 @@ class BookingSubmissionRepository {
         holdReleaseToken: pending.holdReleaseToken,
         otpDeliveryStatus: data['otpDeliveryStatus']?.toString(),
         debugOtp: data['debugOtp']?.toString(),
-        otpChannel: pending.otpChannel,
         otpTarget: pending.otpTarget,
       );
     });

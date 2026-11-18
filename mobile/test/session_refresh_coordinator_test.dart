@@ -26,7 +26,7 @@ void main() {
                   'user': {
                     'id': 'patient-id',
                     'fullName': 'Patient',
-                    'isPhoneVerified': true,
+                    'isEmailVerified': true,
                   },
                 },
               },

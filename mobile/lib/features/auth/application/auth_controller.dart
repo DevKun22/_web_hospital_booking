@@ -69,19 +69,19 @@ class AuthController extends Notifier<AuthState> {
     );
   }
 
-  Future<bool> requestOtp(String phone, {String? returnTo}) async {
+  Future<bool> requestOtp(String email, {String? returnTo}) async {
     state = AuthState(
       status: AuthStatus.requestingOtp,
-      phone: phone,
+      email: email,
       returnTo: returnTo,
     );
     try {
       final challenge = await ref
           .read(authRepositoryProvider)
-          .requestOtp(phone);
+          .requestOtp(email);
       state = AuthState(
         status: AuthStatus.awaitingOtp,
-        phone: phone,
+        email: email,
         challenge: challenge,
         returnTo: returnTo,
       );
@@ -90,7 +90,7 @@ class AuthController extends Notifier<AuthState> {
       state = AuthState.unauthenticated(
         error: error,
         errorOrigin: AuthErrorOrigin.requestOtp,
-      ).copyWith(phone: phone, returnTo: returnTo);
+      ).copyWith(email: email, returnTo: returnTo);
       return false;
     }
   }

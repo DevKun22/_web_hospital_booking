@@ -28,7 +28,7 @@ void main() {
         user: PatientUser(
           id: 'patient-1',
           fullName: 'Nguyễn Văn An',
-          isPhoneVerified: true,
+          isEmailVerified: true,
         ),
       ),
       appointments: [
