@@ -283,20 +283,18 @@ class DashboardStatisticsService {
       "NO_SHOW",
     ] as const satisfies readonly AppointmentStatus[];
 
-    const [total, statusGroups, appointments] = await prisma.$transaction([
+    // Gom theo (ngày, trạng thái) ngay trong cơ sở dữ liệu: tối đa số ngày x 11 dòng, thay vì kéo từng lịch hẹn trong khoảng về cộng lại.
+    const [total, statusGroups, dailyGroups] = await prisma.$transaction([
       prisma.appointment.count({ where: { appointmentDate } }),
       prisma.appointment.groupBy({
         by: ["status"],
         where: { appointmentDate },
         _count: { status: true },
       }),
-      prisma.appointment.findMany({
+      prisma.appointment.groupBy({
+        by: ["appointmentDate", "status"],
         where: { appointmentDate },
-        select: {
-          appointmentDate: true,
-          status: true,
-          finalAmount: true,
-        },
+        _count: { _all: true },
         orderBy: { appointmentDate: "asc" },
       }),
     ]);
@@ -309,25 +307,13 @@ class DashboardStatisticsService {
       dailyMap.set(date, { total: 0, completed: 0, cancelled: 0 });
     }
 
-    for (const appointment of appointments) {
-      const key = toDateOnly(appointment.appointmentDate);
-      const item = dailyMap.get(key) || {
-        total: 0,
-        completed: 0,
-        cancelled: 0,
-      };
-      item.total += 1;
-      if (appointment.status === "COMPLETED") item.completed += 1;
-      if (
-        [
-          "CANCELLED_BY_PATIENT",
-          "CANCELLED_BY_DOCTOR",
-          "CANCELLED_BY_ADMIN",
-          "NO_SHOW",
-        ].includes(appointment.status)
-      ) {
-        item.cancelled += 1;
-      }
+    const CANCELLED_STATUSES: readonly AppointmentStatus[] = ["CANCELLED_BY_PATIENT", "CANCELLED_BY_DOCTOR", "CANCELLED_BY_ADMIN", "NO_SHOW"];
+    for (const group of dailyGroups) {
+      const key = toDateOnly(group.appointmentDate);
+      const item = dailyMap.get(key) || { total: 0, completed: 0, cancelled: 0 };
+      item.total += group._count._all;
+      if (group.status === "COMPLETED") item.completed += group._count._all;
+      if (CANCELLED_STATUSES.includes(group.status)) item.cancelled += group._count._all;
       dailyMap.set(key, item);
     }
 
