@@ -1,4 +1,3 @@
-import { normalizeVietnamPhone } from "../config/otpChannels.js";
 import { getClientIp } from "../utils/clientIp.js";
 import { rateLimit } from "./rateLimit.middleware.js";
 
@@ -7,11 +6,11 @@ import { rateLimit } from "./rateLimit.middleware.js";
 
 const MINUTE_MS = 60_000;
 
-const bodyPhone = (body: unknown) => {
-  const value = (body as { patientPhone?: unknown } | undefined)?.patientPhone;
+const bodyEmail = (body: unknown) => {
+  const value = (body as { patientEmail?: unknown } | undefined)?.patientEmail;
   if (typeof value !== "string") return null;
-  const phone = normalizeVietnamPhone(value);
-  return phone.length >= 8 ? phone : null;
+  const email = value.trim().toLowerCase();
+  return email.includes("@") && email.length >= 5 ? email : null;
 };
 
 // Đặt lịch giữ slot trong thời gian chờ OTP, nên cần chặn việc giữ hàng loạt.
@@ -26,15 +25,15 @@ export const bookingCreateIpLimiter = rateLimit({
     "Bạn đã gửi quá nhiều yêu cầu đặt lịch. Vui lòng thử lại sau ít phút.",
 });
 
-export const bookingCreatePhoneLimiter = rateLimit({
-  name: "booking-create-phone",
+export const bookingCreateEmailLimiter = rateLimit({
+  name: "booking-create-email",
   windowMs: 10 * MINUTE_MS,
   max: 5,
   degraded: { mode: "enforce", max: 3 },
   failureMode: "deny",
-  key: (req) => bodyPhone(req.body),
+  key: (req) => bodyEmail(req.body),
   message:
-    "Số điện thoại này đã đặt lịch quá nhiều lần. Vui lòng thử lại sau ít phút.",
+    "Email này đã đặt lịch quá nhiều lần. Vui lòng thử lại sau ít phút.",
 });
 
 export const searchLimiter = rateLimit({

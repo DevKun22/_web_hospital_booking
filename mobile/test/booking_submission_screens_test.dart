@@ -3,6 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hospital_booking_mobile/core/config/app_config.dart';
 import 'package:hospital_booking_mobile/core/providers/app_providers.dart';
+import 'package:hospital_booking_mobile/features/auth/application/auth_controller.dart';
+import 'package:hospital_booking_mobile/features/auth/application/auth_state.dart';
+import 'package:hospital_booking_mobile/features/auth/domain/patient_user.dart';
 import 'package:hospital_booking_mobile/features/booking/application/booking_submission_controller.dart';
 import 'package:hospital_booking_mobile/features/booking/domain/booking_submission.dart';
 import 'package:hospital_booking_mobile/features/booking/presentation/booking_success_screen.dart';
@@ -30,6 +33,24 @@ class _SuccessfulSubmissionController extends BookingSubmissionController {
   );
 }
 
+class _GuestAuthController extends AuthController {
+  @override
+  AuthState build() => const AuthState.unauthenticated();
+}
+
+class _SignedInAuthController extends AuthController {
+  @override
+  AuthState build() => const AuthState(
+    status: AuthStatus.authenticated,
+    user: PatientUser(
+      id: 'user-1',
+      fullName: 'Nguyễn Văn An',
+      email: 'an@example.test',
+      isEmailVerified: true,
+    ),
+  );
+}
+
 class _FailedDeliveryController extends BookingSubmissionController {
   @override
   BookingSubmissionState build() => BookingSubmissionState(
@@ -41,7 +62,7 @@ class _FailedDeliveryController extends BookingSubmissionController {
       expiresIn: 300,
       holdExpiresAt: DateTime.now().add(const Duration(minutes: 5)),
       otpDeliveryStatus: 'FAILED',
-      otpTarget: '0912345678',
+      otpTarget: 'an@example.test',
     ),
   );
 }
@@ -56,6 +77,7 @@ void main() {
           bookingSubmissionControllerProvider.overrideWith(
             _SuccessfulSubmissionController.new,
           ),
+          authControllerProvider.overrideWith(_GuestAuthController.new),
         ],
         child: const MaterialApp(home: BookingSuccessScreen()),
       ),
@@ -65,6 +87,31 @@ void main() {
     expect(find.text('CHỜ CƠ SỞ KHÁM XÁC NHẬN'), findsOneWidget);
     expect(find.text('HB-1001'), findsOneWidget);
     expect(find.text('250.000 đ'), findsOneWidget);
+    expect(find.text('Xem lịch hẹn của tôi'), findsNothing);
+  });
+
+  testWidgets('success screen links straight to appointments once signed in', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          bookingSubmissionControllerProvider.overrideWith(
+            _SuccessfulSubmissionController.new,
+          ),
+          authControllerProvider.overrideWith(_SignedInAuthController.new),
+        ],
+        child: const MaterialApp(home: BookingSuccessScreen()),
+      ),
+    );
+
+    // Nút nằm cuối danh sách nên cuộn tới khi hiện ra.
+    await tester.scrollUntilVisible(
+      find.text('Xem lịch hẹn của tôi'),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(find.text('Xem lịch hẹn của tôi'), findsOneWidget);
   });
 
   testWidgets(

@@ -1,0 +1,138 @@
+// Thông báo và hàng đợi sự kiện: hộp thư, chuyển phát, tùy chọn, outbox.
+
+enum NotificationType {
+  SYSTEM_ANNOUNCEMENT
+  APPOINTMENT_CONFIRMED
+  APPOINTMENT_RESCHEDULED
+  APPOINTMENT_CANCELLED
+  APPOINTMENT_REMINDER
+  APPOINTMENT_NO_SHOW
+  APPOINTMENT_CHECKED_IN
+  APPOINTMENT_IN_PROGRESS
+  APPOINTMENT_COMPLETED
+  MEDICAL_RESULT_PUBLISHED
+  PRESCRIPTION_ISSUED
+  PRESCRIPTION_DISPENSED
+  INVOICE_CREATED
+  PAYMENT_SUCCEEDED
+  PAYMENT_REFUNDED
+  // Thông báo nội bộ cho nhân sự
+  APPOINTMENT_CREATED
+  SCHEDULE_REQUEST_CREATED
+  SCHEDULE_REQUEST_REVIEWED
+}
+
+enum NotificationDeliveryStatus {
+  PENDING
+  SENT
+  FAILED
+  EXHAUSTED
+  CANCELLED
+  INVALID_TOKEN
+}
+
+// Side effect ra hệ thống ngoài được ghi cùng transaction nghiệp vụ rồi worker xử lý.
+// Payload không chứa secret; dedupeKey bảo đảm một sự kiện nghiệp vụ chỉ được xếp một lần.
+model OutboxEvent {
+  id String @id @default(uuid())
+
+  type      String
+  dedupeKey String @unique
+  payload   Json
+
+  status      String    @default("PENDING")
+  attempts    Int       @default(0)
+  availableAt DateTime  @default(now())
+  lockedAt    DateTime?
+  processedAt DateTime?
+  lastError   String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status, availableAt])
+  @@index([processedAt])
+}
+
+// Hộp thư trong ứng dụng là nguồn dữ liệu chính; FCM chỉ là kênh chuyển phát.
+model Notification {
+  id String @id @default(uuid())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  type  NotificationType
+  title String
+  body  String
+
+  // Mobile chỉ điều hướng các entityType đã được allowlist, không mở URL tùy ý.
+  entityType String?
+  entityId   String?
+  payload    Json    @default("{}")
+
+  // Cùng một chiến dịch tạo một bản ghi hộp thư cho mỗi người nhận.
+  // Trường này giúp dashboard tổng hợp/audit mà không tạo hệ thống gửi riêng.
+  campaignId  String?
+  createdById String?
+
+  dedupeKey String? @unique
+
+  scheduledAt  DateTime  @default(now())
+  publishedAt  DateTime?
+  dispatchedAt DateTime?
+  cancelledAt  DateTime?
+  readAt       DateTime?
+  expiresAt    DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  deliveries NotificationDelivery[]
+
+  @@index([userId, publishedAt])
+  @@index([userId, readAt, publishedAt])
+  @@index([scheduledAt, publishedAt, cancelledAt])
+  @@index([entityType, entityId])
+  @@index([campaignId, createdAt])
+}
+
+model NotificationDelivery {
+  id String @id @default(uuid())
+
+  notificationId String
+  notification   Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+
+  sessionId String
+  session   AuthSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  status            NotificationDeliveryStatus @default(PENDING)
+  attempts          Int                        @default(0)
+  providerMessageId String?
+  lastError         String?
+  nextAttemptAt     DateTime?
+  sentAt            DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([notificationId, sessionId])
+  @@index([status, nextAttemptAt])
+  @@index([sessionId, status])
+}
+
+// Tùy chọn đồng bộ theo tài khoản. Inbox luôn giữ đầy đủ lịch sử nghiệp vụ;
+// các cờ này chỉ kiểm soát việc chuyển phát push ra thiết bị.
+model NotificationPreference {
+  userId String @id
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  appointmentUpdatesPush   Boolean @default(true)
+  appointmentRemindersPush Boolean @default(true)
+  medicalResultsPush       Boolean @default(true)
+  prescriptionsPush        Boolean @default(true)
+  billingPush              Boolean @default(true)
+  generalAnnouncementsPush Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}

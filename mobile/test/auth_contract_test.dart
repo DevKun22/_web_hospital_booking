@@ -12,13 +12,13 @@ void main() {
         'id': 'patient-id',
         'fullName': 'Nguyễn Văn A',
         'phone': '0912345678',
-        'isPhoneVerified': true,
+        'isEmailVerified': true,
       },
     });
 
     expect(session.isValid, isTrue);
     expect(session.user.id, 'patient-id');
-    expect(session.user.isPhoneVerified, isTrue);
+    expect(session.user.isEmailVerified, isTrue);
   });
 
   test('API errors retain backend code, requestId and field errors', () {

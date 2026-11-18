@@ -13,6 +13,25 @@ const nonNegativeInteger = (value: string | undefined, fallback: number) => {
   return Number.isSafeInteger(parsed) && parsed >= 0 ? parsed : fallback;
 };
 
+const booleanFlag = (value: string | undefined, fallback: boolean) => {
+  const normalized = (value || "").trim().toLowerCase();
+  if (!normalized) return fallback;
+  return ["true", "1", "yes", "on"].includes(normalized);
+};
+const oneOf = <T extends string>(value: string | undefined, allowed: readonly T[], fallback: T): T => {
+  const normalized = (value || "").trim().toLowerCase();
+  return (allowed as readonly string[]).includes(normalized) ? (normalized as T) : fallback;
+};
+
+// Hồ sơ vận hành Redis: một biến REDIS_PROFILE chọn bộ mặc định, từng biến riêng vẫn ghi đè được.
+//  - free: gói Redis miễn phí có trần lệnh mỗi tháng (Upstash: 500.000). Giữ lệnh nền gần bằng không: worker thăm dò thưa,
+//    không đo hàng đợi định kỳ, giới hạn tốc độ và đồng bộ phân quyền đếm trong bộ nhớ (đúng khi chỉ có một instance).
+//  - paid: gói trả phí không trần lệnh hoặc nhiều instance: ưu tiên độ trễ thấp và dùng chung trạng thái qua Redis.
+const REDIS_PROFILES = {
+  free: { drainDelaySeconds: 60, stalledIntervalMs: 300_000, queueMetrics: false, rateLimitStore: "memory", rbacSync: "local" },
+  paid: { drainDelaySeconds: 10, stalledIntervalMs: 30_000, queueMetrics: true, rateLimitStore: "redis", rbacSync: "redis" },
+} as const;
+
 // Cấu hình runtime không được cache để test và script có thể truyền env cô lập.
 // Mọi parsing/default của biến môi trường dùng trong application nằm tại đây;
 // service/controller chỉ nhận giá trị đã có kiểu rõ ràng.
@@ -20,6 +39,8 @@ export const getRuntimeConfig = (env: NodeJS.ProcessEnv = process.env) => {
   const frontendUrls =
     trimmed(env.FRONTEND_URLS) || trimmed(env.FRONTEND_URL) || undefined;
   const frontendUrl = frontendUrls?.split(",")[0]?.trim() || "http://localhost:3000";
+  const redisProfileName = oneOf(env.REDIS_PROFILE, ["free", "paid"] as const, "free");
+  const redisProfile = REDIS_PROFILES[redisProfileName];
 
   return {
     server: {
@@ -47,8 +68,23 @@ export const getRuntimeConfig = (env: NodeJS.ProcessEnv = process.env) => {
       accessTokenExpiresIn: trimmed(env.DASHBOARD_ACCESS_TOKEN_EXPIRES_IN) || "15m",
     },
     bullmq: {
-      drainDelaySeconds: Math.max(positiveInteger(env.BULLMQ_DRAIN_DELAY_SECONDS, 60), 5),
-      stalledIntervalMs: positiveInteger(env.BULLMQ_STALLED_INTERVAL_MS, 300_000),
+      drainDelaySeconds: Math.max(
+        positiveInteger(env.BULLMQ_DRAIN_DELAY_SECONDS, redisProfile.drainDelaySeconds),
+        5,
+      ),
+      stalledIntervalMs: positiveInteger(env.BULLMQ_STALLED_INTERVAL_MS, redisProfile.stalledIntervalMs),
+    },
+    redis: {
+      profile: redisProfileName,
+      // Đọc số job của các hàng đợi tốn vài lệnh Redis mỗi lần; chỉ bật định kỳ ở hồ sơ paid.
+      queueMetrics: booleanFlag(env.RUNTIME_METRICS_QUEUES, redisProfile.queueMetrics),
+      rateLimitStore: oneOf(env.RATE_LIMIT_STORE, ["memory", "redis"] as const, redisProfile.rateLimitStore),
+      rbacSync: oneOf(env.RBAC_SYNC, ["local", "redis"] as const, redisProfile.rbacSync),
+      // Thời gian chờ tối đa khi đưa job vào hàng đợi trước khi chuyển sang đường dự phòng.
+      enqueueTimeoutMs: positiveInteger(
+        env.QUEUE_ENQUEUE_TIMEOUT_MS,
+        positiveInteger(env.OTP_ENQUEUE_TIMEOUT_MS, 1_000),
+      ),
     },
     patientSession: {
       webSessionHours: positiveInteger(env.PATIENT_WEB_SESSION_HOURS, 24),
@@ -140,9 +176,10 @@ export const getRuntimeConfig = (env: NodeJS.ProcessEnv = process.env) => {
       apiKey: trimmed(env.TEXTBEE_API_KEY),
     },
     publicSearch: {
-      cacheTtlMs: Math.min(
-        nonNegativeInteger(env.PUBLIC_SEARCH_CACHE_TTL_MS, 30_000),
-        5 * 60 * 1_000,
+      // Chỉ mục tìm kiếm trong bộ nhớ được dựng lại sau chừng này thời gian (hoặc ngay khi quản trị sửa nội dung).
+      indexTtlMs: Math.min(
+        Math.max(nonNegativeInteger(env.PUBLIC_SEARCH_INDEX_TTL_MS, 60_000), 5_000),
+        10 * 60 * 1_000,
       ),
     },
     demoSeed: {

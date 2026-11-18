@@ -4,7 +4,6 @@ import type { PublicSlot } from "@/lib/public-slots-query";
 
 export type BookingStep = "service" | "schedule" | "details" | "verify" | "done";
 export type ServiceMode = "" | "DOCTOR_ONLY" | "PACKAGE";
-export type OtpChannel = "SMS" | "EMAIL";
 
 export type BookingSelection = {
   departmentId: string;
@@ -19,7 +18,6 @@ export type BookingDraft = {
   patientName: string;
   patientPhone: string;
   patientEmail: string;
-  otpChannel: OtpChannel;
   reason: string;
   gender: "" | "MALE" | "FEMALE" | "OTHER";
   dateOfBirth: string;
@@ -99,7 +97,6 @@ export const createInitialDraft = (date = ""): BookingDraft => ({
   patientName: "",
   patientPhone: "",
   patientEmail: "",
-  otpChannel: "EMAIL",
   reason: "",
   gender: "",
   dateOfBirth: "",

@@ -9,7 +9,7 @@ Map<String, dynamic> _profileJson({String fullName = 'Nguyễn Văn An'}) => {
   'phone': '0912345678',
   'email': 'an@example.test',
   'avatar': null,
-  'isPhoneVerified': true,
+  'isEmailVerified': true,
   'patientProfile': {
     'dateOfBirth': '1995-05-20T00:00:00.000Z',
     'gender': 'MALE',

@@ -14,7 +14,7 @@ const _patient = PatientUser(
   id: 'patient-1',
   fullName: 'Tên từ phiên đăng nhập',
   phone: '0912345678',
-  isPhoneVerified: true,
+  isEmailVerified: true,
 );
 
 PatientProfile _profile({String fullName = 'Nguyễn Văn An'}) => PatientProfile(
@@ -22,7 +22,7 @@ PatientProfile _profile({String fullName = 'Nguyễn Văn An'}) => PatientProfil
   fullName: fullName,
   phone: '0912345678',
   email: 'an@example.test',
-  isPhoneVerified: true,
+  isEmailVerified: true,
   hasBhyt: false,
 );
 

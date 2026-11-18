@@ -21,7 +21,7 @@ class AuthState {
   const AuthState({
     required this.status,
     this.user,
-    this.phone,
+    this.email,
     this.challenge,
     this.returnTo,
     this.error,
@@ -45,7 +45,7 @@ class AuthState {
 
   final AuthStatus status;
   final PatientUser? user;
-  final String? phone;
+  final String? email;
   final OtpChallenge? challenge;
   final String? returnTo;
   final ApiException? error;
@@ -63,7 +63,7 @@ class AuthState {
   AuthState copyWith({
     AuthStatus? status,
     PatientUser? user,
-    String? phone,
+    String? email,
     OtpChallenge? challenge,
     String? returnTo,
     ApiException? error,
@@ -72,7 +72,7 @@ class AuthState {
   }) => AuthState(
     status: status ?? this.status,
     user: user ?? this.user,
-    phone: phone ?? this.phone,
+    email: email ?? this.email,
     challenge: challenge ?? this.challenge,
     returnTo: returnTo ?? this.returnTo,
     error: clearError ? null : error ?? this.error,

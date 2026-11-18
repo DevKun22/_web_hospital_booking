@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:hospital_booking_mobile/core/formatters/display_formatters.dart';
 import 'package:hospital_booking_mobile/app/sync/patient_data_sync_coordinator.dart';
 import 'package:hospital_booking_mobile/core/widgets/app_ui.dart';
+import 'package:hospital_booking_mobile/features/auth/application/auth_controller.dart';
 import 'package:hospital_booking_mobile/features/booking/application/booking_flow_controller.dart';
 import 'package:hospital_booking_mobile/features/booking/application/booking_submission_controller.dart';
 import 'package:hospital_booking_mobile/core/design/app_colors.dart';
@@ -146,11 +147,25 @@ class BookingSuccessScreen extends ConsumerWidget {
                 ),
               ),
               const SizedBox(height: 18),
-              FilledButton.icon(
-                onPressed: () => _finish(ref, context, '/home'),
-                icon: const Icon(Icons.home_outlined),
-                label: const Text('Về trang chủ'),
-              ),
+              // Đã đăng nhập (vừa được cấp phiên sau OTP): vào thẳng lịch hẹn, không phải nhập OTP lần hai.
+              if (ref.watch(authControllerProvider).isAuthenticated) ...[
+                FilledButton.icon(
+                  onPressed: () => _finish(ref, context, '/appointments'),
+                  icon: const Icon(Icons.event_available_outlined),
+                  label: const Text('Xem lịch hẹn của tôi'),
+                ),
+                const SizedBox(height: 8),
+                OutlinedButton.icon(
+                  onPressed: () => _finish(ref, context, '/home'),
+                  icon: const Icon(Icons.home_outlined),
+                  label: const Text('Về trang chủ'),
+                ),
+              ] else
+                FilledButton.icon(
+                  onPressed: () => _finish(ref, context, '/home'),
+                  icon: const Icon(Icons.home_outlined),
+                  label: const Text('Về trang chủ'),
+                ),
               const SizedBox(height: 8),
               OutlinedButton.icon(
                 onPressed: () => _finish(ref, context, '/booking'),

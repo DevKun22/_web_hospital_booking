@@ -1,5 +1,5 @@
 import type { Prisma } from "../../generated/prisma/client.js";
-import type { AppointmentLogAction } from "../../generated/prisma/enums.js";
+import { writeAppointmentLog, type AppointmentLogAction } from "./appointmentLog.service.js";
 
 type ClinicalLogInput = {
   action: AppointmentLogAction;
@@ -30,12 +30,10 @@ export const logClinicalAction = async (
 
   if (!source?.appointmentId) return;
 
-  await tx.appointmentLog.create({
-    data: {
-      appointmentId: source.appointmentId,
-      action: input.action,
-      createdById: input.actorId,
-      note: input.note,
-    },
+  await writeAppointmentLog(tx, {
+    appointmentId: source.appointmentId,
+    action: input.action,
+    actorId: input.actorId,
+    note: input.note,
   });
 };

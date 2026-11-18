@@ -346,7 +346,7 @@ export function PackagesSection({ packages, config, loading }: { packages: Medic
 const STEPS = [
   { title: "Chọn dịch vụ", text: "Chuyên khoa, bác sĩ hoặc gói khám." },
   { title: "Chọn giờ khám", text: "Xem ngày và giờ còn trống." },
-  { title: "Điền thông tin", text: "Họ tên và số điện thoại." },
+  { title: "Điền thông tin", text: "Họ tên, email và số điện thoại liên hệ." },
   { title: "Xác nhận OTP", text: "Nhập mã để nhận mã lịch hẹn." },
 ];
 

@@ -1,25 +1,24 @@
 import { createHmac, randomInt, timingSafeEqual } from "crypto";
 import { prisma } from "../config/prisma.js";
 import { AppError } from "../utils/appError.js";
-import type { OtpChannel, OtpPurpose } from "../../generated/prisma/enums.js";
-import { enqueueOtpDeliveryJob } from "../queues/otp.queue.js";
+import type { OtpPurpose } from "../../generated/prisma/enums.js";
+import { enqueueOtpDeliveryJob } from "../queues/background.queue.js";
 import OtpSenderService from "./otpSender.service.js";
 import {
   isProductionLike,
   resolveOtpSecret,
 } from "../config/environment.js";
-import { canDeliverSms, shouldExposeDebugOtp } from "../config/otpChannels.js";
+import { shouldExposeDebugOtp } from "../config/otpChannels.js";
+import AuthAttemptService from "./authAttempt.service.js";
 import { getRuntimeConfig } from "../config/runtimeConfig.js";
 import { logger } from "../observability/logger.js";
 
 type SendOtpOptions = {
-  channel?: OtpChannel;
   challengeId?: string;
   userId?: string;
 };
 
 type VerifyOtpOptions = {
-  channel?: OtpChannel;
   challengeId?: string;
   ipAddress?: string;
 };
@@ -28,12 +27,12 @@ const OTP_SECRET = resolveOtpSecret();
 const RESEND_COOLDOWN_SECONDS = 60;
 const OTP_WINDOW_MINUTES = 15;
 const MAX_OTP_SENDS_PER_WINDOW = 5;
-const MAX_OTP_SENDS_PER_PHONE_WINDOW = 5;
+const MAX_OTP_SENDS_PER_TARGET_WINDOW = 5;
 const MAX_OTP_SENDS_PER_IP_WINDOW = 20;
 const OTP_BLOCK_MINUTES = 30;
 const OTP_EXPIRES_SECONDS = 5 * 60;
 const VERIFY_WINDOW_MINUTES = 15;
-const MAX_VERIFY_FAILS_PER_PHONE_WINDOW = 5;
+const MAX_VERIFY_FAILS_PER_TARGET_WINDOW = 5;
 const MAX_VERIFY_FAILS_PER_IP_WINDOW = 20;
 const OTP_ENQUEUE_TIMEOUT_MS = getRuntimeConfig().otp.enqueueTimeoutMs;
 
@@ -56,7 +55,7 @@ const timeout = (milliseconds: number) =>
 // và ghi lại trạng thái giao như worker vẫn làm. Không ném lỗi: người dùng chỉ cần biết OTP đã gửi hay chưa.
 const deliverOtpDirectly = async (
   otpCodeId: string,
-  job: { target: string; channel: OtpChannel; purpose: OtpPurpose; otp: string; expiresInSeconds: number },
+  job: { email: string; purpose: OtpPurpose; otp: string; expiresInSeconds: number },
 ): Promise<"SENT" | "FAILED"> => {
   try {
     await OtpSenderService.send(job);
@@ -83,21 +82,13 @@ const hashOtp = (otp: string) =>
 
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-const normalizeTarget = (target: string, channel: OtpChannel) => {
-  const normalized = target.trim();
+const normalizeEmail = (value: string) => {
+  const normalized = value.trim();
 
-  if (!normalized) {
-    throw new AppError(
-      channel === "EMAIL" ? "Thiếu email" : "Thiếu số điện thoại",
-      400,
-    );
-  }
+  if (!normalized) throw new AppError("Thiếu email", 400);
+  if (!emailRegex.test(normalized)) throw new AppError("Email không hợp lệ", 400);
 
-  if (channel === "EMAIL" && !emailRegex.test(normalized)) {
-    throw new AppError("Email không hợp lệ", 400);
-  }
-
-  return channel === "EMAIL" ? normalized.toLowerCase() : normalized;
+  return normalized.toLowerCase();
 };
 
 const isSameOtp = (otp: string, otpHash: string) => {
@@ -114,7 +105,6 @@ class AuthOtpService {
 
   private async assertNotBlocked(
     target: string,
-    channel: OtpChannel,
     purpose: OtpPurpose,
     ipAddress?: string,
   ) {
@@ -126,9 +116,7 @@ class AuthOtpService {
         },
         OR: [
           {
-            targetType: {
-              in: channel === "SMS" ? ["TARGET", "PHONE"] : ["TARGET"],
-            },
+            targetType: "TARGET",
             target,
             OR: [{ purpose }, { purpose: null }],
           },
@@ -182,7 +170,6 @@ class AuthOtpService {
 
   private async enforceSendLimits(
     target: string,
-    channel: OtpChannel,
     purpose: OtpPurpose,
     ipAddress: string,
   ) {
@@ -191,20 +178,17 @@ class AuthOtpService {
     const recentCodes = await prisma.otpCode.findMany({
       where: {
         createdAt: { gte: windowStart },
-        OR: [{ target, channel, purpose }, { ipAddress }],
+        OR: [{ email: target, purpose }, { ipAddress }],
       },
       select: {
-        target: true,
-        channel: true,
+        email: true,
         purpose: true,
         ipAddress: true,
       },
     });
     const matchesTarget = (item: (typeof recentCodes)[number]) =>
-      item.target === target &&
-      item.channel === channel &&
-      item.purpose === purpose;
-    const phoneCount = recentCodes.filter(matchesTarget).length;
+      item.email === target && item.purpose === purpose;
+    const targetCount = recentCodes.filter(matchesTarget).length;
     const pairCount = recentCodes.filter(
       (item) => matchesTarget(item) && item.ipAddress === ipAddress,
     ).length;
@@ -226,7 +210,7 @@ class AuthOtpService {
     }
 
     if (
-      phoneCount >= MAX_OTP_SENDS_PER_PHONE_WINDOW ||
+      targetCount >= MAX_OTP_SENDS_PER_TARGET_WINDOW ||
       pairCount >= MAX_OTP_SENDS_PER_WINDOW
     ) {
       await this.createBlock({
@@ -244,59 +228,25 @@ class AuthOtpService {
 
   private async recordVerifyAttempt(input: {
     target: string;
-    channel: OtpChannel;
     purpose: OtpPurpose;
     ipAddress?: string;
     success: boolean;
   }) {
-    await prisma.otpVerifyAttempt.create({
-      data: {
-        phone: input.channel === "SMS" ? input.target : "",
-        email: input.channel === "EMAIL" ? input.target : null,
-        target: input.target,
-        channel: input.channel,
-        purpose: input.purpose,
-        ipAddress: input.ipAddress,
-        success: input.success,
-      },
-    });
+    await AuthAttemptService.record({ kind: "OTP_VERIFY", ...input });
   }
 
   private async enforceVerifyFailLimits(
     target: string,
-    channel: OtpChannel,
     purpose: OtpPurpose,
     ipAddress?: string,
   ) {
-    const windowStart = new Date(
-      Date.now() - VERIFY_WINDOW_MINUTES * 60 * 1000,
-    );
-
-    const recentFailures = await prisma.otpVerifyAttempt.findMany({
-      where: {
-        success: false,
-        createdAt: { gte: windowStart },
-        OR: [
-          { target, channel, purpose },
-          ...(ipAddress ? [{ ipAddress }] : []),
-        ],
-      },
-      select: {
-        target: true,
-        channel: true,
-        purpose: true,
-        ipAddress: true,
-      },
+    const { byTarget: targetFails, byIp: ipFails } = await AuthAttemptService.countFailures({
+      kind: "OTP_VERIFY",
+      target,
+      purpose,
+      ipAddress,
+      windowMs: VERIFY_WINDOW_MINUTES * 60 * 1000,
     });
-    const phoneFails = recentFailures.filter(
-      (item) =>
-        item.target === target &&
-        item.channel === channel &&
-        item.purpose === purpose,
-    ).length;
-    const ipFails = ipAddress
-      ? recentFailures.filter((item) => item.ipAddress === ipAddress).length
-      : 0;
 
     if (ipAddress && ipFails >= MAX_VERIFY_FAILS_PER_IP_WINDOW) {
       await this.createBlock({
@@ -311,7 +261,7 @@ class AuthOtpService {
       );
     }
 
-    if (phoneFails >= MAX_VERIFY_FAILS_PER_PHONE_WINDOW) {
+    if (targetFails >= MAX_VERIFY_FAILS_PER_TARGET_WINDOW) {
       await this.createBlock({
         targetType: "TARGET",
         target,
@@ -335,23 +285,13 @@ class AuthOtpService {
       throw new AppError("Thiếu purpose khi gửi OTP", 400);
     }
 
-    const channel = options.channel || "SMS";
-    const target = normalizeTarget(targetInput, channel);
+    const target = normalizeEmail(targetInput);
 
-    if (channel === "SMS" && !canDeliverSms(target)) {
-      throw new AppError(
-        "Hệ thống hiện chỉ gửi mã xác thực qua email. Vui lòng dùng email.",
-        400,
-        "OTP_CHANNEL_UNAVAILABLE",
-      );
-    }
-
-    await this.assertNotBlocked(target, channel, purpose, ipAddress);
+    await this.assertNotBlocked(target, purpose, ipAddress);
 
     const lastOtp = await prisma.otpCode.findFirst({
       where: {
-        target,
-        channel,
+        email: target,
         purpose,
         ipAddress,
       },
@@ -373,17 +313,14 @@ class AuthOtpService {
       }
     }
 
-    await this.enforceSendLimits(target, channel, purpose, ipAddress);
+    await this.enforceSendLimits(target, purpose, ipAddress);
 
     const otp = randomInt(100000, 1000000).toString();
     const expiresAt = new Date(Date.now() + OTP_EXPIRES_SECONDS * 1000);
 
     const otpRecord = await prisma.otpCode.create({
       data: {
-        phone: channel === "SMS" ? target : "",
-        email: channel === "EMAIL" ? target : null,
-        target,
-        channel,
+        email: target,
         code: hashOtp(otp),
         purpose,
         ipAddress,
@@ -395,8 +332,7 @@ class AuthOtpService {
 
     const deliveryJob = {
       otpCodeId: otpRecord.id,
-      target,
-      channel,
+      email: target,
       purpose,
       otp,
       expiresInSeconds: OTP_EXPIRES_SECONDS,
@@ -466,7 +402,6 @@ class AuthOtpService {
       logger.info("=================================");
       logger.info(`OTP DEV: ${otp}`);
       logger.info(`Target: ${target}`);
-      logger.info(`Channel: ${channel}`);
       logger.info(`Purpose: ${purpose}`);
       logger.info(`IP: ${ipAddress}`);
       logger.info(`Challenge: ${options.challengeId || "none"}`);
@@ -476,15 +411,12 @@ class AuthOtpService {
 
     return {
       id: otpRecord.id,
-      phone: otpRecord.phone,
       email: otpRecord.email,
-      target: otpRecord.target || otpRecord.phone,
-      channel: otpRecord.channel,
       purpose: otpRecord.purpose,
       deliveryStatus,
       expiresAt: otpRecord.expiresAt,
       expiresIn: OTP_EXPIRES_SECONDS,
-      debugOtp: shouldExposeDebugOtp(channel, target) ? otp : undefined,
+      debugOtp: shouldExposeDebugOtp() ? otp : undefined,
     };
   }
 
@@ -509,19 +441,17 @@ class AuthOtpService {
     const verifyOptions =
       typeof options === "string" ? { challengeId: options } : options || {};
     const { challengeId, ipAddress } = verifyOptions;
-    const channel = verifyOptions.channel || "SMS";
-    const target = normalizeTarget(targetInput, channel);
+    const target = normalizeEmail(targetInput);
 
-    await this.assertNotBlocked(target, channel, purpose, ipAddress);
-    await this.enforceVerifyFailLimits(target, channel, purpose, ipAddress);
+    await this.assertNotBlocked(target, purpose, ipAddress);
+    await this.enforceVerifyFailLimits(target, purpose, ipAddress);
 
     const candidates = await prisma.otpCode.findMany({
       where: {
-        target,
-        channel,
+        email: target,
         purpose,
         challengeId,
-        isUsed: false,
+        usedAt: null,
         expiresAt: {
           gt: new Date(),
         },
@@ -539,12 +469,11 @@ class AuthOtpService {
     if (!otpRecord) {
       await this.recordVerifyAttempt({
         target,
-        channel,
         purpose,
         ipAddress,
         success: false,
       });
-      await this.enforceVerifyFailLimits(target, channel, purpose, ipAddress);
+      await this.enforceVerifyFailLimits(target, purpose, ipAddress);
       throw new AppError(
         "OTP không chính xác, đã hết hạn hoặc đã được sử dụng",
         401,
@@ -555,17 +484,15 @@ class AuthOtpService {
     const consumed = await prisma.otpCode.updateMany({
       where: {
         id: otpRecord.id,
-        target,
-        channel,
+        email: target,
         purpose,
         challengeId,
-        isUsed: false,
+        usedAt: null,
         expiresAt: {
           gt: consumedAt,
         },
       },
       data: {
-        isUsed: true,
         usedAt: consumedAt,
       },
     });
@@ -573,7 +500,6 @@ class AuthOtpService {
     if (consumed.count !== 1) {
       await this.recordVerifyAttempt({
         target,
-        channel,
         purpose,
         ipAddress,
         success: false,
@@ -586,7 +512,6 @@ class AuthOtpService {
 
     await this.recordVerifyAttempt({
       target,
-      channel,
       purpose,
       ipAddress,
       success: true,
@@ -594,10 +519,7 @@ class AuthOtpService {
 
     return {
       verified: true,
-      phone: otpRecord.phone,
       email: otpRecord.email,
-      target: otpRecord.target || otpRecord.phone,
-      channel: otpRecord.channel,
       purpose: otpRecord.purpose,
       verifiedAt: new Date(),
     };

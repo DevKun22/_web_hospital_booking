@@ -5,7 +5,6 @@ import 'package:go_router/go_router.dart';
 import 'package:hospital_booking_mobile/core/widgets/app_ui.dart';
 import 'package:hospital_booking_mobile/features/auth/application/auth_controller.dart';
 import 'package:hospital_booking_mobile/features/booking/application/booking_flow_controller.dart';
-import 'package:hospital_booking_mobile/features/booking/application/otp_channels_provider.dart';
 import 'package:hospital_booking_mobile/features/booking/application/booking_patient_prefill.dart';
 import 'package:hospital_booking_mobile/features/booking/application/booking_submission_controller.dart';
 import 'package:hospital_booking_mobile/features/booking/domain/booking_submission.dart';
@@ -51,7 +50,6 @@ class _BookingPatientScreenState extends ConsumerState<BookingPatientScreen> {
   final _addressController = TextEditingController();
   final _insuranceCodeController = TextEditingController();
   final _registeredHospitalController = TextEditingController();
-  BookingOtpChannel _otpChannel = BookingOtpChannel.email;
   String? _gender;
   bool _hasBhyt = false;
   bool _prefilled = false;
@@ -110,17 +108,8 @@ class _BookingPatientScreenState extends ConsumerState<BookingPatientScreen> {
     super.dispose();
   }
 
-  /// Kênh thực gửi: nếu kênh đang chọn không còn được hỗ trợ thì dùng kênh đầu tiên.
-  BookingOtpChannel _effectiveOtpChannel() {
-    final available =
-        ref.read(otpChannelsProvider).value ?? const [BookingOtpChannel.email];
-    return available.contains(_otpChannel) ? _otpChannel : available.first;
-  }
-
   @override
   Widget build(BuildContext context) {
-    final availableOtpChannels =
-        ref.watch(otpChannelsProvider).value ?? const [BookingOtpChannel.email];
     // Đã đăng nhập và đặt cho chính mình: máy chủ không đòi OTP đặt lịch.
     final skipsOtp =
         ref.watch(authControllerProvider).isAuthenticated &&
@@ -295,10 +284,6 @@ class _BookingPatientScreenState extends ConsumerState<BookingPatientScreen> {
                 phone: _phoneController,
                 email: _emailController,
                 isRelative: _patientType == BookingPatientType.relative,
-                otpChannel: _otpChannel,
-                availableOtpChannels: availableOtpChannels,
-                onOtpChannelChanged: (value) =>
-                    setState(() => _otpChannel = value),
                 isSubmitting: isSubmitting,
                 skipsOtp: skipsOtp,
               ),
@@ -577,7 +562,6 @@ class _BookingPatientScreenState extends ConsumerState<BookingPatientScreen> {
             patientName: _nameController.text,
             patientPhone: _phoneController.text,
             patientEmail: _emailController.text,
-            otpChannel: _effectiveOtpChannel(),
             reason: _reasonController.text,
             gender: _gender,
             dateOfBirth: _dateOfBirthController.text,

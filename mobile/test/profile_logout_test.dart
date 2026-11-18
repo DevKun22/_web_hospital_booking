@@ -20,7 +20,7 @@ const _user = PatientUser(
   fullName: 'Nguyễn Văn An',
   phone: '0912345678',
   email: 'an@example.test',
-  isPhoneVerified: true,
+  isEmailVerified: true,
 );
 
 const _profile = PatientProfile(
@@ -28,7 +28,7 @@ const _profile = PatientProfile(
   fullName: 'Nguyễn Văn An',
   phone: '0912345678',
   email: 'an@example.test',
-  isPhoneVerified: true,
+  isEmailVerified: true,
   hasBhyt: false,
 );
 

@@ -61,7 +61,7 @@ class AuthSessionService {
     const meta = normalizeMeta(input.meta || {});
 
     const session = await prisma.$transaction(async (tx) => {
-      const created = await tx.dashboardSession.create({
+      const created = await tx.authSession.create({
         data: {
           userId: input.userId,
           kind: input.kind,
@@ -179,7 +179,7 @@ class AuthSessionService {
 
         if (consumed.count !== 1) throw new RefreshRotationConflict();
 
-        const updatedSession = await tx.dashboardSession.updateMany({
+        const updatedSession = await tx.authSession.updateMany({
           where: {
             id: session.id,
             kind: input.kind,
@@ -253,7 +253,7 @@ class AuthSessionService {
       throw new AppError("Không thể thu hồi phiên hiện tại bằng endpoint này", 409);
     }
 
-    const result = await prisma.dashboardSession.updateMany({
+    const result = await prisma.authSession.updateMany({
       where: {
         id: input.sessionId,
         userId: input.userId,
@@ -288,7 +288,7 @@ class AuthSessionService {
     client: Prisma.TransactionClient | typeof prisma = prisma,
   ) {
     const now = new Date();
-    const sessions = await client.dashboardSession.findMany({
+    const sessions = await client.authSession.findMany({
       where: {
         userId: input.userId,
         kind: input.kind,
@@ -300,7 +300,7 @@ class AuthSessionService {
     if (sessions.length === 0) return 0;
 
     const ids = sessions.map((session) => session.id);
-    await client.dashboardSession.updateMany({
+    await client.authSession.updateMany({
       where: { id: { in: ids } },
       data: { revokedAt: now, pushToken: null, pushDisabledAt: now },
     });
@@ -318,7 +318,7 @@ class AuthSessionService {
     const appVersion = normalize(input.appVersion);
 
     return prisma.$transaction(async (tx) => {
-      const session = await tx.dashboardSession.findFirst({
+      const session = await tx.authSession.findFirst({
         where: {
           id: input.sessionId,
           userId: input.userId,
@@ -339,7 +339,7 @@ class AuthSessionService {
 
       // Một FCM token đại diện cho một installation. Khi người dùng đăng nhập
       // lại, chuyển quyền sở hữu token sang phiên hiện tại thay vì gửi trùng.
-      await tx.dashboardSession.updateMany({
+      await tx.authSession.updateMany({
         where: {
           pushToken,
           id: { not: input.sessionId },
@@ -350,7 +350,7 @@ class AuthSessionService {
         },
       });
 
-      const updated = await tx.dashboardSession.update({
+      const updated = await tx.authSession.update({
         where: { id: input.sessionId },
         data: {
           pushToken,
@@ -399,7 +399,7 @@ class AuthSessionService {
     kind: SessionKind;
   }) {
     const now = new Date();
-    const updated = await prisma.dashboardSession.updateMany({
+    const updated = await prisma.authSession.updateMany({
       where: {
         id: input.sessionId,
         userId: input.userId,
@@ -426,7 +426,7 @@ class AuthSessionService {
 
   async list(userId: string, kind: SessionKind, currentSessionId: string) {
     const now = new Date();
-    const sessions = await prisma.dashboardSession.findMany({
+    const sessions = await prisma.authSession.findMany({
       where: { userId, kind, revokedAt: null, expiresAt: { gt: now } },
       select: {
         id: true,
@@ -453,7 +453,7 @@ class AuthSessionService {
     sessionId: string;
     userId: string;
   }) {
-    const session = await prisma.dashboardSession.findFirst({
+    const session = await prisma.authSession.findFirst({
       where: {
         id: input.sessionId,
         userId: input.userId,
@@ -485,7 +485,7 @@ class AuthSessionService {
     userId: string;
   }) {
     const now = new Date();
-    const session = await prisma.dashboardSession.findFirst({
+    const session = await prisma.authSession.findFirst({
       where: {
         id: input.sessionId,
         userId: input.userId,
@@ -495,7 +495,7 @@ class AuthSessionService {
         user: {
           role: "PATIENT",
           isActive: true,
-          isPhoneVerified: true,
+          isEmailVerified: true,
         },
       },
       select: {
@@ -543,7 +543,7 @@ class AuthSessionService {
       now.getTime() - patientSessionPolicy.activityTouchMs,
     );
     if (lastUsedAt <= touchBefore) {
-      await prisma.dashboardSession.updateMany({
+      await prisma.authSession.updateMany({
         where: {
           id: session.id,
           revokedAt: null,
@@ -559,7 +559,7 @@ class AuthSessionService {
     revokedAt = new Date(),
     tx: Prisma.TransactionClient | typeof prisma = prisma,
   ) {
-    await tx.dashboardSession.updateMany({
+    await tx.authSession.updateMany({
       where: { id: sessionId, revokedAt: null },
       data: {
         revokedAt,

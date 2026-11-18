@@ -56,6 +56,16 @@ void main() {
                   },
                   'department': {'name': 'Tim mạch'},
                   'package': {'name': 'Gói tim mạch'},
+                  'session': {
+                    'accessToken': 'access-token',
+                    'refreshToken': 'refresh-token',
+                    'user': {
+                      'id': 'user-1',
+                      'fullName': 'Nguyễn Văn An',
+                      'email': 'an@example.test',
+                      'isEmailVerified': true,
+                    },
+                  },
                 },
               },
               '/appointments/appointment-1/pending' => {
@@ -87,7 +97,6 @@ void main() {
         patientName: 'Nguyễn Văn An',
         patientPhone: '0912345678',
         patientEmail: 'an@example.test',
-        otpChannel: BookingOtpChannel.email,
       );
 
       final creation = await repository.create(
@@ -97,16 +106,20 @@ void main() {
       final pending = creation.pending!;
       final resent = await repository.resend(pending);
       await repository.abandon(resent);
-      final appointment = await repository.verify(
-        pending: resent,
-        otp: '654321',
-      );
+      final verified = await repository.verify(pending: resent, otp: '654321');
+      final appointment = verified.appointment;
+      // Máy chủ cấp luôn phiên người khám sau khi xác thực OTP đặt lịch.
+      expect(verified.session?.accessToken, 'access-token');
+      expect(verified.session?.user.email, 'an@example.test');
+      final verifyBody = Map<String, dynamic>.from(requests.last.data as Map);
+      expect(verifyBody['issueSession'], isTrue);
 
       final createBody = Map<String, dynamic>.from(requests.first.data as Map);
       expect(createBody['departmentId'], 'department-1');
       expect(createBody['packageId'], 'package-1');
       expect(createBody['timeSlotId'], 'slot-1');
-      expect(createBody['otpChannel'], 'EMAIL');
+      expect(createBody.containsKey('otpChannel'), isFalse);
+      expect(createBody['patientEmail'], 'an@example.test');
       expect(pending.otpTarget, 'an@example.test');
       expect(resent.debugOtp, '654321');
       expect(resent.holdReleaseToken, pending.holdReleaseToken);
@@ -178,7 +191,7 @@ void main() {
         patient: const BookingPatientDraft(
           patientName: 'Người thân',
           patientPhone: '0912345678',
-          otpChannel: BookingOtpChannel.sms,
+          patientEmail: 'nguoithan@example.test',
           dependentProfileId: 'dependent-1',
         ),
       );
@@ -256,7 +269,7 @@ void main() {
         patient: const BookingPatientDraft(
           patientName: 'Nguyễn Văn An',
           patientPhone: '0912345678',
-          otpChannel: BookingOtpChannel.email,
+          patientEmail: 'an@example.test',
         ),
         authenticated: true,
       );

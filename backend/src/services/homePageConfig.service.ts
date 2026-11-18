@@ -135,10 +135,11 @@ const normalize = (
 
 class HomePageConfigService {
   async get() {
-    const setting = await prisma.siteSetting.upsert({
-      where: { key: HOME_PAGE_CONFIG_KEY },
+    const setting = await prisma.appSetting.upsert({
+      where: { scope_key: { scope: "SITE", key: HOME_PAGE_CONFIG_KEY } },
       update: {},
       create: {
+        scope: "SITE",
         key: HOME_PAGE_CONFIG_KEY,
         value: toPrismaJson(defaultHomePageConfig),
         description: "Public home page content and visibility settings",
@@ -179,8 +180,8 @@ class HomePageConfigService {
       },
     } as unknown as Prisma.JsonValue);
 
-    const setting = await prisma.siteSetting.update({
-      where: { key: HOME_PAGE_CONFIG_KEY },
+    const setting = await prisma.appSetting.update({
+      where: { scope_key: { scope: "SITE", key: HOME_PAGE_CONFIG_KEY } },
       data: { value: toPrismaJson(nextValue) },
     });
 

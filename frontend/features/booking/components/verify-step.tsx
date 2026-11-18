@@ -12,14 +12,15 @@ const formatCountdown = (seconds: number) => {
 
 export function VerifyStep({ flow }: { flow: BookingFlow }) {
   const { state, dispatch, holdSeconds, resendCooldown, actions } = flow;
-  const { pending, otp, submitting } = state;
+  const { pending, otp, submitting, draft } = state;
   if (!pending) return null;
 
-  const lookupHref = `/tai-khoan/dang-nhap?next=/tai-khoan/lich-hen&phone=${encodeURIComponent(pending.patientPhone)}`;
+  const email = draft.patientEmail.trim();
+  const lookupHref = `/tai-khoan/dang-nhap?next=/tai-khoan/lich-hen&email=${encodeURIComponent(email)}`;
   const urgent = pending.holdExpiresAt ? holdSeconds <= 60 : false;
 
   return (
-    <StepFrame title="Nhập mã xác thực" description={`Mã 6 số đã gửi tới ${pending.patientPhone}. Lịch chỉ được giữ sau khi mã đúng.`}>
+    <StepFrame title="Nhập mã xác thực" description={`Mã 6 số đã gửi tới email ${email}. Lịch chỉ được giữ sau khi mã đúng.`}>
       {pending.holdExpiresAt ? (
         <p className={`flex items-center justify-between rounded-lg px-3 py-2.5 text-sm ${urgent ? "bg-[var(--public-danger-soft)] text-[var(--public-danger)]" : "bg-[var(--public-warning-soft)] text-[var(--public-warning)]"}`}>
           <span className="font-medium">Giữ khung giờ còn</span>
@@ -65,7 +66,7 @@ export function VerifyStep({ flow }: { flow: BookingFlow }) {
           </button>
         </div>
         <p className="mt-2 text-xs leading-5 text-[var(--public-muted)]">
-          Nếu lỡ thoát trang, vào <Link href={lookupHref} className="font-semibold text-[var(--public-primary)] underline underline-offset-2">Tra cứu lịch hẹn</Link> và nhập mã này cùng số điện thoại để xác thực lại.
+          Nếu lỡ thoát trang, vào <Link href={lookupHref} className="font-semibold text-[var(--public-primary)] underline underline-offset-2">Tra cứu lịch hẹn</Link> và đăng nhập bằng email này để xác thực lại.
         </p>
       </div>
     </StepFrame>

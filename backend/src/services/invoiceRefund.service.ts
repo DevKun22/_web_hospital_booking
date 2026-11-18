@@ -1,4 +1,5 @@
 import { randomBytes } from "node:crypto";
+import { writeAppointmentLog } from "./appointmentLog.service.js";
 import { Prisma } from "../../generated/prisma/client.js";
 import { prisma } from "../config/prisma.js";
 import { AppError } from "../utils/appError.js";
@@ -220,13 +221,11 @@ class InvoiceRefundService {
         },
         tx,
       );
-      await tx.appointmentLog.create({
-        data: {
-          appointmentId: invoice.appointmentId,
-          action: "PAYMENT_REFUNDED",
-          note: `Hoàn tiền: ${input.refundReason.trim()}${refundReference ? ` · ${refundReference}` : ""}`,
-          createdById: actorId,
-        },
+      await writeAppointmentLog(tx, {
+        appointmentId: invoice.appointmentId,
+        action: "PAYMENT_REFUNDED",
+        note: `Hoàn tiền: ${input.refundReason.trim()}${refundReference ? ` · ${refundReference}` : ""}`,
+        actorId,
       });
       const refundedInvoice = await tx.invoice.findUniqueOrThrow({
         where: { id },

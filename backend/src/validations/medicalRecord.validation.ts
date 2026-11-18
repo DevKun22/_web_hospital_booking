@@ -11,7 +11,6 @@ export const updateMedicalRecordSchema = z.object({
   symptoms: z.string().trim().nullable().optional(),
   diagnosis: z.string().trim().nullable().optional(),
   treatment: z.string().trim().nullable().optional(),
-  prescription: z.string().trim().nullable().optional(),
   doctorNotes: z.string().trim().nullable().optional(),
   resultPdfUrl: medicalFileUrl.nullable().optional(),
 });

@@ -3,18 +3,11 @@ import 'package:hospital_booking_mobile/features/booking/domain/booking_catalog.
 
 import 'package:hospital_booking_mobile/core/network/json_readers.dart';
 
-enum BookingOtpChannel { sms, email }
-
-extension BookingOtpChannelValue on BookingOtpChannel {
-  String get apiValue => this == BookingOtpChannel.email ? 'EMAIL' : 'SMS';
-}
-
 class BookingPatientDraft {
   const BookingPatientDraft({
     required this.patientName,
     required this.patientPhone,
-    required this.otpChannel,
-    this.patientEmail,
+    required this.patientEmail,
     this.reason,
     this.gender,
     this.dateOfBirth,
@@ -28,8 +21,9 @@ class BookingPatientDraft {
 
   final String patientName;
   final String patientPhone;
-  final String? patientEmail;
-  final BookingOtpChannel otpChannel;
+
+  /// Email là định danh và nơi nhận OTP duy nhất.
+  final String patientEmail;
   final String? reason;
   final String? gender;
   final String? dateOfBirth;
@@ -50,8 +44,7 @@ class BookingPatientDraft {
     'timeSlotId': selection.slotId,
     'patientName': patientName.trim(),
     'patientPhone': patientPhone.trim(),
-    'patientEmail': jsonNullableString(patientEmail),
-    'otpChannel': otpChannel.apiValue,
+    'patientEmail': patientEmail.trim().toLowerCase(),
     'reason': jsonNullableString(reason),
     'gender': jsonNullableString(gender),
     'dateOfBirth': jsonNullableString(dateOfBirth),
@@ -90,7 +83,6 @@ class PendingBooking {
     this.holdReleaseToken,
     this.otpDeliveryStatus,
     this.debugOtp,
-    this.otpChannel = BookingOtpChannel.sms,
     this.otpTarget,
   });
 
@@ -103,9 +95,6 @@ class PendingBooking {
     holdReleaseToken: jsonNullableString(json['holdReleaseToken']),
     otpDeliveryStatus: json['otpDeliveryStatus']?.toString(),
     debugOtp: json['debugOtp']?.toString(),
-    otpChannel: json['otpChannel']?.toString().toUpperCase() == 'EMAIL'
-        ? BookingOtpChannel.email
-        : BookingOtpChannel.sms,
     otpTarget: json['otpTarget']?.toString(),
   );
 
@@ -117,7 +106,8 @@ class PendingBooking {
   final String? holdReleaseToken;
   final String? otpDeliveryStatus;
   final String? debugOtp;
-  final BookingOtpChannel otpChannel;
+
+  /// Email nhận mã OTP.
   final String? otpTarget;
 
   bool get holdExpired =>
@@ -129,7 +119,6 @@ class PendingBooking {
     String? holdReleaseToken,
     String? otpDeliveryStatus,
     String? debugOtp,
-    BookingOtpChannel? otpChannel,
     String? otpTarget,
   }) => PendingBooking(
     appointmentId: appointmentId,
@@ -140,7 +129,6 @@ class PendingBooking {
     holdReleaseToken: holdReleaseToken ?? this.holdReleaseToken,
     otpDeliveryStatus: otpDeliveryStatus ?? this.otpDeliveryStatus,
     debugOtp: debugOtp ?? this.debugOtp,
-    otpChannel: otpChannel ?? this.otpChannel,
     otpTarget: otpTarget ?? this.otpTarget,
   );
 
@@ -152,7 +140,6 @@ class PendingBooking {
     'holdExpiresAt': holdExpiresAt?.toIso8601String(),
     'holdReleaseToken': holdReleaseToken,
     'otpDeliveryStatus': otpDeliveryStatus,
-    'otpChannel': otpChannel.apiValue,
     'otpTarget': otpTarget,
   };
 }

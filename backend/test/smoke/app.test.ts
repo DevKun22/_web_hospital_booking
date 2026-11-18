@@ -38,7 +38,7 @@ const {
   isRateLimitEnabled,
   isRuntimeMetricsEnabled,
   getNotificationDispatchBatchSize,
-  getNotificationDispatchConcurrency,
+  getNotificationWorkerIdleMaxMs,
   getNotificationMaxDeliveryAttempts,
   getNotificationWorkerIntervalMs,
   getOutboxDispatchBatchSize,
@@ -779,19 +779,9 @@ test("I/O and batch concurrency settings have conservative bounded defaults", ()
     }),
     64,
   );
-  assert.equal(getNotificationDispatchConcurrency({}), 4);
-  assert.equal(
-    getNotificationDispatchConcurrency({
-      NOTIFICATION_DISPATCH_CONCURRENCY: "0",
-    }),
-    4,
-  );
-  assert.equal(
-    getNotificationDispatchConcurrency({
-      NOTIFICATION_DISPATCH_CONCURRENCY: "99",
-    }),
-    32,
-  );
+  assert.equal(getNotificationWorkerIdleMaxMs({}), 60_000);
+  assert.equal(getNotificationWorkerIdleMaxMs({ NOTIFICATION_WORKER_IDLE_MAX_MS: "1" }), 5_000);
+  assert.equal(getNotificationWorkerIdleMaxMs({ NOTIFICATION_WORKER_IDLE_MAX_MS: "120000" }), 120_000);
   assert.equal(
     getReminderDispatchConcurrency({ REMINDER_DISPATCH_CONCURRENCY: "99" }),
     16,

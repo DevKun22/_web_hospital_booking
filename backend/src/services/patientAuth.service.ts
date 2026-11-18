@@ -4,12 +4,7 @@ import { getPatientAbsoluteExpiry } from "../config/patientSessionPolicy.js";
 import { AppError } from "../utils/appError.js";
 import { generatePatientAccessToken } from "../utils/jwt.js";
 import AuthOtpService from "./authOtp.service.js";
-import type { OtpChannel } from "../../generated/prisma/enums.js";
-import {
-  canDeliverSms,
-  maskEmail,
-  maskPhone,
-} from "../config/otpChannels.js";
+import { maskEmail } from "../config/otpChannels.js";
 import AuthSessionService, {
   type SessionMeta,
 } from "./authSession.service.js";
@@ -24,16 +19,16 @@ const toPatientUser = (user: {
   id: string;
   fullName: string;
   phone: string | null;
-  email: string | null;
+  email: string;
   avatar: string | null;
-  isPhoneVerified: boolean;
+  isEmailVerified: boolean;
 }) => ({
   id: user.id,
   fullName: user.fullName,
   phone: user.phone,
   email: user.email,
   avatar: user.avatar,
-  isPhoneVerified: user.isPhoneVerified,
+  isEmailVerified: user.isEmailVerified,
 });
 
 const createAccessToken = (userId: string, sessionId: string) =>
@@ -43,82 +38,45 @@ const createAccessToken = (userId: string, sessionId: string) =>
   );
 
 class PatientAuthService {
-  // Đăng nhập bằng SĐT hoặc email. Kênh gửi OTP được chọn theo khả năng hệ
-  // thống: SMS nếu có nhà cung cấp (hoặc số demo), không thì gửi về email đã
-  // xác minh của tài khoản. Tài khoản chỉ được tạo mới khi gửi được OTP.
-  async requestOtp(
-    identifier: { phone?: string; email?: string },
-    ipAddress: string,
-  ) {
-    const email = identifier.email?.trim().toLowerCase();
-    const phone = identifier.phone?.trim();
+  // Đăng nhập bằng email: OTP gửi về chính email đó nên người nhận mã chứng minh sở hữu email. Email chưa có tài khoản thì tạo
+  // tài khoản người khám mới (ngay khi gửi OTP; chỉ được dùng sau khi xác thực OTP thành công).
+  async requestOtp(identifier: { email: string }, ipAddress: string) {
+    const email = identifier.email.trim().toLowerCase();
 
-    const existing = email
-      ? await prisma.user.findUnique({
-          where: { email },
-          select: { id: true, role: true, isActive: true, email: true, phone: true },
-        })
-      : await prisma.user.findUnique({
-          where: { phone: phone! },
-          select: { id: true, role: true, isActive: true, email: true, phone: true },
-        });
+    const existing = await prisma.user.findUnique({
+      where: { email },
+      select: { id: true, role: true, isActive: true },
+    });
 
     if (existing && existing.role !== "PATIENT") {
       throw new AppError(
-        "Tài khoản này không dùng được cho cổng người khám",
+        "Email này không dùng được cho cổng người khám",
         409,
-        "PHONE_RESERVED",
+        "EMAIL_RESERVED",
       );
     }
     if (existing && !existing.isActive) {
       throw new AppError("Tài khoản đã bị khóa", 403, "ACCOUNT_DISABLED");
     }
 
-    let channel: OtpChannel;
-    let target: string;
-    if (email) {
-      if (!existing) {
-        throw new AppError(
-          "Email chưa gắn với tài khoản nào. Vui lòng đăng nhập bằng số điện thoại đã đặt lịch.",
-          404,
-          "PATIENT_EMAIL_NOT_FOUND",
-        );
-      }
-      channel = "EMAIL";
-      target = email;
-    } else if (canDeliverSms(phone)) {
-      channel = "SMS";
-      target = phone!;
-    } else if (existing?.email) {
-      channel = "EMAIL";
-      target = existing.email;
-    } else {
-      throw new AppError(
-        "Hệ thống hiện chỉ gửi mã qua email nhưng số điện thoại này chưa có email. Hãy đặt lịch kèm email hoặc liên hệ cơ sở khám.",
-        400,
-        "OTP_CHANNEL_UNAVAILABLE",
-      );
-    }
-
     const user =
       existing ??
       (await prisma.user.upsert({
-        where: { phone: phone! },
+        where: { email },
         update: {},
         create: {
           fullName: "Người khám",
-          phone: phone!,
+          email,
           role: "PATIENT",
-          isPhoneVerified: false,
         },
-        select: { id: true, role: true, isActive: true, email: true, phone: true },
+        select: { id: true, role: true, isActive: true },
       }));
 
     if (user.role !== "PATIENT") {
       throw new AppError(
-        "Tài khoản này không dùng được cho cổng người khám",
+        "Email này không dùng được cho cổng người khám",
         409,
-        "PHONE_RESERVED",
+        "EMAIL_RESERVED",
       );
     }
 
@@ -134,16 +92,15 @@ class PatientAuthService {
 
     try {
       const otp = await AuthOtpService.sendOtp(
-        target,
+        email,
         "PATIENT_PORTAL_LOGIN",
         ipAddress,
-        { channel, challengeId: challenge.id, userId: user.id },
+        { challengeId: challenge.id, userId: user.id },
       );
 
       return {
         challengeId: challenge.id,
-        channel,
-        maskedTarget: channel === "EMAIL" ? maskEmail(target) : maskPhone(target),
+        maskedTarget: maskEmail(email),
         deliveryStatus: otp.deliveryStatus,
         expiresAt: challenge.expiresAt,
         expiresIn: CHALLENGE_EXPIRES_SECONDS,
@@ -173,7 +130,7 @@ class PatientAuthService {
     if (
       !challenge ||
       challenge.purpose !== "PATIENT_PORTAL_LOGIN" ||
-      challenge.isUsed ||
+      challenge.usedAt ||
       challenge.expiresAt <= new Date()
     ) {
       throw new AppError("Challenge không hợp lệ hoặc đã hết hạn", 401);
@@ -187,29 +144,27 @@ class PatientAuthService {
       throw new AppError("Tài khoản người khám không hợp lệ", 403);
     }
 
-    const otpChannel = challenge.otpCodes[0]?.channel || "SMS";
     try {
       await AuthOtpService.verifyOtp(
-        challenge.otpCodes[0]?.target || challenge.user.phone || "",
+        challenge.otpCodes[0]?.email || challenge.user.email,
         input.otp,
         "PATIENT_PORTAL_LOGIN",
         {
-          channel: otpChannel,
           challengeId: challenge.id,
           ipAddress: challenge.ipAddress || undefined,
         },
       );
     } catch (error) {
       await prisma.dashboardLoginChallenge.updateMany({
-        where: { id: challenge.id, isUsed: false },
+        where: { id: challenge.id, usedAt: null },
         data: { attempts: { increment: 1 } },
       });
       throw error;
     }
 
     const claimed = await prisma.dashboardLoginChallenge.updateMany({
-      where: { id: challenge.id, isUsed: false },
-      data: { isUsed: true, usedAt: new Date() },
+      where: { id: challenge.id, usedAt: null },
+      data: { usedAt: new Date() },
     });
 
     if (claimed.count !== 1) {
@@ -218,8 +173,7 @@ class PatientAuthService {
 
     const user = await prisma.user.update({
       where: { id: challenge.userId },
-      data:
-        otpChannel === "EMAIL" ? { isEmailVerified: true } : { isPhoneVerified: true },
+      data: { isEmailVerified: true },
     });
     const refreshExpiresAt = getPatientAbsoluteExpiry(input.meta?.platform);
     const authSession = await AuthSessionService.create({
@@ -227,6 +181,49 @@ class PatientAuthService {
       kind: "PATIENT",
       expiresAt: refreshExpiresAt,
       meta: input.meta,
+    });
+
+    return {
+      tokenType: "Bearer" as const,
+      accessToken: createAccessToken(user.id, authSession.session.id),
+      refreshToken: authSession.refreshToken,
+      refreshExpiresAt,
+      user: toPatientUser(user),
+    };
+  }
+
+  // Sau khi OTP đặt lịch được xác thực: người nhập đúng mã đã chứng minh sở hữu email của lịch, tương đương bước đăng nhập OTP,
+  // nên cấp luôn phiên người khám để không bắt nhập OTP lần hai. Chỉ cấp khi lịch đã qua bước xác thực và email khớp tài khoản.
+  async issueSessionForVerifiedAppointment(appointmentId: string, meta?: SessionMeta) {
+    const appointment = await prisma.appointment.findUnique({
+      where: { id: appointmentId },
+      select: {
+        status: true,
+        patientEmail: true,
+        patient: { select: { id: true, fullName: true, phone: true, email: true, avatar: true, role: true, isActive: true } },
+      },
+    });
+
+    if (
+      !appointment ||
+      appointment.status === "PENDING_OTP" ||
+      appointment.patient.role !== "PATIENT" ||
+      !appointment.patient.isActive ||
+      appointment.patient.email.toLowerCase() !== appointment.patientEmail.toLowerCase()
+    ) {
+      return null;
+    }
+
+    const user = await prisma.user.update({
+      where: { id: appointment.patient.id },
+      data: { isEmailVerified: true },
+    });
+    const refreshExpiresAt = getPatientAbsoluteExpiry(meta?.platform);
+    const authSession = await AuthSessionService.create({
+      userId: user.id,
+      kind: "PATIENT",
+      expiresAt: refreshExpiresAt,
+      meta,
     });
 
     return {
@@ -251,7 +248,7 @@ class PatientAuthService {
     if (
       rotated.user.role !== "PATIENT" ||
       !rotated.user.isActive ||
-      !rotated.user.isPhoneVerified
+      !rotated.user.isEmailVerified
     ) {
       await AuthSessionService.revokeByRefreshToken(
         rotated.refreshToken,

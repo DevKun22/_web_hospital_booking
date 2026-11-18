@@ -1,71 +1,13 @@
-import {
-  AppointmentService,
-  AuthOtpService,
-  AuthSessionService,
-  InvoiceService,
-  MedicalRecordService,
-  NotificationService,
-  PolicyService,
-  PrescriptionService,
-  RbacService,
-  ScheduleReconciliationService,
-  activeDatabase,
-  activeDatabaseMarker,
-  activeDatabaseSchema,
-  activeDatabaseUrl,
-  after,
-  assert,
-  authCookie,
-  bcrypt,
-  before,
-  beforeEach,
-  bookingBody,
-  buildVnpayCallbackQuery,
-  buildVnpayQueryResponse,
-  buildVnpayRefundResponse,
-  callVnpayRefund,
-  createApp,
-  createDashboardUser,
-  createIssuedPrescription,
-  createMedicineViaApi,
-  createPayableInvoice,
-  createStoredAppointment,
-  createVnpayPaidInvoice,
-  createVnpayPayment,
-  dashboardCall,
-  dashboardHeaders,
-  dateOnly,
-  emailBookingBody,
-  fixture,
-  futureDate,
-  generateDashboardAccessToken,
-  generatePatientAccessToken,
-  getCookie,
-  http,
-  isFirebaseAdminConfigured,
-  isoDateFromToday,
-  jwt,
-  loginPatient,
-  moveAppointmentStart,
-  prisma,
-  receiveViaApi,
-  resetDatabase,
-  seedFixture,
-  startHttpServer,
-  test,
-  vietnamClock,
-  vnpayIpn,
-  withStubbedVnpayQuery,
-  withStubbedVnpayRefund,
-} from "./support/context.js";
+import { AppointmentService, AuthOtpService, AuthSessionService, InvoiceService, MedicalRecordService, NotificationService, PolicyService, PrescriptionService, RbacService, ScheduleReconciliationService, activeDatabase, activeDatabaseMarker, activeDatabaseSchema, activeDatabaseUrl, after, assert, authCookie, bcrypt, before, beforeEach, bookingBody, buildVnpayCallbackQuery, buildVnpayQueryResponse, buildVnpayRefundResponse, callVnpayRefund, createApp, createDashboardUser, createIssuedPrescription, createMedicineViaApi, createPayableInvoice, createStoredAppointment, createVnpayPaidInvoice, createVnpayPayment, dashboardCall, dashboardHeaders, dateOnly, emailBookingBody, fixture, futureDate, generateDashboardAccessToken, generatePatientAccessToken, getCookie, http, isFirebaseAdminConfigured, isoDateFromToday, jwt, loginPatient, moveAppointmentStart, prisma, receiveViaApi, resetDatabase, seedFixture, startHttpServer, test, vietnamClock, vnpayIpn, withStubbedVnpayQuery, withStubbedVnpayRefund, appointmentLogs, emailOf } from "./support/context.js";
 
 test("pharmacy schema enforces non-negative stock and consistent ledger rows", async () => {
   const pharmacist = await prisma.user.create({
     data: {
       fullName: "Phase Pharmacist",
       phone: "0900000009",
+      email: emailOf("0900000009"),
       role: "PHARMACIST",
-      isPhoneVerified: true,
+      isEmailVerified: true,
     },
   });
   const medicine = await prisma.medicine.create({
@@ -135,12 +77,12 @@ test("new log actions and prescription dispense defaults are available", async (
     "PRESCRIPTION_CANCELLED",
     "PRESCRIPTION_DISPENSED",
   ] as const) {
-    await prisma.appointmentLog.create({
+    await appointmentLogs.create({
       data: { appointmentId: appointment.id, action, note: "schema check" },
     });
   }
   assert.equal(
-    await prisma.appointmentLog.count({ where: { appointmentId: appointment.id } }),
+    await appointmentLogs.count({ where: { appointmentId: appointment.id } }),
     6,
   );
 
@@ -159,7 +101,7 @@ test("new log actions and prescription dispense defaults are available", async (
       appointmentId: appointment.id,
       patientId: appointment.patientId,
       doctorId: fixture.doctorOne.id,
-      items: { create: [{ medicineName: "Thuốc mua ngoài", quantity: 2 }] },
+      items: { create: [{ medicineName: "Thuốc mua ngoài", quantity: 2, fulfillmentStatus: "OUTSIDE" }] },
     },
     include: { items: true },
   });
@@ -362,7 +304,7 @@ test("dispensing deducts stock for the whole prescription or not at all", async 
 
   // Dấu vết lâm sàng và thông báo cho người khám.
   assert.equal(
-    await prisma.appointmentLog.count({
+    await appointmentLogs.count({
       where: { appointmentId: appointment.id, action: "PRESCRIPTION_DISPENSED" },
     }),
     1,
@@ -859,8 +801,9 @@ test("the pharmacist only dispenses what the doctor prescribed and the patient p
   assert.equal(refused.status, 409);
   assert.equal(refused.body.code, "INSUFFICIENT_STOCK");
   assert.equal(
+    // Dòng thuốc ngoài danh mục đã là mua ngoài từ lúc kê nên chỉ còn hai dòng kho chờ cấp.
     await prisma.prescriptionItem.count({ where: { prescriptionId: mixed.prescription.id, fulfillmentStatus: "PENDING" } }),
-    3,
+    2,
   );
 
   // Dược sĩ không có quyền đánh dấu dòng; việc này thuộc về bác sĩ.
@@ -913,7 +856,8 @@ test("the pharmacist only dispenses what the doctor prescribed and the patient p
     ],
   });
   assert.equal((await resolve(nothing.prescription.id, nothing.prescription.items[0].id, { status: "OUT_OF_STOCK" })).status, 200);
-  assert.equal((await resolve(nothing.prescription.id, nothing.prescription.items[1].id, { status: "OUTSIDE" })).status, 200);
+  // Dòng thuốc mua ngoài đã được đánh dấu từ lúc kê, không cần xử lý lại.
+  assert.equal((await resolve(nothing.prescription.id, nothing.prescription.items[1].id, { status: "OUTSIDE" })).status, 409);
   const none = await dispense(nothing.prescription.id, { confirmed: true });
   assert.equal(none.status, 200);
   assert.equal(await stock(medicineB.id), 1);

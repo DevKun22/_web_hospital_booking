@@ -137,17 +137,18 @@ class ChatbotSettingsService {
       isActive: true,
       createdAt: true,
       updatedAt: true,
-    } satisfies Prisma.ChatbotSettingSelect;
+    } satisfies Prisma.AppSettingSelect;
 
-    const existing = await prisma.chatbotSetting.findUnique({
-      where: { key: CHATBOT_RUNTIME_SETTING_KEY },
+    const existing = await prisma.appSetting.findUnique({
+      where: { scope_key: { scope: "CHATBOT", key: CHATBOT_RUNTIME_SETTING_KEY } },
       select,
     });
 
     const setting =
       existing ||
-      (await prisma.chatbotSetting.create({
+      (await prisma.appSetting.create({
         data: {
+          scope: "CHATBOT",
           key: CHATBOT_RUNTIME_SETTING_KEY,
           value: toPrismaJson(DEFAULT_CHATBOT_RUNTIME_SETTINGS),
           description: "Runtime settings for chatbot AI, FAQ, fallback and session behavior",
@@ -172,8 +173,8 @@ class ChatbotSettingsService {
       ...runtimeInput,
     });
 
-    const setting = await prisma.chatbotSetting.update({
-      where: { key: CHATBOT_RUNTIME_SETTING_KEY },
+    const setting = await prisma.appSetting.update({
+      where: { scope_key: { scope: "CHATBOT", key: CHATBOT_RUNTIME_SETTING_KEY } },
       data: {
         value: toPrismaJson(nextValue),
         isActive: typeof isActive === "boolean" ? isActive : current.isActive,

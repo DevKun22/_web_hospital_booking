@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:hospital_booking_mobile/core/errors/api_exception.dart';
 import 'package:hospital_booking_mobile/core/network/api_contract.dart';
 import 'package:hospital_booking_mobile/features/booking/domain/booking_catalog.dart';
+import 'package:hospital_booking_mobile/features/auth/domain/auth_session.dart';
 import 'package:hospital_booking_mobile/features/booking/domain/booking_submission.dart';
 
 import 'package:hospital_booking_mobile/core/network/json_readers.dart';
@@ -44,12 +45,9 @@ class BookingSubmissionRepository {
         }
         return BookingCreation.confirmed(confirmed);
       }
-      final pending = PendingBooking.fromJson(data).copyWith(
-        otpChannel: patient.otpChannel,
-        otpTarget: patient.otpChannel == BookingOtpChannel.email
-            ? patient.patientEmail?.trim()
-            : patient.patientPhone.trim(),
-      );
+      final pending = PendingBooking.fromJson(
+        data,
+      ).copyWith(otpTarget: patient.patientEmail.trim());
       if (pending.appointmentId.isEmpty ||
           pending.bookingCode.isEmpty ||
           pending.holdReleaseToken == null) {
@@ -80,7 +78,6 @@ class BookingSubmissionRepository {
         holdReleaseToken: pending.holdReleaseToken,
         otpDeliveryStatus: data['otpDeliveryStatus']?.toString(),
         debugOtp: data['debugOtp']?.toString(),
-        otpChannel: pending.otpChannel,
         otpTarget: pending.otpTarget,
       );
     });
@@ -104,18 +101,23 @@ class BookingSubmissionRepository {
     });
   }
 
-  Future<BookedAppointment> verify({
+  /// Xác thực OTP đặt lịch; máy chủ cấp luôn phiên người khám ([VerifiedBooking.session]) để khỏi nhập OTP lần hai.
+  Future<VerifiedBooking> verify({
     required PendingBooking pending,
     required String otp,
   }) async {
     return guardApi(() async {
       final response = await _publicDio.post<dynamic>(
         '/appointments/${pending.appointmentId}/verify-otp',
-        data: {'otp': otp.trim()},
+        data: {
+          'otp': otp.trim(),
+          'issueSession': true,
+          'platform': 'android',
+          'deviceName': 'Flutter android',
+        },
       );
-      final appointment = BookedAppointment.fromJson(
-        requireDataMap(response.data),
-      );
+      final data = requireDataMap(response.data);
+      final appointment = BookedAppointment.fromJson(data);
       if (appointment.id.isEmpty || appointment.bookingCode.isEmpty) {
         throw const ApiException(
           kind: ApiErrorKind.unknown,
@@ -123,7 +125,21 @@ class BookingSubmissionRepository {
           message: 'Phản hồi xác nhận lịch không đúng định dạng.',
         );
       }
-      return appointment;
+      final rawSession = data['session'];
+      final session = rawSession is Map
+          ? AuthSession.fromJson(Map<String, dynamic>.from(rawSession))
+          : null;
+      return VerifiedBooking(
+        appointment: appointment,
+        session: session != null && session.isValid ? session : null,
+      );
     });
   }
+}
+
+class VerifiedBooking {
+  const VerifiedBooking({required this.appointment, this.session});
+
+  final BookedAppointment appointment;
+  final AuthSession? session;
 }

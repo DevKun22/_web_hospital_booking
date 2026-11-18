@@ -8,7 +8,6 @@ import {
   estimateAmount,
   todayInVietnam,
   type BookingCatalog,
-  type OtpChannel,
   type PendingAppointment,
 } from "@/features/booking/model";
 import { clearPendingAppointment, readPendingAppointment, writePendingAppointment } from "@/features/booking/pending-storage";
@@ -46,9 +45,8 @@ export function useBookingFlow(catalog: BookingCatalog) {
   const slotsLoading = slotsQuery.isLoading;
   const slotsError = slotsQuery.error instanceof Error ? slotsQuery.error.message : "";
 
-  const otpChannels = usePublicCapabilities().data?.otp.channels ?? (["EMAIL"] as OtpChannel[]);
-  // Kênh đang chọn không còn khả dụng (ví dụ SMS chưa cấu hình) thì dùng kênh khả dụng đầu tiên.
-  const otpChannel: OtpChannel = otpChannels.includes(draft.otpChannel) ? draft.otpChannel : otpChannels[0];
+  // OTP chỉ gửi qua email; false khi backend chưa cấu hình dịch vụ gửi thư (mặc định coi là khả dụng cho tới khi biết).
+  const emailOtpAvailable = usePublicCapabilities().data?.otp.emailOtpAvailable ?? true;
 
   const sessionQuery = useQuery({
     queryKey: patientSessionQueryKey,
@@ -148,7 +146,7 @@ export function useBookingFlow(catalog: BookingCatalog) {
   }, [patient, sessionResolved, dispatch]);
 
   const profilePrefilled = Boolean(
-    patient && ((patient.fullName && draft.patientName === patient.fullName) || (patient.phone && draft.patientPhone === patient.phone)),
+    patient && ((patient.fullName && draft.patientName === patient.fullName) || (patient.email && draft.patientEmail === patient.email)),
   );
 
   // ---- hành động ----
@@ -170,12 +168,12 @@ export function useBookingFlow(catalog: BookingCatalog) {
 
   const submitDetails = useCallback(async () => {
     const today = todayInVietnam();
-    const error = validateBooking(selection, { ...draft, otpChannel }, today);
+    const error = validateBooking(selection, draft, today);
     if (error) return fail(error);
 
     dispatch({ type: "submitting", value: true });
     try {
-      const result = await createAppointment(selection, draft, otpChannel);
+      const result = await createAppointment(selection, draft);
       dispatch({
         type: "hold_created",
         pending: result,
@@ -186,7 +184,7 @@ export function useBookingFlow(catalog: BookingCatalog) {
     } catch (err) {
       fail(messageOf(err, "Không tạo được lịch hẹn"));
     }
-  }, [selection, draft, otpChannel, dispatch, fail, refreshSlots]);
+  }, [selection, draft, dispatch, fail, refreshSlots]);
 
   const verifyOtp = useCallback(async () => {
     if (!pending) return;
@@ -195,14 +193,16 @@ export function useBookingFlow(catalog: BookingCatalog) {
 
     dispatch({ type: "submitting", value: true });
     try {
-      const appointment = await verifyAppointmentOtp(pending.appointmentId, state.otp);
+      const { appointment, user } = await verifyAppointmentOtp(pending.appointmentId, state.otp);
+      // Máy chủ đã đăng nhập cổng người khám bằng cookie: cập nhật phiên để nút "Xem lịch của tôi" vào thẳng cổng.
+      if (user) queryClient.setQueryData(patientSessionQueryKey, user);
       clearPendingAppointment();
       dispatch({ type: "verified", appointment, notice: "Xác thực OTP thành công. Lịch hẹn đã được xác nhận." });
       void refreshSlots();
     } catch (err) {
       fail(messageOf(err, "Xác thực OTP thất bại"));
     }
-  }, [pending, state.otp, dispatch, fail, refreshSlots]);
+  }, [pending, state.otp, dispatch, fail, refreshSlots, queryClient]);
 
   const resendOtp = useCallback(async () => {
     if (!pending) return;
@@ -257,8 +257,7 @@ export function useBookingFlow(catalog: BookingCatalog) {
     slots,
     slotsLoading,
     slotsError,
-    otpChannels,
-    otpChannel,
+    emailOtpAvailable,
     patient,
     profilePrefilled,
     holdSeconds,

@@ -12,9 +12,8 @@ export const createAppointmentSchema = z.object({
 
   patientName: z.string().trim().min(2, "Ho ten toi thieu 2 ky tu"),
   patientPhone: z.string().regex(phoneRegex, "So dien thoai khong hop le"),
-  patientEmail: z.string().trim().email("Email khong hop le").nullable().optional(),
-  // Không đặt mặc định: backend chọn EMAIL khi có email, ngược lại SMS.
-  otpChannel: z.enum(["SMS", "EMAIL"]).optional(),
+  // Email là định danh của người đặt lịch và nơi nhận OTP xác nhận; số điện thoại chỉ để cơ sở khám liên hệ.
+  patientEmail: z.string().trim().toLowerCase().email("Email khong hop le"),
   reason: z.string().trim().nullable().optional(),
 
   gender: z.enum(["MALE", "FEMALE", "OTHER"]).nullable().optional(),
@@ -32,13 +31,6 @@ export const createAppointmentSchema = z.object({
   // dị ứng/tiền sử (kiểm tra ở AppointmentService).
   healthConsent: z.boolean().optional(),
 }).superRefine((value, ctx) => {
-  if (value.otpChannel === "EMAIL" && !value.patientEmail) {
-    ctx.addIssue({
-      code: "custom",
-      path: ["patientEmail"],
-      message: "Email la bat buoc khi chon xac thuc OTP qua email",
-    });
-  }
   if (value.hasBHYT === true && !value.healthInsuranceCode?.trim()) {
     ctx.addIssue({
       code: "custom",
@@ -48,8 +40,14 @@ export const createAppointmentSchema = z.object({
   }
 });
 
+// issueSession: client muốn nhận luôn phiên đăng nhập người khám (web qua proxy cookie, mobile lưu token) để khỏi nhập OTP lần hai.
 export const verifyAppointmentOtpSchema = z.object({
   otp: z.string().length(6, "OTP phai co 6 so").regex(/^[0-9]+$/, "OTP chi duoc chua so"),
+  issueSession: z.boolean().optional(),
+  deviceId: z.string().trim().min(1).max(128).optional(),
+  deviceName: z.string().trim().min(1).max(128).optional(),
+  platform: z.enum(["ios", "android", "web"]).optional(),
+  appVersion: z.string().trim().min(1).max(40).optional(),
 });
 
 export const abandonPendingAppointmentSchema = z.object({

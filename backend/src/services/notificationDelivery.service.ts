@@ -1,16 +1,13 @@
 import { Prisma } from "../../generated/prisma/client.js";
-import {
-  getNotificationDispatchConcurrency,
-  getNotificationMaxDeliveryAttempts,
-} from "../config/environment.js";
+import { getNotificationMaxDeliveryAttempts } from "../config/environment.js";
 import { prisma } from "../config/prisma.js";
-import { mapWithConcurrency } from "../utils/concurrency.js";
 import FcmPushService from "./fcmPush.service.js";
 import { isNotificationPushEnabled } from "./notificationPreference.service.js";
-import { logger } from "../observability/logger.js";
 
 const RETRY_BASE_DELAY_MS = 30_000;
 const DELIVERY_LEASE_MS = 60_000;
+// Dòng chuyển phát đã có kết quả cuối chỉ giữ ít ngày cho điều tra; hộp thư (Notification) giữ lâu hơn nhiều.
+const FINISHED_DELIVERY_RETENTION_DAYS = 14;
 
 const payloadToStrings = (payload: Prisma.JsonValue) => {
   if (!payload || Array.isArray(payload) || typeof payload !== "object") {
@@ -19,64 +16,30 @@ const payloadToStrings = (payload: Prisma.JsonValue) => {
 
   return Object.fromEntries(
     Object.entries(payload).flatMap(([key, value]) =>
-      value === null || typeof value === "object"
-        ? []
-        : [[key, String(value)]],
+      value === null || typeof value === "object" ? [] : [[key, String(value)]],
     ),
   );
 };
 
+const deliveryInclude = {
+  notification: {
+    include: { user: { select: { notificationPreference: true } } },
+  },
+  session: {
+    select: { id: true, pushToken: true, revokedAt: true, expiresAt: true, pushDisabledAt: true },
+  },
+} satisfies Prisma.NotificationDeliveryInclude;
+
+type DueDelivery = Prisma.NotificationDeliveryGetPayload<{ include: typeof deliveryInclude }>;
+
+const emptySummary = () => ({ sent: 0, failed: 0, exhausted: 0, invalid: 0, cancelled: 0 });
+
 class NotificationDeliveryService {
-  async dispatchNotification(notificationId: string) {
-    if (!FcmPushService.isConfigured()) {
-      return {
-        configured: false,
-        sent: 0,
-        failed: 0,
-        exhausted: 0,
-        invalid: 0,
-        cancelled: 0,
-      };
-    }
-
-    const now = new Date();
-    const deliveries = await prisma.notificationDelivery.findMany({
-      where: {
-        notificationId,
-        status: { in: ["PENDING", "FAILED"] },
-        OR: [{ nextAttemptAt: null }, { nextAttemptAt: { lte: now } }],
-        notification: {
-          publishedAt: { lte: now },
-          cancelledAt: null,
-          OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],
-        },
-      },
-      include: {
-        notification: {
-          include: {
-            user: {
-              select: { notificationPreference: true },
-            },
-          },
-        },
-        session: {
-          select: {
-            id: true,
-            pushToken: true,
-            revokedAt: true,
-            expiresAt: true,
-            pushDisabledAt: true,
-          },
-        },
-      },
-      orderBy: { createdAt: "asc" },
-    });
-
-    let sent = 0;
-    let failed = 0;
-    let exhausted = 0;
-    let invalid = 0;
-    let cancelled = 0;
+  // Xử lý một nhóm dòng chuyển phát (có thể thuộc nhiều thông báo): hủy dòng không còn hợp lệ, giành quyền gửi bằng cập
+  // nhật có điều kiện, gửi FCM theo lô (tối đa 500 tin mỗi lệnh gọi) rồi ghi kết quả từng dòng.
+  private async processDeliveries(deliveries: DueDelivery[], now: Date) {
+    const summary = emptySummary();
+    const toSend: { delivery: DueDelivery; token: string }[] = [];
 
     for (const delivery of deliveries) {
       const token = delivery.session.pushToken;
@@ -91,7 +54,7 @@ class NotificationDeliveryService {
         delivery.session.pushDisabledAt ||
         delivery.session.expiresAt <= now
       ) {
-        cancelled += 1;
+        summary.cancelled += 1;
         await prisma.notificationDelivery.update({
           where: { id: delivery.id },
           data: {
@@ -117,27 +80,31 @@ class NotificationDeliveryService {
           nextAttemptAt: new Date(now.getTime() + DELIVERY_LEASE_MS),
         },
       });
-      if (claimed.count !== 1) continue;
+      if (claimed.count === 1) toSend.push({ delivery, token });
+    }
 
-      const result = await FcmPushService.send({
+    if (toSend.length === 0) return summary;
+
+    const results = await FcmPushService.sendBatch(
+      toSend.map(({ delivery, token }) => ({
         token,
         title: delivery.notification.title,
         body: delivery.notification.body,
         data: {
           notificationId: delivery.notification.id,
           type: delivery.notification.type,
-          ...(delivery.notification.entityType
-            ? { entityType: delivery.notification.entityType }
-            : {}),
-          ...(delivery.notification.entityId
-            ? { entityId: delivery.notification.entityId }
-            : {}),
+          ...(delivery.notification.entityType ? { entityType: delivery.notification.entityType } : {}),
+          ...(delivery.notification.entityId ? { entityId: delivery.notification.entityId } : {}),
           ...payloadToStrings(delivery.notification.payload),
         },
-      });
+      })),
+    );
+
+    for (const [index, { delivery, token }] of toSend.entries()) {
+      const result = results[index] ?? { outcome: "FAILED" as const, error: "Thiếu kết quả gửi FCM" };
 
       if (result.outcome === "SENT") {
-        sent += 1;
+        summary.sent += 1;
         await prisma.notificationDelivery.update({
           where: { id: delivery.id },
           data: {
@@ -152,62 +119,52 @@ class NotificationDeliveryService {
       }
 
       if (result.outcome === "INVALID_TOKEN") {
-        invalid += 1;
+        summary.invalid += 1;
         await prisma.$transaction([
           prisma.notificationDelivery.update({
             where: { id: delivery.id },
-            data: {
-              status: "INVALID_TOKEN",
-              lastError: result.error,
-              nextAttemptAt: null,
-            },
+            data: { status: "INVALID_TOKEN", lastError: result.error, nextAttemptAt: null },
           }),
-          prisma.dashboardSession.updateMany({
+          prisma.authSession.updateMany({
             where: { id: delivery.session.id, pushToken: token },
-            data: {
-              pushToken: null,
-              pushDisabledAt: new Date(),
-            },
+            data: { pushToken: null, pushDisabledAt: new Date() },
           }),
         ]);
         continue;
       }
 
-      if (result.outcome === "FAILED") {
-        const attemptsAfterClaim = delivery.attempts + 1;
-        const isExhausted =
-          attemptsAfterClaim >= getNotificationMaxDeliveryAttempts();
-        if (isExhausted) exhausted += 1;
-        else failed += 1;
-        const retryDelay =
-          RETRY_BASE_DELAY_MS * 2 ** Math.min(delivery.attempts, 6);
-        await prisma.notificationDelivery.update({
-          where: { id: delivery.id },
-          data: {
-            status: isExhausted ? "EXHAUSTED" : "FAILED",
-            lastError: result.error,
-            nextAttemptAt: isExhausted
-              ? null
-              : new Date(Date.now() + retryDelay),
-          },
-        });
-      }
-    }
-
-    const remaining = await prisma.notificationDelivery.count({
-      where: {
-        notificationId,
-        status: { in: ["PENDING", "FAILED"] },
-      },
-    });
-    if (remaining === 0 && deliveries.length > 0) {
-      await prisma.notification.updateMany({
-        where: { id: notificationId, dispatchedAt: null },
-        data: { dispatchedAt: new Date() },
+      // FAILED (hoặc DISABLED khi cấu hình đổi giữa chừng): thử lại với giãn cách mũ cho tới khi hết lượt.
+      const attemptsAfterClaim = delivery.attempts + 1;
+      const isExhausted = attemptsAfterClaim >= getNotificationMaxDeliveryAttempts();
+      if (isExhausted) summary.exhausted += 1;
+      else summary.failed += 1;
+      const retryDelay = RETRY_BASE_DELAY_MS * 2 ** Math.min(delivery.attempts, 6);
+      await prisma.notificationDelivery.update({
+        where: { id: delivery.id },
+        data: {
+          status: isExhausted ? "EXHAUSTED" : "FAILED",
+          lastError: "error" in result ? result.error : "FCM chưa được cấu hình",
+          nextAttemptAt: isExhausted ? null : new Date(Date.now() + retryDelay),
+        },
       });
     }
 
-    return { configured: true, sent, failed, exhausted, invalid, cancelled };
+    return summary;
+  }
+
+  // Thông báo đã hết dòng chờ gửi thì đánh dấu đã chuyển phát xong.
+  private async markDispatched(notificationIds: string[]) {
+    for (const notificationId of notificationIds) {
+      const remaining = await prisma.notificationDelivery.count({
+        where: { notificationId, status: { in: ["PENDING", "FAILED"] } },
+      });
+      if (remaining === 0) {
+        await prisma.notification.updateMany({
+          where: { id: notificationId, dispatchedAt: null },
+          data: { dispatchedAt: new Date() },
+        });
+      }
+    }
   }
 
   async dispatchDue(limit = 100) {
@@ -222,6 +179,11 @@ class NotificationDeliveryService {
       data: { publishedAt: now },
     });
 
+    const configured = FcmPushService.isConfigured();
+    if (!configured) {
+      return { configured, published: published.count, scanned: 0, ...emptySummary(), errors: 0 };
+    }
+
     const due = await prisma.notificationDelivery.findMany({
       where: {
         status: { in: ["PENDING", "FAILED"] },
@@ -232,57 +194,34 @@ class NotificationDeliveryService {
           OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],
         },
       },
-      select: { notificationId: true },
-      distinct: ["notificationId"],
+      include: deliveryInclude,
       orderBy: { createdAt: "asc" },
       take: Math.max(1, Math.min(limit, 500)),
     });
 
-    const summary = {
-      configured: FcmPushService.isConfigured(),
-      published: published.count,
-      scanned: due.length,
-      sent: 0,
-      failed: 0,
-      exhausted: 0,
-      invalid: 0,
-      cancelled: 0,
-      errors: 0,
-    };
+    const summary = { configured, published: published.count, scanned: due.length, ...emptySummary(), errors: 0 };
+    if (due.length === 0) return summary;
 
-    if (!summary.configured) return summary;
-
-    const results = await mapWithConcurrency(
-      due,
-      getNotificationDispatchConcurrency(),
-      async (item) => {
-        try {
-          return {
-            result: await this.dispatchNotification(item.notificationId),
-            error: null,
-          };
-        } catch (error) {
-          logger.error(
-            `[NOTIFICATION_WORKER] notification=${item.notificationId} dispatch failed:`,
-            error,
-          );
-          return { result: null, error };
-        }
-      },
-    );
-
-    for (const { result, error } of results) {
-      if (result) {
-        summary.sent += result.sent;
-        summary.failed += result.failed;
-        summary.exhausted += result.exhausted;
-        summary.invalid += result.invalid;
-        summary.cancelled += result.cancelled;
-      } else if (error) {
-        summary.errors += 1;
-      }
+    try {
+      Object.assign(summary, await this.processDeliveries(due, now));
+      await this.markDispatched([...new Set(due.map((delivery) => delivery.notificationId))]);
+    } catch (error) {
+      summary.errors += 1;
+      throw error;
     }
     return summary;
+  }
+
+  // Dòng chuyển phát đã có kết quả cuối (đã gửi, bị hủy, token hỏng, hết lượt thử) không còn giá trị vận hành sau ít ngày.
+  async cleanupFinished(now = new Date()) {
+    const cutoff = new Date(now.getTime() - FINISHED_DELIVERY_RETENTION_DAYS * 24 * 60 * 60 * 1000);
+    const result = await prisma.notificationDelivery.deleteMany({
+      where: {
+        status: { in: ["SENT", "CANCELLED", "INVALID_TOKEN", "EXHAUSTED"] },
+        updatedAt: { lt: cutoff },
+      },
+    });
+    return { deletedCount: result.count };
   }
 }
 

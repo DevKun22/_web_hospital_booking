@@ -20,7 +20,7 @@ const _selection = BookingSelection(
 const _patient = BookingPatientDraft(
   patientName: 'Nguyễn Văn An',
   patientPhone: '0912345678',
-  otpChannel: BookingOtpChannel.sms,
+  patientEmail: 'an@example.test',
 );
 
 PendingBooking _pending({DateTime? expiresAt}) => PendingBooking(
@@ -73,10 +73,10 @@ class _FakeSubmissionRepository extends BookingSubmissionRepository {
   }
 
   @override
-  Future<BookedAppointment> verify({
+  Future<VerifiedBooking> verify({
     required PendingBooking pending,
     required String otp,
-  }) async => _appointment;
+  }) async => VerifiedBooking(appointment: _appointment);
 
   @override
   Future<void> abandon(PendingBooking pending) async {

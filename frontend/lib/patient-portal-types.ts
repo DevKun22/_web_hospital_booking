@@ -2,9 +2,9 @@ export type PatientUser = {
   id: string;
   fullName: string;
   phone: string | null;
-  email: string | null;
+  email: string;
   avatar: string | null;
-  isPhoneVerified: boolean;
+  isEmailVerified: boolean;
   patientProfile?: {
     dateOfBirth?: string | null;
     gender?: "MALE" | "FEMALE" | "OTHER" | null;

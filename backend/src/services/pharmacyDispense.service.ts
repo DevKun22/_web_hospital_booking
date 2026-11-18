@@ -26,7 +26,7 @@ const queueSelect = {
   appointment: {
     select: {
       bookingCode: true,
-      allergies: true,
+      patientInfo: { select: { allergies: true } },
       invoice: { select: { invoiceCode: true, status: true, paymentMethod: true } },
     },
   },
@@ -52,6 +52,16 @@ const queueSelect = {
     },
   },
 } satisfies Prisma.PrescriptionSelect;
+
+// Giữ nguyên hợp đồng API: dị ứng vẫn nằm ở appointment.allergies dù dữ liệu lấy từ thông tin người khám của lịch.
+const withAllergies = <T extends { appointment: { patientInfo: { allergies: string | null } | null } }>(row: T) => ({
+  ...row,
+  appointment: {
+    ...row.appointment,
+    patientInfo: undefined,
+    allergies: row.appointment.patientInfo?.allergies ?? null,
+  },
+});
 
 // Hàng đợi cấp thuốc: danh sách đơn đã phát hành chờ cấp và việc cấp nguyên đơn trong một transaction.
 class PharmacyDispenseService {
@@ -88,7 +98,7 @@ class PharmacyDispenseService {
       prisma.prescription.count({ where }),
     ]);
     return {
-      items,
+      items: items.map(withAllergies),
       pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
     };
   }
@@ -99,7 +109,7 @@ class PharmacyDispenseService {
       select: queueSelect,
     });
     if (!prescription) throw new AppError("Không tìm thấy đơn thuốc đã phát hành", 404);
-    return prescription;
+    return withAllergies(prescription);
   }
 
   // Cấp nguyên đơn trong MỘT transaction: hoặc trừ kho đủ mọi dòng và đánh dấu đã

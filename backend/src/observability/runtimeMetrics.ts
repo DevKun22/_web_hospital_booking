@@ -6,14 +6,8 @@ import {
 } from "../config/environment.js";
 import { getDatabasePoolSnapshot } from "../config/prisma.js";
 import { hasQueueRedisUrl } from "../config/redis.js";
-import {
-  APPOINTMENT_LIFECYCLE_QUEUE_NAME,
-  getAppointmentLifecycleQueue,
-} from "../queues/appointmentLifecycle.queue.js";
-import {
-  getOtpDeliveryQueue,
-  OTP_DELIVERY_QUEUE_NAME,
-} from "../queues/otp.queue.js";
+import { getRuntimeConfig } from "../config/runtimeConfig.js";
+import { BACKGROUND_QUEUE_NAME, getBackgroundQueue } from "../queues/background.queue.js";
 import { takeRequestPerformanceMetrics } from "./requestPerformance.js";
 import { logger } from "./logger.js";
 
@@ -27,7 +21,7 @@ type QueueCounts = {
 type QueueMetric = QueueCounts & { name: string };
 
 type QueueMetricsResult = {
-  status: "up" | "down" | "not_configured";
+  status: "up" | "down" | "not_configured" | "disabled";
   queues: QueueMetric[];
   error?: string;
 };
@@ -52,18 +46,16 @@ const readQueue = async (name: string, queue: Queue): Promise<QueueMetric> => {
 };
 
 const getQueueMetrics = async (): Promise<QueueMetricsResult> => {
+  // Mỗi lần đọc tốn vài lệnh Redis nhân số hàng đợi; hồ sơ free tắt đo định kỳ để giữ hạn mức lệnh cho việc thật.
+  if (!getRuntimeConfig().redis.queueMetrics) {
+    return { status: "disabled" as const, queues: [] as QueueMetric[] };
+  }
   if (!hasQueueRedisUrl()) {
     return { status: "not_configured" as const, queues: [] as QueueMetric[] };
   }
 
   try {
-    const queues = await Promise.all([
-      readQueue(OTP_DELIVERY_QUEUE_NAME, getOtpDeliveryQueue()),
-      readQueue(
-        APPOINTMENT_LIFECYCLE_QUEUE_NAME,
-        getAppointmentLifecycleQueue(),
-      ),
-    ]);
+    const queues = [await readQueue(BACKGROUND_QUEUE_NAME, getBackgroundQueue())];
     return { status: "up" as const, queues };
   } catch (error) {
     return {

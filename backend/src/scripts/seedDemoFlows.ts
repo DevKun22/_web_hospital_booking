@@ -4,7 +4,8 @@
  * hóa đơn, dòng tiền thuốc và hóa đơn bổ sung được tạo đúng như khi thao tác trên dashboard.
  *
  * Bắt buộc: ALLOW_DEMO_SEED=true.
- * Tùy chọn: DEMO_PATIENT_PHONE (mặc định 0325123456, tài khoản người khám dùng đăng nhập OTP trên app).
+ * Tùy chọn: DEMO_PATIENT_EMAIL (mặc định nguoikham.mau@devkuncare.com, tài khoản người khám dùng đăng nhập OTP trên app)
+ * và DEMO_PATIENT_PHONE (số liên hệ, mặc định 0325123456).
  * Chạy lại an toàn: kịch bản nào đã có (đánh dấu trong lý do khám bắt đầu bằng "[DEMO] <mã>") thì bỏ qua.
  */
 import { prisma } from "../config/prisma.js";
@@ -76,6 +77,7 @@ async function main() {
     throw new Error("Chặn nạp dữ liệu mẫu. Đặt ALLOW_DEMO_SEED=true nếu chắc chắn.");
   }
 
+  const email = (process.env.DEMO_PATIENT_EMAIL?.trim() || "nguoikham.mau@devkuncare.com").toLowerCase();
   const phone = process.env.DEMO_PATIENT_PHONE?.trim() || "0325123456";
   const admin = await prisma.user.findFirst({ where: { role: "ADMIN", isActive: true }, orderBy: { createdAt: "asc" } });
   if (!admin) throw new Error("Chưa có tài khoản quản trị. Chạy `npm run seed:clinic` trước.");
@@ -89,9 +91,9 @@ async function main() {
   const adminActor: Actor = { userId: admin.id, role: "ADMIN" };
 
   const patient = await prisma.user.upsert({
-    where: { phone },
+    where: { email },
     update: {},
-    create: { phone, fullName: "Người khám mẫu", role: "PATIENT", isPhoneVerified: true },
+    create: { email, phone, fullName: "Người khám mẫu", role: "PATIENT", isEmailVerified: true },
   });
 
   const medicines = await prisma.medicine.findMany({ where: { isActive: true } });
@@ -129,6 +131,8 @@ async function main() {
           reason: `${marker(scenario.key)} ${scenario.title}`,
           patientName: patient.fullName,
           patientPhone: phone,
+          patientEmail: email,
+          patientInfo: { create: {} },
           patientId: patient.id,
           doctorId: doctor.id,
           departmentId: doctor.departmentId,
@@ -198,7 +202,7 @@ async function main() {
     created.push(`${scenario.key}: ${row.bookingCode} — ${scenario.title}`);
   }
 
-  console.log(`\n[demo] Người khám mẫu: ${phone} (đăng nhập OTP trên app)`);
+  console.log(`\n[demo] Người khám mẫu: ${email} (đăng nhập OTP trên app)`);
   console.log(`[demo] Bác sĩ: ${doctor.user.fullName} — ${doctor.department.name}`);
   for (const line of created) console.log(`[demo] ${line}`);
 }

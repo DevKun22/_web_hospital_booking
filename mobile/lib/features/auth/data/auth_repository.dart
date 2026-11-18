@@ -29,15 +29,12 @@ class AuthRepository {
   final SessionRefreshCoordinator _refreshCoordinator;
   final Duration _logoutRequestTimeout;
 
-  /// [identifier] là số điện thoại hoặc email đã dùng khi đặt lịch.
-  Future<OtpChallenge> requestOtp(String identifier) async {
-    final value = identifier.trim();
+  /// Email là định danh đăng nhập; chưa có tài khoản thì máy chủ tạo khi xác thực thành công.
+  Future<OtpChallenge> requestOtp(String email) async {
     return guardApi(() async {
       final response = await _authDio.post<dynamic>(
         '/auth/patient/request-otp',
-        data: value.contains('@')
-            ? {'email': value.toLowerCase()}
-            : {'phone': value},
+        data: {'email': email.trim().toLowerCase()},
       );
       return OtpChallenge.fromJson(requireDataMap(response.data));
     });
@@ -74,6 +71,12 @@ class AuthRepository {
       return session;
     });
   }
+
+  /// Lưu phiên do máy chủ cấp ngoài luồng đăng nhập (ví dụ sau khi xác thực OTP đặt lịch).
+  Future<void> adoptSession(AuthSession session) => _refreshCoordinator.persist(
+    accessToken: session.accessToken,
+    refreshToken: session.refreshToken,
+  );
 
   Future<AuthSession?> restoreSession() async {
     final refreshToken = await _tokenStorage.readRefreshToken();

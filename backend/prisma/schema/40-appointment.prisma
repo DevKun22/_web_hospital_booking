@@ -1,0 +1,148 @@
+// Lịch hẹn, thông tin người khám khai lúc đặt lịch và đánh giá sau khám. Nhật ký lịch hẹn nằm ở AuditLog.
+
+enum AppointmentStatus {
+  PENDING_OTP // Đã tạo lịch nhưng chưa xác thực OTP
+  PENDING_CONFIRM // Đã xác thực OTP, chờ nhân viên/bác sĩ xác nhận
+  CONFIRMED // Đã xác nhận lịch khám
+  CHECKED_IN // Bệnh nhân đã đến/check-in
+  IN_PROGRESS // Đang khám
+  COMPLETED // Đã khám xong
+  RESCHEDULED // Đã được dời lịch
+  CANCELLED_BY_PATIENT // Bệnh nhân hủy
+  CANCELLED_BY_DOCTOR // Bác sĩ hủy
+  CANCELLED_BY_ADMIN // Admin/Staff hủy
+  NO_SHOW // Bệnh nhân không đến
+}
+
+model Appointment {
+  id          String @id @default(uuid())
+  bookingCode String @unique
+
+  appointmentDate DateTime
+  startTime       String
+  endTime         String
+  status          AppointmentStatus @default(PENDING_OTP)
+  holdExpiresAt   DateTime?
+
+  reason String?
+
+  // Liên hệ chụp lại lúc đặt lịch để không mất nếu hồ sơ đổi sau này. Nhân khẩu, bảo hiểm và khai báo sức khỏe
+  // nằm ở AppointmentPatientInfo (dữ liệu nhạy cảm, không đi theo mọi truy vấn danh sách).
+  patientName  String
+  patientPhone String
+  patientEmail String
+
+  estimatedPrice Int @default(0)
+  serviceFee     Int @default(0)
+  bhytDiscount   Int @default(0)
+  finalAmount    Int @default(0)
+
+  patientId String
+  patient   User   @relation("PatientAppointments", fields: [patientId], references: [id])
+
+  // Null = đặt cho bản thân. Có giá trị = snapshot phía trên thuộc hồ sơ người
+  // thân này; patientId vẫn là tài khoản quản lý và nhận OTP/thông báo.
+  dependentProfileId String?
+  dependentProfile   DependentProfile? @relation(fields: [dependentProfileId], references: [id], onDelete: SetNull)
+
+  doctorId String
+  doctor   DoctorProfile @relation("DoctorAppointments", fields: [doctorId], references: [id])
+
+  departmentId String
+  department   Department @relation(fields: [departmentId], references: [id])
+
+  packageId String?
+  package   Package? @relation(fields: [packageId], references: [id], onDelete: SetNull)
+
+  timeSlotId String?         @unique
+  timeSlot   DoctorTimeSlot? @relation(fields: [timeSlotId], references: [id], onDelete: SetNull)
+
+  // Nếu lịch này được dời từ lịch cũ, lưu lại lịch gốc để truy vết
+  rescheduledFromId String?
+  rescheduledFrom   Appointment?  @relation("AppointmentReschedule", fields: [rescheduledFromId], references: [id], onDelete: SetNull)
+  rescheduledTo     Appointment[] @relation("AppointmentReschedule")
+  rescheduledReason String?
+  rescheduledAt     DateTime?
+
+  cancelledByRole Role?
+  cancelledById   String?
+  cancelledReason String?
+
+  medicalRecord MedicalRecord?
+  patientInfo   AppointmentPatientInfo?
+  prescriptions Prescription[]
+  invoice       Invoice?
+  review        Review?
+
+  confirmedAt DateTime?
+  cancelledAt DateTime?
+  completedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([doctorId, appointmentDate])
+  @@index([departmentId])
+  @@index([appointmentDate])
+  @@index([status, holdExpiresAt])
+  @@index([status, appointmentDate])
+  @@index([status, createdAt])
+  @@index([patientId, status, appointmentDate])
+  @@index([dependentProfileId, appointmentDate])
+  @@index([rescheduledFromId])
+  @@index([packageId])
+}
+
+// Thông tin người khám khai lúc đặt lịch, chụp lại để không mất nếu hồ sơ đổi sau này. Tách khỏi Appointment vì là dữ liệu
+// nhạy cảm (dị ứng, tiền sử, CCCD): chỉ tải khi thật sự cần (chi tiết lịch, bác sĩ khám), không đi theo truy vấn danh sách.
+// Khóa chính chính là appointmentId (quan hệ 1-1); mỗi lịch hẹn luôn có đúng một dòng.
+model AppointmentPatientInfo {
+  appointmentId String      @id
+  appointment   Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+
+  gender      Gender?
+  dateOfBirth DateTime?
+  address     String?
+  cccd        String?
+
+  hasBHYT             Boolean @default(false)
+  healthInsuranceCode String?
+  registeredHospital  String?
+
+  allergies      String?
+  medicalHistory String?
+  familyHistory  String?
+
+  // Thời điểm và phiên bản thông báo người đặt lịch đã đồng ý khi nhập dữ liệu sức khỏe. Null khi không nhập.
+  healthConsentAt      DateTime?
+  healthConsentVersion String?
+}
+
+model Review {
+  id String @id @default(uuid())
+
+  // Diem tong hop do he thong tinh tu ba tieu chi, de phuc vu thong ke nhanh.
+  rating         Float
+  doctorRating   Int
+  serviceRating  Int
+  facilityRating Int
+  comment        String?
+
+  // Nhan vien co the an danh gia khoi bao cao noi bo khi can kiem duyet.
+  isVisible      Boolean   @default(false)
+  moderationNote String?
+  moderatedAt    DateTime?
+
+  appointmentId String      @unique
+  appointment   Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+
+  doctorId String
+  doctor   DoctorProfile @relation(fields: [doctorId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Đếm và tính điểm trung bình theo bác sĩ chỉ trên đánh giá đang hiển thị.
+  @@index([doctorId, isVisible])
+  @@index([createdAt])
+}

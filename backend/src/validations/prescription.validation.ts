@@ -2,6 +2,8 @@ import { z } from "zod";
 
 const prescriptionItemSchema = z.object({
   medicineId: z.string().uuid("Ma thuoc khong hop le").nullable().optional(),
+  // Bác sĩ đánh dấu thuốc người khám tự mua ngoài (không trừ kho, không tính tiền), kể cả thuốc có trong danh mục kho.
+  buyOutside: z.boolean().optional(),
   medicineName: z.string().trim().min(2, "Ten thuoc toi thieu 2 ky tu"),
   dosage: z.string().trim().nullable().optional(),
   frequency: z.string().trim().nullable().optional(),

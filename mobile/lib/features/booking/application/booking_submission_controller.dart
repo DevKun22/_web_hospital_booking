@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hospital_booking_mobile/core/errors/api_exception.dart';
 import 'package:hospital_booking_mobile/core/errors/swallowed_error.dart';
 import 'package:hospital_booking_mobile/core/providers/app_providers.dart';
+import 'package:hospital_booking_mobile/features/auth/application/auth_controller.dart';
 import 'package:hospital_booking_mobile/features/booking/data/booking_submission_repository.dart';
 import 'package:hospital_booking_mobile/features/booking/data/pending_booking_store.dart';
 import 'package:hospital_booking_mobile/features/booking/domain/booking_catalog.dart';
@@ -138,9 +139,14 @@ class BookingSubmissionController extends Notifier<BookingSubmissionState> {
       pending: pending,
     );
     try {
-      final appointment = await ref
+      final verified = await ref
           .read(bookingSubmissionRepositoryProvider)
           .verify(pending: pending, otp: otp);
+      final appointment = verified.appointment;
+      final session = verified.session;
+      if (session != null) {
+        await ref.read(authControllerProvider.notifier).adoptSession(session);
+      }
       await _clearPendingSafely();
       state = BookingSubmissionState(
         status: BookingSubmissionStatus.success,

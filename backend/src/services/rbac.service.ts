@@ -31,8 +31,8 @@ const loadGrants = async (): Promise<PermissionGrants> => {
   ensureRbacInvalidationSubscriber(invalidateRbacCache);
   if (cache && cache.expiresAt > Date.now()) return cache.grants;
 
-  const setting = await prisma.siteSetting.findUnique({
-    where: { key: RBAC_MATRIX_KEY },
+  const setting = await prisma.appSetting.findUnique({
+    where: { scope_key: { scope: "SITE", key: RBAC_MATRIX_KEY } },
     select: { value: true, isActive: true },
   });
   const stored =
@@ -111,9 +111,9 @@ class RbacService {
     } as unknown as Prisma.InputJsonValue;
 
     await prisma.$transaction(async (tx) => {
-      await tx.siteSetting.upsert({
-        where: { key: RBAC_MATRIX_KEY },
-        create: { key: RBAC_MATRIX_KEY, value, description: "Ma trận phân quyền động" },
+      await tx.appSetting.upsert({
+        where: { scope_key: { scope: "SITE", key: RBAC_MATRIX_KEY } },
+        create: { scope: "SITE", key: RBAC_MATRIX_KEY, value, description: "Ma trận phân quyền động" },
         update: { value, isActive: true },
       });
       await AuditLogService.record(
@@ -134,7 +134,7 @@ class RbacService {
 
   async resetMatrix(actor?: { userId: string; role: string }, ipAddress?: string) {
     await prisma.$transaction(async (tx) => {
-      await tx.siteSetting.deleteMany({ where: { key: RBAC_MATRIX_KEY } });
+      await tx.appSetting.deleteMany({ where: { scope: "SITE", key: RBAC_MATRIX_KEY } });
       await AuditLogService.record(
         {
           actor,

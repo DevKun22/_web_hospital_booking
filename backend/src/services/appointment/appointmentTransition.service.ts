@@ -104,6 +104,7 @@ export class AppointmentTransitionUseCases extends AppointmentServiceSupport {
           ...this.getActorScopedAppointmentWhere(id, actor),
           status: "CONFIRMED",
         },
+        include: { patientInfo: true },
       });
       if (!current) {
         throw new AppError(
@@ -203,17 +204,25 @@ export class AppointmentTransitionUseCases extends AppointmentServiceSupport {
           patientName: current.patientName,
           patientPhone: current.patientPhone,
           patientEmail: current.patientEmail,
-          otpChannel: current.otpChannel,
-          patientGender: current.patientGender,
-          patientDateOfBirth: current.patientDateOfBirth,
-          patientAddress: current.patientAddress,
-          patientCccd: current.patientCccd,
-          hasBHYT: current.hasBHYT,
-          healthInsuranceCode: current.healthInsuranceCode,
-          registeredHospital: current.registeredHospital,
-          allergies: current.allergies,
-          medicalHistory: current.medicalHistory,
-          familyHistory: current.familyHistory,
+          // Lịch mới mang theo thông tin người khám của lịch cũ.
+          patientInfo: current.patientInfo
+            ? {
+                create: {
+                  gender: current.patientInfo.gender,
+                  dateOfBirth: current.patientInfo.dateOfBirth,
+                  address: current.patientInfo.address,
+                  cccd: current.patientInfo.cccd,
+                  hasBHYT: current.patientInfo.hasBHYT,
+                  healthInsuranceCode: current.patientInfo.healthInsuranceCode,
+                  registeredHospital: current.patientInfo.registeredHospital,
+                  allergies: current.patientInfo.allergies,
+                  medicalHistory: current.patientInfo.medicalHistory,
+                  familyHistory: current.patientInfo.familyHistory,
+                  healthConsentAt: current.patientInfo.healthConsentAt,
+                  healthConsentVersion: current.patientInfo.healthConsentVersion,
+                },
+              }
+            : { create: {} },
           estimatedPrice: current.estimatedPrice,
           serviceFee: current.serviceFee,
           bhytDiscount: current.bhytDiscount,
@@ -227,15 +236,14 @@ export class AppointmentTransitionUseCases extends AppointmentServiceSupport {
           rescheduledReason: reason,
           rescheduledAt,
           confirmedAt: rescheduledAt,
-          logs: {
-            create: {
-              action: "RESCHEDULED",
-              createdById: actor.userId,
-              note: `Đổi từ lịch ${current.bookingCode}: ${reason}`,
-            },
-          },
         },
         select: { id: true, bookingCode: true },
+      });
+      await this.createTransitionLog(tx, {
+        appointmentId: created.id,
+        action: "RESCHEDULED",
+        actor,
+        note: `Đổi từ lịch ${current.bookingCode}: ${reason}`,
       });
 
       const notification = await NotificationService.create(

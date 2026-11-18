@@ -10,6 +10,7 @@ import {
   buildVnpayQueryResponse,
   buildVnpayRefundResponse,
 } from "../../support/vnpay.js";
+import { toAppointmentAuditAction } from "../../../src/services/appointmentLog.service.js";
 export { assert, after, before, beforeEach, test, bcrypt, jwt, getCookie, startHttpServer, buildVnpayCallbackQuery, buildVnpayQueryResponse, buildVnpayRefundResponse };
 
 
@@ -20,6 +21,8 @@ if (process.env.NODE_ENV !== "test") {
 // Integration verifies that Prisma query events are attributed to the active
 // HTTP request without exposing SQL or parameters.
 process.env.DATABASE_QUERY_METRICS_ENABLED = "true";
+// Test mô phỏng môi trường chưa có Redis: giữ đường đếm "degraded" bảo thủ mà các test giới hạn tốc độ kiểm tra.
+process.env.RATE_LIMIT_STORE ??= "redis";
 
 export const activeDatabaseUrl = process.env.DATABASE_URL || "";
 export const activeDatabase = new URL(activeDatabaseUrl);
@@ -45,6 +48,7 @@ export const [
   { default: AuthOtpService },
   { default: AppointmentService },
   { default: ScheduleReconciliationService },
+  { default: MaintenanceService },
   { default: AuthSessionService },
   { default: NotificationService },
   { default: MedicalRecordService },
@@ -62,6 +66,7 @@ export const [
   import("../../../src/services/authOtp.service.js"),
   import("../../../src/services/appointment.service.js"),
   import("../../../src/services/scheduleReconciliation.service.js"),
+  import("../../../src/services/maintenance.service.js"),
   import("../../../src/services/authSession.service.js"),
   import("../../../src/services/notification.service.js"),
   import("../../../src/services/medicalRecord.service.js"),
@@ -88,9 +93,8 @@ export const dateOnly = (value: string) => new Date(`${value}T00:00:00.000Z`);
 
 export const resetDatabase = async () => {
   const targetTables = [
-    "DashboardLoginFailure",
+    "AuthAttempt",
     "OtpSecurityBlock",
-    "OtpVerifyAttempt",
     "StockMovement",
     "StockBatch",
     "AuditLog",
@@ -103,6 +107,46 @@ export const resetDatabase = async () => {
   await prisma.$executeRawUnsafe(
     `TRUNCATE TABLE ${targetTables} RESTART IDENTITY CASCADE`,
   );
+};
+
+// Email là định danh tài khoản; test vẫn nhận biết người dùng theo số điện thoại nên sinh email ổn định từ số đó.
+export const emailOf = (phone: string) => `p${phone.replace(/\D/g, "")}@example.test`;
+
+// Nhật ký lịch hẹn nằm trong AuditLog (targetType = APPOINTMENT). Facade này giữ nguyên cách gọi và tên hành động cũ
+// của test (CONFIRMED, NO_SHOW...) để các khẳng định không phải biết quy ước tiền tố khi lưu.
+type LogWhere = { appointmentId: string; action?: string | { in: string[] } };
+const auditActionOf = (action: string) =>
+  toAppointmentAuditAction(action as Parameters<typeof toAppointmentAuditAction>[0]);
+const auditWhere = (where: LogWhere) => ({
+  targetType: "APPOINTMENT",
+  targetId: where.appointmentId,
+  ...(where.action === undefined
+    ? {}
+    : typeof where.action === "string"
+      ? { action: auditActionOf(where.action) }
+      : { action: { in: where.action.in.map(auditActionOf) } }),
+});
+const fromAudit = (row: { action: string; actorId: string | null; meta: unknown; createdAt: Date }) => ({
+  action: row.action.replace(/^APPOINTMENT_(?!CREATED$)/, ""),
+  createdById: row.actorId,
+  note: ((row.meta as { note?: string } | null)?.note ?? null) as string | null,
+  createdAt: row.createdAt,
+});
+export const appointmentLogs = {
+  count: ({ where }: { where: LogWhere }) => prisma.auditLog.count({ where: auditWhere(where) }),
+  findMany: async ({ where }: { where: LogWhere }) =>
+    (await prisma.auditLog.findMany({ where: auditWhere(where), orderBy: { createdAt: "asc" } })).map(fromAudit),
+  findFirstOrThrow: async ({ where }: { where: LogWhere }) =>
+    fromAudit(await prisma.auditLog.findFirstOrThrow({ where: auditWhere(where), orderBy: { createdAt: "asc" } })),
+  create: ({ data }: { data: { appointmentId: string; action: string; note?: string } }) =>
+    prisma.auditLog.create({
+      data: {
+        action: auditActionOf(data.action),
+        targetType: "APPOINTMENT",
+        targetId: data.appointmentId,
+        meta: data.note ? { note: data.note } : undefined,
+      },
+    }),
 };
 
 export async function seedFixture() {
@@ -118,10 +162,11 @@ export async function seedFixture() {
   const adminUser = await prisma.user.create({
     data: {
       fullName: "Phase 0 Admin",
+      email: emailOf("0900000003"),
       phone: "0900000003",
       password: passwordHash,
       role: "ADMIN",
-      isPhoneVerified: true,
+      isEmailVerified: true,
     },
   });
 
@@ -131,10 +176,11 @@ export async function seedFixture() {
       user: {
         create: {
           fullName: "Doctor One",
+          email: emailOf("0900000001"),
           phone: "0900000001",
           password: passwordHash,
           role: "DOCTOR",
-          isPhoneVerified: true,
+          isEmailVerified: true,
         },
       },
       department: { connect: { id: department.id } },
@@ -148,10 +194,11 @@ export async function seedFixture() {
       user: {
         create: {
           fullName: "Doctor Two",
+          email: emailOf("0900000002"),
           phone: "0900000002",
           password: passwordHash,
           role: "DOCTOR",
-          isPhoneVerified: true,
+          isEmailVerified: true,
         },
       },
       department: { connect: { id: department.id } },
@@ -196,6 +243,7 @@ export async function seedFixture() {
 
 export const bookingBody = (input: {
   phone: string;
+  email?: string;
   timeSlotId?: string;
   doctorId?: string;
 }) => ({
@@ -204,7 +252,7 @@ export const bookingBody = (input: {
   timeSlotId: input.timeSlotId || fixture.slotOne.id,
   patientName: "Phase Zero Patient",
   patientPhone: input.phone,
-  otpChannel: "SMS",
+  patientEmail: input.email ?? emailOf(input.phone),
   reason: "Baseline integration test",
 });
 
@@ -224,9 +272,10 @@ export const createStoredAppointment = async (input: {
   const patient = await prisma.user.create({
     data: {
       fullName: "Stored Patient",
+      email: emailOf(phone),
       phone,
       role: "PATIENT",
-      isPhoneVerified: true,
+      isEmailVerified: true,
     },
   });
 
@@ -249,6 +298,8 @@ export const createStoredAppointment = async (input: {
       status: input.status,
       patientName: patient.fullName,
       patientPhone: phone,
+      patientEmail: patient.email,
+      patientInfo: { create: {} },
       patientId: patient.id,
       doctorId: fixture.doctorOne.id,
       departmentId: fixture.department.id,
@@ -280,10 +331,13 @@ export const dashboardHeaders = (cookie: string) => ({
   "x-hospital-dashboard-request": "1",
 });
 
-export const loginPatient = async (phone: string) => {
+// `identity` là số điện thoại (suy ra email bằng emailOf) hoặc một email đầy đủ.
+export const loginPatient = async (identity: string) => {
+  const email = identity.includes("@") ? identity : emailOf(identity);
+  const phone = identity;
   const requested = await http.request("/api/v1/auth/patient/request-otp", {
     method: "POST",
-    body: { phone },
+    body: { email },
   });
   assert.equal(requested.status, 200);
   assert.equal(typeof requested.body.data.debugOtp, "string");
@@ -336,7 +390,6 @@ export const emailBookingBody = (input: {
   timeSlotId?: string;
 }) => ({
   ...bookingBody({ phone: input.phone, timeSlotId: input.timeSlotId }),
-  otpChannel: "EMAIL",
   patientEmail: input.email,
 });
 
@@ -387,9 +440,10 @@ export const createDashboardUser = async (role: "STAFF" | "PHARMACIST", phone: s
   prisma.user.create({
     data: {
       fullName: `RBAC ${role}`,
+      email: emailOf(phone),
       phone,
       role,
-      isPhoneVerified: true,
+      isEmailVerified: true,
     },
   });
 
@@ -464,6 +518,7 @@ export const createIssuedPrescription = async (input: {
           medicineName: item.medicineName,
           quantity: item.quantity,
           medicineId: item.medicineId,
+          ...(item.medicineId ? {} : { fulfillmentStatus: "OUTSIDE" as const }),
           unit: "viên",
           sortOrder: index,
         })),

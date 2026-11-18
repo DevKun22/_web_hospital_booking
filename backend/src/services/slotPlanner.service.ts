@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import AuditLogService from "./auditLog.service.js";
 import { prisma } from "../config/prisma.js";
 import { AppError } from "../utils/appError.js";
 import {
@@ -284,14 +285,12 @@ class SlotPlannerService {
       date: toDateOnly(slot.date),
       startTime: slot.startTime,
     }));
-    await prisma.scheduleChangeLog.create({
-      data: {
-        doctorId: input.doctorId,
-        changedById: actor.userId,
-        type: "LOCK_SLOT",
-        note: `Nghỉ ${input.from} đến ${input.to}: ${reason}`,
-        date: from,
-      },
+    await AuditLogService.record({
+      actor,
+      action: "SCHEDULE_SLOT_LOCKED",
+      targetType: "DOCTOR",
+      targetId: input.doctorId,
+      meta: { from: input.from, to: input.to, lockedSlots: locked.count, note: `Nghỉ ${input.from} đến ${input.to}: ${reason}` },
     });
     await this.notifyAffected(input.doctorId, affected, `nghỉ ${input.from} đến ${input.to}`, actor);
     return { lockedSlots: locked.count, affected };
@@ -320,14 +319,12 @@ class SlotPlannerService {
       },
       data: { status: "AVAILABLE", lockReason: null },
     });
-    await prisma.scheduleChangeLog.create({
-      data: {
-        doctorId: input.doctorId,
-        changedById: actor.userId,
-        type: "UNLOCK_SLOT",
-        note: `Mở lại ${input.from} đến ${input.to}`,
-        date: from,
-      },
+    await AuditLogService.record({
+      actor,
+      action: "SCHEDULE_SLOT_UNLOCKED",
+      targetType: "DOCTOR",
+      targetId: input.doctorId,
+      meta: { from: input.from, to: input.to, reopenedSlots: reopened.count, note: `Mở lại ${input.from} đến ${input.to}` },
     });
     return { reopenedSlots: reopened.count };
   }

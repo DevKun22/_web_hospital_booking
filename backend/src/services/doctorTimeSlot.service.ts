@@ -1,4 +1,5 @@
 import { Prisma } from "../../generated/prisma/client.js";
+import AuditLogService from "./auditLog.service.js";
 import type { TimeSlotStatus } from "../../generated/prisma/enums.js";
 import { prisma } from "../config/prisma.js";
 import { AppError } from "../utils/appError.js";
@@ -254,24 +255,24 @@ class DoctorTimeSlotService {
     }
 
     const mutationStartedAt = performance.now();
-    const [updated] = await prisma.$transaction([
-      prisma.doctorTimeSlot.update({
+    const updated = await prisma.$transaction(async (tx) => {
+      const locked = await tx.doctorTimeSlot.update({
         where: { id },
         data: { status: "LOCKED", lockReason, isActive: true },
         select: doctorTimeSlotMutationSelect,
-      }),
-      prisma.scheduleChangeLog.create({
-        data: {
-          doctorId: slot.doctorId,
-          changedById: actor.userId,
-          type: "LOCK_SLOT",
-          note: lockReason,
-          date: slot.date,
-          startTime: slot.startTime,
-          endTime: slot.endTime,
+      });
+      await AuditLogService.record(
+        {
+          actor,
+          action: "SCHEDULE_SLOT_LOCKED",
+          targetType: "DOCTOR",
+          targetId: slot.doctorId,
+          meta: { slotId: id, date: slot.date.toISOString(), startTime: slot.startTime, endTime: slot.endTime, note: lockReason },
         },
-      }),
-    ]);
+        tx,
+      );
+      return locked;
+    });
     const mutationMs = performance.now() - mutationStartedAt;
     logger.info(
       `[SLOT_LOCK] slot=${id} lookup=${slotLookupMs.toFixed(1)}ms mutation=${mutationMs.toFixed(1)}ms total=${(performance.now() - startedAt).toFixed(1)}ms`,
@@ -287,25 +288,24 @@ class DoctorTimeSlotService {
       throw new AppError("Không thể mở khóa slot đã được đặt", 409);
     }
 
-    const [updated] = await prisma.$transaction([
-      prisma.doctorTimeSlot.update({
+    return prisma.$transaction(async (tx) => {
+      const unlocked = await tx.doctorTimeSlot.update({
         where: { id },
         data: { status: "AVAILABLE", lockReason: null, isActive: true },
         select: doctorTimeSlotMutationSelect,
-      }),
-      prisma.scheduleChangeLog.create({
-        data: {
-          doctorId: slot.doctorId,
-          changedById: actor.userId,
-          type: "UNLOCK_SLOT",
-          note: "Mở khóa slot khám",
-          date: slot.date,
-          startTime: slot.startTime,
-          endTime: slot.endTime,
+      });
+      await AuditLogService.record(
+        {
+          actor,
+          action: "SCHEDULE_SLOT_UNLOCKED",
+          targetType: "DOCTOR",
+          targetId: slot.doctorId,
+          meta: { slotId: id, date: slot.date.toISOString(), startTime: slot.startTime, endTime: slot.endTime, note: "Mở khóa slot khám" },
         },
-      }),
-    ]);
-    return updated;
+        tx,
+      );
+      return unlocked;
+    });
   }
   async delete(id: string) {
     const slot = await this.getSlotForMutation(id);

@@ -9,7 +9,6 @@ import { patientSessionQueryKey } from "@/lib/patient-session-client";
 
 type OtpChallenge = {
   challengeId: string;
-  channel?: "SMS" | "EMAIL";
   maskedTarget?: string;
   expiresIn: number;
   deliveryStatus?: string;
@@ -19,7 +18,7 @@ type OtpChallenge = {
 type PatientAuthContextValue = {
   user: PatientUser | null;
   loading: boolean;
-  requestOtp: (identifier: string) => Promise<OtpChallenge>;
+  requestOtp: (email: string) => Promise<OtpChallenge>;
   verifyOtp: (challengeId: string, otp: string) => Promise<PatientUser>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<PatientUser | null>;
@@ -63,11 +62,11 @@ export function PatientAuthProvider({ children }: { children: React.ReactNode })
     return () => window.clearTimeout(timer);
   }, [refreshUser]);
 
-  // identifier là số điện thoại hoặc email.
-  const requestOtp = useCallback((identifier: string) =>
+  // Email là định danh đăng nhập và nơi nhận OTP; chưa có tài khoản thì tạo khi xác thực thành công.
+  const requestOtp = useCallback((email: string) =>
     patientFetch<OtpChallenge>("/auth/request-otp", {
       method: "POST",
-      body: JSON.stringify(identifier.includes("@") ? { email: identifier } : { phone: identifier }),
+      body: JSON.stringify({ email: email.trim().toLowerCase() }),
     }), []);
 
   const verifyOtp = useCallback(async (challengeId: string, otp: string) => {

@@ -29,16 +29,16 @@ class _OtpFlowAuthController extends AuthController {
   AuthState build() => const AuthState.unauthenticated();
 
   @override
-  Future<bool> requestOtp(String phone, {String? returnTo}) async {
+  Future<bool> requestOtp(String email, {String? returnTo}) async {
     state = AuthState(
       status: AuthStatus.requestingOtp,
-      phone: phone,
+      email: email,
       returnTo: returnTo,
     );
     await _requestGate.future;
     state = AuthState(
       status: AuthStatus.awaitingOtp,
-      phone: phone,
+      email: email,
       challenge: OtpChallenge(
         challengeId: 'challenge-test',
         expiresAt: DateTime(2030),
@@ -56,7 +56,7 @@ class _OtpFlowAuthController extends AuthController {
       user: const PatientUser(
         id: 'patient-1',
         fullName: 'Nguyễn Văn An',
-        isPhoneVerified: true,
+        isEmailVerified: true,
       ),
       returnTo: state.returnTo,
     );
@@ -88,7 +88,7 @@ class _AuthenticatedController extends AuthController {
     user: PatientUser(
       id: 'patient-1',
       fullName: 'Nguyễn Văn An',
-      isPhoneVerified: true,
+      isEmailVerified: true,
     ),
   );
 }
@@ -171,7 +171,7 @@ void main() {
       container.read(appRouterProvider).go('/login');
       await tester.pumpAndSettle();
 
-      await tester.enterText(find.byType(EditableText), '0912345678');
+      await tester.enterText(find.byType(EditableText), 'an@example.test');
       await tester.tap(find.text('Gửi mã OTP'));
       await tester.pump();
 
@@ -438,7 +438,7 @@ void main() {
       findsOneWidget,
     );
 
-    await tester.enterText(find.byType(EditableText), '0912345678');
+    await tester.enterText(find.byType(EditableText), 'an@example.test');
     await tester.tap(find.text('Gửi mã OTP'));
     await tester.pump();
     final authController =

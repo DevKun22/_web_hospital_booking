@@ -78,11 +78,11 @@ const createAccessToken = (
   );
 
 class DashboardAuthService {
-  async login(phone: string, password: string, ipAddress: string) {
-    await DashboardLoginSecurityService.assertAllowed(phone, ipAddress);
+  async login(email: string, password: string, ipAddress: string) {
+    await DashboardLoginSecurityService.assertAllowed(email, ipAddress);
 
     const user = await prisma.user.findUnique({
-      where: { phone },
+      where: { email },
     });
 
     const validPassword = await comparePassword(
@@ -91,8 +91,8 @@ class DashboardAuthService {
     );
 
     if (!user || !user.password || !validPassword) {
-      await DashboardLoginSecurityService.recordFailure(phone, ipAddress);
-      throw new AppError("Số điện thoại hoặc mật khẩu không chính xác", 401);
+      await DashboardLoginSecurityService.recordFailure(email, ipAddress);
+      throw new AppError("Email hoặc mật khẩu không chính xác", 401);
     }
 
     if (!user.isActive) {
@@ -103,11 +103,9 @@ class DashboardAuthService {
       throw new AppError("Không có quyền truy cập dashboard", 403);
     }
 
-    await DashboardLoginSecurityService.clearAccountFailures(phone);
+    await DashboardLoginSecurityService.clearAccountFailures(email);
 
     const purpose = dashboardPurposeByRole[user.role];
-    const otpChannel = user.email ? "EMAIL" : "SMS";
-    const otpTarget = user.email || phone;
     const expiresAt = new Date(Date.now() + CHALLENGE_EXPIRES_SECONDS * 1000);
 
     const challenge = await prisma.dashboardLoginChallenge.create({
@@ -122,8 +120,7 @@ class DashboardAuthService {
     let otp: Awaited<ReturnType<typeof AuthOtpService.sendOtp>>;
 
     try {
-      otp = await AuthOtpService.sendOtp(otpTarget, purpose, ipAddress, {
-        channel: otpChannel,
+      otp = await AuthOtpService.sendOtp(user.email, purpose, ipAddress, {
         challengeId: challenge.id,
         userId: user.id,
       });
@@ -137,11 +134,10 @@ class DashboardAuthService {
       throw error;
     }
 
-    // Không trả lại email hay số điện thoại đầy đủ: chỉ bản đã che để người dùng nhận ra nơi nhận mã.
+    // Không trả lại email đầy đủ: chỉ bản đã che để người dùng nhận ra nơi nhận mã.
     return {
       challengeId: challenge.id,
-      otpTarget: maskContact(otp.target),
-      otpChannel: otp.channel,
+      otpTarget: maskContact(otp.email),
       otpDeliveryStatus: otp.deliveryStatus,
       debugOtp: otp.debugOtp,
       expiresAt: challenge.expiresAt,
@@ -175,7 +171,7 @@ class DashboardAuthService {
       throw new AppError("Challenge không hợp lệ", 401);
     }
 
-    if (challenge.isUsed) {
+    if (challenge.usedAt) {
       throw new AppError("Challenge đã được sử dụng", 401);
     }
 
@@ -189,12 +185,7 @@ class DashboardAuthService {
 
     const { user } = challenge;
     const latestOtp = challenge.otpCodes[0];
-    const otpTarget = latestOtp?.target || user.phone;
-    const otpChannel = latestOtp?.channel || "SMS";
-
-    if (!otpTarget) {
-      throw new AppError("Tài khoản chưa có thông tin nhận OTP", 400);
-    }
+    const otpTarget = latestOtp?.email || user.email;
 
     if (!user.isActive) {
       throw new AppError("Tài khoản đã bị khóa", 403);
@@ -206,7 +197,6 @@ class DashboardAuthService {
 
     try {
       await AuthOtpService.verifyOtp(otpTarget, otp, challenge.purpose, {
-        channel: otpChannel,
         challengeId: challenge.id,
         ipAddress: challenge.ipAddress || undefined,
       });
@@ -230,7 +220,6 @@ class DashboardAuthService {
         id: challenge.id,
       },
       data: {
-        isUsed: true,
         usedAt: new Date(),
       },
     });

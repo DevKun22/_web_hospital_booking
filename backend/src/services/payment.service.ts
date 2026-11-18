@@ -1,4 +1,5 @@
 import { Prisma } from "../../generated/prisma/client.js";
+import { writeAppointmentLog } from "./appointmentLog.service.js";
 import type {
   PaymentMethod,
   PaymentProvider,
@@ -459,12 +460,10 @@ class PaymentService {
         return { notificationId: null };
       }
 
-      await tx.appointmentLog.create({
-        data: {
-          appointmentId: transaction.invoice.appointment.id,
-          action: "PAYMENT_RECORDED",
-          note: `${input.providerLabel} xác nhận thanh toán · ${input.providerReference}`,
-        },
+      await writeAppointmentLog(tx, {
+        appointmentId: transaction.invoice.appointment.id,
+        action: "PAYMENT_RECORDED",
+        note: `${input.providerLabel} xác nhận thanh toán · ${input.providerReference}`,
       });
 
       const notification =

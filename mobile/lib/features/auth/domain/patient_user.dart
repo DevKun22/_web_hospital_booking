@@ -2,7 +2,7 @@ class PatientUser {
   const PatientUser({
     required this.id,
     required this.fullName,
-    required this.isPhoneVerified,
+    required this.isEmailVerified,
     this.phone,
     this.email,
     this.avatar,
@@ -14,7 +14,7 @@ class PatientUser {
     phone: json['phone']?.toString(),
     email: json['email']?.toString(),
     avatar: json['avatar']?.toString(),
-    isPhoneVerified: json['isPhoneVerified'] == true,
+    isEmailVerified: json['isEmailVerified'] == true,
   );
 
   final String id;
@@ -22,5 +22,5 @@ class PatientUser {
   final String? phone;
   final String? email;
   final String? avatar;
-  final bool isPhoneVerified;
+  final bool isEmailVerified;
 }
