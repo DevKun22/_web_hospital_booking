@@ -87,7 +87,6 @@ void main() {
         patientName: 'Nguyễn Văn An',
         patientPhone: '0912345678',
         patientEmail: 'an@example.test',
-        otpChannel: BookingOtpChannel.email,
       );
 
       final creation = await repository.create(
@@ -106,7 +105,8 @@ void main() {
       expect(createBody['departmentId'], 'department-1');
       expect(createBody['packageId'], 'package-1');
       expect(createBody['timeSlotId'], 'slot-1');
-      expect(createBody['otpChannel'], 'EMAIL');
+      expect(createBody.containsKey('otpChannel'), isFalse);
+      expect(createBody['patientEmail'], 'an@example.test');
       expect(pending.otpTarget, 'an@example.test');
       expect(resent.debugOtp, '654321');
       expect(resent.holdReleaseToken, pending.holdReleaseToken);
@@ -178,7 +178,7 @@ void main() {
         patient: const BookingPatientDraft(
           patientName: 'Người thân',
           patientPhone: '0912345678',
-          otpChannel: BookingOtpChannel.sms,
+          patientEmail: 'nguoithan@example.test',
           dependentProfileId: 'dependent-1',
         ),
       );
@@ -256,7 +256,7 @@ void main() {
         patient: const BookingPatientDraft(
           patientName: 'Nguyễn Văn An',
           patientPhone: '0912345678',
-          otpChannel: BookingOtpChannel.email,
+          patientEmail: 'an@example.test',
         ),
         authenticated: true,
       );

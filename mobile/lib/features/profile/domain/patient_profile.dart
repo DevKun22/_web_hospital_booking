@@ -27,7 +27,7 @@ class PatientProfile {
   const PatientProfile({
     required this.id,
     required this.fullName,
-    required this.isPhoneVerified,
+    required this.isEmailVerified,
     required this.hasBhyt,
     this.phone,
     this.email,
@@ -56,7 +56,7 @@ class PatientProfile {
       phone: jsonNullableString(json['phone']),
       email: jsonNullableString(json['email']),
       avatar: jsonNullableString(json['avatar']),
-      isPhoneVerified: json['isPhoneVerified'] == true,
+      isEmailVerified: json['isEmailVerified'] == true,
       dateOfBirth: jsonNullableDateOnly(details['dateOfBirth']),
       gender: details['gender'] == null
           ? null
@@ -82,7 +82,7 @@ class PatientProfile {
   final String? phone;
   final String? email;
   final String? avatar;
-  final bool isPhoneVerified;
+  final bool isEmailVerified;
   final String? dateOfBirth;
   final PatientGender? gender;
   final String? cccd;
@@ -111,7 +111,7 @@ class PatientProfile {
     phone: phone,
     email: email,
     avatar: avatar,
-    isPhoneVerified: isPhoneVerified,
+    isEmailVerified: isEmailVerified,
   );
 
   int get completionPercent {

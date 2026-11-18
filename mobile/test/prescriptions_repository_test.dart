@@ -110,30 +110,33 @@ void main() {
     dio.close(force: true);
   });
 
-  test('medicine lines tell the patient what was dispensed, bought outside or out of stock', () {
-    PrescriptionMedicine line(Map<String, dynamic> extra) =>
-        PrescriptionMedicine.fromJson({
-          'id': 'item',
-          'medicineName': 'Thuốc thử',
-          'sortOrder': 1,
-          ...extra,
-        });
+  test(
+    'medicine lines tell the patient what was dispensed, bought outside or out of stock',
+    () {
+      PrescriptionMedicine line(Map<String, dynamic> extra) =>
+          PrescriptionMedicine.fromJson({
+            'id': 'item',
+            'medicineName': 'Thuốc thử',
+            'sortOrder': 1,
+            ...extra,
+          });
 
-    expect(line({}).fulfillmentLabel, isNull, reason: 'chưa cấp');
-    expect(line({'fulfillmentStatus': 'PENDING'}).fulfillmentLabel, isNull);
-    expect(
-      line({'fulfillmentStatus': 'DISPENSED'}).fulfillmentLabel,
-      'Đã cấp tại cơ sở khám',
-    );
-    expect(
-      line({'fulfillmentStatus': 'OUTSIDE'}).fulfillmentLabel,
-      'Bạn tự mua tại nhà thuốc',
-    );
-    final outOfStock = line({
-      'fulfillmentStatus': 'OUT_OF_STOCK',
-      'fulfillmentNote': 'Chờ nhập hàng',
-    });
-    expect(outOfStock.fulfillmentLabel, contains('hết thuốc'));
-    expect(outOfStock.fulfillmentNote, 'Chờ nhập hàng');
-  });
+      expect(line({}).fulfillmentLabel, isNull, reason: 'chưa cấp');
+      expect(line({'fulfillmentStatus': 'PENDING'}).fulfillmentLabel, isNull);
+      expect(
+        line({'fulfillmentStatus': 'DISPENSED'}).fulfillmentLabel,
+        'Đã cấp tại cơ sở khám',
+      );
+      expect(
+        line({'fulfillmentStatus': 'OUTSIDE'}).fulfillmentLabel,
+        'Bạn tự mua tại nhà thuốc',
+      );
+      final outOfStock = line({
+        'fulfillmentStatus': 'OUT_OF_STOCK',
+        'fulfillmentNote': 'Chờ nhập hàng',
+      });
+      expect(outOfStock.fulfillmentLabel, contains('hết thuốc'));
+      expect(outOfStock.fulfillmentNote, 'Chờ nhập hàng');
+    },
+  );
 }

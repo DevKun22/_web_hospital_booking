@@ -20,7 +20,7 @@ const _selection = BookingSelection(
 const _patient = BookingPatientDraft(
   patientName: 'Nguyễn Văn An',
   patientPhone: '0912345678',
-  otpChannel: BookingOtpChannel.sms,
+  patientEmail: 'an@example.test',
 );
 
 PendingBooking _pending({DateTime? expiresAt}) => PendingBooking(

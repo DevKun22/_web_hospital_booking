@@ -17,11 +17,11 @@ class LoginScreen extends ConsumerStatefulWidget {
 
 class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _phoneController = TextEditingController();
+  final _emailController = TextEditingController();
 
   @override
   void dispose() {
-    _phoneController.dispose();
+    _emailController.dispose();
     super.dispose();
   }
 
@@ -68,7 +68,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       ),
                       const SizedBox(height: 8),
                       const Text(
-                        'Nhập số điện thoại để nhận mã OTP bảo mật.',
+                        'Nhập email đã dùng khi đặt lịch để nhận mã OTP bảo mật.',
                         textAlign: TextAlign.center,
                       ),
                       if (protectedFeatureMessage != null) ...[
@@ -122,31 +122,21 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         const SizedBox(height: 16),
                       ],
                       TextFormField(
-                        controller: _phoneController,
+                        controller: _emailController,
                         keyboardType: TextInputType.emailAddress,
                         textInputAction: TextInputAction.done,
-                        autofillHints: const [
-                          AutofillHints.telephoneNumber,
-                          AutofillHints.email,
-                        ],
+                        autofillHints: const [AutofillHints.email],
                         decoration: const InputDecoration(
-                          labelText: 'Số điện thoại hoặc email',
-                          hintText: '09xxxxxxxx hoặc ban@email.com',
-                          prefixIcon: Icon(Icons.person_outline),
+                          labelText: 'Email',
+                          hintText: 'ban@email.com',
+                          prefixIcon: Icon(Icons.email_outlined),
                         ),
-                        validator: (value) {
-                          final input = value?.trim() ?? '';
-                          final isPhone = RegExp(
-                            r'^(0|\+84)[0-9]{9,10}$',
-                          ).hasMatch(input);
-                          final isEmail = RegExp(
-                            r'^[^\s@]+@[^\s@]+\.[^\s@]+$',
-                          ).hasMatch(input);
-                          if (!isPhone && !isEmail) {
-                            return 'Nhập số điện thoại hoặc email hợp lệ';
-                          }
-                          return null;
-                        },
+                        validator: (value) =>
+                            RegExp(
+                              r'^[^\s@]+@[^\s@]+\.[^\s@]+$',
+                            ).hasMatch(value?.trim() ?? '')
+                            ? null
+                            : 'Nhập email hợp lệ',
                         onFieldSubmitted: (_) => _submit(),
                       ),
                       const SizedBox(height: 18),
@@ -157,7 +147,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       ),
                       const SizedBox(height: 18),
                       Text(
-                        'Bằng việc tiếp tục, bạn đồng ý sử dụng số điện thoại để xác thực tài khoản người khám.',
+                        'Bằng việc tiếp tục, bạn đồng ý sử dụng email để xác thực tài khoản người khám.',
                         textAlign: TextAlign.center,
                         style: Theme.of(context).textTheme.bodySmall,
                       ),
@@ -190,7 +180,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     FocusScope.of(context).unfocus();
     await ref
         .read(authControllerProvider.notifier)
-        .requestOtp(_phoneController.text.trim(), returnTo: widget.returnTo);
+        .requestOtp(_emailController.text.trim(), returnTo: widget.returnTo);
   }
 
   void _leaveLogin() {

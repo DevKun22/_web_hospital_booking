@@ -8,7 +8,7 @@ const _user = PatientUser(
   fullName: 'Tên trong phiên',
   phone: '0912345678',
   email: 'session@example.test',
-  isPhoneVerified: true,
+  isEmailVerified: true,
 );
 
 void main() {
@@ -18,7 +18,7 @@ void main() {
       fullName: 'Nguyễn Văn An',
       phone: '0987654321',
       email: 'profile@example.test',
-      isPhoneVerified: true,
+      isEmailVerified: true,
       dateOfBirth: '1995-05-20',
       gender: PatientGender.male,
       cccd: '012345678901',
@@ -48,7 +48,7 @@ void main() {
       id: 'patient-2',
       fullName: 'Không được sử dụng',
       phone: '0900000000',
-      isPhoneVerified: true,
+      isEmailVerified: true,
       hasBhyt: true,
     );
 

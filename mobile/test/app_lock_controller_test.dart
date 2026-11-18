@@ -11,7 +11,7 @@ const _user = PatientUser(
   id: 'patient-1',
   fullName: 'Nguyễn Minh Anh',
   phone: '0391234567',
-  isPhoneVerified: true,
+  isEmailVerified: true,
 );
 
 class _AuthenticatedController extends AuthController {

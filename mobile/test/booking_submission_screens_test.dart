@@ -41,7 +41,7 @@ class _FailedDeliveryController extends BookingSubmissionController {
       expiresIn: 300,
       holdExpiresAt: DateTime.now().add(const Duration(minutes: 5)),
       otpDeliveryStatus: 'FAILED',
-      otpTarget: '0912345678',
+      otpTarget: 'an@example.test',
     ),
   );
 }
