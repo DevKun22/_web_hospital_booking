@@ -48,7 +48,7 @@ export function SuccessStep({ flow }: { flow: BookingFlow }) {
       <p className="mt-3 text-xs leading-5 text-[var(--public-muted)]">Hóa đơn và thanh toán trực tuyến có sau khi bệnh viện hoàn tất khám.</p>
 
       <div className="mt-5 flex flex-col gap-2 sm:flex-row">
-        <Link href={`/tai-khoan/dang-nhap?next=/tai-khoan/lich-hen&phone=${encodeURIComponent(verified.patientPhone)}`} className="public-button-primary inline-flex min-h-12 items-center justify-center rounded-lg px-5 text-sm font-semibold">
+        <Link href={`/tai-khoan/dang-nhap?next=/tai-khoan/lich-hen&email=${encodeURIComponent(flow.state.draft.patientEmail.trim().toLowerCase())}`} className="public-button-primary inline-flex min-h-12 items-center justify-center rounded-lg px-5 text-sm font-semibold">
           Xem lịch của tôi
         </Link>
         <button type="button" onClick={flow.actions.startNewBooking} className="public-button-secondary inline-flex min-h-12 items-center justify-center rounded-lg px-5 text-sm font-semibold">
