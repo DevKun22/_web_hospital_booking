@@ -1,7 +1,7 @@
 import PolicyService from "../policy.service.js";
 import type { Prisma } from "../../../generated/prisma/client.js";
 import { prisma } from "../../config/prisma.js";
-import { enqueuePendingOtpExpiry } from "../../queues/appointmentLifecycle.queue.js";
+import { enqueuePendingOtpExpiry } from "../../queues/background.queue.js";
 import AuthOtpService from "../authOtp.service.js";
 import { canSkipBookingOtp } from "../bookingIdentity.js";
 import { writeAppointmentLog } from "../appointmentLog.service.js";

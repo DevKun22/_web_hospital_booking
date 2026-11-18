@@ -2,7 +2,7 @@ import { createHmac, randomInt, timingSafeEqual } from "crypto";
 import { prisma } from "../config/prisma.js";
 import { AppError } from "../utils/appError.js";
 import type { OtpPurpose } from "../../generated/prisma/enums.js";
-import { enqueueOtpDeliveryJob } from "../queues/otp.queue.js";
+import { enqueueOtpDeliveryJob } from "../queues/background.queue.js";
 import OtpSenderService from "./otpSender.service.js";
 import {
   isProductionLike,

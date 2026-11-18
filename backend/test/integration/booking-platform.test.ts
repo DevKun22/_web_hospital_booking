@@ -1,4 +1,4 @@
-import { AppointmentService, AuthOtpService, AuthSessionService, InvoiceService, MedicalRecordService, NotificationService, PolicyService, PrescriptionService, RbacService, ScheduleReconciliationService, activeDatabase, activeDatabaseMarker, activeDatabaseSchema, activeDatabaseUrl, after, assert, authCookie, bcrypt, before, beforeEach, bookingBody, buildVnpayCallbackQuery, buildVnpayQueryResponse, buildVnpayRefundResponse, callVnpayRefund, createApp, createDashboardUser, createIssuedPrescription, createMedicineViaApi, createPayableInvoice, createStoredAppointment, createVnpayPaidInvoice, createVnpayPayment, dashboardCall, dashboardHeaders, dateOnly, emailBookingBody, fixture, futureDate, generateDashboardAccessToken, generatePatientAccessToken, getCookie, http, isFirebaseAdminConfigured, isoDateFromToday, jwt, loginPatient, moveAppointmentStart, prisma, receiveViaApi, resetDatabase, seedFixture, startHttpServer, test, vietnamClock, vnpayIpn, withStubbedVnpayQuery, withStubbedVnpayRefund, appointmentLogs, emailOf } from "./support/context.js";
+import { AppointmentService, AuthOtpService, AuthSessionService, InvoiceService, MedicalRecordService, NotificationService, PolicyService, PrescriptionService, RbacService, ScheduleReconciliationService, activeDatabase, activeDatabaseMarker, activeDatabaseSchema, activeDatabaseUrl, after, assert, authCookie, bcrypt, before, beforeEach, bookingBody, buildVnpayCallbackQuery, buildVnpayQueryResponse, buildVnpayRefundResponse, callVnpayRefund, createApp, createDashboardUser, createIssuedPrescription, createMedicineViaApi, createPayableInvoice, createStoredAppointment, createVnpayPaidInvoice, createVnpayPayment, dashboardCall, dashboardHeaders, dateOnly, emailBookingBody, fixture, futureDate, generateDashboardAccessToken, generatePatientAccessToken, getCookie, http, isFirebaseAdminConfigured, isoDateFromToday, jwt, loginPatient, moveAppointmentStart, prisma, receiveViaApi, resetDatabase, seedFixture, startHttpServer, test, vietnamClock, vnpayIpn, withStubbedVnpayQuery, withStubbedVnpayRefund, appointmentLogs, emailOf, MaintenanceService } from "./support/context.js";
 
 test("readiness checks the dedicated PostgreSQL database", async () => {
   const health = await http.request("/health");
@@ -879,4 +879,51 @@ test("no session is issued while the booking is still waiting for OTP", async ()
   assert.notEqual(wrong.status, 200);
   assert.equal(wrong.body.data?.session, undefined);
   assert.equal(await prisma.authSession.count({ where: { user: { email: emailOf("0933000003") } } }), 0);
+});
+
+// Việc định kỳ chạy trên cơ sở dữ liệu: khóa tư vấn để chỉ một bản làm mỗi lượt, và dọn dữ liệu xác thực cũ.
+test("maintenance tasks are exclusive across instances through a Postgres advisory lock", async () => {
+  let inner: string | null | undefined;
+  const outer = await MaintenanceService.runExclusive("test-lock", async () => {
+    inner = await MaintenanceService.runExclusive("test-lock", async () => "should-not-run");
+    return "ran";
+  });
+  assert.equal(outer, "ran");
+  assert.equal(inner, null);
+  // Khóa theo giao dịch nên nhả ngay khi xong: lượt sau chạy được.
+  assert.equal(await MaintenanceService.runExclusive("test-lock", async () => "again"), "again");
+  // Hai tác vụ tên khác nhau không chặn nhau.
+  const other = await MaintenanceService.runExclusive("lock-a", () => MaintenanceService.runExclusive("lock-b", async () => "b"));
+  assert.equal(other, "b");
+});
+
+test("auth cleanup removes long-expired sessions and challenges but keeps recent ones", async () => {
+  const now = new Date();
+  const daysAgo = (days: number) => new Date(now.getTime() - days * 86_400_000);
+  const owner = await createDashboardUser("STAFF", "0900000601");
+  const makeSession = (expiresAt: Date, revokedAt: Date | null) =>
+    prisma.authSession.create({
+      data: { userId: owner.id, kind: "DASHBOARD", expiresAt, revokedAt, refreshTokenHash: "hash-" + Math.random() },
+    });
+  const staleExpired = await makeSession(daysAgo(40), null);
+  const staleRevoked = await makeSession(daysAgo(1), daysAgo(40));
+  const live = await makeSession(daysAgo(-5), null);
+  const recentlyExpired = await makeSession(daysAgo(2), null);
+  const oldChallenge = await prisma.dashboardLoginChallenge.create({
+    data: { userId: owner.id, purpose: "STAFF_LOGIN", expiresAt: daysAgo(3) },
+  });
+  const freshChallenge = await prisma.dashboardLoginChallenge.create({
+    data: { userId: owner.id, purpose: "STAFF_LOGIN", expiresAt: daysAgo(-1) },
+  });
+
+  const result = await MaintenanceService.cleanupAuthArtifacts(now);
+  assert.equal(result.sessions, 2);
+  assert.equal(result.challenges, 1);
+
+  const left = await prisma.authSession.findMany({ where: { userId: owner.id }, select: { id: true } });
+  const leftIds = left.map((item) => item.id);
+  assert.ok(!leftIds.includes(staleExpired.id) && !leftIds.includes(staleRevoked.id));
+  assert.ok(leftIds.includes(live.id) && leftIds.includes(recentlyExpired.id));
+  assert.equal(await prisma.dashboardLoginChallenge.count({ where: { id: oldChallenge.id } }), 0);
+  assert.equal(await prisma.dashboardLoginChallenge.count({ where: { id: freshChallenge.id } }), 1);
 });
