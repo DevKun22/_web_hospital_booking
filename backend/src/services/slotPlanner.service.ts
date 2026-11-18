@@ -105,10 +105,11 @@ class SlotPlannerService {
       for (const schedule of schedules.filter((item) => item.dayOfWeek === getUtcDayOfWeek(date))) {
         for (const slot of buildTimeSlots(schedule.startTime, schedule.endTime, schedule.slotDuration)) {
           if (isSlotStartInPastVietnamTime(date, slot.startTime)) continue;
-          // Trùng đúng giờ thì để skipDuplicates xử lý; lệch giờ mà chồng lấn mới cần bỏ qua.
+          // Khung giờ đã có thì bỏ qua ngay tại đây: bản cũ vẫn gửi mọi khung giờ của cả cửa sổ cho createMany rồi để
+          // ON CONFLICT loại, nên mỗi lượt định kỳ ghi hàng trăm dòng thừa cho mỗi bác sĩ. Lệch giờ mà chồng lấn thì cũng bỏ qua.
           const clash = taken.some(
             (item) =>
-              item.startTime !== slot.startTime &&
+              item.startTime === slot.startTime ||
               overlaps(slot.startTime, slot.endTime, item.startTime, item.endTime),
           );
           if (clash) continue;

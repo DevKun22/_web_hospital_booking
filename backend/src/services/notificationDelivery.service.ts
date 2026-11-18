@@ -152,19 +152,20 @@ class NotificationDeliveryService {
     return summary;
   }
 
-  // Thông báo đã hết dòng chờ gửi thì đánh dấu đã chuyển phát xong.
+  // Thông báo đã hết dòng chờ gửi thì đánh dấu đã chuyển phát xong. Hai truy vấn cho cả lô (bản cũ đếm riêng từng thông báo).
   private async markDispatched(notificationIds: string[]) {
-    for (const notificationId of notificationIds) {
-      const remaining = await prisma.notificationDelivery.count({
-        where: { notificationId, status: { in: ["PENDING", "FAILED"] } },
-      });
-      if (remaining === 0) {
-        await prisma.notification.updateMany({
-          where: { id: notificationId, dispatchedAt: null },
-          data: { dispatchedAt: new Date() },
-        });
-      }
-    }
+    if (notificationIds.length === 0) return;
+    const stillPending = await prisma.notificationDelivery.groupBy({
+      by: ["notificationId"],
+      where: { notificationId: { in: notificationIds }, status: { in: ["PENDING", "FAILED"] } },
+    });
+    const pendingIds = new Set(stillPending.map((group) => group.notificationId));
+    const finished = notificationIds.filter((notificationId) => !pendingIds.has(notificationId));
+    if (finished.length === 0) return;
+    await prisma.notification.updateMany({
+      where: { id: { in: finished }, dispatchedAt: null },
+      data: { dispatchedAt: new Date() },
+    });
   }
 
   async dispatchDue(limit = 100) {
