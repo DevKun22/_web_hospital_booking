@@ -226,3 +226,28 @@ test("the Redis store sets a TTL on a new key and repairs a key without TTL", as
   await store.hit("k", 60_000);
   assert.equal(expires.length, 2);
 });
+
+test("the fallback store skips a failing primary during its cooldown and retries afterwards", async () => {
+  const clock = fakeClock();
+  let primaryCalls = 0;
+  const store = createFallbackRateLimitStore(
+    {
+      hit: async () => {
+        primaryCalls += 1;
+        throw new Error("redis down");
+      },
+    },
+    createMemoryRateLimitStore(clock.now),
+    { cooldownMs: 30_000, now: clock.now },
+  );
+
+  await store.hit("k", 60_000);
+  await store.hit("k", 60_000);
+  await store.hit("k", 60_000);
+  assert.equal(primaryCalls, 1, "trong thời gian ngắt mạch không gọi lại Redis ở từng request");
+
+  clock.advance(31_000);
+  const after = await store.hit("k", 60_000);
+  assert.equal(primaryCalls, 2);
+  assert.equal(after.degraded, true);
+});

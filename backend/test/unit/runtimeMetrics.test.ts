@@ -53,3 +53,21 @@ test("runtime metrics report memory, DB pool, requests and queues without secret
   assert.equal(metrics.queue.queues[0]?.waiting, 3);
   assert.doesNotMatch(JSON.stringify(metrics), /postgresql|password|secret/i);
 });
+
+test("the free Redis profile does not poll queue backlog from the API", async () => {
+  const metrics = await collectRuntimeMetrics("api", {
+    memoryUsage: () => ({ rss: 0, heapTotal: 0, heapUsed: 0, external: 0, arrayBuffers: 0 }),
+    databasePool: () => ({ max: 10, total: 0, idle: 0, waiting: 0 }),
+    requestMetrics: () => ({
+      requests: 0,
+      errors: 0,
+      slowRequests: 0,
+      durationMs: 0,
+      databaseQueries: 0,
+      databaseDurationMs: 0,
+    }),
+  });
+
+  assert.equal(metrics.queue.status, "disabled");
+  assert.deepEqual(metrics.queue.queues, []);
+});
