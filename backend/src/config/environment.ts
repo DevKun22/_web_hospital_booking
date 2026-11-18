@@ -471,9 +471,14 @@ export const getOutboxRetentionDays = (
   env: NodeJS.ProcessEnv = process.env,
 ) => boundedPositiveInteger(env.OUTBOX_RETENTION_DAYS, 30, 1, 365);
 
-export const getNotificationDispatchConcurrency = (
+// Khi rảnh, worker giãn nhịp quét dần tới mức này (có thông báo mới trong cùng tiến trình thì được đánh thức ngay).
+export const getNotificationWorkerIdleMaxMs = (
   env: NodeJS.ProcessEnv = process.env,
-) => boundedPositiveInteger(env.NOTIFICATION_DISPATCH_CONCURRENCY, 4, 1, 32);
+) =>
+  Math.max(
+    positiveInteger(env.NOTIFICATION_WORKER_IDLE_MAX_MS, 60_000),
+    5_000,
+  );
 
 export const getReminderDispatchConcurrency = (
   env: NodeJS.ProcessEnv = process.env,

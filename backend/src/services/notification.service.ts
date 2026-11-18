@@ -3,6 +3,8 @@ import type { NotificationType } from "../../generated/prisma/enums.js";
 import { prisma } from "../config/prisma.js";
 import { AppError } from "../utils/appError.js";
 import { paginationMeta } from "../utils/pagination.js";
+import { signalWork } from "../utils/workSignal.js";
+import { isNotificationPushEnabled } from "./notificationPreference.service.js";
 
 type DatabaseClient = Prisma.TransactionClient | typeof prisma;
 
@@ -110,8 +112,10 @@ class NotificationService {
         client,
         notification.id,
         input.userId,
+        input.type,
         now,
       );
+      signalWork("notifications");
       return notification;
     }
 
@@ -134,19 +138,27 @@ class NotificationService {
       client,
       notification.id,
       input.userId,
+      input.type,
       now,
     );
+    signalWork("notifications");
 
     const { userId: _userId, ...result } = notification;
     return result;
   }
 
+  // Chỉ sinh dòng chuyển phát khi người dùng còn bật push cho nhóm thông báo này và có phiên mang token hợp lệ; thông báo
+  // chỉ dành cho hộp thư thì không sinh dòng nào (hộp thư luôn đầy đủ).
   private async createPendingDeliveries(
     client: DatabaseClient,
     notificationId: string,
     userId: string,
+    type: NotificationType,
     now: Date,
   ) {
+    const preference = await client.notificationPreference.findUnique({ where: { userId } });
+    if (!isNotificationPushEnabled(type, preference)) return;
+
     const sessions = await client.authSession.findMany({
       where: {
         userId,

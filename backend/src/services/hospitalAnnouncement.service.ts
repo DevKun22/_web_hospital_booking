@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { signalWork } from "../utils/workSignal.js";
 import { Prisma } from "../../generated/prisma/client.js";
 import type { Role } from "../../generated/prisma/enums.js";
 import { prisma } from "../config/prisma.js";
@@ -193,6 +194,8 @@ class HospitalAnnouncementService {
       }
       return deliveries.length;
     });
+
+    signalWork("notifications");
 
     return {
       campaignId,
