@@ -1,0 +1,202 @@
+// Thanh toán: hóa đơn, dòng hóa đơn, hóa đơn bổ sung và giao dịch VNPay.
+
+enum InvoiceStatus {
+  UNPAID
+  PAID
+  CANCELLED
+  REFUNDED
+}
+
+enum InvoiceItemType {
+  CONSULTATION
+  PACKAGE
+  SERVICE_FEE
+  MEDICINE
+  OTHER
+}
+
+enum PaymentMethod {
+  CASH
+  CARD
+  BANK_TRANSFER
+  VNPAY
+  OTHER
+}
+
+// Cổng thanh toán online duy nhất: VNPay (sandbox hoặc production theo cấu hình).
+enum PaymentProvider {
+  VNPAY
+}
+
+enum PaymentTransactionStatus {
+  PENDING
+  SUCCESS
+  FAILED
+  CANCELLED
+  EXPIRED
+}
+
+enum InsuranceRouteType {
+  RIGHT_ROUTE
+  WRONG_ROUTE
+  REFERRAL
+  EMERGENCY
+  SERVICE
+}
+
+model Invoice {
+  id String @id @default(uuid())
+
+  invoiceCode String @unique
+  barcode     String @unique // Mã vạch hóa đơn dùng để đăng nhập nhanh vào portal
+
+  appointmentId String      @unique
+  appointment   Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+
+  patientId String
+  patient   User   @relation("PatientInvoices", fields: [patientId], references: [id])
+
+  totalAmount  Int
+  bhytDiscount Int @default(0)
+  finalAmount  Int
+
+  insuranceEligibleAmount Int @default(0)
+  insuranceCoverageRate   Int @default(0)
+  insuranceDiscountAmount Int @default(0)
+  insuranceRouteType      InsuranceRouteType?
+  insuranceNote           String?
+
+  status        InvoiceStatus  @default(UNPAID)
+  paymentMethod PaymentMethod?
+  paymentReference String?
+  paidAt        DateTime?
+  refundReason  String?
+  refundReference String?
+  refundedAt    DateTime?
+  // Mã yêu cầu hoàn tiền gửi VNPAY (vnp_RequestId). Đặt trước khi gọi API để một hóa đơn
+  // không bị gửi hai yêu cầu hoàn; chỉ xóa khi VNPAY từ chối rõ ràng.
+  refundRequestId   String?   @unique
+  refundAttemptedAt DateTime?
+  // Tổng tiền thuốc đã hoàn một phần (hóa đơn vẫn PAID). Hoàn toàn phần dùng status REFUNDED, không cộng vào đây.
+  refundedAmount    Int       @default(0)
+
+  paymentTransactions PaymentTransaction[]
+  items               InvoiceItem[]
+  supplements         InvoiceSupplement[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([patientId, status, createdAt])
+}
+
+model InvoiceItem {
+  id String @id @default(uuid())
+
+  invoiceId String
+  invoice   Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  type        InvoiceItemType
+  description String
+  quantity    Int             @default(1)
+  unitPrice   Int
+  amount      Int
+  sortOrder   Int             @default(0)
+
+  // Dòng tiền thuốc được sinh từ dòng đơn thuốc này (không có quan hệ cứng: dòng đơn bị xóa thì dòng hóa đơn
+  // được đồng bộ gỡ đi, không tự xóa lan).
+  prescriptionItemId String?
+
+  // Dòng tiền thuốc đã được hoàn lại (thuốc hết hàng hoặc người khám tự mua sau khi thanh toán).
+  refundedAt      DateTime?
+  refundReference String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([invoiceId, sortOrder])
+  @@index([prescriptionItemId])
+}
+
+enum InvoiceSupplementStatus {
+  UNPAID
+  PAID
+  CANCELLED
+}
+
+// Hóa đơn bổ sung tiền thuốc phát sinh sau khi hóa đơn chính đã thanh toán (đơn phát hành muộn). Thu tại quầy;
+// hóa đơn chính không bị sửa. Mỗi dòng gắn đúng một dòng đơn thuốc.
+model InvoiceSupplement {
+  id String @id @default(uuid())
+
+  supplementCode String @unique
+
+  invoiceId String
+  invoice   Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  amount Int
+  status InvoiceSupplementStatus @default(UNPAID)
+
+  paymentMethod    PaymentMethod?
+  paymentReference String?
+  paidAt           DateTime?
+  collectedById    String?
+
+  items InvoiceSupplementItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([invoiceId, status])
+}
+
+model InvoiceSupplementItem {
+  id String @id @default(uuid())
+
+  supplementId String
+  supplement   InvoiceSupplement @relation(fields: [supplementId], references: [id], onDelete: Cascade)
+
+  prescriptionItemId String @unique
+
+  description String
+  quantity    Int
+  unitPrice   Int
+  amount      Int
+
+  createdAt DateTime @default(now())
+
+  @@index([supplementId])
+}
+
+model PaymentTransaction {
+  id String @id @default(uuid())
+
+  invoiceId String
+  invoice   Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  provider PaymentProvider
+  status   PaymentTransactionStatus @default(PENDING)
+
+  amount Int
+
+  transactionCode String  @unique
+  activeKey       String? @unique
+  idempotencyKey  String? @unique
+  providerOrderId String?
+  paymentUrl      String?
+
+  rawRequest  Json?
+  rawResponse Json?
+
+  paidAt    DateTime?
+  expiredAt DateTime
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([invoiceId])
+  @@index([provider])
+  @@index([status])
+  @@index([providerOrderId])
+  @@index([expiredAt])
+}

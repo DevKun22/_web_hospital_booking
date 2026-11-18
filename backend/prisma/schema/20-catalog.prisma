@@ -1,0 +1,113 @@
+// Danh mục công khai: chuyên khoa, bác sĩ, gói khám.
+
+model Department {
+  id          String  @id @default(uuid())
+  name        String  @unique
+  slug        String? @unique
+  description       String?
+  image             String?
+  symptomKeywords   String[] @default([])
+  triageDescription String?
+  isTriageFallback  Boolean  @default(false)
+  isActive          Boolean  @default(true)
+
+  doctors      DoctorProfile[]
+  appointments Appointment[]
+  packages     Package[]
+  articles     Article[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([isTriageFallback, isActive])
+}
+
+model DoctorProfile {
+  id     String @id @default(uuid())
+  slug   String @unique
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  departmentId String
+  department   Department @relation(fields: [departmentId], references: [id])
+
+  title           String?
+  bio             String?
+  specialization  String?
+  scheduleChangeRequests ScheduleChangeRequest[]
+  experience      Int?
+  consultationFee Int     @default(0)
+
+  isAvailable Boolean @default(true)
+
+  appointments       Appointment[]       @relation("DoctorAppointments")
+  schedules          DoctorSchedule[]
+  timeSlots          DoctorTimeSlot[]
+  medicalRecords     MedicalRecord[]     @relation("DoctorRecords")
+  prescriptions       Prescription[]      @relation("DoctorPrescriptions")
+  reviews            Review[]
+  scheduleChangeLogs ScheduleChangeLog[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([departmentId])
+}
+
+// Gói khám tổng quan
+// Ví dụ: Khám tổng quát, Khám chuyên khoa, Gói sàng lọc ban đầu
+model Package {
+  id          String  @id @default(uuid())
+  name        String
+  slug        String? @unique
+  description String?
+
+  departmentId String?
+  department   Department? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+
+  // Giá hiển thị chính của gói
+  basePrice  Int
+  serviceFee Int @default(0)
+
+  // Mô tả nhanh trên giao diện
+  summary       String?
+  note          String?
+  image         String?
+  isPopular     Boolean @default(false)
+  isBHYTSupport Boolean @default(false)
+  isActive      Boolean @default(true)
+
+  // Chi tiết từng hạng mục trong gói khám
+  items PackageItem[]
+
+  appointments Appointment[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([departmentId])
+}
+
+// Chi tiết gói khám
+// Dùng để nói rõ gói này khám những gì và từng mục có phí bao nhiêu
+model PackageItem {
+  id String @id @default(uuid())
+
+  packageId String
+  package   Package @relation(fields: [packageId], references: [id], onDelete: Cascade)
+
+  name        String // VD: Khám lâm sàng, Xét nghiệm máu, Siêu âm bụng
+  description String?
+
+  // Giá của từng hạng mục. Nếu đã nằm trong gói thì có thể để 0 hoặc included = true
+  price    Int     @default(0)
+  included Boolean @default(true)
+
+  // Thứ tự hiển thị trên giao diện
+  order Int @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([packageId])
+}

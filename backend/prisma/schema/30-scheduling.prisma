@@ -1,0 +1,155 @@
+// Lịch làm việc: ca mẫu theo tuần, khung giờ cụ thể và yêu cầu đổi lịch.
+
+enum ScheduleChangeType {
+  CREATE_SLOT
+  UPDATE_SLOT
+  LOCK_SLOT
+  UNLOCK_SLOT
+  DELETE_SLOT
+  UPDATE_WEEKLY_SCHEDULE
+}
+
+enum ScheduleChangeRequestType {
+  CREATE_WEEKLY_SCHEDULE
+  UPDATE_WEEKLY_SCHEDULE
+  DEACTIVATE_WEEKLY_SCHEDULE
+}
+
+enum ScheduleChangeRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+enum TimeSlotStatus {
+  AVAILABLE
+  BOOKED
+  LOCKED
+  CANCELLED
+}
+
+// Lịch làm việc lặp lại theo tuần của bác sĩ
+// Ví dụ: Thứ 2, 08:00 - 11:30
+model DoctorSchedule {
+  id       String        @id @default(uuid())
+  changeRequests ScheduleChangeRequest[]
+  // Khung giờ cụ thể được sinh từ ca này; xóa ca thì khung giờ còn lịch đặt vẫn giữ (scheduleId về null).
+  timeSlots DoctorTimeSlot[]
+
+  doctorId String
+  doctor   DoctorProfile @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+
+  // Lịch mẫu theo tuần
+  // VD: Thứ 2, 08:00 - 11:30, mỗi ca 30 phút
+  dayOfWeek Int // 0: Chủ nhật, 1: Thứ 2, ...
+  startTime String
+  endTime   String
+
+  slotDuration Int     @default(30) // phút
+  maxPatients  Int     @default(1)
+  isActive     Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([doctorId])
+  @@index([dayOfWeek])
+}
+
+// Yêu cầu do bác sĩ gửi để Staff/Admin duyệt trước khi thay đổi lịch mẫu.
+model ScheduleChangeRequest {
+  id String @id @default(uuid())
+
+  doctorId String
+  doctor   DoctorProfile @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+
+  scheduleId String?
+  schedule   DoctorSchedule? @relation(fields: [scheduleId], references: [id], onDelete: SetNull)
+
+  requestedById String
+  requestedBy   User @relation("RequestedScheduleChanges", fields: [requestedById], references: [id], onDelete: Cascade)
+
+  reviewedById String?
+  reviewedBy   User? @relation("ReviewedScheduleChanges", fields: [reviewedById], references: [id], onDelete: SetNull)
+
+  type   ScheduleChangeRequestType
+  status ScheduleChangeRequestStatus @default(PENDING)
+
+  dayOfWeek     Int
+  startTime     String
+  endTime       String
+  slotDuration  Int
+  maxPatients   Int
+  isActive      Boolean @default(true)
+  effectiveFrom DateTime
+  reason        String
+  reviewerNote  String?
+  reviewedAt    DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([doctorId, status])
+  @@index([requestedById, status])
+  @@index([status, createdAt])
+  @@index([reviewedById])
+  @@index([scheduleId])
+}
+
+// Slot khám cụ thể theo ngày để đặt lịch, chống trùng lịch
+model DoctorTimeSlot {
+  id       String        @id @default(uuid())
+  doctorId String
+  doctor   DoctorProfile @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+
+  // Slot cụ thể theo ngày thật
+  // VD: 2026-05-20, 08:00 - 08:30
+  date      DateTime
+  startTime String
+  endTime   String
+
+  status   TimeSlotStatus @default(AVAILABLE)
+  isActive Boolean        @default(true)
+
+  // Lý do khóa/hủy slot, ví dụ: bác sĩ nghỉ đột xuất, họp chuyên môn
+  lockReason String?
+
+  // Ca mẫu đã sinh ra khung giờ này (null: tạo tay hoặc ca mẫu đã bị xóa).
+  scheduleId String?
+  schedule   DoctorSchedule? @relation(fields: [scheduleId], references: [id], onDelete: SetNull)
+
+  appointment Appointment?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([doctorId, date, startTime])
+  @@index([date])
+  @@index([status, isActive, date, startTime])
+  @@index([scheduleId])
+}
+
+// Lưu lịch sử bác sĩ/Admin điều chỉnh lịch làm việc hoặc slot khám
+model ScheduleChangeLog {
+  id String @id @default(uuid())
+
+  doctorId String
+  doctor   DoctorProfile @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+
+  changedById String?
+  changedBy   User?   @relation(fields: [changedById], references: [id], onDelete: SetNull)
+
+  type ScheduleChangeType
+  note String?
+
+  date      DateTime?
+  startTime String?
+  endTime   String?
+
+  createdAt DateTime @default(now())
+
+  @@index([doctorId])
+  @@index([changedById])
+  @@index([type])
+}

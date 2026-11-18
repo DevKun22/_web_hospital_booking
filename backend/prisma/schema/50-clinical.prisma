@@ -1,0 +1,159 @@
+// Lâm sàng: hồ sơ khám, kết quả xét nghiệm, đơn thuốc.
+
+enum MedicalResultStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum PrescriptionStatus {
+  DRAFT
+  ISSUED
+  CANCELLED
+}
+
+// Trạng thái cấp phát của đơn thuốc: cấp nguyên đơn hoặc chưa cấp.
+enum DispenseStatus {
+  NOT_DISPENSED
+  DISPENSED
+}
+
+// Trạng thái xử lý từng dòng thuốc khi dược sĩ cấp.
+enum FulfillmentStatus {
+  PENDING // chưa xử lý
+  DISPENSED // đã cấp, đã trừ kho
+  OUTSIDE // người khám tự mua (không trừ kho, không tính tiền)
+  OUT_OF_STOCK // kho hết hàng lúc cấp (không trừ kho, không tính tiền)
+}
+
+model MedicalRecord {
+  id String @id @default(uuid())
+
+  recordCode String @unique // Mã hồ sơ bệnh án
+
+  appointmentId String      @unique
+  appointment   Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+
+  patientId String
+  patient   User   @relation("PatientRecords", fields: [patientId], references: [id])
+
+  doctorId String
+  doctor   DoctorProfile @relation("DoctorRecords", fields: [doctorId], references: [id])
+
+  symptoms     String?
+  diagnosis    String?
+  treatment    String?
+  prescription String?
+  doctorNotes  String?
+
+  status MedicalResultStatus @default(DRAFT)
+
+  // File PDF kết quả hoặc hồ sơ khám nếu có
+  resultPdfUrl String?
+
+  labResults LabResult[]
+  prescriptionRecord Prescription?
+
+  publishedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([doctorId])
+  @@index([patientId, status, publishedAt])
+}
+
+model LabResult {
+  id String @id @default(uuid())
+
+  medicalRecordId String
+  medicalRecord   MedicalRecord @relation(fields: [medicalRecordId], references: [id], onDelete: Cascade)
+
+  testName       String
+  resultValue    String?
+  unit           String?
+  referenceRange String?
+  conclusion     String?
+  fileUrl        String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([medicalRecordId])
+}
+
+// Don thuoc tu do, khong quan ly kho va khong tinh gia thuoc
+model Prescription {
+  id String @id @default(uuid())
+
+  prescriptionCode String @unique
+
+  medicalRecordId String        @unique
+  medicalRecord   MedicalRecord @relation(fields: [medicalRecordId], references: [id], onDelete: Cascade)
+
+  appointmentId String      @unique
+  appointment   Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+
+  patientId String
+  patient   User   @relation("PatientPrescriptions", fields: [patientId], references: [id])
+
+  doctorId String
+  doctor   DoctorProfile @relation("DoctorPrescriptions", fields: [doctorId], references: [id])
+
+  status PrescriptionStatus @default(DRAFT)
+  note   String?
+
+  // Cấp phát tại quầy dược: cấp nguyên đơn một lần, không cấp từng phần.
+  dispenseStatus DispenseStatus @default(NOT_DISPENSED)
+  dispensedAt    DateTime?
+  dispensedById  String?
+  dispensedBy    User?          @relation("PrescriptionDispensedBy", fields: [dispensedById], references: [id], onDelete: SetNull)
+  dispenseNote   String?
+
+  items PrescriptionItem[]
+
+  issuedAt    DateTime?
+  cancelledAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([doctorId])
+  @@index([patientId, status, issuedAt])
+  @@index([status, dispenseStatus, issuedAt])
+  @@index([dispensedById])
+}
+
+model PrescriptionItem {
+  id String @id @default(uuid())
+
+  prescriptionId String
+  prescription   Prescription @relation(fields: [prescriptionId], references: [id], onDelete: Cascade)
+
+  // Null = thuốc mua ngoài, không đi qua kho. Các cột tên thuốc, liều, đơn vị
+  // bên dưới vẫn là bản chụp lúc kê nên đơn cũ luôn hiển thị đúng.
+  medicineId String?
+  medicine   Medicine? @relation(fields: [medicineId], references: [id], onDelete: Restrict)
+
+  medicineName String
+  dosage       String?
+  frequency    String?
+  duration     String?
+  quantity     Int?
+  unit         String?
+  instruction  String?
+  sortOrder    Int @default(0)
+
+  dispensedQuantity Int @default(0)
+
+  // Kết quả xử lý dòng khi dược sĩ cấp; fulfillmentNote ghi lý do (ví dụ hết hàng).
+  fulfillmentStatus FulfillmentStatus @default(PENDING)
+  fulfillmentNote   String?
+
+  stockMovements StockMovement[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([prescriptionId])
+  @@index([sortOrder])
+  @@index([medicineId])
+}

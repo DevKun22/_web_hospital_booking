@@ -1,0 +1,143 @@
+// Nội dung công khai: bài viết, hỏi đáp, banner, cấu hình trang, tệp phương tiện.
+
+enum MediaOwnerType {
+  DEPARTMENT
+  USER_AVATAR
+  DOCTOR
+  PACKAGE
+  MEDICAL_RESULT
+  BANNER
+  SITE_SETTING
+}
+
+model MediaAsset {
+  id String @id @default(uuid())
+
+  url      String
+  publicId String @unique
+
+  folder   String
+  mimeType String?
+  format   String?
+  bytes    Int?
+  width    Int?
+  height   Int?
+
+  ownerType MediaOwnerType?
+  ownerId   String?
+  isUsed    Boolean @default(false)
+
+  uploadedById String?
+  uploadedBy   User?   @relation(fields: [uploadedById], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([ownerType, ownerId])
+  @@index([isUsed])
+  @@index([uploadedById])
+  @@index([createdAt])
+}
+
+enum ArticleStatus {
+  DRAFT
+  PUBLISHED
+}
+
+// Bài viết kiến thức sức khỏe (Markdown) trên trang /kien-thuc; bài đã xuất bản cũng là nguồn tri thức cho chatbot.
+// Bác sĩ duyệt nội dung chuyên môn bằng tài khoản của mình (người duyệt không gõ tay); quản trị chỉ xuất bản bài đã được duyệt.
+// Sửa nội dung thì dấu duyệt bị xóa và bài về bản nháp chờ duyệt lại.
+model Article {
+  id String @id @default(uuid())
+
+  slug    String  @unique
+  title   String
+  summary String?
+  content String // Markdown
+  category String?
+
+  departmentId String?
+  department   Department? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+
+  authorId   String?
+  author     User?   @relation("ArticleAuthor", fields: [authorId], references: [id], onDelete: SetNull)
+  authorName String?
+
+  reviewedById String?
+  reviewedBy   User?     @relation("ArticleReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+  reviewerName String? // Tên hiển thị công khai (kèm học hàm), chụp lại lúc duyệt
+  reviewedAt   DateTime?
+
+  status      ArticleStatus @default(DRAFT)
+  publishedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status, publishedAt])
+  @@index([departmentId])
+  @@index([authorId])
+  @@index([reviewedById])
+}
+
+// Một nguồn FAQ duy nhất cho trang Hỏi đáp và trợ lý ảo.
+model FAQ {
+  id String @id @default(uuid())
+
+  question String
+  answer   String
+  category String?
+  keywords String[] @default([])
+  order    Int      @default(0)
+
+  showOnWeb    Boolean @default(true)
+  useInChatbot Boolean @default(true)
+  isActive     Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([isActive, showOnWeb, order])
+  @@index([isActive, useInChatbot])
+  @@index([category])
+}
+
+model SiteSetting {
+  id String @id @default(uuid())
+
+  key   String @unique
+  value Json
+
+  description String?
+  isActive    Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([isActive])
+}
+
+model Banner {
+  id String @id @default(uuid())
+
+  title       String
+  subtitle    String?
+  image       String
+  mobileImage String?
+  linkUrl     String?
+  target      String?
+  position    String  @default("HOME_HERO")
+
+  order    Int     @default(0)
+  isActive Boolean @default(true)
+
+  startAt DateTime?
+  endAt   DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([position])
+  @@index([isActive])
+  @@index([order])
+}

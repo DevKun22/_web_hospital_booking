@@ -1,0 +1,152 @@
+// Danh tính: tài khoản người dùng, hồ sơ bệnh nhân và hồ sơ người thân.
+
+enum Role {
+  ADMIN
+  STAFF
+  DOCTOR
+  PATIENT
+  PHARMACIST // Dược sĩ: cấp phát thuốc và quản lý kho
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+}
+
+enum DependentRelationship {
+  CHILD
+  SPOUSE
+  PARENT
+  SIBLING
+  OTHER
+}
+
+model User {
+  id       String  @id @default(uuid())
+  fullName String
+  email    String? @unique
+  phone    String? @unique
+  password String?
+  role     Role    @default(PATIENT)
+  avatar   String?
+
+  isPhoneVerified Boolean @default(false)
+  isEmailVerified Boolean @default(false)
+  isActive        Boolean @default(true)
+  // Đặt khi quản trị tạo tài khoản hoặc đặt lại mật khẩu thay người dùng: người dùng phải tự
+  // đổi mật khẩu trước khi làm việc tiếp, để quản trị không biết mật khẩu lâu dài.
+  mustChangePassword Boolean @default(false)
+
+  // Patient relations
+  patientProfile PatientProfile?
+  appointments   Appointment[]   @relation("PatientAppointments")
+  medicalRecords MedicalRecord[] @relation("PatientRecords")
+  invoices       Invoice[]       @relation("PatientInvoices")
+  prescriptions  Prescription[]  @relation("PatientPrescriptions")
+
+  // Doctor relation
+  doctorProfile DoctorProfile?
+  requestedScheduleChanges ScheduleChangeRequest[] @relation("RequestedScheduleChanges")
+  reviewedScheduleChanges  ScheduleChangeRequest[] @relation("ReviewedScheduleChanges")
+
+  // Common relations
+  chatbotLogs ChatbotLog[]
+  chatbotSessions ChatbotSession[]
+  otpCodes    OtpCode[]
+  dashboardLoginChallenges DashboardLoginChallenge[]
+  dashboardSessions DashboardSession[]
+  authRefreshTokens AuthRefreshToken[]
+  notifications            Notification[]
+  notificationPreference   NotificationPreference?
+  mediaAssets MediaAsset[]
+  dependents               DependentProfile[]        @relation("DependentOwner")
+
+  // Bài viết kiến thức sức khỏe (người viết và bác sĩ duyệt nội dung)
+  articlesAuthored Article[] @relation("ArticleAuthor")
+  articlesReviewed Article[] @relation("ArticleReviewer")
+
+  // Pharmacy (dược sĩ cấp thuốc và thao tác kho)
+  dispensedPrescriptions Prescription[]  @relation("PrescriptionDispensedBy")
+  stockMovements         StockMovement[]
+
+  // Logs created by Admin/Staff/Doctor
+  appointmentLogs AppointmentLog[]
+  scheduleLogs    ScheduleChangeLog[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([role])
+}
+
+model PatientProfile {
+  id     String @id @default(uuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  dateOfBirth DateTime?
+  gender      Gender?
+  cccd        String?   @unique
+  address     String?
+
+  // BHYT
+  hasBHYT             Boolean @default(false)
+  healthInsuranceCode String?
+  registeredHospital  String?
+
+  // Thông tin sức khỏe cơ bản
+  bloodType      String?
+  height         Float?
+  weight         Float?
+  allergies      String?
+  medicalHistory String?
+  familyHistory  String?
+  bloodPressure  String?
+
+  // Đồng ý lưu thông tin sức khỏe (dị ứng, tiền sử): thời điểm và phiên bản nội dung đã đồng ý.
+  healthConsentAt      DateTime?
+  healthConsentVersion String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Hồ sơ người thân do một tài khoản bệnh nhân quản lý. Người thân không phải
+// là tài khoản đăng nhập riêng; owner vẫn là chủ sở hữu lịch, hồ sơ và thông báo.
+model DependentProfile {
+  id      String @id @default(uuid())
+  ownerId String
+  owner   User   @relation("DependentOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+
+  fullName     String
+  relationship DependentRelationship
+  phone        String?
+  email        String?
+  dateOfBirth  DateTime?
+  gender       Gender?
+  cccd         String?
+  address      String?
+
+  hasBHYT             Boolean @default(false)
+  healthInsuranceCode String?
+  registeredHospital  String?
+  allergies           String?
+  medicalHistory      String?
+  familyHistory       String?
+
+  isActive Boolean @default(true)
+
+  // Owner xác nhận có quyền quản lý/đặt lịch cho người này. Phiên bản giúp
+  // truy vết khi nội dung cam kết thay đổi trong tương lai.
+  consentConfirmedAt DateTime @default(now())
+  consentVersion     String   @default("v1")
+
+  appointments Appointment[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([ownerId, cccd])
+  @@index([ownerId, isActive])
+}

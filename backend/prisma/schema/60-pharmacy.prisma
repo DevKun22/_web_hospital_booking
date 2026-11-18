@@ -1,0 +1,96 @@
+// Kho thuốc: danh mục, lô hạn dùng và sổ kho chỉ thêm dòng.
+
+enum StockMovementType {
+  RECEIPT // nhập kho (quantity > 0)
+  DISPENSE // cấp phát theo đơn (quantity < 0)
+  ADJUSTMENT // kiểm kê, điều chỉnh có lý do (quantity có dấu)
+}
+
+// Danh mục thuốc kiêm tồn kho. Mỗi thuốc có một đơn vị cơ sở duy nhất, không quy
+// đổi. Thuốc đã dùng chỉ ngưng sử dụng (isActive = false), không xóa.
+// stockQuantity không bao giờ âm: có ràng buộc CHECK viết tay trong migration.
+model Medicine {
+  id String @id @default(uuid())
+
+  code             String  @unique
+  name             String
+  activeIngredient String?
+  strength         String?
+  dosageForm       String?
+  unit             String
+  // Đơn giá bán (VND) dùng để tính tiền thuốc trên hóa đơn; 0 = không tính tiền.
+  unitPrice        Int     @default(0)
+
+  stockQuantity Int     @default(0)
+  minStock      Int     @default(0)
+  isActive      Boolean @default(true)
+  note          String?
+
+  prescriptionItems PrescriptionItem[]
+  stockMovements    StockMovement[]
+  batches           StockBatch[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([name])
+  @@index([isActive])
+}
+
+// Lô thuốc có hạn dùng. stockQuantity của thuốc vẫn là tổng tồn; phần tồn chưa gắn lô (nhập trước khi có
+// quản lý lô, hoặc nhập không khai lô) bằng stockQuantity trừ tổng quantity của các lô. Cấp thuốc lấy lô
+// hết hạn sớm nhất còn hạn trước (FEFO) và không bao giờ lấy từ lô đã hết hạn.
+model StockBatch {
+  id String @id @default(uuid())
+
+  medicineId String
+  medicine   Medicine @relation(fields: [medicineId], references: [id], onDelete: Restrict)
+
+  batchNumber String
+  expiryDate  DateTime @db.Date
+
+  receivedQuantity Int // tổng đã nhập vào lô, không đổi sau khi nhập
+  quantity         Int // còn lại trong lô; CHECK quantity >= 0
+
+  stockMovements StockMovement[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([medicineId, batchNumber])
+  @@index([medicineId, expiryDate])
+  @@index([expiryDate])
+}
+
+// Sổ kho chỉ thêm dòng, không sửa hay xóa. Sửa sai bằng dòng ADJUSTMENT đối ứng.
+// Tồn của thuốc luôn bằng tổng quantity của mọi dòng sổ kho thuộc thuốc đó.
+model StockMovement {
+  id String @id @default(uuid())
+
+  medicineId String
+  medicine   Medicine @relation(fields: [medicineId], references: [id], onDelete: Restrict)
+
+  type         StockMovementType
+  quantity     Int // có dấu: dương khi nhập, âm khi cấp phát; CHECK quantity <> 0
+  balanceAfter Int // tồn của thuốc ngay sau dòng này, phục vụ đối soát
+
+  // Có giá trị khi type = DISPENSE
+  prescriptionItemId String?
+  prescriptionItem   PrescriptionItem? @relation(fields: [prescriptionItemId], references: [id], onDelete: Restrict)
+
+  // Có giá trị khi dòng sổ tác động vào một lô cụ thể (nhập theo lô, cấp theo lô, hủy lô).
+  batchId String?
+  batch   StockBatch? @relation(fields: [batchId], references: [id], onDelete: Restrict)
+
+  actorId String
+  actor   User   @relation(fields: [actorId], references: [id], onDelete: Restrict)
+
+  reason String? // bắt buộc khi ADJUSTMENT
+
+  createdAt DateTime @default(now())
+
+  @@index([medicineId, createdAt])
+  @@index([prescriptionItemId])
+  @@index([actorId])
+  @@index([batchId])
+}

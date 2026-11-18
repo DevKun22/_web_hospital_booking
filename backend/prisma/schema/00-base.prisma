@@ -1,0 +1,14 @@
+// Prisma schema - Hệ thống đặt lịch khám bệnh tích hợp chatbot (web + mobile)
+// - Khách vãng lai đặt lịch bằng SĐT/email + OTP; hệ thống tạo tài khoản PATIENT.
+// - Mọi thao tác sau đặt lịch (xem lịch, hủy, kết quả, hóa đơn, đánh giá)
+//   đi qua cổng bệnh nhân sau khi đăng nhập bằng OTP.
+// - Admin/Staff/Doctor đăng nhập dashboard bằng mật khẩu + OTP.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}

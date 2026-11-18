@@ -1,0 +1,213 @@
+// Xác thực và bảo mật: OTP, phiên đăng nhập, chống brute-force, nhật ký truy cập.
+
+enum OtpPurpose {
+  BOOK_APPOINTMENT
+  PATIENT_PORTAL_LOGIN
+  ADMIN_LOGIN
+  DOCTOR_LOGIN
+  STAFF_LOGIN
+  PHARMACIST_LOGIN
+}
+
+enum OtpChannel {
+  SMS
+  EMAIL
+}
+
+enum OtpDeliveryStatus {
+  PENDING
+  SENT
+  FAILED
+}
+
+enum SessionKind {
+  DASHBOARD
+  PATIENT
+}
+
+model OtpCode {
+  id      String     @id @default(uuid())
+  phone   String
+  email   String?
+  target  String?
+  channel OtpChannel @default(SMS)
+  code    String
+  purpose OtpPurpose
+  deliveryStatus OtpDeliveryStatus @default(PENDING)
+  deliveryError  String?
+  deliveredAt    DateTime?
+
+  ipAddress String?
+  challengeId String?
+  challenge   DashboardLoginChallenge? @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+
+  expiresAt DateTime
+  isUsed    Boolean   @default(false)
+  usedAt    DateTime?
+
+  userId String?
+  user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+
+  @@index([phone])
+  @@index([email])
+  @@index([target])
+  @@index([channel])
+  @@index([deliveryStatus])
+  @@index([purpose])
+  @@index([expiresAt])
+  @@index([ipAddress])
+  @@index([challengeId])
+  @@index([userId])
+}
+
+model OtpSecurityBlock {
+  id String @id @default(uuid())
+
+  targetType String
+  target     String
+  reason     String
+  purpose    OtpPurpose?
+
+  blockedUntil DateTime
+  createdAt    DateTime @default(now())
+
+  @@index([targetType, target])
+  @@index([purpose])
+  @@index([blockedUntil])
+}
+
+model OtpVerifyAttempt {
+  id String @id @default(uuid())
+
+  phone     String
+  email     String?
+  target    String?
+  channel   OtpChannel @default(SMS)
+  purpose   OtpPurpose
+  ipAddress String?
+  success   Boolean @default(false)
+
+  createdAt DateTime @default(now())
+
+  @@index([phone, purpose, createdAt])
+  @@index([target, channel, purpose, createdAt])
+  @@index([ipAddress, createdAt])
+  @@index([success])
+}
+
+model DashboardLoginChallenge {
+  id String @id @default(uuid())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  purpose   OtpPurpose
+  ipAddress String?
+
+  attempts Int @default(0)
+  isUsed   Boolean @default(false)
+  usedAt   DateTime?
+
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  otpCodes OtpCode[]
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@index([isUsed])
+}
+
+// Lưu dấu vết đăng nhập thất bại dưới dạng HMAC để giới hạn brute-force trên
+// toàn bộ các instance backend mà không lưu thêm số điện thoại/IP dạng rõ.
+model DashboardLoginFailure {
+  id String @id @default(uuid())
+
+  targetHash String
+  ipHash     String
+  createdAt  DateTime @default(now())
+
+  @@index([targetHash, createdAt])
+  @@index([ipHash, createdAt])
+}
+
+// Nhật ký truy cập và thao tác nhạy cảm (ai làm gì, trên đối tượng nào, từ đâu). Không ghi
+// nội dung y tế. Chỉ thêm dòng (trigger chặn sửa, xóa). actorId cố ý không phải khóa ngoại để
+// nhật ký còn nguyên khi tài khoản bị xóa.
+model AuditLog {
+  id String @id @default(uuid())
+
+  actorId   String?
+  actorName String?
+  actorRole String?
+
+  action     String
+  targetType String?
+  targetId   String?
+  ipAddress  String?
+  meta       Json?
+
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([action, createdAt])
+  @@index([actorId, createdAt])
+}
+
+model DashboardSession {
+  id String @id @default(uuid())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  refreshTokenHash String      @unique
+  kind             SessionKind @default(DASHBOARD)
+  tokenFamilyId    String      @unique @default(uuid())
+  ipAddress        String?
+  userAgent        String?
+  deviceId         String?
+  deviceName       String?
+  platform         String?
+  appVersion       String?
+  pushToken          String?     @unique
+  pushTokenUpdatedAt DateTime?
+  pushDisabledAt     DateTime?
+
+  expiresAt  DateTime
+  lastUsedAt DateTime?
+  revokedAt  DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  refreshTokens AuthRefreshToken[]
+  notificationDeliveries NotificationDelivery[]
+
+  @@index([userId, kind, revokedAt])
+  @@index([expiresAt])
+  @@index([revokedAt])
+}
+
+model AuthRefreshToken {
+  id String @id @default(uuid())
+
+  sessionId String
+  session   DashboardSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  userId String
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  tokenHash           String @unique
+  replacedByTokenHash String?
+  expiresAt           DateTime
+  usedAt              DateTime?
+  revokedAt           DateTime?
+  createdAt           DateTime @default(now())
+
+  @@index([sessionId, createdAt])
+  @@index([userId, expiresAt])
+  @@index([expiresAt])
+  @@index([revokedAt])
+}
