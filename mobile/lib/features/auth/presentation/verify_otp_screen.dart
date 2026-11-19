@@ -118,6 +118,15 @@ class _VerifyOtpScreenState extends ConsumerState<VerifyOtpScreen> {
                             )
                           : const Text('Xác nhận'),
                     ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Chưa thấy mã? Kiểm tra thư rác hoặc xác nhận đúng email. '
+                      'Nếu vẫn không nhận được, hãy liên hệ cơ sở khám.',
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                    ),
                   ],
                 ),
               ),
