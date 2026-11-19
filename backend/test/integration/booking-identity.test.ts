@@ -35,7 +35,7 @@ test("an unusable email gets one neutral answer that never reveals why", async (
     assert.equal(response.status, 200, JSON.stringify(response.body));
     assert.ok(response.body.data.challengeId);
     assert.equal(response.body.data.expiresIn, normal.body.data.expiresIn);
-    const shape = (body: { data: Record<string, unknown> }) => Object.keys(body.data).filter((key) => key !== "debugOtp").sort();
+    const shape = (body: unknown) => Object.keys((body as { data: object }).data).filter((key) => key !== "debugOtp").sort();
     assert.deepEqual(shape(response.body), shape(normal.body));
   }
   assert.equal(staffLogin.body.data.debugOtp, undefined);
