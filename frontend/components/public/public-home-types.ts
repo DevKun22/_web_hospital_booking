@@ -12,6 +12,10 @@ export type PublicDepartment = {
   name: string;
   slug: string | null;
   description: string | null;
+  /** Mục giới thiệu do cơ sở soạn; rỗng thì trang không hiện mục nào. */
+  sections?: { title: string; body: string }[];
+  contentReviewerName?: string | null;
+  contentUpdatedAt?: string | null;
   image: string | null;
   symptomKeywords?: string[];
   triageDescription?: string | null;

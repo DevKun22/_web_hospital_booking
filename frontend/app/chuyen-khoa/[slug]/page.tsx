@@ -5,6 +5,8 @@ import { notFound } from "next/navigation";
 import { cache } from "react";
 import { ArrowRight } from "lucide-react";
 import Link from "next/link";
+import { AnchorNav, IntroSections, TrustLine } from "@/components/public/catalog-content";
+import { sectionAnchors } from "@/lib/section-anchors";
 import { PublicBreadcrumb } from "@/components/public/public-page-layout";
 import type {
   PublicDepartment,
@@ -84,12 +86,15 @@ export default async function PublicDepartmentDetailPage({ params }: PageProps) 
     department.description,
     "Chuyên khoa đang tiếp nhận lịch khám, tư vấn điều trị và điều phối bác sĩ phù hợp với nhu cầu của người khám.",
   );
+  const anchors = sectionAnchors(department.sections);
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "MedicalWebPage",
     name: department.name,
     description,
     url: absoluteUrl(`/chuyen-khoa/${slug}`),
+    lastReviewed: department.contentUpdatedAt ? department.contentUpdatedAt.slice(0, 10) : undefined,
+    reviewedBy: department.contentReviewerName ? { "@type": "Person", name: department.contentReviewerName } : undefined,
     about: {
       "@type": "MedicalSpecialty",
       name: department.name,
@@ -113,6 +118,7 @@ export default async function PublicDepartmentDetailPage({ params }: PageProps) 
           <div>
             <h1 className="text-2xl font-bold sm:text-3xl">{department.name}</h1>
             <p className="mt-3 max-w-2xl text-base leading-7 text-[var(--public-text-soft)]">{description}</p>
+            <TrustLine updatedAt={department.contentUpdatedAt} reviewerName={department.contentReviewerName} />
             <p className="mt-3 text-sm text-[var(--public-muted)]">
               {summary.doctorCount} bác sĩ có lịch · {summary.packageCount} gói khám · {summary.availableSlotCount} khung giờ trong 14 ngày
               {summary.reviewSummary.count ? ` · ${summary.reviewSummary.averageRating.toFixed(1)} sao (${summary.reviewSummary.count} đánh giá)` : ""}
@@ -131,6 +137,9 @@ export default async function PublicDepartmentDetailPage({ params }: PageProps) 
             <img src={department.image} alt={department.name} decoding="async" fetchPriority="high" className="aspect-[4/3] w-full rounded-lg object-cover" />
           ) : null}
         </header>
+
+        <AnchorNav items={[...anchors.map((item) => ({ id: item.id, label: item.title })), { id: "goi-kham", label: "Gói khám" }, { id: "bac-si", label: "Bác sĩ" }]} />
+        <IntroSections sections={department.sections} />
 
         {department.symptomKeywords?.length || department.triageDescription ? (
           <section aria-labelledby="nhu-cau-kham" className="mt-8 border-t border-[var(--public-divider)] pt-6">
