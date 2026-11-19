@@ -33,6 +33,9 @@ type AppointmentReadRow = {
   packageId: string | null;
   packageName: string | null;
   packageSlug: string | null;
+  facilityId: string | null;
+  facilityName: string | null;
+  facilityAddress: string | null;
 };
 
 const appointmentProjection = Prisma.sql`
@@ -65,7 +68,10 @@ const appointmentProjection = Prisma.sql`
   department."slug" AS "departmentSlug",
   package."id" AS "packageId",
   package."name" AS "packageName",
-  package."slug" AS "packageSlug"
+  package."slug" AS "packageSlug",
+  facility."id" AS "facilityId",
+  facility."name" AS "facilityName",
+  facility."address" AS "facilityAddress"
 `;
 
 // The driver adapter applies `schema=` to Prisma model operations but raw SQL
@@ -78,6 +84,7 @@ const doctorProfileTable = qualifiedTable("DoctorProfile");
 const userTable = qualifiedTable("User");
 const departmentTable = qualifiedTable("Department");
 const packageTable = qualifiedTable("Package");
+const facilityTable = qualifiedTable("Facility");
 const appointmentStatusType = qualifiedTable("AppointmentStatus");
 const patientInfoTable = qualifiedTable("AppointmentPatientInfo");
 
@@ -88,6 +95,7 @@ const appointmentJoins = Prisma.sql`
   INNER JOIN ${userTable} AS doctor_user ON doctor_user."id" = doctor."userId"
   INNER JOIN ${departmentTable} AS department ON department."id" = a."departmentId"
   LEFT JOIN ${packageTable} AS package ON package."id" = a."packageId"
+  LEFT JOIN ${facilityTable} AS facility ON facility."id" = a."facilityId"
 `;
 
 const mapAppointment = (row: AppointmentReadRow) => ({
@@ -125,6 +133,7 @@ const mapAppointment = (row: AppointmentReadRow) => ({
     name: row.departmentName,
     slug: row.departmentSlug,
   },
+  facility: row.facilityId ? { id: row.facilityId, name: row.facilityName!, address: row.facilityAddress! } : null,
   package: row.packageId
     ? {
         id: row.packageId,

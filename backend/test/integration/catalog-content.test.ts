@@ -205,3 +205,43 @@ test("saving unchanged intro content does not move the 'updated on' date", async
   assert.equal((await saveDoctor({ motto: "Đã đổi" })).status, 200);
   assert.ok((await doctorDate())!.getTime() > doctorFirst.getTime());
 });
+
+const waitForChunk = async (where: { sourceType: "DEPARTMENT" | "DOCTOR"; sourceId: string }, timeoutMs = 6000) => {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const chunk = await prisma.chatKnowledgeChunk.findFirst({ where });
+    if (chunk) return chunk;
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+  return null;
+};
+
+test("editing intro content reaches the chatbot knowledge base without a manual sync", async () => {
+  process.env.KNOWLEDGE_SYNC_DELAY_MS = "20";
+  try {
+    const headers = await admin();
+    const saved = await http.request(`/api/v1/dashboard/departments/${fixture.department.id}`, {
+      method: "PATCH",
+      headers,
+      body: { sections: [{ title: "Tổng quan", body: "Nội dung riêng để kiểm tra kho tri thức." }] },
+    });
+    assert.equal(saved.status, 200, JSON.stringify(saved.body));
+    const departmentChunk = await waitForChunk({ sourceType: "DEPARTMENT", sourceId: `${fixture.department.id}#0` });
+    assert.ok(departmentChunk, "department section becomes a knowledge chunk");
+    assert.match(departmentChunk.content, /Nội dung riêng để kiểm tra kho tri thức/);
+
+    // Duyệt hồ sơ bác sĩ cũng nạp lại.
+    await http.request("/api/v1/dashboard/doctors/me/profile", { method: "PUT", headers: await doctor(), body: { motto: "Tâm niệm kiểm tra tri thức" } });
+    const approved = await http.request(`/api/v1/dashboard/doctors/${fixture.doctorOne.id}/profile/approve`, { method: "POST", headers });
+    assert.equal(approved.status, 200);
+    const deadline = Date.now() + 6000;
+    let doctorChunk = await prisma.chatKnowledgeChunk.findFirst({ where: { sourceType: "DOCTOR", sourceId: fixture.doctorOne.id } });
+    while (!doctorChunk?.content.includes("Tâm niệm kiểm tra tri thức") && Date.now() < deadline) {
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      doctorChunk = await prisma.chatKnowledgeChunk.findFirst({ where: { sourceType: "DOCTOR", sourceId: fixture.doctorOne.id } });
+    }
+    assert.match(doctorChunk?.content ?? "", /Tâm niệm kiểm tra tri thức/);
+  } finally {
+    delete process.env.KNOWLEDGE_SYNC_DELAY_MS;
+  }
+});

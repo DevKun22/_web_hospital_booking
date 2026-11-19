@@ -49,6 +49,8 @@ export type PatientAppointment = {
     user: { fullName: string; avatar: string | null };
   };
   department: { name: string; slug: string | null };
+  // Nơi khám (thiếu hoặc null: cơ sở mặc định).
+  facility?: { name: string; address: string } | null;
   package: { name: string; slug: string | null } | null;
 };
 

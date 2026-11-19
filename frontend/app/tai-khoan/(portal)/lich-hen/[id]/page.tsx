@@ -28,6 +28,7 @@ export default function AppointmentDetailPage() {
       { icon: Clock3, label: "Khung giờ", value: `${item.startTime}–${item.endTime}` },
       { icon: Stethoscope, label: "Bác sĩ", value: `${item.doctor.title ? `${item.doctor.title} ` : ""}${item.doctor.user.fullName}` },
       { icon: MapPin, label: "Chuyên khoa", value: item.department.name },
+      ...(item.facility ? [{ icon: MapPin, label: "Nơi khám", value: `${item.facility.name}, ${item.facility.address}` }] : []),
       { icon: UserRound, label: "Người khám", value: item.patientName },
       { icon: ShieldCheck, label: "BHYT", value: item.hasBHYT ? "Có áp dụng" : "Không áp dụng" },
     ].map((row) => <div key={row.label} className="flex items-start gap-3 rounded-lg bg-[var(--public-surface-muted)] p-4"><row.icon className="mt-0.5 h-5 w-5 shrink-0 text-[var(--public-primary)]" /><div><span className="text-xs text-[var(--public-muted)]">{row.label}</span><strong className="mt-1 block text-sm">{row.value}</strong></div></div>)}</div>{item.package ? <div className="mt-4 rounded-lg border border-[var(--public-border)] p-4"><span className="text-xs text-[var(--public-muted)]">Gói khám đã chọn</span><strong className="mt-1 block">{item.package.name}</strong></div> : null}{item.reason ? <div className="mt-4"><h3 className="text-sm font-bold">Lý do khám</h3><p className="mt-2 rounded-lg bg-[var(--public-surface-muted)] p-4 text-sm leading-6 text-[var(--public-text-soft)]">{item.reason}</p></div> : null}</section>

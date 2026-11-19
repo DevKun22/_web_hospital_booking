@@ -27,6 +27,7 @@ type LoadedIndex = { index: KnowledgeIndex; expiresAt: number };
 
 let loaded: LoadedIndex | null = null;
 let syncing: Promise<SyncResult> | null = null;
+let syncTimer: NodeJS.Timeout | null = null;
 let lastSyncAt = 0;
 
 const toChunk = (row: {
@@ -76,6 +77,19 @@ class KnowledgeService {
       syncing = null;
     });
     return syncing;
+  }
+
+  /**
+   * Đồng bộ sau một khoảng ngắn kể từ lần gọi cuối: quản trị lưu liên tiếp nhiều lần chỉ tốn một lượt đồng bộ, và chatbot biết nội dung
+   * vừa sửa ngay thay vì chờ chu kỳ tự đồng bộ. Lỗi chỉ ghi nhật ký, không ảnh hưởng thao tác của quản trị.
+   */
+  scheduleSync(delayMs = Number(process.env.KNOWLEDGE_SYNC_DELAY_MS) || 5_000) {
+    if (syncTimer) clearTimeout(syncTimer);
+    syncTimer = setTimeout(() => {
+      syncTimer = null;
+      void this.sync().catch((error) => logger.warn("[CHATBOT_KB] Không đồng bộ được kho tri thức sau khi nội dung đổi:", error));
+    }, delayMs);
+    syncTimer.unref?.();
   }
 
   private async runSync(): Promise<SyncResult> {
