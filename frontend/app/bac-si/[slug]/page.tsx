@@ -66,6 +66,8 @@ export default async function PublicDoctorDetailPage({ params }: PageProps) {
     image: absoluteUrl(doctor.user.avatar),
     description: cleanText(doctor.bio || doctor.specialization, `${name} thuộc ${doctor.department.name}.`),
     medicalSpecialty: doctor.specialization || doctor.department.name,
+    knowsAbout: doctor.expertise?.length ? doctor.expertise : undefined,
+    memberOf: doctor.memberships?.length ? doctor.memberships.map((name) => ({ "@type": "Organization", name })) : undefined,
     worksFor: { "@type": "MedicalOrganization", name: BRAND_NAME, url: absoluteUrl("/") },
     aggregateRating: doctor.reviewSummary?.count ? {
       "@type": "AggregateRating",

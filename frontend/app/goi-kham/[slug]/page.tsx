@@ -4,6 +4,7 @@ import { cache } from "react";
 import { ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { PublicBreadcrumb } from "@/components/public/public-page-layout";
+import { AnchorNav } from "@/components/public/catalog-content";
 import type { PublicPackageCatalogResponse } from "@/components/public/public-home-types";
 import { serverApiRequest } from "@/lib/server-api";
 import {
@@ -104,6 +105,13 @@ export default async function PublicPackageDetailPage({ params }: PageProps) {
       },
     },
   };
+  const faqJsonLd = packageItem.faq?.length
+    ? {
+        "@context": "https://schema.org",
+        "@type": "FAQPage",
+        mainEntity: packageItem.faq.map((entry) => ({ "@type": "Question", name: entry.question, acceptedAnswer: { "@type": "Answer", text: entry.answer } })),
+      }
+    : null;
   const breadcrumbJsonLd = buildBreadcrumbJsonLd([
     { name: "Trang chủ", path: "/" },
     { name: "Gói khám", path: "/goi-kham" },
@@ -114,6 +122,7 @@ export default async function PublicPackageDetailPage({ params }: PageProps) {
     <main className="min-h-screen bg-[var(--public-canvas)] text-[var(--public-ink)]">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdString(jsonLd) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdString(breadcrumbJsonLd) }} />
+      {faqJsonLd ? <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdString(faqJsonLd) }} /> : null}
 
       <div className="ui-container grid grid-cols-[minmax(0,1fr)] min-w-0 gap-6 py-5 sm:py-8 lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-start lg:gap-8">
         <div className="min-w-0">
@@ -124,10 +133,23 @@ export default async function PublicPackageDetailPage({ params }: PageProps) {
               {[packageItem.department?.name || "Đa chuyên khoa", packageItem.isBHYTSupport ? "Hỗ trợ BHYT" : "", packageItem.isPopular ? "Được chọn nhiều" : ""].filter(Boolean).join(" · ")}
             </p>
             <p className="mt-3 max-w-2xl text-base leading-7 text-[var(--public-text-soft)]">{description}</p>
+            {packageItem.resultTime ? <p className="mt-3 text-sm text-[var(--public-muted)]">Thời gian có kết quả: <strong className="font-semibold text-[var(--public-ink)]">{packageItem.resultTime}</strong></p> : null}
           </header>
+          <AnchorNav items={[...(packageItem.audience?.length ? [{ id: "doi-tuong", label: "Đối tượng nên làm" }] : []), { id: "hang-muc", label: "Hạng mục" }, ...(packageItem.faq?.length ? [{ id: "hoi-dap", label: "Hỏi đáp" }] : []), { id: "quy-trinh", label: "Cách đặt lịch" }]} />
           {packageItem.image ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={packageItem.image} alt={packageItem.name} width={960} height={540} fetchPriority="high" decoding="async" className="mt-5 aspect-[16/9] w-full max-w-2xl rounded-xl border border-[var(--public-border)] object-cover" />
+          ) : null}
+
+          {packageItem.audience?.length ? (
+            <section id="doi-tuong" aria-labelledby="doi-tuong-title" className="mt-8 scroll-mt-24 border-t border-[var(--public-divider)] pt-6">
+              <h2 id="doi-tuong-title" className="text-lg font-bold">Đối tượng nên làm</h2>
+              <ul className="mt-3 list-disc space-y-1.5 pl-6 text-base text-[var(--public-text-soft)]">
+                {packageItem.audience.map((entry) => (
+                  <li key={entry}>{entry}</li>
+                ))}
+              </ul>
+            </section>
           ) : null}
 
           <section id="hang-muc" aria-labelledby="hang-muc-title" className="mt-8 border-t border-[var(--public-divider)] pt-6">
@@ -167,6 +189,20 @@ export default async function PublicPackageDetailPage({ params }: PageProps) {
             <section className="mt-8 border-t border-[var(--public-divider)] pt-6">
               <h2 className="text-lg font-bold">Lưu ý từ gói khám</h2>
               <p className="mt-2 max-w-2xl text-base leading-7 text-[var(--public-text-soft)]">{packageItem.note}</p>
+            </section>
+          ) : null}
+
+          {packageItem.faq?.length ? (
+            <section id="hoi-dap" aria-labelledby="hoi-dap-title" className="mt-8 scroll-mt-24 border-t border-[var(--public-divider)] pt-6">
+              <h2 id="hoi-dap-title" className="text-lg font-bold">Hỏi đáp về gói</h2>
+              <div className="mt-3 divide-y divide-[var(--public-divider)] overflow-hidden rounded-lg border border-[var(--public-border)] bg-[var(--public-surface)]">
+                {packageItem.faq.map((entry, index) => (
+                  <details key={index} className="group p-4">
+                    <summary className="cursor-pointer text-base font-semibold">{entry.question}</summary>
+                    <p className="mt-2 text-base leading-7 text-[var(--public-text-soft)]">{entry.answer}</p>
+                  </details>
+                ))}
+              </div>
             </section>
           ) : null}
 

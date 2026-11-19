@@ -5,6 +5,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { Loader2, Star } from "lucide-react";
+import { TrustLine } from "@/components/public/catalog-content";
 import { DayStrip } from "@/features/booking/components/day-strip";
 import { groupSlotsByPeriod } from "@/features/booking/dates";
 import { doctorDisplayName, doctorInitial } from "@/lib/doctor";
@@ -46,9 +47,17 @@ export function DoctorDetailClient({ doctor, initialDate, initialSlots }: Doctor
             <h1 className="text-2xl font-bold sm:text-3xl">{doctorDisplayName(doctor)}</h1>
             <p className="mt-1 text-base text-[var(--public-text-soft)]">{doctor.department.name}{doctor.specialization ? ` · ${doctor.specialization}` : ""}</p>
             <p className="mt-0.5 text-sm text-[var(--public-muted)]">{doctor.experience || 0} năm kinh nghiệm</p>
+            <TrustLine updatedAt={doctor.profileUpdatedAt} reviewerName={doctor.profileReviewerName} subject="Hồ sơ" />
             <p className="mt-2 text-xl font-bold tabular-nums text-[var(--public-primary-dark)]">{formatCurrency(doctor.consultationFee)} <span className="text-sm font-normal text-[var(--public-muted)]">phí khám</span></p>
           </div>
         </header>
+
+        {doctor.motto ? (
+          <blockquote className="mt-6 border-l-4 border-[var(--public-primary)] bg-[var(--public-primary-soft)] px-4 py-3 text-base text-[var(--public-ink)]">
+            <p className="text-sm font-semibold text-[var(--public-muted)]">Tâm niệm nghề nghiệp</p>
+            <p className="mt-1">{doctor.motto}</p>
+          </blockquote>
+        ) : null}
 
         <section className="mt-6 border-t border-[var(--public-divider)] pt-5">
           <h2 className="text-lg font-bold">Giới thiệu</h2>
@@ -56,6 +65,45 @@ export function DoctorDetailClient({ doctor, initialDate, initialSlots }: Doctor
             {doctor.bio || "Bác sĩ đang tiếp nhận lịch khám và tư vấn theo chuyên khoa. Chọn ngày để xem khung giờ còn trống."}
           </p>
         </section>
+
+        {doctor.expertise?.length ? (
+          <section className="mt-6 border-t border-[var(--public-divider)] pt-5">
+            <h2 className="text-lg font-bold">Lĩnh vực chuyên sâu</h2>
+            <ul className="mt-3 flex flex-wrap gap-2">
+              {doctor.expertise.map((item) => (
+                <li key={item} className="rounded-lg border border-[var(--public-border)] bg-[var(--public-surface)] px-3 py-1.5 text-sm">{item}</li>
+              ))}
+            </ul>
+          </section>
+        ) : null}
+
+        {doctor.careerTimeline?.length ? (
+          <section className="mt-6 border-t border-[var(--public-divider)] pt-5">
+            <h2 className="text-lg font-bold">Quá trình công tác</h2>
+            <ol className="mt-3 space-y-3">
+              {doctor.careerTimeline.map((entry, index) => (
+                <li key={`${entry.period}-${index}`} className="grid grid-cols-[7.5rem_minmax(0,1fr)] gap-3 text-base">
+                  <span className="text-sm font-semibold tabular-nums text-[var(--public-muted)]">{entry.period}</span>
+                  <span>
+                    <span className="block font-semibold">{entry.place}</span>
+                    {entry.role ? <span className="block text-sm text-[var(--public-muted)]">{entry.role}</span> : null}
+                  </span>
+                </li>
+              ))}
+            </ol>
+          </section>
+        ) : null}
+
+        {doctor.memberships?.length ? (
+          <section className="mt-6 border-t border-[var(--public-divider)] pt-5">
+            <h2 className="text-lg font-bold">Hiệp hội chuyên môn</h2>
+            <ul className="mt-3 list-disc space-y-1 pl-6 text-base text-[var(--public-text-soft)]">
+              {doctor.memberships.map((item) => (
+                <li key={item}>{item}</li>
+              ))}
+            </ul>
+          </section>
+        ) : null}
 
         {summary?.count ? (
           <section className="mt-6 border-t border-[var(--public-divider)] pt-5">
