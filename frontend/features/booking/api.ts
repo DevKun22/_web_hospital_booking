@@ -8,7 +8,7 @@ import { hasHealthDeclaration } from "@/features/booking/model";
 const orNull = (value: string) => value.trim() || null;
 
 // Giữ chỗ khung giờ và gửi OTP. Chỉ thành công thật khi server trả về phiếu.
-export function createAppointment(selection: BookingSelection, draft: BookingDraft) {
+export function createAppointment(selection: BookingSelection, draft: BookingDraft, terms?: { termsAccepted: boolean; termsVersion: string }) {
   return apiRequest<PendingAppointment>("/appointments", {
     method: "POST",
     body: {
@@ -31,6 +31,7 @@ export function createAppointment(selection: BookingSelection, draft: BookingDra
       medicalHistory: orNull(draft.medicalHistory),
       familyHistory: orNull(draft.familyHistory),
       healthConsent: hasHealthDeclaration(draft) ? draft.healthConsent : undefined,
+      ...terms,
     },
   });
 }

@@ -16,6 +16,7 @@ import {
   Pill,
   Receipt,
   Settings,
+  Scale,
   ScrollText,
   ShieldCheck,
   Star,
@@ -262,6 +263,15 @@ export const dashboardNavItems: readonly DashboardNavItem[] = [
     description: "Quyền của từng vai trò",
     icon: ShieldCheck,
     permissions: ["rbac.manage"],
+    group: "system",
+  },
+  {
+    key: "legal",
+    href: "/dashboard/legal",
+    label: "Điều khoản",
+    description: "Điều khoản và chính sách bảo mật",
+    icon: Scale,
+    permissions: ["settings.view"],
     group: "system",
   },
   {

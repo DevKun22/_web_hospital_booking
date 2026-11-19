@@ -30,6 +30,9 @@ export const createAppointmentSchema = z.object({
   // Đồng ý cho bệnh viện lưu và xử lý thông tin sức khỏe; bắt buộc khi có khai báo
   // dị ứng/tiền sử (kiểm tra ở AppointmentService).
   healthConsent: z.boolean().optional(),
+  // Xác nhận điều khoản khi đặt lịch cần OTP (kiểm tra ở LegalService); người đã đăng nhập đã đồng ý lúc đăng nhập.
+  termsAccepted: z.boolean().optional(),
+  termsVersion: z.string().max(64).optional(),
 }).superRefine((value, ctx) => {
   if (value.hasBHYT === true && !value.healthInsuranceCode?.trim()) {
     ctx.addIssue({

@@ -27,7 +27,7 @@ export const requestPatientOtpHandler = async (
 ) => {
   try {
     const data = await PatientAuthService.requestOtp(
-      { email: req.body.email },
+      { email: req.body.email, termsAccepted: req.body.termsAccepted, termsVersion: req.body.termsVersion },
       getIpAddress(req),
     );
     return res.json({ success: true, data });

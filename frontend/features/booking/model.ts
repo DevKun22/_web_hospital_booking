@@ -31,6 +31,8 @@ export type BookingDraft = {
   familyHistory: string;
   // Đồng ý cho bệnh viện lưu thông tin sức khỏe; bắt buộc khi có khai báo ở trên.
   healthConsent: boolean;
+  // Đồng ý điều khoản (chỉ đòi khi khách chưa đăng nhập và cơ sở đã soạn điều khoản).
+  termsAccepted: boolean;
 };
 
 // Lịch đã được giữ chỗ, đang chờ xác thực OTP.
@@ -113,6 +115,7 @@ export const createInitialDraft = (date = ""): BookingDraft => ({
   medicalHistory: "",
   familyHistory: "",
   healthConsent: false,
+  termsAccepted: false,
 });
 
 export const createInitialState = (): BookingState => ({

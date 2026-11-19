@@ -11,6 +11,9 @@ import {
 } from "lucide-react";
 import { DebugOtpBox } from "@/components/ui/debug-otp-box";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
+import { TermsConsent } from "@/components/public/terms-consent";
+import { PatientApiError } from "@/lib/patient-portal-api";
+import { TERMS_REQUIRED_MESSAGE, termsPayload, useLegal } from "@/lib/legal";
 import { usePatientAuth } from "@/lib/patient-auth";
 
 import { BrandLogo } from "@/components/branding/brand-logo";
@@ -36,6 +39,9 @@ export default function PatientLoginPage() {
   const [seconds, setSeconds] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [termsAccepted, setTermsAccepted] = useState(false);
+  const legalQuery = useLegal();
+  const terms = legalQuery.data?.terms ?? null;
   const otpRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -58,9 +64,13 @@ export default function PatientLoginPage() {
 
   const sendOtp = async () => {
     setError("");
+    if (terms && !termsAccepted) {
+      setError(TERMS_REQUIRED_MESSAGE);
+      return;
+    }
     setSubmitting(true);
     try {
-      const challenge = await requestOtp(email);
+      const challenge = await requestOtp(email, termsPayload(terms, termsAccepted));
       setChallengeId(challenge.challengeId);
       setDebugOtp(challenge.debugOtp || "");
       setSentTo(`email ${challenge.maskedTarget ?? email}`);
@@ -69,6 +79,11 @@ export default function PatientLoginPage() {
       setStep("otp");
       window.requestAnimationFrame(() => otpRef.current?.focus());
     } catch (cause) {
+      if (cause instanceof PatientApiError && cause.code === "TERMS_OUTDATED") {
+        // Điều khoản vừa được cập nhật: tải lại bản mới và bắt đồng ý lại.
+        setTermsAccepted(false);
+        void legalQuery.refetch();
+      }
       setError(cause instanceof Error ? cause.message : "Không thể gửi mã xác thực.");
     } finally {
       setSubmitting(false);
@@ -125,6 +140,7 @@ export default function PatientLoginPage() {
                   <input type="email" inputMode="email" value={email} onChange={(event) => setEmail(event.target.value.trim().slice(0, 120))} autoComplete="username email" placeholder="ban@email.com" className="min-w-0 flex-1 bg-transparent px-3 py-3 text-base font-normal outline-none" required />
                 </span>
               </label>
+              <TermsConsent checked={termsAccepted} onChange={setTermsAccepted} />
               <button disabled={submitting} className="public-button-primary flex min-h-12 w-full items-center justify-center gap-2 rounded-lg px-4 text-base font-semibold disabled:cursor-wait disabled:opacity-70">
                 {submitting ? <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" /> : null} Gửi mã OTP
               </button>

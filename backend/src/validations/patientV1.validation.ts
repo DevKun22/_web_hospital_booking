@@ -11,6 +11,9 @@ const optionalDevice = {
 // Đăng nhập cổng người khám bằng email (định danh duy nhất, nhận OTP). Chưa có tài khoản thì tạo khi xác thực OTP thành công.
 export const patientRequestOtpSchema = z.object({
   email: z.string().trim().toLowerCase().email("Email không hợp lệ"),
+  // Xác nhận điều khoản (bắt buộc khi cơ sở đã cấu hình điều khoản; kiểm tra ở LegalService).
+  termsAccepted: z.boolean().optional(),
+  termsVersion: z.string().max(64).optional(),
 });
 
 export const patientVerifyOtpSchema = z.object({

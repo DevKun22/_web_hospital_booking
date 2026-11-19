@@ -19,6 +19,7 @@ import { usePublicAvailableSlots } from "@/lib/public-slots-query";
 import { usePublicCapabilities } from "@/lib/public-capabilities-query";
 import { queryKeys } from "@/lib/query-keys";
 import { ApiError } from "@/lib/api";
+import { TERMS_REQUIRED_MESSAGE, legalQueryKey, useLegal } from "@/lib/legal";
 
 const RESEND_COOLDOWN_SECONDS = 30;
 
@@ -48,6 +49,8 @@ export function useBookingFlow(catalog: BookingCatalog) {
 
   // OTP chỉ gửi qua email; false khi backend chưa cấu hình dịch vụ gửi thư (mặc định coi là khả dụng cho tới khi biết).
   const emailOtpAvailable = usePublicCapabilities().data?.otp.emailOtpAvailable ?? true;
+
+  const terms = useLegal().data?.terms ?? null;
 
   const sessionQuery = useQuery({
     queryKey: patientSessionQueryKey,
@@ -175,11 +178,14 @@ export function useBookingFlow(catalog: BookingCatalog) {
     const today = todayInVietnam();
     const error = validateBooking(selection, draft, today);
     if (error) return fail(error);
+    // Khách chưa đăng nhập phải đồng ý điều khoản (nếu cơ sở đã soạn) trước khi nhận OTP; người đã đăng nhập đã đồng ý lúc đăng nhập.
+    const needsTerms = !patient && Boolean(terms);
+    if (needsTerms && !draft.termsAccepted) return fail(TERMS_REQUIRED_MESSAGE);
 
     submitInFlight.current = true;
     dispatch({ type: "submitting", value: true });
     try {
-      const result = await createAppointment(selection, draft);
+      const result = await createAppointment(selection, draft, needsTerms ? { termsAccepted: true, termsVersion: terms!.version } : undefined);
       dispatch({
         type: "hold_created",
         pending: result,
@@ -188,7 +194,12 @@ export function useBookingFlow(catalog: BookingCatalog) {
       });
       void refreshSlots();
     } catch (err) {
-      if (err instanceof ApiError && err.code === "EMAIL_UNAVAILABLE") {
+      if (err instanceof ApiError && err.code === "TERMS_OUTDATED") {
+        // Điều khoản vừa được cập nhật: tải lại bản mới và bắt đồng ý lại.
+        dispatch({ type: "draft_changed", patch: { termsAccepted: false } });
+        void queryClient.invalidateQueries({ queryKey: legalQueryKey });
+        fail(err.message);
+      } else if (err instanceof ApiError && err.code === "EMAIL_UNAVAILABLE") {
         // Lỗi của riêng ô Email: hiện ngay dưới ô (có focus) thay vì thông báo nổi tự tắt.
         dispatch({ type: "email_rejected", message: err.message });
       } else if (err instanceof ApiError && err.status === 429) {
@@ -201,7 +212,7 @@ export function useBookingFlow(catalog: BookingCatalog) {
     } finally {
       submitInFlight.current = false;
     }
-  }, [selection, draft, dispatch, fail, refreshSlots]);
+  }, [selection, draft, patient, terms, queryClient, dispatch, fail, refreshSlots]);
 
   const verifyOtp = useCallback(async () => {
     if (!pending) return;

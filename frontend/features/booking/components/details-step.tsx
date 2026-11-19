@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import Link from "next/link";
+import { TermsConsent } from "@/components/public/terms-consent";
 import { CheckCircle2 } from "lucide-react";
 import type { BookingDraft } from "@/features/booking/model";
 import type { BookingFlow } from "@/features/booking/use-booking-flow";
@@ -63,6 +64,8 @@ export function DetailsStep({ flow }: { flow: BookingFlow }) {
       </StepFrame>
 
       <HealthSection flow={flow} />
+
+      {!flow.patient ? <TermsConsent checked={draft.termsAccepted} onChange={(termsAccepted) => set({ termsAccepted })} /> : null}
     </div>
   );
 }

@@ -39,6 +39,10 @@ model User {
   // đổi mật khẩu trước khi làm việc tiếp, để quản trị không biết mật khẩu lâu dài.
   mustChangePassword Boolean @default(false)
 
+  // Điều khoản người khám đã đồng ý khi gửi OTP (đăng nhập hoặc đặt lịch): thời điểm và phiên bản văn bản lúc đó.
+  termsAcceptedAt DateTime?
+  termsVersion    String?
+
   // Patient relations
   patientProfile PatientProfile?
   appointments   Appointment[]   @relation("PatientAppointments")
