@@ -26,7 +26,8 @@ import { useAuth } from "@/lib/auth";
 import { useDashboardDepartments } from "@/lib/dashboard-departments-query";
 import { can } from "@/lib/permissions";
 import { queryKeys } from "@/lib/query-keys";
-import type { Department } from "@/lib/types";
+import { SectionsEditor, cleanSections } from "@/components/dashboard/content-editors";
+import type { ContentSection, Department } from "@/lib/types";
 import { useDebouncedValue } from "@/lib/use-debounced-value";
 
 // Chuyên khoa: danh sách bên trái; chọn một khoa hoặc bấm "Tạo chuyên khoa" thì biểu mẫu mở cạnh danh sách, không che nội dung.
@@ -35,6 +36,8 @@ type DepartmentForm = {
   name: string;
   slug: string;
   description: string;
+  sections: ContentSection[];
+  contentReviewerName: string;
   image: string;
   imageAssetId: string;
   symptomKeywords: string;
@@ -47,6 +50,8 @@ const emptyForm: DepartmentForm = {
   name: "",
   slug: "",
   description: "",
+  sections: [],
+  contentReviewerName: "",
   image: "",
   imageAssetId: "",
   symptomKeywords: "",
@@ -65,6 +70,8 @@ const toForm = (department: Department): DepartmentForm => ({
   name: department.name,
   slug: department.slug || "",
   description: department.description || "",
+  sections: department.sections ?? [],
+  contentReviewerName: department.contentReviewerName || "",
   image: department.image || "",
   imageAssetId: "",
   symptomKeywords: department.symptomKeywords.join(", "),
@@ -88,6 +95,8 @@ const buildPayload = (form: DepartmentForm) => ({
   name: form.name.trim(),
   slug: form.slug.trim() || undefined,
   description: form.description.trim() || null,
+  sections: cleanSections(form.sections),
+  contentReviewerName: form.contentReviewerName.trim() || null,
   image: form.image.trim() || null,
   imageAssetId: form.imageAssetId || undefined,
   symptomKeywords: Array.from(
@@ -354,6 +363,10 @@ export default function DepartmentsPage() {
         </DsField>
         <DsField label="Mô tả" htmlFor="dep-desc">
           <DsTextarea id="dep-desc" rows={3} value={form.description} onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))} />
+        </DsField>
+        <SectionsEditor id="dep-sections" values={form.sections} onChange={(sections) => setForm((current) => ({ ...current, sections }))} />
+        <DsField label="Người duyệt nội dung chuyên môn" htmlFor="dep-reviewer" hint="Tên hiển thị công khai kèm học hàm, học vị. Để trống nếu chưa có người duyệt.">
+          <DsInput id="dep-reviewer" maxLength={160} placeholder="PGS.TS.BS Nguyễn Văn A" value={form.contentReviewerName} onChange={(event) => setForm((current) => ({ ...current, contentReviewerName: event.target.value }))} />
         </DsField>
         <DsField label="Từ khóa triệu chứng" htmlFor="dep-keywords" hint="Phân tách bằng dấu phẩy hoặc xuống dòng. Chatbot dùng dữ liệu này để gợi ý khoa.">
           <DsTextarea id="dep-keywords" rows={3} placeholder="ngứa da, nổi mẩn, phát ban" value={form.symptomKeywords} onChange={(event) => setForm((current) => ({ ...current, symptomKeywords: event.target.value }))} />

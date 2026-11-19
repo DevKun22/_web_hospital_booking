@@ -2,6 +2,7 @@ import { Prisma } from "../../generated/prisma/client.js";
 import { prisma } from "../config/prisma.js";
 import { AppError } from "../utils/appError.js";
 import { normalizeOptionalString } from "../utils/text.js";
+import { stableJson } from "../utils/stableJson.js";
 import type { DoctorProfileContent } from "../validations/catalogContent.validation.js";
 
 // Phần giới thiệu công khai của bác sĩ: bác sĩ soạn bản nháp, quản trị duyệt thì mới hiện công khai (ghi người duyệt và ngày cập nhật).
@@ -26,14 +27,33 @@ const hasContent = (input: DoctorProfileContent) =>
   input.memberships !== undefined ||
   input.expertise !== undefined;
 
+// Hồ sơ đang lưu, để biết lần lưu này có thật sự đổi phần giới thiệu không (biểu mẫu quản trị gửi cả bộ mỗi lần lưu, kể cả khi chỉ đổi phí khám).
+type StoredContent = {
+  bio: string | null;
+  motto: string | null;
+  careerTimeline: unknown;
+  memberships: unknown;
+  expertise: unknown;
+};
+
+const differs = (next: unknown, current: unknown) => next !== undefined && stableJson(next) !== stableJson(current);
+
+const changesContent = (input: DoctorProfileContent, current?: StoredContent) =>
+  !current ||
+  differs(normalizeOptionalString(input.bio) ?? undefined, current.bio) ||
+  differs(normalizeOptionalString(input.motto) ?? undefined, current.motto) ||
+  differs(input.careerTimeline, current.careerTimeline) ||
+  differs(input.memberships, current.memberships) ||
+  differs(input.expertise, current.expertise);
+
 // Dữ liệu ghi thẳng vào hồ sơ khi quản trị tạo hoặc sửa: cột nội dung và dấu "đã duyệt bởi ai, lúc nào".
-export const publishedContentData = (input: DoctorProfileContent, reviewerName?: string | null) => ({
+export const publishedContentData = (input: DoctorProfileContent, reviewerName?: string | null, current?: StoredContent) => ({
   bio: normalizeOptionalString(input.bio),
   motto: normalizeOptionalString(input.motto),
   careerTimeline: input.careerTimeline,
   memberships: input.memberships,
   expertise: input.expertise,
-  ...(hasContent(input) ? { profileUpdatedAt: new Date(), profileReviewerName: reviewerName ?? null } : {}),
+  ...(hasContent(input) && changesContent(input, current) ? { profileUpdatedAt: new Date(), profileReviewerName: reviewerName ?? null } : {}),
 });
 
 class DoctorProfileContentService {

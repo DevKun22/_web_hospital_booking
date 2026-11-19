@@ -24,11 +24,19 @@ export type Pagination = {
   totalPages: number;
 };
 
+export type ContentSection = { title: string; body: string };
+export type TimelineEntry = { period: string; place: string; role?: string };
+export type FaqEntry = { question: string; answer: string };
+
 export type Department = {
   id: string;
   name: string;
-  slug: string | null;
+  slug: string;
   description: string | null;
+  /** Mục giới thiệu theo tiêu đề; trang công khai dựng thành các đề mục. */
+  sections: ContentSection[];
+  contentReviewerName: string | null;
+  contentUpdatedAt: string | null;
   image: string | null;
   symptomKeywords: string[];
   triageDescription: string | null;
@@ -47,6 +55,14 @@ export type DoctorProfile = {
   slug: string;
   title: string | null;
   bio: string | null;
+  motto: string | null;
+  careerTimeline: TimelineEntry[];
+  memberships: string[];
+  expertise: string[];
+  profileReviewerName: string | null;
+  profileUpdatedAt: string | null;
+  /** Có giá trị khi bác sĩ đã gửi bản chỉnh sửa đang chờ quản trị duyệt. */
+  profileDraftAt: string | null;
   specialization: string | null;
   experience: number | null;
   consultationFee: number;
@@ -132,6 +148,9 @@ export type MedicalPackage = {
   finalPrice: number;
   summary: string | null;
   note: string | null;
+  audience: string[];
+  resultTime: string | null;
+  faq: FaqEntry[];
   /** Ảnh đại diện gói khám; backend chưa trả trường này nên luôn là tùy chọn. */
   image?: string | null;
   isPopular: boolean;
@@ -1072,4 +1091,20 @@ export type PublicArticleList = {
   items: ArticleSummary[];
   categories: { name: string; count: number }[];
   pagination: Pagination;
+};
+
+/** Phần giới thiệu công khai do bác sĩ soạn; chỉ hiện sau khi quản trị duyệt. */
+export type DoctorProfileContent = {
+  bio: string | null;
+  motto: string | null;
+  careerTimeline: TimelineEntry[];
+  memberships: string[];
+  expertise: string[];
+};
+
+export type DoctorProfileContentState = DoctorProfileContent & {
+  profileReviewerName: string | null;
+  profileUpdatedAt: string | null;
+  profileDraft: Partial<DoctorProfileContent> | null;
+  profileDraftAt: string | null;
 };
