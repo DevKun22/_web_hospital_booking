@@ -85,6 +85,7 @@ model ScheduleChangeRequest {
   @@index([requestedById, status])
   @@index([status, createdAt])
   @@index([scheduleId])
+  @@index([reviewedById])
 }
 
 // Slot khám cụ thể theo ngày để đặt lịch, chống trùng lịch

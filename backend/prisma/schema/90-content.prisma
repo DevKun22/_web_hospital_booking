@@ -75,6 +75,9 @@ model Article {
 
   @@index([status, publishedAt])
   @@index([departmentId])
+  // Khóa ngoại tới người dùng: xóa người dùng (SetNull) không phải quét cả bảng bài viết.
+  @@index([authorId])
+  @@index([reviewedById])
 }
 
 // Một nguồn FAQ duy nhất cho trang Hỏi đáp và trợ lý ảo.
