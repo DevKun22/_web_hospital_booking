@@ -2,6 +2,7 @@ import { Prisma } from "../../generated/prisma/client.js";
 import { prisma } from "../config/prisma.js";
 import { AppError } from "../utils/appError.js";
 import { hasTimeOverlap, validateTimeRange } from "../utils/time.js";
+import FacilityService from "./facility.service.js";
 import SlotPlannerService from "./slotPlanner.service.js";
 import type { Actor } from "../types/actor.js";
 
@@ -13,6 +14,7 @@ type CreateDoctorScheduleInput = {
   endTime: string;
   slotDuration?: number;
   isActive?: boolean;
+  facilityId?: string | null;
 };
 
 type UpdateDoctorScheduleInput = {
@@ -21,6 +23,7 @@ type UpdateDoctorScheduleInput = {
   endTime?: string;
   slotDuration?: number;
   isActive?: boolean;
+  facilityId?: string | null;
 };
 
 const doctorScheduleSelect = {
@@ -30,6 +33,8 @@ const doctorScheduleSelect = {
   endTime: true,
   slotDuration: true,
   isActive: true,
+  facilityId: true,
+  facility: { select: { id: true, name: true } },
   createdAt: true,
   updatedAt: true,
   doctor: {
@@ -155,6 +160,7 @@ class DoctorScheduleService {
         endTime: input.endTime,
         slotDuration: input.slotDuration ?? 30,
         isActive: input.isActive ?? true,
+        facilityId: await FacilityService.resolveId(input.facilityId),
       },
       select: doctorScheduleSelect,
     });
@@ -196,11 +202,20 @@ class DoctorScheduleService {
       ? await SlotPlannerService.releaseSchedule(id)
       : { removedSlots: 0, affected: [] };
 
+    // Đổi cơ sở: phải là cơ sở đang hoạt động; null nghĩa là về cơ sở mặc định.
+    const nextFacilityId = input.facilityId === undefined ? undefined : await FacilityService.resolveId(input.facilityId);
     const updated = await prisma.doctorSchedule.update({
       where: { id },
-      data: input,
+      data: { ...input, facilityId: nextFacilityId },
       select: doctorScheduleSelect,
     });
+    if (nextFacilityId !== undefined && nextFacilityId !== current.facilityId) {
+      // Khung giờ trống sắp tới đi theo cơ sở mới; khung giờ đã có người đặt hoặc bị khóa giữ nguyên để lịch hẹn không đổi nơi khám.
+      await prisma.doctorTimeSlot.updateMany({
+        where: { scheduleId: id, status: "AVAILABLE", date: { gte: new Date(new Date().toISOString().slice(0, 10)) } },
+        data: { facilityId: nextFacilityId },
+      });
+    }
     const generated = structural && updated.isActive ? await SlotPlannerService.refreshDoctor(updated.doctor.id) : null;
     await SlotPlannerService.notifyAffected(updated.doctor.id, released.affected, "đổi lịch làm việc theo tuần");
     return { ...updated, impact: { generatedSlots: generated?.generatedCount ?? 0, ...released } };

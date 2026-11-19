@@ -24,6 +24,22 @@ export type Pagination = {
   totalPages: number;
 };
 
+/** Cơ sở khám (chi nhánh). Cơ sở mặc định nhận ca làm việc mới khi không chọn cơ sở. */
+export type Facility = {
+  id: string;
+  name: string;
+  slug: string;
+  address: string;
+  phone: string | null;
+  workingHours: string | null;
+  mapUrl: string | null;
+  isDefault: boolean;
+  isActive?: boolean;
+  _count?: { schedules: number; timeSlots: number; appointments: number };
+};
+
+export type FacilityBrief = { id: string; name: string; address: string; phone?: string | null };
+
 export type ContentSection = { title: string; body: string };
 export type TimelineEntry = { period: string; place: string; role?: string };
 export type FaqEntry = { question: string; answer: string };
@@ -171,6 +187,9 @@ export type DoctorSchedule = {
   endTime: string;
   slotDuration: number;
   isActive: boolean;
+  /** Cơ sở của ca (null: cơ sở mặc định). */
+  facilityId?: string | null;
+  facility?: { id: string; name: string } | null;
   createdAt: string;
   updatedAt: string;
   doctor: {
@@ -262,6 +281,8 @@ export type AppointmentStatus =
 export type Appointment = {
   id: string;
   bookingCode: string;
+  /** Nơi khám (null hoặc thiếu: cơ sở mặc định). */
+  facility?: FacilityBrief | null;
   appointmentDate: string;
   startTime: string;
   endTime: string;

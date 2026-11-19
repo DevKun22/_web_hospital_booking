@@ -70,6 +70,7 @@ export function BookingSummary({ flow, hotline }: { flow: BookingFlow; hotline: 
                 : unset}
           </Row>
           <Row label="Thời gian">{hasTime ? when : unset}</Row>
+          {flow.state.slot?.facility ? <Row label="Nơi khám">{flow.state.slot.facility.name}<span className="mt-0.5 block text-xs font-normal text-[var(--public-muted)]">{flow.state.slot.facility.address}</span></Row> : null}
         </dl>
         <div className="mt-1 flex items-baseline justify-between border-t border-[var(--public-border)] pt-3">
           <span className="text-sm text-[var(--public-muted)]">Tạm tính</span>

@@ -52,6 +52,7 @@ export function SuccessStep({ flow }: { flow: BookingFlow }) {
       <dl className="mt-5 divide-y divide-[var(--public-divider)] border-y border-[var(--public-divider)] text-sm">
         {doctor ? <Row label="Bác sĩ" value={doctorDisplayName(doctor)} /> : null}
         <Row label="Thời gian" value={`${formatTime(verified.startTime)} - ${formatTime(verified.endTime)}${day ? `, ${day}` : ""}`} />
+        {verified.facility ? <Row label="Nơi khám" value={`${verified.facility.name}, ${verified.facility.address}`} /> : null}
         <Row label="Trạng thái" value={appointmentStatusLabel[verified.status] ?? verified.status} />
         <Row label="Phí dự kiến" value={formatCurrency(verified.finalAmount)} strong />
       </dl>

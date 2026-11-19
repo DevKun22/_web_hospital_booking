@@ -173,6 +173,7 @@ export class AppointmentBookingUseCases extends AppointmentServiceSupport {
         endTime: true,
         status: true,
         isActive: true,
+        facilityId: true,
         appointment: { select: { id: true } },
       },
     });
@@ -359,6 +360,7 @@ export class AppointmentBookingUseCases extends AppointmentServiceSupport {
             departmentId: input.departmentId,
             packageId: input.packageId || null,
             timeSlotId: input.timeSlotId,
+            facilityId: timeSlot.facilityId,
           },
           select: {
             id: true,

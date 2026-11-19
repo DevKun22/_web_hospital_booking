@@ -45,6 +45,10 @@ model Appointment {
   dependentProfileId String?
   dependentProfile   DependentProfile? @relation(fields: [dependentProfileId], references: [id], onDelete: SetNull)
 
+  // Cơ sở diễn ra lịch khám, chép từ khung giờ lúc đặt (null: cơ sở mặc định).
+  facilityId String?
+  facility   Facility? @relation(fields: [facilityId], references: [id], onDelete: SetNull)
+
   doctorId String
   doctor   DoctorProfile @relation("DoctorAppointments", fields: [doctorId], references: [id])
 
