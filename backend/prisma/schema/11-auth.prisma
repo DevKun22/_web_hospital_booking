@@ -76,6 +76,8 @@ model OtpSecurityBlock {
 enum AuthAttemptKind {
   OTP_VERIFY
   DASHBOARD_LOGIN
+  // Đặt lịch bằng email không dùng được (nhân sự, tài khoản khóa): dấu hiệu dò email, đếm theo IP.
+  BOOKING_EMAIL_PROBE
 }
 
 model AuthAttempt {

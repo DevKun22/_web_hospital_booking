@@ -1,5 +1,7 @@
 import PolicyService from "../policy.service.js";
 import { emailUnavailableError } from "../emailAvailability.js";
+import BookingProbeGuard from "../bookingProbeGuard.js";
+import BookingLimits from "./bookingLimits.js";
 import type { Prisma } from "../../../generated/prisma/client.js";
 import { prisma } from "../../config/prisma.js";
 import { enqueuePendingOtpExpiry } from "../../queues/background.queue.js";
@@ -77,6 +79,8 @@ export class AppointmentBookingUseCases extends AppointmentServiceSupport {
     ipAddress: string,
     actor?: PatientBookingActor,
   ) {
+    // IP đã bị chặn vì dò email thì từ chối sớm, trước mọi truy vấn.
+    await BookingProbeGuard.assertNotBlocked(ipAddress);
     // Chỉ tính dữ liệu sức khỏe do người đặt khai báo ở yêu cầu này; hồ sơ đã lưu của
     // tài khoản/người thân được gộp vào sau đó và không đòi đồng ý lại mỗi lần đặt.
     const hasHealthData = [input.allergies, input.medicalHistory, input.familyHistory].some(
@@ -227,6 +231,8 @@ export class AppointmentBookingUseCases extends AppointmentServiceSupport {
     });
 
     if (existingUser && existingUser.role !== "PATIENT") {
+      // Thông báo vẫn trung tính; nhưng ghi lượt này để chặn IP dò từng email.
+      await BookingProbeGuard.recordUnavailable(patientEmail, ipAddress);
       throw emailUnavailableError(patientEmail, "STAFF_ACCOUNT");
     }
 
@@ -288,6 +294,16 @@ export class AppointmentBookingUseCases extends AppointmentServiceSupport {
         if (patient.role !== "PATIENT") {
           throw emailUnavailableError(patientEmail, "STAFF_ACCOUNT");
         }
+
+        // Giới hạn theo người khám và tài khoản, dưới khóa tài khoản: áp dụng cho cả đặt bằng OTP lẫn đặt khi đã đăng nhập.
+        await BookingLimits.assertAllowed(tx, {
+          patientId: patient.id,
+          dependentProfileId: bookingIdentity.dependentProfileId ?? null,
+          doctorId: input.doctorId,
+          date: timeSlot.date,
+          startTime: timeSlot.startTime,
+          endTime: timeSlot.endTime,
+        });
 
         const createdAppointment = await tx.appointment.create({
           data: {
@@ -403,7 +419,18 @@ export class AppointmentBookingUseCases extends AppointmentServiceSupport {
         );
       }
 
-      const otp = await AuthOtpService.sendOtp(patientEmail, "BOOK_APPOINTMENT", ipAddress);
+      const otp = await AuthOtpService.sendOtp(patientEmail, "BOOK_APPOINTMENT", ipAddress).catch((error: unknown) => {
+        // Câu gốc nói "gửi lại OTP" dù người dùng không bấm gửi lại; ở đây họ đang đặt một lịch khác khi lịch trước chưa xác thực.
+        if (error instanceof AppError && error.code === "OTP_COOLDOWN") {
+          throw new AppError(
+            `Bạn vừa nhận mã xác thực cho một lịch khác. Hãy nhập mã đó để hoàn tất lịch trước, hoặc đợi ${error.retryAfterSeconds ?? 60} giây để đặt tiếp.`,
+            429,
+            "OTP_COOLDOWN",
+            { retryAfterSeconds: error.retryAfterSeconds },
+          );
+        }
+        throw error;
+      });
 
       await writeAppointmentLog(prisma, {
         appointmentId,
@@ -480,6 +507,8 @@ export class AppointmentBookingUseCases extends AppointmentServiceSupport {
     proof: BookingVerificationProof,
   ) {
     return prisma.$transaction(async (tx) => {
+      // Cùng khóa với lúc tạo lịch: hai lịch của một tài khoản mới xác nhận đồng thời không tranh nhau tạo hồ sơ người khám.
+      await BookingLimits.lockAccount(tx, appointment.patientId);
       await this.claimAppointmentTransition(tx, {
         id: appointment.id,
         expectedStatuses: ["PENDING_OTP"],

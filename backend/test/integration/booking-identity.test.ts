@@ -7,11 +7,12 @@ const NEUTRAL_CODE = "EMAIL_UNAVAILABLE";
 const book = (phone: string, extra: { timeSlotId?: string; email?: string } = {}) =>
   http.request("/api/v1/appointments", { method: "POST", body: bookingBody({ phone, ...extra }) });
 
-const extraSlot = (startTime: string) =>
+// Khung giờ thêm của bác sĩ một, cách ngày mẫu `dayOffset` ngày: cùng người khám không đặt hai lần cùng bác sĩ trong một ngày nên các ca nhiều lịch dùng ngày khác nhau.
+const extraSlot = (startTime: string, dayOffset = 0) =>
   prisma.doctorTimeSlot.create({
     data: {
       doctorId: fixture.doctorOne.id,
-      date: dateOnly(new Date(fixture.slotOne.date).toISOString().slice(0, 10)),
+      date: new Date(new Date(fixture.slotOne.date).getTime() + dayOffset * 86_400_000),
       startTime,
       endTime: startTime.slice(0, 2) + ":30",
     },
@@ -82,14 +83,15 @@ test("sending the same booking twice returns the same hold instead of a 'slot un
 });
 
 test("one email can hold at most two slots awaiting OTP, and verifying frees the budget", async () => {
-  const slotThree = await extraSlot("11:00");
-  const slotFour = await extraSlot("12:00");
+  const slotTwo = await extraSlot("10:00", 1);
+  const slotThree = await extraSlot("11:00", 2);
+  const slotFour = await extraSlot("12:00", 3);
 
   // OTP cùng một email có thời gian chờ 60 giây giữa hai lần gửi; lùi mốc gửi để thử trần số lịch chờ chứ không phải thời gian chờ.
   const skipOtpCooldown = () => prisma.otpCode.updateMany({ data: { createdAt: new Date(Date.now() - 5 * 60_000) } });
   const first = await book("0955900004");
   await skipOtpCooldown();
-  const second = await book("0955900004", { timeSlotId: fixture.slotTwo.id });
+  const second = await book("0955900004", { timeSlotId: slotTwo.id });
   assert.equal(first.status, 201);
   assert.equal(second.status, 201);
 
@@ -147,11 +149,15 @@ test("a second booking inside the OTP cooldown is refused with the exact wait an
   const first = await book("0955900010");
   assert.equal(first.status, 201);
 
-  const tooSoon = await book("0955900010", { timeSlotId: fixture.slotTwo.id });
+  const otherDay = await extraSlot("10:00", 1);
+  const tooSoon = await book("0955900010", { timeSlotId: otherDay.id });
   assert.equal(tooSoon.status, 429);
   assert.equal(tooSoon.body.code, "OTP_COOLDOWN");
+  // Câu trả lời nói đúng việc đang xảy ra (đang đặt lịch khác), không nói "gửi lại OTP" vì người dùng không bấm gửi lại.
+  assert.match(String(tooSoon.body.message), /lịch khác/);
+  assert.doesNotMatch(String(tooSoon.body.message), /gửi lại/);
   assert.ok(tooSoon.body.retryAfterSeconds > 0 && tooSoon.body.retryAfterSeconds <= 60, JSON.stringify(tooSoon.body));
   // Lỗi gửi OTP không để lại lịch giữ chỗ ma.
-  assert.equal((await prisma.doctorTimeSlot.findUniqueOrThrow({ where: { id: fixture.slotTwo.id } })).status, "AVAILABLE");
+  assert.equal((await prisma.doctorTimeSlot.findUniqueOrThrow({ where: { id: otherDay.id } })).status, "AVAILABLE");
   assert.equal(await prisma.appointment.count({ where: { patientEmail: emailOf("0955900010") } }), 1);
 });
