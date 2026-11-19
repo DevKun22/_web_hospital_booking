@@ -1,4 +1,5 @@
 import { roleHasAnyPermission } from "../rbac.service.js";
+import { loadViewerPermissions, redactAppointmentBilling } from "../dataVisibility.js";
 import { Prisma } from "../../../generated/prisma/client.js";
 import type { AppointmentStatus } from "../../../generated/prisma/enums.js";
 import { prisma } from "../../config/prisma.js";
@@ -22,6 +23,19 @@ const ACTIVE_STATUS_RANK: Partial<Record<AppointmentStatus, number>> = {
   PENDING_CONFIRM: 3,
 };
 const ACTIVE_QUEUE_LIMIT = 500;
+
+// Mọi phản hồi lịch hẹn của dashboard (danh sách, chi tiết VÀ kết quả các thao tác xác nhận, hủy, đổi lịch, check-in, bắt đầu,
+// hoàn tất, vắng mặt) đi qua đây để che dữ liệu theo quyền: dị ứng/tiền sử cần record.view, hóa đơn cần invoice.view.
+export const presentDashboardAppointment = async <
+  T extends { allergies?: unknown; medicalHistory?: unknown; familyHistory?: unknown; invoice?: { id: string; invoiceCode: string; status: string } | null },
+>(
+  role: string | undefined,
+  appointment: T,
+): Promise<T> => {
+  const canViewClinical = await roleHasAnyPermission(role, ["record.view"]);
+  const visible = canViewClinical ? appointment : maskClinicalFields(appointment);
+  return redactAppointmentBilling(visible, await loadViewerPermissions(role));
+};
 
 export class AppointmentDashboardUseCases extends AppointmentServiceSupport {
   async dashboardList(
@@ -74,10 +88,8 @@ export class AppointmentDashboardUseCases extends AppointmentServiceSupport {
       ? await this.listActiveQueue(where, skip, limit)
       : await this.listByDate(where, skip, limit);
 
-    const canViewClinical = await roleHasAnyPermission(actor.role, ["record.view"]);
-
     return {
-      items: items.map((item) => (canViewClinical ? item : maskClinicalFields(item))),
+      items: await Promise.all(items.map((item) => presentDashboardAppointment(actor.role, item))),
       pagination: {
         page,
         limit,
@@ -132,10 +144,7 @@ export class AppointmentDashboardUseCases extends AppointmentServiceSupport {
       throw new AppError("Không tìm thấy lịch hẹn", 404);
     }
 
-    const flat = flattenPatientInfo(appointment);
-    return (await roleHasAnyPermission(actor.role, ["record.view"]))
-      ? flat
-      : maskClinicalFields(flat);
+    return presentDashboardAppointment(actor.role, flattenPatientInfo(appointment));
   }
 
   async updatePatientInfo(

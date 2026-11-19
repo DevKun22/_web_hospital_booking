@@ -8,6 +8,7 @@ import InvoiceMedicineService from "./invoiceMedicine.service.js";
 import MedicineAvailabilityService from "./medicineAvailability.service.js";
 import PatientEventNotificationService from "./patientEventNotification.service.js";
 import StaffNotificationService from "./staffNotification.service.js";
+import { loadViewerPermissions, redactPrescription } from "./dataVisibility.js";
 import { normalizeOptionalString } from "../utils/text.js";
 import { generateUniqueCode } from "../utils/uniqueCode.js";
 import type { Actor } from "../types/actor.js";
@@ -175,8 +176,11 @@ class PrescriptionService {
       prisma.prescription.count({ where: scopedWhere }),
     ]);
 
+    // Chẩn đoán và hướng điều trị của hồ sơ chỉ hiện với người có quyền xem bệnh án (dược sĩ chỉ cần đơn thuốc).
+    const viewer = await loadViewerPermissions(actor.role);
+
     return {
-      items,
+      items: items.map((item) => redactPrescription(item, viewer)),
       pagination: {
         page,
         limit,
@@ -196,7 +200,10 @@ class PrescriptionService {
       throw new AppError("Không tìm thấy đơn thuốc", 404);
     }
 
-    return this.withAvailability(prescription);
+    return redactPrescription(
+      await this.withAvailability(prescription),
+      await loadViewerPermissions(actor.role),
+    );
   }
 
   // Mỗi dòng đã gắn thuốc kho kèm mức khả dụng (còn/sắp hết/hết) và cờ vượt tồn, để bác sĩ biết sớm.

@@ -1,6 +1,7 @@
 import type { Request, Response, NextFunction } from "express";
 import type { AppointmentStatus, Role } from "../../generated/prisma/enums.js";
 import AppointmentService from "../services/appointment.service.js";
+import { presentDashboardAppointment } from "../services/appointment/appointmentDashboard.service.js";
 import PatientAuthService from "../services/patientAuth.service.js";
 import {
   getRequiredPathParam as getParam,
@@ -198,7 +199,7 @@ export const confirmDashboardAppointmentHandler = async (
     return res.json({
       success: true,
       message: "Xác nhận lịch hẹn thành công",
-      data: appointment,
+      data: await presentDashboardAppointment(getActor(req).role, appointment),
     });
   } catch (error) {
     next(error);
@@ -220,7 +221,7 @@ export const updateDashboardAppointmentPatientInfoHandler = async (
     return res.json({
       success: true,
       message: "Cập nhật thông tin tiếp nhận thành công",
-      data: appointment,
+      data: await presentDashboardAppointment(getActor(req).role, appointment),
     });
   } catch (error) {
     next(error);
@@ -242,7 +243,7 @@ export const cancelDashboardAppointmentHandler = async (
     return res.json({
       success: true,
       message: "Hủy lịch hẹn thành công",
-      data: appointment,
+      data: await presentDashboardAppointment(getActor(req).role, appointment),
     });
   } catch (error) {
     next(error);
@@ -264,7 +265,7 @@ export const rescheduleDashboardAppointmentHandler = async (
     return res.json({
       success: true,
       message: "Đổi lịch hẹn thành công",
-      data: appointment,
+      data: await presentDashboardAppointment(getActor(req).role, appointment),
     });
   } catch (error) {
     next(error);
@@ -285,7 +286,7 @@ export const checkInDashboardAppointmentHandler = async (
     return res.json({
       success: true,
       message: "Check-in lịch hẹn thành công",
-      data: appointment,
+      data: await presentDashboardAppointment(getActor(req).role, appointment),
     });
   } catch (error) {
     next(error);
@@ -306,7 +307,7 @@ export const startDashboardAppointmentHandler = async (
     return res.json({
       success: true,
       message: "Bắt đầu khám thành công",
-      data: appointment,
+      data: await presentDashboardAppointment(getActor(req).role, appointment),
     });
   } catch (error) {
     next(error);
@@ -327,7 +328,7 @@ export const completeDashboardAppointmentHandler = async (
     return res.json({
       success: true,
       message: "Hoàn thành lịch hẹn thành công",
-      data: appointment,
+      data: await presentDashboardAppointment(getActor(req).role, appointment),
     });
   } catch (error) {
     next(error);
@@ -348,7 +349,7 @@ export const noShowDashboardAppointmentHandler = async (
     return res.json({
       success: true,
       message: "Đánh dấu no-show thành công",
-      data: appointment,
+      data: await presentDashboardAppointment(getActor(req).role, appointment),
     });
   } catch (error) {
     next(error);
