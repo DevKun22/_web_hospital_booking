@@ -16,6 +16,10 @@ export const POLICY_LIMITS = {
   reminderLeadMinutes: { min: 15, max: 1440 },
   patientCancelCutoffHours: { min: 0, max: 72 },
   noShowGraceMinutes: { min: 0, max: 240 },
+  // Giới hạn đặt lịch: lịch sắp tới đang hiệu lực mỗi tài khoản (có / không có hồ sơ người thân) và số lần hủy lịch đã xác nhận trong 24 giờ.
+  maxActiveAppointments: { min: 1, max: 20 },
+  maxActiveWithDependents: { min: 1, max: 50 },
+  cancelBurstLimit: { min: 1, max: 20 },
 } as const;
 
 type PolicyKey = keyof typeof POLICY_LIMITS;
@@ -28,6 +32,9 @@ const getPolicyDefaults = (env: NodeJS.ProcessEnv = process.env): Policy => ({
   patientCancelCutoffHours: 2,
   // 0 = tắt tự động đánh dấu vắng mặt.
   noShowGraceMinutes: 0,
+  maxActiveAppointments: 5,
+  maxActiveWithDependents: 8,
+  cancelBurstLimit: 5,
 });
 
 const isValid = (key: PolicyKey, value: unknown): value is number =>

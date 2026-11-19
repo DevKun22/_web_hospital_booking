@@ -5,7 +5,14 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { DsButton, DsField, DsInput, DsNotice, DsPanel, DsLoading, useActionToast } from "@/components/ds";
 import { apiRequest } from "@/lib/api";
 
-type PolicyKey = "bookingHoldMinutes" | "reminderLeadMinutes" | "patientCancelCutoffHours" | "noShowGraceMinutes";
+type PolicyKey =
+  | "bookingHoldMinutes"
+  | "reminderLeadMinutes"
+  | "patientCancelCutoffHours"
+  | "noShowGraceMinutes"
+  | "maxActiveAppointments"
+  | "maxActiveWithDependents"
+  | "cancelBurstLimit";
 
 type PolicyData = {
   policy: Record<PolicyKey, number>;
@@ -17,6 +24,9 @@ const fields: { key: PolicyKey; label: string; hint: string; unit: string }[] = 
   { key: "reminderLeadMinutes", label: "Nhắc lịch trước giờ khám", hint: "Thời điểm gửi thông báo nhắc.", unit: "phút" },
   { key: "patientCancelCutoffHours", label: "Hạn chót người khám tự hủy", hint: "0 = cho hủy đến sát giờ khám.", unit: "giờ trước giờ khám" },
   { key: "noShowGraceMinutes", label: "Tự đánh dấu vắng mặt sau", hint: "0 = tắt; lễ tân vẫn đánh dấu thủ công.", unit: "phút sau giờ hẹn" },
+  { key: "maxActiveAppointments", label: "Số lịch sắp tới tối đa mỗi tài khoản", hint: "Lịch đã xác thực, chưa khám. Chống giữ chỗ hàng loạt.", unit: "lịch" },
+  { key: "maxActiveWithDependents", label: "Số lịch tối đa khi có hồ sơ người thân", hint: "Áp dụng cho tài khoản đặt hộ người thân.", unit: "lịch" },
+  { key: "cancelBurstLimit", label: "Số lần hủy lịch tối đa trong 24 giờ", hint: "Vượt mức thì tạm khóa đặt mới 1 giờ.", unit: "lần" },
 ];
 
 const queryKey = ["dashboard", "policy"];

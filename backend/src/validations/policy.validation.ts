@@ -6,4 +6,7 @@ export const updatePolicySchema = z.object({
   reminderLeadMinutes: z.number().int().optional(),
   patientCancelCutoffHours: z.number().int().optional(),
   noShowGraceMinutes: z.number().int().optional(),
+  maxActiveAppointments: z.number().int().optional(),
+  maxActiveWithDependents: z.number().int().optional(),
+  cancelBurstLimit: z.number().int().optional(),
 });
