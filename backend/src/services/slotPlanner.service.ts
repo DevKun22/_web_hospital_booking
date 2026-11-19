@@ -95,6 +95,7 @@ class SlotPlannerService {
     const data: {
       doctorId: string;
       scheduleId: string;
+      facilityId: string | null;
       date: Date;
       startTime: string;
       endTime: string;
@@ -113,7 +114,7 @@ class SlotPlannerService {
               overlaps(slot.startTime, slot.endTime, item.startTime, item.endTime),
           );
           if (clash) continue;
-          data.push({ doctorId, scheduleId: schedule.id, date, startTime: slot.startTime, endTime: slot.endTime });
+          data.push({ doctorId, scheduleId: schedule.id, facilityId: schedule.facilityId, date, startTime: slot.startTime, endTime: slot.endTime });
         }
       }
     }

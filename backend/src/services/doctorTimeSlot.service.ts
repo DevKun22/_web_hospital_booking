@@ -189,6 +189,7 @@ class DoctorTimeSlotService {
       ).map((slot) => ({
         doctorId: input.doctorId,
         scheduleId: schedule.id,
+        facilityId: schedule.facilityId,
         date,
         startTime: slot.startTime,
         endTime: slot.endTime,
@@ -345,6 +346,8 @@ class DoctorTimeSlotService {
         date: true,
         startTime: true,
         endTime: true,
+        // Cơ sở của khung giờ (null: cơ sở mặc định) để người khám biết khám ở đâu.
+        facility: { select: { id: true, name: true, address: true } },
       },
       orderBy: {
         startTime: "asc",

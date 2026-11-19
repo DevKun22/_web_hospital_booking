@@ -33,6 +33,7 @@ import { formatVietnamDate, getVietnamDateInput, isVietnamSlotStartInPast } from
 import { can } from "@/lib/permissions";
 import { queryKeys } from "@/lib/query-keys";
 import type {
+  Facility,
   DoctorProfile,
   DoctorSchedule,
   DoctorTimeSlot,
@@ -52,6 +53,7 @@ type ScheduleForm = {
   endTime: string;
   slotDuration: string;
   isActive: boolean;
+  facilityId: string;
 };
 
 type SlotReconciliationFinding = {
@@ -87,7 +89,7 @@ const reconciliationFindingLabels: Record<SlotReconciliationFinding["type"], str
   APPOINTMENT_SLOT_MISMATCH: "Thông tin lịch hẹn và khung giờ không khớp",
 };
 
-const emptyScheduleForm: ScheduleForm = { doctorId: "", dayOfWeek: "1", startTime: "08:00", endTime: "11:30", slotDuration: "30", isActive: true };
+const emptyScheduleForm: ScheduleForm = { doctorId: "", dayOfWeek: "1", startTime: "08:00", endTime: "11:30", slotDuration: "30", isActive: true, facilityId: "" };
 
 const dayOptions = scheduleDays.map((label, index) => ({ value: String(index), label }));
 
@@ -146,6 +148,7 @@ const toScheduleForm = (schedule: DoctorSchedule): ScheduleForm => ({
   endTime: schedule.endTime,
   slotDuration: String(schedule.slotDuration),
   isActive: schedule.isActive,
+  facilityId: schedule.facilityId ?? "",
 });
 
 const buildUpdateSchedulePayload = (form: ScheduleForm) => ({
@@ -154,6 +157,8 @@ const buildUpdateSchedulePayload = (form: ScheduleForm) => ({
   endTime: form.endTime,
   slotDuration: Number(form.slotDuration || 30),
   isActive: form.isActive,
+  // Để trống: giữ cơ sở hiện tại (ca mới nhận cơ sở mặc định).
+  facilityId: form.facilityId || undefined,
 });
 
 const buildCreateSchedulePayload = (form: ScheduleForm) => ({ doctorId: form.doctorId, ...buildUpdateSchedulePayload(form) });
@@ -221,6 +226,9 @@ export default function SchedulesPage() {
   const doctorsQuery = useDashboardScheduleDoctors(doctorQuery, !isDoctor && can(user, "catalog.view"));
   const schedulesQuery = useDashboardDoctorSchedules(scheduleQuery);
   const slotsQuery = useDashboardDoctorTimeSlots(slotQuery);
+  // Danh sách cơ sở đang hoạt động; chỉ hiện ô chọn cơ sở khi có từ hai cơ sở trở lên.
+  const facilitiesQuery = useQuery({ queryKey: ["dashboard", "facilities"], queryFn: () => apiRequest<Facility[]>("/dashboard/facilities"), staleTime: 60_000 });
+  const facilities = (facilitiesQuery.data ?? []).filter((item) => item.isActive !== false);
   const requestsQuery = useQuery({
     queryKey: queryKeys.dashboardScheduleChangeRequests(requestFilters),
     queryFn: () => apiRequest<ListResult<ScheduleChangeRequest>>("/dashboard/schedule-change-requests", { query: requestFilters }),
@@ -859,6 +867,16 @@ export default function SchedulesPage() {
         <DsField label="Kết thúc" htmlFor="sf-end">
           <DsInput id="sf-end" type="time" value={scheduleForm.endTime} required onChange={(event) => setScheduleForm((current) => ({ ...current, endTime: event.target.value }))} />
         </DsField>
+        {facilities.length > 1 ? (
+          <DsField label="Cơ sở khám" htmlFor="sf-facility" hint="Nơi bác sĩ làm theo ca này. Khung giờ trống sắp tới đi theo cơ sở.">
+            <DsSelect id="sf-facility" value={scheduleForm.facilityId} onChange={(event) => setScheduleForm((current) => ({ ...current, facilityId: event.target.value }))}>
+              <option value="">Cơ sở mặc định</option>
+              {facilities.map((facility) => (
+                <option key={facility.id} value={facility.id}>{facility.name}</option>
+              ))}
+            </DsSelect>
+          </DsField>
+        ) : null}
         <DsField label="Thời lượng khung giờ (phút)" htmlFor="sf-duration">
           <DsInput id="sf-duration" inputMode="numeric" value={scheduleForm.slotDuration} required onChange={(event) => setScheduleForm((current) => ({ ...current, slotDuration: event.target.value.replace(/\D/g, "") }))} />
         </DsField>

@@ -129,3 +129,25 @@ model PackageItem {
 
   @@index([packageId])
 }
+
+// Cơ sở khám (chi nhánh). Hiện chỉ dùng để gắn lịch làm việc, khung giờ và lịch hẹn với một địa điểm; dữ liệu cũ chưa gán (null)
+// được hiểu là cơ sở mặc định. Kho thuốc, phân quyền và báo cáo theo cơ sở thuộc hướng phát triển.
+model Facility {
+  id           String  @id @default(uuid())
+  name         String
+  slug         String  @unique
+  address      String
+  phone        String?
+  workingHours String?
+  mapUrl       String?
+  // Đúng một cơ sở mặc định: nhận ca làm việc mới khi không chọn cơ sở.
+  isDefault    Boolean @default(false)
+  isActive     Boolean @default(true)
+
+  schedules    DoctorSchedule[]
+  timeSlots    DoctorTimeSlot[]
+  appointments Appointment[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}

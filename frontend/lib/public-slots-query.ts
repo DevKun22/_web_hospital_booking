@@ -9,6 +9,8 @@ export type PublicSlot = {
   date: string;
   startTime: string;
   endTime: string;
+  /** Nơi khám của khung giờ; thiếu thì là cơ sở mặc định. */
+  facility?: { id: string; name: string; address: string } | null;
 };
 
 export type PublicAvailableSlotFilters = {

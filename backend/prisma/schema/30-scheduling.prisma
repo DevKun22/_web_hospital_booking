@@ -38,10 +38,15 @@ model DoctorSchedule {
   slotDuration Int     @default(30) // phút
   isActive     Boolean @default(true)
 
+  // Cơ sở nơi bác sĩ làm theo ca này (null: cơ sở mặc định).
+  facilityId String?
+  facility   Facility? @relation(fields: [facilityId], references: [id], onDelete: SetNull)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([doctorId])
+  @@index([facilityId])
 }
 
 // Yêu cầu do bác sĩ gửi để Staff/Admin duyệt trước khi thay đổi lịch mẫu.
@@ -106,6 +111,10 @@ model DoctorTimeSlot {
 
   appointment Appointment?
 
+  // Cơ sở của khung giờ, chép từ ca mẫu lúc sinh khung giờ (null: cơ sở mặc định).
+  facilityId String?
+  facility   Facility? @relation(fields: [facilityId], references: [id], onDelete: SetNull)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -113,4 +122,5 @@ model DoctorTimeSlot {
   @@index([date])
   @@index([status, isActive, date, startTime])
   @@index([scheduleId])
+  @@index([facilityId])
 }

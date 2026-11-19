@@ -207,6 +207,7 @@ export const flattenPatientInfo = <T extends { patientInfo: PatientInfoRow | nul
 
 export const appointmentSelect = {
   id: true,
+  facility: { select: { id: true, name: true, address: true, phone: true } },
   bookingCode: true,
   appointmentDate: true,
   startTime: true,

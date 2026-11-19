@@ -11,6 +11,7 @@ export const createDoctorScheduleSchema = z.object({
   endTime: timeSchema,
   slotDuration: z.number().int().min(5).max(240).optional(),
   isActive: z.boolean().optional(),
+  facilityId: z.string().uuid("Cơ sở không hợp lệ").nullable().optional(),
 });
 
 export const updateDoctorScheduleSchema = z.object({
@@ -19,4 +20,5 @@ export const updateDoctorScheduleSchema = z.object({
   endTime: timeSchema.optional(),
   slotDuration: z.number().int().min(5).max(240).optional(),
   isActive: z.boolean().optional(),
+  facilityId: z.string().uuid("Cơ sở không hợp lệ").nullable().optional(),
 });
