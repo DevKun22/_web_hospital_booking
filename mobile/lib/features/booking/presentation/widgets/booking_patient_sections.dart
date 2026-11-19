@@ -243,6 +243,7 @@ class BookingPatientSubmitSection extends StatelessWidget {
     required this.priceLabel,
     required this.price,
     this.skipsOtp = false,
+    this.termsConsent,
   });
 
   /// Dòng giá cố định trên nút đặt lịch, vd. "Chi phí dự kiến".
@@ -259,6 +260,9 @@ class BookingPatientSubmitSection extends StatelessWidget {
 
   /// Không có bước OTP: nút ghi "Đặt lịch" và ghi chú nói cơ sở khám sẽ xác nhận.
   final bool skipsOtp;
+
+  /// Ô đồng ý điều khoản (chỉ khi có bước OTP); tự ẩn khi cơ sở khám chưa soạn điều khoản.
+  final Widget? termsConsent;
 
   @override
   Widget build(BuildContext context) => Column(
@@ -290,6 +294,7 @@ class BookingPatientSubmitSection extends StatelessWidget {
           ),
         ],
       ),
+      if (termsConsent != null) ...[const SizedBox(height: 6), termsConsent!],
       const SizedBox(height: 10),
       FilledButton.icon(
         onPressed: isBusy ? null : onSubmit,

@@ -64,6 +64,7 @@ class _FakeSubmissionRepository extends BookingSubmissionRepository {
     required BookingSelection selection,
     required BookingPatientDraft patient,
     bool authenticated = false,
+    String? termsVersion,
   }) async {
     createCalls += 1;
     if (confirmOnCreate) return const BookingCreation.confirmed(_appointment);

@@ -84,6 +84,7 @@ class BookingSubmissionController extends Notifier<BookingSubmissionState> {
     required BookingSelection selection,
     required BookingPatientDraft patient,
     bool authenticated = false,
+    String? termsVersion,
   }) async {
     if (_createInFlight ||
         state.isBusy ||
@@ -103,6 +104,7 @@ class BookingSubmissionController extends Notifier<BookingSubmissionState> {
             selection: selection,
             patient: patient,
             authenticated: authenticated,
+            termsVersion: termsVersion,
           );
       final confirmed = creation.confirmed;
       if (confirmed != null) {

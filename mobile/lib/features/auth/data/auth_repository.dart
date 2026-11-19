@@ -30,11 +30,17 @@ class AuthRepository {
   final Duration _logoutRequestTimeout;
 
   /// Email là định danh đăng nhập; chưa có tài khoản thì máy chủ tạo khi xác thực thành công.
-  Future<OtpChallenge> requestOtp(String email) async {
+  Future<OtpChallenge> requestOtp(String email, {String? termsVersion}) async {
     return guardApi(() async {
       final response = await _authDio.post<dynamic>(
         '/auth/patient/request-otp',
-        data: {'email': email.trim().toLowerCase()},
+        data: {
+          'email': email.trim().toLowerCase(),
+          if (termsVersion != null) ...{
+            'termsAccepted': true,
+            'termsVersion': termsVersion,
+          },
+        },
       );
       return OtpChallenge.fromJson(requireDataMap(response.data));
     });

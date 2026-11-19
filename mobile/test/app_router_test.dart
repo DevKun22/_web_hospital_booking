@@ -29,7 +29,11 @@ class _OtpFlowAuthController extends AuthController {
   AuthState build() => const AuthState.unauthenticated();
 
   @override
-  Future<bool> requestOtp(String email, {String? returnTo}) async {
+  Future<bool> requestOtp(
+    String email, {
+    String? returnTo,
+    String? termsVersion,
+  }) async {
     state = AuthState(
       status: AuthStatus.requestingOtp,
       email: email,

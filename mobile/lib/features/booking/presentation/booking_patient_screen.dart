@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:hospital_booking_mobile/features/legal/legal.dart';
 import 'package:hospital_booking_mobile/core/formatters/display_formatters.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -52,6 +53,7 @@ class _BookingPatientScreenState extends ConsumerState<BookingPatientScreen> {
   final _registeredHospitalController = TextEditingController();
   String? _gender;
   bool _hasBhyt = false;
+  bool _termsAccepted = false;
   bool _prefilled = false;
   bool _isRevalidatingSlot = false;
   bool _applyingPrefill = false;
@@ -350,6 +352,13 @@ class _BookingPatientScreenState extends ConsumerState<BookingPatientScreen> {
                 isRevalidatingSlot: _isRevalidatingSlot,
                 onSubmit: _submit,
                 skipsOtp: skipsOtp,
+                termsConsent: skipsOtp
+                    ? null
+                    : TermsConsentTile(
+                        value: _termsAccepted,
+                        onChanged: (value) =>
+                            setState(() => _termsAccepted = value),
+                      ),
                 priceLabel: selectedPackage == null
                     ? 'Chi phí dự kiến'
                     : 'Giá gói',
@@ -522,6 +531,10 @@ class _BookingPatientScreenState extends ConsumerState<BookingPatientScreen> {
   Future<void> _submit() async {
     if (!(_formKey.currentState?.validate() ?? false)) return;
     FocusScope.of(context).unfocus();
+    // Khách chưa đăng nhập (có bước OTP) phải đồng ý điều khoản nếu cơ sở khám đã soạn.
+    final authenticated = ref.read(authControllerProvider).isAuthenticated;
+    final terms = requiredTerms(ref, authenticated: authenticated);
+    if (terms != null && !_termsAccepted) return showTermsRequired(context);
     setState(() => _isRevalidatingSlot = true);
     final slotValidation = await ref
         .read(bookingFlowControllerProvider.notifier)
@@ -556,7 +569,8 @@ class _BookingPatientScreenState extends ConsumerState<BookingPatientScreen> {
         .read(bookingSubmissionControllerProvider.notifier)
         .submit(
           selection: selection,
-          authenticated: ref.read(authControllerProvider).isAuthenticated,
+          authenticated: authenticated,
+          termsVersion: terms?.version,
           patient: BookingPatientDraft(
             dependentProfileId: _selectedDependent?.id,
             patientName: _nameController.text,
@@ -572,5 +586,10 @@ class _BookingPatientScreenState extends ConsumerState<BookingPatientScreen> {
             registeredHospital: _registeredHospitalController.text,
           ),
         );
+    if (!mounted) return;
+    final code = ref.read(bookingSubmissionControllerProvider).error?.code;
+    if (refreshIfTermsOutdated(ref, code)) {
+      setState(() => _termsAccepted = false);
+    }
   }
 }
