@@ -29,7 +29,8 @@ import { useDashboardDepartments } from "@/lib/dashboard-departments-query";
 import { useDashboardDoctors, useDashboardDoctorUsers } from "@/lib/dashboard-doctors-query";
 import { can } from "@/lib/permissions";
 import { queryKeys } from "@/lib/query-keys";
-import type { DoctorProfile } from "@/lib/types";
+import { StringListEditor, TimelineEditor, cleanStrings, cleanTimeline } from "@/components/dashboard/content-editors";
+import type { DoctorProfile, TimelineEntry } from "@/lib/types";
 import { useDebouncedValue } from "@/lib/use-debounced-value";
 
 // Bác sĩ: danh sách bên trái; chọn một hồ sơ hoặc bấm "Tạo hồ sơ" thì biểu mẫu mở cạnh danh sách, không che nội dung.
@@ -42,10 +43,14 @@ type DoctorForm = {
   experience: string;
   consultationFee: string;
   bio: string;
+  motto: string;
+  expertise: string[];
+  memberships: string[];
+  careerTimeline: TimelineEntry[];
   isAvailable: boolean;
 };
 
-const emptyForm: DoctorForm = { userId: "", departmentId: "", title: "", specialization: "", experience: "", consultationFee: "0", bio: "", isAvailable: true };
+const emptyForm: DoctorForm = { userId: "", departmentId: "", title: "", specialization: "", experience: "", consultationFee: "0", bio: "", motto: "", expertise: [], memberships: [], careerTimeline: [], isAvailable: true };
 
 const availabilityTabs = [
   { id: "", label: "Tất cả" },
@@ -61,6 +66,10 @@ const toForm = (doctor: DoctorProfile): DoctorForm => ({
   experience: doctor.experience === null ? "" : String(doctor.experience),
   consultationFee: String(doctor.consultationFee || 0),
   bio: doctor.bio || "",
+  motto: doctor.motto || "",
+  expertise: doctor.expertise ?? [],
+  memberships: doctor.memberships ?? [],
+  careerTimeline: doctor.careerTimeline ?? [],
   isAvailable: doctor.isAvailable,
 });
 
@@ -72,6 +81,10 @@ const buildCreatePayload = (form: DoctorForm) => ({
   experience: form.experience === "" ? undefined : Number(form.experience),
   consultationFee: form.consultationFee === "" ? undefined : Number(form.consultationFee),
   bio: form.bio.trim() || null,
+  motto: form.motto.trim() || null,
+  expertise: cleanStrings(form.expertise),
+  memberships: cleanStrings(form.memberships),
+  careerTimeline: cleanTimeline(form.careerTimeline),
   isAvailable: form.isAvailable,
 });
 
@@ -82,6 +95,10 @@ const buildUpdatePayload = (form: DoctorForm) => ({
   experience: form.experience === "" ? null : Number(form.experience),
   consultationFee: form.consultationFee === "" ? 0 : Number(form.consultationFee),
   bio: form.bio.trim() || null,
+  motto: form.motto.trim() || null,
+  expertise: cleanStrings(form.expertise),
+  memberships: cleanStrings(form.memberships),
+  careerTimeline: cleanTimeline(form.careerTimeline),
   isAvailable: form.isAvailable,
 });
 
@@ -430,6 +447,12 @@ export default function DoctorsPage() {
         <DsField label="Giới thiệu" htmlFor="dr-bio">
           <DsTextarea id="dr-bio" rows={4} value={form.bio} disabled={!canWrite} onChange={(event) => setForm((current) => ({ ...current, bio: event.target.value }))} />
         </DsField>
+        <DsField label="Tâm niệm nghề nghiệp" htmlFor="dr-motto" hint="Một câu do bác sĩ chọn. Lưu ở đây là hiển thị ngay, không qua bước duyệt.">
+          <DsInput id="dr-motto" maxLength={300} value={form.motto} disabled={!canWrite} onChange={(event) => setForm((current) => ({ ...current, motto: event.target.value }))} />
+        </DsField>
+        <StringListEditor id="dr-expertise" label="Lĩnh vực chuyên sâu" values={form.expertise} onChange={(expertise) => setForm((current) => ({ ...current, expertise }))} addLabel="Thêm lĩnh vực" itemLabel="lĩnh vực" disabled={!canWrite} />
+        <StringListEditor id="dr-memberships" label="Hiệp hội chuyên môn" values={form.memberships} onChange={(memberships) => setForm((current) => ({ ...current, memberships }))} addLabel="Thêm hiệp hội" itemLabel="hiệp hội" disabled={!canWrite} />
+        <TimelineEditor id="dr-career" values={form.careerTimeline} onChange={(careerTimeline) => setForm((current) => ({ ...current, careerTimeline }))} disabled={!canWrite} />
         <label className="ds-check" style={{ cursor: canWrite ? "pointer" : "default" }}>
           <input type="checkbox" checked={form.isAvailable} disabled={!canWrite} onChange={(event) => setForm((current) => ({ ...current, isAvailable: event.target.checked }))} style={{ marginTop: 3 }} />
           <span>

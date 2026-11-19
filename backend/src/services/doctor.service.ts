@@ -196,7 +196,7 @@ class DoctorService {
   }
 
   async update(id: string, input: UpdateDoctorProfileInput, actorName?: string | null) {
-    await this.getById(id);
+    const current = await this.getById(id);
 
     if (input.departmentId) {
       const department = await prisma.department.findUnique({
@@ -214,7 +214,7 @@ class DoctorService {
       data: {
         departmentId: input.departmentId,
         title: normalizeOptionalString(input.title),
-        ...publishedContentData(input, actorName),
+        ...publishedContentData(input, actorName, current),
         specialization: normalizeOptionalString(input.specialization),
         experience: input.experience,
         consultationFee: input.consultationFee,

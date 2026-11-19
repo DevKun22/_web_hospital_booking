@@ -29,7 +29,8 @@ import { useDashboardDepartments } from "@/lib/dashboard-departments-query";
 import { useDashboardPackages } from "@/lib/dashboard-packages-query";
 import { can } from "@/lib/permissions";
 import { queryKeys } from "@/lib/query-keys";
-import type { MedicalPackage, PackageItem } from "@/lib/types";
+import { FaqEditor, StringListEditor, cleanFaq, cleanStrings } from "@/components/dashboard/content-editors";
+import type { FaqEntry, MedicalPackage, PackageItem } from "@/lib/types";
 import { useDebouncedValue } from "@/lib/use-debounced-value";
 
 // Gói khám: danh sách bên trái; chọn một gói thì khung bên phải gom thông tin gói (trái) và các hạng mục cấu thành (phải).
@@ -43,6 +44,9 @@ type PackageForm = {
   summary: string;
   description: string;
   note: string;
+  audience: string[];
+  resultTime: string;
+  faq: FaqEntry[];
   image: string;
   imageAssetId: string;
   isPopular: boolean;
@@ -67,6 +71,9 @@ const emptyPackageForm: PackageForm = {
   summary: "",
   description: "",
   note: "",
+  audience: [],
+  resultTime: "",
+  faq: [],
   image: "",
   imageAssetId: "",
   isPopular: false,
@@ -114,6 +121,9 @@ const toPackageForm = (item: MedicalPackage): PackageForm => ({
   summary: item.summary || "",
   description: item.description || "",
   note: item.note || "",
+  audience: item.audience ?? [],
+  resultTime: item.resultTime || "",
+  faq: item.faq ?? [],
   image: item.image || "",
   imageAssetId: "",
   isPopular: item.isPopular,
@@ -138,6 +148,9 @@ const buildPackagePayload = (form: PackageForm) => ({
   summary: form.summary.trim() || null,
   description: form.description.trim() || null,
   note: form.note.trim() || null,
+  audience: cleanStrings(form.audience),
+  resultTime: form.resultTime.trim() || null,
+  faq: cleanFaq(form.faq),
   image: form.image.trim() || null,
   imageAssetId: form.imageAssetId || undefined,
   isPopular: form.isPopular,
@@ -546,6 +559,11 @@ export default function PackagesPage() {
           <DsField label="Ghi chú" htmlFor="pk-note">
             <DsTextarea id="pk-note" rows={2} value={form.note} disabled={!canWrite} onChange={(event) => setForm((current) => ({ ...current, note: event.target.value }))} />
           </DsField>
+          <StringListEditor id="pk-audience" label="Đối tượng nên làm" hint="Mỗi dòng một nhóm người khám nên chọn gói này." values={form.audience} onChange={(audience) => setForm((current) => ({ ...current, audience }))} placeholder="Người trên 40 tuổi" addLabel="Thêm đối tượng" itemLabel="đối tượng" disabled={!canWrite} />
+          <DsField label="Thời gian có kết quả" htmlFor="pk-result">
+            <DsInput id="pk-result" maxLength={200} placeholder="Trong ngày" value={form.resultTime} disabled={!canWrite} onChange={(event) => setForm((current) => ({ ...current, resultTime: event.target.value }))} />
+          </DsField>
+          <FaqEditor id="pk-faq" values={form.faq} onChange={(faq) => setForm((current) => ({ ...current, faq }))} disabled={!canWrite} />
           <DsField label="Ảnh gói khám" htmlFor="pk-image-file" hint="Hiện ở trang chủ, tỉ lệ 16:9. JPG, PNG hoặc WEBP.">
             {form.image ? (
               <div style={{ marginBottom: 8 }}>

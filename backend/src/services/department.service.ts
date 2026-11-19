@@ -4,6 +4,7 @@ import { AppError } from "../utils/appError.js";
 import { createSlug } from "../utils/slug.js";
 import MediaAssetService from "./mediaAsset.service.js";
 import { normalizeOptionalString } from "../utils/text.js";
+import { sameJson } from "../utils/stableJson.js";
 
 type CreateDepartmentInput = {
   name: string;
@@ -57,8 +58,14 @@ const departmentSelect = {
 } satisfies Prisma.DepartmentSelect;
 
 // Sửa nội dung giới thiệu thì ghi lại thời điểm cập nhật; người duyệt do quản trị nhập (tên hiển thị công khai).
-const contentData = (input: { sections?: { title: string; body: string }[]; contentReviewerName?: string | null }) => ({
-  ...(input.sections !== undefined ? { sections: input.sections, contentUpdatedAt: new Date() } : {}),
+const contentData = (
+  input: { sections?: { title: string; body: string }[]; contentReviewerName?: string | null },
+  currentSections?: unknown,
+) => ({
+  // Biểu mẫu luôn gửi cả bộ mục: chỉ ghi lại ngày cập nhật khi nội dung thật sự khác bản đang lưu.
+  ...(input.sections !== undefined
+    ? { sections: input.sections, ...(!sameJson(input.sections, currentSections ?? []) ? { contentUpdatedAt: new Date() } : {}) }
+    : {}),
   ...(input.contentReviewerName !== undefined ? { contentReviewerName: normalizeOptionalString(input.contentReviewerName) } : {}),
 });
 
@@ -179,7 +186,7 @@ class DepartmentService {
   }
 
   async update(id: string, input: UpdateDepartmentInput) {
-    await this.getById(id);
+    const current = await this.getById(id);
 
     // Slug là bắt buộc: gửi null nghĩa là giữ nguyên, không xóa slug.
     const nextSlug =
@@ -225,7 +232,7 @@ class DepartmentService {
         name: input.name,
         slug: nextSlug,
         description: normalizeOptionalString(input.description),
-        ...contentData(input),
+        ...contentData(input, current.sections),
         image:
           input.imageAssetId === null
             ? null

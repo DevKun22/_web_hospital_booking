@@ -174,3 +174,34 @@ test("an administrator editing the profile publishes immediately under their own
   assert.equal(publicDoctor.body.data.motto, "Quản trị cập nhật");
   assert.equal(publicDoctor.body.data.profileReviewerName, fixture.adminUser.fullName);
 });
+
+test("saving unchanged intro content does not move the 'updated on' date", async () => {
+  const headers = await admin();
+  const sections = [{ title: "Tổng quan", body: "Nội dung ổn định." }];
+  const saveDepartment = () =>
+    http.request(`/api/v1/dashboard/departments/${fixture.department.id}`, { method: "PATCH", headers, body: { sections } });
+  const departmentDate = async () => (await prisma.department.findUniqueOrThrow({ where: { id: fixture.department.id } })).contentUpdatedAt;
+
+  assert.equal((await saveDepartment()).status, 200);
+  const first = await departmentDate();
+  assert.ok(first);
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  assert.equal((await saveDepartment()).status, 200);
+  assert.equal((await departmentDate())?.getTime(), first.getTime(), "same sections must keep the date");
+  await http.request(`/api/v1/dashboard/departments/${fixture.department.id}`, { method: "PATCH", headers, body: { sections: [{ title: "Tổng quan", body: "Đã sửa." }] } });
+  assert.ok((await departmentDate())!.getTime() > first.getTime(), "changed sections move the date");
+
+  // Bác sĩ: biểu mẫu quản trị gửi cả bộ khi đổi phí khám, ngày cập nhật phần giới thiệu không được đổi theo.
+  const body = { motto: "Giữ nguyên", expertise: ["Nội tổng quát"] };
+  const saveDoctor = (extra: Record<string, unknown> = {}) =>
+    http.request(`/api/v1/dashboard/doctors/${fixture.doctorOne.id}`, { method: "PATCH", headers, body: { ...body, ...extra } });
+  const doctorDate = async () => (await prisma.doctorProfile.findUniqueOrThrow({ where: { id: fixture.doctorOne.id } })).profileUpdatedAt;
+  assert.equal((await saveDoctor()).status, 200);
+  const doctorFirst = await doctorDate();
+  assert.ok(doctorFirst);
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  assert.equal((await saveDoctor({ consultationFee: 123000 })).status, 200);
+  assert.equal((await doctorDate())?.getTime(), doctorFirst.getTime(), "fee-only change keeps the intro date");
+  assert.equal((await saveDoctor({ motto: "Đã đổi" })).status, 200);
+  assert.ok((await doctorDate())!.getTime() > doctorFirst.getTime());
+});
