@@ -1,9 +1,12 @@
 import { z } from "zod";
+import { sectionsSchema } from "./catalogContent.validation.js";
 
 export const createDepartmentSchema = z.object({
   name: z.string().trim().min(2, "Ten chuyen khoa toi thieu 2 ky tu"),
   slug: z.string().trim().min(2, "Slug toi thieu 2 ky tu").optional(),
   description: z.string().trim().nullable().optional(),
+  sections: sectionsSchema.optional(),
+  contentReviewerName: z.string().trim().max(160).nullable().optional(),
   image: z
     .string()
     .trim()
@@ -30,6 +33,8 @@ export const updateDepartmentSchema = z.object({
     .nullable()
     .optional(),
   description: z.string().trim().nullable().optional(),
+  sections: sectionsSchema.optional(),
+  contentReviewerName: z.string().trim().max(160).nullable().optional(),
   image: z
     .string()
     .trim()

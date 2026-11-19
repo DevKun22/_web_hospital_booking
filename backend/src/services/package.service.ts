@@ -23,6 +23,9 @@ type CreatePackageInput = {
   serviceFee?: number;
   summary?: string | null;
   note?: string | null;
+  audience?: string[];
+  resultTime?: string | null;
+  faq?: { question: string; answer: string }[];
   image?: string | null;
   imageAssetId?: string;
   isPopular?: boolean;
@@ -40,6 +43,9 @@ type UpdatePackageInput = {
   serviceFee?: number;
   summary?: string | null;
   note?: string | null;
+  audience?: string[];
+  resultTime?: string | null;
+  faq?: { question: string; answer: string }[];
   image?: string | null;
   imageAssetId?: string | null;
   isPopular?: boolean;
@@ -65,6 +71,9 @@ const packageSelect = {
   serviceFee: true,
   summary: true,
   note: true,
+  audience: true,
+  resultTime: true,
+  faq: true,
   image: true,
   isPopular: true,
   isBHYTSupport: true,
@@ -99,6 +108,9 @@ const publicPackageSelect = {
   serviceFee: true,
   summary: true,
   note: true,
+  audience: true,
+  resultTime: true,
+  faq: true,
   image: true,
   isPopular: true,
   isBHYTSupport: true,
@@ -223,6 +235,9 @@ class PackageService {
         serviceFee: input.serviceFee ?? 0,
         summary: normalizeOptionalString(input.summary),
         note: normalizeOptionalString(input.note),
+        audience: input.audience,
+        resultTime: normalizeOptionalString(input.resultTime),
+        faq: input.faq,
         image: imageAsset?.url || normalizeOptionalString(input.image),
         isPopular: input.isPopular ?? false,
         isBHYTSupport: input.isBHYTSupport ?? false,
@@ -252,9 +267,10 @@ class PackageService {
   async update(id: string, input: UpdatePackageInput) {
     await this.getById(id);
 
+    // Slug là bắt buộc: gửi null nghĩa là giữ nguyên, không xóa slug.
     const nextSlug =
       input.slug === null
-        ? null
+        ? undefined
         : input.slug
           ? createSlug(input.slug)
           : input.name
@@ -289,6 +305,9 @@ class PackageService {
         serviceFee: input.serviceFee,
         summary: normalizeOptionalString(input.summary),
         note: normalizeOptionalString(input.note),
+        audience: input.audience,
+        resultTime: normalizeOptionalString(input.resultTime),
+        faq: input.faq,
         image:
           input.imageAssetId === null
             ? null

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { faqSchema, stringListSchema } from "./catalogContent.validation.js";
 
 const packageItemSchema = z.object({
   name: z.string().trim().min(2, "Ten hang muc toi thieu 2 ky tu"),
@@ -21,6 +22,9 @@ export const createPackageSchema = z.object({
   serviceFee: z.number().int().min(0, "Phi dich vu khong hop le").optional(),
   summary: z.string().trim().nullable().optional(),
   note: z.string().trim().nullable().optional(),
+  audience: stringListSchema.optional(),
+  resultTime: z.string().trim().max(200).nullable().optional(),
+  faq: faqSchema.optional(),
   image: z.string().trim().url("Image phai la URL hop le").nullable().optional(),
   imageAssetId: z.string().uuid("Ảnh không hợp lệ").optional(),
   isPopular: z.boolean().optional(),
@@ -47,6 +51,9 @@ export const updatePackageSchema = z.object({
   serviceFee: z.number().int().min(0, "Phi dich vu khong hop le").optional(),
   summary: z.string().trim().nullable().optional(),
   note: z.string().trim().nullable().optional(),
+  audience: stringListSchema.optional(),
+  resultTime: z.string().trim().max(200).nullable().optional(),
+  faq: faqSchema.optional(),
   image: z.string().trim().url("Image phai la URL hop le").nullable().optional(),
   imageAssetId: z.string().uuid("Ảnh không hợp lệ").nullable().optional(),
   isPopular: z.boolean().optional(),

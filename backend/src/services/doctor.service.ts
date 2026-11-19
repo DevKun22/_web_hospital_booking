@@ -3,22 +3,22 @@ import { prisma } from "../config/prisma.js";
 import { AppError } from "../utils/appError.js";
 import { createSlug } from "../utils/slug.js";
 import { normalizeOptionalString } from "../utils/text.js";
+import type { DoctorProfileContent } from "../validations/catalogContent.validation.js";
+import { publishedContentData } from "./doctorProfileContent.service.js";
 
-type CreateDoctorProfileInput = {
+type CreateDoctorProfileInput = DoctorProfileContent & {
   userId: string;
   departmentId: string;
   title?: string | null;
-  bio?: string | null;
   specialization?: string | null;
   experience?: number;
   consultationFee?: number;
   isAvailable?: boolean;
 };
 
-type UpdateDoctorProfileInput = {
+type UpdateDoctorProfileInput = DoctorProfileContent & {
   departmentId?: string;
   title?: string | null;
-  bio?: string | null;
   specialization?: string | null;
   experience?: number | null;
   consultationFee?: number;
@@ -30,6 +30,13 @@ const doctorProfileSelect = {
   slug: true,
   title: true,
   bio: true,
+  motto: true,
+  careerTimeline: true,
+  memberships: true,
+  expertise: true,
+  profileReviewerName: true,
+  profileUpdatedAt: true,
+  profileDraftAt: true,
   specialization: true,
   experience: true,
   consultationFee: true,
@@ -136,7 +143,7 @@ class DoctorService {
     return doctor;
   }
 
-  async create(input: CreateDoctorProfileInput) {
+  async create(input: CreateDoctorProfileInput, actorName?: string | null) {
     const user = await prisma.user.findUnique({
       where: { id: input.userId },
       select: {
@@ -176,7 +183,7 @@ class DoctorService {
         userId: input.userId,
         departmentId: input.departmentId,
         title: normalizeOptionalString(input.title),
-        bio: normalizeOptionalString(input.bio),
+        ...publishedContentData(input, actorName),
         specialization: normalizeOptionalString(input.specialization),
         experience: input.experience,
         consultationFee: input.consultationFee ?? 0,
@@ -188,7 +195,7 @@ class DoctorService {
     return doctor;
   }
 
-  async update(id: string, input: UpdateDoctorProfileInput) {
+  async update(id: string, input: UpdateDoctorProfileInput, actorName?: string | null) {
     await this.getById(id);
 
     if (input.departmentId) {
@@ -207,7 +214,7 @@ class DoctorService {
       data: {
         departmentId: input.departmentId,
         title: normalizeOptionalString(input.title),
-        bio: normalizeOptionalString(input.bio),
+        ...publishedContentData(input, actorName),
         specialization: normalizeOptionalString(input.specialization),
         experience: input.experience,
         consultationFee: input.consultationFee,

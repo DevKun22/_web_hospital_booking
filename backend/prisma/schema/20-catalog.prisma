@@ -3,9 +3,14 @@
 model Department {
   id                String   @id @default(uuid())
   name              String   @unique
-  slug              String?  @unique
+  slug              String   @unique
   description       String?
   image             String?
+  // Nội dung giới thiệu theo mục có tiêu đề, dựng thành các tab ở trang chuyên khoa: [{ title, body (Markdown) }].
+  sections          Json     @default("[]")
+  // Người duyệt nội dung chuyên môn (tên hiển thị công khai) và thời điểm cập nhật nội dung.
+  contentReviewerName String?
+  contentUpdatedAt    DateTime?
   symptomKeywords   String[] @default([])
   triageDescription String?
   isTriageFallback  Boolean  @default(false)
@@ -33,6 +38,16 @@ model DoctorProfile {
 
   title                  String?
   bio                    String?
+  // Phần giới thiệu công khai do bác sĩ soạn: chỉ hiện sau khi quản trị duyệt (xem profileDraft).
+  motto                  String?
+  careerTimeline         Json                    @default("[]") // [{ period, place, role? }]
+  memberships            Json                    @default("[]") // [tên hiệp hội]
+  expertise              Json                    @default("[]") // [lĩnh vực chuyên sâu]
+  profileReviewerName    String?
+  profileUpdatedAt       DateTime?
+  // Bản bác sĩ gửi chờ duyệt (null = không có). Quản trị duyệt thì được áp vào các cột trên rồi xóa.
+  profileDraft           Json?
+  profileDraftAt         DateTime?
   specialization         String?
   scheduleChangeRequests ScheduleChangeRequest[]
   experience             Int?
@@ -58,8 +73,12 @@ model DoctorProfile {
 model Package {
   id          String  @id @default(uuid())
   name        String
-  slug        String? @unique
+  slug        String  @unique
   description String?
+  // Đối tượng nên làm, thời gian có kết quả, hỏi đáp riêng của gói.
+  audience    Json    @default("[]") // [string]
+  resultTime  String?
+  faq         Json    @default("[]") // [{ question, answer }]
 
   departmentId String?
   department   Department? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
