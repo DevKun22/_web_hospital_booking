@@ -1,5 +1,6 @@
 import type { SignOptions } from "jsonwebtoken";
 import { logUnavailableEmail } from "./emailAvailability.js";
+import LegalService from "./legal.service.js";
 import { prisma } from "../config/prisma.js";
 import { getPatientAbsoluteExpiry } from "../config/patientSessionPolicy.js";
 import { AppError } from "../utils/appError.js";
@@ -41,8 +42,10 @@ const createAccessToken = (userId: string, sessionId: string) =>
 class PatientAuthService {
   // Đăng nhập bằng email: OTP gửi về chính email đó nên người nhận mã chứng minh sở hữu email. Email chưa có tài khoản thì tạo
   // tài khoản người khám mới (ngay khi gửi OTP; chỉ được dùng sau khi xác thực OTP thành công).
-  async requestOtp(identifier: { email: string }, ipAddress: string) {
+  async requestOtp(identifier: { email: string; termsAccepted?: boolean; termsVersion?: string }, ipAddress: string) {
     const email = identifier.email.trim().toLowerCase();
+    // Kiểm tra điều khoản trước mọi truy vấn theo email: câu trả lời giống nhau cho mọi email, không lộ tài khoản nào tồn tại.
+    const termsVersion = await LegalService.assertTermsConsent(identifier);
 
     const existing = await prisma.user.findUnique({
       where: { email },
@@ -74,6 +77,9 @@ class PatientAuthService {
       }));
 
     const isDecoy = Boolean(decoyReason) || user.role !== "PATIENT";
+    if (!isDecoy && termsVersion) {
+      await prisma.user.update({ where: { id: user.id }, data: { termsAcceptedAt: new Date(), termsVersion } });
+    }
 
     const challenge = await prisma.dashboardLoginChallenge.create({
       data: {

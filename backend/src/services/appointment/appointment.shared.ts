@@ -20,6 +20,8 @@ export type CreateAppointmentInput = {
   patientPhone: string;
   // Email là định danh người đặt lịch và nơi nhận OTP; số điện thoại chỉ để cơ sở khám liên hệ.
   patientEmail: string;
+  termsAccepted?: boolean;
+  termsVersion?: string;
   reason?: string | null;
   gender?: Gender | null;
   dateOfBirth?: string | null;

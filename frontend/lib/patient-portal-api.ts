@@ -12,14 +12,17 @@ type PortalEnvelope<T> = {
     unreadCount?: number;
   };
   message?: string;
+  code?: string;
 };
 
 export class PatientApiError extends Error {
   status: number;
+  code?: string;
 
-  constructor(message: string, status: number) {
+  constructor(message: string, status: number, code?: string) {
     super(message);
     this.status = status;
+    this.code = code;
   }
 }
 
@@ -44,7 +47,7 @@ export async function patientApiRequest<T>(
   });
   const payload = (await response.json().catch(() => null)) as PortalEnvelope<T> | null;
   if (!response.ok || !payload || payload.success === false || (!allowEmpty && payload.data === undefined)) {
-    throw new PatientApiError(payload?.message || DEFAULT_ERROR, response.status);
+    throw new PatientApiError(payload?.message || DEFAULT_ERROR, response.status, payload?.code);
   }
   return { data: payload.data as T, meta: payload.meta };
 }

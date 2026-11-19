@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { backendRequest, patientErrorResponse } from "@/lib/patient-session-server";
 
 export async function POST(request: Request) {
-  const body = (await request.json().catch(() => null)) as { phone?: string; email?: string } | null;
+  const body = (await request.json().catch(() => null)) as { phone?: string; email?: string; termsAccepted?: boolean; termsVersion?: string } | null;
   const email = body?.email?.trim().toLowerCase() || "";
   const phone = body?.phone?.replace(/\D/g, "") || "";
   if (email ? !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) : !/^0\d{9}$/.test(phone)) {
@@ -14,7 +14,7 @@ export async function POST(request: Request) {
 
   const result = await backendRequest("/auth/patient/request-otp", {
     method: "POST",
-    body: JSON.stringify(email ? { email } : { phone }),
+    body: JSON.stringify(email ? { email, termsAccepted: body?.termsAccepted, termsVersion: body?.termsVersion } : { phone }),
   });
   if (!result.response.ok || !result.payload?.data) {
     return patientErrorResponse(result.payload, result.response.status);

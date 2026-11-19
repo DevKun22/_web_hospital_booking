@@ -2,6 +2,7 @@ import PolicyService from "../policy.service.js";
 import { emailUnavailableError } from "../emailAvailability.js";
 import BookingProbeGuard from "../bookingProbeGuard.js";
 import BookingLimits from "./bookingLimits.js";
+import LegalService from "../legal.service.js";
 import type { Prisma } from "../../../generated/prisma/client.js";
 import { prisma } from "../../config/prisma.js";
 import { enqueuePendingOtpExpiry } from "../../queues/background.queue.js";
@@ -209,6 +210,8 @@ export class AppointmentBookingUseCases extends AppointmentServiceSupport {
       isAuthenticated: Boolean(bookingIdentity.patientId),
       dependentProfileId: bookingIdentity.dependentProfileId,
     });
+    // Đặt lịch cần OTP (khách chưa đăng nhập) thì phải đồng ý điều khoản; người đã đăng nhập đã đồng ý lúc đăng nhập.
+    const termsVersion = skipOtp ? null : await LegalService.assertTermsConsent(input);
     const holdExpiresAt = new Date(
       Date.now() + (await PolicyService.get()).bookingHoldMinutes * 60 * 1000,
     );
@@ -293,6 +296,10 @@ export class AppointmentBookingUseCases extends AppointmentServiceSupport {
 
         if (patient.role !== "PATIENT") {
           throw emailUnavailableError(patientEmail, "STAFF_ACCOUNT");
+        }
+
+        if (termsVersion) {
+          await tx.user.update({ where: { id: patient.id }, data: { termsAcceptedAt: new Date(), termsVersion } });
         }
 
         // Giới hạn theo người khám và tài khoản, dưới khóa tài khoản: áp dụng cho cả đặt bằng OTP lẫn đặt khi đã đăng nhập.

@@ -18,7 +18,7 @@ type OtpChallenge = {
 type PatientAuthContextValue = {
   user: PatientUser | null;
   loading: boolean;
-  requestOtp: (email: string) => Promise<OtpChallenge>;
+  requestOtp: (email: string, terms?: { termsAccepted?: boolean; termsVersion?: string }) => Promise<OtpChallenge>;
   verifyOtp: (challengeId: string, otp: string) => Promise<PatientUser>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<PatientUser | null>;
@@ -63,10 +63,10 @@ export function PatientAuthProvider({ children }: { children: React.ReactNode })
   }, [refreshUser]);
 
   // Email là định danh đăng nhập và nơi nhận OTP; chưa có tài khoản thì tạo khi xác thực thành công.
-  const requestOtp = useCallback((email: string) =>
+  const requestOtp = useCallback((email: string, terms?: { termsAccepted?: boolean; termsVersion?: string }) =>
     patientFetch<OtpChallenge>("/auth/request-otp", {
       method: "POST",
-      body: JSON.stringify({ email: email.trim().toLowerCase() }),
+      body: JSON.stringify({ email: email.trim().toLowerCase(), ...terms }),
     }), []);
 
   const verifyOtp = useCallback(async (challengeId: string, otp: string) => {
