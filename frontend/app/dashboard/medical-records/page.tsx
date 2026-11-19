@@ -228,7 +228,9 @@ export default function MedicalRecordsPage() {
   const defaultPrescriptionId = prescriptions.find((item) => item.status === "DRAFT")?.id ?? prescriptions[prescriptions.length - 1]?.id;
   const activePrescriptionId = prescriptions.some((item) => item.id === chosenPrescriptionId) ? chosenPrescriptionId : defaultPrescriptionId;
   const hasDraftPrescription = prescriptions.some((item) => item.status === "DRAFT");
-  const prescriptionQuery = useDashboardPrescription(activePrescriptionId);
+  // Không có quyền xem đơn thuốc: máy chủ đã bỏ đơn khỏi hồ sơ, giao diện không gọi API đơn thuốc (tránh 403 và banner lỗi vô cớ).
+  const canViewPrescriptions = selected?.prescriptionAccess !== false;
+  const prescriptionQuery = useDashboardPrescription(canViewPrescriptions ? activePrescriptionId : undefined);
   const prescription = prescriptionQuery.data ?? null;
   const queryError = recordsQuery.error || doctorsQuery.error || selectedRecordQuery.error || prescriptionQuery.error;
   const queryErrorMessage = queryError ? (queryError instanceof Error ? queryError.message : "Không tải được dữ liệu hồ sơ khám") : "";
@@ -844,7 +846,7 @@ export default function MedicalRecordsPage() {
         </div>
       </div>
 
-      {canCreatePrescription || prescriptions.length > 0 ? (
+      {canCreatePrescription || prescriptions.length > 0 || !canViewPrescriptions ? (
         <section aria-label="Đơn thuốc" style={{ borderTop: "1px solid var(--ds-line)" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "14px 16px 0", flexWrap: "wrap" }}>
             <h3 style={{ margin: 0, fontSize: 15 }}>Đơn thuốc</h3>
@@ -869,6 +871,11 @@ export default function MedicalRecordsPage() {
               ))}
             </div>
           ) : null}
+          {!canViewPrescriptions ? (
+            <p style={{ margin: 0, padding: 16, color: "var(--ds-muted)" }}>
+              Bạn chưa được cấp quyền xem đơn thuốc nên nội dung đơn không hiển thị ở đây. Liên hệ quản trị nếu cần xử lý khiếu nại.
+            </p>
+          ) : null}
           {prescription ? (
             <PrescriptionEditor key={prescription.id} prescription={prescription} canEdit={canCreatePrescription} onChange={() => void refreshSelectedRecord(selected.id)} />
           ) : activePrescriptionId ? (
@@ -885,7 +892,7 @@ export default function MedicalRecordsPage() {
                 </p>
               ) : null}
             </div>
-          ) : prescriptions.length === 0 ? (
+          ) : prescriptions.length === 0 && canViewPrescriptions ? (
             <p style={{ margin: 0, padding: 16, color: "var(--ds-muted)" }}>Chưa có đơn thuốc.</p>
           ) : null}
         </section>

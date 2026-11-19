@@ -628,6 +628,8 @@ export type MedicalRecord = {
   labResults: LabResult[];
   // Một hồ sơ khám có thể có nhiều đơn: đơn chính và các đơn bổ sung, theo thứ tự tạo.
   prescriptions: PrescriptionSummary[];
+  // false khi người xem không có quyền xem đơn thuốc: máy chủ bỏ đơn khỏi phản hồi (khác với hồ sơ thật sự chưa có đơn).
+  prescriptionAccess?: boolean;
 };
 
 export type ChatbotRuntimeValue = {

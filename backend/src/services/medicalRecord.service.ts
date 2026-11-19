@@ -1,4 +1,5 @@
 import { logClinicalAction } from "./clinicalLog.service.js";
+import { loadViewerPermissions, redactMedicalRecord } from "./dataVisibility.js";
 import { Prisma } from "../../generated/prisma/client.js";
 import type {
   MedicalResultStatus,
@@ -217,8 +218,11 @@ class MedicalRecordService {
       prisma.medicalRecord.count({ where }),
     ]);
 
+    // Đơn thuốc nhúng trong hồ sơ chỉ hiện với người có quyền xem đơn thuốc (xem dataVisibility).
+    const viewer = await loadViewerPermissions(actor.role);
+
     return {
-      items,
+      items: items.map((item) => redactMedicalRecord(item, viewer)),
       pagination: {
         page,
         limit,
@@ -238,7 +242,7 @@ class MedicalRecordService {
       throw new AppError("Không tìm thấy hồ sơ khám", 404);
     }
 
-    return record;
+    return redactMedicalRecord(record, await loadViewerPermissions(actor.role));
   }
 
   // Nguồn tệp kết quả để bác sĩ mở trong dashboard: cùng phạm vi truy cập với getById, nên bác sĩ
