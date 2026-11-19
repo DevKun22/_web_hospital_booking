@@ -65,6 +65,10 @@ export type BookingState = {
   submitting: boolean;
   notice: string;
   error: string;
+  // Lỗi gắn với ô Email (email bị từ chối): hiện ngay dưới ô, xóa khi người dùng sửa email.
+  emailError: string;
+  // Thời điểm (ms) hết bị giới hạn tần suất; 0 khi không bị giới hạn. Nút gửi bị khóa và đếm ngược tới mốc này.
+  cooldownUntil: number;
   // Đã áp dụng tham số trên URL (doctorId, packageId, ...) một lần.
   urlApplied: boolean;
 };
@@ -124,6 +128,8 @@ export const createInitialState = (): BookingState => ({
   submitting: false,
   notice: "",
   error: "",
+  emailError: "",
+  cooldownUntil: 0,
   urlApplied: false,
 });
 

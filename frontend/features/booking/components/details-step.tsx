@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import Link from "next/link";
 import { CheckCircle2 } from "lucide-react";
 import type { BookingDraft } from "@/features/booking/model";
@@ -10,6 +11,11 @@ export function DetailsStep({ flow }: { flow: BookingFlow }) {
   const { state, dispatch, emailOtpAvailable, profilePrefilled } = flow;
   const { draft } = state;
   const set = (patch: Partial<BookingDraft>) => dispatch({ type: "draft_changed", patch });
+  const emailInput = useRef<HTMLInputElement>(null);
+  // Email bị từ chối: đưa con trỏ về ô Email để sửa ngay.
+  useEffect(() => {
+    if (state.emailError) emailInput.current?.focus();
+  }, [state.emailError]);
 
   return (
     <div className="space-y-4">
@@ -28,8 +34,8 @@ export function DetailsStep({ flow }: { flow: BookingFlow }) {
           <input value={draft.patientName} onChange={(event) => set({ patientName: event.target.value })} className={INPUT_CLASS} autoComplete="name" required />
         </Field>
 
-        <Field label="Email" required hint="Mã OTP gửi tới email này. Email cũng dùng để đăng nhập xem lại lịch hẹn.">
-          <input value={draft.patientEmail} onChange={(event) => set({ patientEmail: event.target.value })} placeholder="ten@email.com" type="email" autoComplete="email" inputMode="email" className={INPUT_CLASS} required />
+        <Field label="Email" required hint="Mã OTP gửi tới email này. Email cũng dùng để đăng nhập xem lại lịch hẹn." error={state.emailError}>
+          <input ref={emailInput} value={draft.patientEmail} onChange={(event) => set({ patientEmail: event.target.value })} placeholder="ten@email.com" type="email" autoComplete="email" inputMode="email" aria-invalid={state.emailError ? true : undefined} className={INPUT_CLASS} required />
         </Field>
         {emailOtpAvailable ? null : (
           <p role="alert" className="rounded-lg bg-[var(--public-danger-soft)] px-3 py-2.5 text-sm font-medium text-[var(--public-danger)]">

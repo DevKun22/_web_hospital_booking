@@ -306,10 +306,10 @@ class AuthOtpService {
       );
 
       if (seconds < RESEND_COOLDOWN_SECONDS) {
-        throw new AppError(
-          `Vui lòng đợi ${RESEND_COOLDOWN_SECONDS - seconds} giây để gửi lại OTP`,
-          429,
-        );
+        const waitSeconds = RESEND_COOLDOWN_SECONDS - seconds;
+        throw new AppError(`Vui lòng đợi ${waitSeconds} giây để gửi lại OTP`, 429, "OTP_COOLDOWN", {
+          retryAfterSeconds: waitSeconds,
+        });
       }
     }
 

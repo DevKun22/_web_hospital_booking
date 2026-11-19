@@ -19,6 +19,8 @@ export type BookingAction =
   | { type: "slot_chosen"; slot: BookingSlot }
   | { type: "step_changed"; step: BookingStep }
   | { type: "error"; message: string }
+  | { type: "email_rejected"; message: string }
+  | { type: "rate_limited"; until: number; message: string }
   | { type: "notice"; message: string }
   | { type: "submitting"; value: boolean }
   | { type: "hold_created"; pending: PendingAppointment; notice: string; resendAt: number }
@@ -78,6 +80,8 @@ export function bookingReducer(state: BookingState, action: BookingAction): Book
         ...dropFlowState(state),
         draft: { ...state.draft, ...action.patch },
         slot: clearsSlot ? null : state.slot,
+        // Sửa email thì lỗi của email cũ không còn đúng; sửa ô khác thì giữ nguyên lỗi đang hiện.
+        emailError: action.patch.patientEmail !== undefined ? "" : state.emailError,
       };
     }
     case "slot_chosen":
@@ -86,6 +90,10 @@ export function bookingReducer(state: BookingState, action: BookingAction): Book
       return { ...state, step: action.step, error: "" };
     case "error":
       return { ...state, error: action.message, submitting: false };
+    case "email_rejected":
+      return { ...state, emailError: action.message, error: "", submitting: false };
+    case "rate_limited":
+      return { ...state, cooldownUntil: action.until, error: action.message, submitting: false };
     case "notice":
       return { ...state, notice: action.message };
     case "submitting":

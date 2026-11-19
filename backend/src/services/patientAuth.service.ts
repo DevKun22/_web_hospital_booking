@@ -1,4 +1,5 @@
 import type { SignOptions } from "jsonwebtoken";
+import { emailUnavailableError } from "./emailAvailability.js";
 import { prisma } from "../config/prisma.js";
 import { getPatientAbsoluteExpiry } from "../config/patientSessionPolicy.js";
 import { AppError } from "../utils/appError.js";
@@ -49,14 +50,10 @@ class PatientAuthService {
     });
 
     if (existing && existing.role !== "PATIENT") {
-      throw new AppError(
-        "Email này không dùng được cho cổng người khám",
-        409,
-        "EMAIL_RESERVED",
-      );
+      throw emailUnavailableError(email, "STAFF_ACCOUNT");
     }
     if (existing && !existing.isActive) {
-      throw new AppError("Tài khoản đã bị khóa", 403, "ACCOUNT_DISABLED");
+      throw emailUnavailableError(email, "PATIENT_DISABLED");
     }
 
     const user =
@@ -73,11 +70,7 @@ class PatientAuthService {
       }));
 
     if (user.role !== "PATIENT") {
-      throw new AppError(
-        "Email này không dùng được cho cổng người khám",
-        409,
-        "EMAIL_RESERVED",
-      );
+      throw emailUnavailableError(email, "STAFF_ACCOUNT");
     }
 
     const challenge = await prisma.dashboardLoginChallenge.create({

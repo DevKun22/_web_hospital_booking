@@ -52,6 +52,7 @@ export function BookingFlow({ catalog, loading, hotline }: BookingFlowProps) {
         primaryLabel="Giữ lịch và gửi mã OTP"
         onPrimary={() => void actions.submitDetails()}
         loading={state.submitting}
+        cooldownUntil={state.cooldownUntil}
       />
     ),
     verify: <ActionBar primaryLabel="Xác nhận" onPrimary={() => void actions.verifyOtp()} loading={state.submitting} />,

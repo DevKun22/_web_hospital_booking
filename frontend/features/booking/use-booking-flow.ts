@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { releaseAppointmentHold, resendAppointmentOtp, verifyAppointmentOtp, createAppointment } from "@/features/booking/api";
 import {
@@ -18,6 +18,7 @@ import { loadOptionalPatientSession, patientSessionQueryKey } from "@/lib/patien
 import { usePublicAvailableSlots } from "@/lib/public-slots-query";
 import { usePublicCapabilities } from "@/lib/public-capabilities-query";
 import { queryKeys } from "@/lib/query-keys";
+import { ApiError } from "@/lib/api";
 
 const RESEND_COOLDOWN_SECONDS = 30;
 
@@ -166,11 +167,16 @@ export function useBookingFlow(catalog: BookingCatalog) {
 
   const goToStep = useCallback((step: "service" | "schedule" | "details") => dispatch({ type: "step_changed", step }), [dispatch]);
 
+  // Chặn gửi lặp: `state.submitting` chỉ đổi sau khi giao diện vẽ lại nên bấm đúp rất nhanh vẫn lọt hai yêu cầu; cờ này đổi ngay.
+  const submitInFlight = useRef(false);
+
   const submitDetails = useCallback(async () => {
+    if (submitInFlight.current) return;
     const today = todayInVietnam();
     const error = validateBooking(selection, draft, today);
     if (error) return fail(error);
 
+    submitInFlight.current = true;
     dispatch({ type: "submitting", value: true });
     try {
       const result = await createAppointment(selection, draft);
@@ -182,7 +188,18 @@ export function useBookingFlow(catalog: BookingCatalog) {
       });
       void refreshSlots();
     } catch (err) {
-      fail(messageOf(err, "Không tạo được lịch hẹn"));
+      if (err instanceof ApiError && err.code === "EMAIL_UNAVAILABLE") {
+        // Lỗi của riêng ô Email: hiện ngay dưới ô (có focus) thay vì thông báo nổi tự tắt.
+        dispatch({ type: "email_rejected", message: err.message });
+      } else if (err instanceof ApiError && err.status === 429) {
+        // Bị giới hạn tần suất: khóa nút và đếm ngược đúng số giây máy chủ yêu cầu chờ.
+        const seconds = err.retryAfterSeconds ?? 60;
+        dispatch({ type: "rate_limited", until: Date.now() + seconds * 1000, message: err.message });
+      } else {
+        fail(messageOf(err, "Không tạo được lịch hẹn"));
+      }
+    } finally {
+      submitInFlight.current = false;
     }
   }, [selection, draft, dispatch, fail, refreshSlots]);
 

@@ -1,0 +1,140 @@
+import { MaintenanceService, assert, bookingBody, dateOnly, emailOf, fixture, http, prisma, test } from "./support/context.js";
+
+// Đặt lịch bằng email: thông báo trung tính cho email không dùng được, giữ chỗ lặp không báo lỗi, trần lịch đang chờ OTP, dọn tài khoản rác.
+
+const NEUTRAL_CODE = "EMAIL_UNAVAILABLE";
+
+const book = (phone: string, extra: { timeSlotId?: string; email?: string } = {}) =>
+  http.request("/api/v1/appointments", { method: "POST", body: bookingBody({ phone, ...extra }) });
+
+const extraSlot = (startTime: string) =>
+  prisma.doctorTimeSlot.create({
+    data: {
+      doctorId: fixture.doctorOne.id,
+      date: dateOnly(new Date(fixture.slotOne.date).toISOString().slice(0, 10)),
+      startTime,
+      endTime: startTime.slice(0, 2) + ":30",
+    },
+  });
+
+test("an unusable email gets one neutral answer that never reveals why", async () => {
+  const staffBooking = await book("0955900001", { email: fixture.adminUser.email });
+  assert.equal(staffBooking.status, 409);
+  assert.equal(staffBooking.body.code, NEUTRAL_CODE);
+  const message = String(staffBooking.body.message);
+  assert.ok(!/nội bộ|nhân sự|quản trị|khóa|staff|admin/i.test(message), message);
+
+  // Đăng nhập người khám: nhân sự và tài khoản người khám bị khóa cho cùng một câu trả lời.
+  await prisma.user.create({
+    data: { fullName: "Bị khóa", email: "locked.patient@example.test", role: "PATIENT", isActive: false, isEmailVerified: true },
+  });
+  const staffLogin = await http.request("/api/v1/auth/patient/request-otp", { method: "POST", body: { email: fixture.adminUser.email } });
+  const lockedLogin = await http.request("/api/v1/auth/patient/request-otp", { method: "POST", body: { email: "locked.patient@example.test" } });
+  for (const response of [staffLogin, lockedLogin]) {
+    assert.equal(response.status, 409);
+    assert.equal(response.body.code, NEUTRAL_CODE);
+  }
+  assert.equal(staffLogin.body.message, lockedLogin.body.message);
+  assert.equal(staffLogin.body.message, staffBooking.body.message);
+});
+
+test("sending the same booking twice returns the same hold instead of a 'slot unavailable' error", async () => {
+  const first = await book("0955900002");
+  assert.equal(first.status, 201);
+  assert.equal(first.body.data.otpRequired, true);
+
+  const second = await book("0955900002");
+  assert.equal(second.status, 201, JSON.stringify(second.body));
+  assert.equal(second.body.data.appointmentId, first.body.data.appointmentId);
+  assert.equal(second.body.data.bookingCode, first.body.data.bookingCode);
+  assert.equal(second.body.data.resumed, true);
+  assert.equal(second.body.data.debugOtp, undefined, "a repeat must not send or reveal a second OTP");
+  assert.equal(await prisma.appointment.count(), 1);
+  assert.equal(await prisma.otpCode.count({ where: { purpose: "BOOK_APPOINTMENT" } }), 1);
+
+  // Người khác (email khác) vẫn không giữ được khung giờ đang bị giữ.
+  const other = await book("0955900003");
+  assert.equal(other.status, 409);
+
+  // Giữ chỗ lặp vẫn xác thực được bằng mã của lần đầu.
+  const verification = await http.request(`/api/v1/appointments/${first.body.data.appointmentId}/verify-otp`, {
+    method: "POST",
+    body: { otp: first.body.data.debugOtp },
+  });
+  assert.equal(verification.status, 200);
+});
+
+test("one email can hold at most two slots awaiting OTP, and verifying frees the budget", async () => {
+  const slotThree = await extraSlot("11:00");
+  const slotFour = await extraSlot("12:00");
+
+  // OTP cùng một email có thời gian chờ 60 giây giữa hai lần gửi; lùi mốc gửi để thử trần số lịch chờ chứ không phải thời gian chờ.
+  const skipOtpCooldown = () => prisma.otpCode.updateMany({ data: { createdAt: new Date(Date.now() - 5 * 60_000) } });
+  const first = await book("0955900004");
+  await skipOtpCooldown();
+  const second = await book("0955900004", { timeSlotId: fixture.slotTwo.id });
+  assert.equal(first.status, 201);
+  assert.equal(second.status, 201);
+
+  const third = await book("0955900004", { timeSlotId: slotThree.id });
+  assert.equal(third.status, 409);
+  assert.equal(third.body.code, "TOO_MANY_OPEN_HOLDS");
+  assert.equal((await prisma.doctorTimeSlot.findUniqueOrThrow({ where: { id: slotThree.id } })).status, "AVAILABLE");
+
+  // Xác thực một lịch thì được đặt thêm.
+  const verified = await http.request(`/api/v1/appointments/${first.body.data.appointmentId}/verify-otp`, {
+    method: "POST",
+    body: { otp: first.body.data.debugOtp },
+  });
+  assert.equal(verified.status, 200);
+  await skipOtpCooldown();
+  const fourth = await book("0955900004", { timeSlotId: slotFour.id });
+  assert.equal(fourth.status, 201, JSON.stringify(fourth.body));
+});
+
+test("never-verified patient accounts are cleaned up, but accounts with data or recent ones are kept", async () => {
+  const old = new Date(Date.now() - 30 * 86_400_000);
+  const make = (email: string, extra: Record<string, unknown> = {}) =>
+    prisma.user.create({ data: { fullName: "Người khám", email, role: "PATIENT", createdAt: old, ...extra } });
+  const junk = await make("junk.old@example.test");
+  const verified = await make("verified.old@example.test", { isEmailVerified: true });
+  const withAppointment = await make("with.appointment@example.test");
+  await prisma.appointment.create({
+    data: {
+      bookingCode: "CLEAN-1",
+      appointmentDate: dateOnly(new Date(fixture.slotOne.date).toISOString().slice(0, 10)),
+      startTime: "13:00",
+      endTime: "13:30",
+      status: "CANCELLED_BY_PATIENT",
+      patientName: "x",
+      patientPhone: "0900000000",
+      patientEmail: withAppointment.email,
+      patientId: withAppointment.id,
+      doctorId: fixture.doctorOne.id,
+      departmentId: fixture.department.id,
+    },
+  });
+  const recent = await prisma.user.create({ data: { fullName: "Mới", email: emailOf("0955900009"), role: "PATIENT" } });
+  // Có một lượt đăng nhập đang dở: thử thách đi theo tài khoản bị xóa.
+  await prisma.dashboardLoginChallenge.create({ data: { userId: junk.id, purpose: "PATIENT_PORTAL_LOGIN", expiresAt: old } });
+
+  const result = await MaintenanceService.cleanupUnverifiedPatients();
+  assert.equal(result.deleted, 1);
+  assert.equal(await prisma.user.count({ where: { id: junk.id } }), 0);
+  for (const kept of [verified, withAppointment, recent]) {
+    assert.equal(await prisma.user.count({ where: { id: kept.id } }), 1, kept.email);
+  }
+});
+
+test("a second booking inside the OTP cooldown is refused with the exact wait and releases its slot", async () => {
+  const first = await book("0955900010");
+  assert.equal(first.status, 201);
+
+  const tooSoon = await book("0955900010", { timeSlotId: fixture.slotTwo.id });
+  assert.equal(tooSoon.status, 429);
+  assert.equal(tooSoon.body.code, "OTP_COOLDOWN");
+  assert.ok(tooSoon.body.retryAfterSeconds > 0 && tooSoon.body.retryAfterSeconds <= 60, JSON.stringify(tooSoon.body));
+  // Lỗi gửi OTP không để lại lịch giữ chỗ ma.
+  assert.equal((await prisma.doctorTimeSlot.findUniqueOrThrow({ where: { id: fixture.slotTwo.id } })).status, "AVAILABLE");
+  assert.equal(await prisma.appointment.count({ where: { patientEmail: emailOf("0955900010") } }), 1);
+});

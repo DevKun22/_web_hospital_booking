@@ -4,7 +4,7 @@ import { getSafeRequestPath } from "../observability/requestPerformance.js";
 import { logger } from "../observability/logger.js";
 
 export const errorMiddleware = (
-  err: Error & { statusCode?: number; code?: string },
+  err: Error & { statusCode?: number; code?: string; retryAfterSeconds?: number },
   req: Request,
   res: Response,
   next: NextFunction,
@@ -27,10 +27,15 @@ export const errorMiddleware = (
   if (statusCode >= 500) logger.error(logMessage, err.stack || "");
   else logger.warn(logMessage);
 
+  // Trình duyệt chéo nguồn không đọc được header Retry-After (không được khai báo ở CORS), nên đưa cả vào thân phản hồi để giao diện
+  // đếm ngược thay vì bảo người dùng "thử lại sau ít phút".
+  const retryAfter = err.retryAfterSeconds ?? Number(res.getHeader("Retry-After"));
+
   res.status(statusCode).json({
     success: false,
     code,
     message,
+    ...(Number.isFinite(retryAfter) && retryAfter > 0 ? { retryAfterSeconds: retryAfter } : {}),
     requestId: req.requestId,
     errors: [],
   });
