@@ -24,18 +24,35 @@ test("an unusable email gets one neutral answer that never reveals why", async (
   const message = String(staffBooking.body.message);
   assert.ok(!/nội bộ|nhân sự|quản trị|khóa|staff|admin/i.test(message), message);
 
-  // Đăng nhập người khám: nhân sự và tài khoản người khám bị khóa cho cùng một câu trả lời.
-  await prisma.user.create({
+  // Đăng nhập người khám: email nhân sự và tài khoản bị khóa được trả lời y hệt email thường, không gửi mã, không xác thực được.
+  const locked = await prisma.user.create({
     data: { fullName: "Bị khóa", email: "locked.patient@example.test", role: "PATIENT", isActive: false, isEmailVerified: true },
   });
+  const normal = await http.request("/api/v1/auth/patient/request-otp", { method: "POST", body: { email: "fresh.patient@example.test" } });
   const staffLogin = await http.request("/api/v1/auth/patient/request-otp", { method: "POST", body: { email: fixture.adminUser.email } });
-  const lockedLogin = await http.request("/api/v1/auth/patient/request-otp", { method: "POST", body: { email: "locked.patient@example.test" } });
-  for (const response of [staffLogin, lockedLogin]) {
-    assert.equal(response.status, 409);
-    assert.equal(response.body.code, NEUTRAL_CODE);
+  const lockedLogin = await http.request("/api/v1/auth/patient/request-otp", { method: "POST", body: { email: locked.email } });
+  for (const response of [normal, staffLogin, lockedLogin]) {
+    assert.equal(response.status, 200, JSON.stringify(response.body));
+    assert.ok(response.body.data.challengeId);
+    assert.equal(response.body.data.expiresIn, normal.body.data.expiresIn);
+    const shape = (body: { data: Record<string, unknown> }) => Object.keys(body.data).filter((key) => key !== "debugOtp").sort();
+    assert.deepEqual(shape(response.body), shape(normal.body));
   }
-  assert.equal(staffLogin.body.message, lockedLogin.body.message);
-  assert.equal(staffLogin.body.message, staffBooking.body.message);
+  assert.equal(staffLogin.body.data.debugOtp, undefined);
+  // Không có email thật nào được xếp hàng cho email nhân sự hoặc tài khoản khóa.
+  assert.equal(await prisma.otpCode.count({ where: { email: fixture.adminUser.email, usedAt: null } }), 0);
+  assert.equal(await prisma.otpCode.count({ where: { email: locked.email, usedAt: null } }), 0);
+
+  // Nhập mã bất kỳ: cùng câu trả lời như nhập sai mã của email thường.
+  const wrongNormal = await http.request("/api/v1/auth/patient/verify-otp", { method: "POST", body: { challengeId: normal.body.data.challengeId, otp: "000000" } });
+  const wrongStaff = await http.request("/api/v1/auth/patient/verify-otp", { method: "POST", body: { challengeId: staffLogin.body.data.challengeId, otp: "000000" } });
+  assert.equal(wrongStaff.status, wrongNormal.status);
+  assert.equal(wrongStaff.body.message, wrongNormal.body.message);
+
+  // Gửi lại ngay cũng bị chặn thời gian chờ như email thường.
+  const again = await http.request("/api/v1/auth/patient/request-otp", { method: "POST", body: { email: fixture.adminUser.email } });
+  assert.equal(again.status, 429);
+  assert.equal(again.body.code, "OTP_COOLDOWN");
 });
 
 test("sending the same booking twice returns the same hold instead of a 'slot unavailable' error", async () => {

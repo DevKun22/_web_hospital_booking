@@ -136,6 +136,10 @@ export default function PatientLoginPage() {
                 <input ref={otpRef} value={otp} onChange={(event) => setOtp(event.target.value.replace(/\D/g, "").slice(0, 6))} inputMode="numeric" autoComplete="one-time-code" placeholder="••••••" className="login-otp-input mt-2 min-h-14 w-full rounded-lg border border-[var(--public-border)] bg-[var(--public-surface)] px-4 text-center text-2xl font-bold tracking-[0.45em] outline-none focus:border-[var(--public-primary)]" required pattern="[0-9]{6}" />
               </label>
               {debugOtp ? <DebugOtpBox otp={debugOtp} onFill={setOtp} /> : null}
+              <p className="text-sm leading-5 text-[var(--public-muted)]">
+                Chưa thấy mã? Kiểm tra thư rác hoặc xác nhận đúng email. Nếu vẫn không nhận được, hãy liên hệ cơ sở khám. Nhân sự cơ sở khám đăng nhập ở{" "}
+                <Link href="/login" className="font-semibold text-[var(--public-primary)] underline underline-offset-4">trang nhân sự</Link>.
+              </p>
               <button disabled={submitting || otp.length !== 6} className="public-button-primary flex min-h-12 w-full items-center justify-center gap-2 rounded-lg px-4 text-base font-semibold disabled:cursor-not-allowed disabled:opacity-60">
                 {submitting ? <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" /> : null} Đăng nhập
               </button>

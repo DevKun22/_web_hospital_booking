@@ -16,6 +16,9 @@ import { logger } from "../observability/logger.js";
 type SendOtpOptions = {
   challengeId?: string;
   userId?: string;
+  // Lượt gửi "giả" cho email không được phép đăng nhập (nhân sự, tài khoản khóa): vẫn đi qua mọi giới hạn và ghi một bản ghi OTP
+  // đã bị đánh dấu dùng rồi (không bao giờ xác thực được), nhưng không gửi email. Nhờ vậy bên ngoài không phân biệt được với email thường.
+  decoy?: boolean;
 };
 
 type VerifyOtpOptions = {
@@ -327,8 +330,23 @@ class AuthOtpService {
         challengeId: options.challengeId,
         userId: options.userId,
         expiresAt,
+        ...(options.decoy ? { usedAt: new Date(), deliveryStatus: "SENT" as const } : {}),
       },
     });
+
+    if (options.decoy) {
+      // Thời gian trả lời cũng phải giống đường thật (ghi DB + đưa vào hàng đợi), nếu không đo độ trễ vẫn phân biệt được.
+      await new Promise((resolve) => setTimeout(resolve, 120 + randomInt(0, 180)));
+      return {
+        id: otpRecord.id,
+        email: otpRecord.email,
+        purpose: otpRecord.purpose,
+        deliveryStatus: "SENT" as const,
+        expiresAt: otpRecord.expiresAt,
+        expiresIn: OTP_EXPIRES_SECONDS,
+        debugOtp: undefined,
+      };
+    }
 
     const deliveryJob = {
       otpCodeId: otpRecord.id,
