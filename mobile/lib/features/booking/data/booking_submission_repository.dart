@@ -22,6 +22,7 @@ class BookingSubmissionRepository {
     required BookingSelection selection,
     required BookingPatientDraft patient,
     bool authenticated = false,
+    String? termsVersion,
   }) async {
     return guardApi(() async {
       final dio = authenticated || patient.dependentProfileId != null
@@ -29,7 +30,14 @@ class BookingSubmissionRepository {
           : _publicDio;
       final response = await dio.post<dynamic>(
         '/appointments',
-        data: patient.toRequestJson(selection),
+        data: {
+          ...patient.toRequestJson(selection),
+          // Khách chưa đăng nhập đã đồng ý điều khoản (nếu cơ sở khám đã soạn).
+          if (termsVersion != null) ...{
+            'termsAccepted': true,
+            'termsVersion': termsVersion,
+          },
+        },
       );
       final data = requireDataMap(response.data);
       if (data['otpRequired'] == false) {

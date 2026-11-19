@@ -70,7 +70,11 @@ class AuthController extends Notifier<AuthState> {
     );
   }
 
-  Future<bool> requestOtp(String email, {String? returnTo}) async {
+  Future<bool> requestOtp(
+    String email, {
+    String? returnTo,
+    String? termsVersion,
+  }) async {
     state = AuthState(
       status: AuthStatus.requestingOtp,
       email: email,
@@ -79,7 +83,7 @@ class AuthController extends Notifier<AuthState> {
     try {
       final challenge = await ref
           .read(authRepositoryProvider)
-          .requestOtp(email);
+          .requestOtp(email, termsVersion: termsVersion);
       state = AuthState(
         status: AuthStatus.awaitingOtp,
         email: email,

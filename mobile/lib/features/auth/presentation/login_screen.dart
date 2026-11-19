@@ -5,6 +5,7 @@ import 'package:hospital_booking_mobile/core/widgets/app_error_banner.dart';
 import 'package:hospital_booking_mobile/core/widgets/app_ui.dart';
 import 'package:hospital_booking_mobile/features/auth/application/auth_controller.dart';
 import 'package:hospital_booking_mobile/features/auth/application/auth_state.dart';
+import 'package:hospital_booking_mobile/features/legal/legal.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key, this.returnTo});
@@ -18,6 +19,7 @@ class LoginScreen extends ConsumerStatefulWidget {
 class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
+  bool _termsAccepted = false;
 
   @override
   void dispose() {
@@ -139,7 +141,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             : 'Nhập email hợp lệ',
                         onFieldSubmitted: (_) => _submit(),
                       ),
-                      const SizedBox(height: 18),
+                      const SizedBox(height: 8),
+                      TermsConsentTile(
+                        value: _termsAccepted,
+                        onChanged: (value) =>
+                            setState(() => _termsAccepted = value),
+                      ),
+                      const SizedBox(height: 10),
                       AppPrimaryButton(
                         label: 'Gửi mã OTP',
                         loading: isLoading,
@@ -178,9 +186,23 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   Future<void> _submit() async {
     if (!(_formKey.currentState?.validate() ?? false)) return;
     FocusScope.of(context).unfocus();
-    await ref
+    // Cơ sở khám đã soạn điều khoản thì phải đồng ý trước khi gửi OTP.
+    final terms = requiredTerms(ref);
+    if (terms != null && !_termsAccepted) return showTermsRequired(context);
+    final sent = await ref
         .read(authControllerProvider.notifier)
-        .requestOtp(_emailController.text.trim(), returnTo: widget.returnTo);
+        .requestOtp(
+          _emailController.text.trim(),
+          returnTo: widget.returnTo,
+          termsVersion: terms?.version,
+        );
+    if (!mounted || sent) return;
+    final error = ref
+        .read(authControllerProvider)
+        .errorFor(AuthErrorOrigin.requestOtp);
+    if (refreshIfTermsOutdated(ref, error?.code)) {
+      setState(() => _termsAccepted = false);
+    }
   }
 
   void _leaveLogin() {
