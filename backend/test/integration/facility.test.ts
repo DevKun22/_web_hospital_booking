@@ -1,4 +1,4 @@
-import { assert, authCookie, bookingBody, dashboardHeaders, fixture, futureDate, http, prisma, test } from "./support/context.js";
+import { assert, authCookie, bookingBody, dashboardHeaders, emailOf, fixture, futureDate, http, loginPatient, prisma, test } from "./support/context.js";
 
 // Cơ sở khám mức nhỏ: danh mục cơ sở, ca làm việc gắn cơ sở, khung giờ và lịch hẹn đi theo cơ sở.
 
@@ -141,4 +141,24 @@ test("only users who manage the catalog can change facilities", async () => {
   assert.equal(create.status, 403);
   const invalid = await http.request("/api/v1/dashboard/facilities", { method: "POST", headers: await admin(), body: { name: "A", address: "x" } });
   assert.equal(invalid.status, 400);
+});
+
+test("the patient sees where the appointment takes place", async () => {
+  const branch = await createFacility("Chi nhánh Chín");
+  const { date, dayOfWeek } = targetDay();
+  const created = await createSchedule(fixture.doctorTwo.id, dayOfWeek, { facilityId: branch.id });
+  assert.equal(created.status, 201);
+  const slot = await prisma.doctorTimeSlot.findFirstOrThrow({ where: { scheduleId: created.body.data.id, date: new Date(`${date}T00:00:00.000Z`) }, orderBy: { startTime: "asc" } });
+
+  const session = await loginPatient("0955810003");
+  const booking = await http.request("/api/v1/appointments", {
+    method: "POST",
+    headers: { authorization: `Bearer ${session.accessToken}` },
+    body: bookingBody({ phone: "0955810003", email: emailOf("0955810003"), doctorId: fixture.doctorTwo.id, timeSlotId: slot.id }),
+  });
+  assert.equal(booking.status, 201, JSON.stringify(booking.body));
+  const detail = await http.request(`/api/v1/me/appointments/${booking.body.data.appointmentId}`, { headers: { authorization: `Bearer ${session.accessToken}` } });
+  assert.equal(detail.status, 200, JSON.stringify(detail.body));
+  assert.equal(detail.body.data.facility.id, branch.id);
+  assert.match(detail.body.data.facility.address, /Chi nhánh Chín/);
 });

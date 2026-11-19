@@ -10,6 +10,7 @@ import dashboardStatisticsRouter from "./dashboardStatistics.route.js";
 import dashboardReviewRouter from "./dashboardReview.route.js";
 import dashboardUserRouter from "./dashboardUser.route.js";
 import { dashboardFacilityRouter, publicFacilityRouter } from "./facility.route.js";
+import { syncKnowledgeAfterWrite } from "../middlewares/knowledgeSync.middleware.js";
 import { dashboardLegalRouter, publicLegalRouter } from "./legal.route.js";
 import rbacRouter from "./rbac.route.js";
 import auditLogRouter from "./auditLog.route.js";
@@ -47,6 +48,8 @@ import patientPortalRouter from "./patientPortalV1.route.js";
 const router = Router();
 
 router.get("/capabilities", patientCapabilitiesHandler);
+// Nội dung chuyên khoa, bác sĩ, gói khám là nguồn của kho tri thức chatbot: sửa xong thì nạp lại.
+router.use(["/dashboard/departments", "/dashboard/doctors", "/dashboard/packages"], syncKnowledgeAfterWrite);
 router.use("/auth", patientAuthRouter);
 router.use("/me/notifications", patientNotificationRouter);
 router.use("/me", patientPortalRouter);
