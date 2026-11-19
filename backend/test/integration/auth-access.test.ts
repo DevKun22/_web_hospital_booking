@@ -25,7 +25,7 @@ test("a booking with the email of a staff account is rejected and holds no slot"
     body: bookingBody({ phone: "0944444441", email: fixture.adminUser.email }),
   });
   assert.equal(attempt.status, 409);
-  assert.equal(attempt.body.code, "EMAIL_RESERVED");
+  assert.equal(attempt.body.code, "EMAIL_UNAVAILABLE");
 
   assert.equal(await prisma.appointment.count(), 0);
   assert.equal(

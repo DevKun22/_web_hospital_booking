@@ -189,3 +189,29 @@ describe("prefill", () => {
     assert.equal(patch.hasBHYT, true);
   });
 });
+
+describe("bookingReducer: lỗi theo trường và giới hạn tần suất", () => {
+  it("giữ lỗi email dưới ô Email cho tới khi người dùng sửa email, sửa ô khác thì giữ nguyên", () => {
+    let state = bookingReducer(createInitialState(), { type: "email_rejected", message: "Email này không dùng được" });
+    assert.equal(state.emailError, "Email này không dùng được");
+    assert.equal(state.error, "", "không bật thông báo nổi song song với lỗi theo trường");
+    assert.equal(state.submitting, false);
+
+    state = bookingReducer(state, { type: "draft_changed", patch: { patientName: "An" } });
+    assert.equal(state.emailError, "Email này không dùng được");
+
+    state = bookingReducer(state, { type: "draft_changed", patch: { patientEmail: "khac@example.test" } });
+    assert.equal(state.emailError, "");
+  });
+
+  it("đặt mốc hết giới hạn khi bị 429 và không bị xóa khi người dùng sửa thông tin", () => {
+    const until = Date.now() + 120_000;
+    let state = bookingReducer({ ...createInitialState(), submitting: true }, { type: "rate_limited", until, message: "Quá nhiều yêu cầu" });
+    assert.equal(state.cooldownUntil, until);
+    assert.equal(state.submitting, false);
+    assert.equal(state.error, "Quá nhiều yêu cầu");
+
+    state = bookingReducer(state, { type: "draft_changed", patch: { patientPhone: "0901234567" } });
+    assert.equal(state.cooldownUntil, until);
+  });
+});

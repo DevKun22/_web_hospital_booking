@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Loader2 } from "lucide-react";
 
 type ActionBarProps = {
@@ -9,11 +9,34 @@ type ActionBarProps = {
   primaryLabel: string;
   onPrimary: () => void;
   loading?: boolean;
+  // Mốc thời gian (ms) hết bị giới hạn tần suất: nút chính bị khóa và hiện đếm ngược cho tới mốc này.
+  cooldownUntil?: number;
 };
 
 // Thanh hành động của luồng đặt lịch. Nút chính luôn bấm được; thiếu thông tin thì báo lỗi rõ ở trên,
 // không làm mờ nút (nút mờ không cho biết thiếu gì).
-export function ActionBar({ summary, onBack, backLabel = "Quay lại", primaryLabel, onPrimary, loading = false }: ActionBarProps) {
+const formatCountdown = (seconds: number) => `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
+
+// Số giây còn lại tới mốc `until` (0 khi đã qua hoặc không đặt); chỉ chạy bộ đếm khi còn đang đếm.
+const useSecondsUntil = (until: number) => {
+  const remaining = () => (until > 0 ? Math.max(Math.ceil((until - Date.now()) / 1000), 0) : 0);
+  const [seconds, setSeconds] = useState(remaining);
+  useEffect(() => {
+    setSeconds(remaining());
+    if (until <= Date.now()) return;
+    const timer = window.setInterval(() => {
+      const next = remaining();
+      setSeconds(next);
+      if (next === 0) window.clearInterval(timer);
+    }, 1000);
+    return () => window.clearInterval(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [until]);
+  return seconds;
+};
+
+export function ActionBar({ summary, onBack, backLabel = "Quay lại", primaryLabel, onPrimary, loading = false, cooldownUntil = 0 }: ActionBarProps) {
+  const coolingDown = useSecondsUntil(cooldownUntil);
   return (
     <div className="booking-action-bar">
       {summary ? <div className="mx-auto mb-2 max-w-xl text-sm lg:hidden">{summary}</div> : null}
@@ -26,12 +49,12 @@ export function ActionBar({ summary, onBack, backLabel = "Quay lại", primaryLa
         <button
           type="button"
           onClick={onPrimary}
-          disabled={loading}
+          disabled={loading || coolingDown > 0}
           aria-busy={loading}
           className="public-button-primary inline-flex min-h-12 flex-1 items-center justify-center gap-2 rounded-lg px-6 text-sm font-semibold lg:flex-none lg:min-w-48"
         >
           {loading ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : null}
-          {primaryLabel}
+          {coolingDown > 0 ? `Thử lại sau ${formatCountdown(coolingDown)}` : primaryLabel}
         </button>
       </div>
     </div>

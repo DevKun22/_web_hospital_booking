@@ -13,27 +13,28 @@ const bodyEmail = (body: unknown) => {
   return email.includes("@") && email.length >= 5 ? email : null;
 };
 
-// Đặt lịch giữ slot trong thời gian chờ OTP, nên cần chặn việc giữ hàng loạt.
+// Giới hạn tần suất tạo lịch chỉ là lưới chặn lũ yêu cầu (tự động hóa, dò email), KHÔNG phải cách chặn việc giữ chỗ hàng loạt: việc
+// đó do trần số lịch đang chờ OTP theo email (MAX_OPEN_HOLDS_PER_EMAIL) và việc nhả chỗ khi hết hạn giữ. Mọi yêu cầu đều bị tính, kể
+// cả lần bị từ chối, vì lần bị từ chối chính là phép dò email; nên ngưỡng phải đủ rộng để người dùng đúng quy trình (sửa thông tin, đổi
+// giờ, thử lại) không chạm tới, và IP chung của một cơ sở khám (nhiều người cùng mạng) không bị khóa lẫn nhau.
 export const bookingCreateIpLimiter = rateLimit({
   name: "booking-create-ip",
   windowMs: 10 * MINUTE_MS,
-  max: 10,
-  degraded: { mode: "enforce", max: 5 },
+  max: 30,
+  degraded: { mode: "enforce", max: 15 },
   failureMode: "deny",
   key: (req) => getClientIp(req),
-  message:
-    "Bạn đã gửi quá nhiều yêu cầu đặt lịch. Vui lòng thử lại sau ít phút.",
+  message: "Có quá nhiều yêu cầu đặt lịch từ mạng của bạn. Vui lòng thử lại sau ít phút.",
 });
 
 export const bookingCreateEmailLimiter = rateLimit({
   name: "booking-create-email",
   windowMs: 10 * MINUTE_MS,
-  max: 5,
-  degraded: { mode: "enforce", max: 3 },
+  max: 10,
+  degraded: { mode: "enforce", max: 6 },
   failureMode: "deny",
   key: (req) => bodyEmail(req.body),
-  message:
-    "Email này đã đặt lịch quá nhiều lần. Vui lòng thử lại sau ít phút.",
+  message: "Có quá nhiều yêu cầu đặt lịch với email này. Vui lòng thử lại sau ít phút.",
 });
 
 export const searchLimiter = rateLimit({

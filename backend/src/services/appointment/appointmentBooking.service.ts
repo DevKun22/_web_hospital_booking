@@ -1,4 +1,5 @@
 import PolicyService from "../policy.service.js";
+import { emailUnavailableError } from "../emailAvailability.js";
 import type { Prisma } from "../../../generated/prisma/client.js";
 import { prisma } from "../../config/prisma.js";
 import { enqueuePendingOtpExpiry } from "../../queues/background.queue.js";
@@ -56,6 +57,10 @@ type VerifiedAppointmentRow = Prisma.AppointmentGetPayload<{
  *   mình bằng đúng email của tài khoản, nên không cần OTP lần nữa.
  */
 type BookingVerificationProof = "OTP" | "ACCOUNT_SESSION";
+
+// Số lịch chờ xác thực OTP (đang giữ khung giờ) tối đa cho một email. Đây là chốt chặn thật cho việc giữ chỗ hàng loạt: giới hạn theo
+// trạng thái lưu trữ chứ không theo số lần bấm, nên người dùng làm đúng quy trình không bao giờ bị khóa oan.
+const MAX_OPEN_HOLDS_PER_EMAIL = 2;
 
 export class AppointmentBookingUseCases extends AppointmentServiceSupport {
   constructor(
@@ -167,6 +172,13 @@ export class AppointmentBookingUseCases extends AppointmentServiceSupport {
       },
     });
 
+    // Gửi lặp (bấm đúp, mất mạng rồi thử lại): khung giờ đang được CHÍNH email này giữ chờ OTP thì trả lại lịch giữ chỗ đó thay vì báo
+    // "không khả dụng". Không gửi thêm OTP; người dùng dùng mã đã gửi hoặc bấm gửi lại.
+    if (timeSlot?.appointment && timeSlot.doctorId === input.doctorId) {
+      const resumed = await this.resumeOwnOpenHold(timeSlot.appointment.id, input.patientEmail.trim().toLowerCase(), input.patientPhone);
+      if (resumed) return resumed;
+    }
+
     if (
       !timeSlot ||
       timeSlot.doctorId !== input.doctorId ||
@@ -215,7 +227,21 @@ export class AppointmentBookingUseCases extends AppointmentServiceSupport {
     });
 
     if (existingUser && existingUser.role !== "PATIENT") {
-      throw new AppError("Email này thuộc tài khoản nội bộ, không dùng để đặt lịch", 409, "EMAIL_RESERVED");
+      throw emailUnavailableError(patientEmail, "STAFF_ACCOUNT");
+    }
+
+    // Số lịch đang chờ OTP của email này đã đủ: yêu cầu xác thực hoặc hủy trước khi giữ thêm. Người đã đăng nhập (không cần OTP) không bị tính.
+    if (!skipOtp) {
+      const openHolds = await prisma.appointment.count({
+        where: { patientEmail, status: "PENDING_OTP", holdExpiresAt: { gt: new Date() } },
+      });
+      if (openHolds >= MAX_OPEN_HOLDS_PER_EMAIL) {
+        throw new AppError(
+          `Bạn đang có ${openHolds} lịch chờ xác thực OTP. Hãy xác thực hoặc hủy các lịch đó (hoặc chờ hết thời gian giữ chỗ) rồi đặt thêm.`,
+          409,
+          "TOO_MANY_OPEN_HOLDS",
+        );
+      }
     }
 
     let appointmentId = "";
@@ -260,7 +286,7 @@ export class AppointmentBookingUseCases extends AppointmentServiceSupport {
             });
 
         if (patient.role !== "PATIENT") {
-          throw new AppError("Email này thuộc tài khoản nội bộ, không dùng để đặt lịch", 409, "EMAIL_RESERVED");
+          throw emailUnavailableError(patientEmail, "STAFF_ACCOUNT");
         }
 
         const createdAppointment = await tx.appointment.create({
@@ -406,6 +432,42 @@ export class AppointmentBookingUseCases extends AppointmentServiceSupport {
 
       throw error;
     }
+  }
+
+  private async resumeOwnOpenHold(appointmentId: string, patientEmail: string, patientPhone: string) {
+    const existing = await prisma.appointment.findUnique({
+      where: { id: appointmentId },
+      select: { id: true, bookingCode: true, status: true, patientEmail: true, holdExpiresAt: true },
+    });
+    if (
+      !existing ||
+      existing.status !== "PENDING_OTP" ||
+      existing.patientEmail.toLowerCase() !== patientEmail ||
+      !existing.holdExpiresAt ||
+      existing.holdExpiresAt <= new Date()
+    ) {
+      return null;
+    }
+
+    const latestOtp = await prisma.otpCode.findFirst({
+      where: { email: patientEmail, purpose: "BOOK_APPOINTMENT" },
+      orderBy: { createdAt: "desc" },
+      select: { deliveryStatus: true, expiresAt: true, usedAt: true },
+    });
+    const otpSecondsLeft = latestOtp && !latestOtp.usedAt ? Math.max(Math.ceil((latestOtp.expiresAt.getTime() - Date.now()) / 1000), 0) : 0;
+
+    return {
+      appointmentId: existing.id,
+      bookingCode: existing.bookingCode,
+      patientPhone,
+      otpRequired: true as const,
+      holdExpiresAt: existing.holdExpiresAt,
+      holdReleaseToken: signBookingHoldReleaseGrant({ appointmentId: existing.id, expiresAt: existing.holdExpiresAt }),
+      otpDeliveryStatus: latestOtp?.deliveryStatus ?? ("PENDING" as const),
+      debugOtp: undefined,
+      expiresIn: otpSecondsLeft,
+      resumed: true as const,
+    };
   }
 
   /**

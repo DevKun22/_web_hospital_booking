@@ -16,7 +16,7 @@ export function StepFrame({ title, description, children }: { title: string; des
 const LABEL = "block text-sm font-semibold text-[var(--public-ink)]";
 
 // Nhãn luôn hiện phía trên ô nhập (không dùng placeholder làm nhãn); dòng gợi ý nhỏ phía dưới.
-export function Field({ label, hint, required, children }: { label: string; hint?: string; required?: boolean; children: ReactNode }) {
+export function Field({ label, hint, required, error, children }: { label: string; hint?: string; required?: boolean; error?: string; children: ReactNode }) {
   return (
     <label className="block">
       <span className={LABEL}>
@@ -24,6 +24,7 @@ export function Field({ label, hint, required, children }: { label: string; hint
         {required ? <span className="ml-0.5 text-[var(--public-danger)]" aria-hidden="true">*</span> : null}
       </span>
       <span className="mt-1.5 block">{children}</span>
+      {error ? <span role="alert" className="mt-1.5 block text-sm font-medium text-[var(--public-danger)]">{error}</span> : null}
       {hint ? <span className="mt-1.5 block text-xs leading-5 text-[var(--public-muted)]">{hint}</span> : null}
     </label>
   );

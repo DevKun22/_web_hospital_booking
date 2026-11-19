@@ -9,6 +9,9 @@ type ApiEnvelope<T> = {
   success: boolean;
   message?: string;
   data?: T;
+  // Mã lỗi nghiệp vụ của máy chủ (ví dụ EMAIL_UNAVAILABLE, RATE_LIMITED) và, với 429, số giây phải chờ.
+  code?: string;
+  retryAfterSeconds?: number;
 };
 
 type RequestOptions = Omit<RequestInit, "body"> & {
@@ -35,10 +38,14 @@ export const apiUrl = (path: string) => buildUrl(path);
 
 export class ApiError extends Error {
   status: number;
+  code?: string;
+  retryAfterSeconds?: number;
 
-  constructor(message: string, status: number) {
+  constructor(message: string, status: number, extra: { code?: string; retryAfterSeconds?: number } = {}) {
     super(message);
     this.status = status;
+    this.code = extra.code;
+    this.retryAfterSeconds = extra.retryAfterSeconds;
   }
 }
 
@@ -134,6 +141,7 @@ export async function apiRequest<T>(
     throw new ApiError(
       payload?.message || "Không thể kết nối tới máy chủ",
       response.status,
+      { code: payload?.code, retryAfterSeconds: payload?.retryAfterSeconds },
     );
   }
 

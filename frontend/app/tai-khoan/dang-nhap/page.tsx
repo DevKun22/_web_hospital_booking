@@ -149,7 +149,12 @@ export default function PatientLoginPage() {
           )}
 
           <p className="mt-6 border-t border-[var(--public-divider)] pt-4 text-sm leading-5 text-[var(--public-muted)]">
-            Bạn chỉ truy cập được hồ sơ thuộc quyền quản lý của mình.
+            Bạn chỉ truy cập được hồ sơ thuộc quyền quản lý của mình.{" "}
+            Là nhân sự cơ sở khám?{" "}
+            <Link href="/login" className="font-semibold text-[var(--public-primary)] underline underline-offset-4">
+              Đăng nhập tại đây
+            </Link>
+            .
           </p>
         </section>
       </div>

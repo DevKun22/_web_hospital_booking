@@ -310,7 +310,7 @@ test("public booking uses the conservative email limit while Redis is degraded",
   process.env.RATE_LIMIT_ENABLED = "true";
   try {
     const responses = [];
-    for (let attempt = 0; attempt < 4; attempt += 1) {
+    for (let attempt = 0; attempt < 7; attempt += 1) {
       responses.push(
         await http.request("/api/v1/appointments", {
           method: "POST",
@@ -319,9 +319,10 @@ test("public booking uses the conservative email limit while Redis is degraded",
       );
     }
 
-    assert.ok(responses.slice(0, 3).every((item) => item.status !== 429));
+    // Ngưỡng suy giảm theo email là 6 lần mỗi 10 phút (giữ chỗ lặp trả về cùng lịch nên không tạo thêm lịch).
+    assert.ok(responses.slice(0, 6).every((item) => item.status !== 429));
 
-    const limited = responses[3];
+    const limited = responses[6];
     assert.equal(limited.status, 429);
     assert.equal(limited.body.code, "RATE_LIMITED");
     assert.ok(Number(limited.headers.get("retry-after")) > 0);

@@ -11,6 +11,8 @@ const INVOICE_REMINDER_EVERY_MS = 30 * 60 * 1000;
 const DAY_MS = 24 * 60 * 60 * 1000;
 // Phiên và mã làm mới đã hết hạn/thu hồi chỉ giữ ít ngày cho điều tra rồi xóa (khóa ngoại cascade xóa kèm mã làm mới).
 const AUTH_ARTIFACT_RETENTION_DAYS = 30;
+// Tài khoản người khám chưa xác thực email và không có dữ liệu gì được giữ chừng này ngày.
+const UNVERIFIED_PATIENT_RETENTION_DAYS = 14;
 const LOCK_TRANSACTION_TIMEOUT_MS = 5 * 60 * 1000;
 
 let lastInvoiceReminderAt = 0;
@@ -42,6 +44,34 @@ class MaintenanceService {
       prisma.dashboardLoginChallenge.deleteMany({ where: { expiresAt: { lt: challengeCutoff } } }),
     ]);
     return { sessions: sessions.count, challenges: challenges.count };
+  }
+
+  // Gửi OTP đăng nhập người khám tạo sẵn tài khoản cho email chưa có (xác thực xong mới dùng được), nên ai cũng có thể sinh ra tài khoản
+  // rác bằng cách gõ email bất kỳ. Tài khoản chưa xác thực email, không có lịch hẹn và quá hạn giữ thì xóa; tài khoản đã có dữ liệu
+  // liên quan (lịch, hồ sơ, hóa đơn...) bị khóa ngoại giữ lại nên bỏ qua êm, không xóa nhầm.
+  async cleanupUnverifiedPatients(now = new Date(), batchSize = 200) {
+    const cutoff = new Date(now.getTime() - UNVERIFIED_PATIENT_RETENTION_DAYS * DAY_MS);
+    const candidates = await prisma.user.findMany({
+      where: {
+        role: "PATIENT",
+        isEmailVerified: false,
+        createdAt: { lt: cutoff },
+        appointments: { none: {} },
+      },
+      select: { id: true },
+      take: batchSize,
+    });
+
+    let deleted = 0;
+    for (const candidate of candidates) {
+      try {
+        await prisma.user.delete({ where: { id: candidate.id } });
+        deleted += 1;
+      } catch {
+        // Còn dữ liệu liên quan: giữ lại.
+      }
+    }
+    return { deleted };
   }
 
   // Bảo trì lịch hẹn (mỗi vài phút): khung giờ, nhắc thanh toán, hủy lịch quá hạn, không đến, dọn OTP và dữ liệu xác thực cũ.
@@ -79,6 +109,7 @@ class MaintenanceService {
       logger.error("[AUTH_CLEANUP] failed:", error);
       return { sessions: 0, challenges: 0 };
     });
+    await this.cleanupUnverifiedPatients().catch((error) => logger.error("[UNVERIFIED_PATIENT_CLEANUP] failed:", error));
 
     if (noShows.marked > 0 || otpCleanup.deleted > 0 || authCleanup.sessions > 0 || authCleanup.challenges > 0) {
       logger.info(
