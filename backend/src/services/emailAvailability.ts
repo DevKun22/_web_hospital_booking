@@ -11,7 +11,11 @@ export const EMAIL_UNAVAILABLE_CODE = "EMAIL_UNAVAILABLE";
 export const EMAIL_UNAVAILABLE_MESSAGE =
   "Email này không dùng được để đặt lịch hoặc đăng nhập người khám. Vui lòng dùng email khác hoặc liên hệ cơ sở khám nếu cần hỗ trợ.";
 
-export const emailUnavailableError = (email: string, reason: EmailUnavailableReason) => {
+export const logUnavailableEmail = (email: string, reason: EmailUnavailableReason) => {
   logger.warn(`[EMAIL_UNAVAILABLE] reason=${reason} email=${maskEmail(email)}`);
+};
+
+export const emailUnavailableError = (email: string, reason: EmailUnavailableReason) => {
+  logUnavailableEmail(email, reason);
   return new AppError(EMAIL_UNAVAILABLE_MESSAGE, 409, EMAIL_UNAVAILABLE_CODE);
 };

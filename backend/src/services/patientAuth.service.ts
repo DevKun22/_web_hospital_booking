@@ -1,5 +1,5 @@
 import type { SignOptions } from "jsonwebtoken";
-import { emailUnavailableError } from "./emailAvailability.js";
+import { logUnavailableEmail } from "./emailAvailability.js";
 import { prisma } from "../config/prisma.js";
 import { getPatientAbsoluteExpiry } from "../config/patientSessionPolicy.js";
 import { AppError } from "../utils/appError.js";
@@ -49,12 +49,16 @@ class PatientAuthService {
       select: { id: true, role: true, isActive: true },
     });
 
-    if (existing && existing.role !== "PATIENT") {
-      throw emailUnavailableError(email, "STAFF_ACCOUNT");
-    }
-    if (existing && !existing.isActive) {
-      throw emailUnavailableError(email, "PATIENT_DISABLED");
-    }
+    // Email nhân sự hoặc tài khoản người khám bị khóa: trả lời Y HỆT email thường (có mã thử thách, "đã gửi OTP", cùng giới hạn
+    // và độ trễ) nhưng không gửi gì. Báo lỗi riêng sẽ cho người lạ dò ra email nào thuộc tài khoản đặc biệt. Lý do thật chỉ ghi nhật ký.
+    const decoyReason = existing
+      ? existing.role !== "PATIENT"
+        ? "STAFF_ACCOUNT"
+        : !existing.isActive
+          ? "PATIENT_DISABLED"
+          : null
+      : null;
+    if (existing && decoyReason) logUnavailableEmail(email, decoyReason);
 
     const user =
       existing ??
@@ -69,9 +73,7 @@ class PatientAuthService {
         select: { id: true, role: true, isActive: true },
       }));
 
-    if (user.role !== "PATIENT") {
-      throw emailUnavailableError(email, "STAFF_ACCOUNT");
-    }
+    const isDecoy = Boolean(decoyReason) || user.role !== "PATIENT";
 
     const challenge = await prisma.dashboardLoginChallenge.create({
       data: {
@@ -88,7 +90,7 @@ class PatientAuthService {
         email,
         "PATIENT_PORTAL_LOGIN",
         ipAddress,
-        { challengeId: challenge.id, userId: user.id },
+        { challengeId: challenge.id, userId: user.id, decoy: isDecoy },
       );
 
       return {
@@ -133,8 +135,13 @@ class PatientAuthService {
       throw new AppError("Bạn đã nhập sai OTP quá nhiều lần", 429);
     }
 
+    // Thử thách giả (email nhân sự/khóa) hoặc tài khoản bị khóa sau khi gửi mã: cùng câu trả lời và cùng cách tính lượt thử như nhập sai OTP.
     if (challenge.user.role !== "PATIENT" || !challenge.user.isActive) {
-      throw new AppError("Tài khoản người khám không hợp lệ", 403);
+      await prisma.dashboardLoginChallenge.updateMany({
+        where: { id: challenge.id, usedAt: null },
+        data: { attempts: { increment: 1 } },
+      });
+      throw new AppError("OTP không chính xác, đã hết hạn hoặc đã được sử dụng", 401);
     }
 
     try {
