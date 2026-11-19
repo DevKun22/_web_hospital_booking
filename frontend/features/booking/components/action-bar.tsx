@@ -22,14 +22,19 @@ const useSecondsUntil = (until: number) => {
   const remaining = () => (until > 0 ? Math.max(Math.ceil((until - Date.now()) / 1000), 0) : 0);
   const [seconds, setSeconds] = useState(remaining);
   useEffect(() => {
-    setSeconds(remaining());
-    if (until <= Date.now()) return;
-    const timer = window.setInterval(() => {
+    if (until <= 0) return;
+    // Cập nhật trong hàm gọi lại (không gọi setState trực tiếp trong effect): lần đầu ngay sau khi vẽ, sau đó mỗi giây.
+    const tick = () => {
       const next = remaining();
       setSeconds(next);
       if (next === 0) window.clearInterval(timer);
-    }, 1000);
-    return () => window.clearInterval(timer);
+    };
+    const first = window.setTimeout(tick, 0);
+    const timer = window.setInterval(tick, 1000);
+    return () => {
+      window.clearTimeout(first);
+      window.clearInterval(timer);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [until]);
   return seconds;
