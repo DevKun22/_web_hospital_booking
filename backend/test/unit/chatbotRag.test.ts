@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { contentHash, departmentDoc, doctorDoc, faqDoc, packageDoc, policyDoc, siteDoc } from "../../src/services/chatbot/rag/chunker.js";
+import { contentHash, departmentDoc, departmentSectionDocs, doctorDoc, faqDoc, packageDoc, policyDoc, siteDoc } from "../../src/services/chatbot/rag/chunker.js";
 import { composeTriageReply, answerFromSources, extractiveAnswer } from "../../src/services/chatbot/rag/generator.js";
 import { normalizeVector } from "../../src/services/chatbot/rag/embedder.js";
 import { KnowledgeIndex, tokenize } from "../../src/services/chatbot/rag/retriever.js";
@@ -119,17 +119,35 @@ test("dựng đoạn tri thức: đủ thông tin nghiệp vụ và băm ổn đ
   assert.match(dept.content, /sốt, ho/);
   assert.equal(dept.url, "/chuyen-khoa/khoa-nhi");
 
-  const doctor = doctorDoc({ id: "x", slug: "nguyen-minh-hung", title: "BS.CKII", specialization: "Nội tim mạch", bio: null, experience: 18, consultationFee: 200000, user: { fullName: "Nguyễn Minh Hùng" }, department: { name: "Khoa tổng quát" } });
+  const doctor = doctorDoc({ id: "x", slug: "nguyen-minh-hung", title: "BS.CKII", specialization: "Nội tim mạch", bio: null, motto: "Tận tâm với người bệnh", careerTimeline: [{ period: "2010-2015", place: "Bệnh viện A", role: "Bác sĩ điều trị" }], memberships: ["Hội Tim mạch"], expertise: ["Siêu âm tim"], experience: 18, consultationFee: 200000, user: { fullName: "Nguyễn Minh Hùng" }, department: { name: "Khoa tổng quát" } });
   assert.equal(doctor.title, "BS.CKII Nguyễn Minh Hùng");
+  assert.match(doctor.content, /Tận tâm với người bệnh/);
+  assert.match(doctor.content, /2010-2015 Bệnh viện A \(Bác sĩ điều trị\)/);
+  assert.match(doctor.content, /Hội Tim mạch/);
+  assert.match(doctor.content, /Siêu âm tim/);
   assert.match(doctor.content, /18 năm/);
   assert.equal(doctor.url, "/bac-si/nguyen-minh-hung");
 
-  const pack = packageDoc({ id: "p", name: "Gói A", slug: null, summary: null, description: null, note: null, basePrice: 800000, serviceFee: 50000, isBHYTSupport: true, department: null, items: [{ name: "Điện tim", included: true }, { name: "CT", included: false }] });
+  const pack = packageDoc({ id: "p", name: "Gói A", slug: null, summary: null, description: null, note: null, audience: ["Người trên 40 tuổi"], resultTime: "Trong ngày", faq: [{ question: "Có cần nhịn ăn không?", answer: "Nên nhịn ăn 8 giờ." }, { question: "x" }], basePrice: 800000, serviceFee: 50000, isBHYTSupport: true, department: null, items: [{ name: "Điện tim", included: true }, { name: "CT", included: false }] });
   assert.match(pack.content, /850\.000 đồng/);
   assert.equal(pack.url, null);
   assert.match(pack.content, /Điện tim/);
   assert.doesNotMatch(pack.content, /CT/);
   assert.match(pack.content, /bảo hiểm y tế/);
+  assert.match(pack.content, /Người trên 40 tuổi/);
+  assert.match(pack.content, /Trong ngày/);
+  assert.match(pack.content, /Nên nhịn ăn 8 giờ/);
+  // Dữ liệu JSON hỏng không làm hỏng việc dựng đoạn.
+  assert.doesNotThrow(() => packageDoc({ ...({} as Parameters<typeof packageDoc>[0]), id: "q", name: "Q", slug: null, summary: null, description: null, note: null, audience: "sai", resultTime: null, faq: 5, basePrice: 1, serviceFee: 0, isBHYTSupport: false, department: null, items: [] }));
+});
+
+test("mỗi mục giới thiệu chuyên khoa là một đoạn tri thức riêng, mục trống bị bỏ", () => {
+  const docs = departmentSectionDocs({ id: "d", name: "Nhi", slug: "khoa-nhi", sections: [{ title: "Tổng quan", body: "Khám trẻ em" }, { title: "Trống", body: "" }, { title: "Thiết bị", body: "Máy siêu âm" }] });
+  assert.equal(docs.length, 2);
+  assert.deepEqual(docs.map((doc) => doc.sourceId), ["d#0", "d#2"]);
+  assert.equal(docs[1].url, "/chuyen-khoa/khoa-nhi#thiet-bi");
+  assert.match(docs[1].content, /Máy siêu âm/);
+  assert.deepEqual(departmentSectionDocs({ id: "d", name: "Nhi", slug: "khoa-nhi", sections: "hỏng" }), []);
 });
 
 test("đoạn chính sách và liên hệ phản ánh cấu hình; thiếu thông tin liên hệ thì bỏ qua", () => {

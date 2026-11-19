@@ -9,6 +9,8 @@ type CreateDepartmentInput = {
   name: string;
   slug?: string;
   description?: string | null;
+  sections?: { title: string; body: string }[];
+  contentReviewerName?: string | null;
   image?: string | null;
   imageAssetId?: string;
   symptomKeywords?: string[];
@@ -21,6 +23,8 @@ type UpdateDepartmentInput = {
   name?: string;
   slug?: string | null;
   description?: string | null;
+  sections?: { title: string; body: string }[];
+  contentReviewerName?: string | null;
   image?: string | null;
   imageAssetId?: string | null;
   symptomKeywords?: string[];
@@ -34,6 +38,9 @@ const departmentSelect = {
   name: true,
   slug: true,
   description: true,
+  sections: true,
+  contentReviewerName: true,
+  contentUpdatedAt: true,
   image: true,
   symptomKeywords: true,
   triageDescription: true,
@@ -48,6 +55,12 @@ const departmentSelect = {
     },
   },
 } satisfies Prisma.DepartmentSelect;
+
+// Sửa nội dung giới thiệu thì ghi lại thời điểm cập nhật; người duyệt do quản trị nhập (tên hiển thị công khai).
+const contentData = (input: { sections?: { title: string; body: string }[]; contentReviewerName?: string | null }) => ({
+  ...(input.sections !== undefined ? { sections: input.sections, contentUpdatedAt: new Date() } : {}),
+  ...(input.contentReviewerName !== undefined ? { contentReviewerName: normalizeOptionalString(input.contentReviewerName) } : {}),
+});
 
 class DepartmentService {
   async list(query: {
@@ -137,6 +150,7 @@ class DepartmentService {
         name: input.name,
         slug,
         description: normalizeOptionalString(input.description),
+        ...contentData(input),
         image: imageAsset?.url || normalizeOptionalString(input.image),
         symptomKeywords: input.symptomKeywords || [],
         triageDescription: normalizeOptionalString(input.triageDescription),
@@ -167,9 +181,10 @@ class DepartmentService {
   async update(id: string, input: UpdateDepartmentInput) {
     await this.getById(id);
 
+    // Slug là bắt buộc: gửi null nghĩa là giữ nguyên, không xóa slug.
     const nextSlug =
       input.slug === null
-        ? null
+        ? undefined
         : input.slug
           ? createSlug(input.slug)
           : input.name
@@ -210,6 +225,7 @@ class DepartmentService {
         name: input.name,
         slug: nextSlug,
         description: normalizeOptionalString(input.description),
+        ...contentData(input),
         image:
           input.imageAssetId === null
             ? null

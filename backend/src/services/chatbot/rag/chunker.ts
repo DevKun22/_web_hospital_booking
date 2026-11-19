@@ -7,6 +7,12 @@ import type { KnowledgeDoc } from "./rag.types.js";
 
 const money = (value: number) => `${value.toLocaleString("vi-VN")} đồng`;
 
+// Cột JSON của nội dung công khai: dữ liệu đã qua kiểm tra khi lưu, nhưng ở đây vẫn đọc phòng thủ để dữ liệu hỏng không làm hỏng việc dựng kho tri thức.
+const asArray = (value: unknown): Record<string, unknown>[] =>
+  Array.isArray(value) ? value.filter((item): item is Record<string, unknown> => typeof item === "object" && item !== null) : [];
+const asStrings = (value: unknown): string[] => (Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : []);
+const text = (value: unknown) => (typeof value === "string" ? value : "");
+
 const lines = (...parts: (string | null | undefined | false | 0)[]) =>
   parts
     .filter((part): part is string => Boolean(part && part.trim()))
@@ -41,12 +47,38 @@ export const departmentDoc = (department: {
   ),
 });
 
+// Mỗi mục giới thiệu của chuyên khoa (Tổng quan, Dịch vụ, Thiết bị...) là một đoạn riêng để truy hồi đúng mục người dùng hỏi.
+export const departmentSectionDocs = (department: {
+  id: string;
+  name: string;
+  slug: string;
+  sections: unknown;
+}): KnowledgeDoc[] =>
+  // Giữ nguyên chỉ số gốc của mục (kể cả khi bỏ mục trống) để mã đoạn không đổi khi các mục khác thay đổi.
+  asArray(department.sections).flatMap((section, index) =>
+    text(section.title) && text(section.body)
+      ? [
+          {
+            sourceType: "DEPARTMENT" as const,
+            sourceId: `${department.id}#${index}`,
+            title: department.name,
+            url: `/chuyen-khoa/${department.slug}#${createSlug(text(section.title))}`,
+            content: lines(`Chuyên khoa ${department.name}, mục "${text(section.title)}".`, text(section.body)),
+          },
+        ]
+      : [],
+  );
+
 export const doctorDoc = (doctor: {
   id: string;
   slug: string;
   title: string | null;
   specialization: string | null;
   bio: string | null;
+  motto: string | null;
+  careerTimeline: unknown;
+  memberships: unknown;
+  expertise: unknown;
   experience: number | null;
   consultationFee: number;
   user: { fullName: string };
@@ -64,6 +96,13 @@ export const doctorDoc = (doctor: {
       doctor.experience != null && `Kinh nghiệm: ${doctor.experience} năm.`,
       `Phí khám: ${money(doctor.consultationFee)}.`,
       doctor.bio,
+      doctor.motto && `Tâm niệm nghề nghiệp: ${doctor.motto}`,
+      asStrings(doctor.expertise).length > 0 && `Lĩnh vực chuyên sâu: ${asStrings(doctor.expertise).join(", ")}.`,
+      asArray(doctor.careerTimeline).length > 0 &&
+        `Quá trình công tác: ${asArray(doctor.careerTimeline)
+          .map((item) => `${text(item.period)} ${text(item.place)}${text(item.role) ? ` (${text(item.role)})` : ""}`)
+          .join("; ")}.`,
+      asStrings(doctor.memberships).length > 0 && `Hiệp hội chuyên môn: ${asStrings(doctor.memberships).join(", ")}.`,
     ),
   };
 };
@@ -75,6 +114,9 @@ export const packageDoc = (pack: {
   summary: string | null;
   description: string | null;
   note: string | null;
+  audience: unknown;
+  resultTime: string | null;
+  faq: unknown;
   basePrice: number;
   serviceFee: number;
   isBHYTSupport: boolean;
@@ -95,6 +137,9 @@ export const packageDoc = (pack: {
       included.length > 0 && `Hạng mục gồm: ${included.join(", ")}.`,
       pack.isBHYTSupport && "Gói có hỗ trợ bảo hiểm y tế.",
       pack.note && `Lưu ý: ${pack.note}`,
+      asStrings(pack.audience).length > 0 && `Đối tượng nên làm: ${asStrings(pack.audience).join("; ")}.`,
+      pack.resultTime && `Thời gian có kết quả: ${pack.resultTime}.`,
+      ...asArray(pack.faq).map((item) => `Hỏi: ${text(item.question)} Đáp: ${text(item.answer)}`),
     ),
   };
 };

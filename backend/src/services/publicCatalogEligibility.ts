@@ -47,7 +47,6 @@ export const publicBookableDoctorWhere = (
 });
 
 export const publicCompletePackageWhere: Prisma.PackageWhereInput = {
-  slug: { not: null },
   items: { some: { included: true } },
   OR: [
     { departmentId: null },

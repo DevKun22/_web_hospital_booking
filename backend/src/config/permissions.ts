@@ -54,6 +54,8 @@ export const PERMISSIONS = {
   "catalog.view": { group: "Danh mục", label: "Xem khoa, bác sĩ, gói khám", eligibleRoles: [A, S, D], fixedRoles: [], defaultRoles: [A, S, D] },
   "catalog.manage": { group: "Danh mục", label: "Tạo, sửa khoa, bác sĩ, gói khám", eligibleRoles: [A, S], fixedRoles: [], defaultRoles: [A, S] },
   "catalog.delete": { group: "Danh mục", label: "Xóa khoa, bác sĩ, gói khám", eligibleRoles: [A], fixedRoles: [A], defaultRoles: [A] },
+  "profile.request": { group: "Danh mục", label: "Bác sĩ soạn và gửi phần giới thiệu công khai chờ duyệt", eligibleRoles: [D], fixedRoles: [D], defaultRoles: [D] },
+  "profile.review": { group: "Danh mục", label: "Duyệt phần giới thiệu công khai của bác sĩ", eligibleRoles: [A, S], fixedRoles: [], defaultRoles: [A] },
 
   // Lịch làm việc
   "schedule.view": { group: "Lịch làm việc", label: "Xem lịch làm việc và khung giờ", eligibleRoles: [A, S, D], fixedRoles: [], defaultRoles: [A, S, D] },

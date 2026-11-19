@@ -2,7 +2,7 @@ import { prisma } from "../../../config/prisma.js";
 import FAQService from "../../faq.service.js";
 import PolicyService from "../../policy.service.js";
 import SiteSettingsService from "../../siteSettings.service.js";
-import { articleDocs, departmentDoc, doctorDoc, faqDoc, packageDoc, policyDoc, siteDoc } from "./chunker.js";
+import { articleDocs, departmentDoc, departmentSectionDocs, doctorDoc, faqDoc, packageDoc, policyDoc, siteDoc } from "./chunker.js";
 import type { KnowledgeDoc } from "./rag.types.js";
 
 // Đọc các nguồn dữ liệu nghiệp vụ đang hoạt động (chỉ đọc) để dựng kho tri thức; cách dựng từng đoạn nằm ở chunker.ts.
@@ -19,7 +19,7 @@ export const buildKnowledgeDocs = async (): Promise<KnowledgeDoc[]> => {
     FAQService.listForChatbot(),
     prisma.department.findMany({
       where: { isActive: true },
-      select: { id: true, name: true, slug: true, description: true, triageDescription: true, symptomKeywords: true },
+      select: { id: true, name: true, slug: true, description: true, sections: true, triageDescription: true, symptomKeywords: true },
       take: 200,
     }),
     prisma.doctorProfile.findMany({
@@ -30,6 +30,10 @@ export const buildKnowledgeDocs = async (): Promise<KnowledgeDoc[]> => {
         title: true,
         specialization: true,
         bio: true,
+        motto: true,
+        careerTimeline: true,
+        memberships: true,
+        expertise: true,
         experience: true,
         consultationFee: true,
         user: { select: { fullName: true } },
@@ -46,6 +50,9 @@ export const buildKnowledgeDocs = async (): Promise<KnowledgeDoc[]> => {
         summary: true,
         description: true,
         note: true,
+        audience: true,
+        resultTime: true,
+        faq: true,
         basePrice: true,
         serviceFee: true,
         isBHYTSupport: true,
@@ -63,6 +70,7 @@ export const buildKnowledgeDocs = async (): Promise<KnowledgeDoc[]> => {
   return [
     ...faqs.map(faqDoc),
     ...departments.map(departmentDoc),
+    ...departments.flatMap(departmentSectionDocs),
     ...doctors.map(doctorDoc),
     ...packages.map(packageDoc),
     ...articles.flatMap(articleDocs),

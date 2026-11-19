@@ -1,11 +1,81 @@
 import type { Request, Response, NextFunction } from "express";
 import DoctorService from "../services/doctor.service.js";
+import DoctorProfileContentService from "../services/doctorProfileContent.service.js";
+import { prisma } from "../config/prisma.js";
+import { AppError } from "../utils/appError.js";
 import PublicBootstrapService from "../services/publicBootstrap.service.js";
 import {
   getRequiredPathParam as getParam,
   parseBooleanQuery,
   parseNumberQuery,
 } from "../shared/http/requestParsers.js";
+
+// Tên người đang thao tác, dùng làm "người duyệt" hiển thị công khai khi quản trị tự sửa phần giới thiệu.
+const actorName = async (req: Request) => {
+  const userId = req.user?.userId;
+  if (!userId) throw new AppError("Chưa đăng nhập", 401);
+  const user = await prisma.user.findUnique({ where: { id: userId }, select: { fullName: true } });
+  return user?.fullName ?? null;
+};
+
+const requireUserId = (req: Request) => {
+  if (!req.user?.userId) throw new AppError("Chưa đăng nhập", 401);
+  return req.user.userId;
+};
+
+export const getMyProfileContentHandler = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    return res.json({ success: true, data: await DoctorProfileContentService.getMine(requireUserId(req)) });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const saveMyProfileDraftHandler = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const data = await DoctorProfileContentService.saveDraft(requireUserId(req), req.body);
+    return res.json({ success: true, message: "Đã gửi phần giới thiệu chờ duyệt", data });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const discardMyProfileDraftHandler = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const data = await DoctorProfileContentService.discardDraft(requireUserId(req));
+    return res.json({ success: true, message: "Đã hủy bản chờ duyệt", data });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const listPendingProfilesHandler = async (_req: Request, res: Response, next: NextFunction) => {
+  try {
+    return res.json({ success: true, data: await DoctorProfileContentService.listPending() });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const approveProfileHandler = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const reviewer = (await actorName(req)) ?? "Quản trị viên";
+    const data = await DoctorProfileContentService.approve(getParam(req.params.id), reviewer);
+    PublicBootstrapService.invalidate();
+    return res.json({ success: true, message: "Đã duyệt phần giới thiệu", data });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const rejectProfileHandler = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const data = await DoctorProfileContentService.reject(getParam(req.params.id));
+    return res.json({ success: true, message: "Đã từ chối bản chờ duyệt", data });
+  } catch (error) {
+    next(error);
+  }
+};
 
 export const listDoctorsHandler = async (
   req: Request,
@@ -57,7 +127,7 @@ export const createDoctorHandler = async (
   next: NextFunction,
 ) => {
   try {
-    const doctor = await DoctorService.create(req.body);
+    const doctor = await DoctorService.create(req.body, await actorName(req));
     PublicBootstrapService.invalidate();
 
     return res.status(201).json({
@@ -79,6 +149,7 @@ export const updateDoctorHandler = async (
     const doctor = await DoctorService.update(
       getParam(req.params.id),
       req.body,
+      await actorName(req),
     );
     PublicBootstrapService.invalidate();
 
