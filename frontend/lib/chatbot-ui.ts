@@ -1,5 +1,6 @@
 import type {
   ChatBookingDraft,
+  ChatbotSource,
   ChatbotDraftSummary,
   ChatbotResultGroup,
   ChatbotSuggestedAction,
@@ -14,7 +15,7 @@ export type ChatWidgetMessage = {
   role: ChatMessageRole;
   content: string;
   results?: ChatbotResultGroup[];
-  sources?: { id: string; title: string; url: string | null }[];
+  sources?: ChatbotSource[];
   /** Gợi ý bước tiếp theo đi kèm câu trả lời này; chỉ tin mới nhất hiện cho bấm. */
   actions?: ChatbotSuggestedAction[];
   /** Tin lỗi gửi: hiện nút "Thử lại". */
@@ -70,6 +71,21 @@ export const getBookingProgress = (summary?: ChatbotDraftSummary) => {
 export const formatChatbotDate = (value: string) => {
   const match = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
   return match ? `${match[3]}/${match[2]}/${match[1]}` : value;
+};
+
+/** Ngày theo giờ Việt Nam (máy chủ trả ISO UTC, ngày duyệt buổi sáng không được lùi về hôm trước). */
+export const formatReviewDate = (iso: string) => {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return null;
+  return new Intl.DateTimeFormat("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "Asia/Ho_Chi_Minh" }).format(date);
+};
+
+/** Dòng kiểm chứng dưới nguồn: "Duyệt bởi X · cập nhật 12/11/2026"; nguồn không có ngày thì không có dòng này. */
+export const getSourceReviewLine = (source: Pick<ChatbotSource, "reviewedBy" | "updatedAt">) => {
+  const date = source.updatedAt ? formatReviewDate(source.updatedAt) : null;
+  if (!date) return null;
+  const reviewer = source.reviewedBy?.trim();
+  return reviewer ? `Duyệt bởi ${reviewer} · cập nhật ${date}` : `Cập nhật ${date}`;
 };
 
 /** Các lựa chọn có thể bỏ, theo thứ tự hiện, kèm nhãn cho nút xóa. */

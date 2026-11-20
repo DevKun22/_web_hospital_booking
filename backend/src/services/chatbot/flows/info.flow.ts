@@ -7,6 +7,7 @@ import { TtlCache } from "../rag/ttl-cache.js";
 import FollowUp, { withFocus } from "./follow-up.js";
 import { vary } from "../rules/variants.js";
 import type { ChatbotSource, RetrievedChunk } from "../rag/rag.types.js";
+import { loadSourceMeta, sourceMetaKey } from "../rag/source-meta.js";
 
 // Hỏi thông tin (giá, giờ làm việc, chính sách, bác sĩ, quy trình): truy hồi trong kho tri thức rồi để AI trả lời có căn cứ.
 // AI không dùng được thì trả nguyên văn đoạn khớp nhất; không có đoạn đủ liên quan thì nói thẳng là chưa có thông tin.
@@ -26,19 +27,30 @@ const knowledgeActions = (): AIChatbotOutput["suggestedActions"] => [
   { type: "CONTACT_STAFF", label: "Hỏi nhân viên hỗ trợ", payload: {} },
 ];
 
-/** Nhiều đoạn của cùng một bài viết chỉ hiện một nguồn (đoạn đầu tiên được dùng, trỏ đúng mục đó). */
-const toSources = (chunks: RetrievedChunk[], ids: string[]): ChatbotSource[] => {
+/** Nhiều đoạn của cùng một bài viết chỉ hiện một nguồn (đoạn đầu tiên được dùng, trỏ đúng mục đó); nguồn là nội dung được duyệt kèm người duyệt và ngày cập nhật. */
+const toSources = async (chunks: RetrievedChunk[], ids: string[]): Promise<ChatbotSource[]> => {
   const seen = new Set<string>();
-  return ids
+  const picked = ids
     .map((id) => chunks.find((item) => item.chunk.id === id))
     .filter((item): item is RetrievedChunk => Boolean(item))
     .filter((item) => {
-      const key = `${item.chunk.sourceType}:${item.chunk.sourceId.split("#")[0]}`;
+      const key = sourceMetaKey({ type: item.chunk.sourceType, sourceId: item.chunk.sourceId });
       if (seen.has(key)) return false;
       seen.add(key);
       return true;
-    })
-    .map((item) => ({ id: item.chunk.id, type: item.chunk.sourceType, title: item.chunk.title, url: item.chunk.url }));
+    });
+  // Không tra được thông tin duyệt thì vẫn trả nguồn như cũ: đây chỉ là phần bổ sung, không được làm hỏng câu trả lời.
+  const meta = await loadSourceMeta(picked.map((item) => ({ type: item.chunk.sourceType, sourceId: item.chunk.sourceId }))).catch(() => new Map());
+  return picked.map((item) => {
+    const info = meta.get(sourceMetaKey({ type: item.chunk.sourceType, sourceId: item.chunk.sourceId }));
+    return {
+      id: item.chunk.id,
+      type: item.chunk.sourceType,
+      title: item.chunk.title,
+      url: item.chunk.url,
+      ...(info ? { reviewedBy: info.reviewedBy, updatedAt: info.updatedAt } : {}),
+    };
+  });
 };
 
 /**
@@ -159,7 +171,7 @@ class InfoFlow {
         confidence: Math.min(0.95, 0.6 + (chunks[0].similarity ?? chunks[0].coverage) * 0.35),
         draft: withFocus(input.draft, followUp.focus),
         suggestedActions: followUp.actions,
-        sources: toSources(chunks, answer.sourceIds),
+        sources: await toSources(chunks, answer.sourceIds),
       },
       source: grounded ? "AI" : hasFaq ? "FAQ" : "SYSTEM",
       sourceIds: answer.sourceIds,

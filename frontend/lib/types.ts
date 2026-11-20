@@ -824,9 +824,12 @@ export type ChatbotResponseSource = "SYSTEM" | "FAQ" | "AI" | "FALLBACK" | "EMER
 /** Nguồn tri thức mà câu trả lời dựa vào; `url` là trang gốc trên website (null nếu không có trang riêng). */
 export type ChatbotSource = {
   id: string;
-  type: "FAQ" | "DEPARTMENT" | "DOCTOR" | "PACKAGE" | "POLICY" | "SITE";
+  type: "FAQ" | "DEPARTMENT" | "DOCTOR" | "PACKAGE" | "POLICY" | "SITE" | "ARTICLE";
   title: string;
   url: string | null;
+  /** Người duyệt nội dung và ngày cập nhật (ISO); chỉ có với nguồn là nội dung được duyệt (chuyên khoa, bác sĩ, bài viết). */
+  reviewedBy?: string | null;
+  updatedAt?: string;
 };
 
 /** Các lựa chọn đang giữ trong bản nháp đặt lịch, kèm tên để hiển thị. */

@@ -54,6 +54,7 @@ class _RecordingRepository extends ChatbotRepository {
 }
 
 void main() {
+  sourceReviewTests();
   test('đọc nguồn, chủ đề và câu hỏi của nút hỏi thêm từ phản hồi', () {
     final response = ChatbotResponse.fromJson({
       'sessionId': 's',
@@ -201,5 +202,31 @@ void main() {
       ],
     );
     expect(visible.map((action) => action.type), ['CHANGE_DATE']);
+  });
+}
+
+void sourceReviewTests() {
+  test('dòng kiểm chứng của nguồn tính theo giờ Việt Nam', () {
+    expect(
+      ChatbotSourceRef.fromJson({
+        'id': 'a',
+        'title': 'Khoa tim mạch',
+        'reviewedBy': 'TS.BS Trần Minh',
+        'updatedAt': '2026-11-11T20:00:00.000Z',
+      }).reviewLine,
+      'Duyệt bởi TS.BS Trần Minh · cập nhật 12/11/2026',
+    );
+    expect(
+      ChatbotSourceRef.fromJson({
+        'id': 'b',
+        'title': 'Bài viết',
+        'updatedAt': '2026-11-12T03:00:00.000Z',
+      }).reviewLine,
+      'Cập nhật 12/11/2026',
+    );
+    expect(
+      ChatbotSourceRef.fromJson({'id': 'c', 'title': 'Câu hỏi'}).reviewLine,
+      isNull,
+    );
   });
 }

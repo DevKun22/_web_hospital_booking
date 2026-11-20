@@ -1,9 +1,9 @@
-import { AlertTriangle, FileText, Phone, RotateCcw } from "lucide-react";
+import { AlertTriangle, BadgeCheck, FileText, Phone, RotateCcw } from "lucide-react";
 import Link from "next/link";
 import { FollowUps } from "@/components/chatbot/follow-ups";
 import { ChatbotResultCards } from "@/components/chatbot/result-cards";
 import { KunAvatar } from "@/components/chatbot/kun-avatar";
-import { getQuickReplies, type ChatWidgetMessage } from "@/lib/chatbot-ui";
+import { getQuickReplies, getSourceReviewLine, type ChatWidgetMessage } from "@/lib/chatbot-ui";
 import type { ChatbotSuggestedAction } from "@/lib/types";
 
 /** Số cấp cứu y tế toàn quốc. */
@@ -67,25 +67,37 @@ export function ChatMessage({ message, selectedSlotId, disabled, isLatest, onAct
         <p className="whitespace-pre-line">{message.content}</p>
         <ChatbotResultCards groups={message.results} selectedSlotId={selectedSlotId} disabled={disabled} onAction={onAction} />
         {message.sources?.length ? (
-          <p className="mt-2 flex flex-wrap items-center gap-1.5 border-t border-[var(--public-divider)] pt-2 text-[11px] text-[var(--public-muted)]">
-            <FileText className="h-3 w-3 shrink-0" aria-hidden="true" />
-            <span>Nguồn:</span>
-            {message.sources.slice(0, 3).map((source) =>
-              source.url ? (
-                <Link
-                  key={source.id}
-                  href={source.url}
-                  className="rounded-full border border-[var(--public-border)] bg-[var(--public-surface-muted)] px-2 py-0.5 font-medium text-[var(--public-primary)] hover:bg-[var(--public-primary-soft)]"
-                >
-                  {source.title}
-                </Link>
-              ) : (
-                <span key={source.id} className="rounded-full border border-[var(--public-border)] px-2 py-0.5">
-                  {source.title}
-                </span>
-              ),
-            )}
-          </p>
+          <div className="mt-2 border-t border-[var(--public-divider)] pt-2 text-[11px] text-[var(--public-muted)]">
+            <p className="flex items-center gap-1.5">
+              <FileText className="h-3 w-3 shrink-0" aria-hidden="true" />
+              <span>Nguồn</span>
+            </p>
+            <ul className="mt-1 space-y-1.5">
+              {message.sources.slice(0, 3).map((source) => {
+                const review = getSourceReviewLine(source);
+                return (
+                  <li key={source.id} className="flex flex-col items-start gap-0.5">
+                    {source.url ? (
+                      <Link
+                        href={source.url}
+                        className="rounded-full border border-[var(--public-border)] bg-[var(--public-surface-muted)] px-2 py-0.5 font-medium text-[var(--public-primary)] hover:bg-[var(--public-primary-soft)]"
+                      >
+                        {source.title}
+                      </Link>
+                    ) : (
+                      <span className="rounded-full border border-[var(--public-border)] px-2 py-0.5">{source.title}</span>
+                    )}
+                    {review ? (
+                      <span className="flex items-center gap-1 pl-1">
+                        <BadgeCheck className="h-3 w-3 shrink-0 text-[var(--public-success)]" aria-hidden="true" />
+                        {review}
+                      </span>
+                    ) : null}
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
         ) : null}
         {isLatest && !message.retryable ? (
           <FollowUps

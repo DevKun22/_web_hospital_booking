@@ -105,7 +105,7 @@ class ChatbotFollowUps extends StatelessWidget {
   }
 }
 
-/// Nguồn tri thức của câu trả lời, dạng thẻ nhỏ để người dùng biết câu trả lời dựa vào đâu.
+/// Nguồn tri thức của câu trả lời, dạng thẻ nhỏ; nguồn là nội dung được duyệt kèm người duyệt và ngày cập nhật.
 class ChatbotSourceChips extends StatelessWidget {
   const ChatbotSourceChips({super.key, required this.sources});
 
@@ -120,10 +120,8 @@ class ChatbotSourceChips extends StatelessWidget {
     ).textTheme.labelSmall?.copyWith(color: scheme.onSurfaceVariant);
     return Padding(
       padding: const EdgeInsets.only(top: 10),
-      child: Wrap(
-        spacing: 6,
-        runSpacing: 6,
-        crossAxisAlignment: WrapCrossAlignment.center,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             mainAxisSize: MainAxisSize.min,
@@ -134,22 +132,52 @@ class ChatbotSourceChips extends StatelessWidget {
                 color: scheme.onSurfaceVariant,
               ),
               const SizedBox(width: 4),
-              Text('Nguồn:', style: style),
+              Text('Nguồn', style: style),
             ],
           ),
+          const SizedBox(height: 6),
           for (final source in sources.take(3))
-            DecoratedBox(
-              decoration: BoxDecoration(
-                color: scheme.surfaceContainerLow,
-                borderRadius: BorderRadius.circular(99),
-                border: Border.all(color: scheme.outlineVariant),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                child: Text(
-                  source.title,
-                  style: style?.copyWith(color: scheme.primary),
-                ),
+            Padding(
+              padding: const EdgeInsets.only(bottom: 6),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: scheme.surfaceContainerLow,
+                      borderRadius: BorderRadius.circular(99),
+                      border: Border.all(color: scheme.outlineVariant),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 3,
+                      ),
+                      child: Text(
+                        source.title,
+                        style: style?.copyWith(color: scheme.primary),
+                      ),
+                    ),
+                  ),
+                  if (source.reviewLine != null)
+                    Padding(
+                      padding: const EdgeInsets.only(left: 4, top: 3),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.verified_outlined,
+                            size: 13,
+                            color: scheme.tertiary,
+                          ),
+                          const SizedBox(width: 4),
+                          Flexible(
+                            child: Text(source.reviewLine!, style: style),
+                          ),
+                        ],
+                      ),
+                    ),
+                ],
               ),
             ),
         ],
