@@ -5,7 +5,8 @@ import { BackToTopButton } from "@/components/public/back-to-top-button";
 import { PublicBottomNav } from "@/components/public/public-bottom-nav";
 import { PublicSiteFooter } from "@/components/public/public-site-footer";
 import { PublicSiteHeader } from "@/components/public/public-site-header";
-import { Benefits, DepartmentsSection, DoctorsSection, Hero, Notice, PackagesSection, Partners, PromoBanner, QuickActions, Steps, SupportSection } from "@/features/home/home-sections";
+import { HomeHero } from "@/features/home/home-hero";
+import { Benefits, DepartmentsSection, DoctorsSection, Notice, PackagesSection, Partners, Steps, SupportSection } from "@/features/home/home-sections";
 import type { PublicHomeData } from "./public-home-types";
 
 type PublicHomeViewProps = {
@@ -38,9 +39,7 @@ export function PublicHomeView({ data, loading, error }: PublicHomeViewProps) {
           </div>
         ) : null}
 
-        <Hero departments={data.departments} />
-        <QuickActions settings={data.settings} />
-        <PromoBanner banner={data.heroBanners[0]} />
+        <HomeHero data={data} />
         {sections?.serviceHub.enabled !== false ? <Benefits /> : null}
         {sections?.departments.enabled !== false ? (
           <DepartmentsSection departments={data.departments.slice(0, limit(sections?.departments.limit, 8))} config={sections?.departments} loading={loading} />
