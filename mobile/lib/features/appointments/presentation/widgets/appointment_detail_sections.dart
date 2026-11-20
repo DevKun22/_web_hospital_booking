@@ -84,6 +84,14 @@ class AppointmentInformationCard extends StatelessWidget {
         label: 'Khung giờ',
         value: formatTimeRange(appointment.startTime, appointment.endTime),
       ),
+      if (appointment.facilityName != null)
+        _DetailRow(
+          icon: Icons.place_outlined,
+          label: 'Nơi khám',
+          value: appointment.facilityAddress == null
+              ? appointment.facilityName!
+              : '${appointment.facilityName}, ${appointment.facilityAddress}',
+        ),
       _DetailRow(
         icon: Icons.medical_services_outlined,
         label: 'Bác sĩ',

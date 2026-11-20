@@ -111,6 +111,8 @@ class PatientAppointment {
     this.completedAt,
     this.createdAt,
     this.dependentProfileId,
+    this.facilityName,
+    this.facilityAddress,
   });
 
   factory PatientAppointment.fromJson(Map<String, dynamic> json) {
@@ -118,6 +120,7 @@ class PatientAppointment {
     final doctorUser = jsonMap(doctor['user']);
     final department = jsonMap(json['department']);
     final package = jsonMap(json['package']);
+    final facility = jsonMap(json['facility']);
     return PatientAppointment(
       id: jsonString(json['id']),
       bookingCode: jsonString(json['bookingCode']),
@@ -148,6 +151,8 @@ class PatientAppointment {
       cancelledReason: jsonNullableString(json['cancelledReason']),
       completedAt: jsonDateTime(json['completedAt']),
       createdAt: jsonDateTime(json['createdAt']),
+      facilityName: jsonNullableString(facility['name']),
+      facilityAddress: jsonNullableString(facility['address']),
     );
   }
 
@@ -177,6 +182,10 @@ class PatientAppointment {
   final String? cancelledReason;
   final DateTime? completedAt;
   final DateTime? createdAt;
+
+  /// Nơi khám (thiếu: cơ sở mặc định, chưa có thông tin riêng).
+  final String? facilityName;
+  final String? facilityAddress;
 
   bool get canCancel => canCancelAt(DateTime.now());
 
