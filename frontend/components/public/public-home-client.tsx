@@ -3,8 +3,9 @@
 import { PublicHomeView } from "@/components/public/public-home-view";
 import { usePublicBootstrap } from "@/lib/public-bootstrap-client";
 import type { PublicBootstrapSnapshot } from "@/lib/public-bootstrap";
+import type { PublicArticleList } from "@/lib/types";
 
-export function PublicHomeClient({ snapshot }: { snapshot: PublicBootstrapSnapshot }) {
+export function PublicHomeClient({ snapshot, articles }: { snapshot: PublicBootstrapSnapshot; articles?: PublicArticleList | null }) {
   const { data, loading, error } = usePublicBootstrap("featured", snapshot);
-  return <PublicHomeView data={data} loading={loading} error={error} />;
+  return <PublicHomeView data={data} loading={loading} error={error} articles={articles} />;
 }

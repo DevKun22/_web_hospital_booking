@@ -5,15 +5,19 @@ import { BackToTopButton } from "@/components/public/back-to-top-button";
 import { PublicBottomNav } from "@/components/public/public-bottom-nav";
 import { PublicSiteFooter } from "@/components/public/public-site-footer";
 import { PublicSiteHeader } from "@/components/public/public-site-header";
+import { HomeArticles } from "@/features/home/home-articles";
 import { HomeHero } from "@/features/home/home-hero";
 import { DepartmentsSection, DoctorsSection, PackagesSection, Partners, SupportSection } from "@/features/home/home-sections";
 import { HomeProcess } from "@/components/public/home-process";
+import type { PublicArticleList } from "@/lib/types";
 import type { PublicHomeData } from "./public-home-types";
 
 type PublicHomeViewProps = {
   data: PublicHomeData;
   loading: boolean;
   error: string;
+  /** Bài viết mới nhất, tải trên máy chủ cùng trang; null khi chưa tải được. */
+  articles?: PublicArticleList | null;
 };
 
 const ChatbotWidget = dynamic(
@@ -22,7 +26,7 @@ const ChatbotWidget = dynamic(
 );
 
 // Trang chủ: thông báo, đầu trang, lối tắt, rồi các mục theo cấu hình quản trị (bật/tắt, tiêu đề, số lượng).
-export function PublicHomeView({ data, loading, error }: PublicHomeViewProps) {
+export function PublicHomeView({ data, loading, error, articles }: PublicHomeViewProps) {
   const config = data.homeConfig;
   const sections = config?.sections;
   const limit = (value: number | undefined, fallback: number) => (value && value > 0 ? value : fallback);
@@ -44,12 +48,13 @@ export function PublicHomeView({ data, loading, error }: PublicHomeViewProps) {
         {sections?.departments.enabled !== false ? (
           <DepartmentsSection departments={data.departments.slice(0, limit(sections?.departments.limit, 8))} config={sections?.departments} loading={loading} />
         ) : null}
-        {sections?.doctors.enabled !== false ? (
-          <DoctorsSection doctors={data.doctors.slice(0, limit(sections?.doctors.limit, 6))} config={sections?.doctors} loading={loading} />
-        ) : null}
         {sections?.packages.enabled !== false ? (
           <PackagesSection packages={data.packages.slice(0, limit(sections?.packages.limit, 3))} config={sections?.packages} loading={loading} />
         ) : null}
+        {sections?.doctors.enabled !== false ? (
+          <DoctorsSection doctors={data.doctors.slice(0, limit(sections?.doctors.limit, 6))} config={sections?.doctors} loading={loading} />
+        ) : null}
+        <HomeArticles articles={articles} />
         <SupportSection faqs={data.faqs} settings={data.settings} />
         {sections?.partners.enabled !== false ? <Partners banners={data.partnerBanners} config={sections?.partners} /> : null}
       </div>
