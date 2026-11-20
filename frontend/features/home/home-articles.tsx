@@ -1,3 +1,4 @@
+/* eslint-disable @next/next/no-img-element */
 import Link from "next/link";
 import { ArrowRight, BookOpenText, ShieldCheck } from "lucide-react";
 import { SummarizeWithKun } from "@/components/public/summarize-with-kun";
@@ -8,11 +9,11 @@ const SIDE_ARTICLES = 3;
 
 const formatDate = (value: string | null) => (value ? new Date(value).toLocaleDateString("vi-VN") : "");
 
-/** Ô ảnh bìa: bài viết chưa có ảnh bìa dùng khối gradient kèm biểu tượng; chỗ này sẽ hiện ảnh khi bài có ảnh bìa. */
-function Cover({ ratio }: { ratio: string }) {
+/** Ô ảnh bìa: bài có ảnh bìa thì hiện ảnh, chưa có thì khối màu nhạt kèm biểu tượng. Ảnh chỉ để minh họa nên alt rỗng (tiêu đề bài ngay bên cạnh). */
+function Cover({ ratio, src }: { ratio: string; src?: string | null }) {
   return (
-    <div className={`${ratio} flex items-center justify-center overflow-hidden bg-[linear-gradient(135deg,var(--public-primary-soft),#9ccaff)] text-[var(--public-primary-dark)]`} aria-hidden="true">
-      <BookOpenText className="h-10 w-10" />
+    <div className={`${ratio} flex items-center justify-center overflow-hidden bg-[var(--public-primary-soft)] text-[var(--public-primary-dark)]`} aria-hidden="true">
+      {src ? <img src={src} alt="" width={800} height={450} loading="lazy" decoding="async" className="h-full w-full object-cover" /> : <BookOpenText className="h-10 w-10" />}
     </div>
   );
 }
@@ -69,7 +70,7 @@ export function HomeArticles({ articles }: { articles: PublicArticleList | null 
         <div className={`mt-6 grid grid-cols-[minmax(0,1fr)] gap-5 ${side.length ? "lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]" : ""}`}>
           <article className="flex flex-col overflow-hidden rounded-2xl border border-[var(--public-border)] bg-[var(--public-surface)] shadow-sm">
             <Link href={`/kien-thuc/${featured.slug}`} tabIndex={-1} aria-hidden="true" className="block">
-              <Cover ratio="aspect-[16/9]" />
+              <Cover ratio="aspect-[16/9] lg:aspect-[2/1]" src={featured.coverImage} />
             </Link>
             <div className="flex flex-1 flex-col p-4 sm:p-5">
               <p className="flex flex-wrap items-center gap-2 text-sm text-[var(--public-muted)]">
@@ -95,9 +96,9 @@ export function HomeArticles({ articles }: { articles: PublicArticleList | null 
             <ul className="grid grid-cols-[minmax(0,1fr)] gap-4 sm:gap-5">
               {side.map((article) => (
                 <li key={article.id}>
-                  <article className="flex h-full gap-4 overflow-hidden rounded-2xl border border-[var(--public-border)] bg-[var(--public-surface)] p-3 shadow-sm transition hover:border-[var(--public-primary)] sm:p-4">
-                    <Link href={`/kien-thuc/${article.slug}`} tabIndex={-1} aria-hidden="true" className="block w-28 shrink-0 self-start overflow-hidden rounded-xl sm:w-36">
-                      <Cover ratio="aspect-[4/3]" />
+                  <article className="flex h-full items-center gap-4 overflow-hidden rounded-2xl border border-[var(--public-border)] bg-[var(--public-surface)] p-3 shadow-sm transition hover:border-[var(--public-primary)] sm:p-4">
+                    <Link href={`/kien-thuc/${article.slug}`} tabIndex={-1} aria-hidden="true" className="block w-28 shrink-0 overflow-hidden rounded-xl sm:w-40">
+                      <Cover ratio="aspect-[4/3]" src={article.coverImage} />
                     </Link>
                     <div className="min-w-0 flex-1">
                       <p className="flex flex-wrap items-center gap-2 text-xs text-[var(--public-muted)]">

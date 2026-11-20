@@ -1,3 +1,4 @@
+/* eslint-disable @next/next/no-img-element */
 import Link from "next/link";
 import { BookOpenText, Search } from "lucide-react";
 import { PublicBreadcrumb } from "@/components/public/public-page-layout";
@@ -77,7 +78,11 @@ export default async function KnowledgePage({ searchParams }: PageProps) {
           <ul className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {data.items.map((article) => (
               <li key={article.id}>
-                <Link href={`/kien-thuc/${article.slug}`} className="flex h-full flex-col rounded-xl border border-[var(--public-border)] bg-[var(--public-surface)] p-4 transition hover:border-[var(--public-primary)]">
+                <Link href={`/kien-thuc/${article.slug}`} className="flex h-full flex-col overflow-hidden rounded-xl border border-[var(--public-border)] bg-[var(--public-surface)] transition hover:border-[var(--public-primary)]">
+                  <span className="flex aspect-[16/9] items-center justify-center overflow-hidden bg-[var(--public-primary-soft)] text-[var(--public-primary-dark)]" aria-hidden="true">
+                    {article.coverImage ? <img src={article.coverImage} alt="" width={640} height={360} loading="lazy" decoding="async" className="h-full w-full object-cover" /> : <BookOpenText className="h-9 w-9" />}
+                  </span>
+                  <span className="flex flex-1 flex-col p-4">
                   <span className="flex items-center gap-1.5 text-xs font-semibold text-[var(--public-primary)]">
                     <BookOpenText className="h-3.5 w-3.5" aria-hidden="true" />
                     {article.category || "Kiến thức sức khỏe"}
@@ -86,6 +91,7 @@ export default async function KnowledgePage({ searchParams }: PageProps) {
                   {article.summary ? <p className="mt-2 line-clamp-3 text-sm leading-6 text-[var(--public-text-soft)]">{article.summary}</p> : null}
                   <span className="mt-auto pt-3 text-xs text-[var(--public-muted)]">
                     {[article.reviewerName ? `Duyệt: ${article.reviewerName}` : "", formatDate(article.publishedAt)].filter(Boolean).join(" · ")}
+                  </span>
                   </span>
                 </Link>
               </li>

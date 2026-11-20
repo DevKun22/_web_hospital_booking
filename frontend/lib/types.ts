@@ -1098,6 +1098,8 @@ export type ArticleSummary = {
   title: string;
   summary: string | null;
   category: string | null;
+  /** Ảnh bìa bài viết; null khi bài chưa có ảnh. */
+  coverImage: string | null;
   authorId?: string | null; // chỉ có ở dashboard, trang công khai không trả mã tài khoản
   authorName: string | null;
   reviewedById?: string | null;

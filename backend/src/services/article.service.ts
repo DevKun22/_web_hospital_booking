@@ -4,6 +4,7 @@ import { logger } from "../observability/logger.js";
 import { AppError } from "../utils/appError.js";
 import { createSlug } from "../utils/slug.js";
 import KnowledgeService from "./chatbot/rag/knowledge.service.js";
+import MediaAssetService from "./mediaAsset.service.js";
 import { roleHasAnyPermission } from "./rbac.service.js";
 
 // Bài viết kiến thức sức khỏe, đi qua ba giai đoạn:
@@ -26,6 +27,8 @@ type ArticleInput = {
   content?: string;
   category?: string | null;
   departmentId?: string | null;
+  /** Mã ảnh bìa đã tải lên kho ảnh; null khi cập nhật nghĩa là gỡ ảnh. */
+  imageAssetId?: string | null;
 };
 
 const blankToNull = (value?: string | null) => {
@@ -42,6 +45,7 @@ const publicListSelect = {
   title: true,
   summary: true,
   category: true,
+  coverImage: true,
   authorName: true,
   reviewerName: true,
   reviewedAt: true,
@@ -117,6 +121,7 @@ class ArticleService {
   async create(input: ArticleInput & { title: string; content: string }, actor: Actor) {
     const slug = await this.uniqueSlug(input.slug || input.title);
     await this.assertDepartment(input.departmentId);
+    const cover = input.imageAssetId ? await MediaAssetService.getUsableAsset(input.imageAssetId) : null;
     const author = await prisma.user.findUnique({ where: { id: actor.userId }, select: { fullName: true } });
     const article = await prisma.article.create({
       data: {
@@ -125,12 +130,14 @@ class ArticleService {
         summary: blankToNull(input.summary),
         content: input.content,
         category: blankToNull(input.category),
+        coverImage: cover?.url ?? null,
         departmentId: input.departmentId || null,
         authorId: actor.userId,
         authorName: author?.fullName ?? null,
       },
       select: dashboardDetailSelect,
     });
+    if (cover) await MediaAssetService.attachAsset(cover.id, "ARTICLE", article.id);
     this.refreshKnowledge();
     return article;
   }
@@ -146,6 +153,8 @@ class ArticleService {
       throw new AppError("Bài đã xuất bản chỉ quản trị sửa được. Hãy tạo bài nháp mới hoặc nhờ quản trị.", 403);
     }
     if (input.departmentId !== undefined) await this.assertDepartment(input.departmentId);
+    // Ảnh bìa: đổi hoặc gỡ ảnh không phải đổi nội dung nên không xóa dấu duyệt.
+    const cover = input.imageAssetId ? await MediaAssetService.attachAsset(input.imageAssetId, "ARTICLE", id) : input.imageAssetId === null ? null : undefined;
 
     // Đường dẫn khóa sau lần xuất bản đầu: đổi sẽ làm hỏng liên kết đã chia sẻ, kết quả tìm kiếm và nguồn trích của chatbot.
     const wantsNewSlug = input.slug !== undefined && input.slug !== current.slug;
@@ -168,11 +177,13 @@ class ArticleService {
         content: input.content,
         category: input.category === undefined ? undefined : blankToNull(input.category),
         departmentId: input.departmentId === undefined ? undefined : input.departmentId || null,
+        coverImage: cover === undefined ? undefined : cover?.url ?? null,
         // Nội dung đổi: dấu duyệt không còn đúng, bài đang xuất bản trở về bản nháp chờ duyệt lại.
         ...(contentChanged ? { reviewedById: null, reviewerName: null, reviewedAt: null, status: "DRAFT" as const } : {}),
       },
       select: dashboardDetailSelect,
     });
+    if (cover !== undefined) await MediaAssetService.detachOwnerAssets("ARTICLE", id, cover?.id);
     if (contentChanged || current.status === "PUBLISHED") this.refreshKnowledge();
     return article;
   }
@@ -226,6 +237,7 @@ class ArticleService {
     const exists = await prisma.article.findUnique({ where: { id }, select: { id: true } });
     if (!exists) throw new AppError("Không tìm thấy bài viết", 404);
     await prisma.article.delete({ where: { id } });
+    await MediaAssetService.detachOwnerAssets("ARTICLE", id).catch((error) => logger.warn("[ARTICLE] Không gỡ được ảnh bìa của bài đã xóa:", error));
     this.refreshKnowledge();
   }
 

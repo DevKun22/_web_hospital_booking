@@ -8,6 +8,7 @@ enum MediaOwnerType {
   MEDICAL_RESULT
   BANNER
   SITE_SETTING
+  ARTICLE
 }
 
 model MediaAsset {
@@ -54,6 +55,8 @@ model Article {
   summary  String?
   content  String // Markdown
   category String?
+  // Ảnh bìa hiện ở trang chủ, danh sách và đầu bài; tải lên qua kho ảnh (MediaAsset, owner ARTICLE).
+  coverImage String?
 
   departmentId String?
   department   Department? @relation(fields: [departmentId], references: [id], onDelete: SetNull)

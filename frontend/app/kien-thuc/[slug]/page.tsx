@@ -25,6 +25,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       title: article.title,
       description: truncateText(cleanText(article.summary, `Bài viết kiến thức sức khỏe: ${article.title}`)),
       path: `/kien-thuc/${slug}`,
+      image: article.coverImage,
     });
   } catch {
     return buildNoIndexMetadata({ title: "Bài viết kiến thức sức khỏe", description: "Bài viết kiến thức sức khỏe do đội ngũ bác sĩ biên soạn và duyệt." });
@@ -81,6 +82,11 @@ export default async function KnowledgeArticlePage({ params }: PageProps) {
               {[article.authorName ? `Biên soạn: ${article.authorName}` : "", `Cập nhật ${formatDate(article.updatedAt)}`, `${estimateReadingMinutes(article.content)} phút đọc`].filter(Boolean).join(" · ")}
             </p>
           </header>
+
+          {article.coverImage ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={article.coverImage} alt="" width={1200} height={675} fetchPriority="high" decoding="async" className="mt-5 aspect-[16/9] w-full rounded-xl object-cover" />
+          ) : null}
 
           <SummarizeWithKun slug={article.slug} />
 

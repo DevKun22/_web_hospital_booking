@@ -2,10 +2,10 @@
 
 import { useQuery } from "@tanstack/react-query";
 import dynamic from "next/dynamic";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ExternalLink } from "lucide-react";
 import { DsButton, DsDialog, DsField, DsInput, DsLoading, DsNotice, DsSelect, DsStatusPill, DsTextarea, useConfirm, useToast } from "@/components/ds";
-import { apiRequest } from "@/lib/api";
+import { apiRequest, uploadImages } from "@/lib/api";
 import { ARTICLE_STAGE_LABEL, ARTICLE_STAGE_TONE, getArticleStage, shouldAutoSlug } from "@/lib/article-ui";
 import { useAuth } from "@/lib/auth";
 import { formatVietnamDateTime } from "@/lib/date";
@@ -22,7 +22,8 @@ const ArticleEditor = dynamic(() => import("@/components/dashboard/article-edito
   loading: () => <div className="ds-editor-shell ds-editor-shell--loading" aria-busy="true" />,
 });
 
-type Meta = { title: string; slug: string; summary: string; category: string; departmentId: string };
+/** coverImage: đường dẫn ảnh đang hiện; coverAssetId: mã ảnh vừa tải lên, chỉ gửi lên khi lưu (rỗng nghĩa là không đổi ảnh). */
+type Meta = { title: string; slug: string; summary: string; category: string; departmentId: string; coverImage: string; coverAssetId: string };
 
 const metaOf = (article: Article | null): Meta => ({
   title: article?.title ?? "",
@@ -30,6 +31,8 @@ const metaOf = (article: Article | null): Meta => ({
   summary: article?.summary ?? "",
   category: article?.category ?? "",
   departmentId: article?.departmentId ?? "",
+  coverImage: article?.coverImage ?? "",
+  coverAssetId: "",
 });
 
 type Props = {
@@ -129,6 +132,8 @@ function ArticleDialogBody({ initial, departments, categories, onClose, onChange
         summary: meta.summary.trim() || null,
         category: meta.category.trim() || null,
         departmentId: meta.departmentId || null,
+        // Ảnh bìa: ảnh mới tải lên thì gửi mã ảnh; đã gỡ ảnh thì gửi null; không đổi thì không gửi.
+        ...(meta.coverAssetId ? { imageAssetId: meta.coverAssetId } : article?.coverImage && !meta.coverImage ? { imageAssetId: null } : {}),
         content,
         // Đường dẫn: bài mới để máy chủ tự sinh từ tiêu đề trừ khi người dùng sửa tay; bài nháp theo tiêu đề đến khi sửa tay; bài đã xuất bản thì khóa.
         ...(slugLocked || (!article && !slugTouched) ? {} : { slug }),
@@ -178,6 +183,22 @@ function ArticleDialogBody({ initial, departments, categories, onClose, onChange
   };
 
   const setField = (patch: Partial<Meta>) => setMeta((current) => ({ ...current, ...patch }));
+  const coverInput = useRef<HTMLInputElement | null>(null);
+  const [uploadingCover, setUploadingCover] = useState(false);
+  const uploadCover = async (file: File | undefined) => {
+    if (!file || locked) return;
+    setUploadingCover(true);
+    try {
+      const [asset] = await uploadImages([file], "articles");
+      if (!asset) throw new Error("Đã tải lên nhưng không nhận được thông tin ảnh");
+      setField({ coverImage: asset.url, coverAssetId: asset.id });
+      toast.success("Đã tải ảnh bìa lên. Bấm Lưu để áp dụng.");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Không tải được ảnh lên");
+    } finally {
+      setUploadingCover(false);
+    }
+  };
   const canSave = !locked && meta.title.trim().length >= 3 && content.trim().length > 0 && (dirty || !article);
   const reviewHint = dirty ? "Lưu bài trước khi duyệt để bác sĩ duyệt đúng bản đang xem." : undefined;
 
@@ -329,6 +350,34 @@ function ArticleDialogBody({ initial, departments, categories, onClose, onChange
                 </option>
               ))}
             </DsSelect>
+          </DsField>
+          <DsField label="Ảnh bìa" htmlFor="art-cover-file" hint="JPG, PNG hoặc WEBP · hiện ở trang chủ, danh sách và đầu bài. Đổi ảnh không làm mất dấu duyệt.">
+            {meta.coverImage ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={meta.coverImage} alt="Ảnh bìa của bài viết" style={{ width: "100%", aspectRatio: "16 / 9", objectFit: "cover", borderRadius: 6, marginBottom: 8 }} />
+            ) : null}
+            <input
+              ref={coverInput}
+              id="art-cover-file"
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              className="sr-only"
+              disabled={locked || uploadingCover}
+              onChange={(event) => {
+                void uploadCover(event.target.files?.[0]);
+                event.target.value = "";
+              }}
+            />
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <DsButton variant="default" loading={uploadingCover} disabled={locked || uploadingCover} onClick={() => coverInput.current?.click()}>
+                {meta.coverImage ? "Đổi ảnh" : "Chọn ảnh từ máy"}
+              </DsButton>
+              {meta.coverImage ? (
+                <DsButton variant="ghost" disabled={locked || uploadingCover} onClick={() => setField({ coverImage: "", coverAssetId: "" })}>
+                  Gỡ ảnh
+                </DsButton>
+              ) : null}
+            </div>
           </DsField>
         </aside>
       </div>
