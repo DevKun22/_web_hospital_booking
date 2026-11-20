@@ -66,7 +66,7 @@ export function HomeArticles({ articles }: { articles: PublicArticleList | null 
           </nav>
         ) : null}
 
-        <div className={`mt-6 grid gap-5 ${side.length ? "lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]" : ""}`}>
+        <div className={`mt-6 grid grid-cols-[minmax(0,1fr)] gap-5 ${side.length ? "lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]" : ""}`}>
           <article className="flex flex-col overflow-hidden rounded-2xl border border-[var(--public-border)] bg-[var(--public-surface)] shadow-sm">
             <Link href={`/kien-thuc/${featured.slug}`} tabIndex={-1} aria-hidden="true" className="block">
               <Cover ratio="aspect-[16/9]" />
@@ -92,7 +92,7 @@ export function HomeArticles({ articles }: { articles: PublicArticleList | null 
           </article>
 
           {side.length ? (
-            <ul className="grid gap-4 sm:gap-5">
+            <ul className="grid grid-cols-[minmax(0,1fr)] gap-4 sm:gap-5">
               {side.map((article) => (
                 <li key={article.id}>
                   <article className="flex h-full gap-4 overflow-hidden rounded-2xl border border-[var(--public-border)] bg-[var(--public-surface)] p-3 shadow-sm transition hover:border-[var(--public-primary)] sm:p-4">
