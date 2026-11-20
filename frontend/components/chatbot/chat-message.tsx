@@ -1,8 +1,9 @@
 import { AlertTriangle, FileText, Phone, RotateCcw } from "lucide-react";
 import Link from "next/link";
+import { FollowUps } from "@/components/chatbot/follow-ups";
 import { ChatbotResultCards } from "@/components/chatbot/result-cards";
 import { KunAvatar } from "@/components/chatbot/kun-avatar";
-import type { ChatWidgetMessage } from "@/lib/chatbot-ui";
+import { getQuickReplies, type ChatWidgetMessage } from "@/lib/chatbot-ui";
 import type { ChatbotSuggestedAction } from "@/lib/types";
 
 /** Số cấp cứu y tế toàn quốc. */
@@ -12,13 +13,15 @@ type Props = {
   message: ChatWidgetMessage;
   selectedSlotId?: string;
   disabled?: boolean;
+  /** Tin mới nhất: chỉ tin này hiện gợi ý bước tiếp theo, tin cũ để lại như lịch sử. */
+  isLatest?: boolean;
   onAction: (action: ChatbotSuggestedAction) => void;
   onRetry: () => void;
 };
 
 // Một tin trong cuộc trò chuyện: người dùng (bên phải), Kun (bên trái, kèm nguồn và thẻ kết quả), thông báo hệ thống (viên thuốc),
 // và cảnh báo cấp cứu (thẻ đỏ có nút gọi).
-export function ChatMessage({ message, selectedSlotId, disabled, onAction, onRetry }: Props) {
+export function ChatMessage({ message, selectedSlotId, disabled, isLatest, onAction, onRetry }: Props) {
   if (message.role === "system") {
     return (
       <div className="kun-enter flex justify-center">
@@ -64,20 +67,34 @@ export function ChatMessage({ message, selectedSlotId, disabled, onAction, onRet
         <p className="whitespace-pre-line">{message.content}</p>
         <ChatbotResultCards groups={message.results} selectedSlotId={selectedSlotId} disabled={disabled} onAction={onAction} />
         {message.sources?.length ? (
-          <p className="mt-2 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 border-t border-[var(--public-divider)] pt-1.5 text-[11px] text-[var(--public-muted)]">
+          <p className="mt-2 flex flex-wrap items-center gap-1.5 border-t border-[var(--public-divider)] pt-2 text-[11px] text-[var(--public-muted)]">
             <FileText className="h-3 w-3 shrink-0" aria-hidden="true" />
-            <span>Theo:</span>
-            {message.sources.slice(0, 2).map((source, index) =>
+            <span>Nguồn:</span>
+            {message.sources.slice(0, 3).map((source) =>
               source.url ? (
-                <Link key={source.id} href={source.url} className="font-medium text-[var(--public-primary)] underline-offset-2 hover:underline">
+                <Link
+                  key={source.id}
+                  href={source.url}
+                  className="rounded-full border border-[var(--public-border)] bg-[var(--public-surface-muted)] px-2 py-0.5 font-medium text-[var(--public-primary)] hover:bg-[var(--public-primary-soft)]"
+                >
                   {source.title}
-                  {index < Math.min(message.sources!.length, 2) - 1 ? "," : ""}
                 </Link>
               ) : (
-                <span key={source.id}>{source.title}</span>
+                <span key={source.id} className="rounded-full border border-[var(--public-border)] px-2 py-0.5">
+                  {source.title}
+                </span>
               ),
             )}
           </p>
+        ) : null}
+        {isLatest && !message.retryable ? (
+          <FollowUps
+            actions={getQuickReplies(message.actions || [], message.results)}
+            disabled={disabled}
+            variant={message.id === "welcome" ? "grid" : "list"}
+            title={message.id === "welcome" ? undefined : "Bạn có thể hỏi tiếp"}
+            onPick={onAction}
+          />
         ) : null}
         {message.retryable ? (
           <button type="button" onClick={onRetry} disabled={disabled} className="mt-2 inline-flex min-h-9 items-center gap-1.5 rounded-full border border-[var(--public-border)] px-3 text-xs font-medium text-[var(--public-primary)] hover:bg-[var(--public-primary-soft)] disabled:opacity-60">

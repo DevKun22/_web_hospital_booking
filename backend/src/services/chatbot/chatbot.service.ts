@@ -17,6 +17,7 @@ import {
   resetOutput,
 } from "./flows/system.replies.js";
 import TriageFlow from "./flows/triage.flow.js";
+import { applyFocus, withFocusName } from "./flows/follow-up.js";
 import { routeByRules } from "./router/route.js";
 import ChatbotEntityResolver from "./retrieval/entity.resolver.js";
 import { hasEmergencySignal } from "./rules/emergency-detector.js";
@@ -121,7 +122,14 @@ class ChatbotService {
     if (rule === "CAPABILITIES") return finish(capabilitiesOutput(actionDraft), "SYSTEM");
 
     // Câu nối tiếp ngắn được ghép với câu hỏi thông tin ngay trước đó để hiểu đúng chủ đề.
-    const question = actionOperation ? input.message : withConversationTopic(input.message, { message: session.lastMessage, intent: session.lastIntent });
+    // và với đại từ chỉ chủ đề ("bác sĩ này", "gói đó") được thêm tên chủ đề Kun vừa nói tới.
+    const question = actionOperation
+      ? input.message
+      : withFocusName(
+          withConversationTopic(input.message, { message: session.lastMessage, intent: session.lastIntent }),
+          actionDraft.focus,
+          foldVietnamese,
+        );
 
     // Câu hỏi thông tin đã trả lời trước đó (còn trong bộ nhớ đệm): trả ngay, khỏi gọi AI.
     const infoEligible = !actionOperation && settings.faqEnabled;
@@ -174,6 +182,8 @@ class ChatbotService {
     // Thực thể AI trích ra (tên khoa, bác sĩ, ngày...) được đối chiếu với DB, chỉ giữ phần xác minh được.
     const resolved = actionOperation || nlu.confidence < 0.25 ? { patch: {} } : await ChatbotEntityResolver.resolve(nlu);
     let draft = ChatbotDraftReducer.reduce(actionDraft, resolved.patch, nlu.correction);
+    // Người dùng nhắc "bác sĩ này", "khoa đó" mà không nêu tên: dùng chủ đề Kun vừa nói tới.
+    if (!actionOperation) draft = applyFocus(draft, nlu.operation, resolved.patch);
 
     // Hỏi lại đúng câu vừa hỏi: nếu vẫn chưa có thông tin thì không trả lời y nguyên lần trước.
     const repeated = session.lastMessage !== null && foldVietnamese(session.lastMessage) === foldVietnamese(input.message);
@@ -222,6 +232,9 @@ class ChatbotService {
       triageRecommendation: triage,
     });
     if (!output) return finish(repeated ? noInformationRepeatOutput(draft) : fallbackOutput(draft, aiUnavailable), "FALLBACK");
+
+    // Đã có lựa chọn rõ ràng trong luồng đặt lịch thì chủ đề thông tin không còn cần.
+    output.draft = { ...output.draft, focus: undefined };
 
     const aiPhrased = intent === "SYMPTOM_TRIAGE" && !actionOperation && !aiUnavailable;
     if (aiPhrased && triage && output.intent === "SYMPTOM_TRIAGE" && output.state === "SUGGESTING_DEPARTMENT") {

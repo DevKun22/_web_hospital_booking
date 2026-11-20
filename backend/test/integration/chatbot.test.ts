@@ -141,3 +141,46 @@ test("đồng bộ tri thức: chỉ dựng lại phần đổi, xóa đoạn c�
   const unauthenticated = await http.request("/api/v1/dashboard/chatbot/knowledge/sync", { method: "POST" });
   assert.equal(unauthenticated.status, 401);
 });
+
+test("sau câu trả lời về gói khám: gợi ý bước tiếp theo theo chủ đề và hiểu 'gói này' ở câu kế tiếp", async () => {
+  const pack = await prisma.package.create({
+    data: {
+      name: "Gói Tim Mạch Nâng Cao",
+      slug: "goi-tim-mach-nang-cao",
+      basePrice: 1_200_000,
+      serviceFee: 50_000,
+      departmentId: fixture.department.id,
+      items: { create: [{ name: "Siêu âm tim" }, { name: "Điện tâm đồ" }] },
+    },
+  });
+
+  const first = await ask("gói tim mạch nâng cao giá bao nhiêu");
+  assert.equal(first.status, 200);
+  const actions = first.body.data.suggestedActions as { type: string; label: string; payload: Record<string, unknown> }[];
+  const select = actions.find((action) => action.type === "VIEW_PACKAGE");
+  assert.equal(select?.payload.packageId, pack.id);
+  const followUp = actions.find((action) => action.type === "ASK_QUESTION");
+  assert.match(String(followUp?.payload.question), /Gói Tim Mạch Nâng Cao/);
+  assert.equal(first.body.data.draft.focus.type, "package");
+  assert.equal(first.body.data.draft.focus.id, pack.id);
+
+  // Câu kế tiếp không nêu tên gói: Kun hiểu "gói này" từ chủ đề vừa nói.
+  const next = await ask("gói này giá bao nhiêu", { sessionId: first.body.data.sessionId, draft: first.body.data.draft });
+  assert.equal(next.status, 200);
+  assert.match(next.body.data.reply, /1\.250\.000 đồng/);
+});
+
+test("câu chào và dự phòng đưa ra các hướng khác nhau thay vì một danh sách cố định", async () => {
+  const greeting = await ask("Xin chào");
+  const types = (greeting.body.data.suggestedActions as { type: string }[]).map((action) => action.type);
+  assert.ok(types.includes("ASK_QUESTION"));
+  assert.ok(types.includes("VIEW_PACKAGES"));
+
+  const unknown = await ask("hôm nay thời tiết thế nào");
+  const fallback = unknown.body.data.suggestedActions as { type: string; payload: Record<string, unknown> }[];
+  assert.ok(fallback.some((action) => action.type === "ASK_QUESTION" && /triệu chứng/.test(String(action.payload.question))));
+
+  // Nút hỏi thêm không có câu hỏi thì bị loại, không bao giờ đến người dùng.
+  const empty = await ask("Xin chào");
+  assert.ok((empty.body.data.suggestedActions as { type: string; payload: Record<string, unknown> }[]).every((action) => action.type !== "ASK_QUESTION" || action.payload.question));
+});

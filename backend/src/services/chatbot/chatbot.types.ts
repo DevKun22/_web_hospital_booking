@@ -42,6 +42,7 @@ export const SUGGESTED_ACTION_TYPES = [
   "LOOKUP_APPOINTMENT",
   "CONTACT_STAFF",
   "EMERGENCY_ADVICE",
+  "ASK_QUESTION",
 ] as const;
 
 const CHAT_NEXT_STEPS = [
@@ -91,6 +92,14 @@ export type ChatOperation = (typeof CHAT_OPERATIONS)[number];
 export type ChatTimePeriod = (typeof CHAT_TIME_PERIODS)[number];
 export type ChatServiceMode = "DOCTOR_ONLY" | "PACKAGE";
 
+/** Chủ đề Kun vừa nói tới trong câu trả lời thông tin; để hiểu "bác sĩ này", "gói đó" ở câu hỏi kế tiếp. */
+export type ChatFocus = {
+  type: "doctor" | "department" | "package";
+  id: string;
+  name: string;
+  departmentId?: string;
+};
+
 export type ChatBookingDraft = {
   departmentId?: string;
   departmentSlug?: string;
@@ -108,6 +117,7 @@ export type ChatBookingDraft = {
   associatedSymptoms?: string[];
   triageLastQuestion?: string;
   reason?: string;
+  focus?: ChatFocus;
 };
 
 export type ChatAction = {

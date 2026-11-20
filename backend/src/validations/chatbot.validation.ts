@@ -35,6 +35,14 @@ const draftSchema = z.object({
   associatedSymptoms: shortList.optional(),
   triageLastQuestion: boundedText(300).optional(),
   reason: boundedText(500).optional(),
+  focus: z
+    .object({
+      type: z.enum(["doctor", "department", "package"]),
+      id: z.string().uuid(),
+      name: boundedText(120).min(1),
+      departmentId: z.string().uuid().optional(),
+    })
+    .optional(),
 });
 
 export const chatbotMessageSchema = z.object({

@@ -249,6 +249,8 @@ class BookingFlow {
         draft: nextDraft,
         suggestedActions: [
           buildOpenBookingAction(nextDraft, nearestDate || draft.date),
+          { type: "CHANGE_DATE", label: "Xem ngày khác", payload: { doctorId: draft.doctorId, departmentId } },
+          { type: "CHANGE_DOCTOR", label: "Chọn bác sĩ cụ thể", payload: { departmentId } },
         ],
       });
     }
@@ -305,7 +307,11 @@ class BookingFlow {
         nextStep: "CHOOSE_SLOT",
         draft: nextDraft,
         results,
-        suggestedActions: [buildOpenBookingAction(nextDraft, nearestDate || draft.date)],
+        suggestedActions: [
+          buildOpenBookingAction(nextDraft, nearestDate || draft.date),
+          { type: "CHANGE_DATE", label: "Xem ngày khác", payload: { doctorId: draft.doctorId, departmentId: nextDraft.departmentId } },
+          { type: "CHANGE_DOCTOR", label: "Chọn bác sĩ khác", payload: { departmentId: nextDraft.departmentId } },
+        ],
       });
     }
 
@@ -332,7 +338,10 @@ class BookingFlow {
       state: "READY_TO_BOOK",
       nextStep: "READY_TO_BOOK",
       draft,
-      suggestedActions: [],
+      suggestedActions: [
+        { type: "CHANGE_DATE", label: "Chọn giờ khác", payload: { doctorId: draft.doctorId, departmentId: draft.departmentId } },
+        { type: "CHANGE_DOCTOR", label: "Đổi bác sĩ", payload: { departmentId: draft.departmentId } },
+      ],
     });
   }
 
@@ -525,7 +534,11 @@ class BookingFlow {
         nextStep: "CHOOSE_SLOT",
         draft,
         results,
-        suggestedActions: [buildOpenBookingAction(draft, nearestDate || draft.date)],
+        suggestedActions: [
+          buildOpenBookingAction(draft, nearestDate || draft.date),
+          { type: "CHANGE_DATE", label: "Xem ngày khác", payload: { doctorId: draft.doctorId, departmentId: draft.departmentId } },
+          { type: "CHANGE_DOCTOR", label: "Chọn bác sĩ khác", payload: { departmentId: draft.departmentId } },
+        ],
       });
     }
 

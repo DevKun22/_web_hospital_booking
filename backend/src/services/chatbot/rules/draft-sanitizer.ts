@@ -1,4 +1,4 @@
-import type { ChatBookingDraft } from "../chatbot.types.js";
+import type { ChatBookingDraft, ChatFocus } from "../chatbot.types.js";
 import { foldVietnamese } from "./text-normalizer.js";
 
 const cleanupTerms = (symptoms?: string[]) =>
@@ -10,6 +10,20 @@ const cleanupTerms = (symptoms?: string[]) =>
         .map((item) => [foldVietnamese(item), item]),
     ).values(),
   ).slice(0, 10);
+
+const FOCUS_TYPES = new Set(["doctor", "department", "package"]);
+
+const cleanFocus = (focus?: ChatFocus): ChatFocus | undefined => {
+  if (!focus || typeof focus !== "object") return undefined;
+  if (!FOCUS_TYPES.has(focus.type) || typeof focus.id !== "string" || typeof focus.name !== "string") return undefined;
+  if (!focus.id.trim() || !focus.name.trim()) return undefined;
+  return {
+    type: focus.type,
+    id: focus.id.trim(),
+    name: focus.name.trim().slice(0, 120),
+    departmentId: typeof focus.departmentId === "string" && focus.departmentId.trim() ? focus.departmentId.trim() : undefined,
+  };
+};
 
 export const sanitizeBookingDraft = (
   draft: ChatBookingDraft,
@@ -30,4 +44,5 @@ export const sanitizeBookingDraft = (
   associatedSymptoms: cleanupTerms(draft.associatedSymptoms),
   triageLastQuestion: draft.triageLastQuestion?.trim() || undefined,
   reason: draft.reason?.trim() || undefined,
+  focus: cleanFocus(draft.focus),
 });

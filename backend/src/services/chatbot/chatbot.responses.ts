@@ -1,3 +1,5 @@
+import { vary } from "./rules/variants.js";
+
 export const chatbotReplies = {
   appointmentLookupGuide:
     "Bạn có thể tra cứu lịch hẹn bằng mã đặt lịch và số điện thoại. Nếu quên mã lịch, hãy dùng tab quên mã để nhận OTP và xem lịch gần đây.",
@@ -13,8 +15,13 @@ export const chatbotReplies = {
       ? `${departmentName} đã được chọn. Bạn muốn chọn gói khám hay khám theo phí của bác sĩ?`
       : "Chuyên khoa đã được ghi nhận. Bạn muốn chọn gói khám hay khám theo phí của bác sĩ?",
 
-  departmentListGuide:
-    "Bạn đang gặp vấn đề gì? Cứ mô tả vài triệu chứng (ví dụ \"đau đầu, chóng mặt mấy ngày nay\"), mình sẽ gợi ý chuyên khoa phù hợp. Nếu đã biết mình cần khám gì, bạn chọn nhanh một chuyên khoa bên dưới.",
+  get departmentListGuide() {
+    return vary([
+      "Bạn đang gặp vấn đề gì? Cứ mô tả vài triệu chứng (ví dụ \"đau đầu, chóng mặt mấy ngày nay\"), mình sẽ gợi ý chuyên khoa phù hợp. Nếu đã biết mình cần khám gì, bạn chọn nhanh một chuyên khoa bên dưới.",
+      "Bạn kể mình nghe triệu chứng đang gặp nhé, ví dụ \"ho kéo dài, hay mệt\", mình sẽ gợi ý chuyên khoa hợp lý. Còn nếu đã biết cần khám khoa nào thì bạn chọn ngay bên dưới.",
+      "Mình có thể gợi ý chuyên khoa nếu bạn mô tả triệu chứng (bạn bị từ bao giờ, ở đâu càng rõ càng tốt). Hoặc bạn chọn thẳng một chuyên khoa dưới đây.",
+    ]);
+  },
 
   packageList: (hasPackages: boolean) =>
     hasPackages
@@ -35,7 +42,11 @@ export const chatbotReplies = {
 
   doctorSelectedWithSlots: (doctorName?: string) =>
     doctorName
-      ? `${doctorName} đã được chọn. Đây là các khung giờ còn trống phù hợp.`
+      ? vary([
+          `Mình đã chọn ${doctorName} cho bạn. Đây là các khung giờ còn trống, bạn chọn giờ thuận tiện nhé.`,
+          `${doctorName} đang còn lịch vào những giờ này, bạn chọn giờ phù hợp nhé.`,
+          `Đã chọn ${doctorName}. Bạn xem các khung giờ còn trống bên dưới và chọn một giờ nhé.`,
+        ])
       : "Bác sĩ đã được ghi nhận. Đây là các khung giờ còn trống phù hợp.",
 
   doctorSelectedNoSlots: (doctorName?: string) =>
@@ -43,8 +54,12 @@ export const chatbotReplies = {
       ? `${doctorName} đã được chọn. Hiện chưa có lịch trống phù hợp, bạn có thể chọn ngày khác hoặc đổi bác sĩ.`
       : "Bác sĩ đã được ghi nhận. Hiện chưa có lịch trống phù hợp, bạn có thể chọn ngày khác hoặc đổi bác sĩ.",
 
-  slotSelected:
-    "Khung giờ này đã được chọn. Bạn có thể bấm đặt lịch ngay để nhập thông tin người khám và xác thực OTP.",
+  get slotSelected() {
+    return vary([
+      "Mình đã giữ khung giờ này cho bạn xem. Bấm đặt lịch để nhập thông tin người khám và xác thực OTP nhé.",
+      "Khung giờ này ổn rồi. Bạn bấm đặt lịch để điền thông tin người khám, rồi xác thực OTP là xong.",
+    ]);
+  },
 
   doctorChange: (hasDoctors: boolean) =>
     hasDoctors
@@ -92,17 +107,32 @@ export const chatbotReplies = {
       ? "Hệ thống tìm thấy một số gói khám phù hợp. Bạn có thể mở chi tiết gói để xem hạng mục và chọn đặt lịch."
       : "Hiện chưa có gói khám phù hợp với thông tin đã chọn. Bạn có thể chọn chuyên khoa hoặc liên hệ nhân viên để được tư vấn.",
 
-  readyToBook:
-    "Hệ thống đã có đủ bác sĩ và khung giờ. Bạn có thể bấm đặt lịch ngay để sang form thông tin người khám và xác thực OTP.",
+  get readyToBook() {
+    return vary([
+      "Đã đủ bác sĩ và khung giờ rồi. Bạn bấm đặt lịch để điền thông tin người khám và xác thực OTP nhé.",
+      "Mọi thứ đã sẵn sàng. Bạn bấm đặt lịch để sang bước nhập thông tin và xác thực OTP.",
+    ]);
+  },
 
   slotLookupAfterDateMiss: (dateLabel: string, nearestDateLabel: string) =>
-    `Ngày ${dateLabel} chưa có lịch trống phù hợp. Hệ thống tìm thấy lịch gần nhất vào ${nearestDateLabel}, bạn chọn khung giờ phù hợp để tiếp tục đặt lịch.`,
+    vary([
+      `Ngày ${dateLabel} đã hết lịch trống rồi. Lịch gần nhất là ngày ${nearestDateLabel}, bạn xem các giờ bên dưới nhé.`,
+      `Tiếc là ngày ${dateLabel} chưa còn giờ phù hợp. Mình tìm được lịch sớm nhất vào ${nearestDateLabel}, bạn chọn giờ nhé.`,
+    ]),
 
-  doctorSlotsFound:
-    "Hệ thống tìm thấy một số khung giờ còn trống của bác sĩ này. Bạn chọn khung giờ phù hợp để tiếp tục đặt lịch.",
+  get doctorSlotsFound() {
+    return vary([
+      "Bác sĩ này còn một số khung giờ trống, bạn chọn giờ thuận tiện để tiếp tục đặt lịch nhé.",
+      "Đây là những giờ còn trống của bác sĩ, bạn chọn một giờ nhé.",
+    ]);
+  },
 
-  nearestSlotsFound:
-    "Hệ thống tìm thấy một số lịch trống gần nhất. Bạn chọn khung giờ phù hợp để tiếp tục đặt lịch.",
+  get nearestSlotsFound() {
+    return vary([
+      "Đây là các lịch trống gần nhất, bạn chọn giờ phù hợp để tiếp tục đặt lịch nhé.",
+      "Mình tìm được vài lịch còn trống sớm nhất, bạn xem và chọn giờ nhé.",
+    ]);
+  },
 
   noDoctorSlots: (hasDate: boolean) =>
     hasDate

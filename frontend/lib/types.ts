@@ -761,6 +761,8 @@ export type ChatBookingDraft = {
   symptomSeverity?: "MILD" | "MODERATE" | "SEVERE" | "UNKNOWN";
   associatedSymptoms?: string[];
   triageLastQuestion?: string;
+  /** Chủ đề Kun vừa nói tới (bác sĩ, khoa, gói), máy chủ dùng để hiểu "bác sĩ này", "gói đó". */
+  focus?: { type: "doctor" | "department" | "package"; id: string; name: string; departmentId?: string };
   reason?: string;
 };
 
