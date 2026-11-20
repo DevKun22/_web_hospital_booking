@@ -1520,16 +1520,29 @@ button:disabled {
   .kun-dots i { animation: none; opacity: 0.7; }
 }
 
-/* Mục "Đặt lịch và quản lý lịch hẹn" ở trang chủ: khung minh họa tự diễn từng bước. Kiểu gốc là trạng thái cuối nên khi tắt chuyển động
-   (giảm chuyển động hoặc người dùng tạm dừng) mọi thành phần vẫn hiện đủ. */
-@keyframes proc-pop { from { opacity: 0; transform: scale(0.8); } }
-@keyframes proc-fade { from { opacity: 0; transform: translateY(6px); } }
-@keyframes proc-grow { from { width: 0; } }
-@keyframes proc-lit { from { background-color: var(--public-surface-muted); color: var(--public-muted); } }
-.proc-pop { animation: proc-pop 0.32s cubic-bezier(0.2, 0.9, 0.3, 1.2) both; }
-.proc-fade { animation: proc-fade 0.4s ease-out both; }
-.proc-grow { animation: proc-grow 0.9s ease-out both; }
-.proc-lit { animation: proc-lit 0.4s ease-out both; }
+/* Mục quy trình ở trang chủ: bốn bước sáng lên nối tiếp một lần khi mục hiện vào màn hình. Kiểu gốc là trạng thái cuối (không có JavaScript hoặc
+   bật giảm chuyển động thì hiện đủ); thuộc tính data-proc chỉ do mã bật khi chuẩn bị chạy hiệu ứng. */
+@keyframes proc-node-in { from { opacity: 0; transform: scale(0.6); } }
+@keyframes proc-text-in { from { opacity: 0; transform: translateY(8px); } }
+@keyframes proc-fill-x { from { transform: scaleX(0); } }
+@keyframes proc-fill-y { from { transform: scaleY(0); } }
+.proc-fill-x { transform-origin: left center; }
+.proc-fill-y { transform-origin: center top; }
+[data-proc="armed"] .proc-node,
+[data-proc="armed"] .proc-text { opacity: 0; }
+[data-proc="armed"] .proc-fill-x { transform: scaleX(0); }
+[data-proc="armed"] .proc-fill-y { transform: scaleY(0); }
+[data-proc="play"] .proc-node { animation: proc-node-in 0.45s cubic-bezier(0.2, 0.9, 0.3, 1.2) var(--d, 0s) both; }
+[data-proc="play"] .proc-text { animation: proc-text-in 0.5s ease-out var(--d, 0s) both; }
+[data-proc="play"] .proc-fill-x { animation: proc-fill-x 0.7s ease-out var(--d, 0s) both; }
+[data-proc="play"] .proc-fill-y { animation: proc-fill-y 0.7s ease-out var(--d, 0s) both; }
 @media (prefers-reduced-motion: reduce) {
-  .proc-pop, .proc-fade, .proc-grow, .proc-lit { animation: none; }
+  [data-proc="armed"] .proc-node,
+  [data-proc="armed"] .proc-text { opacity: 1; }
+  [data-proc="armed"] .proc-fill-x { transform: none; }
+  [data-proc="armed"] .proc-fill-y { transform: none; }
+  [data-proc="play"] .proc-node,
+  [data-proc="play"] .proc-text,
+  [data-proc="play"] .proc-fill-x,
+  [data-proc="play"] .proc-fill-y { animation: none; }
 }
