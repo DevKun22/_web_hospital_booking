@@ -1,9 +1,10 @@
 /* eslint-disable @next/next/no-img-element */
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { Check, ChevronRight, Clock, MapPin, PackageCheck, Phone, Star, Stethoscope } from "lucide-react";
+import { ArrowRight, Check, ChevronRight, Clock, MapPin, PackageCheck, Phone, Star, Stethoscope } from "lucide-react";
 import type { PublicHomeData } from "@/components/public/public-home-types";
 import { safeHref } from "@/lib/safe-href";
+import { AskKunBanner } from "@/components/public/ask-kun-banner";
 import { doctorDisplayName, doctorInitial } from "@/lib/doctor";
 import { formatCurrency, formatShortDate } from "@/lib/format";
 import { getPublicDoctorPath } from "@/lib/public-routes";
@@ -46,8 +47,8 @@ function Band({ id, tone = "plain", labelledBy, children }: { id?: string; tone?
 // Tiêu đề mục có gạch chân ngắn màu nhấn.
 function SectionTitle({ id, title, description, href, linkLabel, onBlue = false }: { id: string; title: string; description?: string; href?: string; linkLabel?: string; onBlue?: boolean }) {
   return (
-    <div className="flex items-end justify-between gap-4">
-      <div className="min-w-0">
+    <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-1">
+      <div className="min-w-0 flex-1 basis-60">
         <h2 id={id} className="text-xl font-bold sm:text-2xl">{title}</h2>
         <span aria-hidden="true" className={`mt-2 block h-[3px] w-10 rounded ${onBlue ? "bg-white/80" : "bg-[var(--public-care-mint)]"}`} />
         {description ? <p className={`mt-2 text-base ${onBlue ? "text-white/90" : "text-[var(--public-muted)]"}`}>{description}</p> : null}
@@ -149,23 +150,49 @@ export function DepartmentsSection({ departments, config, loading }: { departmen
         {loading ? (
           <Skeleton count={4} />
         ) : (
-          <ul className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <ul className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 lg:grid-cols-4">
             {departments.map((item) => {
-              const keywords = (item.symptomKeywords || []).slice(0, 2);
+              const keywords = (item.symptomKeywords || []).filter(Boolean).slice(0, 3);
               return (
                 <li key={item.id}>
-                  <Link href={item.slug ? `/chuyen-khoa/${item.slug}` : "/chuyen-khoa"} className="group flex h-full flex-col overflow-hidden rounded-xl border border-[var(--public-border)] bg-[var(--public-surface)] hover:border-[var(--public-primary)]">
-                    <Thumb src={item.image} alt={item.name} ratio="aspect-[4/3]" fallback={<Stethoscope className="h-9 w-9" />} />
-                    <span className="block p-3">
-                      <h3 className="font-semibold text-[var(--public-ink)] group-hover:text-[var(--public-primary)]">{item.name}</h3>
-                      {keywords.length ? <span className="mt-0.5 block text-sm text-[var(--public-muted)]">{keywords.join(" · ")}</span> : null}
-                    </span>
+                  <Link
+                    href={item.slug ? `/chuyen-khoa/${item.slug}` : "/chuyen-khoa"}
+                    className="group flex h-full flex-col overflow-hidden rounded-2xl border border-[var(--public-border)] bg-[var(--public-surface)] transition hover:-translate-y-0.5 hover:border-[var(--public-primary)] hover:shadow-md motion-reduce:transition-none motion-reduce:hover:translate-y-0"
+                  >
+                    <div className="aspect-[4/3] overflow-hidden bg-[var(--public-primary-soft)]">
+                      {item.image ? (
+                        <img src={item.image} alt="" width={640} height={480} loading="lazy" decoding="async" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105 motion-reduce:transition-none motion-reduce:group-hover:scale-100" />
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center text-[var(--public-primary-dark)]" aria-hidden="true">
+                          <Stethoscope className="h-10 w-10" />
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex flex-1 flex-col p-3.5 sm:p-4">
+                      <h3 className="text-base font-semibold text-[var(--public-ink)] group-hover:text-[var(--public-primary)]">{item.name}</h3>
+                      {keywords.length ? (
+                        <div className="mt-2">
+                          <p className="text-xs text-[var(--public-muted)]">Dấu hiệu thường gặp</p>
+                          <ul className="mt-1.5 flex flex-wrap gap-1.5">
+                            {keywords.map((keyword) => (
+                              <li key={keyword} className="rounded-full bg-[var(--public-primary-soft)] px-2.5 py-0.5 text-xs text-[var(--public-primary-dark)]">{keyword}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      ) : null}
+                      <span className="mt-auto inline-flex items-center gap-1 pt-3 text-sm font-medium text-[var(--public-primary)]">
+                        Xem chi tiết
+                        <span className="sr-only"> chuyên khoa {item.name}</span>
+                        <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5 motion-reduce:transition-none" aria-hidden="true" />
+                      </span>
+                    </div>
                   </Link>
                 </li>
               );
             })}
           </ul>
         )}
+        {!loading ? <AskKunBanner /> : null}
       </div>
     </Band>
   );
