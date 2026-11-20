@@ -1,26 +1,15 @@
 /* eslint-disable @next/next/no-img-element */
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { ArrowRight, CalendarCheck, Check, ChevronRight, Clock, MapPin, PackageCheck, Phone, ReceiptText, ShieldCheck, Star, Stethoscope, UserRoundCheck, UserRoundSearch } from "lucide-react";
+import { Check, ChevronRight, Clock, MapPin, PackageCheck, Phone, ReceiptText, ShieldCheck, Star, Stethoscope, UserRoundCheck } from "lucide-react";
 import type { PublicHomeData } from "@/components/public/public-home-types";
+import { safeHref } from "@/lib/safe-href";
 import { doctorDisplayName, doctorInitial } from "@/lib/doctor";
 import { formatCurrency, formatShortDate } from "@/lib/format";
 import { getPublicDoctorPath } from "@/lib/public-routes";
 import type { Banner, DoctorProfile, HomePageConfigValue, HomePageSectionConfig, MedicalPackage, PublicFAQ, SiteSettingsValue } from "@/lib/types";
 
 const formatTime = (value: string) => value.slice(0, 5);
-
-// Chỉ cho liên kết trong site hoặc https; còn lại dùng giá trị dự phòng.
-export const safeHref = (value: string | null | undefined, fallback = "/") => {
-  const href = value?.trim();
-  if (!href) return fallback;
-  if (href.startsWith("/") && !href.startsWith("//")) return href;
-  try {
-    return new URL(href).protocol === "https:" ? href : fallback;
-  } catch {
-    return fallback;
-  }
-};
 
 // Thông báo chỉ hiện khi đang bật, có nội dung và đang trong khoảng ngày cấu hình (nếu có).
 export function isAnnouncementActive(announcement: HomePageConfigValue["announcement"] | undefined, now = Date.now()) {
@@ -42,95 +31,6 @@ export function Notice({ announcement }: { announcement?: HomePageConfigValue["a
         ) : null}
       </p>
     </div>
-  );
-}
-
-const FIELD = "ui-field mt-1 min-h-12 w-full px-3 text-base";
-
-// Dải hero xanh toàn chiều rộng: lời chào, thẻ tìm giờ trống dẫn thẳng vào đặt lịch.
-export function Hero({ departments }: { departments: PublicHomeData["departments"] }) {
-  return (
-    <section aria-labelledby="home-title" className="bg-[var(--public-primary)] text-white">
-      <div className="ui-container grid grid-cols-[minmax(0,1fr)] items-center gap-8 pb-16 pt-8 sm:pt-12 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,24rem)] lg:gap-14 lg:pb-20 lg:pt-14">
-        <div>
-          <h1 id="home-title" className="text-[1.75rem] font-bold leading-tight text-white sm:text-4xl lg:text-[2.6rem] lg:leading-[1.15]">
-            Đặt lịch khám bệnh trực tuyến, biết giờ trống và chi phí trước khi đến
-          </h1>
-          <p className="mt-3 max-w-xl text-base leading-7 text-white/90 sm:text-lg">
-            Chọn bác sĩ và giờ khám còn trống, xác nhận bằng mã OTP. Quý khách không cần tạo tài khoản.
-          </p>
-          <div className="mt-6 flex flex-col gap-3 sm:flex-row">
-            <Link href="/dat-lich" className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-[var(--public-surface)] px-6 text-base font-semibold text-[var(--public-primary-dark)] hover:bg-[var(--public-primary-soft)]">
-              <CalendarCheck className="h-5 w-5" aria-hidden="true" />
-              Đặt lịch khám
-            </Link>
-            <Link href="/bac-si" className="inline-flex min-h-12 items-center justify-center rounded-full border border-white/80 px-6 text-base font-semibold text-white hover:bg-white/10">
-              Tìm bác sĩ
-            </Link>
-          </div>
-        </div>
-
-        <form action="/dat-lich" method="get" className="rounded-2xl bg-[var(--public-surface)] p-5 text-[var(--public-ink)]">
-          <h2 className="text-lg font-bold">Tìm giờ khám trống</h2>
-          <label htmlFor="home-department" className="mt-3 block text-sm font-semibold">Chuyên khoa</label>
-          <select id="home-department" name="departmentId" defaultValue="" className={FIELD}>
-            <option value="">Tất cả chuyên khoa</option>
-            {departments.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
-          </select>
-          <button type="submit" className="public-button-primary mt-4 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-lg px-6 text-base font-semibold">
-            Tìm giờ trống
-            <ArrowRight className="h-4 w-4" aria-hidden="true" />
-          </button>
-          <p className="mt-3 text-sm text-[var(--public-muted)]">
-            Đã có lịch hẹn? <Link href="/tai-khoan/lich-hen" className="font-semibold text-[var(--public-primary)] underline underline-offset-4">Xem lịch của tôi</Link>
-          </p>
-        </form>
-      </div>
-    </section>
-  );
-}
-
-// Ba lối tắt nổi đè lên mép dải hero.
-export function QuickActions({ settings }: { settings: SiteSettingsValue | null }) {
-  const hotline = settings?.hotline?.trim();
-  const items = [
-    { icon: Phone, title: "Gọi đường dây nóng", text: hotline || "Hỗ trợ đặt lịch", href: hotline ? `tel:${hotline}` : "/ho-tro" },
-    { icon: CalendarCheck, title: "Đặt lịch hẹn", text: "Chọn giờ trong 14 ngày tới", href: "/dat-lich" },
-    { icon: UserRoundSearch, title: "Tìm bác sĩ", text: "Theo tên hoặc chuyên khoa", href: "/bac-si" },
-  ];
-  return (
-    <section aria-label="Lối tắt" className="ui-container relative z-10 -mt-9 sm:-mt-10">
-      <ul className="grid gap-3 sm:grid-cols-3">
-        {items.map(({ icon: Icon, title, text, href }) => (
-          <li key={title}>
-            <Link href={href} className="flex min-h-[4.5rem] items-center gap-3 rounded-xl border border-[var(--public-border)] bg-[var(--public-surface)] px-4 py-3 hover:border-[var(--public-primary)]">
-              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[var(--public-primary-soft)] text-[var(--public-primary-dark)]">
-                <Icon className="h-5 w-5" aria-hidden="true" />
-              </span>
-              <span className="min-w-0">
-                <span className="block font-semibold text-[var(--public-ink)]">{title}</span>
-                <span className="block truncate text-sm tabular-nums text-[var(--public-muted)]">{text}</span>
-              </span>
-            </Link>
-          </li>
-        ))}
-      </ul>
-    </section>
-  );
-}
-
-// Ảnh quảng bá do quản trị cấu hình (nếu có), nằm ngay dưới lối tắt.
-export function PromoBanner({ banner }: { banner?: Banner }) {
-  if (!banner) return null;
-  return (
-    <section aria-label={banner.title} className="ui-container pt-8">
-      <Link href={safeHref(banner.linkUrl)} className="block overflow-hidden rounded-2xl border border-[var(--public-border)]">
-        <picture>
-          {banner.mobileImage ? <source media="(max-width: 639px)" srcSet={banner.mobileImage} /> : null}
-          <img src={banner.image} alt={banner.title} width={1200} height={420} className="aspect-[16/7] w-full object-cover sm:aspect-[21/7]" loading="lazy" decoding="async" />
-        </picture>
-      </Link>
-    </section>
   );
 }
 

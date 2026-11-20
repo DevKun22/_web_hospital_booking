@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useId, useRef, useState } from "react";
 import { HighlightText } from "@/components/public/search-highlight";
 import {
@@ -31,9 +32,13 @@ const typeMeta: Record<PublicSearchItem["type"], { label: string; icon: LucideIc
 
 export function PublicGlobalSearch({
   compact = false,
+  large = false,
 }: {
   compact?: boolean;
+  /** Ô lớn cho đầu trang chủ: cao hơn, nền trắng nổi trên nền hero, Enter mở trang kết quả. */
+  large?: boolean;
 }) {
+  const router = useRouter();
   const [keyword, setKeyword] = useState("");
   const [open, setOpen] = useState(false);
   const debouncedKeyword = useDebouncedValue(keyword, 220);
@@ -82,7 +87,7 @@ export function PublicGlobalSearch({
 
   const searchInput = () => (
     <div className="relative">
-      <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--public-primary)]" aria-hidden="true" />
+      <Search className={`pointer-events-none absolute top-1/2 -translate-y-1/2 text-[var(--public-primary)] ${large ? "left-4 h-5 w-5" : "left-4 h-4 w-4"}`} aria-hidden="true" />
       <input
         ref={inputRef}
         id={inputId}
@@ -92,11 +97,23 @@ export function PublicGlobalSearch({
           setOpen(true);
         }}
         onFocus={() => setOpen(true)}
-        placeholder="Nhập tên bác sĩ, chuyên khoa hoặc gói khám..."
+        onKeyDown={(event) => {
+          // Ô lớn không có nút gửi riêng: Enter mở trang kết quả đầy đủ.
+          if (large && event.key === "Enter" && keyword.trim().length >= 2) {
+            event.preventDefault();
+            router.push(`/tim-kiem?q=${encodeURIComponent(keyword.trim())}`);
+            closeSearch();
+          }
+        }}
+        placeholder={large ? "Tìm bác sĩ, khoa, gói khám" : "Nhập tên bác sĩ, chuyên khoa hoặc gói khám..."}
         autoComplete="off"
         enterKeyHint="search"
         role="searchbox"
-        className="h-11 w-full rounded-xl border border-[var(--public-border)] bg-[var(--public-surface-muted)] pl-10 pr-11 text-sm text-[var(--public-ink)] outline-none transition placeholder:text-[var(--public-muted)] focus:border-[var(--public-primary)] focus:bg-white focus:ring-4 focus:ring-[var(--public-primary-soft)]"
+        className={
+          large
+            ? "h-14 w-full rounded-xl border border-transparent bg-white pl-12 pr-12 text-base text-slate-900 shadow-lg outline-none transition placeholder:text-slate-500 focus:ring-4 focus:ring-white/40"
+            : "h-11 w-full rounded-xl border border-[var(--public-border)] bg-[var(--public-surface-muted)] pl-10 pr-11 text-sm text-[var(--public-ink)] outline-none transition placeholder:text-[var(--public-muted)] focus:border-[var(--public-primary)] focus:bg-white focus:ring-4 focus:ring-[var(--public-primary-soft)]"
+        }
       />
       {keyword ? (
         <button
@@ -208,7 +225,7 @@ export function PublicGlobalSearch({
   return (
     <div
       ref={wrapperRef}
-      className={`relative ${compact ? "w-full" : "w-[280px] xl:w-[340px]"}`}
+      className={`relative ${compact || large ? "w-full" : "w-[280px] xl:w-[340px]"}`}
     >
       <label className="sr-only" htmlFor={inputId}>
         Tìm kiếm trên website

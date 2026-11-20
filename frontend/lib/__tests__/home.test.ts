@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { isAnnouncementActive, safeHref } from "@/features/home/home-sections";
+import { isAnnouncementActive } from "@/features/home/home-sections";
+import { safeHref } from "@/lib/safe-href";
 import type { HomePageConfigValue } from "@/lib/types";
 
 const announcement = (overrides: Partial<HomePageConfigValue["announcement"]> = {}): HomePageConfigValue["announcement"] => ({
