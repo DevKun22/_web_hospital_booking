@@ -1,6 +1,6 @@
 "use client";
 
-import { CalendarCheck, CalendarSearch, ClipboardList, ShieldCheck, Stethoscope } from "lucide-react";
+import { CalendarSearch, ClipboardList, ShieldCheck, Stethoscope } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import type { CSSProperties } from "react";
@@ -93,17 +93,6 @@ export function HomeProcess({ title = "Đặt lịch trong 4 bước" }: { title
             );
           })}
         </ol>
-
-        <div className="mt-8 flex flex-wrap items-center gap-3">
-          <Link href="/dat-lich" className="public-button-primary inline-flex min-h-12 items-center gap-2 rounded-lg px-6 text-base font-semibold">
-            <CalendarCheck className="h-5 w-5" aria-hidden="true" />
-            Đặt lịch khám
-          </Link>
-          <Link href="/tai-khoan/dang-nhap?next=/tai-khoan/lich-hen" className="public-button-secondary inline-flex min-h-12 items-center gap-2 rounded-lg px-6 text-base font-semibold">
-            <CalendarSearch className="h-5 w-5" aria-hidden="true" />
-            Tra cứu lịch hẹn
-          </Link>
-        </div>
       </div>
     </section>
   );
