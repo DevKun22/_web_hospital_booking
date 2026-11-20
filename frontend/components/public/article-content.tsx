@@ -27,7 +27,8 @@ function Inline({ nodes }: { nodes: InlineNode[] }) {
 
 export function ArticleContent({ blocks }: { blocks: Block[] }) {
   return (
-    <div className="space-y-4 text-base leading-8 text-[var(--public-text-soft)]">
+    // Thân bài là nội dung đọc dài nên dùng chữ có chân; tiêu đề mục giữ chữ giao diện (font-sans) để phân tầng rõ.
+    <div className="space-y-4 font-[family-name:var(--app-font-serif)] text-[1.0625rem] leading-8 text-[var(--public-text-soft)]">
       {blocks.map((block, index) => {
         if (block.type === "heading") {
           const Tag = block.level === 2 ? "h2" : "h3";
@@ -35,7 +36,7 @@ export function ArticleContent({ blocks }: { blocks: Block[] }) {
             <Tag
               key={index}
               id={block.id}
-              className={`scroll-mt-24 font-bold text-[var(--public-ink)] ${block.level === 2 ? "mt-8 border-t border-[var(--public-divider)] pt-6 text-xl" : "mt-5 text-lg"}`}
+              className={`scroll-mt-24 font-[family-name:var(--app-font-sans)] font-semibold text-[var(--public-ink)] ${block.level === 2 ? "mt-8 border-t border-[var(--public-divider)] pt-6 text-xl" : "mt-5 text-lg"}`}
             >
               <Inline nodes={block.children} />
             </Tag>

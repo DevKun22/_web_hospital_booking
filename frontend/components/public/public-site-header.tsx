@@ -3,18 +3,22 @@
 import {
   CalendarCheck,
   Clock3,
+  MapPin,
   Menu,
-  MessageCircleQuestion,
+  Moon,
   Phone,
+  Search,
+  Sun,
   UserRound,
   X,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { PublicGlobalSearch } from "@/components/public/public-global-search";
+import { PublicNavMenu } from "@/components/public/public-nav-menu";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import type { PatientUser } from "@/lib/patient-portal-types";
 import {
@@ -22,12 +26,16 @@ import {
   patientSessionQueryKey,
 } from "@/lib/patient-session-client";
 import { openPublicChatbot } from "@/lib/public-ui-events";
+import { useTheme } from "@/lib/theme";
 import type { SiteSettingsValue } from "@/lib/types";
 
 import Image from "next/image";
 import { BrandLogo } from "@/components/branding/brand-logo";
 import { BRAND_NAME } from "@/lib/brand";
-const navItems = [
+
+const LOOKUP_HREF = "/tai-khoan/dang-nhap?next=/tai-khoan/lich-hen";
+
+const mobileNavItems = [
   { href: "/chuyen-khoa", label: "Chuyên khoa", aliases: [] },
   { href: "/bac-si", label: "Bác sĩ", aliases: [] },
   { href: "/goi-kham", label: "Gói khám", aliases: [] },
@@ -69,8 +77,8 @@ function PatientIdentity({
       aria-label={label}
       title={user?.fullName || "Đăng nhập"}
       className={mobile
-        ? "flex min-h-12 items-center gap-3 rounded-xl px-4 py-2.5 text-sm font-semibold text-[var(--public-text-soft)] hover:bg-[var(--public-surface-muted)]"
-        : "inline-flex min-h-11 max-w-44 items-center gap-2 rounded-xl px-2.5 py-1.5 text-sm font-semibold text-[var(--public-text-soft)] transition hover:bg-[var(--public-surface-muted)] hover:text-[var(--public-primary)]"
+        ? "flex min-h-12 items-center gap-3 rounded-xl px-4 py-2.5 text-sm font-medium text-[var(--public-text-soft)] hover:bg-[var(--public-surface-muted)]"
+        : "inline-flex min-h-11 min-w-11 items-center justify-center gap-2 rounded-lg px-2 py-1.5 text-sm font-medium text-[var(--public-text-soft)] transition hover:bg-[var(--public-surface-muted)] hover:text-[var(--public-primary)]"
       }
     >
       {user ? (
@@ -79,7 +87,7 @@ function PatientIdentity({
             <Image src={user.avatar} alt="" fill sizes="32px" quality={70} className="object-cover" />
           </span>
         ) : (
-          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--public-primary-soft)] text-xs font-bold text-[var(--public-primary-dark)]" aria-hidden="true">
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--public-primary-soft)] text-xs font-semibold text-[var(--public-primary-dark)]" aria-hidden="true">
             {getPatientInitials(user.fullName)}
           </span>
         )
@@ -88,18 +96,39 @@ function PatientIdentity({
           <UserRound className="h-4 w-4" />
         </span>
       )}
-      <span className="min-w-0">
-        <span className="block truncate">{user ? `Chào, ${getPatientDisplayName(user.fullName)}` : "Đăng nhập"}</span>
-        {mobile ? (
+      {mobile ? (
+        <span className="min-w-0">
+          <span className="block truncate">{user ? `Chào, ${getPatientDisplayName(user.fullName)}` : "Đăng nhập"}</span>
           <span className="block truncate text-xs font-normal text-[var(--public-muted)]">
             {user ? "Xem lịch và hồ sơ của bạn" : "Quản lý lịch và hồ sơ người khám"}
           </span>
-        ) : null}
-      </span>
+        </span>
+      ) : null}
     </Link>
   );
 }
 
+/** Nút đổi giao diện sáng/tối cho thanh phụ nền xanh (nút dùng chung có nền sáng nên không hợp ở đây). */
+function TopBarThemeButton() {
+  const { theme, toggleTheme } = useTheme();
+  const dark = theme === "dark";
+  const label = dark ? "Chuyển sang giao diện sáng" : "Chuyển sang giao diện tối";
+  return (
+    <button
+      type="button"
+      onClick={toggleTheme}
+      aria-label={label}
+      aria-pressed={dark}
+      title={label}
+      className="inline-flex h-7 w-7 items-center justify-center rounded text-white/85 transition hover:bg-white/15 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-white"
+    >
+      {dark ? <Sun className="h-3.5 w-3.5" aria-hidden="true" /> : <Moon className="h-3.5 w-3.5" aria-hidden="true" />}
+    </button>
+  );
+}
+
+// Header công khai: thanh phụ (liên hệ, giờ làm việc, tiện ích) và thanh chính (logo, điều hướng có menu con, tìm kiếm, hai nút hành động).
+// Dưới 1280px chỉ còn thanh chính gọn với nút menu; menu điện thoại liệt kê đủ mục và lối vào.
 export function PublicSiteHeader({
   settings,
   accountSlot,
@@ -109,6 +138,8 @@ export function PublicSiteHeader({
 }) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const searchRef = useRef<HTMLDivElement | null>(null);
   const patientSessionQuery = useQuery({
     queryKey: patientSessionQueryKey,
     queryFn: loadOptionalPatientSession,
@@ -116,10 +147,10 @@ export function PublicSiteHeader({
     staleTime: 30_000,
     refetchOnWindowFocus: true,
   });
-  const hotline =
-    settings?.hotline?.trim() ||
-    settings?.emergencyHotline?.trim() ||
-    "1900 0000";
+  // Chỉ hiện số điện thoại khi cơ sở đã cấu hình; không dùng số giả để lấp chỗ trống.
+  const hotline = settings?.hotline?.trim() || settings?.emergencyHotline?.trim() || "";
+  const workingHours = settings?.workingHours?.trim() || "";
+  const address = settings?.address?.trim() || "";
 
   useEffect(() => {
     if (!mobileOpen) return;
@@ -139,6 +170,22 @@ export function PublicSiteHeader({
     };
   }, [mobileOpen]);
 
+  // Ô tìm kiếm mở ra thì đưa con trỏ vào ô nhập; Esc đóng lại.
+  useEffect(() => {
+    if (!searchOpen) return;
+    searchRef.current?.querySelector("input")?.focus();
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setSearchOpen(false);
+    };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [searchOpen]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setSearchOpen(false), 0);
+    return () => window.clearTimeout(timer);
+  }, [pathname]);
+
   const openConsultation = () => {
     setMobileOpen(false);
     window.setTimeout(() => openPublicChatbot(), mobileOpen ? 120 : 0);
@@ -146,133 +193,114 @@ export function PublicSiteHeader({
 
   return (
     <>
-      <div className="hidden border-b border-[var(--public-border)] bg-[var(--public-surface-muted)] text-[var(--public-text-soft)] xl:block">
+      <div className="hidden bg-[var(--dk-blue)] text-white xl:block">
         <div className="ui-container flex min-h-9 items-center justify-between gap-6 text-xs">
           <div className="flex min-w-0 items-center gap-5">
-            <span className="inline-flex items-center gap-1.5">
-              <Clock3 className="h-3.5 w-3.5 text-[var(--public-primary)]" aria-hidden="true" />
-              {settings?.workingHours || "Đặt lịch trước để được phục vụ tốt hơn"}
+            {hotline ? (
+              <a href={`tel:${hotline}`} className="inline-flex shrink-0 items-center gap-1.5 font-medium tabular-nums hover:underline">
+                <Phone className="h-3.5 w-3.5" aria-hidden="true" />
+                {hotline}
+              </a>
+            ) : null}
+            <span className="inline-flex shrink-0 items-center gap-1.5 text-white/90">
+              <Clock3 className="h-3.5 w-3.5" aria-hidden="true" />
+              {workingHours || "Đặt lịch trước để được phục vụ tốt hơn"}
             </span>
-            {settings?.address ? (
-              <span className="max-w-[32rem] truncate">{settings.address}</span>
+            {address ? (
+              <span className="inline-flex min-w-0 items-center gap-1.5 text-white/90">
+                <MapPin className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                <span className="max-w-[28rem] truncate">{address}</span>
+              </span>
             ) : null}
           </div>
-          <div className="flex shrink-0 items-center gap-4">
-            <button
-              type="button"
-              onClick={openConsultation}
-              className="inline-flex items-center gap-1.5 font-semibold transition hover:text-[var(--public-primary)]"
-            >
-              <MessageCircleQuestion className="h-3.5 w-3.5" aria-hidden="true" />
-              Tư vấn trực tuyến
-            </button>
-            <a
-              href={`tel:${hotline}`}
-              className="inline-flex items-center gap-1.5 font-semibold text-[var(--public-danger)] transition hover:underline"
-            >
-              <Phone className="h-3.5 w-3.5" aria-hidden="true" />
-              {hotline}
-            </a>
-          </div>
+          <nav aria-label="Liên kết tiện ích" className="flex shrink-0 items-center gap-1 text-white/90">
+            <Link href="/huong-dan/dat-lich" className="rounded px-2 py-1 hover:bg-white/15 hover:text-white">Hướng dẫn đặt lịch</Link>
+            <Link href="/hoi-dap" className="rounded px-2 py-1 hover:bg-white/15 hover:text-white">Hỏi đáp</Link>
+            <Link href="/ho-tro" className="rounded px-2 py-1 hover:bg-white/15 hover:text-white">Liên hệ</Link>
+            <span aria-hidden="true" className="mx-1 h-4 w-px bg-white/30" />
+            <TopBarThemeButton />
+          </nav>
         </div>
       </div>
 
       <header className="sticky top-0 z-50 border-b border-[var(--public-border)] bg-[var(--public-surface)] shadow-[0_1px_0_rgba(23,43,77,0.05)] backdrop-blur-xl">
-        <div className="ui-container grid min-h-[4.75rem] grid-cols-[minmax(0,1fr)_auto] items-center gap-3 py-2 md:grid-cols-[minmax(220px,0.72fr)_minmax(280px,1.25fr)_auto] xl:grid-cols-[minmax(220px,0.72fr)_minmax(320px,1.25fr)_auto] xl:gap-4">
-          <Link href="/" onClick={() => setMobileOpen(false)} className="group flex min-w-0 items-center" aria-label={`${BRAND_NAME} - Trang chủ`}>
+        <div className="ui-container flex min-h-[4.25rem] items-center gap-3 py-2 xl:gap-6">
+          <Link href="/" onClick={() => setMobileOpen(false)} className="group flex shrink-0 items-center" aria-label={`${BRAND_NAME} - Trang chủ`}>
             <BrandLogo variant="horizontal" size="md" className="transition group-hover:-translate-y-0.5" />
           </Link>
 
-          <div className="hidden min-w-0 md:block">
-            <PublicGlobalSearch compact />
+          <div className="hidden min-w-0 flex-1 xl:block">
+            <PublicNavMenu pathname={pathname} />
           </div>
 
-          <div className="hidden items-center gap-2 xl:flex">
-            <ThemeToggle />
+          <div className="ml-auto hidden items-center gap-1.5 xl:flex">
+            <button
+              type="button"
+              onClick={() => setSearchOpen((current) => !current)}
+              aria-label={searchOpen ? "Đóng ô tìm kiếm" : "Tìm bác sĩ, chuyên khoa, gói khám"}
+              aria-expanded={searchOpen}
+              aria-controls="public-header-search"
+              className="inline-flex h-11 w-11 items-center justify-center rounded-lg text-[var(--public-text-soft)] transition hover:bg-[var(--public-surface-muted)] hover:text-[var(--public-primary)]"
+            >
+              {searchOpen ? <X className="h-5 w-5" aria-hidden="true" /> : <Search className="h-5 w-5" aria-hidden="true" />}
+            </button>
+            {accountSlot ?? <PatientIdentity user={patientSessionQuery.data} />}
             <Link
-              href="/tai-khoan/dang-nhap?next=/tai-khoan/lich-hen"
-              className="inline-flex min-h-11 items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold text-[var(--public-text-soft)] transition hover:bg-[var(--public-surface-muted)] hover:text-[var(--public-primary)]"
+              href={LOOKUP_HREF}
+              className="public-button-secondary inline-flex min-h-11 items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold"
             >
               <CalendarCheck className="h-4 w-4" aria-hidden="true" />
-              Tra cứu lịch
+              Tra cứu lịch hẹn
             </Link>
-            {accountSlot ?? (
-              <PatientIdentity user={patientSessionQuery.data} />
-            )}
             <Link
               href="/dat-lich"
-              className="public-button-primary inline-flex min-h-11 items-center justify-center rounded-xl px-4 py-2 text-sm font-bold"
+              className="public-button-primary inline-flex min-h-11 items-center justify-center rounded-lg px-5 py-2 text-sm font-semibold"
             >
               Đặt lịch khám
             </Link>
           </div>
 
-          <button
-            type="button"
-            onClick={() => setMobileOpen((current) => !current)}
-            className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-[var(--public-border)] text-[var(--public-text-soft)] transition hover:bg-[var(--public-surface-muted)] xl:hidden"
-            aria-label={mobileOpen ? "Đóng menu" : "Mở menu"}
-            aria-expanded={mobileOpen}
-            aria-controls="public-site-mobile-navigation"
-          >
-            {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-          </button>
-        </div>
-
-        <div className="ui-container pb-3 md:hidden">
-          <PublicGlobalSearch compact />
-        </div>
-
-        <div className="hidden border-t border-[var(--public-border)] bg-[var(--public-surface)] xl:block">
-          <div className="ui-container flex min-h-11 items-center justify-between gap-4">
-            <nav aria-label="Điều hướng chính" className="flex min-w-0 items-center gap-1 overflow-x-auto">
-              <Link
-                href="/"
-                aria-current={pathname === "/" ? "page" : undefined}
-                className={`shrink-0 border-b-2 px-3 py-3 text-sm font-semibold transition-colors ${
-                  pathname === "/"
-                    ? "border-[var(--public-primary)] text-[var(--public-primary)]"
-                    : "border-transparent text-[var(--public-text-soft)] hover:text-[var(--public-primary)]"
-                }`}
-              >
-                Trang chủ
-              </Link>
-              {navItems.map((item) => {
-                const active = isActivePath(pathname, item.href) || item.aliases.some((href) => isActivePath(pathname, href));
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    aria-current={active ? "page" : undefined}
-                    className={`shrink-0 border-b-2 px-3 py-3 text-sm font-semibold transition-colors ${
-                      active
-                        ? "border-[var(--public-primary)] text-[var(--public-primary)]"
-                        : "border-transparent text-[var(--public-text-soft)] hover:text-[var(--public-primary)]"
-                    }`}
-                  >
-                    {item.label}
-                  </Link>
-                );
-              })}
-            </nav>
+          <div className="ml-auto flex items-center gap-1.5 xl:hidden">
             <button
               type="button"
-              onClick={openConsultation}
-              className="inline-flex shrink-0 items-center gap-2 rounded-lg bg-[var(--public-primary-soft)] px-3 py-2 text-sm font-bold text-[var(--public-primary-dark)] transition hover:bg-[var(--public-primary)] hover:text-white"
+              onClick={() => setSearchOpen((current) => !current)}
+              aria-label={searchOpen ? "Đóng ô tìm kiếm" : "Tìm bác sĩ, chuyên khoa, gói khám"}
+              aria-expanded={searchOpen}
+              aria-controls="public-header-search"
+              className="inline-flex h-11 w-11 items-center justify-center rounded-lg text-[var(--public-text-soft)] transition hover:bg-[var(--public-surface-muted)]"
             >
-              <MessageCircleQuestion className="h-4 w-4" aria-hidden="true" />
-              Tư vấn trực tuyến
+              {searchOpen ? <X className="h-5 w-5" aria-hidden="true" /> : <Search className="h-5 w-5" aria-hidden="true" />}
+            </button>
+            <button
+              type="button"
+              onClick={() => setMobileOpen((current) => !current)}
+              className="inline-flex h-11 w-11 items-center justify-center rounded-lg border border-[var(--public-border)] text-[var(--public-text-soft)] transition hover:bg-[var(--public-surface-muted)]"
+              aria-label={mobileOpen ? "Đóng menu" : "Mở menu"}
+              aria-expanded={mobileOpen}
+              aria-controls="public-site-mobile-navigation"
+            >
+              {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
             </button>
           </div>
         </div>
 
+        {searchOpen ? (
+          <div id="public-header-search" ref={searchRef} className="border-t border-[var(--public-border)] bg-[var(--public-surface-muted)]">
+            <div className="ui-container py-3">
+              <div className="mx-auto max-w-2xl">
+                <PublicGlobalSearch compact />
+              </div>
+            </div>
+          </div>
+        ) : null}
+
         {mobileOpen ? (
           <div
             id="public-site-mobile-navigation"
-            className="fixed inset-x-0 top-[8.25rem] z-50 min-h-[calc(100dvh-8.25rem)] max-h-[calc(100dvh-8.25rem)] overflow-y-auto border-t border-[var(--public-border)] bg-[var(--public-surface)] px-4 py-5 shadow-2xl md:top-[4.75rem] md:min-h-[calc(100dvh-4.75rem)] md:max-h-[calc(100dvh-4.75rem)] xl:hidden"
+            className="fixed inset-x-0 top-[4.25rem] z-50 max-h-[calc(100dvh-4.25rem)] min-h-[calc(100dvh-4.25rem)] overflow-y-auto border-t border-[var(--public-border)] bg-[var(--public-surface)] px-4 py-5 shadow-2xl xl:hidden"
           >
             <nav aria-label="Điều hướng trên điện thoại" className="mx-auto max-w-lg space-y-1">
-              {navItems.map((item) => {
+              {mobileNavItems.map((item) => {
                 const active = isActivePath(pathname, item.href) || item.aliases.some((href) => isActivePath(pathname, href));
                 return (
                   <Link
@@ -280,7 +308,7 @@ export function PublicSiteHeader({
                     href={item.href}
                     onClick={() => setMobileOpen(false)}
                     aria-current={active ? "page" : undefined}
-                    className={`block min-h-12 rounded-xl px-4 py-3 text-sm font-semibold ${
+                    className={`block min-h-12 rounded-xl px-4 py-3 text-sm font-medium ${
                       active
                         ? "bg-[var(--public-primary-soft)] text-[var(--public-primary-dark)]"
                         : "text-[var(--public-text-soft)] hover:bg-[var(--public-surface-muted)]"
@@ -290,10 +318,10 @@ export function PublicSiteHeader({
                   </Link>
                 );
               })}
-              <Link href="/tim-kiem" onClick={() => setMobileOpen(false)} className="block min-h-12 rounded-xl px-4 py-3 text-sm font-semibold text-[var(--public-text-soft)] hover:bg-[var(--public-surface-muted)]">
+              <Link href="/tim-kiem" onClick={() => setMobileOpen(false)} className="block min-h-12 rounded-xl px-4 py-3 text-sm font-medium text-[var(--public-text-soft)] hover:bg-[var(--public-surface-muted)]">
                 Tìm kiếm dịch vụ
               </Link>
-              <Link href="/tai-khoan/dang-nhap?next=/tai-khoan/lich-hen" onClick={() => setMobileOpen(false)} className="block min-h-12 rounded-xl px-4 py-3 text-sm font-semibold text-[var(--public-text-soft)] hover:bg-[var(--public-surface-muted)]">
+              <Link href={LOOKUP_HREF} onClick={() => setMobileOpen(false)} className="block min-h-12 rounded-xl px-4 py-3 text-sm font-medium text-[var(--public-text-soft)] hover:bg-[var(--public-surface-muted)]">
                 Tra cứu lịch hẹn
               </Link>
               <PatientIdentity
@@ -305,16 +333,18 @@ export function PublicSiteHeader({
               <button
                 type="button"
                 onClick={openConsultation}
-                className="block min-h-12 w-full rounded-xl px-4 py-3 text-left text-sm font-semibold text-[var(--public-text-soft)] hover:bg-[var(--public-surface-muted)]"
+                className="block min-h-12 w-full rounded-xl px-4 py-3 text-left text-sm font-medium text-[var(--public-text-soft)] hover:bg-[var(--public-surface-muted)]"
               >
                 Tư vấn trực tuyến
               </button>
-              <div className="grid grid-cols-2 gap-2 pt-4">
-                <a href={`tel:${hotline}`} className="public-button-secondary inline-flex min-h-12 items-center justify-center gap-2 rounded-xl px-3 text-sm font-bold">
-                  <Phone className="h-4 w-4" aria-hidden="true" />
-                  Gọi hỗ trợ
-                </a>
-                <Link href="/dat-lich" onClick={() => setMobileOpen(false)} className="public-button-primary inline-flex min-h-12 items-center justify-center rounded-xl px-3 text-sm font-bold">
+              <div className={`grid gap-2 pt-4 ${hotline ? "grid-cols-2" : "grid-cols-1"}`}>
+                {hotline ? (
+                  <a href={`tel:${hotline}`} className="public-button-secondary inline-flex min-h-12 items-center justify-center gap-2 rounded-xl px-3 text-sm font-semibold">
+                    <Phone className="h-4 w-4" aria-hidden="true" />
+                    Gọi hỗ trợ
+                  </a>
+                ) : null}
+                <Link href="/dat-lich" onClick={() => setMobileOpen(false)} className="public-button-primary inline-flex min-h-12 items-center justify-center rounded-xl px-3 text-sm font-semibold">
                   Đặt lịch
                 </Link>
               </div>

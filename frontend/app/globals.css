@@ -23,7 +23,9 @@
 }
 
 :root {
-  --app-font-sans: "Source Sans 3", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --app-font-sans: "Inter Variable", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  /* Chữ có chân chỉ dùng cho nội dung đọc dài (thân bài viết kiến thức), không dùng cho giao diện. */
+  --app-font-serif: "Source Serif 4 Variable", Georgia, "Times New Roman", serif;
   --brand-primary: #087a73;
   --brand-primary-strong: #075b58;
   --brand-primary-hover: #066963;
@@ -1427,7 +1429,7 @@ button:disabled {
   box-shadow: inset 0 0 0 3px var(--public-primary-soft);
 }
 
-/* Chữ phần công khai: Source Sans 3, thang cỡ chữ ít bậc, độ đậm tối đa 600, không co khít chữ, không viết hoa kéo giãn.
+/* Chữ phần công khai: Inter, thang cỡ chữ ít bậc, độ đậm tối đa 600, không co khít chữ, không viết hoa kéo giãn.
    Dùng biến của Tailwind nên mọi lớp text-* và font-* trong .public-site tự đổi theo, không phải sửa từng nơi. */
 .public-site {
   --text-xs: 0.8125rem;
@@ -1449,8 +1451,8 @@ button:disabled {
   --font-weight-medium: 500;
   --font-weight-semibold: 600;
   --font-weight-bold: 600;
-  --font-weight-extrabold: 700;
-  --font-weight-black: 700;
+  --font-weight-extrabold: 600;
+  --font-weight-black: 600;
   --tracking-tighter: 0;
   --tracking-tight: 0;
   --tracking-wide: 0.01em;
