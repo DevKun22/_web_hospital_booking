@@ -18,7 +18,7 @@ export function DayStrip({ today, value, onChange, count = 14, label = "Ngày kh
             aria-label={`${day.weekday} ${day.day}/${day.month}${day.isToday ? ", hôm nay" : ""}`}
             onClick={() => onChange(day.value)}
             className={`flex h-16 w-14 shrink-0 snap-start flex-col items-center justify-center rounded-lg border text-center transition-colors ${
-              selected ? "border-[var(--public-primary)] bg-[var(--public-primary)] text-white" : "border-[var(--public-border)] bg-[var(--public-surface)] text-[var(--public-ink)] hover:border-[var(--public-primary)]"
+              selected ? "border-[var(--public-primary)] bg-[var(--public-solid)] text-white" : "border-[var(--public-border)] bg-[var(--public-surface)] text-[var(--public-ink)] hover:border-[var(--public-primary)]"
             }`}
           >
             <span className={`text-xs ${selected ? "text-white" : day.isSunday ? "text-[var(--public-danger)]" : "text-[var(--public-muted)]"}`}>{day.isToday ? "Nay" : day.weekday}</span>

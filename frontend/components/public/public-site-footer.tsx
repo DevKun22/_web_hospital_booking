@@ -62,7 +62,7 @@ export function PublicSiteFooter({ settings }: { settings: SiteSettingsValue | n
   const socialLinks = Object.entries(settings?.socialLinks || {}).filter(([, value]) => Boolean(value?.trim()));
 
   return (
-    <footer className="bg-[linear-gradient(180deg,#07406f_0%,#062a4a_100%)] text-white">
+    <footer className="bg-[linear-gradient(180deg,var(--footer-from)_0%,var(--footer-to)_100%)] text-white">
       <div className="ui-container pt-10 sm:pt-12">
         <div className="flex flex-col items-start justify-between gap-4 rounded-2xl bg-white/10 p-5 sm:flex-row sm:items-center sm:p-6">
           <div>
@@ -70,7 +70,7 @@ export function PublicSiteFooter({ settings }: { settings: SiteSettingsValue | n
             <p className="mt-1 text-sm text-white/80">Chọn bác sĩ và giờ còn trống, hoặc hỏi Kun để được gợi ý chuyên khoa.</p>
           </div>
           <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
-            <Link href="/dat-lich" className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-white px-6 text-base font-semibold text-[#07549c] transition hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">
+            <Link href="/dat-lich" className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-[var(--hero-btn-bg)] px-6 text-base font-semibold text-[var(--hero-btn-fg)] transition hover:brightness-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">
               <CalendarCheck className="h-5 w-5" aria-hidden="true" />
               Đặt lịch khám
             </Link>
@@ -89,7 +89,7 @@ export function PublicSiteFooter({ settings }: { settings: SiteSettingsValue | n
             {hotline ? (
               <li>
                 <a href={`tel:${hotline}`} className="inline-flex items-center gap-2.5 transition hover:text-white">
-                  <Phone className="h-4 w-4 shrink-0 text-[#7fe0cf]" aria-hidden="true" />
+                  <Phone className="h-4 w-4 shrink-0 text-[var(--footer-accent)]" aria-hidden="true" />
                   <span className="tabular-nums">{hotline}</span>
                 </a>
               </li>
@@ -97,14 +97,14 @@ export function PublicSiteFooter({ settings }: { settings: SiteSettingsValue | n
             {settings?.email ? (
               <li>
                 <a href={`mailto:${settings.email}`} className="inline-flex items-center gap-2.5 transition hover:text-white">
-                  <Mail className="h-4 w-4 shrink-0 text-[#7fe0cf]" aria-hidden="true" />
+                  <Mail className="h-4 w-4 shrink-0 text-[var(--footer-accent)]" aria-hidden="true" />
                   <span className="break-all">{settings.email}</span>
                 </a>
               </li>
             ) : null}
             {settings?.workingHours ? (
               <li className="flex items-start gap-2.5">
-                <Clock3 className="mt-0.5 h-4 w-4 shrink-0 text-[#7fe0cf]" aria-hidden="true" />
+                <Clock3 className="mt-0.5 h-4 w-4 shrink-0 text-[var(--footer-accent)]" aria-hidden="true" />
                 <span>{settings.workingHours}</span>
               </li>
             ) : null}

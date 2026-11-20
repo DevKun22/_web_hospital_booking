@@ -129,6 +129,20 @@
   --public-danger-soft: #fbe9e9;
   --public-info: #07549c;
   --public-info-soft: #e3eef9;
+  /* Bảng màu: nền đặc (nút, nhãn, nút tròn) tách khỏi màu chữ/liên kết (--public-primary) để chữ trắng trên nền đặc luôn đạt tương phản ở cả hai chế độ. */
+  --public-solid: #0a6bc0;
+  --public-solid-hover: #0858a3;
+  --public-on-solid: #ffffff;
+  --public-tint-strong: #cfe6fb;
+  /* Hero và footer là hai dải xanh đậm cố định: màu của chúng không phụ thuộc phép đảo màu của chế độ tối. */
+  --hero-from: #07549c;
+  --hero-via: #0a6a8f;
+  --hero-to: #087f72;
+  --hero-btn-bg: #ffffff;
+  --hero-btn-fg: #07549c;
+  --footer-from: #07406f;
+  --footer-to: #062a4a;
+  --footer-accent: #7fe0cf;
   --public-shadow-soft: 0 1px 2px rgba(11, 31, 58, 0.06);
   --public-shadow-floating: 0 8px 24px rgba(11, 31, 58, 0.16);
 
@@ -178,6 +192,18 @@
   --public-danger-soft: #3c1c1f;
   --public-info: #8cc4ff;
   --public-info-soft: #11304f;
+  --public-solid: #1d70c2;
+  --public-solid-hover: #2a82d6;
+  --public-on-solid: #ffffff;
+  --public-tint-strong: #1b4a78;
+  --hero-from: #062f52;
+  --hero-via: #07536f;
+  --hero-to: #065f58;
+  --hero-btn-bg: #eaf3fb;
+  --hero-btn-fg: #062f52;
+  --footer-from: #061c30;
+  --footer-to: #04121f;
+  --footer-accent: #7fe0cf;
   --public-violet: #c4b5fd;
   --public-violet-soft: #2a2250;
   --public-shadow-soft: 0 1px 2px rgba(0, 0, 0, 0.3);
@@ -240,8 +266,7 @@
   ) !important;
 }
 
-:root[data-theme="dark"] .public-site .public-button-primary,
-:root.theme-dark .public-site .public-button-primary,
+/* Nút đặc dùng --public-solid nên không cần đảo màu chữ; quy tắc này chỉ còn cho các nơi khác vẫn dùng nền --public-primary kèm chữ trắng. */
 :root[data-theme="dark"] .public-site [class~="bg-[var(--public-primary)]"],
 :root.theme-dark .public-site [class~="bg-[var(--public-primary)]"] {
   color: #07111f;
@@ -435,17 +460,17 @@
 
 .public-button-primary {
   border: 1px solid transparent;
-  background: var(--public-primary);
-  color: white;
+  background: var(--public-solid);
+  color: var(--public-on-solid);
   transition: background-color 150ms ease;
 }
 
 .public-button-primary:hover {
-  background: var(--public-primary-hover);
+  background: var(--public-solid-hover);
 }
 
 .public-button-primary:active {
-  background: var(--public-primary-dark);
+  background: var(--public-solid-hover);
 }
 
 .public-button-secondary {

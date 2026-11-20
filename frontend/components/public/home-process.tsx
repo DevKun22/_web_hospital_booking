@@ -76,7 +76,7 @@ export function HomeProcess({ title = "Đặt lịch trong 4 bước" }: { title
                 ) : null}
                 <span
                   aria-hidden="true"
-                  className="proc-node relative z-10 flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[var(--public-primary)] text-white shadow-[0_0_0_4px_var(--public-canvas)]"
+                  className="proc-node relative z-10 flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[var(--public-solid)] text-white shadow-[0_0_0_4px_var(--public-canvas)]"
                   style={delayStyle(delay)}
                 >
                   <Icon className="h-5 w-5" />

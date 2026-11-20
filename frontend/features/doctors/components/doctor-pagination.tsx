@@ -50,7 +50,7 @@ function PageButton({
       aria-current={active ? "page" : undefined}
       className={`inline-flex h-10 min-w-10 items-center justify-center rounded-lg border px-2 text-sm font-bold transition disabled:cursor-not-allowed disabled:opacity-40 ${
         active
-          ? "border-[var(--public-primary)] bg-[var(--public-primary)] text-white"
+          ? "border-[var(--public-primary)] bg-[var(--public-solid)] text-white"
           : "border-[var(--public-border)] bg-white text-[var(--public-text-soft)] hover:border-[var(--public-primary)] hover:text-[var(--public-primary)]"
       }`}
     >

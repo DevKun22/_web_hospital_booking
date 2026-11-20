@@ -91,7 +91,7 @@ export function PublicPagination({
               aria-current={item === page ? "page" : undefined}
               className={`min-h-10 min-w-10 rounded-lg border px-3 text-sm font-semibold transition ${
                 item === page
-                  ? "border-[var(--public-primary)] bg-[var(--public-primary)] text-white"
+                  ? "border-[var(--public-primary)] bg-[var(--public-solid)] text-white"
                   : "border-[var(--public-border)] bg-white text-[var(--public-ink)] hover:border-[var(--public-primary)] hover:text-[var(--public-primary)]"
               }`}
             >

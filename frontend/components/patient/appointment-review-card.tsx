@@ -80,7 +80,7 @@ export function AppointmentReviewCard({ appointmentId }: { appointmentId: string
           <button
             type="submit"
             disabled={!isComplete || submit.isPending}
-            className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-[var(--public-primary)] px-5 text-sm font-bold text-white disabled:opacity-50"
+            className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-[var(--public-solid)] px-5 text-sm font-bold text-white disabled:opacity-50"
           >
             {submit.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
             Gửi đánh giá

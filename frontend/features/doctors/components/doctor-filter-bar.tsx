@@ -107,7 +107,7 @@ function QuickFilter({ children, active, onClick }: { children: ReactNode; activ
       aria-pressed={active}
       className={`inline-flex min-h-8 items-center rounded-full border px-3 py-1 text-xs font-semibold transition ${
         active
-          ? "border-[var(--public-primary)] bg-[var(--public-primary)] text-white"
+          ? "border-[var(--public-primary)] bg-[var(--public-solid)] text-white"
           : "border-[var(--public-border)] bg-white text-[var(--public-text-soft)] hover:border-[var(--public-primary)] hover:text-[var(--public-primary)]"
       }`}
     >

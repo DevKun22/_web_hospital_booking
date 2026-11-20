@@ -39,7 +39,7 @@ export function ScheduleStep({ flow }: { flow: BookingFlow }) {
                 onClick={() => pickDate(day.value)}
                 className={`flex h-16 w-14 shrink-0 snap-start flex-col items-center justify-center rounded-lg border text-center transition-colors ${
                   selected
-                    ? "border-[var(--public-primary)] bg-[var(--public-primary)] text-white"
+                    ? "border-[var(--public-primary)] bg-[var(--public-solid)] text-white"
                     : "border-[var(--public-border)] bg-[var(--public-surface)] text-[var(--public-ink)] hover:border-[var(--public-primary)]"
                 }`}
               >
