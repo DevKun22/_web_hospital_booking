@@ -192,18 +192,43 @@ class ChatbotAction {
 
 /// Nguồn tri thức mà câu trả lời dựa vào, để người dùng mở trang gốc kiểm tra.
 class ChatbotSourceRef {
-  const ChatbotSourceRef({required this.id, required this.title, this.url});
+  const ChatbotSourceRef({
+    required this.id,
+    required this.title,
+    this.url,
+    this.reviewedBy,
+    this.updatedAt,
+  });
 
   factory ChatbotSourceRef.fromJson(Map<String, dynamic> json) =>
       ChatbotSourceRef(
         id: json['id']?.toString() ?? '',
         title: json['title']?.toString() ?? '',
         url: jsonNullableString(json['url']),
+        reviewedBy: jsonNullableString(json['reviewedBy']),
+        updatedAt: DateTime.tryParse(json['updatedAt']?.toString() ?? ''),
       );
 
   final String id;
   final String title;
   final String? url;
+
+  /// Người duyệt nội dung và ngày cập nhật; chỉ có với nguồn là nội dung được duyệt (chuyên khoa, bác sĩ, bài viết).
+  final String? reviewedBy;
+  final DateTime? updatedAt;
+
+  /// Dòng kiểm chứng dưới nguồn, ngày tính theo giờ Việt Nam: "Duyệt bởi X · cập nhật 12/11/2026"; không có ngày thì không có dòng này.
+  String? get reviewLine {
+    final instant = updatedAt;
+    if (instant == null) return null;
+    final local = instant.toUtc().add(const Duration(hours: 7));
+    String two(int value) => value.toString().padLeft(2, '0');
+    final date = '${two(local.day)}/${two(local.month)}/${local.year}';
+    final reviewer = reviewedBy?.trim();
+    return reviewer == null || reviewer.isEmpty
+        ? 'Cập nhật $date'
+        : 'Duyệt bởi $reviewer · cập nhật $date';
+  }
 }
 
 enum ChatbotResultType { department, package, doctor, slot, unknown }

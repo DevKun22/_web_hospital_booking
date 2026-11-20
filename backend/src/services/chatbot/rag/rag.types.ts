@@ -34,4 +34,7 @@ export type ChatbotSource = {
   type: KnowledgeSourceType;
   title: string;
   url: string | null;
+  /** Người duyệt nội dung (nếu có ghi nhận) và ngày cập nhật/duyệt gần nhất (ISO), chỉ có với nguồn là nội dung được duyệt. */
+  reviewedBy?: string | null;
+  updatedAt?: string;
 };

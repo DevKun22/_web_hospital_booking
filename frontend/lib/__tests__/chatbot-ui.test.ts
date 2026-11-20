@@ -8,6 +8,7 @@ import {
   getNavigationTarget,
   getAskQuestion,
   getQuickReplies,
+  getSourceReviewLine,
   getSelectionChips,
 } from "../chatbot-ui";
 import type { ChatbotDraftSummary, ChatbotResultGroup } from "../types";
@@ -86,4 +87,13 @@ test("nút hỏi thêm mang câu hỏi đầy đủ; nút khác hoặc câu rỗ
   assert.equal(getAskQuestion({ type: "ASK_QUESTION", label: "Gói này gồm gì?", payload: { question: "  Gói Tổng Quát gồm những hạng mục nào?  " } }), "Gói Tổng Quát gồm những hạng mục nào?");
   assert.equal(getAskQuestion({ type: "ASK_QUESTION", label: "x", payload: { question: "  " } }), null);
   assert.equal(getAskQuestion({ type: "VIEW_PACKAGES", label: "Xem gói khám", payload: { question: "bỏ qua" } }), null);
+});
+
+test("dòng kiểm chứng của nguồn: có người duyệt, chỉ có ngày, hoặc không có gì; ngày tính theo giờ Việt Nam", () => {
+  assert.equal(getSourceReviewLine({ reviewedBy: "TS.BS Trần Minh", updatedAt: "2026-11-12T03:00:00.000Z" }), "Duyệt bởi TS.BS Trần Minh · cập nhật 12/11/2026");
+  assert.equal(getSourceReviewLine({ reviewedBy: null, updatedAt: "2026-11-12T03:00:00.000Z" }), "Cập nhật 12/11/2026");
+  // 20h UTC ngày 11 đã là sáng ngày 12 tại Việt Nam.
+  assert.equal(getSourceReviewLine({ updatedAt: "2026-11-11T20:00:00.000Z" }), "Cập nhật 12/11/2026");
+  assert.equal(getSourceReviewLine({}), null);
+  assert.equal(getSourceReviewLine({ updatedAt: "không phải ngày" }), null);
 });
