@@ -33,7 +33,7 @@ export function ChatMessage({ message, selectedSlotId, disabled, isLatest, onAct
   if (message.role === "user") {
     return (
       <div className="kun-enter flex justify-end">
-        <p className="max-w-[85%] rounded-xl rounded-br-sm bg-[var(--public-primary)] px-3 py-2 text-sm leading-6 text-white">{message.content}</p>
+        <p className="max-w-[85%] rounded-xl rounded-br-sm bg-[var(--public-solid)] px-3 py-2 text-sm leading-6 text-white">{message.content}</p>
       </div>
     );
   }

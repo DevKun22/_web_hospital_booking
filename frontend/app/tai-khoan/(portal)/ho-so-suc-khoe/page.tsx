@@ -33,7 +33,7 @@ export default function HealthRecordsPage() {
             role="tab"
             aria-selected={tab === item.key}
             onClick={() => setTab(item.key)}
-            className={`min-h-11 rounded-lg border px-4 text-sm font-semibold ${tab === item.key ? "border-[var(--public-primary)] bg-[var(--public-primary)] text-white" : "border-[var(--public-border)] bg-[var(--public-surface)] text-[var(--public-text-soft)]"}`}
+            className={`min-h-11 rounded-lg border px-4 text-sm font-semibold ${tab === item.key ? "border-[var(--public-primary)] bg-[var(--public-solid)] text-white" : "border-[var(--public-border)] bg-[var(--public-surface)] text-[var(--public-text-soft)]"}`}
           >
             {item.label}
           </button>

@@ -36,7 +36,7 @@ export function Notice({ announcement }: { announcement?: HomePageConfigValue["a
 }
 
 function Band({ id, tone = "plain", labelledBy, children }: { id?: string; tone?: "plain" | "tint" | "blue"; labelledBy?: string; children: ReactNode }) {
-  const toneClass = tone === "tint" ? "bg-[var(--public-canvas)]" : tone === "blue" ? "bg-[var(--public-primary)] text-white" : "bg-[var(--public-surface)]";
+  const toneClass = tone === "tint" ? "bg-[var(--public-canvas)]" : tone === "blue" ? "bg-[var(--public-solid)] text-white" : "bg-[var(--public-surface)]";
   return (
     <section id={id} aria-labelledby={labelledBy} className={`scroll-mt-24 ${toneClass}`}>
       <div className="ui-container py-9 sm:py-12">{children}</div>
@@ -88,7 +88,7 @@ function DoctorCard({ doctor }: { doctor: DoctorProfile }) {
             {doctor.user.avatar ? (
               <img src={doctor.user.avatar} alt="" width={480} height={600} loading="lazy" decoding="async" className="h-full w-full object-cover object-top transition-transform duration-500 group-hover:scale-105 motion-reduce:transition-none motion-reduce:group-hover:scale-100" />
             ) : (
-              <span className="flex h-full w-full items-center justify-center bg-[linear-gradient(160deg,var(--public-primary-soft),#9ccaff)] text-5xl font-semibold text-[var(--public-primary-dark)]">{doctorInitial(doctor.user.fullName)}</span>
+              <span className="flex h-full w-full items-center justify-center bg-[linear-gradient(160deg,var(--public-primary-soft),var(--public-tint-strong))] text-5xl font-semibold text-[var(--public-primary-dark)]">{doctorInitial(doctor.user.fullName)}</span>
             )}
           </div>
         </Link>
@@ -215,14 +215,14 @@ function PackageCard({ item, featured }: { item: MedicalPackage; featured?: bool
         {item.image ? (
           <img src={item.image} alt="" width={800} height={450} loading="lazy" decoding="async" className="h-full w-full object-cover" />
         ) : (
-          <div className="flex h-full w-full items-center justify-center bg-[linear-gradient(135deg,var(--public-primary-soft),#9ccaff)] text-[var(--public-primary-dark)]" aria-hidden="true">
+          <div className="flex h-full w-full items-center justify-center bg-[linear-gradient(135deg,var(--public-primary-soft),var(--public-tint-strong))] text-[var(--public-primary-dark)]" aria-hidden="true">
             <PackageCheck className={featured ? "h-16 w-16" : "h-12 w-12"} />
           </div>
         )}
         {item.isPopular || item.isBHYTSupport ? (
           <p className="absolute left-3 top-3 flex flex-wrap gap-1.5">
-            {item.isPopular ? <span className="rounded-full bg-[var(--public-primary)] px-3 py-1 text-xs font-medium text-white shadow">Được chọn nhiều</span> : null}
-            {item.isBHYTSupport ? <span className="rounded-full bg-white/95 px-3 py-1 text-xs font-medium text-[#1e7b34] shadow">Hỗ trợ BHYT</span> : null}
+            {item.isPopular ? <span className="rounded-full bg-[var(--public-solid)] px-3 py-1 text-xs font-medium text-white shadow">Được chọn nhiều</span> : null}
+            {item.isBHYTSupport ? <span className="rounded-full bg-[var(--public-surface)] px-3 py-1 text-xs font-medium text-[var(--public-success)] shadow">Hỗ trợ BHYT</span> : null}
           </p>
         ) : null}
       </div>

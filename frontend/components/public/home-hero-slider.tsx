@@ -80,10 +80,10 @@ export function HomeHeroSlider({ banners }: { banners: Banner[] }) {
       onMouseLeave={() => setHovering(false)}
       onFocus={() => setHovering(true)}
       onBlur={() => setHovering(false)}
-      className="group overflow-hidden rounded-2xl bg-white text-slate-900 shadow-2xl ring-1 ring-white/30"
+      className="group overflow-hidden rounded-2xl bg-[var(--public-surface)] text-[var(--public-ink)] shadow-2xl ring-1 ring-white/30"
     >
       <div
-        className={`relative aspect-[16/10] touch-pan-y select-none bg-slate-100 ${count > 1 ? (dragging ? "cursor-grabbing" : "cursor-grab") : ""}`}
+        className={`relative aspect-[16/10] touch-pan-y select-none bg-[var(--public-surface-muted)] ${count > 1 ? (dragging ? "cursor-grabbing" : "cursor-grab") : ""}`}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={endDrag}
@@ -141,7 +141,7 @@ export function HomeHeroSlider({ banners }: { banners: Banner[] }) {
               type="button"
               onClick={() => go(index - 1)}
               aria-label="Slide trước"
-              className="absolute left-3 top-1/2 z-[2] inline-flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-slate-800 opacity-0 shadow-md transition hover:bg-white focus-visible:opacity-100 group-hover:opacity-100 max-md:opacity-100"
+              className="absolute left-3 top-1/2 z-[2] inline-flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-[var(--public-surface)] text-[var(--public-ink)] opacity-0 shadow-md transition hover:bg-[var(--public-surface-muted)] focus-visible:opacity-100 group-hover:opacity-100 max-md:opacity-100"
             >
               <ChevronLeft className="h-5 w-5" aria-hidden="true" />
             </button>
@@ -149,7 +149,7 @@ export function HomeHeroSlider({ banners }: { banners: Banner[] }) {
               type="button"
               onClick={() => go(index + 1)}
               aria-label="Slide kế tiếp"
-              className="absolute right-3 top-1/2 z-[2] inline-flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-slate-800 opacity-0 shadow-md transition hover:bg-white focus-visible:opacity-100 group-hover:opacity-100 max-md:opacity-100"
+              className="absolute right-3 top-1/2 z-[2] inline-flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-[var(--public-surface)] text-[var(--public-ink)] opacity-0 shadow-md transition hover:bg-[var(--public-surface-muted)] focus-visible:opacity-100 group-hover:opacity-100 max-md:opacity-100"
             >
               <ChevronRight className="h-5 w-5" aria-hidden="true" />
             </button>
@@ -160,10 +160,10 @@ export function HomeHeroSlider({ banners }: { banners: Banner[] }) {
       <div className="px-4 pb-3 pt-4 sm:px-5">
         <div aria-live={paused ? "polite" : "off"} className="min-h-[4.25rem]">
           <p className="text-base font-semibold leading-snug">{current.title}</p>
-          {current.subtitle ? <p className="mt-1 line-clamp-2 text-sm leading-6 text-slate-600">{current.subtitle}</p> : null}
+          {current.subtitle ? <p className="mt-1 line-clamp-2 text-sm leading-6 text-[var(--public-muted)]">{current.subtitle}</p> : null}
         </div>
         {href ? (
-          <Link href={href} className="mt-1 inline-flex min-h-10 items-center gap-1 text-sm font-semibold text-[#07549c] underline-offset-4 hover:underline">
+          <Link href={href} className="mt-1 inline-flex min-h-10 items-center gap-1 text-sm font-semibold text-[var(--public-primary)] underline-offset-4 hover:underline">
             Xem chi tiết
             <ChevronRight className="h-4 w-4" aria-hidden="true" />
           </Link>
@@ -179,7 +179,7 @@ export function HomeHeroSlider({ banners }: { banners: Banner[] }) {
                   aria-current={dotIndex === index}
                   className="inline-flex h-7 w-7 items-center justify-center"
                 >
-                  <span className={`block h-2 rounded-full transition-all ${dotIndex === index ? "w-6 bg-[#07549c]" : "w-2 bg-slate-300"}`} />
+                  <span className={`block h-2 rounded-full transition-all ${dotIndex === index ? "w-6 bg-[var(--public-solid)]" : "w-2 bg-[var(--public-border)]"}`} />
                 </button>
               </li>
             ))}

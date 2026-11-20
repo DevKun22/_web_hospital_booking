@@ -50,7 +50,7 @@ export function ServiceStep({ flow, loading }: { flow: BookingFlow; loading: boo
                   aria-pressed={active}
                   onClick={() => change({ serviceMode: value, packageId: "" })}
                   className={`min-h-11 rounded-md px-3 text-sm font-semibold transition-colors ${
-                    active ? "bg-[var(--public-primary)] text-white" : "text-[var(--public-text-soft)] hover:bg-[var(--public-surface-muted)]"
+                    active ? "bg-[var(--public-solid)] text-white" : "text-[var(--public-text-soft)] hover:bg-[var(--public-surface-muted)]"
                   }`}
                 >
                   {label}

@@ -42,7 +42,7 @@ export function ChatProgress({
                 type="button"
                 disabled={disabled}
                 onClick={() => onClear(chip.field, chip.label)}
-                className="inline-flex max-w-[14rem] items-center gap-1 rounded-full bg-[var(--public-primary-soft)] py-0.5 pl-2.5 pr-1.5 text-[11px] font-medium text-[var(--public-primary-dark)] transition hover:bg-[var(--public-primary)] hover:text-white disabled:opacity-60"
+                className="inline-flex max-w-[14rem] items-center gap-1 rounded-full bg-[var(--public-primary-soft)] py-0.5 pl-2.5 pr-1.5 text-[11px] font-medium text-[var(--public-primary-dark)] transition hover:bg-[var(--public-solid)] hover:text-white disabled:opacity-60"
                 aria-label={`Bỏ lựa chọn ${chip.label}`}
               >
                 <span className="truncate">{chip.label}</span>

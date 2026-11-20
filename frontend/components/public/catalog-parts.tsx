@@ -30,7 +30,7 @@ export function FilterChip({ selected, onClick, children }: { selected: boolean;
       aria-pressed={selected}
       onClick={onClick}
       className={`min-h-10 rounded-lg border px-3 text-sm font-semibold transition-colors ${
-        selected ? "border-[var(--public-primary)] bg-[var(--public-primary)] text-white" : "border-[var(--public-border)] bg-[var(--public-surface)] text-[var(--public-text-soft)] hover:border-[var(--public-primary)]"
+        selected ? "border-[var(--public-primary)] bg-[var(--public-solid)] text-white" : "border-[var(--public-border)] bg-[var(--public-surface)] text-[var(--public-text-soft)] hover:border-[var(--public-primary)]"
       }`}
     >
       {children}
