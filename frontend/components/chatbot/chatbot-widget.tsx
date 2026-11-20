@@ -40,8 +40,18 @@ export function ChatbotWidget() {
     if (start) chat.pick(start);
   };
 
+  // Sự kiện mở có thể kèm yêu cầu cần gửi ngay; dùng bản `pick` mới nhất qua ref để không phải nghe lại sự kiện mỗi lần render.
+  const pickRef = useRef(chat.pick);
   useEffect(() => {
-    const openChat = () => setOpen(true);
+    pickRef.current = chat.pick;
+  }, [chat.pick]);
+
+  useEffect(() => {
+    const openChat = (event: Event) => {
+      setOpen(true);
+      const start = (event as CustomEvent<ChatbotSuggestedAction | undefined>).detail;
+      if (start) pickRef.current(start);
+    };
     window.addEventListener(PUBLIC_CHATBOT_OPEN_EVENT, openChat);
     window.addEventListener(PUBLIC_CHATBOT_CLOSE_EVENT, close);
     return () => {

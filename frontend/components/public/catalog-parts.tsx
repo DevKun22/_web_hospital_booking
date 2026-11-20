@@ -69,7 +69,7 @@ export function ChatbotHint({ children }: { children: ReactNode }) {
   return (
     <p className="mt-8 text-sm text-[var(--public-muted)]">
       {children}{" "}
-      <button type="button" onClick={openPublicChatbot} className="font-semibold text-[var(--public-primary)] underline underline-offset-4">
+      <button type="button" onClick={() => openPublicChatbot()} className="font-semibold text-[var(--public-primary)] underline underline-offset-4">
         Hỏi trợ lý
       </button>
     </p>

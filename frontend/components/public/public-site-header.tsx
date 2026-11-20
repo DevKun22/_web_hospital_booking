@@ -141,7 +141,7 @@ export function PublicSiteHeader({
 
   const openConsultation = () => {
     setMobileOpen(false);
-    window.setTimeout(openPublicChatbot, mobileOpen ? 120 : 0);
+    window.setTimeout(() => openPublicChatbot(), mobileOpen ? 120 : 0);
   };
 
   return (

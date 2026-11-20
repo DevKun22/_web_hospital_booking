@@ -205,3 +205,47 @@ test("nguồn là nội dung được duyệt kèm người duyệt và ngày c�
   assert.equal(faq.body.data.sources[0].type, "FAQ");
   assert.equal(faq.body.data.sources[0].updatedAt, undefined);
 });
+
+test("tóm tắt bài viết: dùng đúng bài đã xuất bản, kèm nguồn có người duyệt; bài nháp hoặc sai mã thì không tóm tắt", async () => {
+  const reviewedAt = new Date("2026-11-10T02:00:00.000Z");
+  await prisma.article.create({
+    data: {
+      slug: "tang-huyet-ap",
+      title: "Tăng huyết áp: những điều cần biết",
+      summary: "Hiểu đúng về huyết áp cao và khi nào cần đi khám.",
+      content: "## Tăng huyết áp là gì\n\nÁp lực máu lên thành động mạch cao hơn bình thường, thường kéo dài nhiều năm.\n\n## Khi nào cần đi khám\n\nĐo tại nhà thường xuyên từ 140/90 trở lên.",
+      status: "PUBLISHED",
+      publishedAt: reviewedAt,
+      reviewerName: "TS.BS Trần Minh",
+      reviewedAt,
+      departmentId: fixture.department.id,
+    },
+  });
+  await prisma.article.create({
+    data: { slug: "bai-nhap", title: "Bài nháp", content: "Nội dung chưa xuất bản, không được tóm tắt.", status: "DRAFT" },
+  });
+
+  const summary = await ask("Tóm tắt bài viết này", { action: { type: "SUMMARIZE_ARTICLE", label: "Tóm tắt bài viết này", payload: { articleSlug: "tang-huyet-ap" } } });
+  assert.equal(summary.status, 200);
+  assert.equal(summary.body.data.source, "SYSTEM");
+  assert.match(summary.body.data.reply, /Tăng huyết áp: những điều cần biết/);
+  assert.match(summary.body.data.reply, /Hiểu đúng về huyết áp cao/);
+  assert.match(summary.body.data.reply, /Bài gồm các mục: Tăng huyết áp là gì, Khi nào cần đi khám/);
+  assert.match(summary.body.data.reply, /không thay thế tư vấn của bác sĩ/);
+  const source = summary.body.data.sources[0];
+  assert.equal(source.type, "ARTICLE");
+  assert.equal(source.url, "/kien-thuc/tang-huyet-ap");
+  assert.equal(source.reviewedBy, "TS.BS Trần Minh");
+  assert.equal(source.updatedAt, reviewedAt.toISOString());
+  // Gợi ý tiếp theo gắn với chuyên khoa của bài và nhớ chủ đề để hiểu "khoa này".
+  const types = (summary.body.data.suggestedActions as { type: string }[]).map((action) => action.type);
+  assert.ok(types.includes("VIEW_DEPARTMENT") && types.includes("START_BOOKING"));
+  assert.equal(summary.body.data.draft.focus.type, "department");
+
+  for (const articleSlug of ["bai-nhap", "khong-co-bai-nay", ""]) {
+    const missing = await ask("Tóm tắt bài viết này", { action: { type: "SUMMARIZE_ARTICLE", label: "Tóm tắt bài viết này", payload: { articleSlug } } });
+    assert.equal(missing.status, 200);
+    assert.equal(missing.body.data.sources, undefined);
+    assert.doesNotMatch(missing.body.data.reply, /không được tóm tắt/);
+  }
+});

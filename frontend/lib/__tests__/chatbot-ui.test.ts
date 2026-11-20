@@ -3,6 +3,8 @@ import test from "node:test";
 
 import {
   buildBookingHref,
+  buildSummarizeArticleAction,
+  getLoadingText,
   getBookingProgress,
   getKunTeaser,
   getNavigationTarget,
@@ -96,4 +98,11 @@ test("dòng kiểm chứng của nguồn: có người duyệt, chỉ có ngày,
   assert.equal(getSourceReviewLine({ updatedAt: "2026-11-11T20:00:00.000Z" }), "Cập nhật 12/11/2026");
   assert.equal(getSourceReviewLine({}), null);
   assert.equal(getSourceReviewLine({ updatedAt: "không phải ngày" }), null);
+});
+
+test("nút tóm tắt bài viết mang mã bài và có lời nhắn chờ riêng", () => {
+  const action = buildSummarizeArticleAction("tang-huyet-ap");
+  assert.equal(action.type, "SUMMARIZE_ARTICLE");
+  assert.deepEqual(action.payload, { articleSlug: "tang-huyet-ap" });
+  assert.match(getLoadingText(action), /tóm tắt bài viết/);
 });

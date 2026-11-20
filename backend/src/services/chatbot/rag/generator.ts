@@ -129,3 +129,46 @@ export const composeTriageReply = async (input: {
     return input.fallbackReply;
   }
 };
+
+// ---- Tóm tắt một bài viết ----
+
+const MAX_ARTICLE_CHARS = 6000;
+const MAX_SUMMARY_CHARS = 800;
+
+const summarySchema = z.object({ summary: z.string().trim().min(40).max(MAX_SUMMARY_CHARS) });
+
+const summarySystemPrompt = `
+Bạn là Kun, trợ lý ảo thân thiện của cơ sở khám DevKunCare. Xưng "mình", gọi người dùng là "bạn". Tóm tắt bài viết trong ARTICLE bằng tiếng Việt cho người không chuyên.
+
+Quy tắc bắt buộc:
+- Chỉ dùng nội dung trong ARTICLE. Không thêm kiến thức ngoài, không thêm con số, liều thuốc, tên thuốc hay lời khuyên điều trị không có trong bài.
+- Viết 3 đến 5 ý ngắn, mỗi ý một dòng bắt đầu bằng "• ". Không dùng Markdown khác, không tiêu đề.
+- Giữ đúng ý chính của bài, nhắc dấu hiệu cần đi khám nếu bài có nói.
+- Chỉ trả JSON hợp lệ: {"summary":"..."}.
+`;
+
+/** Mọi con số (từ 2 chữ số) trong bản tóm tắt phải có trong bài: chặn việc AI tự thêm số liệu. */
+export const numbersAreFromArticle = (summary: string, article: string) =>
+  (summary.match(/\d{2,}/g) ?? []).every((value) => article.includes(value));
+
+/** Tóm tắt bài viết bằng AI; null nếu kết quả không đúng định dạng hoặc có số liệu không có trong bài. Ném lỗi nếu không gọi được AI. */
+export const summarizeArticleText = async (input: {
+  title: string;
+  content: string;
+  model?: string;
+  generate?: Generate;
+}): Promise<string | null> => {
+  const generate = input.generate ?? ((request) => geminiAdapter.generateReply(request));
+  const text = await generate({
+    systemPrompt: summarySystemPrompt,
+    userPrompt: `ARTICLE_TITLE: ${JSON.stringify(input.title)}\nARTICLE:\n${input.content.slice(0, MAX_ARTICLE_CHARS)}`,
+    model: input.model,
+  });
+  try {
+    const { summary } = summarySchema.parse(parseJson(text));
+    return numbersAreFromArticle(summary, `${input.title}\n${input.content}`) ? summary : null;
+  } catch (error) {
+    logger.warn("[CHATBOT_RAG] Bản tóm tắt bài viết của AI không dùng được, dùng đường lùi:", error);
+    return null;
+  }
+};

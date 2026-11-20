@@ -35,7 +35,15 @@ const actionLoadingText: Record<string, string> = {
   SELECT_SLOT: "Kun đang chuẩn bị lịch cho bạn…",
   CHANGE_DOCTOR: "Kun đang tìm bác sĩ khác…",
   CLEAR_SELECTION: "Kun đang cập nhật lựa chọn của bạn…",
+  SUMMARIZE_ARTICLE: "Kun đang đọc và tóm tắt bài viết…",
 };
+
+/** Nút ở trang bài viết: nhờ Kun tóm tắt đúng bài đang đọc. */
+export const buildSummarizeArticleAction = (slug: string): ChatbotSuggestedAction => ({
+  type: "SUMMARIZE_ARTICLE",
+  label: "Tóm tắt bài viết này giúp mình",
+  payload: { articleSlug: slug },
+});
 
 export const getLoadingText = (action?: ChatbotSuggestedAction) =>
   action ? actionLoadingText[action.type] || "Kun đang xử lý lựa chọn của bạn…" : "Kun đang suy nghĩ…";
