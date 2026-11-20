@@ -1,6 +1,8 @@
 /**
  * Nạp dữ liệu danh mục cho phòng khám: tài khoản nhân sự, chuyên khoa, bác sĩ,
  * lịch làm việc, gói khám, danh mục thuốc kèm tồn kho và nội dung website.
+ * Cũng nạp nội dung công khai (giới thiệu chuyên khoa, hồ sơ bác sĩ, thông tin gói khám, cơ sở khám, bài viết kiến thức); văn bản nằm ở seedClinicContent.ts.
+ * Hỏi đáp và kho tri thức chatbot nạp riêng bằng `npm run seed:chatbot-faq`.
  * Không tạo dữ liệu người bệnh (hồ sơ, lịch hẹn, bệnh án, hóa đơn).
  *
  * Bắt buộc: SEED_PASSWORD (>= 12 ký tự, dùng chung cho mọi tài khoản nhân sự).
@@ -11,6 +13,7 @@ import { prisma } from "../config/prisma.js";
 import { getRuntimeConfig } from "../config/runtimeConfig.js";
 import { hashPassword } from "../utils/password.js";
 import { buildTimeSlots } from "../utils/time.js";
+import { ARTICLES, BRANCH_DOCTORS, CONTENT_REVIEWER, DEPARTMENT_EXPERTISE, DEPARTMENT_SECTIONS, FACILITIES, PACKAGE_CONTENT } from "./seedClinicContent.js";
 
 const SLOT_DAYS = 14;
 const EMAIL_DOMAIN = "devkuncare.com";
@@ -326,19 +329,19 @@ const MEDICINES: MedicineSeed[] = [
   { code: "NACL09", name: "Natri clorid 0,9% nhỏ mắt, mũi", activeIngredient: "Natri clorid", strength: "0,9%", dosageForm: "Dung dịch nhỏ", unit: "lọ", unitPrice: 6_000, minStock: 40, batches: [{ batchNumber: "NC2610A", expiryDays: 480, quantity: 200 }] },
 ];
 
-async function createSchedules(doctorId: string) {
+async function createSchedules(doctorId: string, facilityId: string) {
   const ranges = [
     { startTime: "08:00", endTime: "11:30" },
     { startTime: "13:30", endTime: "16:30" },
   ];
   await prisma.doctorSchedule.createMany({
     data: [1, 2, 3, 4, 5, 6].flatMap((dayOfWeek) =>
-      ranges.map((range) => ({ doctorId, dayOfWeek, ...range, slotDuration: 30, isActive: true })),
+      ranges.map((range) => ({ doctorId, facilityId, dayOfWeek, ...range, slotDuration: 30, isActive: true })),
     ),
   });
 }
 
-async function generateSlots(doctorId: string) {
+async function generateSlots(doctorId: string, facilityId: string) {
   const today = startOfTodayUtc();
   const schedules = await prisma.doctorSchedule.findMany({ where: { doctorId, isActive: true } });
   let count = 0;
@@ -349,6 +352,7 @@ async function generateSlots(doctorId: string) {
       .flatMap((schedule) =>
         buildTimeSlots(schedule.startTime, schedule.endTime, schedule.slotDuration).map((slot) => ({
           doctorId,
+          facilityId,
           date,
           startTime: slot.startTime,
           endTime: slot.endTime,
@@ -453,6 +457,34 @@ async function seedSiteContent() {
   });
 }
 
+// Bài viết đã xuất bản, do ban biên soạn (tài khoản quản trị) viết và một bác sĩ duyệt; ảnh bìa tải lên sau qua dashboard.
+async function seedArticles(authorId: string, reviewerId: string, departments: Map<string, string>) {
+  const now = Date.now();
+  for (const article of ARTICLES) {
+    const publishedAt = new Date(now - article.daysAgo * 86_400_000);
+    await prisma.article.upsert({
+      where: { slug: article.slug },
+      update: {},
+      create: {
+        slug: article.slug,
+        title: article.title,
+        summary: article.summary,
+        content: article.content,
+        category: article.category,
+        departmentId: departments.get(article.department),
+        authorId,
+        authorName: "Ban biên soạn DevKunCare",
+        reviewedById: reviewerId,
+        reviewerName: CONTENT_REVIEWER.display,
+        reviewedAt: publishedAt,
+        status: "PUBLISHED",
+        publishedAt,
+      },
+    });
+  }
+  return ARTICLES.length;
+}
+
 async function seedClinicData() {
   const password = process.env.SEED_PASSWORD ?? "";
   if (password.length < 12) {
@@ -475,6 +507,9 @@ async function seedClinicData() {
         name: dept.name,
         slug: toSlug(dept.name),
         description: dept.description,
+        sections: DEPARTMENT_SECTIONS[dept.name] ?? [],
+        contentReviewerName: CONTENT_REVIEWER.display,
+        contentUpdatedAt: new Date(),
         symptomKeywords: [...dept.symptomKeywords],
         triageDescription: dept.triageDescription,
         isTriageFallback: "isTriageFallback" in dept ? dept.isTriageFallback : false,
@@ -484,12 +519,27 @@ async function seedClinicData() {
     departments.set(dept.name, created.id);
   }
 
+  const facilities = new Map<string, string>();
+  for (const item of FACILITIES) {
+    const created = await prisma.facility.upsert({
+      where: { slug: item.slug },
+      update: { name: item.name, address: item.address, workingHours: item.workingHours, mapUrl: item.mapUrl, isDefault: item.isDefault, isActive: true },
+      create: { name: item.name, slug: item.slug, address: item.address, phone: undefined, workingHours: item.workingHours, mapUrl: item.mapUrl, isDefault: item.isDefault, isActive: true },
+    });
+    facilities.set(item.slug, created.id);
+  }
+  const mainFacilityId = facilities.get(FACILITIES[0].slug)!;
+  const branchFacilityId = facilities.get(FACILITIES[1].slug)!;
+
+  const doctorUsers = new Map<string, string>();
   let slotTotal = 0;
   for (const doctor of DOCTORS) {
     const emailLocal = `doctor.${toSlug(doctor.name).replace(/-/g, "")}`;
     const user = await createUser({ fullName: doctor.name, phone: doctor.phone, email: `${emailLocal}@${EMAIL_DOMAIN}`, role: "DOCTOR", password });
     if (doctor.avatar) await prisma.user.update({ where: { id: user.id }, data: { avatar: doctor.avatar } });
+    doctorUsers.set(doctor.name, user.id);
     const departmentName = doctor.dept;
+    const facilityId = BRANCH_DOCTORS.includes(doctor.name) ? branchFacilityId : mainFacilityId;
     const profile = await prisma.doctorProfile.upsert({
       where: { userId: user.id },
       update: {},
@@ -502,11 +552,14 @@ async function seedClinicData() {
         bio: `${doctor.title} ${doctor.name} có ${doctor.experience} năm kinh nghiệm khám và điều trị tại ${departmentName.toLowerCase()}.`,
         experience: doctor.experience,
         consultationFee: doctor.fee,
+        expertise: DEPARTMENT_EXPERTISE[departmentName] ?? [],
+        profileReviewerName: CONTENT_REVIEWER.display,
+        profileUpdatedAt: new Date(),
         isAvailable: true,
       },
     });
-    await createSchedules(profile.id);
-    slotTotal += await generateSlots(profile.id);
+    await createSchedules(profile.id, facilityId);
+    slotTotal += await generateSlots(profile.id, facilityId);
   }
 
   for (const pack of PACKAGES) {
@@ -517,6 +570,10 @@ async function seedClinicData() {
         slug: toSlug(pack.name),
         description: pack.description,
         summary: pack.summary,
+        audience: PACKAGE_CONTENT[pack.name]?.audience ?? [],
+        resultTime: PACKAGE_CONTENT[pack.name]?.resultTime,
+        note: PACKAGE_CONTENT[pack.name]?.note,
+        faq: PACKAGE_CONTENT[pack.name]?.faq ?? [],
         departmentId: departments.get(pack.department)!,
         basePrice,
         serviceFee: pack.serviceFee,
@@ -532,6 +589,7 @@ async function seedClinicData() {
 
   const medicineCount = await seedMedicines(admin.id);
   await seedSiteContent();
+  const articleCount = await seedArticles(admin.id, doctorUsers.get(CONTENT_REVIEWER.doctorName)!, departments);
 
   console.log("Seed dữ liệu phòng khám hoàn tất");
   console.table([
@@ -540,6 +598,8 @@ async function seedClinicData() {
     { key: "doctors", value: DOCTORS.length },
     { key: "packages", value: PACKAGES.length },
     { key: "medicines", value: medicineCount },
+    { key: "facilities", value: FACILITIES.length },
+    { key: "articles", value: articleCount },
     { key: "generatedSlots", value: slotTotal },
     { key: "reset", value: runtimeConfig.demoSeed.resetRequested ? "yes" : "no" },
   ]);
