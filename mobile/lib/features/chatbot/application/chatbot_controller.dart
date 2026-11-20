@@ -22,6 +22,8 @@ class ChatMessage {
     required this.content,
     this.source,
     this.results = const [],
+    this.actions = const [],
+    this.sources = const [],
   });
 
   final String id;
@@ -29,7 +31,23 @@ class ChatMessage {
   final String content;
   final ChatbotSource? source;
   final List<ChatbotResultGroup> results;
+
+  /// Gợi ý bước tiếp theo đi kèm câu trả lời này; chỉ tin mới nhất hiện cho bấm.
+  final List<ChatbotAction> actions;
+  final List<ChatbotSourceRef> sources;
 }
+
+/// Gợi ý ban đầu: các tình huống người khám hay gặp, mỗi nút dẫn tới một hướng khác nhau.
+const _starterActions = [
+  ChatbotAction(type: 'VIEW_DEPARTMENTS', label: 'Tìm khoa theo triệu chứng'),
+  ChatbotAction(type: 'VIEW_PACKAGES', label: 'Khám sức khỏe định kỳ'),
+  ChatbotAction(
+    type: 'ASK_QUESTION',
+    label: 'Khám cho trẻ em',
+    payload: {'question': 'Khám cho trẻ em thì nên chọn chuyên khoa nào?'},
+  ),
+  ChatbotAction(type: 'LOOKUP_APPOINTMENT', label: 'Tra cứu lịch hẹn'),
+];
 
 class ChatbotState {
   const ChatbotState({
@@ -40,7 +58,8 @@ class ChatbotState {
         role: ChatMessageRole.assistant,
         source: ChatbotSource.system,
         content:
-            'Xin chào, tôi có thể hỗ trợ tìm chuyên khoa, bác sĩ, lịch trống và hướng dẫn đặt lịch.',
+            'Xin chào, tôi là trợ lý đặt lịch của DevKunCare. Tôi giúp bạn tìm chuyên khoa, bác sĩ, gói khám, xem lịch trống và đặt lịch. Bạn muốn bắt đầu từ đâu?',
+        actions: _starterActions,
       ),
     ],
     this.actions = const [],
@@ -95,10 +114,17 @@ class ChatbotState {
 }
 
 class ChatbotPendingRequest {
-  const ChatbotPendingRequest({required this.message, this.action});
+  const ChatbotPendingRequest({
+    required this.message,
+    this.action,
+    this.echoText,
+  });
 
   final String message;
   final ChatbotAction? action;
+
+  /// Chữ hiện trong khung chat của người dùng khi khác nội dung gửi đi.
+  final String? echoText;
 }
 
 class ChatbotController extends Notifier<ChatbotState> {
@@ -138,10 +164,20 @@ class ChatbotController extends Notifier<ChatbotState> {
     return _send(ChatbotPendingRequest(message: message), appendMessage: true);
   }
 
-  Future<bool> sendAction(ChatbotAction action) => _send(
-    ChatbotPendingRequest(message: action.label, action: action),
-    appendMessage: true,
-  );
+  /// Nút hỏi thêm gửi câu hỏi đầy đủ như người dùng gõ (khung chat hiện nhãn ngắn); nút khác gửi kèm thao tác để máy chủ dựng bước kế tiếp.
+  Future<bool> sendAction(ChatbotAction action) {
+    final question = action.question;
+    if (question != null) {
+      return _send(
+        ChatbotPendingRequest(message: question, echoText: action.label),
+        appendMessage: true,
+      );
+    }
+    return _send(
+      ChatbotPendingRequest(message: action.label, action: action),
+      appendMessage: true,
+    );
+  }
 
   Future<bool> retryLast() {
     final request = state.lastFailedRequest;
@@ -161,7 +197,7 @@ class ChatbotController extends Notifier<ChatbotState> {
             ChatMessage(
               id: _nextMessageId('user'),
               role: ChatMessageRole.user,
-              content: request.message,
+              content: request.echoText ?? request.message,
             ),
           ]
         : state.messages;
@@ -195,6 +231,8 @@ class ChatbotController extends Notifier<ChatbotState> {
             content: response.reply,
             source: response.source,
             results: response.results,
+            actions: response.suggestedActions,
+            sources: response.sources,
           ),
         ],
         actions: response.suggestedActions,

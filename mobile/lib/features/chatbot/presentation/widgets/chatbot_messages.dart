@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:hospital_booking_mobile/core/formatters/display_formatters.dart';
 import 'package:hospital_booking_mobile/features/chatbot/application/chatbot_controller.dart';
 import 'package:hospital_booking_mobile/features/chatbot/domain/chatbot_models.dart';
+import 'package:hospital_booking_mobile/features/chatbot/presentation/widgets/chatbot_follow_ups.dart';
 
 import 'package:hospital_booking_mobile/core/design/app_colors.dart';
 
@@ -11,11 +12,15 @@ class ChatbotMessageBubble extends StatelessWidget {
     required this.message,
     required this.disabled,
     required this.onAction,
+    this.isLatest = false,
   });
 
   final ChatMessage message;
   final bool disabled;
   final ValueChanged<ChatbotAction> onAction;
+
+  /// Tin mới nhất: chỉ tin này hiện gợi ý bước tiếp theo, tin cũ để lại như lịch sử.
+  final bool isLatest;
 
   @override
   Widget build(BuildContext context) {
@@ -83,6 +88,19 @@ class ChatbotMessageBubble extends StatelessWidget {
                     onAction: onAction,
                   ),
                 ],
+                if (!isUser) ChatbotSourceChips(sources: message.sources),
+                if (!isUser && isLatest)
+                  ChatbotFollowUps(
+                    actions: visibleChatbotActions(
+                      message.actions,
+                      message.results,
+                    ),
+                    disabled: disabled,
+                    onAction: onAction,
+                    title: message.id == 'welcome'
+                        ? null
+                        : 'Bạn có thể hỏi tiếp',
+                  ),
               ],
             ),
           ),
