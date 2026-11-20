@@ -6,7 +6,7 @@ import { PublicBottomNav } from "@/components/public/public-bottom-nav";
 import { PublicSiteFooter } from "@/components/public/public-site-footer";
 import { PublicSiteHeader } from "@/components/public/public-site-header";
 import { HomeHero } from "@/features/home/home-hero";
-import { DepartmentsSection, DoctorsSection, Notice, PackagesSection, Partners, SupportSection } from "@/features/home/home-sections";
+import { DepartmentsSection, DoctorsSection, PackagesSection, Partners, SupportSection } from "@/features/home/home-sections";
 import { HomeProcess } from "@/components/public/home-process";
 import type { PublicHomeData } from "./public-home-types";
 
@@ -31,7 +31,6 @@ export function PublicHomeView({ data, loading, error }: PublicHomeViewProps) {
     <main id="main-content" tabIndex={-1} className="public-site public-has-bottom-nav min-h-screen bg-[var(--public-surface)] text-[var(--public-ink)]">
       <a className="ui-skip-link" href="#home-content">Bỏ qua điều hướng</a>
       <PublicSiteHeader settings={data.settings} />
-      <Notice announcement={config?.announcement} />
 
       <div id="home-content" tabIndex={-1}>
         {error ? (
