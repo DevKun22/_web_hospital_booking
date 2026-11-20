@@ -67,24 +67,19 @@ function Skeleton({ count = 3 }: { count?: number }) {
 }
 
 // Thẻ bác sĩ: ảnh chân dung 4:5 (điện thoại: ảnh nhỏ bên trái), học hàm và tên, khoa màu nhấn, số năm kinh nghiệm, đánh giá (chỉ khi có đánh giá công khai),
-// giờ trống thật và hai nút Xem hồ sơ, Đặt lịch khám. Chỉ hiện thông tin có trong hồ sơ.
+// giờ trống thật và hai nút Xem hồ sơ, Xem giờ trống. Chỉ hiện thông tin có trong hồ sơ.
 function DoctorCard({ doctor }: { doctor: DoctorProfile }) {
   const slots = (doctor.todayAvailableSlots || []).slice(0, 3);
   const total = doctor.todayAvailableSlots?.length || 0;
   const next = doctor.nextAvailableSlot;
   const bookingBase = `/dat-lich?departmentId=${doctor.department.id}&doctorId=${doctor.id}`;
-  const bookHref = slots.length
-    ? `${bookingBase}&timeSlotId=${slots[0].id}`
-    : next
-      ? `${bookingBase}&date=${next.date.slice(0, 10)}&timeSlotId=${next.id}`
-      : bookingBase;
-  const reviews = doctor.reviewSummary;
+    const reviews = doctor.reviewSummary;
   const profileHref = getPublicDoctorPath(doctor);
   return (
     <li className="group flex flex-col overflow-hidden rounded-2xl border border-[var(--public-border)] bg-[var(--public-surface)] shadow-sm transition hover:border-[var(--public-primary)] hover:shadow-md motion-reduce:transition-none">
       <div className="flex md:flex-col">
         <Link href={profileHref} tabIndex={-1} aria-hidden="true" className="relative block w-28 shrink-0 self-start overflow-hidden bg-[var(--public-primary-soft)] sm:w-32 md:w-full">
-          <div className="aspect-[4/5]">
+          <div className="aspect-[4/5] md:aspect-[4/3]">
             {doctor.user.avatar ? (
               <img src={doctor.user.avatar} alt="" width={480} height={600} loading="lazy" decoding="async" className="h-full w-full object-cover object-top transition-transform duration-500 group-hover:scale-105 motion-reduce:transition-none motion-reduce:group-hover:scale-100" />
             ) : (
@@ -126,7 +121,7 @@ function DoctorCard({ doctor }: { doctor: DoctorProfile }) {
       </div>
       <div className="mt-auto grid grid-cols-2 gap-2 p-3.5 pt-0 sm:p-4 sm:pt-0">
         <Link href={profileHref} className="public-button-secondary inline-flex min-h-11 items-center justify-center rounded-lg px-3 text-sm font-semibold">Xem hồ sơ</Link>
-        <Link href={bookHref} className="public-button-primary inline-flex min-h-11 items-center justify-center rounded-lg px-3 text-sm font-semibold">Đặt lịch khám</Link>
+        <Link href={bookingBase} className="public-button-primary inline-flex min-h-11 items-center justify-center rounded-lg px-3 text-sm font-semibold">Xem giờ trống</Link>
       </div>
     </li>
   );
@@ -211,9 +206,9 @@ function PackageCard({ item, featured }: { item: MedicalPackage; featured?: bool
   const detailHref = `/goi-kham/${item.slug || item.id}`;
   const body = (
     <>
-      <div className={`relative overflow-hidden bg-[var(--public-primary-soft)] ${featured ? "aspect-[16/9] md:aspect-auto md:min-h-[18rem]" : "aspect-[16/9]"}`}>
+      <div className={`relative overflow-hidden bg-[var(--public-primary-soft)] ${featured ? "aspect-[16/9] md:aspect-auto md:min-h-[16rem]" : "aspect-[2/1]"}`}>
         {item.image ? (
-          <img src={item.image} alt="" width={800} height={450} loading="lazy" decoding="async" className="h-full w-full object-cover" />
+          <img src={item.image} alt="" width={800} height={450} loading="lazy" decoding="async" className="h-full w-full object-cover transition-transform duration-500 group-hover/pack:scale-105 motion-reduce:transition-none motion-reduce:group-hover/pack:scale-100" />
         ) : (
           <div className="flex h-full w-full items-center justify-center bg-[linear-gradient(135deg,var(--public-primary-soft),var(--public-tint-strong))] text-[var(--public-primary-dark)]" aria-hidden="true">
             <PackageCheck className={featured ? "h-16 w-16" : "h-12 w-12"} />
@@ -246,7 +241,7 @@ function PackageCard({ item, featured }: { item: MedicalPackage; featured?: bool
         ) : null}
         <div className="mt-auto pt-4">
           <p className="text-xs text-[var(--public-muted)]">Chi phí dự kiến</p>
-          <p className={`font-semibold tabular-nums text-[var(--public-primary-dark)] ${featured ? "text-3xl" : "text-2xl"}`}>{formatCurrency(item.finalPrice)}</p>
+          <p className={`font-semibold tabular-nums text-[var(--public-primary-dark)] ${featured ? "text-2xl sm:text-3xl" : "text-xl"}`}>{formatCurrency(item.finalPrice)}</p>
           <div className="mt-3 flex flex-wrap gap-2">
             <Link href={detailHref} className="public-button-secondary inline-flex min-h-11 items-center rounded-lg px-4 text-sm font-semibold">Xem chi tiết</Link>
             <Link href={`/dat-lich?packageId=${item.id}`} className="public-button-primary inline-flex min-h-11 items-center rounded-lg px-5 text-sm font-semibold">Chọn gói</Link>
@@ -257,12 +252,12 @@ function PackageCard({ item, featured }: { item: MedicalPackage; featured?: bool
   );
   if (featured) {
     return (
-      <div className="rounded-3xl bg-[linear-gradient(135deg,var(--dk-blue),var(--dk-teal))] p-[2px] shadow-xl">
+      <div className="group/pack rounded-3xl bg-[linear-gradient(135deg,var(--dk-blue),var(--dk-teal))] p-[2px] shadow-xl transition hover:shadow-2xl motion-reduce:transition-none">
         <div className="grid overflow-hidden rounded-[calc(1.5rem-2px)] bg-[var(--public-surface)] md:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]">{body}</div>
       </div>
     );
   }
-  return <div className="flex h-full flex-col overflow-hidden rounded-2xl border border-[var(--public-border)] bg-[var(--public-surface)] shadow-sm">{body}</div>;
+  return <div className="group/pack flex h-full flex-col overflow-hidden rounded-2xl border border-[var(--public-border)] bg-[var(--public-surface)] shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-[var(--public-primary)] hover:shadow-lg motion-reduce:transition-none motion-reduce:hover:translate-y-0">{body}</div>;
 }
 
 // Gói khám: nền gradient nhạt kèm hai vòng tròn mờ trang trí; gói được đánh dấu "được chọn nhiều" (hoặc gói đầu tiên) là thẻ nổi bật rộng suốt hàng,
