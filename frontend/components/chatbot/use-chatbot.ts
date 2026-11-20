@@ -164,6 +164,8 @@ export function useChatbot({ online }: { online: boolean }) {
     (action: ChatbotSuggestedAction) => {
       const question = getAskQuestion(action);
       if (question) void send(question, { echoText: action.label });
+      // Tóm tắt bài viết bắt đầu từ trang bài viết: hiện yêu cầu của người dùng trong khung chat để cuộc trò chuyện đọc liền mạch.
+      else if (action.type === "SUMMARIZE_ARTICLE") void send(action.label, { action, echo: true });
       else void send(action.label, { action });
     },
     [send],

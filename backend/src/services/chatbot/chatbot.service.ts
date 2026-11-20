@@ -16,6 +16,7 @@ import {
   greetingOutput,
   resetOutput,
 } from "./flows/system.replies.js";
+import ArticleSummaryFlow from "./flows/article-summary.flow.js";
 import TriageFlow from "./flows/triage.flow.js";
 import { applyFocus, withFocusName } from "./flows/follow-up.js";
 import { routeByRules } from "./router/route.js";
@@ -108,6 +109,17 @@ class ChatbotService {
       logger.info("[CHATBOT_TIMING]", JSON.stringify({ source, intent: response.intent, ...stages }));
       return response;
     };
+
+    // Nút "Tóm tắt với Kun" ở trang bài viết: tóm tắt đúng bài đó, không qua định tuyến và truy hồi.
+    if (input.action?.type === "SUMMARIZE_ARTICLE") {
+      const slug = input.action.payload?.articleSlug;
+      const summary =
+        typeof slug === "string" && slug.trim()
+          ? await ArticleSummaryFlow.summarize({ slug: slug.trim(), draft: actionDraft, aiEnabled: settings.aiEnabled, model: settings.model })
+          : null;
+      mark("summary");
+      return summary ? finish(summary.output, summary.source) : finish(noInformationOutput(actionDraft), "SYSTEM");
+    }
 
     // 1. Rào an toàn
     if (hasEmergencySignal(normalizeMessage(input.message))) {

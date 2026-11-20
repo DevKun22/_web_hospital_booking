@@ -5,6 +5,7 @@ import { cache } from "react";
 import { ArrowRight, ShieldCheck } from "lucide-react";
 import { ArticleContent } from "@/components/public/article-content";
 import { PublicBreadcrumb } from "@/components/public/public-page-layout";
+import { SummarizeWithKun } from "@/components/public/summarize-with-kun";
 import { estimateReadingMinutes, getOutline, parseMarkdown } from "@/lib/markdown";
 import { serverApiRequest } from "@/lib/server-api";
 import { absoluteUrl, buildBreadcrumbJsonLd, buildNoIndexMetadata, buildOpenGraph, cleanText, jsonLdString, truncateText } from "@/lib/seo";
@@ -80,6 +81,8 @@ export default async function KnowledgeArticlePage({ params }: PageProps) {
               {[article.authorName ? `Biên soạn: ${article.authorName}` : "", `Cập nhật ${formatDate(article.updatedAt)}`, `${estimateReadingMinutes(article.content)} phút đọc`].filter(Boolean).join(" · ")}
             </p>
           </header>
+
+          <SummarizeWithKun slug={article.slug} />
 
           {article.reviewerName ? (
             <p className="mt-4 flex items-start gap-2 rounded-lg bg-[var(--public-success-soft)] px-3 py-2 text-sm text-[var(--public-success)]">
