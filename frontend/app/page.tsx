@@ -1,3 +1,5 @@
+import type { PublicArticleList } from "@/lib/types";
+import { serverApiRequest } from "@/lib/server-api";
 import { PublicHomeClient } from "@/components/public/public-home-client";
 import type { PublicHomeData } from "@/components/public/public-home-types";
 import { loadPublicBootstrap } from "@/lib/public-bootstrap-server";
@@ -81,6 +83,8 @@ function buildWebSiteJsonLd(data: PublicHomeData) {
 export default async function PublicHomePage() {
   const snapshot = await loadPublicBootstrap("featured", 60);
   const { data } = snapshot;
+  // Bài viết mới nhất cho mục kiến thức; lỗi thì bỏ mục này, không làm hỏng trang chủ.
+  const articles = await serverApiRequest<PublicArticleList>("/articles", { query: { limit: 4 }, next: { revalidate: 60 } }).catch(() => null);
   const faqJsonLd = buildFaqJsonLd(data);
 
   return (
@@ -99,7 +103,7 @@ export default async function PublicHomePage() {
           dangerouslySetInnerHTML={{ __html: jsonLdString(faqJsonLd) }}
         />
       ) : null}
-      <PublicHomeClient snapshot={snapshot} />
+      <PublicHomeClient snapshot={snapshot} articles={articles} />
     </>
   );
 }
