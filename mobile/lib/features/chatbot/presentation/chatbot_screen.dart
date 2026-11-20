@@ -111,7 +111,10 @@ class _ChatbotScreenState extends ConsumerState<ChatbotScreen> {
                     padding: const EdgeInsets.only(bottom: 12),
                     child: ChatbotMessageBubble(
                       message: message,
-                      disabled: state.isSending,
+                      disabled: !state.canSend,
+                      isLatest:
+                          index == state.messages.length - 1 &&
+                          !state.isSending,
                       onAction: _sendAction,
                     ),
                   );

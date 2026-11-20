@@ -42,6 +42,46 @@ class ChatbotSettings {
       isActive && (aiEnabled || faqEnabled || fallbackEnabled);
 }
 
+/// Chủ đề Kun vừa nói tới (bác sĩ, khoa, gói) để máy chủ hiểu "bác sĩ này", "gói đó".
+class ChatFocus {
+  const ChatFocus({
+    required this.type,
+    required this.id,
+    required this.name,
+    this.departmentId,
+  });
+
+  static ChatFocus? tryParse(dynamic value) {
+    if (value is! Map) return null;
+    final json = Map<String, dynamic>.from(value);
+    final type = json['type']?.toString();
+    final id = jsonNullableString(json['id']);
+    final name = jsonNullableString(json['name']);
+    if (type == null || id == null || name == null) return null;
+    if (type != 'doctor' && type != 'department' && type != 'package') {
+      return null;
+    }
+    return ChatFocus(
+      type: type,
+      id: id,
+      name: name,
+      departmentId: jsonNullableString(json['departmentId']),
+    );
+  }
+
+  final String type;
+  final String id;
+  final String name;
+  final String? departmentId;
+
+  Map<String, dynamic> toJson() => {
+    'type': type,
+    'id': id,
+    'name': name,
+    if (departmentId != null) 'departmentId': departmentId,
+  };
+}
+
 class ChatBookingDraft {
   const ChatBookingDraft({
     this.departmentId,
@@ -59,6 +99,7 @@ class ChatBookingDraft {
     this.associatedSymptoms = const [],
     this.triageLastQuestion,
     this.reason,
+    this.focus,
   });
 
   factory ChatBookingDraft.fromJson(Map<String, dynamic> json) =>
@@ -78,6 +119,7 @@ class ChatBookingDraft {
         associatedSymptoms: _strings(json['associatedSymptoms']),
         triageLastQuestion: jsonNullableString(json['triageLastQuestion']),
         reason: jsonNullableString(json['reason']),
+        focus: ChatFocus.tryParse(json['focus']),
       );
 
   final String? departmentId;
@@ -95,6 +137,7 @@ class ChatBookingDraft {
   final List<String> associatedSymptoms;
   final String? triageLastQuestion;
   final String? reason;
+  final ChatFocus? focus;
 
   Map<String, dynamic> toJson() => {
     if (departmentId != null) 'departmentId': departmentId,
@@ -112,6 +155,7 @@ class ChatBookingDraft {
     if (associatedSymptoms.isNotEmpty) 'associatedSymptoms': associatedSymptoms,
     if (triageLastQuestion != null) 'triageLastQuestion': triageLastQuestion,
     if (reason != null) 'reason': reason,
+    if (focus != null) 'focus': focus!.toJson(),
   };
 }
 
@@ -132,11 +176,34 @@ class ChatbotAction {
   final String label;
   final Map<String, dynamic> payload;
 
+  /// Nút "hỏi thêm" mang sẵn câu hỏi đầy đủ (có tên bác sĩ, gói...) gửi như người dùng gõ; nhãn ngắn chỉ để hiển thị.
+  String? get question {
+    if (type != 'ASK_QUESTION') return null;
+    final value = payload['question']?.toString().trim();
+    return value == null || value.isEmpty ? null : value;
+  }
+
   Map<String, dynamic> toJson() => {
     'type': type,
     'label': label,
     'payload': payload,
   };
+}
+
+/// Nguồn tri thức mà câu trả lời dựa vào, để người dùng mở trang gốc kiểm tra.
+class ChatbotSourceRef {
+  const ChatbotSourceRef({required this.id, required this.title, this.url});
+
+  factory ChatbotSourceRef.fromJson(Map<String, dynamic> json) =>
+      ChatbotSourceRef(
+        id: json['id']?.toString() ?? '',
+        title: json['title']?.toString() ?? '',
+        url: jsonNullableString(json['url']),
+      );
+
+  final String id;
+  final String title;
+  final String? url;
 }
 
 enum ChatbotResultType { department, package, doctor, slot, unknown }
@@ -298,6 +365,7 @@ class ChatbotResponse {
     required this.draft,
     required this.results,
     required this.suggestedActions,
+    this.sources = const [],
   });
 
   factory ChatbotResponse.fromJson(Map<String, dynamic> json) =>
@@ -323,6 +391,10 @@ class ChatbotResponse {
         suggestedActions: _maps(
           json['suggestedActions'],
         ).map(ChatbotAction.fromJson).toList(growable: false),
+        sources: _maps(json['sources'])
+            .map(ChatbotSourceRef.fromJson)
+            .where((source) => source.title.isNotEmpty)
+            .toList(growable: false),
       );
 
   final String sessionId;
@@ -335,6 +407,7 @@ class ChatbotResponse {
   final ChatBookingDraft draft;
   final List<ChatbotResultGroup> results;
   final List<ChatbotAction> suggestedActions;
+  final List<ChatbotSourceRef> sources;
 }
 
 List<Map<String, dynamic>> _maps(dynamic value) => value is List

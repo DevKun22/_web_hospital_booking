@@ -85,21 +85,7 @@ class ChatbotComposer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final visibleActions = state.actions
-        .where((action) {
-          final resultTypes = state.messages.last.results.map(
-            (group) => switch (group.type) {
-              'departments' => 'VIEW_DEPARTMENT',
-              'packages' => 'VIEW_PACKAGE',
-              'doctors' => 'VIEW_DOCTOR',
-              'slots' => 'VIEW_AVAILABLE_SLOTS',
-              _ => '',
-            },
-          );
-          return !resultTypes.contains(action.type);
-        })
-        .toList(growable: false);
-
+    // Gợi ý bước tiếp theo nằm ngay dưới câu trả lời (ChatbotFollowUps), không còn hàng chip sát ô nhập.
     return Material(
       color: Theme.of(context).colorScheme.surface,
       elevation: 8,
@@ -130,53 +116,6 @@ class ChatbotComposer extends StatelessWidget {
                     ),
                 ],
               ),
-            ],
-            if (visibleActions.isNotEmpty) ...[
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  children: visibleActions
-                      .map(
-                        (action) => Padding(
-                          padding: const EdgeInsets.only(right: 8),
-                          child: ActionChip(
-                            onPressed: state.canSend
-                                ? () => onAction(action)
-                                : null,
-                            label: Text(action.label),
-                          ),
-                        ),
-                      )
-                      .toList(growable: false),
-                ),
-              ),
-              const SizedBox(height: 8),
-            ] else if (state.availability == ChatbotAvailability.ready) ...[
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  children:
-                      [
-                            'Tìm bác sĩ phù hợp',
-                            'Xem chuyên khoa',
-                            'Hướng dẫn đặt lịch',
-                          ]
-                          .map(
-                            (text) => Padding(
-                              padding: const EdgeInsets.only(right: 8),
-                              child: ActionChip(
-                                label: Text(text),
-                                onPressed: () {
-                                  inputController.text = text;
-                                  onSend();
-                                },
-                              ),
-                            ),
-                          )
-                          .toList(growable: false),
-                ),
-              ),
-              const SizedBox(height: 8),
             ],
             Row(
               crossAxisAlignment: CrossAxisAlignment.end,
