@@ -6,7 +6,8 @@ import { PublicBottomNav } from "@/components/public/public-bottom-nav";
 import { PublicSiteFooter } from "@/components/public/public-site-footer";
 import { PublicSiteHeader } from "@/components/public/public-site-header";
 import { HomeHero } from "@/features/home/home-hero";
-import { Benefits, DepartmentsSection, DoctorsSection, Notice, PackagesSection, Partners, Steps, SupportSection } from "@/features/home/home-sections";
+import { DepartmentsSection, DoctorsSection, Notice, PackagesSection, Partners, SupportSection } from "@/features/home/home-sections";
+import { HomeProcess } from "@/components/public/home-process";
 import type { PublicHomeData } from "./public-home-types";
 
 type PublicHomeViewProps = {
@@ -40,7 +41,7 @@ export function PublicHomeView({ data, loading, error }: PublicHomeViewProps) {
         ) : null}
 
         <HomeHero data={data} />
-        {sections?.serviceHub.enabled !== false ? <Benefits /> : null}
+        {sections?.serviceHub.enabled !== false ? <HomeProcess /> : null}
         {sections?.departments.enabled !== false ? (
           <DepartmentsSection departments={data.departments.slice(0, limit(sections?.departments.limit, 8))} config={sections?.departments} loading={loading} />
         ) : null}
@@ -50,7 +51,6 @@ export function PublicHomeView({ data, loading, error }: PublicHomeViewProps) {
         {sections?.packages.enabled !== false ? (
           <PackagesSection packages={data.packages.slice(0, limit(sections?.packages.limit, 3))} config={sections?.packages} loading={loading} />
         ) : null}
-        <Steps />
         <SupportSection faqs={data.faqs} settings={data.settings} />
         {sections?.partners.enabled !== false ? <Partners banners={data.partnerBanners} config={sections?.partners} /> : null}
       </div>
