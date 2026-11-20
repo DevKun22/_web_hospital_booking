@@ -16,7 +16,10 @@ const articleFields = {
   departmentId: z.string().uuid("Chuyên khoa không hợp lệ").nullable().optional(),
 };
 
-export const createArticleSchema = z.object(articleFields);
+// Ảnh bìa: mã ảnh đã tải lên kho ảnh (null khi cập nhật nghĩa là gỡ ảnh).
+const coverAssetId = z.string().uuid("Ảnh không hợp lệ");
+
+export const createArticleSchema = z.object({ ...articleFields, imageAssetId: coverAssetId.optional() });
 
 // Không dùng .partial() trên toàn bộ để các trường không gửi lên không bị ghi đè.
 export const updateArticleSchema = z.object({
@@ -26,4 +29,5 @@ export const updateArticleSchema = z.object({
   content: articleFields.content.optional(),
   category: articleFields.category,
   departmentId: articleFields.departmentId,
+  imageAssetId: coverAssetId.nullable().optional(),
 });

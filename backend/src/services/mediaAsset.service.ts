@@ -15,7 +15,8 @@ type UploadFolder =
   | "packages"
   | "medical-results"
   | "site-settings"
-  | "banners";
+  | "banners"
+  | "articles";
 
 const folderMap: Record<UploadFolder, string> = {
   departments: "hospital/departments",
@@ -25,6 +26,7 @@ const folderMap: Record<UploadFolder, string> = {
   "medical-results": "hospital/medical-results",
   "site-settings": "hospital/site-settings",
   banners: "hospital/banners",
+  articles: "hospital/articles",
 };
 
 const mediaAssetSelect = {

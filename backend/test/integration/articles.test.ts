@@ -197,3 +197,48 @@ test("câu hỏi nối tiếp ngắn vẫn hiểu chủ đề của câu trướ
   assert.equal(next.status, 200);
   assert.equal(next.body.data.sources[0].url, "/kien-thuc/an-uong-khi-troi-nang-nong#khi-nao-can-di-kham");
 });
+
+const makeAsset = (publicId: string) =>
+  prisma.mediaAsset.create({ data: { url: `https://cdn.example.test/${publicId}.jpg`, publicId, folder: "articles", mimeType: "image/jpeg" } });
+
+test("ảnh bìa: gắn khi tạo, đổi và gỡ không xóa dấu duyệt, hiện ở trang công khai, ảnh đã dùng thì không gắn cho bài khác", async () => {
+  const { admin, doctor } = await cookies();
+  const first = await makeAsset("cover-a");
+  const second = await makeAsset("cover-b");
+
+  const article = await createArticle(admin, { imageAssetId: first.id });
+  const detail = await dashboardCall("GET", `/api/v1/dashboard/articles/${article.id}`, admin);
+  assert.equal(detail.body.data.coverImage, first.url);
+  const attached = await prisma.mediaAsset.findUniqueOrThrow({ where: { id: first.id } });
+  assert.equal(attached.isUsed, true);
+  assert.equal(attached.ownerType, "ARTICLE");
+  assert.equal(attached.ownerId, article.id);
+
+  // Ảnh đã gắn cho bài này không gắn được cho bài khác.
+  const other = await dashboardCall("POST", "/api/v1/dashboard/articles", admin, { title: "Bài khác", content: LONG_BODY, imageAssetId: first.id });
+  assert.equal(other.status, 409);
+  // Mã ảnh sai định dạng bị từ chối.
+  const invalid = await dashboardCall("POST", "/api/v1/dashboard/articles", admin, { title: "Bài sai ảnh", content: LONG_BODY, imageAssetId: "khong-phai-uuid" });
+  assert.equal(invalid.status, 400);
+
+  assert.equal((await dashboardCall("POST", `/api/v1/dashboard/articles/${article.id}/review`, doctor)).status, 200);
+
+  // Đổi ảnh: ảnh cũ được giải phóng và dấu duyệt vẫn còn (ảnh bìa không phải nội dung chuyên môn).
+  const changed = await dashboardCall("PATCH", `/api/v1/dashboard/articles/${article.id}`, admin, { imageAssetId: second.id });
+  assert.equal(changed.status, 200);
+  assert.equal(changed.body.data.coverImage, second.url);
+  assert.ok(changed.body.data.reviewedAt, "đổi ảnh bìa không được xóa dấu duyệt");
+  assert.equal((await prisma.mediaAsset.findUniqueOrThrow({ where: { id: first.id } })).isUsed, false);
+
+  assert.equal((await dashboardCall("POST", `/api/v1/dashboard/articles/${article.id}/publish`, admin)).status, 200);
+  const list = await http.request("/api/v1/articles");
+  assert.equal(list.body.data.items[0].coverImage, second.url);
+  const publicDetail = await http.request(`/api/v1/articles/${article.slug}`);
+  assert.equal(publicDetail.body.data.coverImage, second.url);
+
+  // Gỡ ảnh.
+  const removed = await dashboardCall("PATCH", `/api/v1/dashboard/articles/${article.id}`, admin, { imageAssetId: null });
+  assert.equal(removed.status, 200);
+  assert.equal(removed.body.data.coverImage, null);
+  assert.equal((await prisma.mediaAsset.findUniqueOrThrow({ where: { id: second.id } })).isUsed, false);
+});
