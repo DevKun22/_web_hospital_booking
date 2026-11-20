@@ -386,7 +386,7 @@ class PublicDoctorService {
       throw new AppError("Không tìm thấy bác sĩ", 404);
     }
 
-    const [reviewAggregate, publicReviews] = await Promise.all([
+    const [reviewAggregate, publicReviews, schedules] = await Promise.all([
       prisma.review.aggregate({
         where: { doctorId: doctor.id, isVisible: true },
         _count: { id: true },
@@ -411,6 +411,12 @@ class PublicDoctorService {
         orderBy: { createdAt: "desc" },
         take: 6,
       }),
+      // Lịch khám theo tuần (ca mẫu đang dùng) kèm nơi khám, để người khám biết bác sĩ khám thứ mấy, buổi nào, ở đâu.
+      prisma.doctorSchedule.findMany({
+        where: { doctorId: doctor.id, isActive: true },
+        select: { dayOfWeek: true, startTime: true, endTime: true, facility: { select: { id: true, name: true, address: true } } },
+        orderBy: [{ dayOfWeek: "asc" }, { startTime: "asc" }],
+      }),
     ]);
 
     return {
@@ -423,6 +429,7 @@ class PublicDoctorService {
         averageFacilityRating: reviewAggregate._avg.facilityRating || 0,
       },
       publicReviews,
+      schedules,
     };
   }
 

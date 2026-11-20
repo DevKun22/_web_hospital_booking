@@ -162,3 +162,19 @@ test("the patient sees where the appointment takes place", async () => {
   assert.equal(detail.body.data.facility.id, branch.id);
   assert.match(detail.body.data.facility.address, /Chi nhánh Chín/);
 });
+
+test("the public doctor page lists the weekly schedule with its facility, active shifts only", async () => {
+  const branch = await createFacility("Chi nhánh Mười");
+  const { dayOfWeek } = targetDay();
+  const active = await createSchedule(fixture.doctorTwo.id, dayOfWeek, { facilityId: branch.id });
+  assert.equal(active.status, 201, JSON.stringify(active.body));
+  const off = await createSchedule(fixture.doctorTwo.id, (dayOfWeek + 1) % 7, { facilityId: branch.id, isActive: false });
+  assert.equal(off.status, 201);
+
+  const detail = await http.request(`/api/v1/doctors/${fixture.doctorTwo.id}`);
+  assert.equal(detail.status, 200);
+  const days = detail.body.data.schedules.map((item: { dayOfWeek: number }) => item.dayOfWeek);
+  assert.deepEqual(days, [dayOfWeek]);
+  assert.equal(detail.body.data.schedules[0].startTime, "14:00");
+  assert.equal(detail.body.data.schedules[0].facility.name, "Chi nhánh Mười");
+});

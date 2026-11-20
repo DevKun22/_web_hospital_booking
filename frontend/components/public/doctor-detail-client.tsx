@@ -21,6 +21,17 @@ type DoctorDetailClientProps = {
 };
 
 const formatTime = (value: string) => value.slice(0, 5);
+
+const DAY_LABELS = ["Chủ nhật", "Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy"];
+
+// Gom ca mẫu theo thứ, tuần bắt đầu từ Thứ Hai (Chủ nhật đứng cuối).
+const groupWeeklySchedule = (schedules: NonNullable<DoctorProfile["schedules"]> | undefined) => {
+  const byDay = new Map<number, NonNullable<DoctorProfile["schedules"]>>();
+  for (const item of schedules ?? []) byDay.set(item.dayOfWeek, [...(byDay.get(item.dayOfWeek) ?? []), item]);
+  return [1, 2, 3, 4, 5, 6, 0]
+    .filter((day) => byDay.has(day))
+    .map((day) => ({ dayOfWeek: day, label: DAY_LABELS[day], shifts: byDay.get(day)! }));
+};
 const dateOnly = (value: string) => value.match(/^(\d{4}-\d{2}-\d{2})/)?.[1] || value;
 const formatMonthYear = (value: string) => new Intl.DateTimeFormat("vi-VN", { month: "long", year: "numeric" }).format(new Date(value));
 
@@ -33,6 +44,9 @@ export function DoctorDetailClient({ doctor, initialDate, initialSlots }: Doctor
   const groups = groupSlotsByPeriod(slots);
   const bookingUrl = `/dat-lich?departmentId=${doctor.department.id}&doctorId=${doctor.id}`;
   const summary = doctor.reviewSummary;
+  const weeklySchedule = groupWeeklySchedule(doctor.schedules);
+  // Chỉ nêu tên cơ sở khi bác sĩ khám ở từ hai cơ sở trở lên.
+  const showFacilities = new Set((doctor.schedules ?? []).map((item) => item.facility?.id ?? "")).size > 1;
 
   return (
     <div className="grid grid-cols-[minmax(0,1fr)] gap-6 lg:grid-cols-[minmax(0,1fr)_22rem] lg:gap-8">
@@ -65,6 +79,28 @@ export function DoctorDetailClient({ doctor, initialDate, initialSlots }: Doctor
             {doctor.bio || "Bác sĩ đang tiếp nhận lịch khám và tư vấn theo chuyên khoa. Chọn ngày để xem khung giờ còn trống."}
           </p>
         </section>
+
+        {weeklySchedule.length ? (
+          <section className="mt-6 border-t border-[var(--public-divider)] pt-5">
+            <h2 className="text-lg font-bold">Lịch khám theo tuần</h2>
+            <p className="mt-1 text-sm text-[var(--public-muted)]">Giờ làm việc thường lệ; khung giờ còn trống từng ngày xem ở mục Lịch trống.</p>
+            <dl className="mt-3 divide-y divide-[var(--public-divider)] rounded-lg border border-[var(--public-border)] bg-[var(--public-surface)]">
+              {weeklySchedule.map((day) => (
+                <div key={day.dayOfWeek} className="grid grid-cols-[6.5rem_minmax(0,1fr)] gap-3 px-3 py-2.5 text-sm">
+                  <dt className="font-semibold">{day.label}</dt>
+                  <dd className="tabular-nums text-[var(--public-text-soft)]">
+                    {day.shifts.map((shift) => (
+                      <span key={`${shift.startTime}-${shift.endTime}`} className="block">
+                        {formatTime(shift.startTime)} - {formatTime(shift.endTime)}
+                        {showFacilities && shift.facility ? <span className="text-[var(--public-muted)]"> · {shift.facility.name}</span> : null}
+                      </span>
+                    ))}
+                  </dd>
+                </div>
+              ))}
+            </dl>
+          </section>
+        ) : null}
 
         {doctor.expertise?.length ? (
           <section className="mt-6 border-t border-[var(--public-divider)] pt-5">

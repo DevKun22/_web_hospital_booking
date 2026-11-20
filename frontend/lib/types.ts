@@ -79,6 +79,8 @@ export type DoctorProfile = {
   profileUpdatedAt: string | null;
   /** Có giá trị khi bác sĩ đã gửi bản chỉnh sửa đang chờ quản trị duyệt. */
   profileDraftAt: string | null;
+  /** Lịch khám theo tuần (chỉ trang chi tiết công khai). dayOfWeek: 0 là Chủ nhật. */
+  schedules?: { dayOfWeek: number; startTime: string; endTime: string; facility: { id: string; name: string; address: string } | null }[];
   specialization: string | null;
   experience: number | null;
   consultationFee: number;
