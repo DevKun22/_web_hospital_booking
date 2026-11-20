@@ -1,7 +1,7 @@
 /* eslint-disable @next/next/no-img-element */
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { Check, ChevronRight, Clock, MapPin, PackageCheck, Phone, ReceiptText, ShieldCheck, Star, Stethoscope, UserRoundCheck } from "lucide-react";
+import { Check, ChevronRight, Clock, MapPin, PackageCheck, Phone, Star, Stethoscope } from "lucide-react";
 import type { PublicHomeData } from "@/components/public/public-home-types";
 import { safeHref } from "@/lib/safe-href";
 import { doctorDisplayName, doctorInitial } from "@/lib/doctor";
@@ -54,34 +54,6 @@ function SectionTitle({ id, title, description, href, linkLabel, onBlue = false 
       </div>
       {href && linkLabel ? <Link href={href} className={`shrink-0 py-2 text-sm font-semibold underline underline-offset-4 ${onBlue ? "text-white" : "text-[var(--public-primary)]"}`}>{linkLabel}</Link> : null}
     </div>
-  );
-}
-
-const BENEFITS = [
-  { icon: UserRoundCheck, title: "Không cần tài khoản", text: "Xác nhận lịch bằng mã OTP." },
-  { icon: Clock, title: "Giờ trống cập nhật", text: "Chọn đúng giờ còn tiếp nhận." },
-  { icon: ReceiptText, title: "Biết chi phí trước", text: "Chi phí dự kiến hiển thị rõ." },
-  { icon: ShieldCheck, title: "Hỗ trợ BHYT", text: "Theo từng gói khám." },
-];
-
-export function Benefits() {
-  return (
-    <Band labelledBy="benefits-title">
-      <SectionTitle id="benefits-title" title="Vì sao đặt lịch tại DevKunCare" />
-      <ul className="mt-6 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
-        {BENEFITS.map(({ icon: Icon, title, text }) => (
-          <li key={title} className="flex items-start gap-3">
-            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[var(--public-primary-soft)] text-[var(--public-primary-dark)]">
-              <Icon className="h-5 w-5" aria-hidden="true" />
-            </span>
-            <div>
-              <h3 className="font-semibold text-[var(--public-ink)]">{title}</h3>
-              <p className="text-base text-[var(--public-muted)]">{text}</p>
-            </div>
-          </li>
-        ))}
-      </ul>
-    </Band>
   );
 }
 
@@ -239,30 +211,6 @@ export function PackagesSection({ packages, config, loading }: { packages: Medic
           </ul>
         )}
       </div>
-    </Band>
-  );
-}
-
-const STEPS = [
-  { title: "Chọn dịch vụ", text: "Chuyên khoa, bác sĩ hoặc gói khám." },
-  { title: "Chọn giờ khám", text: "Xem ngày và giờ còn trống." },
-  { title: "Điền thông tin", text: "Họ tên, email và số điện thoại liên hệ." },
-  { title: "Xác nhận OTP", text: "Nhập mã để nhận mã lịch hẹn." },
-];
-
-export function Steps() {
-  return (
-    <Band id="quy-trinh" tone="blue" labelledBy="steps-title">
-      <SectionTitle id="steps-title" title="Đặt lịch trong 4 bước" href="/huong-dan/dat-lich" linkLabel="Xem hướng dẫn" onBlue />
-      <ol className="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-        {STEPS.map((step, index) => (
-          <li key={step.title}>
-            <span className="block text-3xl font-bold tabular-nums text-white/90" aria-hidden="true">{String(index + 1).padStart(2, "0")}</span>
-            <h3 className="mt-1 text-lg font-bold text-white">{step.title}</h3>
-            <p className="text-base text-white/90">{step.text}</p>
-          </li>
-        ))}
-      </ol>
     </Band>
   );
 }

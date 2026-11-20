@@ -1519,3 +1519,17 @@ button:disabled {
   .kun, .kun__eyes, .kun--idle, .kun--thinking, .kun--alert, .kun-launcher, .kun-ping::after, .kun-launcher:hover .kun, .kun-panel, .kun-enter, .kun-rise, .kun-pop { animation: none; }
   .kun-dots i { animation: none; opacity: 0.7; }
 }
+
+/* Mục "Đặt lịch và quản lý lịch hẹn" ở trang chủ: khung minh họa tự diễn từng bước. Kiểu gốc là trạng thái cuối nên khi tắt chuyển động
+   (giảm chuyển động hoặc người dùng tạm dừng) mọi thành phần vẫn hiện đủ. */
+@keyframes proc-pop { from { opacity: 0; transform: scale(0.8); } }
+@keyframes proc-fade { from { opacity: 0; transform: translateY(6px); } }
+@keyframes proc-grow { from { width: 0; } }
+@keyframes proc-lit { from { background-color: var(--public-surface-muted); color: var(--public-muted); } }
+.proc-pop { animation: proc-pop 0.32s cubic-bezier(0.2, 0.9, 0.3, 1.2) both; }
+.proc-fade { animation: proc-fade 0.4s ease-out both; }
+.proc-grow { animation: proc-grow 0.9s ease-out both; }
+.proc-lit { animation: proc-lit 0.4s ease-out both; }
+@media (prefers-reduced-motion: reduce) {
+  .proc-pop, .proc-fade, .proc-grow, .proc-lit { animation: none; }
+}
