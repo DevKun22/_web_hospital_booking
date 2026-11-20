@@ -66,19 +66,6 @@ function Skeleton({ count = 3 }: { count?: number }) {
   );
 }
 
-// Khung ảnh cố định tỉ lệ; chưa có ảnh thì dùng khối xanh nhạt nên bố cục không nhảy.
-function Thumb({ src, alt, ratio, fallback }: { src?: string | null; alt: string; ratio: string; fallback: ReactNode }) {
-  return (
-    <div className={`${ratio} overflow-hidden bg-[var(--public-primary-soft)]`}>
-      {src ? (
-        <img src={src} alt={alt} width={640} height={480} loading="lazy" decoding="async" className="h-full w-full object-cover" />
-      ) : (
-        <div className="flex h-full w-full items-center justify-center text-[var(--public-primary-dark)]" aria-hidden="true">{fallback}</div>
-      )}
-    </div>
-  );
-}
-
 function DoctorCard({ doctor }: { doctor: DoctorProfile }) {
   const slots = (doctor.todayAvailableSlots || []).slice(0, 3);
   const total = doctor.todayAvailableSlots?.length || 0;
@@ -198,47 +185,100 @@ export function DepartmentsSection({ departments, config, loading }: { departmen
   );
 }
 
+const PACKAGE_ITEMS_FEATURED = 4;
+const PACKAGE_ITEMS_STANDARD = 3;
+
+function PackageCard({ item, featured }: { item: MedicalPackage; featured?: boolean }) {
+  const included = (item.items || []).filter((entry) => entry.included);
+  const shown = included.slice(0, featured ? PACKAGE_ITEMS_FEATURED : PACKAGE_ITEMS_STANDARD);
+  const more = included.length - shown.length;
+  const detailHref = `/goi-kham/${item.slug || item.id}`;
+  const body = (
+    <>
+      <div className={`relative overflow-hidden bg-[var(--public-primary-soft)] ${featured ? "aspect-[16/9] md:aspect-auto md:min-h-[18rem]" : "aspect-[16/9]"}`}>
+        {item.image ? (
+          <img src={item.image} alt="" width={800} height={450} loading="lazy" decoding="async" className="h-full w-full object-cover" />
+        ) : (
+          <div className="flex h-full w-full items-center justify-center bg-[linear-gradient(135deg,var(--public-primary-soft),#9ccaff)] text-[var(--public-primary-dark)]" aria-hidden="true">
+            <PackageCheck className={featured ? "h-16 w-16" : "h-12 w-12"} />
+          </div>
+        )}
+        {item.isPopular || item.isBHYTSupport ? (
+          <p className="absolute left-3 top-3 flex flex-wrap gap-1.5">
+            {item.isPopular ? <span className="rounded-full bg-[var(--public-primary)] px-3 py-1 text-xs font-medium text-white shadow">Được chọn nhiều</span> : null}
+            {item.isBHYTSupport ? <span className="rounded-full bg-white/95 px-3 py-1 text-xs font-medium text-[#1e7b34] shadow">Hỗ trợ BHYT</span> : null}
+          </p>
+        ) : null}
+      </div>
+      <div className="flex flex-1 flex-col p-4 sm:p-5">
+        {item.department?.name ? <p className="text-sm text-[var(--public-muted)]">{item.department.name}</p> : null}
+        <h3 className={`mt-1 font-semibold text-[var(--public-ink)] ${featured ? "text-xl sm:text-2xl" : "text-lg"}`}>
+          <Link href={detailHref} className="hover:text-[var(--public-primary)]">{item.name}</Link>
+        </h3>
+        {shown.length ? (
+          <ul className={`mt-3 gap-x-4 gap-y-1.5 text-[0.95rem] text-[var(--public-text-soft)] ${featured ? "grid sm:grid-cols-2" : "space-y-1.5"}`}>
+            {shown.map((entry) => (
+              <li key={entry.id} className="flex items-start gap-2"><Check className="mt-1 h-4 w-4 shrink-0 text-[var(--public-success)]" aria-hidden="true" />{entry.name}</li>
+            ))}
+          </ul>
+        ) : item.summary ? (
+          <p className="mt-3 line-clamp-3 text-[0.95rem] text-[var(--public-text-soft)]">{item.summary}</p>
+        ) : null}
+        {more > 0 ? <Link href={detailHref} className="mt-2 text-sm font-medium text-[var(--public-primary)] underline-offset-4 hover:underline">+ {more} hạng mục khác</Link> : null}
+        {item.resultTime ? (
+          <p className="mt-3 inline-flex items-center gap-1.5 text-sm text-[var(--public-muted)]"><Clock className="h-4 w-4" aria-hidden="true" />Có kết quả: {item.resultTime}</p>
+        ) : null}
+        <div className="mt-auto pt-4">
+          <p className="text-xs text-[var(--public-muted)]">Chi phí dự kiến</p>
+          <p className={`font-semibold tabular-nums text-[var(--public-primary-dark)] ${featured ? "text-3xl" : "text-2xl"}`}>{formatCurrency(item.finalPrice)}</p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Link href={detailHref} className="public-button-secondary inline-flex min-h-11 items-center rounded-lg px-4 text-sm font-semibold">Xem chi tiết</Link>
+            <Link href={`/dat-lich?packageId=${item.id}`} className="public-button-primary inline-flex min-h-11 items-center rounded-lg px-5 text-sm font-semibold">Chọn gói</Link>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+  if (featured) {
+    return (
+      <div className="rounded-3xl bg-[linear-gradient(135deg,var(--dk-blue),var(--dk-teal))] p-[2px] shadow-xl">
+        <div className="grid overflow-hidden rounded-[calc(1.5rem-2px)] bg-[var(--public-surface)] md:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]">{body}</div>
+      </div>
+    );
+  }
+  return <div className="flex h-full flex-col overflow-hidden rounded-2xl border border-[var(--public-border)] bg-[var(--public-surface)] shadow-sm">{body}</div>;
+}
+
+// Gói khám: nền gradient nhạt kèm hai vòng tròn mờ trang trí; gói được đánh dấu "được chọn nhiều" (hoặc gói đầu tiên) là thẻ nổi bật rộng suốt hàng,
+// các gói còn lại là thẻ đứng. Chỉ hiện nhãn, giá, hạng mục, thời gian trả kết quả khi gói có dữ liệu đó; không có giá gốc nên không hiện giảm giá.
 export function PackagesSection({ packages, config, loading }: { packages: MedicalPackage[]; config?: HomePageSectionConfig; loading: boolean }) {
   if (!loading && !packages.length) return null;
+  const featured = packages.find((item) => item.isPopular) ?? packages[0];
+  const others = packages.filter((item) => item.id !== featured?.id);
   return (
-    <Band id="packages" tone="tint" labelledBy="packages-title">
-      <SectionTitle id="packages-title" title={config?.title || "Gói khám"} description={config?.description || "Chi phí dự kiến được hiển thị trước khi đặt lịch."} href="/goi-kham" linkLabel="Tất cả gói khám" />
-      <div className="mt-6">
-        {loading ? (
-          <Skeleton />
-        ) : (
-          <ul className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-            {packages.map((item) => {
-              const included = (item.items || []).filter((entry) => entry.included).slice(0, 3);
-              return (
-                <li key={item.id} className={`flex flex-col overflow-hidden rounded-xl bg-[var(--public-surface)] ${item.isPopular ? "border-2 border-[var(--public-primary)]" : "border border-[var(--public-border)]"}`}>
-                  <Thumb src={item.image} alt={item.name} ratio="aspect-[16/9]" fallback={<PackageCheck className="h-10 w-10" />} />
-                  <div className="flex flex-1 flex-col p-4">
-                    <p className="text-sm text-[var(--public-muted)]">
-                      {[item.department?.name, item.isPopular ? "Được chọn nhiều" : "", item.isBHYTSupport ? "Hỗ trợ BHYT" : ""].filter(Boolean).join(" · ") || "Gói khám"}
-                    </p>
-                    <h3 className="mt-1 text-lg font-bold text-[var(--public-ink)]"><Link href={`/goi-kham/${item.slug || item.id}`} className="hover:text-[var(--public-primary)]">{item.name}</Link></h3>
-                    {included.length ? (
-                      <ul className="mt-2 space-y-1 text-base text-[var(--public-text-soft)]">
-                        {included.map((entry) => (
-                          <li key={entry.id} className="flex items-start gap-2"><Check className="mt-1 h-4 w-4 shrink-0 text-[var(--public-success)]" aria-hidden="true" />{entry.name}</li>
-                        ))}
-                      </ul>
-                    ) : item.summary ? (
-                      <p className="mt-2 line-clamp-3 text-base text-[var(--public-text-soft)]">{item.summary}</p>
-                    ) : null}
-                    <div className="mt-auto flex items-center justify-between gap-3 pt-4">
-                      <p className="text-xl font-bold tabular-nums text-[var(--public-primary-dark)]">{formatCurrency(item.finalPrice)}</p>
-                      <Link href={`/dat-lich?packageId=${item.id}`} className="public-button-primary inline-flex min-h-11 items-center rounded-lg px-4 text-sm font-semibold">Chọn gói</Link>
-                    </div>
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-        )}
+    <section id="packages" aria-labelledby="packages-title" className="relative scroll-mt-24 overflow-hidden bg-[linear-gradient(180deg,var(--public-canvas)_0%,var(--public-primary-soft)_100%)]">
+      <span aria-hidden="true" className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full bg-[var(--public-primary)] opacity-10 blur-2xl" />
+      <span aria-hidden="true" className="pointer-events-none absolute -bottom-28 -left-20 h-72 w-72 rounded-full bg-[var(--dk-teal)] opacity-10 blur-2xl" />
+      <div className="ui-container relative py-10 sm:py-14">
+        <SectionTitle id="packages-title" title={config?.title || "Gói khám"} description={config?.description || "Chi phí dự kiến được hiển thị trước khi đặt lịch."} href="/goi-kham" linkLabel="Tất cả gói khám" />
+        <div className="mt-6">
+          {loading ? (
+            <Skeleton />
+          ) : (
+            <div className="space-y-4 sm:space-y-5">
+              {featured ? <PackageCard item={featured} featured /> : null}
+              {others.length ? (
+                <ul className={`grid gap-4 sm:gap-5 ${others.length > 2 ? "sm:grid-cols-2 lg:grid-cols-3" : "sm:grid-cols-2"}`}>
+                  {others.map((item) => (
+                    <li key={item.id}><PackageCard item={item} /></li>
+                  ))}
+                </ul>
+              ) : null}
+            </div>
+          )}
+        </div>
       </div>
-    </Band>
+    </section>
   );
 }
 
