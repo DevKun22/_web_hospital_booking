@@ -69,9 +69,11 @@ export function HomeArticles({ articles }: { articles: PublicArticleList | null 
 
         <div className={`mt-6 grid grid-cols-[minmax(0,1fr)] gap-5 ${side.length ? "lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]" : ""}`}>
           <article className="flex flex-col overflow-hidden rounded-2xl border border-[var(--public-border)] bg-[var(--public-surface)] shadow-sm">
-            <Link href={`/kien-thuc/${featured.slug}`} tabIndex={-1} aria-hidden="true" className="block">
-              <Cover ratio="aspect-[16/9] lg:aspect-[2/1]" src={featured.coverImage} />
-            </Link>
+            {featured.coverImage ? (
+              <Link href={`/kien-thuc/${featured.slug}`} tabIndex={-1} aria-hidden="true" className="block">
+                <Cover ratio="aspect-[16/9] lg:aspect-[2/1]" src={featured.coverImage} />
+              </Link>
+            ) : null}
             <div className="flex flex-1 flex-col p-4 sm:p-5">
               <p className="flex flex-wrap items-center gap-2 text-sm text-[var(--public-muted)]">
                 <CategoryTag article={featured} />
