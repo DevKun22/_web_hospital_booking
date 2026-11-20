@@ -15,6 +15,8 @@ export type ChatWidgetMessage = {
   content: string;
   results?: ChatbotResultGroup[];
   sources?: { id: string; title: string; url: string | null }[];
+  /** Gợi ý bước tiếp theo đi kèm câu trả lời này; chỉ tin mới nhất hiện cho bấm. */
+  actions?: ChatbotSuggestedAction[];
   /** Tin lỗi gửi: hiện nút "Thử lại". */
   retryable?: boolean;
 };
@@ -100,6 +102,13 @@ export const getQuickReplies = (actions: ChatbotSuggestedAction[], latestResults
     // EMERGENCY_ADVICE chỉ là lời khuyên đã nằm trong thẻ cảnh báo, bấm không làm gì thêm.
     .filter((action) => !covered.has(action.type) && action.type !== "EMERGENCY_ADVICE")
     .slice(0, MAX_QUICK_REPLIES);
+};
+
+/** Nút "hỏi thêm" mang sẵn câu hỏi đầy đủ (có tên bác sĩ, gói...), gửi đi như người dùng gõ; nhãn ngắn chỉ để hiển thị. */
+export const getAskQuestion = (action: ChatbotSuggestedAction) => {
+  if (action.type !== "ASK_QUESTION") return null;
+  const question = action.payload?.question;
+  return typeof question === "string" && question.trim() ? question.trim() : null;
 };
 
 // ---- Sang trang đặt lịch ----

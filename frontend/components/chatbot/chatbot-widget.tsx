@@ -11,10 +11,9 @@ import { ChatProgress } from "@/components/chatbot/chat-progress";
 import { ChatTyping } from "@/components/chatbot/chat-typing";
 import { ChatbotLauncher } from "@/components/chatbot/chatbot-launcher";
 import { KunAvatar } from "@/components/chatbot/kun-avatar";
-import { QuickReplies } from "@/components/chatbot/quick-replies";
 import { useChatbot } from "@/components/chatbot/use-chatbot";
 import { useDialogA11y } from "@/components/chatbot/use-dialog-a11y";
-import { buildBookingHref, getQuickReplies } from "@/lib/chatbot-ui";
+import { buildBookingHref } from "@/lib/chatbot-ui";
 import { usePublicChatbotSettings } from "@/lib/public-chatbot-query";
 import { PUBLIC_CHATBOT_CLOSE_EVENT, PUBLIC_CHATBOT_OPEN_EVENT, setPublicFloatingPanelVisibility } from "@/lib/public-ui-events";
 
@@ -38,7 +37,7 @@ export function ChatbotWidget() {
   // Mở khung chat; bấm nút trong tin nổi thì gửi luôn yêu cầu đó, khỏi bắt người dùng gõ.
   const openChat = (start?: ChatbotSuggestedAction) => {
     setOpen(true);
-    if (start) void chat.send(start.label, { action: start });
+    if (start) chat.pick(start);
   };
 
   useEffect(() => {
@@ -68,7 +67,6 @@ export function ChatbotWidget() {
   }, [chat.messages, chat.sending, open]);
 
   const latest = [...chat.messages].reverse().find((item) => item.role === "assistant" || item.role === "alert");
-  const quickReplies = getQuickReplies(chat.actions, latest?.results);
   const mood = chat.sending ? "thinking" : latest?.role === "alert" ? "alert" : "idle";
 
   return (
@@ -123,8 +121,9 @@ export function ChatbotWidget() {
                 key={item.id}
                 message={item}
                 selectedSlotId={chat.draftSummary?.slot?.id}
-                disabled={chat.sending}
-                onAction={(action) => void chat.send(action.label, { action })}
+                disabled={chat.sending || !online}
+                isLatest={item.id === chat.messages[chat.messages.length - 1]?.id && !chat.sending}
+                onAction={chat.pick}
                 onRetry={chat.retry}
               />
             ))}
@@ -139,7 +138,6 @@ export function ChatbotWidget() {
                 {chat.notice}
               </p>
             ) : null}
-            <QuickReplies actions={chat.sending ? [] : quickReplies} disabled={!online} onPick={(action) => void chat.send(action.label, { action })} />
             <ChatComposer ref={inputRef} placeholder={chat.placeholder} disabled={!online} sending={chat.sending} onSend={(text) => void chat.send(text)} />
           </div>
         </section>

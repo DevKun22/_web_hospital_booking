@@ -4,6 +4,8 @@ import { answerFromSources, extractiveAnswer, type GroundedAnswer } from "../rag
 import { logger } from "../../../observability/logger.js";
 import { foldVietnamese } from "../rules/text-normalizer.js";
 import { TtlCache } from "../rag/ttl-cache.js";
+import FollowUp, { withFocus } from "./follow-up.js";
+import { vary } from "../rules/variants.js";
 import type { ChatbotSource, RetrievedChunk } from "../rag/rag.types.js";
 
 // Hỏi thông tin (giá, giờ làm việc, chính sách, bác sĩ, quy trình): truy hồi trong kho tri thức rồi để AI trả lời có căn cứ.
@@ -17,9 +19,11 @@ const RETRIEVED_LIMIT = 5;
 const answerCache = new TtlCache<InfoResult>(100, 10 * 60_000);
 const cacheKey = (message: string, aiEnabled: boolean, model?: string) => `${aiEnabled ? 1 : 0}|${model ?? ""}|${foldVietnamese(message)}`;
 
-const knowledgeActions = (hasAnswer: boolean): AIChatbotOutput["suggestedActions"] => [
+/** Không có thông tin: dẫn người dùng sang việc Kun làm được thay vì dừng ở lời xin lỗi. */
+const knowledgeActions = (): AIChatbotOutput["suggestedActions"] => [
   { type: "VIEW_DEPARTMENTS", label: "Xem chuyên khoa", payload: {} },
-  { type: "CONTACT_STAFF", label: hasAnswer ? "Liên hệ hỗ trợ" : "Hỏi nhân viên hỗ trợ", payload: {} },
+  { type: "VIEW_PACKAGES", label: "Xem gói khám", payload: {} },
+  { type: "CONTACT_STAFF", label: "Hỏi nhân viên hỗ trợ", payload: {} },
 ];
 
 /** Nhiều đoạn của cùng một bài viết chỉ hiện một nguồn (đoạn đầu tiên được dùng, trỏ đúng mục đó). */
@@ -67,14 +71,16 @@ export const noInformationRepeatOutput = (draft: ChatBookingDraft): AIChatbotOut
 });
 
 export const noInformationOutput = (draft: ChatBookingDraft): AIChatbotOutput => ({
-  reply:
-    "Mình chưa tìm thấy thông tin phù hợp về câu hỏi này. Bạn có thể hỏi mình về chuyên khoa, bác sĩ, gói khám, giá, giờ làm việc và chính sách đặt lịch, hoặc nhờ nhân viên hỗ trợ nhé.",
+  reply: vary([
+    "Mình chưa tìm thấy thông tin phù hợp về câu này. Mình trả lời tốt nhất về chuyên khoa, bác sĩ, gói khám, giá, giờ làm việc và chính sách đặt lịch, hoặc bạn nhờ nhân viên hỗ trợ nhé.",
+    "Câu này nằm ngoài những gì mình có thông tin nên mình không muốn nói bừa. Bạn thử hỏi về chuyên khoa, bác sĩ, gói khám, giá hay cách đặt lịch, hoặc nhờ nhân viên hỗ trợ giúp bạn nhé.",
+  ]),
   intent: "GENERAL_HOSPITAL_INFO",
   state: "BOOKING_GUIDE",
   nextStep: "SHOW_BOOKING_GUIDE",
   confidence: 0.3,
   draft,
-  suggestedActions: knowledgeActions(false),
+  suggestedActions: knowledgeActions(),
 });
 
 /** Kết quả một lần nhờ AI sinh câu trả lời: có câu trả lời, AI báo không đủ căn cứ (grounded null), hoặc không gọi được AI (failed). */
@@ -84,7 +90,8 @@ class InfoFlow {
   /** Câu trả lời đã có trong bộ nhớ đệm cho đúng câu hỏi này, nếu có. */
   cached(input: { message: string; draft: ChatBookingDraft; aiEnabled: boolean; model?: string }): InfoResult | null {
     const hit = answerCache.get(cacheKey(input.message, input.aiEnabled, input.model), KnowledgeService.version);
-    return hit ? { ...hit, output: { ...hit.output, draft: input.draft } } : null;
+    // Câu trả lời nhớ kèm chủ đề (bác sĩ, khoa, gói) để câu hỏi kế tiếp hiểu "bác sĩ này".
+    return hit ? { ...hit, output: { ...hit.output, draft: withFocus(input.draft, hit.output.draft.focus) } } : null;
   }
 
   /** Truy hồi các đoạn tri thức cho câu hỏi; tách riêng để chạy song song với việc AI phân tích ý định. */
@@ -138,7 +145,9 @@ class InfoFlow {
     const answer = grounded ?? (aiFailed ? extractiveAnswer(chunks) : null);
     if (!answer) return null;
 
-    const usedTypes = answer.sourceIds.map((id) => chunks.find((item) => item.chunk.id === id)?.chunk.sourceType);
+    const usedChunks = chunks.filter((item) => answer.sourceIds.includes(item.chunk.id)).map((item) => item.chunk);
+    const followUp = await FollowUp.forChunks(usedChunks);
+    const usedTypes = usedChunks.map((chunk) => chunk.sourceType);
     const hasFaq = usedTypes.includes("FAQ");
     const reply = usedTypes.includes("ARTICLE") && !answer.reply.includes(HEALTH_DISCLAIMER) ? `${answer.reply} ${HEALTH_DISCLAIMER}` : answer.reply;
     const result: InfoResult = {
@@ -148,8 +157,8 @@ class InfoFlow {
         state: "BOOKING_GUIDE",
         nextStep: "END",
         confidence: Math.min(0.95, 0.6 + (chunks[0].similarity ?? chunks[0].coverage) * 0.35),
-        draft: input.draft,
-        suggestedActions: knowledgeActions(true),
+        draft: withFocus(input.draft, followUp.focus),
+        suggestedActions: followUp.actions,
         sources: toSources(chunks, answer.sourceIds),
       },
       source: grounded ? "AI" : hasFaq ? "FAQ" : "SYSTEM",

@@ -6,6 +6,7 @@ import {
   getBookingProgress,
   getKunTeaser,
   getNavigationTarget,
+  getAskQuestion,
   getQuickReplies,
   getSelectionChips,
 } from "../chatbot-ui";
@@ -79,4 +80,10 @@ test("tin nhắn nổi của Kun theo trang; im lặng ở trang đặt lịch, 
   const home = getKunTeaser("/")!;
   assert.match(home.message, /Kun/);
   assert.ok(home.chips.length >= 1 && home.chips.every((chip) => chip.label));
+});
+
+test("nút hỏi thêm mang câu hỏi đầy đủ; nút khác hoặc câu rỗng thì không", () => {
+  assert.equal(getAskQuestion({ type: "ASK_QUESTION", label: "Gói này gồm gì?", payload: { question: "  Gói Tổng Quát gồm những hạng mục nào?  " } }), "Gói Tổng Quát gồm những hạng mục nào?");
+  assert.equal(getAskQuestion({ type: "ASK_QUESTION", label: "x", payload: { question: "  " } }), null);
+  assert.equal(getAskQuestion({ type: "VIEW_PACKAGES", label: "Xem gói khám", payload: { question: "bỏ qua" } }), null);
 });

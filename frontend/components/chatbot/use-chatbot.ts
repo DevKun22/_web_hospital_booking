@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { apiRequest } from "@/lib/api";
 import {
+  getAskQuestion,
   getInputPlaceholder,
   getLoadingText,
   getNavigationTarget,
@@ -26,25 +27,26 @@ const MAX_STORED_MESSAGES = 40;
 /** Quá hạn này thì bắt đầu cuộc trò chuyện mới: lịch trống và lựa chọn cũ đã lỗi thời. */
 const STORED_TTL_MS = 24 * 60 * 60 * 1000;
 
+/** Gợi ý ban đầu khi chưa có cuộc trò chuyện: người dùng biết ngay có thể hỏi gì, khỏi nhìn ô trống. */
+const STARTER_ACTIONS: ChatbotSuggestedAction[] = [
+  { type: "VIEW_DEPARTMENTS", label: "Tìm khoa theo triệu chứng", payload: {} },
+  { type: "VIEW_PACKAGES", label: "Khám sức khỏe định kỳ", payload: {} },
+  { type: "ASK_QUESTION", label: "Khám cho trẻ em", payload: { question: "Khám cho trẻ em thì nên chọn chuyên khoa nào?" } },
+  { type: "LOOKUP_APPOINTMENT", label: "Tra cứu lịch hẹn", payload: {} },
+];
+
 const WELCOME: ChatWidgetMessage = {
   id: "welcome",
   role: "assistant",
-  content: "Chào bạn, mình là Kun, trợ lý ảo của DevKunCare. Mình có thể giúp bạn tìm bác sĩ, gói khám, xem lịch trống và đặt lịch. Bạn cần gì nào?",
+  content: "Chào bạn, mình là Kun, trợ lý ảo của DevKunCare. Mình giúp bạn tìm bác sĩ, gói khám, xem lịch trống và đặt lịch. Bạn muốn bắt đầu từ đâu?",
+  actions: STARTER_ACTIONS,
 };
-
-/** Gợi ý ban đầu khi chưa có cuộc trò chuyện: người dùng biết ngay có thể hỏi gì, khỏi nhìn ô trống. */
-const DEFAULT_ACTIONS: ChatbotSuggestedAction[] = [
-  { type: "VIEW_DEPARTMENTS", label: "Xem chuyên khoa", payload: {} },
-  { type: "VIEW_PACKAGES", label: "Xem gói khám", payload: {} },
-  { type: "LOOKUP_APPOINTMENT", label: "Tra cứu lịch hẹn", payload: {} },
-];
 
 type Stored = {
   sessionId?: string;
   draft?: ChatBookingDraft;
   draftSummary?: ChatbotDraftSummary;
   messages?: ChatWidgetMessage[];
-  actions?: ChatbotSuggestedAction[];
   savedAt?: number;
 };
 
@@ -60,7 +62,8 @@ const readStored = (): Stored => {
   }
 };
 
-type SendOptions = { action?: ChatbotSuggestedAction; echo?: boolean };
+/** `echoText`: chữ hiện trong khung chat của người dùng khi khác với nội dung gửi đi (nút hỏi thêm: nhãn ngắn, gửi câu đầy đủ). */
+type SendOptions = { action?: ChatbotSuggestedAction; echo?: boolean; echoText?: string };
 
 export function useChatbot({ online }: { online: boolean }) {
   const router = useRouter();
@@ -68,7 +71,6 @@ export function useChatbot({ online }: { online: boolean }) {
   const [draft, setDraft] = useState<ChatBookingDraft>();
   const [draftSummary, setDraftSummary] = useState<ChatbotDraftSummary>();
   const [messages, setMessages] = useState<ChatWidgetMessage[]>([WELCOME]);
-  const [actions, setActions] = useState<ChatbotSuggestedAction[]>(DEFAULT_ACTIONS);
   const [sending, setSending] = useState(false);
   const [loadingText, setLoadingText] = useState(getLoadingText());
   const [placeholder, setPlaceholder] = useState(getInputPlaceholder());
@@ -84,7 +86,6 @@ export function useChatbot({ online }: { online: boolean }) {
       if (stored.draft) setDraft(stored.draft);
       if (stored.draftSummary) setDraftSummary(stored.draftSummary);
       if (stored.messages?.length) setMessages(stored.messages);
-      if (stored.actions) setActions(stored.actions);
       setHydrated(true);
     }, 0);
     return () => window.clearTimeout(timer);
@@ -95,15 +96,15 @@ export function useChatbot({ online }: { online: boolean }) {
     try {
       window.localStorage.setItem(
         STORAGE_KEY,
-        JSON.stringify({ sessionId, draft, draftSummary, messages: messages.slice(-MAX_STORED_MESSAGES), actions, savedAt: Date.now() } satisfies Stored),
+        JSON.stringify({ sessionId, draft, draftSummary, messages: messages.slice(-MAX_STORED_MESSAGES), savedAt: Date.now() } satisfies Stored),
       );
     } catch {
       // Trình duyệt chặn hoặc đầy bộ nhớ: cuộc trò chuyện vẫn chạy, chỉ không nhớ lại được.
     }
-  }, [actions, draft, draftSummary, hydrated, messages, sessionId]);
+  }, [draft, draftSummary, hydrated, messages, sessionId]);
 
   const send = useCallback(
-    async (content: string, { action, echo = !action }: SendOptions = {}) => {
+    async (content: string, { action, echo = !action, echoText }: SendOptions = {}) => {
       const text = content.trim();
       if (!text || sendingRef.current) return;
 
@@ -120,8 +121,7 @@ export function useChatbot({ online }: { online: boolean }) {
 
       sendingRef.current = true;
       lastRequestRef.current = { content: text, action };
-      if (echo) setMessages((current) => [...current, { id: createId(), role: "user", content: text }]);
-      setActions([]);
+      if (echo) setMessages((current) => [...current, { id: createId(), role: "user", content: echoText || text }]);
       setNotice("");
       setPlaceholder(getInputPlaceholder(action));
       setLoadingText(getLoadingText(action));
@@ -135,7 +135,6 @@ export function useChatbot({ online }: { online: boolean }) {
         setSessionId(result.sessionId);
         setDraft(result.draft);
         setDraftSummary(result.draftSummary);
-        setActions(result.suggestedActions || []);
         setMessages((current) => [
           ...current,
           {
@@ -144,6 +143,7 @@ export function useChatbot({ online }: { online: boolean }) {
             content: result.reply,
             results: result.results,
             sources: result.sources,
+            actions: result.suggestedActions,
           },
         ]);
       } catch {
@@ -157,6 +157,16 @@ export function useChatbot({ online }: { online: boolean }) {
       }
     },
     [draft, online, router, sessionId],
+  );
+
+  /** Bấm một gợi ý: nút hỏi thêm gửi câu hỏi đầy đủ như người dùng gõ; các nút còn lại gửi kèm thao tác để máy chủ dựng bước kế tiếp. */
+  const pick = useCallback(
+    (action: ChatbotSuggestedAction) => {
+      const question = getAskQuestion(action);
+      if (question) void send(question, { echoText: action.label });
+      else void send(action.label, { action });
+    },
+    [send],
   );
 
   /** Gửi lại yêu cầu vừa lỗi (không lặp tin của người dùng). */
@@ -181,7 +191,6 @@ export function useChatbot({ online }: { online: boolean }) {
     setDraft(undefined);
     setDraftSummary(undefined);
     setMessages([WELCOME]);
-    setActions(DEFAULT_ACTIONS);
     setNotice("");
     setPlaceholder(getInputPlaceholder());
     lastRequestRef.current = undefined;
@@ -192,5 +201,5 @@ export function useChatbot({ online }: { online: boolean }) {
     }
   }, []);
 
-  return { messages, actions, draft, draftSummary, sending, loadingText, placeholder, notice, send, retry, clearSelection, reset };
+  return { messages, draft, draftSummary, sending, loadingText, placeholder, notice, send, pick, retry, clearSelection, reset };
 }

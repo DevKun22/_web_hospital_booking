@@ -251,3 +251,50 @@ test("câu nối tiếp ngắn được ghép với câu hỏi thông tin trư�
   assert.equal(withConversationTopic("Dấu hiệu gì?", { message: null, intent: null }), "Dấu hiệu gì?");
   assert.equal(withConversationTopic("ngày mai", { message: "đặt lịch khám tim", intent: "BOOK_APPOINTMENT" }), "ngày mai");
 });
+
+import FollowUp, { applyFocus, withFocusName } from "../../src/services/chatbot/flows/follow-up.js";
+import { sanitizeBookingDraft } from "../../src/services/chatbot/rules/draft-sanitizer.js";
+import { foldVietnamese } from "../../src/services/chatbot/rules/text-normalizer.js";
+
+test("gợi ý bước tiếp theo theo chủ đề: bác sĩ, gói khám, khoa, chính sách", () => {
+  const doctor = FollowUp.actionsFor({ type: "doctor", id: "d1", name: "BS An", departmentId: "k1" }, []);
+  assert.deepEqual(doctor.map((action) => action.type), ["VIEW_DOCTOR", "START_BOOKING", "VIEW_DEPARTMENT"]);
+  assert.equal(doctor[0].payload.doctorId, "d1");
+
+  const pack = FollowUp.actionsFor({ type: "package", id: "p1", name: "Gói Tổng Quát" }, []);
+  assert.match(String(pack[0].payload.question), /Gói Tổng Quát gồm/);
+  assert.equal(pack[1].type, "VIEW_PACKAGE");
+
+  const department = FollowUp.actionsFor({ type: "department", id: "k1", name: "Tim mạch" }, []);
+  assert.deepEqual(department.map((action) => action.type), ["VIEW_DEPARTMENT", "ASK_QUESTION", "ASK_QUESTION"]);
+  assert.notEqual(department[1].payload.question, department[2].payload.question);
+
+  const policy = FollowUp.actionsFor(null, [chunk("policy", { sourceType: "POLICY", title: "Chính sách đặt lịch", content: "x" })]);
+  assert.equal(policy[0].type, "START_BOOKING");
+});
+
+test("câu có đại từ chỉ chủ đề được thêm tên; câu đã nêu tên hoặc quá dài thì giữ nguyên", () => {
+  const focus = { type: "package" as const, id: "p1", name: "Gói Tổng Quát" };
+  assert.equal(withFocusName("Gói này giá bao nhiêu?", focus, foldVietnamese), "Gói này giá bao nhiêu (Gói Tổng Quát)");
+  assert.equal(withFocusName("giá gói tổng quát bao nhiêu", focus, foldVietnamese), "giá gói tổng quát bao nhiêu");
+  assert.equal(withFocusName("giá bao nhiêu", focus, foldVietnamese), "giá bao nhiêu");
+  assert.equal(withFocusName("Gói này giá bao nhiêu?", undefined, foldVietnamese), "Gói này giá bao nhiêu?");
+  const long = "tôi muốn biết thêm rất nhiều điều về gói này nếu có thể nói cho mình nghe";
+  assert.equal(withFocusName(long, focus, foldVietnamese), long);
+});
+
+test("chủ đề được dùng để điền thứ còn thiếu, không đè lên thứ đã chọn hoặc vừa nêu", () => {
+  const focus = { type: "doctor" as const, id: "d1", name: "BS An", departmentId: "k1" };
+  const filled = applyFocus({ focus }, "SEARCH_SLOT", {});
+  assert.equal(filled.doctorId, "d1");
+  assert.equal(filled.departmentId, "k1");
+  assert.equal(applyFocus({ focus, doctorId: "d2" }, "SEARCH_SLOT", {}).doctorId, "d2");
+  assert.equal(applyFocus({ focus }, "SEARCH_SLOT", { doctorId: "d3" }).doctorId, undefined);
+  assert.equal(applyFocus({ focus }, "ASK_INFORMATION", {}).doctorId, undefined);
+});
+
+test("bản nháp bỏ chủ đề sai định dạng", () => {
+  assert.equal(sanitizeBookingDraft({ focus: { type: "hacker" as never, id: "x", name: "y" } }).focus, undefined);
+  assert.equal(sanitizeBookingDraft({ focus: { type: "doctor", id: " ", name: "y" } }).focus, undefined);
+  assert.equal(sanitizeBookingDraft({ focus: { type: "doctor", id: "d1", name: "BS An" } }).focus?.id, "d1");
+});

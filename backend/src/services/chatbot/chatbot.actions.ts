@@ -32,6 +32,7 @@ const defaultActionLabels: Record<SuggestedActionType, string> = {
   LOOKUP_APPOINTMENT: "Tra cứu lịch hẹn",
   CONTACT_STAFF: "Liên hệ hỗ trợ",
   EMERGENCY_ADVICE: "Hướng dẫn khẩn cấp",
+  ASK_QUESTION: "Hỏi thêm",
 };
 
 const buildStartBookingAction = (
@@ -90,6 +91,7 @@ class ChatbotActionService {
             "",
           getString(payload, "doctorId") || "",
           getString(payload, "timeSlotId") || "",
+          getString(payload, "question") || "",
         ].join(":");
 
         if (seen.has(actionKey)) continue;
@@ -121,6 +123,10 @@ class ChatbotActionService {
     type: SuggestedActionType,
     payload: Record<string, unknown>,
   ) {
+    if (type === "ASK_QUESTION") {
+      return Boolean(getString(payload, "question")?.trim());
+    }
+
     if (type === "VIEW_DEPARTMENT") {
       const departmentId = getString(payload, "departmentId");
       const departmentSlug = getString(payload, "departmentSlug");

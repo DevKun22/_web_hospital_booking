@@ -82,6 +82,7 @@ const readDraft = (value: unknown): ChatBookingDraft => {
     associatedSymptoms: readStringArray(value, "associatedSymptoms"),
     triageLastQuestion: readString(value, "triageLastQuestion"),
     reason: readString(value, "reason"),
+    focus: isObject(value.focus) ? (value.focus as unknown as ChatBookingDraft["focus"]) : undefined,
   });
 };
 
