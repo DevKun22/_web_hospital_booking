@@ -2,20 +2,82 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { ArrowLeft, CalendarDays, Clock3, Pill, Stethoscope } from "lucide-react";
+import { ArrowLeft, Clock3 } from "lucide-react";
 import { PatientPageError, PatientPageLoading } from "@/components/patient/patient-page-ui";
-
-
-import { formatLongDate } from "@/lib/format";
 import { usePrescription } from "@/features/portal/hooks";
+import { formatLongDate } from "@/lib/format";
+import type { PatientPrescription } from "@/lib/patient-portal-types";
+
+const CARD = "rounded-xl border border-[var(--public-border)] bg-[var(--public-surface)] p-5";
+const CELL = "rounded-lg bg-[var(--public-surface-muted)] p-3 text-sm";
+
+type Medicine = PatientPrescription["items"][number];
+
+// Tình trạng cấp thuốc: đã cấp, tự mua, hết thuốc; chưa xử lý thì không hiện gì.
+function Fulfillment({ medicine }: { medicine: Medicine }) {
+  if (medicine.fulfillmentStatus === "DISPENSED") return <span className="mt-1.5 inline-flex rounded-full bg-[var(--public-success-soft)] px-2 py-0.5 text-xs font-semibold text-[var(--public-success)]">Đã cấp tại cơ sở khám</span>;
+  if (medicine.fulfillmentStatus === "OUTSIDE") return <span className="mt-1.5 inline-flex rounded-full bg-[var(--public-surface-muted)] px-2 py-0.5 text-xs font-semibold text-[var(--public-text-soft)]">Bạn tự mua tại nhà thuốc</span>;
+  if (medicine.fulfillmentStatus === "OUT_OF_STOCK") {
+    return <p className="mt-2 rounded-lg bg-[var(--public-warning-soft)] p-2.5 text-xs font-semibold text-[var(--public-warning)]">Cơ sở khám hết thuốc này. Mua tại nhà thuốc bên ngoài theo đơn.{medicine.fulfillmentNote ? ` ${medicine.fulfillmentNote}` : ""}</p>;
+  }
+  return null;
+}
+
 export default function PrescriptionDetailPage() {
   const id = String(useParams<{ id: string }>().id || "");
   const query = usePrescription(id);
   if (query.isLoading) return <PatientPageLoading label="Đang tải đơn thuốc..." />;
   if (query.isError || !query.data) return <PatientPageError message={query.error instanceof Error ? query.error.message : "Không tìm thấy đơn thuốc."} onRetry={() => query.refetch()} />;
-  const item = query.data;
-  return <div className="space-y-5"><Link href="/tai-khoan/ho-so-suc-khoe" className="inline-flex min-h-11 items-center gap-2 text-sm font-bold text-[var(--public-text-soft)] hover:text-[var(--public-primary)]"><ArrowLeft className="h-4 w-4" /> Quay lại hồ sơ sức khỏe</Link><section className="rounded-xl border border-[var(--public-border)] bg-white p-5 sm:p-7"><div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between"><div><span className="inline-flex rounded-full bg-violet-100 px-3 py-1 text-xs font-bold text-violet-800">Đơn thuốc đã phát hành</span><h1 className="mt-3 text-2xl font-bold">{item.prescriptionCode}</h1><p className="mt-2 flex items-center gap-2 text-sm text-[var(--public-muted)]"><CalendarDays className="h-4 w-4" /> {formatLongDate(item.issuedAt || item.createdAt)}</p></div><div className="rounded-lg bg-[var(--public-surface-muted)] p-4 text-sm"><Stethoscope className="mb-2 h-5 w-5 text-[var(--public-primary)]" /><strong>{item.doctor.title ? `${item.doctor.title} ` : ""}{item.doctor.user.fullName}</strong></div></div></section>
-    <section className="rounded-xl border border-[var(--public-border)] bg-white p-5 sm:p-6"><div className="flex items-center gap-2"><Pill className="h-5 w-5 text-violet-600" /><h2 className="text-xl font-bold">Thuốc và cách sử dụng</h2></div><div className="mt-5 space-y-3">{item.items.map((medicine, index) => <article key={medicine.id} className="grid gap-4 rounded-lg border border-[var(--public-border)] p-4 sm:grid-cols-[2.5rem_minmax(0,1fr)]"><span className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-100 text-sm font-bold text-violet-800">{index + 1}</span><div><div className="flex flex-wrap items-start justify-between gap-2"><h3 className="font-bold">{medicine.medicineName}</h3>{medicine.quantity ? <span className="text-xs font-semibold text-[var(--public-muted)]">{medicine.quantity} {medicine.unit || ""}</span> : null}</div>{medicine.fulfillmentStatus === "DISPENSED" ? <p className="mt-2 text-xs font-semibold text-emerald-700">Đã cấp tại cơ sở khám</p> : null}{medicine.fulfillmentStatus === "OUTSIDE" ? <p className="mt-2 text-xs font-semibold text-slate-600">Thuốc bạn tự mua tại nhà thuốc</p> : null}{medicine.fulfillmentStatus === "OUT_OF_STOCK" ? <p className="mt-2 rounded-lg bg-amber-50 p-2 text-xs font-semibold text-amber-900">Cơ sở khám hết thuốc này. Vui lòng mua tại nhà thuốc bên ngoài theo đơn.{medicine.fulfillmentNote ? ` ${medicine.fulfillmentNote}` : ""}</p> : null}<div className="mt-3 grid gap-2 text-sm sm:grid-cols-3"><span className="rounded-xl bg-[var(--public-surface-muted)] p-3"><strong className="block text-xs text-[var(--public-muted)]">Liều dùng</strong>{medicine.dosage}</span><span className="rounded-xl bg-[var(--public-surface-muted)] p-3"><strong className="block text-xs text-[var(--public-muted)]">Tần suất</strong>{medicine.frequency}</span><span className="rounded-xl bg-[var(--public-surface-muted)] p-3"><strong className="block text-xs text-[var(--public-muted)]">Thời gian</strong>{medicine.duration || "Theo hướng dẫn"}</span></div>{medicine.instruction ? <p className="mt-3 flex items-start gap-2 rounded-xl bg-amber-50 p-3 text-sm text-amber-900"><Clock3 className="mt-0.5 h-4 w-4 shrink-0" />{medicine.instruction}</p> : null}</div></article>)}</div>{item.note ? <div className="mt-5 rounded-lg bg-blue-50 p-4 text-sm leading-6 text-blue-900"><strong className="block">Lưu ý của bác sĩ</strong>{item.note}</div> : null}</section>
-  </div>;
-}
 
+  const item = query.data;
+  const doctor = `${item.doctor.title ? `${item.doctor.title} ` : ""}${item.doctor.user.fullName}`;
+  const meta = [item.appointment?.patientName ? `Đơn thuốc của ${item.appointment.patientName}` : null, formatLongDate(item.issuedAt || item.createdAt), doctor].filter(Boolean).join(" · ");
+
+  return (
+    <div className="space-y-5">
+      <Link href="/tai-khoan/ho-so-suc-khoe" className="inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-[var(--public-text-soft)] hover:text-[var(--public-primary)]">
+        <ArrowLeft className="h-4 w-4" aria-hidden="true" /> Quay lại hồ sơ sức khỏe
+      </Link>
+
+      <header className={`${CARD} flex flex-wrap items-start justify-between gap-3`}>
+        <div className="min-w-0">
+          <h1 className="text-2xl font-bold">{item.prescriptionCode}</h1>
+          <p className="mt-1 text-sm text-[var(--public-muted)]">{meta}</p>
+        </div>
+        <span className="rounded-full bg-[var(--public-primary-soft)] px-3 py-1 text-xs font-semibold text-[var(--public-primary-dark)]">Đã phát hành</span>
+      </header>
+
+      <section className={CARD}>
+        <h2 className="text-base font-bold">Thuốc và cách sử dụng</h2>
+        <ul className="mt-3 space-y-3">
+          {item.items.map((medicine, index) => (
+            <li key={medicine.id} className="rounded-lg border border-[var(--public-border)] p-4">
+              <div className="flex items-start justify-between gap-3">
+                <h3 className="font-semibold">{index + 1}. {medicine.medicineName}</h3>
+                {medicine.quantity ? <span className="shrink-0 text-xs font-semibold text-[var(--public-muted)]">{medicine.quantity} {medicine.unit || ""}</span> : null}
+              </div>
+              <Fulfillment medicine={medicine} />
+              <div className="mt-3 grid gap-2 sm:grid-cols-3">
+                <span className={CELL}><strong className="block text-xs font-semibold text-[var(--public-muted)]">Liều dùng</strong>{medicine.dosage}</span>
+                <span className={CELL}><strong className="block text-xs font-semibold text-[var(--public-muted)]">Tần suất</strong>{medicine.frequency}</span>
+                <span className={CELL}><strong className="block text-xs font-semibold text-[var(--public-muted)]">Thời gian</strong>{medicine.duration || "Theo hướng dẫn"}</span>
+              </div>
+              {medicine.instruction ? (
+                <p className="mt-2 flex items-start gap-2 rounded-lg bg-[var(--public-surface-muted)] p-3 text-sm text-[var(--public-text-soft)]">
+                  <Clock3 className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+                  {medicine.instruction}
+                </p>
+              ) : null}
+            </li>
+          ))}
+        </ul>
+        {item.note ? (
+          <div className="mt-4 rounded-lg bg-[var(--public-primary-soft)] p-4 text-sm leading-6 text-[var(--public-primary-dark)]">
+            <strong className="block">Lưu ý của bác sĩ</strong>
+            {item.note}
+          </div>
+        ) : null}
+      </section>
+    </div>
+  );
+}
