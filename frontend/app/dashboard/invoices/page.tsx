@@ -22,7 +22,6 @@ import {
   DsTextarea,
   DsToolbar,
   type DsColumn,
-  type DsTone,
   useActionToast,
   useConfirm,
   DsDialog,
@@ -45,243 +44,34 @@ import { formatVietnamDate, formatVietnamDateTime } from "@/lib/date";
 import { can } from "@/lib/permissions";
 import { queryKeys } from "@/lib/query-keys";
 import type {
-  Appointment,
-  InsuranceRouteType,
   Invoice,
-  InvoiceStatus,
   PaymentMethod,
 } from "@/lib/types";
 import { useDebouncedValue } from "@/lib/use-debounced-value";
+import {
+  type InvoiceAction,
+  type InsuranceForm,
+  statusTabs,
+  paymentOptions,
+  manualPayments,
+  defaultInsuranceForm,
+  insuranceRouteLabel,
+  statusLabel,
+  statusTone,
+  paymentLabel,
+  transactionStatusLabel,
+  transactionTone,
+  formatCurrency,
+  calculateInsuranceDiscount,
+  buildInsuranceForm,
+  buildInsurancePayload,
+  doctorName,
+  appointmentDoctorName,
+} from "./invoice-model";
+import { InsuranceFields } from "./insurance-fields";
 
 // Hóa đơn: danh sách bên trái; chọn một hóa đơn (hoặc bấm "Tạo hóa đơn") thì khung bên phải mở cạnh để xem chi tiết,
 // áp dụng BHYT, ghi nhận thu, hủy hoặc hoàn tiền.
-
-type InvoiceAction = "pay" | "cancel" | "refund" | "adjust";
-type InsuranceForm = {
-  eligibleAmount: string;
-  coverageRate: string;
-  routeType: InsuranceRouteType;
-  note: string;
-};
-
-// "Chưa thanh toán" đứng đầu và là tab mặc định: đó là việc của thu ngân; hóa đơn tự tạo khi bác sĩ hoàn thành khám.
-const statusTabs = [
-  { id: "UNPAID", label: "Chưa thanh toán" },
-  { id: "", label: "Tất cả" },
-  { id: "PAID", label: "Đã thanh toán" },
-  { id: "CANCELLED", label: "Đã hủy" },
-  { id: "REFUNDED", label: "Đã hoàn tiền" },
-];
-
-const paymentOptions: { value: "" | PaymentMethod; label: string }[] = [
-  { value: "", label: "Mọi phương thức" },
-  { value: "CASH", label: "Tiền mặt" },
-  { value: "CARD", label: "Thẻ" },
-  { value: "BANK_TRANSFER", label: "Chuyển khoản" },
-  { value: "VNPAY", label: "VNPay" },
-  { value: "OTHER", label: "Khác" },
-];
-
-const manualPayments: {
-  value: Exclude<PaymentMethod, "VNPAY">;
-  label: string;
-}[] = [
-  { value: "CASH", label: "Tiền mặt" },
-  { value: "CARD", label: "Thẻ" },
-  { value: "BANK_TRANSFER", label: "Chuyển khoản" },
-  { value: "OTHER", label: "Khác" },
-];
-
-const insuranceCoverageOptions = ["0", "80", "95", "100"];
-
-const insuranceRouteOptions: { value: InsuranceRouteType; label: string }[] = [
-  { value: "RIGHT_ROUTE", label: "Đúng tuyến" },
-  { value: "WRONG_ROUTE", label: "Trái tuyến" },
-  { value: "REFERRAL", label: "Chuyển tuyến" },
-  { value: "EMERGENCY", label: "Cấp cứu" },
-  { value: "SERVICE", label: "Dịch vụ" },
-];
-
-const defaultInsuranceForm: InsuranceForm = {
-  eligibleAmount: "",
-  coverageRate: "80",
-  routeType: "RIGHT_ROUTE",
-  note: "",
-};
-
-const insuranceRouteLabel: Record<InsuranceRouteType, string> = {
-  RIGHT_ROUTE: "Đúng tuyến",
-  WRONG_ROUTE: "Trái tuyến",
-  REFERRAL: "Chuyển tuyến",
-  EMERGENCY: "Cấp cứu",
-  SERVICE: "Dịch vụ",
-};
-
-const statusLabel: Record<InvoiceStatus, string> = {
-  UNPAID: "Chưa thanh toán",
-  PAID: "Đã thanh toán",
-  CANCELLED: "Đã hủy",
-  REFUNDED: "Đã hoàn tiền",
-};
-
-const statusTone: Record<InvoiceStatus, DsTone> = {
-  UNPAID: "warn",
-  PAID: "good",
-  CANCELLED: "bad",
-  REFUNDED: "neutral",
-};
-
-const paymentLabel: Partial<Record<PaymentMethod, string>> = {
-  CASH: "Tiền mặt",
-  CARD: "Thẻ",
-  BANK_TRANSFER: "Chuyển khoản",
-  VNPAY: "VNPay",
-  OTHER: "Khác",
-};
-
-const transactionStatusLabel = {
-  PENDING: "Đang chờ",
-  SUCCESS: "Thành công",
-  FAILED: "Thất bại",
-  CANCELLED: "Đã hủy",
-  EXPIRED: "Hết hạn",
-} as const;
-const transactionTone: Record<keyof typeof transactionStatusLabel, DsTone> = {
-  PENDING: "warn",
-  SUCCESS: "good",
-  FAILED: "bad",
-  CANCELLED: "neutral",
-  EXPIRED: "neutral",
-};
-
-const formatCurrency = (value: number) =>
-  new Intl.NumberFormat("vi-VN", {
-    style: "currency",
-    currency: "VND",
-    maximumFractionDigits: 0,
-  }).format(value);
-
-const parseMoneyInput = (value: string) => value.replace(/\D/g, "");
-
-const formatMoneyInput = (value: string) => {
-  const digits = parseMoneyInput(value);
-  return digits ? new Intl.NumberFormat("vi-VN").format(Number(digits)) : "";
-};
-
-const toMoneyNumber = (value: string) => Number(parseMoneyInput(value) || 0);
-
-const calculateInsuranceDiscount = (form: InsuranceForm) =>
-  Math.floor(
-    (toMoneyNumber(form.eligibleAmount) * Number(form.coverageRate || 0)) / 100,
-  );
-
-const buildInsuranceForm = (invoice: Invoice): InsuranceForm => ({
-  eligibleAmount: invoice.insuranceEligibleAmount
-    ? String(invoice.insuranceEligibleAmount)
-    : "",
-  coverageRate: String(invoice.insuranceCoverageRate || 80),
-  routeType: invoice.insuranceRouteType || "RIGHT_ROUTE",
-  note: invoice.insuranceNote || "",
-});
-
-const buildInsurancePayload = (form: InsuranceForm) => {
-  const eligibleAmount = toMoneyNumber(form.eligibleAmount);
-
-  return {
-    insuranceEligibleAmount: eligibleAmount,
-    insuranceCoverageRate:
-      eligibleAmount > 0 ? Number(form.coverageRate || 0) : 0,
-    insuranceRouteType: eligibleAmount > 0 ? form.routeType : null,
-    insuranceNote: eligibleAmount > 0 ? form.note.trim() || null : null,
-  };
-};
-
-const doctorName = (invoice: Invoice) =>
-  [invoice.appointment.doctor.title, invoice.appointment.doctor.user.fullName]
-    .filter(Boolean)
-    .join(" ");
-
-const appointmentDoctorName = (appointment: Appointment) =>
-  [appointment.doctor.title, appointment.doctor.user.fullName]
-    .filter(Boolean)
-    .join(" ");
-
-// Nhóm ô nhập tính BHYT dùng chung cho lúc tạo hóa đơn và lúc chỉnh giảm.
-function InsuranceFields({
-  idPrefix,
-  form,
-  onChange,
-}: {
-  idPrefix: string;
-  form: InsuranceForm;
-  onChange: (next: InsuranceForm) => void;
-}) {
-  return (
-    <>
-      <DsField
-        label="Số tiền đủ điều kiện BHYT"
-        htmlFor={`${idPrefix}-eligible`}
-      >
-        <DsInput
-          id={`${idPrefix}-eligible`}
-          inputMode="numeric"
-          placeholder="0"
-          value={formatMoneyInput(form.eligibleAmount)}
-          onChange={(event) =>
-            onChange({
-              ...form,
-              eligibleAmount: parseMoneyInput(event.target.value),
-            })
-          }
-        />
-      </DsField>
-      <div className="ds-grid-fields">
-        <DsField label="Mức hưởng" htmlFor={`${idPrefix}-rate`}>
-          <DsSelect
-            id={`${idPrefix}-rate`}
-            value={form.coverageRate}
-            onChange={(event) =>
-              onChange({ ...form, coverageRate: event.target.value })
-            }
-          >
-            {insuranceCoverageOptions.map((rate) => (
-              <option key={rate} value={rate}>
-                {rate}%
-              </option>
-            ))}
-          </DsSelect>
-        </DsField>
-        <DsField label="Tuyến/loại" htmlFor={`${idPrefix}-route`}>
-          <DsSelect
-            id={`${idPrefix}-route`}
-            value={form.routeType}
-            onChange={(event) =>
-              onChange({
-                ...form,
-                routeType: event.target.value as InsuranceRouteType,
-              })
-            }
-          >
-            {insuranceRouteOptions.map((item) => (
-              <option key={item.value} value={item.value}>
-                {item.label}
-              </option>
-            ))}
-          </DsSelect>
-        </DsField>
-      </div>
-      <DsField label="Ghi chú BHYT" htmlFor={`${idPrefix}-note`}>
-        <DsTextarea
-          id={`${idPrefix}-note`}
-          rows={2}
-          value={form.note}
-          placeholder="Ví dụ: áp dụng đúng tuyến theo thẻ BHYT"
-          onChange={(event) => onChange({ ...form, note: event.target.value })}
-        />
-      </DsField>
-    </>
-  );
-}
 
 export default function InvoicesPage() {
   const { user } = useAuth();
