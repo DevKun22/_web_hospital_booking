@@ -545,3 +545,7 @@
 
 /* Hàng nút của biểu mẫu trong hộp thoại: dính đáy hộp để luôn thấy nút Lưu dù biểu mẫu dài. */
 .ds-dialog__body .ds-form-actions { position: sticky; bottom: -18px; z-index: 1; display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; margin: 0 -20px -18px; padding: 12px 20px; background: var(--ds-surface); border-top: 1px solid var(--ds-line); }
+
+/* Nội dung dài trong hộp thoại cỡ lớn: phần cuộn nằm bên trong, hàng nút dính đáy vùng cuộn. */
+.ds-dialog--xl .ds-dialog-scroll { flex: 1; min-height: 0; overflow-y: auto; margin: 0 -20px; }
+.ds-dialog-scroll .ds-form-actions { bottom: 0; margin: 0; }

@@ -12,10 +12,9 @@ import {
   DsKeyValue,
   DsNotice,
   DsPageHeader,
-  DsPane,
+  DsEditDialog,
   DsPanel,
   DsSelect,
-  DsSplit,
   DsStatusPill,
   DsTabs,
   DsTextarea,
@@ -606,7 +605,7 @@ export default function PackagesPage() {
             </label>
           ))}
           {canWrite ? (
-            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", flexWrap: "wrap" }}>
+            <div className="ds-form-actions">
               <DsButton onClick={closePane}>Đóng</DsButton>
               <DsButton type="submit" variant="primary" disabled={saving || uploading || !form.name.trim()}>
                 {saving ? "Đang lưu..." : selected ? "Lưu thay đổi" : "Tạo gói"}
@@ -723,22 +722,23 @@ export default function PackagesPage() {
   ) : null;
 
   const paneNode = open ? (
-    <DsPane
-      wide={Boolean(selected)}
-      bodyClassName={selected ? "ds-pane__body ds-pane__body--flush" : undefined}
+    <DsEditDialog
+      size={selected ? "xl" : "lg"}
       title={selected ? selected.name : "Tạo gói khám"}
       badge={selected ? <DsStatusPill tone={selected.isActive ? "good" : "neutral"}>{selected.isActive ? "Hiển thị" : "Tạm ẩn"}</DsStatusPill> : undefined}
       onClose={closePane}
     >
       {selected ? (
-        <div className="ds-editor">
-          {packageForm}
-          {itemsColumn}
+        <div className="ds-dialog-scroll">
+          <div className="ds-editor">
+            {packageForm}
+            {itemsColumn}
+          </div>
         </div>
       ) : (
         packageForm
       )}
-    </DsPane>
+    </DsEditDialog>
   ) : null;
 
   return (
@@ -747,7 +747,8 @@ export default function PackagesPage() {
       <div style={{ display: "grid", gap: 12, marginBottom: 16 }}>
         {queryErrorMessage ? <DsNotice tone="bad">{queryErrorMessage}</DsNotice> : null}
       </div>
-      <DsSplit wide={Boolean(selected)} list={list} pane={paneNode} />
+      {list}
+      {paneNode}
     </>
   );
 }
