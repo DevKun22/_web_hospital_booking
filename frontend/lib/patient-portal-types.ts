@@ -92,7 +92,7 @@ export type PatientInvoice = {
   paymentMethod?: string | null;
   paidAt?: string | null;
   createdAt: string;
-  appointment: { bookingCode: string; patientName?: string; appointmentDate?: string; startTime?: string; endTime?: string; department: { name: string }; doctor?: { title: string | null; user: { fullName: string } }; package?: { name: string } | null };
+  appointment: { id?: string; bookingCode: string; patientName?: string; dependentProfileId?: string | null; appointmentDate?: string; startTime?: string; endTime?: string; department: { name: string }; doctor?: { title: string | null; user: { fullName: string } }; package?: { name: string } | null };
   items?: Array<{ id: string; description: string; quantity: number; unitPrice: number; amount: number }>;
 };
 

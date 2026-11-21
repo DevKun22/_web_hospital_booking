@@ -1,92 +1,136 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
-import { Loader2 } from "lucide-react";
+import { useMemo, useState } from "react";
+import { PersonName } from "@/components/patient/person-tag";
 import { PatientEmptyState, PatientPageError, PatientPageHeader, PatientPageLoading } from "@/components/patient/patient-page-ui";
-import { usePatientInvoices, usePayInvoice } from "@/features/portal/hooks";
+import { usePatientInvoices } from "@/features/portal/hooks";
 import { formatMoney, formatShortDate } from "@/lib/format";
+import type { PatientInvoice } from "@/lib/patient-portal-types";
 import { invoiceStatusDisplay } from "@/lib/patient-status";
-import { useMutationToast } from "@/components/patient/patient-toast";
+
+type Tab = "pending" | "paid" | "other";
+
+const TABS: { key: Tab; label: string; empty: string }[] = [
+  { key: "pending", label: "Chờ thanh toán", empty: "Không có hóa đơn chờ thanh toán" },
+  { key: "paid", label: "Đã thanh toán", empty: "Chưa có hóa đơn đã thanh toán" },
+  { key: "other", label: "Đã hủy hoặc hoàn", empty: "Không có hóa đơn đã hủy hoặc hoàn tiền" },
+];
+
+const tabOf = (invoice: PatientInvoice): Tab => (invoice.status === "UNPAID" ? "pending" : invoice.status === "PAID" ? "paid" : "other");
+// Hóa đơn của lịch cũ chưa gắn hồ sơ người thân tính là của bản thân.
+const personKey = (invoice: PatientInvoice) => invoice.appointment.dependentProfileId || "";
 
 export default function PatientInvoicesPage() {
-  const [selected, setSelected] = useState<{ invoiceId: string; provider: string } | null>(null);
+  const [tab, setTab] = useState<Tab>("pending");
+  const [person, setPerson] = useState<string | null>(null);
   const query = usePatientInvoices();
-  const payment = usePayInvoice(() => setSelected(null));
-  useMutationToast(payment, { fallbackError: "Không thể tạo giao dịch." });
+  const invoices = useMemo(() => query.data?.invoices ?? [], [query.data]);
+
+  const pending = invoices.filter((invoice) => tabOf(invoice) === "pending");
+  const pendingTotal = pending.reduce((sum, invoice) => sum + invoice.finalAmount, 0);
+  const people = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const invoice of invoices) if (!map.has(personKey(invoice))) map.set(personKey(invoice), invoice.appointment.patientName || "");
+    // "Bản thân" luôn đứng đầu.
+    return [...map.entries()].sort(([a], [b]) => Number(a !== "") - Number(b !== ""));
+  }, [invoices]);
+  const activePerson = person !== null && people.some(([key]) => key === person) ? person : null;
+  const items = invoices.filter((invoice) => tabOf(invoice) === tab && (activePerson === null || personKey(invoice) === activePerson));
+  const current = TABS.find((item) => item.key === tab)!;
 
   return (
     <div className="space-y-5">
-      <PatientPageHeader title="Hóa đơn" description="Số tiền, giảm trừ BHYT và trạng thái thanh toán của từng lần khám." />
+      <PatientPageHeader title="Hóa đơn" description="Chi phí và thanh toán của từng lần khám." />
 
       {query.isLoading ? (
         <PatientPageLoading />
       ) : query.isError || !query.data ? (
         <PatientPageError message={query.error instanceof Error ? query.error.message : "Không tải được hóa đơn."} onRetry={() => query.refetch()} />
-      ) : query.data.invoices.length === 0 ? (
+      ) : invoices.length === 0 ? (
         <PatientEmptyState title="Chưa có hóa đơn" description="Hóa đơn xuất hiện sau khi cơ sở khám lập chi phí cho lần khám." />
       ) : (
-        <ul className="divide-y divide-[var(--public-divider)] overflow-hidden rounded-lg border border-[var(--public-border)] bg-[var(--public-surface)]">
-          {query.data.invoices.map((invoice) => {
-            const status = invoiceStatusDisplay(invoice.status);
-            const discount = invoice.insuranceDiscountAmount || invoice.bhytDiscount;
-            return (
-              <li key={invoice.id} className="p-4 sm:p-5">
-                <div className="flex items-start justify-between gap-4">
-                  <div className="min-w-0">
-                    <span className={`inline-flex rounded-md px-2 py-0.5 text-xs font-semibold ${status.style}`}>{status.label}</span>
-                    <h2 className="mt-2 text-base font-bold">Hóa đơn {invoice.invoiceCode}</h2>
-                    <p className="text-sm text-[var(--public-muted)]">Lịch #{invoice.appointment.bookingCode} · {invoice.appointment.department.name} · {formatShortDate(invoice.createdAt)}</p>
-                  </div>
-                  <p className="shrink-0 text-right text-xl font-bold tabular-nums text-[var(--public-primary-dark)]">{formatMoney(invoice.finalAmount)}</p>
-                </div>
+        <>
+          {pending.length ? (
+            <section aria-label="Cần thanh toán" className="flex flex-wrap items-center justify-between gap-3 rounded-xl border-2 border-[var(--public-primary)] bg-[var(--public-surface)] p-4 sm:p-5">
+              <div>
+                <p className="text-sm text-[var(--public-muted)]">Cần thanh toán</p>
+                <p className="text-2xl font-bold tabular-nums">{formatMoney(pendingTotal)}</p>
+                <p className="text-sm text-[var(--public-muted)]">{pending.length} hóa đơn đang chờ</p>
+              </div>
+              {pending.length === 1 ? (
+                <Link href={`/tai-khoan/hoa-don/${pending[0].id}`} className="public-button-primary inline-flex min-h-11 items-center rounded-lg px-4 text-sm font-semibold">Thanh toán ngay</Link>
+              ) : (
+                <button type="button" onClick={() => setTab("pending")} className="public-button-primary inline-flex min-h-11 items-center rounded-lg px-4 text-sm font-semibold">Xem hóa đơn chờ</button>
+              )}
+            </section>
+          ) : null}
 
-                <dl className="mt-3 grid grid-cols-3 gap-3 text-sm">
-                  <div><dt className="text-[var(--public-muted)]">Trước giảm</dt><dd className="font-semibold tabular-nums">{formatMoney(invoice.totalAmount)}</dd></div>
-                  <div><dt className="text-[var(--public-muted)]">Giảm BHYT</dt><dd className="font-semibold tabular-nums">{discount ? `−${formatMoney(discount)}` : "—"}</dd></div>
-                  <div><dt className="text-[var(--public-muted)]">Phương thức</dt><dd className="font-semibold">{invoice.paymentMethod || (invoice.status === "UNPAID" ? "Chưa thanh toán" : "Tại cơ sở khám")}</dd></div>
-                </dl>
+          {people.length >= 2 ? (
+            <div role="group" aria-label="Lọc theo người khám" className="flex flex-wrap gap-2">
+              {[["all", "Tất cả"] as const, ...people.map(([key, name]) => [key, key === "" ? "Bản thân" : name] as const)].map(([key, label]) => {
+                const active = (key === "all" ? null : key) === activePerson;
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    aria-pressed={active}
+                    onClick={() => setPerson(key === "all" ? null : key)}
+                    className={`min-h-11 rounded-full border px-4 text-sm font-semibold transition-colors ${active ? "border-[var(--public-primary)] bg-[var(--public-primary-soft)] text-[var(--public-primary-dark)]" : "border-[var(--public-border)] text-[var(--public-text-soft)] hover:bg-[var(--public-surface-muted)]"}`}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+          ) : null}
 
-                {invoice.status === "PAID" ? <p className="mt-3 text-sm font-semibold text-[var(--public-success)]">Đã thanh toán {formatShortDate(invoice.paidAt)}</p> : null}
+          <div role="tablist" aria-label="Lọc hóa đơn" className="flex gap-6 overflow-x-auto border-b border-[var(--public-border)]">
+            {TABS.map((item) => {
+              const count = item.key === "pending" && pending.length ? ` (${pending.length})` : "";
+              return (
+                <button
+                  key={item.key}
+                  type="button"
+                  role="tab"
+                  aria-selected={tab === item.key}
+                  onClick={() => setTab(item.key)}
+                  className={`-mb-px min-h-11 shrink-0 border-b-2 text-sm font-semibold transition-colors ${tab === item.key ? "border-[var(--public-primary)] text-[var(--public-primary-dark)]" : "border-transparent text-[var(--public-muted)] hover:text-[var(--public-ink)]"}`}
+                >
+                  {item.label}{count}
+                </button>
+              );
+            })}
+          </div>
 
-                {invoice.status === "UNPAID" ? (
-                  <div className="mt-4 border-t border-[var(--public-divider)] pt-4">
-                    {query.data.providers.length ? (
-                      <div className="flex flex-wrap gap-2">
-                        {query.data.providers.map((provider) => {
-                          const busy = payment.isPending && selected?.invoiceId === invoice.id && selected.provider === provider.provider;
-                          return (
-                            <button
-                              key={provider.provider}
-                              type="button"
-                              disabled={payment.isPending}
-                              onClick={() => {
-                                setSelected({ invoiceId: invoice.id, provider: provider.provider });
-                                payment.mutate({ invoiceId: invoice.id, provider: provider.provider });
-                              }}
-                              className="public-button-primary inline-flex min-h-11 items-center gap-2 rounded-lg px-4 text-sm font-semibold disabled:opacity-60"
-                            >
-                              {busy ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : null}
-                              Thanh toán qua {provider.label}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    ) : (
-                      <p className="text-sm text-[var(--public-text-soft)]">Chưa có cổng thanh toán trực tuyến. Thanh toán trực tiếp theo hướng dẫn của cơ sở khám.</p>
-                    )}
-                    
-                  </div>
-                ) : null}
-
-                <Link href={`/tai-khoan/hoa-don/${invoice.id}`} className="mt-3 inline-flex min-h-11 items-center text-sm font-semibold text-[var(--public-primary)] underline underline-offset-4">Xem chi tiết hóa đơn</Link>
-              </li>
-            );
-          })}
-        </ul>
+          {items.length === 0 ? (
+            <PatientEmptyState title={current.empty} description="Hóa đơn phù hợp sẽ tự xuất hiện ở đây khi có thay đổi." />
+          ) : (
+            <ul className="divide-y divide-[var(--public-divider)] overflow-hidden rounded-xl border border-[var(--public-border)] bg-[var(--public-surface)]">
+              {items.map((invoice) => {
+                const status = invoiceStatusDisplay(invoice.status);
+                const name = invoice.appointment.patientName;
+                return (
+                  <li key={invoice.id}>
+                    <Link href={`/tai-khoan/hoa-don/${invoice.id}`} className="flex items-center gap-3 px-4 py-3.5 hover:bg-[var(--public-surface-muted)]">
+                      <span className="min-w-0 flex-1">
+                        {name ? <span className="block text-sm font-semibold"><PersonName item={{ patientName: name, dependentProfileId: invoice.appointment.dependentProfileId }} /></span> : null}
+                        <span className="block truncate text-xs text-[var(--public-muted)]">
+                          {invoice.invoiceCode} · {invoice.appointment.department.name} · {formatShortDate(invoice.status === "PAID" && invoice.paidAt ? invoice.paidAt : invoice.createdAt)}
+                        </span>
+                      </span>
+                      <span className="shrink-0 text-right">
+                        <span className="block text-sm font-bold tabular-nums">{formatMoney(invoice.finalAmount)}</span>
+                        <span className={`inline-flex rounded-md px-2 py-0.5 text-xs font-semibold ${status.style}`}>{status.label}</span>
+                      </span>
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </>
       )}
-
-      <p className="text-sm text-[var(--public-muted)]">Số tiền lấy trực tiếp từ hóa đơn trong hệ thống. Không chuyển khoản theo đường dẫn nhận qua tin nhắn hoặc tên miền không thuộc cơ sở khám.</p>
     </div>
   );
 }
