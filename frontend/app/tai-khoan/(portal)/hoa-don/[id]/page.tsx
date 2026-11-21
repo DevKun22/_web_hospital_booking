@@ -3,13 +3,12 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useState } from "react";
-import { ArrowLeft, CheckCircle2, CreditCard, Loader2, ReceiptText, ShieldCheck } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Loader2, ShieldCheck } from "lucide-react";
 import { PatientPageError, PatientPageLoading } from "@/components/patient/patient-page-ui";
-
-import { usePatientInvoice, usePayInvoice } from "@/features/portal/hooks";
 import { useMutationToast } from "@/components/patient/patient-toast";
-const money = (value?: number) => `${new Intl.NumberFormat("vi-VN").format(value || 0)} đ`;
-const date = (value?: string | null) => value ? new Intl.DateTimeFormat("vi-VN", { dateStyle: "long" }).format(new Date(value)) : "—";
+import { usePatientInvoice, usePayInvoice } from "@/features/portal/hooks";
+import { formatMoney, formatShortDate } from "@/lib/format";
+import { invoiceStatusDisplay } from "@/lib/patient-status";
 
 export default function InvoiceDetailPage() {
   const id = String(useParams<{ id: string }>().id || "");
@@ -19,11 +18,99 @@ export default function InvoiceDetailPage() {
   useMutationToast(payment, { fallbackError: "Không tạo được giao dịch." });
   if (query.isLoading) return <PatientPageLoading label="Đang tải hóa đơn..." />;
   if (query.isError || !query.data) return <PatientPageError message={query.error instanceof Error ? query.error.message : "Không tìm thấy hóa đơn."} onRetry={() => query.refetch()} />;
-  const invoice = query.data.invoice;
-  return <div className="space-y-5"><Link href="/tai-khoan/hoa-don" className="inline-flex min-h-11 items-center gap-2 text-sm font-bold text-[var(--public-text-soft)] hover:text-[var(--public-primary)]"><ArrowLeft className="h-4 w-4" /> Quay lại hóa đơn</Link>
-    <section className="rounded-xl border border-[var(--public-border)] bg-white p-5 sm:p-7"><div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between"><div><p className="text-xs font-bold uppercase tracking-[0.14em] text-[var(--public-primary)]">Chi tiết hóa đơn</p><h1 className="mt-2 text-2xl font-bold">{invoice.invoiceCode}</h1><p className="mt-2 text-sm text-[var(--public-muted)]">Mã lịch #{invoice.appointment.bookingCode} · {invoice.appointment.department.name}</p></div><span className={`w-fit rounded-full px-3 py-1.5 text-xs font-bold ${invoice.status === "PAID" ? "bg-[var(--public-success-soft)] text-[var(--public-success)]" : invoice.status === "UNPAID" ? "bg-amber-100 text-amber-800" : "bg-slate-200 text-slate-700"}`}>{invoice.status === "PAID" ? "Đã thanh toán" : invoice.status === "UNPAID" ? "Chờ thanh toán" : invoice.status}</span></div></section>
-    <div className="grid gap-5 xl:grid-cols-[minmax(0,1.25fr)_minmax(320px,0.75fr)]"><section className="rounded-xl border border-[var(--public-border)] bg-white p-5 sm:p-6"><div className="flex items-center gap-2"><ReceiptText className="h-5 w-5 text-[var(--public-primary)]" /><h2 className="text-xl font-bold">Chi tiết chi phí</h2></div><div className="mt-5 overflow-hidden rounded-lg border border-[var(--public-border)]"><div className="hidden grid-cols-[minmax(0,1fr)_5rem_8rem] gap-3 bg-[var(--public-surface-muted)] px-4 py-3 text-xs font-bold text-[var(--public-muted)] sm:grid"><span>Hạng mục</span><span className="text-center">Số lượng</span><span className="text-right">Thành tiền</span></div><div className="divide-y divide-[var(--public-divider)]">{invoice.items?.length ? invoice.items.map((item) => <div key={item.id} className="grid gap-2 px-4 py-4 sm:grid-cols-[minmax(0,1fr)_5rem_8rem] sm:items-center"><div><strong className="text-sm">{item.description}</strong><span className="mt-1 block text-xs text-[var(--public-muted)]">Đơn giá {money(item.unitPrice)}</span></div><span className="text-sm sm:text-center">× {item.quantity}</span><strong className="text-sm tabular-nums sm:text-right">{money(item.amount)}</strong></div>) : <p className="p-5 text-sm text-[var(--public-muted)]">Hóa đơn chưa có chi tiết hạng mục.</p>}</div></div></section>
-      <aside className="h-fit rounded-xl border border-[var(--public-border)] bg-white p-5 sm:p-6"><h2 className="text-lg font-bold">Tổng thanh toán</h2><dl className="mt-5 space-y-3 text-sm"><div className="flex justify-between gap-3"><dt className="text-[var(--public-muted)]">Tổng chi phí</dt><dd className="font-semibold tabular-nums">{money(invoice.totalAmount)}</dd></div><div className="flex justify-between gap-3 text-[var(--public-success)]"><dt>Giảm trừ BHYT</dt><dd className="font-semibold tabular-nums">−{money(invoice.insuranceDiscountAmount || invoice.bhytDiscount)}</dd></div><div className="flex justify-between gap-3 border-t border-[var(--public-divider)] pt-4 text-lg"><dt className="font-bold">Cần thanh toán</dt><dd className="font-bold tabular-nums text-[var(--public-primary-dark)]">{money(invoice.finalAmount)}</dd></div></dl>{invoice.status === "PAID" ? <div className="mt-5 flex items-start gap-3 rounded-lg bg-[var(--public-success-soft)] p-4 text-sm text-[var(--public-success)]"><CheckCircle2 className="h-5 w-5 shrink-0" /><span><strong className="block">Đã thanh toán</strong>{date(invoice.paidAt)} · {invoice.paymentMethod || "Đã ghi nhận"}</span></div> : invoice.status === "UNPAID" ? <div className="mt-5"><p className="flex items-center gap-2 text-sm font-bold"><CreditCard className="h-4 w-4" /> Thanh toán trực tuyến</p>{query.data.providers.length ? <div className="mt-3 space-y-2">{query.data.providers.map((provider) => <button key={provider.provider} type="button" disabled={payment.isPending} onClick={() => { setSelected(provider.provider); payment.mutate({ invoiceId: id, provider: provider.provider }); }} className="public-button-primary flex min-h-11 w-full items-center justify-center gap-2 rounded-xl px-4 text-sm font-bold disabled:opacity-60">{payment.isPending && selected === provider.provider ? <Loader2 className="h-4 w-4 animate-spin" /> : null} {provider.label}</button>)}</div> : <div className="mt-3 flex gap-3 rounded-xl bg-blue-50 p-4 text-sm text-blue-900"><ShieldCheck className="h-5 w-5 shrink-0" /> Thanh toán trực tiếp theo hướng dẫn của cơ sở khám.</div>}</div> : null}</aside></div>
-  </div>;
-}
 
+  const { invoice, providers } = query.data;
+  const status = invoiceStatusDisplay(invoice.status);
+  const discount = invoice.insuranceDiscountAmount || invoice.bhytDiscount || 0;
+  const { appointment } = invoice;
+  const meta = [
+    appointment.patientName ? `Khám cho ${appointment.patientName}` : null,
+    appointment.department.name,
+    `lịch ${appointment.bookingCode}`,
+    appointment.appointmentDate ? formatShortDate(appointment.appointmentDate) : null,
+  ].filter(Boolean).join(" · ");
+
+  return (
+    <div className="space-y-5">
+      <Link href="/tai-khoan/hoa-don" className="inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-[var(--public-text-soft)] hover:text-[var(--public-primary)]">
+        <ArrowLeft className="h-4 w-4" aria-hidden="true" /> Quay lại hóa đơn
+      </Link>
+
+      <header className="flex flex-wrap items-start justify-between gap-3 rounded-xl border border-[var(--public-border)] bg-[var(--public-surface)] p-5">
+        <div className="min-w-0">
+          <h1 className="text-2xl font-bold">{invoice.invoiceCode}</h1>
+          <p className="mt-1 text-sm text-[var(--public-muted)]">{meta}</p>
+        </div>
+        <span className={`inline-flex rounded-md px-2.5 py-1 text-xs font-semibold ${status.style}`}>{status.label}</span>
+      </header>
+
+      <div className="grid gap-5 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
+        <section className="rounded-xl border border-[var(--public-border)] bg-[var(--public-surface)] p-5">
+          <h2 className="text-base font-bold">Chi phí</h2>
+          {invoice.items?.length ? (
+            <ul className="mt-3 divide-y divide-[var(--public-divider)]">
+              {invoice.items.map((item) => (
+                <li key={item.id} className="flex items-start justify-between gap-4 py-3 text-sm">
+                  <span className="min-w-0">
+                    <span className="block font-semibold">{item.description}</span>
+                    <span className="block text-xs text-[var(--public-muted)]">Đơn giá {formatMoney(item.unitPrice)} × {item.quantity}</span>
+                  </span>
+                  <span className="shrink-0 font-semibold tabular-nums">{formatMoney(item.amount)}</span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="mt-3 text-sm text-[var(--public-muted)]">Hóa đơn chưa có chi tiết hạng mục.</p>
+          )}
+        </section>
+
+        <aside className="h-fit rounded-xl border border-[var(--public-border)] bg-[var(--public-surface)] p-5">
+          <h2 className="text-base font-bold">Thanh toán</h2>
+          <dl className="mt-3 space-y-2 text-sm">
+            <div className="flex justify-between gap-3"><dt className="text-[var(--public-muted)]">Tổng chi phí</dt><dd className="font-semibold tabular-nums">{formatMoney(invoice.totalAmount)}</dd></div>
+            {discount > 0 ? <div className="flex justify-between gap-3 text-[var(--public-success)]"><dt>Giảm trừ BHYT</dt><dd className="font-semibold tabular-nums">−{formatMoney(discount)}</dd></div> : null}
+            <div className="flex justify-between gap-3 border-t border-[var(--public-divider)] pt-3 text-base">
+              <dt className="font-bold">{invoice.status === "UNPAID" ? "Cần thanh toán" : "Thành tiền"}</dt>
+              <dd className="font-bold tabular-nums text-[var(--public-primary-dark)]">{formatMoney(invoice.finalAmount)}</dd>
+            </div>
+          </dl>
+
+          {invoice.status === "PAID" ? (
+            <div className="mt-4 flex items-start gap-3 rounded-lg bg-[var(--public-success-soft)] p-4 text-sm text-[var(--public-success)]">
+              <CheckCircle2 className="h-5 w-5 shrink-0" aria-hidden="true" />
+              <span><strong className="block">Đã thanh toán</strong>{formatShortDate(invoice.paidAt)} · {invoice.paymentMethod || "Đã ghi nhận"}</span>
+            </div>
+          ) : invoice.status === "UNPAID" ? (
+            <div className="mt-4 space-y-2">
+              {providers.length ? (
+                providers.map((provider) => (
+                  <button
+                    key={provider.provider}
+                    type="button"
+                    disabled={payment.isPending}
+                    onClick={() => {
+                      setSelected(provider.provider);
+                      payment.mutate({ invoiceId: id, provider: provider.provider });
+                    }}
+                    className="public-button-primary flex min-h-11 w-full items-center justify-center gap-2 rounded-lg px-4 text-sm font-semibold disabled:opacity-60"
+                  >
+                    {payment.isPending && selected === provider.provider ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : null}
+                    Thanh toán {formatMoney(invoice.finalAmount)} qua {provider.label}
+                  </button>
+                ))
+              ) : (
+                <p className="rounded-lg bg-[var(--public-surface-muted)] p-4 text-sm text-[var(--public-text-soft)]">Chưa có cổng thanh toán trực tuyến. Thanh toán trực tiếp theo hướng dẫn của cơ sở khám.</p>
+              )}
+              <p className="flex items-start gap-2 pt-1 text-xs leading-5 text-[var(--public-muted)]">
+                <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+                Không chuyển khoản theo đường dẫn nhận qua tin nhắn hoặc tên miền không thuộc cơ sở khám.
+              </p>
+            </div>
+          ) : (
+            <p className={`mt-4 rounded-lg p-4 text-sm font-semibold ${status.style}`}>{status.label}{invoice.status === "REFUNDED" && invoice.paidAt ? ` · đã thanh toán ${formatShortDate(invoice.paidAt)}` : ""}</p>
+          )}
+        </aside>
+      </div>
+    </div>
+  );
+}
