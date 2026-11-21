@@ -7,6 +7,7 @@ export const portalKeys = {
   appointment: (id: string) => ["patient", "appointments", id] as const,
   appointmentReview: (id: string) => ["patient", "appointments", id, "review"] as const,
   invoices: ["patient", "invoices"] as const,
+  paymentProviders: ["patient", "payment-providers"] as const,
   invoice: (id: string) => ["patient", "invoices", id] as const,
   healthRecords: ["patient", "health-records"] as const,
   medicalRecord: (id: string) => ["patient", "health-records", "record", id] as const,

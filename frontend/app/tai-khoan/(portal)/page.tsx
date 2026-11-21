@@ -39,7 +39,7 @@ function findRecentResult(records: PatientMedicalRecord[]) {
 
 export default function PatientPortalPage() {
   const router = useRouter();
-  const { logout } = usePatientAuth();
+  const { user, logout } = usePatientAuth();
   const query = usePortalOverview();
   const unread = useUnreadNotificationCount(true).data ?? 0;
 
@@ -68,7 +68,7 @@ export default function PatientPortalPage() {
       <header className="flex items-end justify-between gap-3">
         <div className="min-w-0">
           <p className="text-sm text-[var(--public-muted)]">Xin chào</p>
-          <h1 className="truncate text-2xl font-bold tracking-tight">{data.profile.fullName}</h1>
+          <h1 className="truncate text-2xl font-bold tracking-tight">{user?.fullName}</h1>
         </div>
         <Link href="/dat-lich" className="public-button-primary hidden min-h-11 shrink-0 items-center gap-2 rounded-lg px-4 text-sm font-semibold sm:inline-flex">
           <CalendarPlus className="h-4 w-4" aria-hidden="true" />

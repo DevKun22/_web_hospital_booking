@@ -6,7 +6,7 @@ import { useState } from "react";
 import { ArrowLeft, CheckCircle2, Loader2, ShieldCheck } from "lucide-react";
 import { PatientPageError, PatientPageLoading } from "@/components/patient/patient-page-ui";
 import { useMutationToast } from "@/components/patient/patient-toast";
-import { usePatientInvoice, usePayInvoice } from "@/features/portal/hooks";
+import { usePatientInvoice, usePayInvoice, usePaymentProviders } from "@/features/portal/hooks";
 import { formatMoney, formatShortDate } from "@/lib/format";
 import { invoiceStatusDisplay } from "@/lib/patient-status";
 
@@ -15,11 +15,13 @@ export default function InvoiceDetailPage() {
   const [selected, setSelected] = useState<string | null>(null);
   const query = usePatientInvoice(id);
   const payment = usePayInvoice();
+  const providersQuery = usePaymentProviders(query.data?.status === "UNPAID");
   useMutationToast(payment, { fallbackError: "Không tạo được giao dịch." });
   if (query.isLoading) return <PatientPageLoading label="Đang tải hóa đơn..." />;
   if (query.isError || !query.data) return <PatientPageError message={query.error instanceof Error ? query.error.message : "Không tìm thấy hóa đơn."} onRetry={() => query.refetch()} />;
 
-  const { invoice, providers } = query.data;
+  const invoice = query.data;
+  const providers = providersQuery.data ?? [];
   const status = invoiceStatusDisplay(invoice.status);
   const discount = invoice.insuranceDiscountAmount || invoice.bhytDiscount || 0;
   const { appointment } = invoice;
@@ -82,7 +84,9 @@ export default function InvoiceDetailPage() {
             </div>
           ) : invoice.status === "UNPAID" ? (
             <div className="mt-4 space-y-2">
-              {providers.length ? (
+              {providersQuery.isLoading ? (
+                <p className="flex items-center gap-2 text-sm text-[var(--public-muted)]" role="status"><Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> Đang tải phương thức thanh toán...</p>
+              ) : providers.length ? (
                 providers.map((provider) => (
                   <button
                     key={provider.provider}

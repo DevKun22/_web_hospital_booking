@@ -164,13 +164,10 @@ type Collection<T> = {
   total: number;
 };
 
+// Phần trang tổng quan hiển thị; tên người dùng lấy từ phiên đăng nhập, không lấy lại ở đây.
 export type PatientPortalOverview = {
-  profile: PatientUser;
   appointments: Collection<PatientAppointment>;
   medicalRecords: Collection<PatientMedicalRecord>;
-  prescriptions: Collection<PatientPrescription>;
   invoices: Collection<PatientInvoice>;
-  dependents: PatientDependent[];
-  sessions: PatientSession[];
 };
 
