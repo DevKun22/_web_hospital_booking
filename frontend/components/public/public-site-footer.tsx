@@ -39,7 +39,7 @@ const LINK_GROUPS = [
   {
     title: "Hỗ trợ",
     links: [
-      { href: "/ho-tro", label: "Trung tâm hỗ trợ" },
+      { href: "/ho-tro", label: "Liên hệ và hỗ trợ" },
       { href: "/huong-dan/dat-lich", label: "Hướng dẫn đặt lịch" },
       { href: "/tai-khoan/lich-hen", label: "Tra cứu lịch hẹn", lookup: true },
       { href: "/hoi-dap", label: "Câu hỏi thường gặp" },

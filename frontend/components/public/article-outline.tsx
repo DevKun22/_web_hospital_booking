@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 
 // Mục lục bài viết: mục đang đọc được tô đậm theo vị trí cuộn; không có JavaScript vẫn là danh sách liên kết thường.
-export function ArticleOutline({ items }: { items: { id: string; text: string }[] }) {
+export function ArticleOutline({ items, title = "Trong bài viết" }: { items: { id: string; text: string }[]; title?: string }) {
   const [active, setActive] = useState("");
 
   useEffect(() => {
@@ -22,7 +22,7 @@ export function ArticleOutline({ items }: { items: { id: string; text: string }[
 
   return (
     <nav aria-label="Mục lục" className="rounded-2xl border border-[var(--public-border)] bg-[var(--public-surface)] p-4">
-      <p className="text-base font-semibold">Trong bài viết</p>
+      <p className="text-base font-semibold">{title}</p>
       <ol className="mt-3 space-y-2 text-sm">
         {items.map((item) => (
           <li key={item.id}>
