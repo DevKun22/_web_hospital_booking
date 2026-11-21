@@ -185,7 +185,7 @@ export default async function PublicDepartmentDetailPage({ params }: PageProps) 
                   <div className="min-w-0">
                     <h3 className="text-base font-semibold">{item.slug ? <Link href={`/goi-kham/${item.slug}`} className="hover:text-[var(--public-primary)]">{item.name}</Link> : item.name}</h3>
                     <p className="mt-0.5 line-clamp-2 text-sm text-[var(--public-muted)]">{item.summary || item.description || "Gói khám được thiết kế theo nhu cầu chuyên khoa."}</p>
-                    <p className="mt-1 text-sm text-[var(--public-muted)]">{item.items.length} hạng mục{item.isBHYTSupport ? " · Hỗ trợ BHYT" : ""}{item.isPopular ? " · Được chọn nhiều" : ""}</p>
+                    <p className="mt-1 text-sm text-[var(--public-muted)]">{item.items.length} hạng mục{item.isBHYTSupport ? " · Hỗ trợ BHYT" : ""}{item.isPopular ? " · Nổi bật" : ""}</p>
                   </div>
                   <div className="flex shrink-0 items-center justify-between gap-4 sm:justify-end">
                     <p className="text-lg font-bold tabular-nums text-[var(--public-primary-dark)]">{formatCurrency(item.finalPrice)}</p>

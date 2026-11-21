@@ -130,7 +130,7 @@ export function PackageCatalogClient() {
             <label className={FIELD_LABEL_CLASS}>
               Sắp xếp
               <select value={sort} onChange={(event) => changeSort(event.target.value as PackageSort)} className={SELECT_CLASS}>
-                <option value="POPULAR_DESC">Phù hợp nhất</option>
+                <option value="POPULAR_DESC">Gói nổi bật trước</option>
                 <option value="PRICE_ASC">Giá thấp đến cao</option>
                 <option value="PRICE_DESC">Giá cao đến thấp</option>
                 <option value="NAME_ASC">Tên A–Z</option>

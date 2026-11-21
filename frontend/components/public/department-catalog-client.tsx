@@ -101,7 +101,7 @@ export function DepartmentCatalogClient() {
             <label className={FIELD_LABEL_CLASS}>
               Sắp xếp
               <select value={sort} onChange={(event) => changeSort(event.target.value as "POPULAR_DESC" | "NAME_ASC")} className={SELECT_CLASS}>
-                <option value="POPULAR_DESC">Phù hợp nhất</option>
+                <option value="POPULAR_DESC">Nhiều bác sĩ, gói khám trước</option>
                 <option value="NAME_ASC">Tên A–Z</option>
               </select>
             </label>
