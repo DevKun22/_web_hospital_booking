@@ -1,14 +1,14 @@
 /* eslint-disable @next/next/no-img-element */
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { ArrowRight, Check, ChevronRight, Clock, MapPin, PackageCheck, Phone, Star, Stethoscope } from "lucide-react";
+import { ArrowRight, Check, ChevronRight, Clock, PackageCheck, Star, Stethoscope } from "lucide-react";
 import type { PublicHomeData } from "@/components/public/public-home-types";
 import { safeHref } from "@/lib/safe-href";
 import { AskKunBanner } from "@/components/public/ask-kun-banner";
 import { doctorInitial } from "@/lib/doctor";
 import { formatCurrency, formatShortDate } from "@/lib/format";
 import { getPublicDoctorPath } from "@/lib/public-routes";
-import type { Banner, DoctorProfile, HomePageConfigValue, HomePageSectionConfig, MedicalPackage, PublicFAQ, SiteSettingsValue } from "@/lib/types";
+import type { Banner, DoctorProfile, HomePageConfigValue, HomePageSectionConfig, MedicalPackage, PublicFAQ } from "@/lib/types";
 
 const formatTime = (value: string) => value.slice(0, 5);
 
@@ -281,45 +281,23 @@ export function PackagesSection({ packages, config, loading }: { packages: Medic
 }
 
 // Hỏi đáp rút gọn dùng thẻ details nên không cần JavaScript; cùng dữ liệu với trang Hỏi đáp.
-export function SupportSection({ faqs, settings }: { faqs: PublicFAQ[]; settings: SiteSettingsValue | null }) {
+// Thông tin liên hệ và nút đặt lịch đã có ở chân trang nên không lặp lại ở đây; chưa có câu hỏi nào thì ẩn cả mục.
+export function SupportSection({ faqs }: { faqs: PublicFAQ[] }) {
   const items = faqs.slice(0, 5);
-  const hotline = settings?.hotline?.trim();
+  if (!items.length) return null;
   return (
     <Band id="hoi-dap" labelledBy="faq-title">
-      <div className={`grid grid-cols-[minmax(0,1fr)] gap-8 ${items.length ? "lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]" : ""}`}>
-        {items.length ? (
-          <div>
-            <SectionTitle id="faq-title" title="Câu hỏi thường gặp" href="/hoi-dap" linkLabel="Xem tất cả" />
-            <div className="mt-6 divide-y divide-[var(--public-divider)] overflow-hidden rounded-xl border border-[var(--public-border)] bg-[var(--public-surface)]">
-              {items.map((item) => (
-                <details key={item.id} className="group">
-                  <summary className="flex min-h-14 cursor-pointer list-none items-center gap-3 px-4 py-3 font-semibold text-[var(--public-ink)] hover:bg-[var(--public-surface-muted)]">
-                    <span className="min-w-0 flex-1">{item.question}</span>
-                    <ChevronRight className="h-4 w-4 shrink-0 text-[var(--public-muted)] transition-transform group-open:rotate-90" aria-hidden="true" />
-                  </summary>
-                  <p className="px-4 pb-4 text-base leading-7 text-[var(--public-text-soft)]">{item.answer}</p>
-                </details>
-              ))}
-            </div>
-          </div>
-        ) : null}
-
-        <aside aria-labelledby="support-title" className="self-start rounded-2xl bg-[var(--public-primary-soft)] p-5 sm:p-6">
-          <h2 id={items.length ? "support-title" : "faq-title"} className="text-xl font-bold text-[var(--public-primary-dark)]">Quý khách cần hỗ trợ?</h2>
-          <dl className="mt-3 space-y-3 text-base text-[var(--public-ink)]">
-            {hotline ? (
-              <div className="flex items-start gap-3"><Phone className="mt-1 h-4 w-4 shrink-0 text-[var(--public-primary-dark)]" aria-hidden="true" /><div><dt className="sr-only">Đường dây nóng</dt><dd><a href={`tel:${hotline}`} className="font-semibold tabular-nums">{hotline}</a></dd></div></div>
-            ) : null}
-            {settings?.workingHours ? (
-              <div className="flex items-start gap-3"><Clock className="mt-1 h-4 w-4 shrink-0 text-[var(--public-primary-dark)]" aria-hidden="true" /><div><dt className="sr-only">Giờ làm việc</dt><dd>{settings.workingHours}</dd></div></div>
-            ) : null}
-            {settings?.address ? (
-              <div className="flex items-start gap-3"><MapPin className="mt-1 h-4 w-4 shrink-0 text-[var(--public-primary-dark)]" aria-hidden="true" /><div><dt className="sr-only">Địa chỉ</dt><dd>{settings.address}</dd></div></div>
-            ) : null}
-          </dl>
-          {!hotline && !settings?.workingHours && !settings?.address ? <p className="mt-2 text-base text-[var(--public-text-soft)]">Đặt lịch trực tuyến hoặc hỏi trợ lý để được hướng dẫn.</p> : null}
-          <Link href="/dat-lich" className="public-button-primary mt-4 inline-flex min-h-12 w-full items-center justify-center rounded-full px-6 text-base font-semibold">Đặt lịch khám</Link>
-        </aside>
+      <SectionTitle id="faq-title" title="Câu hỏi thường gặp" href="/hoi-dap" linkLabel="Xem tất cả" />
+      <div className="mt-6 divide-y divide-[var(--public-divider)] overflow-hidden rounded-xl border border-[var(--public-border)] bg-[var(--public-surface)]">
+        {items.map((item) => (
+          <details key={item.id} className="group">
+            <summary className="flex min-h-14 cursor-pointer list-none items-center gap-3 px-4 py-3 font-semibold text-[var(--public-ink)] hover:bg-[var(--public-surface-muted)]">
+              <span className="min-w-0 flex-1">{item.question}</span>
+              <ChevronRight className="h-4 w-4 shrink-0 text-[var(--public-muted)] transition-transform group-open:rotate-90" aria-hidden="true" />
+            </summary>
+            <p className="px-4 pb-4 text-base leading-7 text-[var(--public-text-soft)]">{item.answer}</p>
+          </details>
+        ))}
       </div>
     </Band>
   );

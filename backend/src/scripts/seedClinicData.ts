@@ -414,14 +414,14 @@ async function seedMedicines(actorId: string) {
 }
 
 async function seedSiteContent() {
+  // Chỉ nạp thông tin thật của đơn vị; không dùng số điện thoại hay email giả. Email để trống cho đến khi có hộp thư chính thức (chân trang tự ẩn).
   const value = {
     hospitalName: "DevKunCare",
-    hotline: "1900 1234",
+    hotline: "0352412318",
     emergencyHotline: "115",
-    email: `contact@${EMAIL_DOMAIN}`,
-    address: "475A Điện Biên Phủ, Phường 25, Quận Bình Thạnh, TP. Hồ Chí Minh",
-    workingHours: "Thứ 2 - Thứ 7, 08:00 - 16:30",
-    mapUrl: "https://maps.google.com/?q=475A+Điện+Biên+Phủ,+Bình+Thạnh",
+    address: "Số 1 Võ Văn Ngân, Thủ Đức, Trường Đại Học Công Nghệ Kỹ Thuật TP HCM",
+    workingHours: "08:00 - 17:00",
+    mapUrl: "https://maps.google.com/?q=1+Võ+Văn+Ngân,+Thủ+Đức",
   };
   await prisma.appSetting.upsert({
     where: { scope_key: { scope: "SITE", key: "site_settings" } },

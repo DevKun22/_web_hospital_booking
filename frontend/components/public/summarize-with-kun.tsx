@@ -10,7 +10,7 @@ export function SummarizeWithKun({ slug }: { slug: string }) {
     <button
       type="button"
       onClick={() => openPublicChatbot(buildSummarizeArticleAction(slug))}
-      className="mt-4 inline-flex min-h-11 items-center gap-2 rounded-xl border border-[var(--public-primary)] bg-[var(--public-surface)] px-4 text-sm font-semibold text-[var(--public-primary)] transition hover:bg-[var(--public-surface-muted)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--public-primary)]"
+      className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-[var(--public-primary)] bg-[var(--public-surface)] px-4 text-sm font-semibold text-[var(--public-primary)] transition hover:bg-[var(--public-surface-muted)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--public-primary)]"
     >
       <Sparkles className="h-4 w-4" aria-hidden="true" />
       Tóm tắt bài này với Kun

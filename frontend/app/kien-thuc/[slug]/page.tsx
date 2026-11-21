@@ -88,7 +88,7 @@ export default async function KnowledgeArticlePage({ params }: PageProps) {
             <img src={article.coverImage} alt="" width={1200} height={675} fetchPriority="high" decoding="async" className="mt-5 aspect-[16/9] w-full rounded-xl object-cover" />
           ) : null}
 
-          <SummarizeWithKun slug={article.slug} />
+          <div className="mt-4"><SummarizeWithKun slug={article.slug} /></div>
 
           {article.reviewerName ? (
             <p className="mt-4 flex items-start gap-2 rounded-lg bg-[var(--public-success-soft)] px-3 py-2 text-sm text-[var(--public-success)]">
