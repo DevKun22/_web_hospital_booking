@@ -12,6 +12,7 @@ import {
   DsKeyValue,
   DsNotice,
   DsPageHeader,
+  DsEditDialog,
   DsPane,
   DsPanel,
   DsSelect,
@@ -304,7 +305,7 @@ export default function DashboardNotificationsPage() {
 
   const composePane =
     pane?.kind === "compose" ? (
-      <DsPane title={confirming ? `Xác nhận ${sendMode === "now" ? "gửi thông báo" : "lên lịch gửi"}` : "Soạn thông báo"} onClose={closePane}>
+      <DsEditDialog size="lg" title={confirming ? `Xác nhận ${sendMode === "now" ? "gửi thông báo" : "lên lịch gửi"}` : "Soạn thông báo"} onClose={closePane}>
         {confirming ? (
           <div style={{ display: "grid", gap: 12 }}>
             <p className="ds-hint" style={{ margin: 0 }}>
@@ -325,7 +326,7 @@ export default function DashboardNotificationsPage() {
                 />
               </div>
             </div>
-            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", flexWrap: "wrap" }}>
+            <div className="ds-form-actions">
               <DsButton disabled={submitting} onClick={() => setConfirming(false)}>
                 Quay lại chỉnh sửa
               </DsButton>
@@ -407,7 +408,7 @@ export default function DashboardNotificationsPage() {
               <VietnamDateTimeInput value={expiresAt} onChange={setExpiresAt} ariaLabel="Thời điểm tự ẩn" className="ds-input" />
             </DsField>
             {expiresAt && sendMode === "schedule" && expiresAt <= scheduledAt ? <DsNotice tone="warn">Thời điểm tự ẩn phải sau thời điểm gửi.</DsNotice> : null}
-            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", alignItems: "center", flexWrap: "wrap" }}>
+            <div className="ds-form-actions" style={{ alignItems: "center" }}>
               {!canSubmit ? <span className="ds-hint">Cần tiêu đề (3 ký tự trở lên), nội dung (5 ký tự trở lên) và nhóm nhận.</span> : null}
               <DsButton onClick={closePane}>Hủy</DsButton>
               <DsButton type="submit" variant="primary" disabled={!canSubmit}>
@@ -416,7 +417,7 @@ export default function DashboardNotificationsPage() {
             </div>
           </form>
         )}
-      </DsPane>
+      </DsEditDialog>
     ) : null;
 
   const viewPane = selected ? (
@@ -465,7 +466,8 @@ export default function DashboardNotificationsPage() {
         {queryErrorMessage ? <DsNotice tone="bad">{queryErrorMessage}</DsNotice> : null}
         {message ? <DsNotice tone={message.tone}>{message.text}</DsNotice> : null}
       </div>
-      <DsSplit list={list} pane={composePane ?? viewPane} />
+      <DsSplit list={list} pane={viewPane} />
+      {composePane}
     </>
   );
 }
