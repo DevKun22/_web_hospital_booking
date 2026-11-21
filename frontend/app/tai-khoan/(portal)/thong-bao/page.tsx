@@ -1,50 +1,26 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
-import { ArrowRight, Check, CheckCheck, ChevronLeft, ChevronRight, RefreshCw } from "lucide-react";
-import {
-  PatientEmptyState,
-  PatientPageError,
-  PatientPageHeader,
-  PatientPageLoading,
-} from "@/components/patient/patient-page-ui";
-import type { PatientNotification } from "@/lib/patient-portal-types";
-
-
+import { useState, type ComponentType } from "react";
+import { CalendarDays, CalendarX, CheckCheck, ChevronLeft, ChevronRight, HeartPulse, Megaphone, Pill, Receipt, RefreshCw, BellRing } from "lucide-react";
+import { PatientEmptyState, PatientPageError, PatientPageHeader, PatientPageLoading } from "@/components/patient/patient-page-ui";
+import { useMutationToast } from "@/components/patient/patient-toast";
 import { type NotificationFilter } from "@/features/portal/api";
 import { useNotificationMutations, usePatientNotifications } from "@/features/portal/hooks";
-import { useMutationToast } from "@/components/patient/patient-toast";
-const typeConfig: Record<string, { label: string }> = {
-  SYSTEM_ANNOUNCEMENT: { label: "Thông báo cơ sở khám" },
-  APPOINTMENT_CONFIRMED: { label: "Lịch hẹn" },
-  APPOINTMENT_RESCHEDULED: { label: "Đổi lịch" },
-  APPOINTMENT_CANCELLED: { label: "Hủy lịch" },
-  APPOINTMENT_REMINDER: { label: "Nhắc lịch" },
-  APPOINTMENT_NO_SHOW: { label: "Lịch hẹn" },
-  APPOINTMENT_CHECKED_IN: { label: "Đã tiếp nhận" },
-  APPOINTMENT_IN_PROGRESS: { label: "Đang khám" },
-  APPOINTMENT_COMPLETED: { label: "Hoàn thành khám" },
-  MEDICAL_RESULT_PUBLISHED: { label: "Kết quả khám" },
-  PRESCRIPTION_ISSUED: { label: "Đơn thuốc" },
-  PRESCRIPTION_DISPENSED: { label: "Đã cấp thuốc" },
-  INVOICE_CREATED: { label: "Hóa đơn" },
-  PAYMENT_SUCCEEDED: { label: "Thanh toán" },
-  PAYMENT_REFUNDED: { label: "Hoàn tiền" },
-};
+import type { PatientNotification } from "@/lib/patient-portal-types";
 
-const fallbackType = { label: "Thông báo" };
+type Visual = { icon: ComponentType<{ className?: string }>; danger?: boolean };
 
-function formatNotificationTime(value: string) {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "Không rõ thời gian";
-  return new Intl.DateTimeFormat("vi-VN", {
-    hour: "2-digit",
-    minute: "2-digit",
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  }).format(date);
+// Biểu tượng theo loại thông báo; chỉ lịch hủy và hoàn tiền dùng tông đỏ.
+function visualOf(type: string): Visual {
+  if (type === "APPOINTMENT_CANCELLED" || type === "APPOINTMENT_NO_SHOW") return { icon: CalendarX, danger: true };
+  if (type === "PAYMENT_REFUNDED") return { icon: Receipt, danger: true };
+  if (type === "APPOINTMENT_REMINDER") return { icon: BellRing };
+  if (type.startsWith("APPOINTMENT_")) return { icon: CalendarDays };
+  if (type === "MEDICAL_RESULT_PUBLISHED") return { icon: HeartPulse };
+  if (type.startsWith("PRESCRIPTION_")) return { icon: Pill };
+  if (type === "INVOICE_CREATED" || type === "PAYMENT_SUCCEEDED") return { icon: Receipt };
+  return { icon: Megaphone };
 }
 
 function notificationDestination(item: PatientNotification) {
@@ -58,19 +34,74 @@ function notificationDestination(item: PatientNotification) {
   return null;
 }
 
+const startOfDay = (date: Date) => new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+const DAY = 86_400_000;
+
+function groupOf(value: string, now: number) {
+  const time = new Date(value).getTime();
+  if (Number.isNaN(time)) return "Trước đó";
+  const diff = startOfDay(new Date(now)) - startOfDay(new Date(time));
+  return diff <= 0 ? "Hôm nay" : diff <= DAY ? "Hôm qua" : "Trước đó";
+}
+
+// Hôm nay và hôm qua chỉ cần giờ; tin cũ hơn ghi ngày.
+function timeLabel(value: string, group: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return group === "Trước đó"
+    ? new Intl.DateTimeFormat("vi-VN", { day: "2-digit", month: "2-digit" }).format(date)
+    : new Intl.DateTimeFormat("vi-VN", { hour: "2-digit", minute: "2-digit" }).format(date);
+}
+
+const GROUP_ORDER = ["Hôm nay", "Hôm qua", "Trước đó"];
+const ROW_CLASS = "flex w-full items-start gap-3 px-4 py-3.5 text-left hover:bg-[var(--public-surface-muted)]";
+
+function Row({ item, group, onRead }: { item: PatientNotification; group: string; onRead: (id: string) => void }) {
+  const { icon: Icon, danger } = visualOf(item.type);
+  const destination = notificationDestination(item);
+  const body = (
+    <>
+      <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${danger ? "bg-[var(--public-danger-soft)] text-[var(--public-danger)]" : "bg-[var(--public-primary-soft)] text-[var(--public-primary)]"}`}>
+        <Icon className="h-[18px] w-[18px]" aria-hidden="true" />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className={`block text-sm ${item.isRead ? "font-normal" : "font-bold"}`}>
+          {item.title} <time dateTime={item.publishedAt || item.createdAt} className="font-normal tabular-nums text-[var(--public-muted)]">· {timeLabel(item.publishedAt || item.createdAt, group)}</time>
+        </span>
+        <span className="mt-0.5 line-clamp-2 whitespace-pre-line text-sm text-[var(--public-text-soft)]">{item.body}</span>
+      </span>
+      {!item.isRead ? <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-[var(--public-primary)]"><span className="sr-only">Chưa đọc</span></span> : null}
+    </>
+  );
+  const markRead = () => {
+    if (!item.isRead) onRead(item.id);
+  };
+  return (
+    <li>
+      {destination ? (
+        <Link href={destination} onClick={markRead} className={ROW_CLASS}>{body}</Link>
+      ) : (
+        <button type="button" onClick={markRead} className={ROW_CLASS}>{body}</button>
+      )}
+    </li>
+  );
+}
+
 export default function PatientNotificationsPage() {
   const [filter, setFilter] = useState<NotificationFilter>("all");
   const [page, setPage] = useState(1);
+  const [now] = useState(() => Date.now());
   const query = usePatientNotifications(filter, page);
-  const { markRead: markReadMutation, markAll: markAllMutation } = useNotificationMutations();
-  useMutationToast(markReadMutation, { fallbackError: "Chưa thể cập nhật trạng thái thông báo." });
-  useMutationToast(markAllMutation, { success: "Đã đánh dấu tất cả đã đọc.", fallbackError: "Chưa thể cập nhật trạng thái thông báo." });
+  const { markRead, markAll } = useNotificationMutations();
+  useMutationToast(markRead, { fallbackError: "Chưa thể cập nhật trạng thái thông báo." });
+  useMutationToast(markAll, { success: "Đã đánh dấu tất cả đã đọc.", fallbackError: "Chưa thể cập nhật trạng thái thông báo." });
 
   const items = query.data?.data || [];
   const meta = query.data?.meta;
   const unreadCount = meta?.unreadCount || 0;
   const totalPages = Math.max(meta?.totalPages || 1, 1);
-  const isMutating = markReadMutation.isPending || markAllMutation.isPending;
+
+  const grouped = GROUP_ORDER.map((group) => ({ group, items: items.filter((item) => groupOf(item.publishedAt || item.createdAt, now) === group) })).filter((entry) => entry.items.length);
 
   const changeFilter = (next: NotificationFilter) => {
     setFilter(next);
@@ -81,34 +112,33 @@ export default function PatientNotificationsPage() {
     <div className="space-y-5">
       <PatientPageHeader
         title="Thông báo"
-        description="Thay đổi lịch khám, kết quả, đơn thuốc, hóa đơn và thông tin từ cơ sở khám."
+        description="Lịch khám, kết quả, đơn thuốc, hóa đơn và tin từ cơ sở khám."
         action={unreadCount > 0 ? (
-          <button type="button" disabled={isMutating} onClick={() => markAllMutation.mutate()} className="public-button-secondary inline-flex min-h-11 items-center justify-center gap-2 rounded-lg px-4 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-50">
-            <CheckCheck className="h-4 w-4" aria-hidden="true" /> Đánh dấu tất cả đã đọc ({unreadCount})
+          <button type="button" disabled={markAll.isPending} onClick={() => markAll.mutate()} className="public-button-secondary inline-flex min-h-11 items-center justify-center gap-2 rounded-lg px-4 text-sm font-semibold disabled:opacity-50">
+            <CheckCheck className="h-4 w-4" aria-hidden="true" /> Đánh dấu tất cả đã đọc
           </button>
         ) : undefined}
       />
 
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div role="tablist" aria-label="Lọc thông báo" className="flex gap-2">
-          {([{ key: "all", label: "Tất cả" }, { key: "unread", label: "Chưa đọc" }] as const).map((item) => (
+      <div className="flex items-center justify-between gap-2 border-b border-[var(--public-border)]">
+        <div role="tablist" aria-label="Lọc thông báo" className="flex gap-6">
+          {([{ key: "all", label: "Tất cả" }, { key: "unread", label: unreadCount > 0 ? `Chưa đọc (${unreadCount})` : "Chưa đọc" }] as const).map((item) => (
             <button
               key={item.key}
               type="button"
               role="tab"
               aria-selected={filter === item.key}
               onClick={() => changeFilter(item.key)}
-              className={`min-h-11 rounded-lg border px-4 text-sm font-semibold ${filter === item.key ? "border-[var(--public-primary)] bg-[var(--public-solid)] text-white" : "border-[var(--public-border)] bg-[var(--public-surface)] text-[var(--public-text-soft)]"}`}
+              className={`-mb-px min-h-11 border-b-2 text-sm font-semibold transition-colors ${filter === item.key ? "border-[var(--public-primary)] text-[var(--public-primary-dark)]" : "border-transparent text-[var(--public-muted)] hover:text-[var(--public-ink)]"}`}
             >
               {item.label}
             </button>
           ))}
         </div>
-        <button type="button" onClick={() => query.refetch()} disabled={query.isFetching} className="inline-flex min-h-11 items-center gap-2 px-2 text-sm font-semibold text-[var(--public-primary)] disabled:opacity-50">
-          <RefreshCw className={`h-4 w-4 ${query.isFetching ? "animate-spin" : ""}`} aria-hidden="true" /> Làm mới
+        <button type="button" onClick={() => query.refetch()} disabled={query.isFetching} aria-label="Làm mới thông báo" className="inline-flex h-11 w-11 items-center justify-center text-[var(--public-muted)] hover:text-[var(--public-primary)] disabled:opacity-50">
+          <RefreshCw className={`h-4 w-4 ${query.isFetching ? "animate-spin" : ""}`} aria-hidden="true" />
         </button>
       </div>
-
 
       {query.isLoading ? (
         <PatientPageLoading label="Đang tải thông báo..." />
@@ -120,37 +150,18 @@ export default function PatientNotificationsPage() {
           description={filter === "unread" ? "Thông báo mới sẽ xuất hiện tại đây." : "Cập nhật về lịch khám, hồ sơ và thanh toán sẽ được lưu tại đây."}
         />
       ) : (
-        <ul aria-label="Danh sách thông báo" className="divide-y divide-[var(--public-divider)] overflow-hidden rounded-lg border border-[var(--public-border)] bg-[var(--public-surface)]">
-          {items.map((item) => {
-            const config = typeConfig[item.type] || fallbackType;
-            const destination = notificationDestination(item);
-            return (
-              <li key={item.id} className={`p-4 ${item.isRead ? "" : "border-l-4 border-l-[var(--public-primary)]"}`}>
-                <div className="flex flex-wrap items-baseline justify-between gap-x-3">
-                  <p className="text-sm text-[var(--public-muted)]">
-                    {config.label}
-                    {!item.isRead ? <span className="ml-2 font-semibold text-[var(--public-primary)]">Chưa đọc</span> : null}
-                  </p>
-                  <time dateTime={item.publishedAt || item.createdAt} className="text-sm tabular-nums text-[var(--public-muted)]">{formatNotificationTime(item.publishedAt || item.createdAt)}</time>
-                </div>
-                <h2 className="mt-0.5 text-base font-bold leading-6">{item.title}</h2>
-                <p className="mt-1 whitespace-pre-line text-base leading-7 text-[var(--public-text-soft)]">{item.body}</p>
-                <div className="mt-2 flex flex-wrap items-center gap-x-4">
-                  {destination ? (
-                    <Link href={destination} onClick={() => { if (!item.isRead) markReadMutation.mutate(item.id); }} className="inline-flex min-h-11 items-center gap-1 text-sm font-semibold text-[var(--public-primary)] underline underline-offset-4">
-                      Xem chi tiết <ArrowRight className="h-4 w-4" aria-hidden="true" />
-                    </Link>
-                  ) : null}
-                  {!item.isRead ? (
-                    <button type="button" disabled={isMutating} onClick={() => markReadMutation.mutate(item.id)} className="inline-flex min-h-11 items-center gap-1 text-sm font-semibold text-[var(--public-text-soft)] disabled:opacity-50">
-                      <Check className="h-4 w-4" aria-hidden="true" /> Đánh dấu đã đọc
-                    </button>
-                  ) : null}
-                </div>
-              </li>
-            );
-          })}
-        </ul>
+        <div className="space-y-5">
+          {grouped.map(({ group, items: groupItems }) => (
+            <section key={group} aria-label={group}>
+              <h2 className="mb-2 text-sm font-semibold text-[var(--public-muted)]">{group}</h2>
+              <ul className="divide-y divide-[var(--public-divider)] overflow-hidden rounded-xl border border-[var(--public-border)] bg-[var(--public-surface)]">
+                {groupItems.map((item) => (
+                  <Row key={item.id} item={item} group={group} onRead={(id) => markRead.mutate(id)} />
+                ))}
+              </ul>
+            </section>
+          ))}
+        </div>
       )}
 
       {totalPages > 1 ? (
