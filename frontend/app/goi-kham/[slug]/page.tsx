@@ -130,7 +130,7 @@ export default async function PublicPackageDetailPage({ params }: PageProps) {
           <header>
             <h1 className="text-2xl font-bold sm:text-3xl">{packageItem.name}</h1>
             <p className="mt-1 text-sm text-[var(--public-muted)]">
-              {[packageItem.department?.name || "Đa chuyên khoa", packageItem.isBHYTSupport ? "Hỗ trợ BHYT" : "", packageItem.isPopular ? "Được chọn nhiều" : ""].filter(Boolean).join(" · ")}
+              {[packageItem.department?.name || "Đa chuyên khoa", packageItem.isBHYTSupport ? "Hỗ trợ BHYT" : "", packageItem.isPopular ? "Nổi bật" : ""].filter(Boolean).join(" · ")}
             </p>
             <p className="mt-3 max-w-2xl text-base leading-7 text-[var(--public-text-soft)]">{description}</p>
             {packageItem.resultTime ? <p className="mt-3 text-sm text-[var(--public-muted)]">Thời gian có kết quả: <strong className="font-semibold text-[var(--public-ink)]">{packageItem.resultTime}</strong></p> : null}

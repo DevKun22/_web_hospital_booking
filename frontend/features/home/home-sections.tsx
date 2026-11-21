@@ -152,7 +152,7 @@ function PackageCard({ item, featured }: { item: MedicalPackage; featured?: bool
         )}
         {item.isPopular || item.isBHYTSupport ? (
           <p className="absolute left-3 top-3 flex flex-wrap gap-1.5">
-            {item.isPopular ? <span className="rounded-full bg-[var(--public-solid)] px-3 py-1 text-sm font-medium text-white shadow">Được chọn nhiều</span> : null}
+            {item.isPopular ? <span className="rounded-full bg-[var(--public-solid)] px-3 py-1 text-sm font-medium text-white shadow">Nổi bật</span> : null}
             {item.isBHYTSupport ? <span className="rounded-full bg-[var(--public-surface)] px-3 py-1 text-sm font-medium text-[var(--public-success)] shadow">Hỗ trợ BHYT</span> : null}
           </p>
         ) : null}
@@ -194,7 +194,7 @@ function PackageCard({ item, featured }: { item: MedicalPackage; featured?: bool
   return <div className="group/pack flex h-full flex-col overflow-hidden rounded-2xl border border-[var(--public-border)] bg-[var(--public-surface)] shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-[var(--public-primary)] hover:shadow-lg motion-reduce:transition-none motion-reduce:hover:translate-y-0">{body}</div>;
 }
 
-// Gói khám: nền gradient nhạt kèm hai vòng tròn mờ trang trí; gói được đánh dấu "được chọn nhiều" (hoặc gói đầu tiên) là thẻ nổi bật rộng suốt hàng,
+// Gói khám: nền gradient nhạt kèm hai vòng tròn mờ trang trí; gói được đánh dấu "nổi bật" (hoặc gói đầu tiên) là thẻ nổi bật rộng suốt hàng,
 // các gói còn lại là thẻ đứng. Chỉ hiện nhãn, giá, hạng mục, thời gian trả kết quả khi gói có dữ liệu đó; không có giá gốc nên không hiện giảm giá.
 export function PackagesSection({ packages, config, loading }: { packages: MedicalPackage[]; config?: HomePageSectionConfig; loading: boolean }) {
   if (!loading && !packages.length) return null;
