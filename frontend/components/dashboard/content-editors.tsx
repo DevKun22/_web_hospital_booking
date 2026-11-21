@@ -119,12 +119,5 @@ export function FaqEditor({ id, values, onChange, max = 10, disabled }: { id: st
   );
 }
 
-export const cleanStrings = (values: string[]) => values.map((value) => value.trim()).filter(Boolean);
-export const cleanSections = (values: ContentSection[]) =>
-  values.map((item) => ({ title: item.title.trim(), body: item.body.trim() })).filter((item) => item.title && item.body);
-export const cleanTimeline = (values: TimelineEntry[]) =>
-  values
-    .map((item) => ({ period: item.period.trim(), place: item.place.trim(), ...(item.role?.trim() ? { role: item.role.trim() } : {}) }))
-    .filter((item) => item.period && item.place);
-export const cleanFaq = (values: FaqEntry[]) =>
-  values.map((item) => ({ question: item.question.trim(), answer: item.answer.trim() })).filter((item) => item.question && item.answer);
+// Các hàm clean* nằm ở lib/content-clean.ts (thuần, kiểm thử được); xuất lại ở đây để nơi dùng cũ giữ nguyên.
+export { cleanFaq, cleanSections, cleanStrings, cleanTimeline } from "@/lib/content-clean";
