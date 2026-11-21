@@ -46,6 +46,9 @@ export function useSubmitReview(id: string) {
 export const usePatientInvoices = () =>
   useQuery({ queryKey: portalKeys.invoices, queryFn: portalApi.invoices, staleTime: 30_000 });
 
+export const usePaymentProviders = (enabled: boolean) =>
+  useQuery({ queryKey: portalKeys.paymentProviders, queryFn: portalApi.paymentProviders, enabled, staleTime: 10 * 60_000 });
+
 export const usePatientInvoice = (id: string) =>
   useQuery({ queryKey: portalKeys.invoice(id), queryFn: () => portalApi.invoice(id), enabled: Boolean(id), staleTime: 20_000 });
 

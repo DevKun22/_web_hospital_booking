@@ -43,20 +43,10 @@ export const portalApi = {
   submitReview: (id: string, input: ReviewInput) =>
     data(patientPortalRequest<AppointmentReview>(`/lich-hen/${id}/danh-gia`, { method: "POST", body: json(input) })),
 
-  invoices: async () => {
-    const [invoices, capabilities] = await Promise.all([
-      patientPortalRequest<PatientInvoice[]>(`/hoa-don?page=1&limit=${LIST_LIMIT}`),
-      patientPortalRequest<{ providers: PaymentProvider[] }>("/kha-nang-thanh-toan"),
-    ]);
-    return { invoices: invoices.data, providers: capabilities.data.providers };
-  },
-  invoice: async (id: string) => {
-    const [invoice, capabilities] = await Promise.all([
-      patientPortalRequest<PatientInvoice>(`/hoa-don/${id}`),
-      patientPortalRequest<{ providers: PaymentProvider[] }>("/kha-nang-thanh-toan"),
-    ]);
-    return { invoice: invoice.data, providers: capabilities.data.providers };
-  },
+  invoices: () => data(patientPortalRequest<PatientInvoice[]>(`/hoa-don?page=1&limit=${LIST_LIMIT}`)),
+  invoice: (id: string) => data(patientPortalRequest<PatientInvoice>(`/hoa-don/${id}`)),
+  // Cổng thanh toán ít đổi và chỉ cần khi hóa đơn chưa thanh toán; tách riêng để dùng chung giữa các hóa đơn.
+  paymentProviders: async () => (await patientPortalRequest<{ providers: PaymentProvider[] }>("/kha-nang-thanh-toan")).data.providers,
   // Idempotency-Key mới cho mỗi lần bấm: bấm lại sau khi lỗi mạng không tạo hai giao dịch.
   payInvoice: (invoiceId: string, provider: string) =>
     data(

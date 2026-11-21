@@ -26,7 +26,7 @@ const personName = (invoice: PatientInvoice) => invoice.appointment.patientName 
 export default function PatientInvoicesPage() {
   const [tab, setTab] = useState<Tab>("pending");
   const query = usePatientInvoices();
-  const invoices = useMemo(() => query.data?.invoices ?? [], [query.data]);
+  const invoices = useMemo(() => query.data ?? [], [query.data]);
 
   const pending = invoices.filter((invoice) => tabOf(invoice) === "pending");
   const pendingTotal = pending.reduce((sum, invoice) => sum + invoice.finalAmount, 0);
