@@ -1,5 +1,7 @@
 "use client";
 
+import { useCallback, useMemo, useState } from "react";
+
 // Mã hồ sơ người thân rỗng nghĩa là của bản thân (lịch cũ chưa gắn hồ sơ cũng vậy).
 export type PersonOption = readonly [key: string, name: string];
 
@@ -32,4 +34,14 @@ export function PersonFilter({ people, active, onChange }: { people: PersonOptio
       })}
     </div>
   );
+}
+
+// Trạng thái lọc theo người khám cho một danh sách; keyOf và nameOf phải là hàm ổn định (khai báo ngoài component).
+export function usePersonFilter<T>(items: T[], keyOf: (item: T) => string, nameOf: (item: T) => string) {
+  const [person, setPerson] = useState<string | null>(null);
+  const people = useMemo(() => collectPeople(items, keyOf, nameOf), [items, keyOf, nameOf]);
+  // Người đang chọn không còn trong danh sách thì quay về Tất cả.
+  const active = person !== null && people.some(([key]) => key === person) ? person : null;
+  const matches = useCallback((item: T) => active === null || keyOf(item) === active, [active, keyOf]);
+  return { people, active, setPerson, matches };
 }

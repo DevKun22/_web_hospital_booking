@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { Paperclip } from "lucide-react";
-import { collectPeople, PersonFilter } from "@/components/patient/person-filter";
+import { PersonFilter, usePersonFilter } from "@/components/patient/person-filter";
 import { PersonName } from "@/components/patient/person-tag";
 import { PatientEmptyState, PatientPageError, PatientPageHeader, PatientPageLoading } from "@/components/patient/patient-page-ui";
 import { useHealthRecords } from "@/features/portal/hooks";
@@ -23,21 +23,18 @@ const BADGE = "inline-flex rounded-full px-2 py-0.5 text-xs font-semibold";
 
 type PersonRef = { patientName?: string; dependentProfileId?: string | null };
 const personKey = (appointment?: PersonRef) => appointment?.dependentProfileId || "";
+const personName = (appointment?: PersonRef) => appointment?.patientName || "";
 
 export default function HealthRecordsPage() {
   const [tab, setTab] = useState<Tab>("records");
-  const [person, setPerson] = useState<string | null>(null);
   const query = useHealthRecords();
   const records = useMemo(() => query.data?.records ?? [], [query.data]);
   const prescriptions = useMemo(() => query.data?.prescriptions ?? [], [query.data]);
 
-  const people = useMemo(
-    () => collectPeople([...records.map((item) => item.appointment), ...prescriptions.map((item) => item.appointment)], personKey, (item) => item?.patientName || ""),
-    [records, prescriptions],
-  );
-  const active = person !== null && people.some(([key]) => key === person) ? person : null;
-  const visibleRecords = records.filter((item) => active === null || personKey(item.appointment) === active);
-  const visiblePrescriptions = prescriptions.filter((item) => active === null || personKey(item.appointment) === active);
+  const refs = useMemo(() => [...records.map((item) => item.appointment), ...prescriptions.map((item) => item.appointment)], [records, prescriptions]);
+  const { people, active, setPerson, matches } = usePersonFilter(refs, personKey, personName);
+  const visibleRecords = records.filter((item) => matches(item.appointment));
+  const visiblePrescriptions = prescriptions.filter((item) => matches(item.appointment));
 
   return (
     <div className="space-y-5">

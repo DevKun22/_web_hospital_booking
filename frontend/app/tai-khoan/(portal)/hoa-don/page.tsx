@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import { PersonFilter, usePersonFilter } from "@/components/patient/person-filter";
 import { PersonName } from "@/components/patient/person-tag";
 import { PatientEmptyState, PatientPageError, PatientPageHeader, PatientPageLoading } from "@/components/patient/patient-page-ui";
 import { usePatientInvoices } from "@/features/portal/hooks";
@@ -20,23 +21,17 @@ const TABS: { key: Tab; label: string; empty: string }[] = [
 const tabOf = (invoice: PatientInvoice): Tab => (invoice.status === "UNPAID" ? "pending" : invoice.status === "PAID" ? "paid" : "other");
 // Hóa đơn của lịch cũ chưa gắn hồ sơ người thân tính là của bản thân.
 const personKey = (invoice: PatientInvoice) => invoice.appointment.dependentProfileId || "";
+const personName = (invoice: PatientInvoice) => invoice.appointment.patientName || "";
 
 export default function PatientInvoicesPage() {
   const [tab, setTab] = useState<Tab>("pending");
-  const [person, setPerson] = useState<string | null>(null);
   const query = usePatientInvoices();
   const invoices = useMemo(() => query.data?.invoices ?? [], [query.data]);
 
   const pending = invoices.filter((invoice) => tabOf(invoice) === "pending");
   const pendingTotal = pending.reduce((sum, invoice) => sum + invoice.finalAmount, 0);
-  const people = useMemo(() => {
-    const map = new Map<string, string>();
-    for (const invoice of invoices) if (!map.has(personKey(invoice))) map.set(personKey(invoice), invoice.appointment.patientName || "");
-    // "Bản thân" luôn đứng đầu.
-    return [...map.entries()].sort(([a], [b]) => Number(a !== "") - Number(b !== ""));
-  }, [invoices]);
-  const activePerson = person !== null && people.some(([key]) => key === person) ? person : null;
-  const items = invoices.filter((invoice) => tabOf(invoice) === tab && (activePerson === null || personKey(invoice) === activePerson));
+  const { people, active, setPerson, matches } = usePersonFilter(invoices, personKey, personName);
+  const items = invoices.filter((invoice) => tabOf(invoice) === tab && matches(invoice));
   const current = TABS.find((item) => item.key === tab)!;
 
   return (
@@ -66,24 +61,7 @@ export default function PatientInvoicesPage() {
             </section>
           ) : null}
 
-          {people.length >= 2 ? (
-            <div role="group" aria-label="Lọc theo người khám" className="flex flex-wrap gap-2">
-              {[["all", "Tất cả"] as const, ...people.map(([key, name]) => [key, key === "" ? "Bản thân" : name] as const)].map(([key, label]) => {
-                const active = (key === "all" ? null : key) === activePerson;
-                return (
-                  <button
-                    key={key}
-                    type="button"
-                    aria-pressed={active}
-                    onClick={() => setPerson(key === "all" ? null : key)}
-                    className={`min-h-11 rounded-full border px-4 text-sm font-semibold transition-colors ${active ? "border-[var(--public-primary)] bg-[var(--public-primary-soft)] text-[var(--public-primary-dark)]" : "border-[var(--public-border)] text-[var(--public-text-soft)] hover:bg-[var(--public-surface-muted)]"}`}
-                  >
-                    {label}
-                  </button>
-                );
-              })}
-            </div>
-          ) : null}
+          <PersonFilter people={people} active={active} onChange={setPerson} />
 
           <div role="tablist" aria-label="Lọc hóa đơn" className="flex gap-6 overflow-x-auto border-b border-[var(--public-border)]">
             {TABS.map((item) => {
