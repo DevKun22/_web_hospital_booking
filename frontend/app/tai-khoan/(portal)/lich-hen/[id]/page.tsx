@@ -4,11 +4,12 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { ArrowLeft, CalendarDays, CheckCircle2, Clock3, CreditCard, MapPin, ShieldCheck, Stethoscope, UserRound } from "lucide-react";
 import { AppointmentReviewCard } from "@/components/patient/appointment-review-card";
+import { CancelAppointment } from "@/components/patient/cancel-appointment";
 import { PatientPageError, PatientPageLoading } from "@/components/patient/patient-page-ui";
 
 import { formatWeekdayDate, formatMoney } from "@/lib/format";
 
-import { APPOINTMENT_PROGRESS, APPOINTMENT_STATUS_DETAIL } from "@/lib/patient-status";
+import { APPOINTMENT_PROGRESS, APPOINTMENT_STATUS_DETAIL, CANCELLABLE_APPOINTMENT_STATUSES } from "@/lib/patient-status";
 import { usePatientAppointment } from "@/features/portal/hooks";
 export default function AppointmentDetailPage() {
   const id = String(useParams<{ id: string }>().id || "");
@@ -34,6 +35,7 @@ export default function AppointmentDetailPage() {
     ].map((row) => <div key={row.label} className="flex items-start gap-3 rounded-lg bg-[var(--public-surface-muted)] p-4"><row.icon className="mt-0.5 h-5 w-5 shrink-0 text-[var(--public-primary)]" /><div><span className="text-xs text-[var(--public-muted)]">{row.label}</span><strong className="mt-1 block text-sm">{row.value}</strong></div></div>)}</div>{item.package ? <div className="mt-4 rounded-lg border border-[var(--public-border)] p-4"><span className="text-xs text-[var(--public-muted)]">Gói khám đã chọn</span><strong className="mt-1 block">{item.package.name}</strong></div> : null}{item.reason ? <div className="mt-4"><h3 className="text-sm font-bold">Lý do khám</h3><p className="mt-2 rounded-lg bg-[var(--public-surface-muted)] p-4 text-sm leading-6 text-[var(--public-text-soft)]">{item.reason}</p></div> : null}</section>
       <aside className="h-fit rounded-xl border border-[var(--public-border)] bg-white p-5 sm:p-6"><div className="flex items-center gap-2"><CreditCard className="h-5 w-5 text-[var(--public-primary)]" /><h2 className="text-lg font-bold">Chi phí dự kiến</h2></div><dl className="mt-5 space-y-3 text-sm"><div className="flex justify-between gap-3"><dt className="text-[var(--public-muted)]">Phí khám/dịch vụ</dt><dd className="font-semibold tabular-nums">{formatMoney(item.estimatedPrice)}</dd></div><div className="flex justify-between gap-3"><dt className="text-[var(--public-muted)]">Phí dịch vụ</dt><dd className="font-semibold tabular-nums">{formatMoney(item.serviceFee)}</dd></div><div className="flex justify-between gap-3 text-[var(--public-success)]"><dt>Giảm trừ BHYT</dt><dd className="font-semibold tabular-nums">−{formatMoney(item.bhytDiscount)}</dd></div><div className="flex justify-between gap-3 border-t border-[var(--public-divider)] pt-4 text-base"><dt className="font-bold">Tạm tính</dt><dd className="font-bold tabular-nums text-[var(--public-primary-dark)]">{formatMoney(item.finalAmount)}</dd></div></dl><p className="mt-4 text-xs leading-5 text-[var(--public-muted)]">Chi phí cuối cùng được xác nhận trên hóa đơn sau khi hoàn tất dịch vụ.</p></aside>
     </div>
+    {CANCELLABLE_APPOINTMENT_STATUSES.has(item.status) ? <CancelAppointment id={item.id} /> : null}
     {item.status === "COMPLETED" ? <AppointmentReviewCard appointmentId={item.id} /> : null}
   </div>;
 }
