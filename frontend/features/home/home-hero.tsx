@@ -1,3 +1,4 @@
+import type { CSSProperties } from "react";
 import Link from "next/link";
 import { ArrowRight, CalendarCheck, Clock } from "lucide-react";
 import { HomeHeroAskKun } from "@/components/public/home-hero-ask-kun";
@@ -11,6 +12,17 @@ import type { DoctorProfile } from "@/lib/types";
 const formatTime = (value: string) => value.slice(0, 5);
 const MAX_CHIPS = 4;
 const MAX_FALLBACK_DOCTORS = 3;
+
+const rise = (index: number) => ({ "--i": index }) as CSSProperties;
+
+// Sóng lặp theo chu kỳ 2 * half, và chu kỳ phải là ước của 1200 để lớp sóng rộng gấp đôi trôi nửa chiều rộng rồi nối liền không thấy mối.
+function wavePath(half: number, base: number, amp: number) {
+  let d = `M0 ${base} Q${half / 2} ${base - amp} ${half} ${base}`;
+  for (let x = half * 2; x <= 2400; x += half) d += ` T${x} ${base}`;
+  return `${d} V56 H0Z`;
+}
+const WAVE_A = wavePath(300, 34, 22);
+const WAVE_B = wavePath(200, 30, 16);
 
 // Thẻ bên phải hero khi quản trị chưa cấu hình banner: số liệu và bác sĩ có giờ gần nhất lấy từ dữ liệu thật, không dùng ảnh hay con số dựng sẵn.
 function TodayCard({ doctors }: { doctors: DoctorProfile[] }) {
@@ -73,23 +85,25 @@ function TodayCard({ doctors }: { doctors: DoctorProfile[] }) {
 }
 
 // Hero trang chủ: nền gradient màu thương hiệu; bên trái tiêu ngữ, ô tìm kiếm, gợi ý chuyên khoa và hai nút; bên phải trình chiếu banner (hoặc thẻ giờ trống).
-export function HomeHero({ data }: { data: Pick<PublicHomeData, "departments" | "doctors" | "heroBanners"> }) {
+export function HomeHero({ data, waveFill = "var(--public-canvas)" }: { data: Pick<PublicHomeData, "departments" | "doctors" | "heroBanners">; waveFill?: string }) {
   const chips = data.departments.filter((item) => item.slug).slice(0, MAX_CHIPS);
   return (
     <section
       aria-labelledby="home-title"
-      className="bg-[radial-gradient(60rem_28rem_at_88%_-12%,rgba(255,255,255,0.16),transparent),linear-gradient(120deg,var(--hero-from)_0%,var(--hero-via)_58%,var(--hero-to)_100%)] text-white"
+      className="relative overflow-hidden bg-[radial-gradient(60rem_28rem_at_88%_-12%,rgba(255,255,255,0.16),transparent),linear-gradient(120deg,var(--hero-from)_0%,var(--hero-via)_58%,var(--hero-to)_100%)] text-white"
     >
-      <div className="ui-container grid grid-cols-[minmax(0,1fr)] items-center gap-8 py-10 sm:py-14 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)] lg:gap-12 lg:py-16">
+      <span aria-hidden="true" className="hero-blob -left-24 -top-32 h-96 w-96 opacity-40" />
+      <span aria-hidden="true" className="hero-blob -right-20 top-1/3 h-80 w-80 opacity-30 [animation-delay:-6s] [animation-direction:reverse]" />
+      <div className="ui-container relative z-10 grid grid-cols-[minmax(0,1fr)] items-center gap-8 pb-16 pt-10 sm:pb-20 sm:pt-14 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)] lg:gap-12 lg:pb-24 lg:pt-16">
         <div>
           <h1 id="home-title" className="text-[1.75rem] font-semibold leading-tight text-white sm:text-4xl lg:text-[2.6rem] lg:leading-[1.15]">
             Đặt lịch khám bệnh trực tuyến, biết giờ trống và chi phí trước khi đến
           </h1>
-          <p className="mt-3 max-w-xl text-base leading-7 text-white/90 sm:text-lg">
+          <p className="hero-rise mt-3 max-w-xl text-base leading-7 text-white/90 sm:text-lg" style={rise(0)}>
             Chọn bác sĩ và giờ khám còn trống, xác nhận bằng mã OTP. Quý khách không cần tạo tài khoản.
           </p>
 
-          <div className="mt-6 max-w-xl">
+          <div className="hero-rise mt-6 max-w-xl" style={rise(1)}>
             <PublicGlobalSearch large />
             {chips.length ? (
               <p className="mt-3 flex flex-wrap items-center gap-2 text-sm text-white/90">
@@ -103,7 +117,7 @@ export function HomeHero({ data }: { data: Pick<PublicHomeData, "departments" | 
             ) : null}
           </div>
 
-          <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+          <div className="hero-rise mt-6 flex flex-col gap-3 sm:flex-row" style={rise(2)}>
             <Link href="/dat-lich" className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-[var(--hero-btn-bg)] px-6 text-base font-semibold text-[var(--hero-btn-fg)] transition hover:brightness-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">
               <CalendarCheck className="h-5 w-5" aria-hidden="true" />
               Đặt lịch khám
@@ -112,8 +126,12 @@ export function HomeHero({ data }: { data: Pick<PublicHomeData, "departments" | 
           </div>
         </div>
 
-        {data.heroBanners.length ? <HomeHeroSlider banners={data.heroBanners} /> : <TodayCard doctors={data.doctors} />}
+        <div className="hero-rise" style={rise(3)}>
+          {data.heroBanners.length ? <HomeHeroSlider banners={data.heroBanners} /> : <TodayCard doctors={data.doctors} />}
+        </div>
       </div>
+      <svg aria-hidden="true" className="hero-wave hero-wave--b" viewBox="0 0 2400 56" preserveAspectRatio="none"><path d={WAVE_B} style={{ fill: waveFill }} /></svg>
+      <svg aria-hidden="true" className="hero-wave hero-wave--a" viewBox="0 0 2400 56" preserveAspectRatio="none"><path d={WAVE_A} style={{ fill: waveFill }} /></svg>
     </section>
   );
 }

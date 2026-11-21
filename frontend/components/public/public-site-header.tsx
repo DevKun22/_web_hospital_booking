@@ -18,7 +18,7 @@ import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { PublicGlobalSearch } from "@/components/public/public-global-search";
-import { PublicNavMenu } from "@/components/public/public-nav-menu";
+import { PublicSubNav } from "@/components/public/public-sub-nav";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import type { PatientUser } from "@/lib/patient-portal-types";
 import {
@@ -42,6 +42,11 @@ const mobileNavItems = [
   { href: "/kien-thuc", label: "Kiến thức", aliases: [] },
   { href: "/ho-tro", label: "Hỗ trợ", aliases: ["/hoi-dap", "/huong-dan"] },
 ] as const;
+
+const primaryNavItems = [
+  { href: "/", label: "Trang chủ", aliases: [] as string[] },
+  { href: "/ho-tro", label: "Hỗ trợ", aliases: ["/hoi-dap", "/huong-dan"] },
+];
 
 const isActivePath = (pathname: string, href: string) =>
   pathname === href || pathname.startsWith(`${href}/`);
@@ -230,9 +235,21 @@ export function PublicSiteHeader({
             <BrandLogo variant="horizontal" size="md" className="transition group-hover:-translate-y-0.5" />
           </Link>
 
-          <div className="hidden min-w-0 flex-1 xl:block">
-            <PublicNavMenu pathname={pathname} />
-          </div>
+          <nav aria-label="Điều hướng chính" className="hidden min-w-0 flex-1 items-center gap-1 xl:flex">
+            {primaryNavItems.map((item) => {
+              const active = item.href === "/" ? pathname === "/" : isActivePath(pathname, item.href) || item.aliases.some((href) => isActivePath(pathname, href));
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  aria-current={active ? "page" : undefined}
+                  className={`rounded-lg px-3 py-2 text-sm font-medium transition-colors ${active ? "text-[var(--public-primary)]" : "text-[var(--public-text-soft)] hover:text-[var(--public-primary)]"}`}
+                >
+                  {item.label}
+                </Link>
+              );
+            })}
+          </nav>
 
           <div className="ml-auto hidden items-center gap-1.5 xl:flex">
             <button
@@ -284,6 +301,8 @@ export function PublicSiteHeader({
             </button>
           </div>
         </div>
+
+        <PublicSubNav pathname={pathname} />
 
         {searchOpen ? (
           <div id="public-header-search" ref={searchRef} className="border-t border-[var(--public-border)] bg-[var(--public-surface-muted)]">

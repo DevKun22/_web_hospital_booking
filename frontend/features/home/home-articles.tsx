@@ -44,9 +44,9 @@ export function HomeArticles({ articles }: { articles: PublicArticleList | null 
   const hasCover = Boolean(featured.coverImage);
 
   return (
-    <section id="kien-thuc" aria-labelledby="articles-title" className="scroll-mt-24 bg-[var(--public-surface)]">
+    <section id="kien-thuc" aria-labelledby="articles-title" className="scroll-mt-32 bg-[var(--public-surface)]">
       <div className="ui-container py-10 sm:py-14">
-        <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-1">
+        <div data-reveal="up" className="flex flex-wrap items-end justify-between gap-x-4 gap-y-1">
           <div className="min-w-0 flex-1 basis-60">
             <h2 id="articles-title" className="text-xl font-bold sm:text-2xl">Kiến thức sức khỏe</h2>
             <span aria-hidden="true" className="mt-2 block h-[3px] w-10 rounded bg-[var(--public-care-mint)]" />
@@ -69,7 +69,7 @@ export function HomeArticles({ articles }: { articles: PublicArticleList | null 
           </nav>
         ) : null}
 
-        <div className={`mt-6 grid grid-cols-[minmax(0,1fr)] gap-5 ${side.length && hasCover ? "lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]" : ""}`}>
+        <div data-reveal-group="sides" className={`mt-6 grid grid-cols-[minmax(0,1fr)] gap-5 ${side.length && hasCover ? "lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]" : ""}`}>
           <article className="flex flex-col overflow-hidden rounded-2xl border border-[var(--public-border)] bg-[var(--public-surface)] shadow-sm">
             {featured.coverImage ? (
               <Link href={`/kien-thuc/${featured.slug}`} tabIndex={-1} aria-hidden="true" className="block">
