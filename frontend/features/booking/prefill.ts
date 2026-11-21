@@ -1,4 +1,4 @@
-import type { PatientUser } from "@/lib/patient-portal-types";
+import type { PatientDependent, PatientUser } from "@/lib/patient-portal-types";
 import type { BookingCatalog, BookingDraft, BookingSelection } from "@/features/booking/model";
 
 // Tự điền từ hồ sơ tài khoản: chỉ điền ô đang trống, không ghi đè điều người dùng đã nhập.
@@ -28,6 +28,39 @@ export function buildProfilePrefill(current: BookingDraft, user: PatientUser): P
   if (profile?.hasBHYT && !current.hasBHYT) patch.hasBHYT = true;
   return patch;
 }
+
+// Phần thông tin cá nhân của bản nháp (không gồm ngày, giờ, lý do khám, điều khoản): đặt lại khi đổi người khám.
+const blankPerson = (): Partial<BookingDraft> => ({
+  patientName: "",
+  gender: "",
+  dateOfBirth: "",
+  address: "",
+  cccd: "",
+  hasBHYT: false,
+  healthInsuranceCode: "",
+  registeredHospital: "",
+  allergies: "",
+  medicalHistory: "",
+  familyHistory: "",
+  healthConsent: false,
+});
+
+// Chọn "Bản thân": thay toàn bộ phần cá nhân bằng hồ sơ tài khoản.
+export const buildSelfPatch = (current: BookingDraft, user: PatientUser): Partial<BookingDraft> => {
+  const blank = { ...current, ...blankPerson() };
+  return { ...blankPerson(), ...buildProfilePrefill(blank, user) };
+};
+
+// Chọn một người thân: máy chủ lấy toàn bộ thông tin cá nhân và sức khỏe từ hồ sơ người thân,
+// nên ở đây chỉ hiển thị tên, giới tính, ngày sinh; liên hệ (điện thoại, email) vẫn là của tài khoản.
+export const buildDependentPatch = (dependent: PatientDependent, user: PatientUser): Partial<BookingDraft> => ({
+  ...blankPerson(),
+  patientName: dependent.fullName,
+  gender: dependent.gender || "",
+  dateOfBirth: dependent.dateOfBirth?.slice(0, 10) || "",
+  ...(user.phone ? { patientPhone: user.phone } : {}),
+  ...(user.email ? { patientEmail: user.email } : {}),
+});
 
 export type UrlPrefill = Partial<BookingSelection> & Partial<Pick<BookingDraft, "date" | "timeSlotId">>;
 

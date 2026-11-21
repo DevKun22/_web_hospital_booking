@@ -11,9 +11,12 @@ import {
   type PendingAppointment,
 } from "@/features/booking/model";
 import { clearPendingAppointment, readPendingAppointment, writePendingAppointment } from "@/features/booking/pending-storage";
-import { buildProfilePrefill, resolveUrlPrefill } from "@/features/booking/prefill";
+import { buildDependentPatch, buildProfilePrefill, buildSelfPatch, resolveUrlPrefill } from "@/features/booking/prefill";
 import { useBookingStore } from "@/features/booking/store";
 import { validateDetailFields, validateOtp, validateSchedule, validateService } from "@/features/booking/validation";
+import { portalApi } from "@/features/portal/api";
+import { portalKeys } from "@/features/portal/keys";
+import type { PatientDependent } from "@/lib/patient-portal-types";
 import { loadOptionalPatientSession, patientSessionQueryKey } from "@/lib/patient-session-client";
 import { usePublicAvailableSlots } from "@/lib/public-slots-query";
 import { usePublicCapabilities } from "@/lib/public-capabilities-query";
@@ -60,6 +63,15 @@ export function useBookingFlow(catalog: BookingCatalog) {
   });
   const patient = sessionQuery.data ?? null;
   const sessionResolved = sessionQuery.isSuccess;
+
+  // Hồ sơ người thân của tài khoản đang đăng nhập (cùng khóa gốc với trang Hồ sơ nên thêm hoặc xóa ở đó cũng làm mới ở đây).
+  const dependentsQuery = useQuery({
+    queryKey: [...portalKeys.profile, "dependents"],
+    queryFn: portalApi.dependents,
+    enabled: Boolean(patient),
+    staleTime: 30_000,
+  });
+  const dependents = useMemo(() => (patient ? dependentsQuery.data ?? [] : []), [patient, dependentsQuery.data]);
 
   const refreshSlots = useCallback(
     () => queryClient.invalidateQueries({ queryKey: queryKeys.publicAvailableSlots({ doctorId: selection.doctorId, date: draft.date }) }),
@@ -149,12 +161,34 @@ export function useBookingFlow(catalog: BookingCatalog) {
     }
   }, [patient, sessionResolved, dispatch]);
 
-  const profilePrefilled = Boolean(
+  const profilePrefilled = !selection.dependentId && Boolean(
     patient && ((patient.fullName && draft.patientName === patient.fullName) || (patient.email && draft.patientEmail === patient.email)),
   );
 
   // ---- hành động ----
   const fail = useCallback((message: string) => dispatch({ type: "error", message }), [dispatch]);
+
+  // Chọn người khám: "" là bản thân, ngược lại là mã hồ sơ người thân.
+  const choosePerson = useCallback(
+    (dependentId: string, list: PatientDependent[] = dependents) => {
+      if (!patient) return;
+      const dependent = dependentId ? list.find((item) => item.id === dependentId) : null;
+      if (dependentId && !dependent) return;
+      const current = useBookingStore.getState().state.draft;
+      dispatch({ type: "person_chosen", dependentId, patch: dependent ? buildDependentPatch(dependent, patient) : buildSelfPatch(current, patient) });
+    },
+    [patient, dependents, dispatch],
+  );
+
+  // Thêm nhanh một người thân rồi chọn luôn; lỗi trả về để form hiện tại chỗ.
+  const addDependent = useCallback(
+    async (body: { fullName: string; relationship: string; dateOfBirth: string | null }) => {
+      const created = (await portalApi.createDependent({ ...body, gender: null, hasBHYT: false, consentConfirmed: true })).data as PatientDependent;
+      await queryClient.invalidateQueries({ queryKey: portalKeys.profile });
+      choosePerson(created.id, [created]);
+    },
+    [queryClient, choosePerson],
+  );
 
   const continueFromService = useCallback(() => {
     const error = validateService(selection);
@@ -294,12 +328,14 @@ export function useBookingFlow(catalog: BookingCatalog) {
     slotsError,
     emailOtpAvailable,
     patient,
+    dependents,
+    dependentsLoading: dependentsQuery.isLoading,
     profilePrefilled,
     termsRequired: !patient && Boolean(terms),
     holdSeconds,
     resendCooldown,
     amount: estimateAmount(selection, catalog),
-    actions: { continueFromService, continueFromSchedule, goToStep, submitDetails, verifyOtp, resendOtp, abandonPending, startNewBooking },
+    actions: { choosePerson, addDependent, continueFromService, continueFromSchedule, goToStep, submitDetails, verifyOtp, resendOtp, abandonPending, startNewBooking },
   };
 }
 

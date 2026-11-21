@@ -36,6 +36,7 @@ export type BookingAction =
   | { type: "verified"; appointment: Appointment; notice: string }
   | { type: "slots_loaded"; slots: BookingSlot[] }
   | { type: "profile_applied"; ownerId: string; patch: Partial<BookingDraft> }
+  | { type: "person_chosen"; dependentId: string; patch: Partial<BookingDraft> }
   | { type: "profile_cleared" }
   | { type: "reset" };
 
@@ -67,6 +68,7 @@ export function bookingReducer(state: BookingState, action: BookingAction): Book
           departmentId: prefill.departmentId || state.selection.departmentId,
           doctorId,
           packageId,
+          dependentId: state.selection.dependentId,
           serviceMode: prefill.serviceMode ?? (packageId ? "PACKAGE" : doctorId ? "DOCTOR_ONLY" : state.selection.serviceMode),
         },
         draft: {
@@ -178,14 +180,18 @@ export function bookingReducer(state: BookingState, action: BookingAction): Book
       // Đổi sang tài khoản khác: bỏ phần thông tin của người trước, chỉ giữ ngày và giờ đã chọn.
       const switched = Boolean(state.profileOwnerId && state.profileOwnerId !== action.ownerId);
       const base = switched ? { ...createInitialDraft(state.draft.date), timeSlotId: state.draft.timeSlotId } : state.draft;
-      return { ...state, draft: { ...base, ...action.patch }, profileOwnerId: action.ownerId };
+      return { ...state, draft: { ...base, ...action.patch }, profileOwnerId: action.ownerId, selection: switched ? { ...state.selection, dependentId: "" } : state.selection };
     }
+    case "person_chosen":
+      // Đổi người khám: thông tin cá nhân thay hẳn theo người mới (không lẫn dữ liệu người trước), giữ ngày, giờ và lý do khám.
+      return { ...dropFlowState(state), selection: { ...state.selection, dependentId: action.dependentId }, draft: { ...state.draft, ...action.patch }, touched: [], submitAttempts: 0, emailError: "" };
     case "profile_cleared":
       if (!state.profileOwnerId) return state;
       return {
         ...state,
         draft: { ...createInitialDraft(state.draft.date), timeSlotId: state.draft.timeSlotId },
         profileOwnerId: null,
+        selection: { ...state.selection, dependentId: "" },
       };
     case "reset":
       return createInitialState();
