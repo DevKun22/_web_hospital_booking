@@ -229,7 +229,7 @@ export function useBookingFlow(catalog: BookingCatalog) {
       // Máy chủ đã đăng nhập cổng người khám bằng cookie: cập nhật phiên để nút "Xem lịch của tôi" vào thẳng cổng.
       if (user) queryClient.setQueryData(patientSessionQueryKey, user);
       clearPendingAppointment();
-      dispatch({ type: "verified", appointment, notice: "Xác thực OTP thành công. Lịch hẹn đã được xác nhận." });
+      dispatch({ type: "verified", appointment, notice: "" });
       void refreshSlots();
     } catch (err) {
       // Mã sai hoặc hết hạn là lỗi của ô nhập mã: hiện ngay dưới ô. Lỗi mạng, giới hạn tần suất hoặc máy chủ thì dùng thông báo nổi.

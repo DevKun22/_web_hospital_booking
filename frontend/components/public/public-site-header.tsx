@@ -23,6 +23,7 @@ import { ThemeToggle } from "@/components/ui/theme-toggle";
 import type { PatientUser } from "@/lib/patient-portal-types";
 import {
   loadOptionalPatientSession,
+  patientLookupLink,
   patientSessionQueryKey,
 } from "@/lib/patient-session-client";
 import { openPublicChatbot } from "@/lib/public-ui-events";
@@ -33,7 +34,6 @@ import Image from "next/image";
 import { BrandLogo } from "@/components/branding/brand-logo";
 import { BRAND_NAME } from "@/lib/brand";
 
-const LOOKUP_HREF = "/tai-khoan/dang-nhap?next=/tai-khoan/lich-hen";
 
 const mobileNavItems = [
   { href: "/chuyen-khoa", label: "Chuyên khoa", aliases: [] },
@@ -147,6 +147,7 @@ export function PublicSiteHeader({
     staleTime: 30_000,
     refetchOnWindowFocus: true,
   });
+  const lookup = patientLookupLink(patientSessionQuery.data);
   // Chỉ hiện số điện thoại khi cơ sở đã cấu hình; không dùng số giả để lấp chỗ trống.
   const hotline = settings?.hotline?.trim() || settings?.emergencyHotline?.trim() || "";
   const workingHours = settings?.workingHours?.trim() || "";
@@ -246,11 +247,11 @@ export function PublicSiteHeader({
             </button>
             {accountSlot ?? <PatientIdentity user={patientSessionQuery.data} />}
             <Link
-              href={LOOKUP_HREF}
+              href={lookup.href}
               className="public-button-secondary inline-flex min-h-11 items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold"
             >
               <CalendarCheck className="h-4 w-4" aria-hidden="true" />
-              Tra cứu lịch hẹn
+              {lookup.label}
             </Link>
             <Link
               href="/dat-lich"
@@ -321,8 +322,8 @@ export function PublicSiteHeader({
               <Link href="/tim-kiem" onClick={() => setMobileOpen(false)} className="block min-h-12 rounded-xl px-4 py-3 text-sm font-medium text-[var(--public-text-soft)] hover:bg-[var(--public-surface-muted)]">
                 Tìm kiếm dịch vụ
               </Link>
-              <Link href={LOOKUP_HREF} onClick={() => setMobileOpen(false)} className="block min-h-12 rounded-xl px-4 py-3 text-sm font-medium text-[var(--public-text-soft)] hover:bg-[var(--public-surface-muted)]">
-                Tra cứu lịch hẹn
+              <Link href={lookup.href} onClick={() => setMobileOpen(false)} className="block min-h-12 rounded-xl px-4 py-3 text-sm font-medium text-[var(--public-text-soft)] hover:bg-[var(--public-surface-muted)]">
+                {lookup.label}
               </Link>
               <PatientIdentity
                 user={patientSessionQuery.data}

@@ -3,36 +3,31 @@ import { useQueryClient } from "@tanstack/react-query";
 import { CircleCheck, Copy } from "lucide-react";
 import type { BookingFlow } from "@/features/booking/use-booking-flow";
 import { copyBookingCode } from "@/features/booking/components/copy-code";
-import { formatDayShort } from "@/features/booking/dates";
-import { doctorDisplayName } from "@/lib/doctor";
-import { formatCurrency } from "@/lib/format";
-import { appointmentStatusLabel } from "@/lib/appointment-status";
 import { patientApiRequest } from "@/lib/patient-portal-api";
-import { patientSessionQueryKey } from "@/lib/patient-session-client";
+import { PATIENT_APPOINTMENTS_PATH, patientSessionQueryKey } from "@/lib/patient-session-client";
 
-const formatTime = (value: string) => value.slice(0, 5);
-
-// Chỉ hiển thị sau khi máy chủ đã xác nhận OTP hợp lệ.
+// Chỉ hiển thị sau khi máy chủ đã xác nhận OTP hợp lệ. Chi tiết lịch (bác sĩ, giờ, nơi khám, phí) đã có ở khung "Lịch hẹn của bạn", không lặp lại ở đây.
 export function SuccessStep({ flow }: { flow: BookingFlow }) {
-  const { verified, slot, selection } = flow.state;
+  const { verified } = flow.state;
   const queryClient = useQueryClient();
   if (!verified) return null;
-  // Đã đăng nhập (vừa được cấp phiên sau OTP, hoặc đã có sẵn): vào thẳng cổng, không bắt nhập OTP lần hai.
   const signedInEmail = flow.patient?.email;
+  const email = flow.state.draft.patientEmail.trim().toLowerCase();
+  const detailPath = `${PATIENT_APPOINTMENTS_PATH}/${verified.id}`;
+  // Có phiên: vào thẳng chi tiết lịch vừa đặt. Không có phiên: đăng nhập (email điền sẵn) rồi vào đúng lịch đó.
+  const primaryHref = signedInEmail ? detailPath : `/tai-khoan/dang-nhap?next=${encodeURIComponent(detailPath)}&email=${encodeURIComponent(email)}`;
   const signOut = async () => {
     await patientApiRequest("/auth/logout", { method: "POST", allowEmpty: true }).catch(() => null);
     queryClient.setQueryData(patientSessionQueryKey, null);
   };
-  const doctor = flow.catalog.doctors.find((item) => item.id === selection.doctorId);
-  const day = slot ? formatDayShort(slot.date.slice(0, 10)) : "";
 
   return (
     <section aria-labelledby="booking-success" className="rounded-xl border border-[var(--public-border)] bg-[var(--public-surface)] p-4 sm:p-6" role="status">
       <h2 id="booking-success" tabIndex={-1} className="flex items-start gap-3 text-xl font-bold leading-snug text-[var(--public-ink)] focus:outline-none">
         <CircleCheck className="mt-0.5 h-6 w-6 shrink-0 text-[var(--public-success)]" aria-hidden="true" />
-        Đặt lịch thành công. Lịch hẹn đã được xác nhận.
+        Đặt lịch thành công
       </h2>
-      <p className="mt-2 text-sm leading-6 text-[var(--public-muted)]">Chúng tôi đã gửi thông báo xác nhận cho bạn. Lưu mã lịch dưới đây để tra cứu, thanh toán hoặc hủy lịch.</p>
+      <p className="mt-2 text-sm leading-6 text-[var(--public-muted)]">Lịch hẹn đã được xác nhận. Thông tin xác nhận đã gửi tới email {email}.</p>
 
       <div className="mt-5 rounded-lg border border-[var(--public-border)] p-3">
         <p className="text-xs font-semibold uppercase tracking-wide text-[var(--public-muted)]">Mã lịch</p>
@@ -47,20 +42,20 @@ export function SuccessStep({ flow }: { flow: BookingFlow }) {
             Sao chép
           </button>
         </div>
+        <p className="mt-2 text-xs leading-5 text-[var(--public-muted)]">Mã dùng để báo cho cơ sở khám khi cần hỗ trợ.</p>
       </div>
 
-      <dl className="mt-5 divide-y divide-[var(--public-divider)] border-y border-[var(--public-divider)] text-sm">
-        {doctor ? <Row label="Bác sĩ" value={doctorDisplayName(doctor)} /> : null}
-        <Row label="Thời gian" value={`${formatTime(verified.startTime)} - ${formatTime(verified.endTime)}${day ? `, ${day}` : ""}`} />
-        {verified.facility ? <Row label="Nơi khám" value={`${verified.facility.name}, ${verified.facility.address}`} /> : null}
-        <Row label="Trạng thái" value={appointmentStatusLabel[verified.status] ?? verified.status} />
-        <Row label="Phí dự kiến" value={formatCurrency(verified.finalAmount)} strong />
-      </dl>
-      <p className="mt-3 text-xs leading-5 text-[var(--public-muted)]">Hóa đơn và thanh toán trực tuyến có sau khi bệnh viện hoàn tất khám.</p>
+      <div className="mt-5">
+        <p className="text-sm font-semibold text-[var(--public-ink)]">Tiếp theo</p>
+        <ul className="mt-2 list-disc space-y-1 pl-5 text-sm leading-6 text-[var(--public-text-soft)]">
+          <li>Xem, quản lý hoặc hủy lịch trong mục Lịch hẹn của tôi.</li>
+          <li>Hóa đơn và thanh toán trực tuyến có sau khi bệnh viện hoàn tất khám.</li>
+        </ul>
+      </div>
 
       <div className="mt-5 flex flex-col gap-2 sm:flex-row">
-        <Link href={signedInEmail ? "/tai-khoan/lich-hen" : `/tai-khoan/dang-nhap?next=/tai-khoan/lich-hen&email=${encodeURIComponent(flow.state.draft.patientEmail.trim().toLowerCase())}`} className="public-button-primary inline-flex min-h-12 items-center justify-center rounded-lg px-5 text-sm font-semibold">
-          Xem lịch của tôi
+        <Link href={primaryHref} className="public-button-primary inline-flex min-h-12 items-center justify-center rounded-lg px-5 text-sm font-semibold">
+          {signedInEmail ? "Xem lịch hẹn của tôi" : "Đăng nhập để xem lịch hẹn"}
         </Link>
         <button type="button" onClick={flow.actions.startNewBooking} className="public-button-secondary inline-flex min-h-12 items-center justify-center rounded-lg px-5 text-sm font-semibold">
           Đặt lịch khác
@@ -68,21 +63,15 @@ export function SuccessStep({ flow }: { flow: BookingFlow }) {
       </div>
       {signedInEmail ? (
         <p className="mt-3 text-xs leading-5 text-[var(--public-muted)]">
-          Đã đăng nhập bằng email {signedInEmail}. Dùng máy chung?{" "}
+          Bạn đang đăng nhập bằng {signedInEmail}. Nếu đây không phải thiết bị của bạn, hãy{" "}
           <button type="button" onClick={() => void signOut()} className="font-semibold text-[var(--public-primary)] underline underline-offset-2">
-            Đăng xuất
+            đăng xuất
           </button>
+          .
         </p>
-      ) : null}
+      ) : (
+        <p className="mt-3 text-xs leading-5 text-[var(--public-muted)]">Đăng nhập bằng email đã đặt lịch, mã OTP sẽ gửi tới email đó.</p>
+      )}
     </section>
-  );
-}
-
-function Row({ label, value, strong = false }: { label: string; value: string; strong?: boolean }) {
-  return (
-    <div className="flex justify-between gap-4 py-2.5">
-      <dt className="text-[var(--public-muted)]">{label}</dt>
-      <dd className={`text-right ${strong ? "font-bold text-[var(--public-primary-dark)]" : "font-medium text-[var(--public-ink)]"}`}>{value}</dd>
-    </div>
   );
 }

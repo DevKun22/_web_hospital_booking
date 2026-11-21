@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/api";
+import { usePatientLookupLink } from "@/lib/patient-session-client";
 import { fetchPublicDepartments, fetchPublicPackages } from "@/lib/public-lists-query";
 import type { PublicArticleList } from "@/lib/types";
 
@@ -20,6 +21,7 @@ type NavData = {
   packages: { id: string; name: string; slug: string | null }[];
   categories: { name: string; count: number }[];
   loading: boolean;
+  lookup: { href: string; label: string };
 };
 
 const STALE_MS = 10 * 60_000;
@@ -28,6 +30,7 @@ const MAX_PACKAGES = 5;
 const MAX_CATEGORIES = 6;
 
 function usePublicNavData(enabled: boolean): NavData {
+  const lookup = usePatientLookupLink();
   const departments = useQuery({ queryKey: ["public-nav", "departments"], queryFn: () => fetchPublicDepartments(), enabled, staleTime: STALE_MS });
   const packages = useQuery({ queryKey: ["public-nav", "packages"], queryFn: () => fetchPublicPackages(), enabled, staleTime: STALE_MS });
   const articles = useQuery({
@@ -40,6 +43,7 @@ function usePublicNavData(enabled: boolean): NavData {
     departments: (departments.data ?? []).slice(0, MAX_DEPARTMENTS),
     packages: (packages.data ?? []).slice(0, MAX_PACKAGES),
     categories: (articles.data?.categories ?? []).slice(0, MAX_CATEGORIES),
+    lookup,
     loading: enabled && (departments.isLoading || packages.isLoading || articles.isLoading),
   };
 }
@@ -121,13 +125,13 @@ const MENUS: MenuDef[] = [
     href: "/ho-tro",
     label: "Hỗ trợ",
     aliases: ["/hoi-dap", "/huong-dan"],
-    content: () => ({
+    content: (data) => ({
       sections: [
         {
           links: [
             { href: "/huong-dan/dat-lich", label: "Hướng dẫn đặt lịch" },
             { href: "/hoi-dap", label: "Câu hỏi thường gặp" },
-            { href: "/tai-khoan/dang-nhap?next=/tai-khoan/lich-hen", label: "Tra cứu lịch hẹn" },
+            { href: data.lookup.href, label: data.lookup.label },
           ],
         },
       ],

@@ -46,8 +46,8 @@ export function PatientPortalShell({ children }: { children: React.ReactNode }) 
   const unread = useUnreadNotificationCount(Boolean(user)).data ?? 0;
 
   useEffect(() => {
-    if (!loading && !user) router.replace("/tai-khoan/dang-nhap");
-  }, [loading, router, user]);
+    if (!loading && !user) router.replace(`/tai-khoan/dang-nhap?next=${encodeURIComponent(pathname)}`);
+  }, [loading, pathname, router, user]);
 
   if (loading || !user) {
     return (
