@@ -1,6 +1,7 @@
 import "server-only";
 
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
+import { buildWebDeviceName } from "@/lib/device-label";
 import { NextResponse } from "next/server";
 
 const API_BASE_URL = (
@@ -80,7 +81,7 @@ export async function getAuthorizedPatientRequest<T>(
       body: JSON.stringify({
         refreshToken,
         platform: "web",
-        deviceName: "Trình duyệt Web",
+        deviceName: buildWebDeviceName(await headers()),
       }),
     });
 
@@ -111,7 +112,7 @@ export async function getAuthorizedPatientRawRequest(path: string) {
   if (response.status === 401 && refreshToken) {
     const refresh = await backendRequest<PatientSessionTokens>("/auth/refresh", {
       method: "POST",
-      body: JSON.stringify({ refreshToken, platform: "web", deviceName: "Trình duyệt Web" }),
+      body: JSON.stringify({ refreshToken, platform: "web", deviceName: buildWebDeviceName(await headers()) }),
     });
     if (refresh.response.ok && refresh.payload?.data) {
       rotated = refresh.payload.data;

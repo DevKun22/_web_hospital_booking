@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { buildWebDeviceName } from "@/lib/device-label";
 import {
   backendRequest,
   patientErrorResponse,
@@ -31,7 +32,7 @@ export async function POST(request: Request) {
       challengeId: body.challengeId,
       otp: body.otp,
       platform: "web",
-      deviceName: "Trình duyệt Web",
+      deviceName: buildWebDeviceName(request.headers),
     }),
   });
   if (!result.response.ok || !result.payload?.data) {

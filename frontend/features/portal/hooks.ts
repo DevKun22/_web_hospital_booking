@@ -175,3 +175,12 @@ export function useNotificationMutations() {
     markAll: useMutation({ mutationFn: portalApi.markAllNotificationsRead, onSuccess: refresh }),
   };
 }
+
+// Đăng xuất mọi thiết bị khác: thu hồi từng phiên, không đụng phiên hiện tại.
+export function useRevokeOtherSessions() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (ids: string[]) => Promise.all(ids.map((id) => portalApi.revokeSession(id))),
+    onSettled: () => client.invalidateQueries({ queryKey: portalKeys.sessions }),
+  });
+}

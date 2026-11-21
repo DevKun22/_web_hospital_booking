@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { buildWebDeviceName } from "@/lib/device-label";
 import {
   backendRequest,
   patientErrorResponse,
@@ -24,7 +25,7 @@ export async function POST(request: Request) {
     `/appointments/${encodeURIComponent(body.appointmentId)}/verify-otp`,
     {
       method: "POST",
-      body: JSON.stringify({ otp: body.otp, issueSession: true, platform: "web", deviceName: "Trình duyệt Web" }),
+      body: JSON.stringify({ otp: body.otp, issueSession: true, platform: "web", deviceName: buildWebDeviceName(request.headers) }),
     },
   );
   if (!result.response.ok || !result.payload?.data) {
