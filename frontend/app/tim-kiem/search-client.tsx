@@ -4,9 +4,11 @@ import { Search } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
-import { CatalogHeader, FilterChip, RowList, RowSkeleton } from "@/components/public/catalog-parts";
+import { CatalogHeader, ChipRow, FilterChip, RowList, RowSkeleton } from "@/components/public/catalog-parts";
+import { FLAT_SEARCH_BUTTON_CLASS, FLAT_SEARCH_INPUT_CLASS } from "@/components/public/chip-styles";
 import { HighlightText } from "@/components/public/search-highlight";
 import { formatOptionalCurrency } from "@/lib/format";
+import { usePublicDepartments } from "@/lib/public-lists-query";
 import { usePublicSearch, type PublicSearchItem, type PublicSearchType } from "@/lib/public-search-query";
 import { useDebouncedValue } from "@/lib/use-debounced-value";
 
@@ -39,6 +41,9 @@ export default function SearchClient() {
   const searchQuery = usePublicSearch({ q: trimmedKeyword, type, limit: 30 });
   const items = searchQuery.data?.items || [];
   const shouldSearch = trimmedKeyword.length >= 2;
+  const departmentsQuery = usePublicDepartments();
+  // Chưa nhập từ khóa: gợi ý bằng các chuyên khoa thật đang có, không bịa từ khóa.
+  const suggestions = (departmentsQuery.data || []).filter((item) => item.slug).slice(0, 8);
 
   useEffect(() => {
     const next = new URLSearchParams();
@@ -59,23 +64,30 @@ export default function SearchClient() {
   return (
     <main className="min-h-screen bg-[var(--public-canvas)] text-[var(--public-ink)]">
       <CatalogHeader current="Tìm kiếm" title="Tìm kiếm" description="Chuyên khoa, bác sĩ, gói khám và câu hỏi thường gặp.">
-        <div role="search" className="flex min-h-12 max-w-xl items-center gap-2 rounded-lg border border-[var(--public-border)] bg-[var(--public-surface)] px-3 focus-within:border-[var(--public-primary)]">
-          <Search className="h-5 w-5 shrink-0 text-[var(--public-muted)]" aria-hidden="true" />
-          <label htmlFor="site-search" className="sr-only">Từ khóa tìm kiếm</label>
-          <input
-            id="site-search"
-            type="search"
-            value={keyword}
-            onChange={(event) => setKeyword(event.target.value)}
-            placeholder="Ví dụ: tim mạch, tổng quát, thanh toán"
-            className="min-w-0 flex-1 border-0 bg-transparent py-2 text-base"
-            style={{ outline: "none", boxShadow: "none" }}
-          />
-        </div>
-        <div className="mt-3 flex flex-wrap gap-2" role="group" aria-label="Loại nội dung">
-          {searchTabs.map((tab) => (
-            <FilterChip key={tab.value} selected={type === tab.value} onClick={() => setType(tab.value)}>{tab.label}</FilterChip>
-          ))}
+        <div className="space-y-3">
+          <form role="search" onSubmit={(event) => event.preventDefault()} className="max-w-xl">
+            <label className="relative block">
+              <span className="sr-only">Từ khóa tìm kiếm</span>
+              <input
+                id="site-search"
+                type="search"
+                value={keyword}
+                onChange={(event) => setKeyword(event.target.value)}
+                placeholder="Ví dụ: tim mạch, tổng quát, thanh toán"
+                autoComplete="off"
+                enterKeyHint="search"
+                className={FLAT_SEARCH_INPUT_CLASS}
+              />
+              <button type="submit" aria-label="Tìm kiếm" className={FLAT_SEARCH_BUTTON_CLASS}>
+                <Search className="h-4 w-4" aria-hidden="true" />
+              </button>
+            </label>
+          </form>
+          <ChipRow label="Loại nội dung">
+            {searchTabs.map((tab) => (
+              <FilterChip key={tab.value} selected={type === tab.value} onClick={() => setType(tab.value)}>{tab.label}</FilterChip>
+            ))}
+          </ChipRow>
         </div>
       </CatalogHeader>
 
@@ -90,10 +102,10 @@ export default function SearchClient() {
               {items.map((item) => (
                 <li key={`${item.type}-${item.id}`}>
                   <Link href={item.url} className="block p-4 hover:bg-[var(--public-surface-muted)]">
-                    <p className="text-sm text-[var(--public-muted)]">
-                      {typeLabels[item.type]}
-                      {item.departmentName ? <> · <HighlightText text={item.departmentName} query={trimmedKeyword} /></> : null}
-                      {item.price ? <> · <span className="font-semibold tabular-nums text-[var(--public-primary-dark)]">{formatOptionalCurrency(item.price)}</span></> : null}
+                    <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-[var(--public-muted)]">
+                      <span className="rounded-full bg-[var(--public-primary-soft)] px-2.5 py-0.5 text-sm font-medium text-[var(--public-primary-dark)]">{typeLabels[item.type]}</span>
+                      {item.departmentName ? <HighlightText text={item.departmentName} query={trimmedKeyword} /> : null}
+                      {item.price ? <span className="font-semibold tabular-nums text-[var(--public-primary-dark)]">{formatOptionalCurrency(item.price)}</span> : null}
                     </p>
                     <h2 className="mt-0.5 text-lg font-semibold"><HighlightText text={item.title} query={trimmedKeyword} /></h2>
                     {item.description ? <p className="mt-1 line-clamp-2 text-base text-[var(--public-text-soft)]"><HighlightText text={item.description} query={trimmedKeyword} /></p> : null}
@@ -103,6 +115,15 @@ export default function SearchClient() {
             </RowList>
           ) : shouldSearch ? (
             <p className="rounded-lg border border-dashed border-[var(--public-border)] p-6 text-center text-sm text-[var(--public-muted)]">Thử từ khóa ngắn hơn hoặc chọn &quot;Tất cả&quot; để mở rộng phạm vi.</p>
+          ) : suggestions.length ? (
+            <div>
+              <p className="text-sm font-medium text-[var(--public-ink)]">Xem nhanh chuyên khoa</p>
+              <ul className="mt-2 flex flex-wrap gap-2">
+                {suggestions.map((item) => (
+                  <li key={item.id}><Link href={`/chuyen-khoa/${item.slug}`} className="inline-flex min-h-9 items-center rounded-full border border-[var(--public-border)] bg-[var(--public-surface)] px-3.5 text-sm font-medium text-[var(--public-text-soft)] hover:border-[var(--public-primary)]">{item.name}</Link></li>
+                ))}
+              </ul>
+            </div>
           ) : null}
         </div>
       </section>

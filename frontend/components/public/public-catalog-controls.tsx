@@ -2,6 +2,7 @@
 
 import { ChevronLeft, ChevronRight, RotateCcw, Search } from "lucide-react";
 import type { FormEvent, ReactNode } from "react";
+import { FLAT_SEARCH_BUTTON_CLASS, FLAT_SEARCH_INPUT_CLASS } from "@/components/public/chip-styles";
 
 // Thanh lọc phẳng: không hộp viền. Một hàng gồm ô tìm (Enter hoặc nút kính lúp để tìm) và các ô chọn, bên dưới là hàng chip;
 // "Xóa lọc" chỉ hiện khi đang có lọc hoặc đang gõ từ khóa.
@@ -40,9 +41,9 @@ export function PublicCatalogSearch({
             placeholder={placeholder}
             autoComplete="off"
             enterKeyHint="search"
-            className="ui-field min-h-11 w-full rounded-full pl-4 pr-12 text-base sm:text-sm"
+            className={FLAT_SEARCH_INPUT_CLASS}
           />
-          <button type="submit" aria-label="Tìm kiếm" className="absolute right-1 top-1/2 inline-flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full text-[var(--public-primary)] hover:bg-[var(--public-primary-soft)] focus-visible:outline-2 focus-visible:outline-[var(--public-primary)]">
+          <button type="submit" aria-label="Tìm kiếm" className={FLAT_SEARCH_BUTTON_CLASS}>
             <Search className="h-4 w-4" aria-hidden="true" />
           </button>
         </label>
