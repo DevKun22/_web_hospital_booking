@@ -65,7 +65,7 @@ export type PatientMedicalRecord = {
   status: string;
   publishedAt: string | null;
   createdAt: string;
-  appointment: { bookingCode: string; patientName: string };
+  appointment: { bookingCode: string; patientName: string; dependentProfileId?: string | null };
   doctor: { title: string | null; specialization?: string | null; user: { fullName: string }; department?: { name: string; slug?: string | null } };
   resultFile?: { available: boolean; downloadUrl: string | null };
   labResults: Array<{ id: string; testName: string; resultValue?: string | null; unit?: string | null; referenceRange?: string | null; conclusion: string | null; file?: { available: boolean; downloadUrl: string | null } }>;
@@ -77,6 +77,7 @@ export type PatientPrescription = {
   issuedAt: string | null;
   note?: string | null;
   createdAt: string;
+  appointment?: { bookingCode: string; patientName?: string; dependentProfileId?: string | null };
   doctor: { title: string | null; user: { fullName: string } };
   items: Array<{ id: string; medicineName: string; dosage: string; frequency: string; duration?: string | null; quantity?: number | null; unit?: string | null; instruction?: string | null; fulfillmentStatus?: "PENDING" | "DISPENSED" | "OUTSIDE" | "OUT_OF_STOCK"; fulfillmentNote?: string | null }>;
 };
