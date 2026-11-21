@@ -12,10 +12,9 @@ import {
   DsKeyValue,
   DsNotice,
   DsPageHeader,
-  DsPane,
+  DsEditDialog,
   DsPanel,
   DsSelect,
-  DsSplit,
   DsStatusPill,
   DsTabs,
   DsTextarea,
@@ -888,7 +887,7 @@ export default function SchedulesPage() {
           <small style={{ display: "block", color: "var(--ds-muted)" }}>Lịch mẫu tạm tắt không sinh khung giờ mới.</small>
         </span>
       </label>
-      <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+      <div className="ds-form-actions">
         <DsButton onClick={closePane}>Đóng</DsButton>
         <DsButton type="submit" variant="primary" disabled={saving || (!editing && !scheduleForm.doctorId)}>
           {saving ? "Đang lưu..." : editing ? "Lưu lịch" : "Tạo lịch"}
@@ -904,7 +903,7 @@ export default function SchedulesPage() {
     const past = isVietnamSlotStartInPast(selectedSlot.date, selectedSlot.startTime);
     const editable = canManageSlots && !selectedSlot.appointment && selectedSlot.status !== "BOOKED" && !past;
     paneNode = (
-      <DsPane
+      <DsEditDialog size="lg"
         title={`${formatVietnamDate(selectedSlot.date)} · ${selectedSlot.startTime} - ${selectedSlot.endTime}`}
         badge={<DsStatusPill tone={status.tone}>{status.label}</DsStatusPill>}
         onClose={closePane}
@@ -977,11 +976,11 @@ export default function SchedulesPage() {
             </>
           )}
         </div>
-      </DsPane>
+      </DsEditDialog>
     );
   } else if (pane?.kind === "schedule" && selectedSchedule) {
     paneNode = (
-      <DsPane
+      <DsEditDialog size="lg"
         title={`${dayLabel(selectedSchedule.dayOfWeek)} · ${selectedSchedule.startTime} - ${selectedSchedule.endTime}`}
         badge={<DsStatusPill tone={selectedSchedule.isActive ? "good" : "neutral"}>{selectedSchedule.isActive ? "Đang dùng" : "Tạm tắt"}</DsStatusPill>}
         onClose={closePane}
@@ -1026,13 +1025,13 @@ export default function SchedulesPage() {
             ) : null}
           </div>
         )}
-      </DsPane>
+      </DsEditDialog>
     );
   } else if (pane?.kind === "newSchedule" && canWrite) {
     paneNode = (
-      <DsPane title="Tạo lịch mẫu" onClose={closePane}>
+      <DsEditDialog size="lg" title="Tạo lịch mẫu" onClose={closePane}>
         {scheduleFormFields(false)}
-      </DsPane>
+      </DsEditDialog>
     );
   } else if (pane?.kind === "generate" && canWrite) {
     const setRangeDays = (days: number) => {
@@ -1040,7 +1039,7 @@ export default function SchedulesPage() {
       setGenerateTo(addDaysToInput(today(), days - 1));
     };
     paneNode = (
-      <DsPane title="Sinh khung giờ" onClose={closePane}>
+      <DsEditDialog size="lg" title="Sinh khung giờ" onClose={closePane}>
         <form onSubmit={generateSlots} style={{ display: "grid", gap: 12 }} aria-label="Sinh khung giờ theo khoảng ngày">
           <p className="ds-hint" style={{ margin: 0 }}>
             Hệ thống đã tự sinh khung giờ cho 14 ngày tới. Dùng công cụ này khi cần mở xa hơn (tối đa 62 ngày một lần). Không tạo trùng khung giờ có sẵn.
@@ -1070,18 +1069,18 @@ export default function SchedulesPage() {
               </DsButton>
             ))}
           </div>
-          <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+          <div className="ds-form-actions">
             <DsButton onClick={closePane}>Đóng</DsButton>
             <DsButton type="submit" variant="primary" disabled={saving || !generateDoctorId || !generateFrom || !generateTo}>
               {saving ? "Đang sinh..." : "Sinh khung giờ"}
             </DsButton>
           </div>
         </form>
-      </DsPane>
+      </DsEditDialog>
     );
   } else if (pane?.kind === "timeOff" && canLockRange) {
     paneNode = (
-      <DsPane title="Nghỉ phép / đóng lịch" onClose={closePane}>
+      <DsEditDialog size="lg" title="Nghỉ phép / đóng lịch" onClose={closePane}>
         <div style={{ display: "grid", gap: 12 }}>
           <p className="ds-hint" style={{ margin: 0 }}>
             Đóng mọi khung giờ còn trống của bác sĩ trong khoảng ngày (nghỉ phép, họp, việc đột xuất). Lịch đã đặt không bị hủy: hệ thống liệt kê để nhân viên liên hệ người khám đổi lịch.
@@ -1109,7 +1108,7 @@ export default function SchedulesPage() {
           <DsField label="Lý do" htmlFor="off-reason" hint="Hiện cho nhân viên và nhật ký, ví dụ: Nghỉ phép năm, Họp chuyên môn">
             <DsInput id="off-reason" value={offReason} maxLength={200} onChange={(event) => setOffReason(event.target.value)} />
           </DsField>
-          <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", flexWrap: "wrap" }}>
+          <div className="ds-form-actions">
             <DsButton disabled={saving} onClick={() => void runRange("reopen")}>
               Mở lại khoảng này
             </DsButton>
@@ -1131,11 +1130,11 @@ export default function SchedulesPage() {
             </DsNotice>
           ) : null}
         </div>
-      </DsPane>
+      </DsEditDialog>
     );
   } else if (pane?.kind === "reconcile" && canReconcile) {
     paneNode = (
-      <DsPane title="Đối soát khung giờ" onClose={closePane}>
+      <DsEditDialog size="lg" title="Đối soát khung giờ" onClose={closePane}>
         <div style={{ display: "grid", gap: 12 }}>
           <p className="ds-hint" style={{ margin: 0 }}>
             Phát hiện khung giờ và lịch hẹn lệch trạng thái. Bước kiểm tra chỉ đọc dữ liệu; bước khắc phục chỉ sửa các trường hợp an toàn.
@@ -1180,11 +1179,11 @@ export default function SchedulesPage() {
             </div>
           ) : null}
         </div>
-      </DsPane>
+      </DsEditDialog>
     );
   } else if (pane?.kind === "newRequest" && isDoctor) {
     paneNode = (
-      <DsPane title="Gửi yêu cầu đổi lịch" onClose={closePane}>
+      <DsEditDialog size="lg" title="Gửi yêu cầu đổi lịch" onClose={closePane}>
         <ScheduleRequestForm
           schedules={schedules}
           initialScheduleId={pane.scheduleId}
@@ -1196,11 +1195,11 @@ export default function SchedulesPage() {
           onError={setError}
           onCancel={closePane}
         />
-      </DsPane>
+      </DsEditDialog>
     );
   } else if (pane?.kind === "request" && selectedRequest) {
     paneNode = (
-      <DsPane
+      <DsEditDialog size="lg"
         title={isDoctor ? requestTypeLabels[selectedRequest.type] : doctorName(selectedRequest.doctor)}
         badge={<DsStatusPill tone={requestStatusTone[selectedRequest.status]}>{requestStatusLabel[selectedRequest.status]}</DsStatusPill>}
         onClose={closePane}
@@ -1252,7 +1251,7 @@ export default function SchedulesPage() {
             Duyệt yêu cầu sẽ cập nhật lịch mẫu; khung giờ đã sinh và lịch đã đặt không tự thay đổi.
           </p>
         </div>
-      </DsPane>
+      </DsEditDialog>
     );
   }
 
@@ -1296,7 +1295,8 @@ export default function SchedulesPage() {
           <DsNotice tone="info">Khung giờ 14 ngày tới được hệ thống tự sinh từ lịch mẫu theo tuần. Đổi hoặc tắt lịch mẫu sẽ gỡ các khung giờ còn trống; lịch đã đặt được giữ và báo cho nhân viên xử lý.</DsNotice>
         ) : null}
       </div>
-      <DsSplit list={list} pane={paneNode} />
+      {list}
+      {paneNode}
     </>
   );
 }
