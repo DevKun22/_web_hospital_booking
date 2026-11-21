@@ -1,14 +1,18 @@
 "use client";
 
 import { useMemo } from "react";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { DsPageHeader, DsPanel } from "@/components/ds";
-import { DoctorHome } from "@/components/doctor/doctor-home";
-import { OperationsOverview } from "@/components/overview/operations-overview";
-import { PharmacistHome } from "@/components/pharmacy/pharmacist-home";
+import { DashboardContentSkeleton } from "@/components/dashboard/dashboard-content-skeleton";
 import { useAuth } from "@/lib/auth";
 import { getListedDashboardItems } from "@/lib/dashboard-navigation";
 import { can } from "@/lib/permissions";
+
+// Mỗi vai trò chỉ tải phần của mình: tổng quan vận hành kéo theo thư viện biểu đồ nên không được nằm trong gói của bác sĩ hay dược sĩ.
+const DoctorHome = dynamic(() => import("@/components/doctor/doctor-home").then((module) => module.DoctorHome), { loading: () => <DashboardContentSkeleton /> });
+const OperationsOverview = dynamic(() => import("@/components/overview/operations-overview").then((module) => module.OperationsOverview), { loading: () => <DashboardContentSkeleton /> });
+const PharmacistHome = dynamic(() => import("@/components/pharmacy/pharmacist-home").then((module) => module.PharmacistHome), { loading: () => <DashboardContentSkeleton /> });
 
 // Trang chủ theo vai trò: bác sĩ và dược sĩ có "Việc của tôi", người có quyền xem thống kê thấy tổng quan
 // vận hành; còn lại là lối tắt tới các mục được phép dùng.
