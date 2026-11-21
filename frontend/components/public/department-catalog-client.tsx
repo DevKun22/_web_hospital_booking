@@ -9,7 +9,7 @@ import { PublicEmptyState } from "@/components/public/public-page-layout";
 import type { PublicDepartmentCatalogItem } from "@/components/public/public-home-types";
 import { usePublicDepartmentCatalog } from "@/lib/public-lists-query";
 
-const PAGE_SIZE = 9;
+const PAGE_SIZE = 8;
 
 export function DepartmentCatalogClient() {
   const router = useRouter();
@@ -117,7 +117,7 @@ export function DepartmentCatalogClient() {
         {loading ? (
           <CardSkeleton />
         ) : items.length ? (
-          <ul aria-busy={catalogQuery.isFetching} className={`grid gap-4 sm:grid-cols-2 lg:grid-cols-3 ${catalogQuery.isFetching ? "opacity-70" : ""}`}>
+          <ul aria-busy={catalogQuery.isFetching} className={`grid gap-4 sm:grid-cols-2 lg:grid-cols-4 ${catalogQuery.isFetching ? "opacity-70" : ""}`}>
             {items.map((department) => <DepartmentCard key={department.id} department={department} />)}
           </ul>
         ) : (
@@ -132,10 +132,10 @@ export function DepartmentCatalogClient() {
 
 function CardSkeleton() {
   return (
-    <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-      {Array.from({ length: 6 }).map((_, index) => (
+    <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      {Array.from({ length: 8 }).map((_, index) => (
         <li key={index} className="overflow-hidden rounded-2xl border border-[var(--public-border)] bg-[var(--public-surface)]">
-          <span className="skeleton-shimmer block aspect-[2/1] w-full" />
+          <span className="skeleton-shimmer block aspect-[5/2] w-full" />
           <span className="block space-y-2 p-4">
             <span className="skeleton-shimmer block h-5 w-1/2 rounded" />
             <span className="skeleton-shimmer block h-4 w-4/5 rounded" />
@@ -157,13 +157,13 @@ function DepartmentCard({ department }: { department: PublicDepartmentCatalogIte
   ].filter(Boolean).join(" · ");
   return (
     <li className="group/dept flex flex-col overflow-hidden rounded-2xl border border-[var(--public-border)] bg-[var(--public-surface)] transition hover:-translate-y-0.5 hover:border-[var(--public-primary)] hover:shadow-lg">
-      <Link href={detailUrl} tabIndex={-1} aria-hidden="true" className="block aspect-[2/1] overflow-hidden bg-[var(--public-tint-strong)]">
+      <Link href={detailUrl} tabIndex={-1} aria-hidden="true" className="block aspect-[5/2] overflow-hidden bg-[var(--public-tint-strong)]">
         {department.image ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={department.image} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover transition-transform duration-300 group-hover/dept:scale-105" />
         ) : null}
       </Link>
-      <div className="flex min-w-0 flex-1 flex-col p-4">
+      <div className="flex min-w-0 flex-1 flex-col p-3.5">
         <h2 className="text-lg font-semibold leading-snug"><Link href={detailUrl} className="hover:text-[var(--public-primary)]">{department.name}</Link></h2>
         <p className="mt-1 line-clamp-2 text-base leading-7 text-[var(--public-text-soft)]">{department.description || "Thông tin chuyên khoa đang được cập nhật."}</p>
         {meta ? <p className="mt-2 text-sm text-[var(--public-muted)]">{meta}</p> : null}

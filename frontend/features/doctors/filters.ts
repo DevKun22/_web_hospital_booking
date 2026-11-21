@@ -9,7 +9,7 @@ export type DoctorFilters = {
   page: number;
 };
 
-export const PAGE_SIZE = 9;
+export const PAGE_SIZE = 8;
 const BASE_PATH = "/bac-si";
 
 export const defaultDoctorFilters: DoctorFilters = {
