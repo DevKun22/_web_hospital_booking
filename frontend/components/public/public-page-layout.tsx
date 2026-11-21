@@ -48,20 +48,6 @@ export function PublicEmptyState({ children }: { children: ReactNode }) {
   );
 }
 
-export function PublicFilterPanel({
-  children,
-  className = "",
-}: {
-  children: ReactNode;
-  className?: string;
-}) {
-  return (
-    <div className={`public-filter-panel p-3 sm:p-4 ${className}`.trim()}>
-      {children}
-    </div>
-  );
-}
-
 export function PublicCatalogSection({
   status,
   error,

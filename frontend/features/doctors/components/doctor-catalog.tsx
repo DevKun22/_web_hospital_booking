@@ -41,8 +41,9 @@ export function DoctorCatalog() {
 
   return (
     <>
-      <CatalogHeader current="Bác sĩ" title="Đội ngũ bác sĩ" description="Tìm bác sĩ theo tên, chuyên khoa, kinh nghiệm. Giờ trống hôm nay bấm vào là đặt lịch ngay." />
-      <DoctorFilterBar state={state} departments={departments} />
+      <CatalogHeader current="Bác sĩ" title="Đội ngũ bác sĩ" description="Tìm bác sĩ theo tên, chuyên khoa, kinh nghiệm. Chọn bác sĩ rồi đặt lịch theo giờ còn trống.">
+        <DoctorFilterBar state={state} departments={departments} />
+      </CatalogHeader>
 
       <PublicCatalogSection
         status={loading ? "Đang tải bác sĩ..." : `${pagination?.total || 0} bác sĩ${selectedDepartment ? ` thuộc ${selectedDepartment.name}` : ""}${refreshing ? " · Đang cập nhật" : ""}`}

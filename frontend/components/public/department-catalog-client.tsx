@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useMemo, useState } from "react";
 import { PublicCatalogSearch, PublicPagination } from "@/components/public/public-catalog-controls";
-import { CatalogHeader, ChatbotHint, FilterChip, FIELD_LABEL_CLASS, ResultCount, SELECT_CLASS } from "@/components/public/catalog-parts";
+import { CatalogHeader, ChatbotHint, ChipRow, FilterChip, FlatSelect, ResultCount } from "@/components/public/catalog-parts";
 import { PublicEmptyState } from "@/components/public/public-page-layout";
 import type { PublicDepartmentCatalogItem } from "@/components/public/public-home-types";
 import { usePublicDepartmentCatalog } from "@/lib/public-lists-query";
@@ -87,26 +87,28 @@ export function DepartmentCatalogClient() {
   return (
     <>
       <CatalogHeader current="Chuyên khoa" title="Chuyên khoa" description="Chọn chuyên khoa theo nhu cầu khám. Có thể tìm bằng tên khoa hoặc triệu chứng.">
-        <PublicCatalogSearch value={searchDraft} onChange={setSearchDraft} onSubmit={() => applySearch()} onReset={reset} canReset={hasActiveFilters || Boolean(searchDraft)} placeholder="Tên chuyên khoa hoặc triệu chứng, ví dụ: đau đầu">
-          <div className="grid gap-3 border-t border-[var(--public-border)] pt-3 md:grid-cols-[minmax(0,1fr)_14rem] md:items-end">
-            <div>
-              <p className={FIELD_LABEL_CLASS}>Lọc nhanh</p>
-              <div className="mt-1.5 flex flex-wrap gap-2">
-                <FilterChip selected={available} onClick={() => changeAvailable(!available)}>Đang có lịch trống</FilterChip>
-                {quickSymptoms.map((symptom) => (
-                  <FilterChip key={symptom} selected={search === symptom} onClick={() => applySearch(search === symptom ? "" : symptom)}>{symptom}</FilterChip>
-                ))}
-              </div>
-            </div>
-            <label className={FIELD_LABEL_CLASS}>
-              Sắp xếp
-              <select value={sort} onChange={(event) => changeSort(event.target.value as "POPULAR_DESC" | "NAME_ASC")} className={SELECT_CLASS}>
-                <option value="POPULAR_DESC">Nhiều bác sĩ, gói khám trước</option>
-                <option value="NAME_ASC">Tên A–Z</option>
-              </select>
-            </label>
-          </div>
+        <PublicCatalogSearch
+          value={searchDraft}
+          onChange={setSearchDraft}
+          onSubmit={() => applySearch()}
+          onReset={reset}
+          canReset={hasActiveFilters || Boolean(searchDraft)}
+          placeholder="Tên chuyên khoa hoặc triệu chứng, ví dụ: đau đầu"
+          controls={
+            <FlatSelect label="Sắp xếp" value={sort} onChange={(next) => changeSort(next as "POPULAR_DESC" | "NAME_ASC")}>
+              <option value="POPULAR_DESC">Nhiều bác sĩ, gói khám trước</option>
+              <option value="NAME_ASC">Tên A–Z</option>
+            </FlatSelect>
+          }
+        >
+          <ChipRow label="Lọc nhanh">
+            <FilterChip selected={available} onClick={() => changeAvailable(!available)}>Đang có lịch trống</FilterChip>
+            {quickSymptoms.map((symptom) => (
+              <FilterChip key={symptom} selected={search === symptom} onClick={() => applySearch(search === symptom ? "" : symptom)}>{symptom}</FilterChip>
+            ))}
+          </ChipRow>
         </PublicCatalogSearch>
+
       </CatalogHeader>
 
       <section className="ui-container py-6 sm:py-8" aria-busy={catalogQuery.isFetching}>

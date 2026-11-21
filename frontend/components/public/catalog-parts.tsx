@@ -23,14 +23,17 @@ export function CatalogHeader({ current, title, description, children }: { curre
   );
 }
 
+// Chip lọc nhanh: bo tròn, chip đang chọn tô nhạt; dùng chung cho các trang danh mục, hỏi đáp và tìm kiếm.
 export function FilterChip({ selected, onClick, children }: { selected: boolean; onClick: () => void; children: ReactNode }) {
   return (
     <button
       type="button"
       aria-pressed={selected}
       onClick={onClick}
-      className={`min-h-10 rounded-lg border px-3 text-sm font-semibold transition-colors ${
-        selected ? "border-[var(--public-primary)] bg-[var(--public-solid)] text-white" : "border-[var(--public-border)] bg-[var(--public-surface)] text-[var(--public-text-soft)] hover:border-[var(--public-primary)]"
+      className={`inline-flex min-h-9 shrink-0 items-center rounded-full border px-3.5 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--public-primary)] ${
+        selected
+          ? "border-[var(--public-primary)] bg-[var(--public-primary-soft)] text-[var(--public-primary-dark)]"
+          : "border-[var(--public-border)] bg-[var(--public-surface)] text-[var(--public-text-soft)] hover:border-[var(--public-primary)]"
       }`}
     >
       {children}
@@ -38,8 +41,28 @@ export function FilterChip({ selected, onClick, children }: { selected: boolean;
   );
 }
 
-export const SELECT_CLASS = "ui-field mt-1.5 min-h-11 w-full px-3 text-base sm:text-sm";
-export const FIELD_LABEL_CLASS = "block text-sm font-semibold text-[var(--public-ink)]";
+// Hàng chip: điện thoại cuộn ngang một dòng, màn hình rộng xuống dòng khi dài.
+export function ChipRow({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div role="group" aria-label={label} className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0 sm:pb-0">
+      {children}
+    </div>
+  );
+}
+
+// Ô chọn gọn trên thanh lọc: không nhãn hiện, tên ô nằm ở aria-label và lựa chọn đầu tiên.
+export function FlatSelect({ label, value, onChange, children }: { label: string; value: string; onChange: (value: string) => void; children: ReactNode }) {
+  return (
+    <select
+      aria-label={label}
+      value={value}
+      onChange={(event) => onChange(event.target.value)}
+      className="ui-field min-h-11 w-full rounded-full px-4 text-base sm:w-auto sm:min-w-[11rem] sm:text-sm"
+    >
+      {children}
+    </select>
+  );
+}
 
 // Danh sách hàng viền mảnh dùng chung cho chuyên khoa, gói khám.
 export function RowList({ children, busy = false }: { children: ReactNode; busy?: boolean }) {

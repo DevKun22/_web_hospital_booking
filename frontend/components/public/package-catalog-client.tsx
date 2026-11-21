@@ -1,25 +1,18 @@
 "use client";
 
-import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useMemo, useState } from "react";
 import { PublicCatalogSearch, PublicPagination } from "@/components/public/public-catalog-controls";
-import { CatalogHeader, ChatbotHint, FilterChip, FIELD_LABEL_CLASS, ResultCount, RowList, RowSkeleton, SELECT_CLASS } from "@/components/public/catalog-parts";
+import { CatalogHeader, ChatbotHint, ChipRow, FilterChip, FlatSelect, ResultCount } from "@/components/public/catalog-parts";
 import { PublicEmptyState } from "@/components/public/public-page-layout";
 import { usePublicPackageCatalog } from "@/lib/public-lists-query";
-import type { MedicalPackage } from "@/lib/types";
+import { PackageCard } from "@/features/packages/components/package-card";
 
 import { formatCurrency } from "@/lib/format";
-const PAGE_SIZE = 6;
+const PAGE_SIZE = 9;
 type PackageKind = "ALL" | "POPULAR" | "BHYT";
 type PackageSort = "POPULAR_DESC" | "PRICE_ASC" | "PRICE_DESC" | "NAME_ASC";
 
-
-const getBookingUrl = (item: MedicalPackage) => {
-  const params = new URLSearchParams({ packageId: item.id });
-  if (item.department?.id) params.set("departmentId", item.department.id);
-  return `/dat-lich?${params.toString()}`;
-};
 
 export function PackageCatalogClient() {
   const router = useRouter();
@@ -110,34 +103,35 @@ export function PackageCatalogClient() {
   return (
     <>
       <CatalogHeader current="Gói khám" title="Gói khám" description="Xem hạng mục, chuyên khoa và mức phí từng gói, rồi đặt lịch theo gói bạn chọn.">
-        <PublicCatalogSearch value={searchDraft} onChange={setSearchDraft} onSubmit={() => applySearch()} onReset={reset} canReset={hasActiveFilters || Boolean(searchDraft)} placeholder="Tên gói, chuyên khoa hoặc hạng mục khám">
-          <div className="grid gap-3 border-t border-[var(--public-border)] pt-3 lg:grid-cols-[minmax(0,1fr)_14rem_14rem] lg:items-end">
-            <div>
-              <p className={FIELD_LABEL_CLASS}>Loại gói</p>
-              <div className="mt-1.5 flex flex-wrap gap-2">
-                <FilterChip selected={kind === "ALL"} onClick={() => changeKind("ALL")}>Tất cả</FilterChip>
-                <FilterChip selected={kind === "POPULAR"} onClick={() => changeKind("POPULAR")}>Gói nổi bật</FilterChip>
-                <FilterChip selected={kind === "BHYT"} onClick={() => changeKind("BHYT")}>Hỗ trợ BHYT</FilterChip>
-              </div>
-            </div>
-            <label className={FIELD_LABEL_CLASS}>
-              Chuyên khoa
-              <select value={departmentId} onChange={(event) => changeDepartment(event.target.value)} className={SELECT_CLASS}>
+        <PublicCatalogSearch
+          value={searchDraft}
+          onChange={setSearchDraft}
+          onSubmit={() => applySearch()}
+          onReset={reset}
+          canReset={hasActiveFilters || Boolean(searchDraft)}
+          placeholder="Tên gói, chuyên khoa hoặc hạng mục khám"
+          controls={
+            <>
+              <FlatSelect label="Chuyên khoa" value={departmentId} onChange={changeDepartment}>
                 <option value="">Tất cả chuyên khoa</option>
                 {(data?.filters.departments || []).map((department) => <option key={department.id} value={department.id}>{department.name}</option>)}
-              </select>
-            </label>
-            <label className={FIELD_LABEL_CLASS}>
-              Sắp xếp
-              <select value={sort} onChange={(event) => changeSort(event.target.value as PackageSort)} className={SELECT_CLASS}>
+              </FlatSelect>
+              <FlatSelect label="Sắp xếp" value={sort} onChange={(next) => changeSort(next as PackageSort)}>
                 <option value="POPULAR_DESC">Gói nổi bật trước</option>
                 <option value="PRICE_ASC">Giá thấp đến cao</option>
                 <option value="PRICE_DESC">Giá cao đến thấp</option>
                 <option value="NAME_ASC">Tên A–Z</option>
-              </select>
-            </label>
-          </div>
+              </FlatSelect>
+            </>
+          }
+        >
+          <ChipRow label="Loại gói">
+            <FilterChip selected={kind === "ALL"} onClick={() => changeKind("ALL")}>Tất cả</FilterChip>
+            <FilterChip selected={kind === "POPULAR"} onClick={() => changeKind("POPULAR")}>Gói nổi bật</FilterChip>
+            <FilterChip selected={kind === "BHYT"} onClick={() => changeKind("BHYT")}>Hỗ trợ BHYT</FilterChip>
+          </ChipRow>
         </PublicCatalogSearch>
+
       </CatalogHeader>
 
       <section className="ui-container py-6 sm:py-8" aria-busy={catalogQuery.isFetching}>
@@ -147,11 +141,13 @@ export function PackageCatalogClient() {
           {data?.summary.packageCount ? <p className="text-sm text-[var(--public-muted)]">Giá từ {formatCurrency(data.summary.minPrice)} đến {formatCurrency(data.summary.maxPrice)}</p> : null}
         </div>
         {loading ? (
-          <RowSkeleton />
+          <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3" aria-busy="true">
+            {Array.from({ length: 6 }).map((_, index) => <li key={index}><span className="skeleton-shimmer block h-80 rounded-2xl" /></li>)}
+          </ul>
         ) : items.length ? (
-          <RowList busy={catalogQuery.isFetching}>
-            {items.map((item) => <PackageRow key={item.id} item={item} />)}
-          </RowList>
+          <ul aria-busy={catalogQuery.isFetching} className={`grid gap-4 sm:grid-cols-2 lg:grid-cols-3 ${catalogQuery.isFetching ? "opacity-70" : ""}`}>
+            {items.map((item) => <li key={item.id}><PackageCard item={item} /></li>)}
+          </ul>
         ) : (
           <PublicEmptyState>Không tìm thấy gói khám phù hợp. Thử từ khóa ngắn hơn hoặc bỏ bớt bộ lọc.</PublicEmptyState>
         )}
@@ -159,32 +155,6 @@ export function PackageCatalogClient() {
         <ChatbotHint>Chưa biết nên chọn gói nào?</ChatbotHint>
       </section>
     </>
-  );
-}
-
-function PackageRow({ item }: { item: MedicalPackage }) {
-  const included = item.items.filter((packageItem) => packageItem.included);
-  const detailHref = item.slug ? `/goi-kham/${item.slug}` : null;
-  return (
-    <li className="flex flex-col gap-3 p-4 sm:flex-row sm:items-start sm:gap-6">
-      <div className="min-w-0 flex-1">
-        <h2 className="text-lg font-bold">{detailHref ? <Link href={detailHref} className="hover:text-[var(--public-primary)]">{item.name}</Link> : item.name}</h2>
-        <p className="mt-0.5 text-sm text-[var(--public-muted)]">
-          {item.department?.name || "Đa chuyên khoa"} · {included.length} hạng mục
-          {item.isBHYTSupport ? <span className="ml-2 font-semibold text-[var(--public-success)]">Hỗ trợ BHYT</span> : null}
-          {item.isPopular ? <span className="ml-2 font-semibold text-[var(--public-warning)]">Nổi bật</span> : null}
-        </p>
-        <p className="mt-1.5 line-clamp-2 text-base text-[var(--public-text-soft)]">{item.summary || item.description || "Thông tin mô tả gói khám đang được cập nhật."}</p>
-        {included.length ? <p className="mt-1.5 line-clamp-2 text-sm text-[var(--public-muted)]">Gồm: {included.slice(0, 4).map((entry) => entry.name).join("; ")}{included.length > 4 ? `; và ${included.length - 4} hạng mục khác` : ""}</p> : null}
-      </div>
-      <div className="flex shrink-0 items-center justify-between gap-4 sm:flex-col sm:items-end sm:justify-start">
-        <p className="text-xl font-bold tabular-nums text-[var(--public-primary-dark)]">{formatCurrency(item.finalPrice)}</p>
-        <div className="flex gap-2">
-          {detailHref ? <Link href={detailHref} className="public-button-secondary inline-flex min-h-11 items-center rounded-lg px-4 text-sm font-semibold">Chi tiết</Link> : null}
-          <Link href={getBookingUrl(item)} className="public-button-primary inline-flex min-h-11 items-center rounded-lg px-4 text-sm font-semibold">Chọn gói</Link>
-        </div>
-      </div>
-    </li>
   );
 }
 

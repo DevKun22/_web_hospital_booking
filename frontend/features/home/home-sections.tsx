@@ -1,12 +1,12 @@
 /* eslint-disable @next/next/no-img-element */
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { ArrowRight, Check, ChevronRight, Clock, PackageCheck, Stethoscope } from "lucide-react";
+import { ArrowRight, ChevronRight, Stethoscope } from "lucide-react";
 import type { PublicHomeData } from "@/components/public/public-home-types";
 import { safeHref } from "@/lib/safe-href";
 import { AskKunBanner } from "@/components/public/ask-kun-banner";
+import { PackageCard } from "@/features/packages/components/package-card";
 import { DoctorCard } from "@/features/doctors/components/doctor-card";
-import { formatCurrency } from "@/lib/format";
 import type { Banner, DoctorProfile, HomePageConfigValue, HomePageSectionConfig, MedicalPackage, PublicFAQ } from "@/lib/types";
 
 // Thông báo chỉ hiện khi đang bật, có nội dung và đang trong khoảng ngày cấu hình (nếu có).
@@ -130,68 +130,6 @@ export function DepartmentsSection({ departments, config, loading }: { departmen
       </div>
     </Band>
   );
-}
-
-const PACKAGE_ITEMS_FEATURED = 4;
-const PACKAGE_ITEMS_STANDARD = 3;
-
-function PackageCard({ item, featured }: { item: MedicalPackage; featured?: boolean }) {
-  const included = (item.items || []).filter((entry) => entry.included);
-  const shown = included.slice(0, featured ? PACKAGE_ITEMS_FEATURED : PACKAGE_ITEMS_STANDARD);
-  const more = included.length - shown.length;
-  const detailHref = `/goi-kham/${item.slug || item.id}`;
-  const body = (
-    <>
-      <div className={`relative overflow-hidden bg-[var(--public-primary-soft)] ${featured ? "aspect-[16/9] md:aspect-auto md:min-h-[13rem]" : "aspect-[5/2]"}`}>
-        {item.image ? (
-          <img src={item.image} alt="" width={800} height={450} loading="lazy" decoding="async" className="h-full w-full object-cover transition-transform duration-500 group-hover/pack:scale-105 motion-reduce:transition-none motion-reduce:group-hover/pack:scale-100" />
-        ) : (
-          <div className="flex h-full w-full items-center justify-center bg-[linear-gradient(135deg,var(--public-primary-soft),var(--public-tint-strong))] text-[var(--public-primary-dark)]" aria-hidden="true">
-            <PackageCheck className={featured ? "h-16 w-16" : "h-12 w-12"} />
-          </div>
-        )}
-        {item.isPopular || item.isBHYTSupport ? (
-          <p className="absolute left-3 top-3 flex flex-wrap gap-1.5">
-            {item.isPopular ? <span className="rounded-full bg-[var(--public-solid)] px-3 py-1 text-sm font-medium text-white shadow">Nổi bật</span> : null}
-            {item.isBHYTSupport ? <span className="rounded-full bg-[var(--public-surface)] px-3 py-1 text-sm font-medium text-[var(--public-success)] shadow">Hỗ trợ BHYT</span> : null}
-          </p>
-        ) : null}
-      </div>
-      <div className="flex flex-1 flex-col p-4">
-        {item.department?.name ? <p className="text-sm text-[var(--public-muted)]">{item.department.name}</p> : null}
-        <h3 className={`mt-1 font-semibold text-[var(--public-ink)] ${featured ? "text-xl" : "text-lg"} leading-snug`}>
-          <Link href={detailHref} className="hover:text-[var(--public-primary)]">{item.name}</Link>
-        </h3>
-        {shown.length ? (
-          <ul className={`mt-3 gap-x-4 gap-y-1.5 text-base text-[var(--public-text-soft)] ${featured ? "grid sm:grid-cols-2" : "space-y-1.5"}`}>
-            {shown.map((entry) => (
-              <li key={entry.id} className="flex items-start gap-2"><Check className="mt-1 h-4 w-4 shrink-0 text-[var(--public-success)]" aria-hidden="true" />{entry.name}</li>
-            ))}
-          </ul>
-        ) : item.summary ? (
-          <p className="mt-3 line-clamp-3 text-base text-[var(--public-text-soft)]">{item.summary}</p>
-        ) : null}
-        {more > 0 ? <Link href={detailHref} className="mt-2 text-sm font-medium text-[var(--public-primary)] underline-offset-4 hover:underline">+ {more} hạng mục khác</Link> : null}
-        {item.resultTime ? (
-          <p className="mt-3 inline-flex items-center gap-1.5 text-sm text-[var(--public-muted)]"><Clock className="h-4 w-4" aria-hidden="true" />Có kết quả: {item.resultTime}</p>
-        ) : null}
-        <div className="mt-auto pt-4">
-          <p className="text-sm text-[var(--public-muted)]">Chi phí dự kiến</p>
-          <p className={`font-semibold tabular-nums text-[var(--public-primary-dark)] text-2xl`}>{formatCurrency(item.finalPrice)}</p>
-          <div className="mt-3 flex flex-wrap gap-2">
-            <Link href={detailHref} className="public-button-secondary inline-flex min-h-11 items-center rounded-lg px-4 text-sm font-semibold">Xem chi tiết</Link>
-            <Link href={`/dat-lich?packageId=${item.id}`} className="public-button-primary inline-flex min-h-11 items-center rounded-lg px-5 text-sm font-semibold">Chọn gói</Link>
-          </div>
-        </div>
-      </div>
-    </>
-  );
-  if (featured) {
-    return (
-      <div className="group/pack grid overflow-hidden rounded-2xl border border-[var(--public-border)] bg-[var(--public-surface)] shadow-sm transition duration-200 hover:border-[var(--public-primary)] hover:shadow-lg motion-reduce:transition-none md:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]">{body}</div>
-    );
-  }
-  return <div className="group/pack flex h-full flex-col overflow-hidden rounded-2xl border border-[var(--public-border)] bg-[var(--public-surface)] shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-[var(--public-primary)] hover:shadow-lg motion-reduce:transition-none motion-reduce:hover:translate-y-0">{body}</div>;
 }
 
 // Gói khám: nền gradient nhạt kèm hai vòng tròn mờ trang trí; gói được đánh dấu "nổi bật" (hoặc gói đầu tiên) là thẻ nổi bật rộng suốt hàng,

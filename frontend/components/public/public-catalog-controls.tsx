@@ -2,13 +2,15 @@
 
 import { ChevronLeft, ChevronRight, RotateCcw, Search } from "lucide-react";
 import type { FormEvent, ReactNode } from "react";
-import { PublicFilterPanel } from "@/components/public/public-page-layout";
 
+// Thanh lọc phẳng: không hộp viền. Một hàng gồm ô tìm (Enter hoặc nút kính lúp để tìm) và các ô chọn, bên dưới là hàng chip;
+// "Xóa lọc" chỉ hiện khi đang có lọc hoặc đang gõ từ khóa.
 export function PublicCatalogSearch({
   value,
   onChange,
   onSubmit,
   placeholder,
+  controls,
   children,
   onReset,
   canReset,
@@ -17,6 +19,7 @@ export function PublicCatalogSearch({
   onChange: (value: string) => void;
   onSubmit: () => void;
   placeholder: string;
+  controls?: ReactNode;
   children?: ReactNode;
   onReset: () => void;
   canReset: boolean;
@@ -27,36 +30,36 @@ export function PublicCatalogSearch({
   };
 
   return (
-    <PublicFilterPanel className="space-y-3">
-      <form onSubmit={submit} role="search" className="flex flex-col gap-2 sm:flex-row">
+    <div className="space-y-3">
+      <form onSubmit={submit} role="search" className="flex flex-col gap-2 sm:flex-row sm:items-center">
         <label className="relative min-w-0 flex-1">
           <span className="sr-only">Từ khóa tìm kiếm</span>
-          <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--public-muted)]" aria-hidden="true" />
           <input
             value={value}
             onChange={(event) => onChange(event.target.value)}
             placeholder={placeholder}
             autoComplete="off"
             enterKeyHint="search"
-            className="ui-field min-h-11 w-full pl-10 pr-3 text-base sm:text-sm"
+            className="ui-field min-h-11 w-full rounded-full pl-4 pr-12 text-base sm:text-sm"
           />
+          <button type="submit" aria-label="Tìm kiếm" className="absolute right-1 top-1/2 inline-flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full text-[var(--public-primary)] hover:bg-[var(--public-primary-soft)] focus-visible:outline-2 focus-visible:outline-[var(--public-primary)]">
+            <Search className="h-4 w-4" aria-hidden="true" />
+          </button>
         </label>
-        <button type="submit" className="public-button-primary inline-flex min-h-11 items-center justify-center gap-2 rounded-xl px-5 text-sm font-semibold">
-          <Search className="h-4 w-4" aria-hidden="true" />
-          Tìm kiếm
-        </button>
-        <button
-          type="button"
-          onClick={onReset}
-          disabled={!canReset}
-          className="public-button-secondary inline-flex min-h-11 items-center justify-center gap-2 rounded-xl px-4 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          <RotateCcw className="h-4 w-4" aria-hidden="true" />
-          Đặt lại
-        </button>
+        {controls}
       </form>
-      {children}
-    </PublicFilterPanel>
+      {children || canReset ? (
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+          {children}
+          {canReset ? (
+            <button type="button" onClick={onReset} className="inline-flex min-h-9 items-center gap-1.5 text-sm font-medium text-[var(--public-primary)] underline underline-offset-4">
+              <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />
+              Xóa lọc
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
   );
 }
 
