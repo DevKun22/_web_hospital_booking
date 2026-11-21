@@ -709,12 +709,6 @@ body {
   outline-offset: 0 !important;
 }
 
-.public-filter-panel {
-  border: 1px solid var(--border);
-  border-radius: 0.75rem;
-  background: var(--surface);
-}
-
 .public-card {
   display: flex;
   height: 100%;

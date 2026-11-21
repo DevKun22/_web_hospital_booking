@@ -5,6 +5,8 @@ import { ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { PublicBreadcrumb } from "@/components/public/public-page-layout";
 import { AnchorNav } from "@/components/public/catalog-content";
+import { AskKunButton } from "@/components/public/ask-kun-button";
+import { PackageCard } from "@/features/packages/components/package-card";
 import type { PublicPackageCatalogResponse } from "@/components/public/public-home-types";
 import { serverApiRequest } from "@/lib/server-api";
 import {
@@ -40,11 +42,11 @@ async function getRelatedPackages(item: MedicalPackage) {
   try {
     const query = new URLSearchParams({
       departmentId: item.department.id,
-      limit: "4",
+      limit: "3",
       sort: "POPULAR_DESC",
     });
     const result = await serverApiRequest<PublicPackageCatalogResponse>(`/packages/catalog?${query.toString()}`);
-    return result.items.filter((candidate) => candidate.id !== item.id).slice(0, 3);
+    return result.items.filter((candidate) => candidate.id !== item.id).slice(0, 2);
   } catch {
     return [];
   }
@@ -143,7 +145,7 @@ export default async function PublicPackageDetailPage({ params }: PageProps) {
 
           {packageItem.audience?.length ? (
             <section id="doi-tuong" aria-labelledby="doi-tuong-title" className="mt-8 scroll-mt-24 border-t border-[var(--public-divider)] pt-6">
-              <h2 id="doi-tuong-title" className="text-lg font-bold">Đối tượng nên làm</h2>
+              <h2 id="doi-tuong-title" className="text-xl font-bold">Đối tượng nên làm</h2>
               <ul className="mt-3 list-disc space-y-1.5 pl-6 text-base text-[var(--public-text-soft)]">
                 {packageItem.audience.map((entry) => (
                   <li key={entry}>{entry}</li>
@@ -153,7 +155,7 @@ export default async function PublicPackageDetailPage({ params }: PageProps) {
           ) : null}
 
           <section id="hang-muc" aria-labelledby="hang-muc-title" className="mt-8 border-t border-[var(--public-divider)] pt-6">
-            <h2 id="hang-muc-title" className="text-lg font-bold">Hạng mục trong gói</h2>
+            <h2 id="hang-muc-title" className="text-xl font-bold">Hạng mục trong gói</h2>
             {includedItems.length ? (
               <ul className="mt-3 divide-y divide-[var(--public-divider)] overflow-hidden rounded-lg border border-[var(--public-border)] bg-[var(--public-surface)]">
                 {includedItems.map((item) => (
@@ -187,14 +189,14 @@ export default async function PublicPackageDetailPage({ params }: PageProps) {
 
           {packageItem.note ? (
             <section className="mt-8 border-t border-[var(--public-divider)] pt-6">
-              <h2 className="text-lg font-bold">Lưu ý từ gói khám</h2>
+              <h2 className="text-xl font-bold">Lưu ý từ gói khám</h2>
               <p className="mt-2 max-w-2xl text-base leading-7 text-[var(--public-text-soft)]">{packageItem.note}</p>
             </section>
           ) : null}
 
           {packageItem.faq?.length ? (
             <section id="hoi-dap" aria-labelledby="hoi-dap-title" className="mt-8 scroll-mt-24 border-t border-[var(--public-divider)] pt-6">
-              <h2 id="hoi-dap-title" className="text-lg font-bold">Hỏi đáp về gói</h2>
+              <h2 id="hoi-dap-title" className="text-xl font-bold">Hỏi đáp về gói</h2>
               <div className="mt-3 divide-y divide-[var(--public-divider)] overflow-hidden rounded-lg border border-[var(--public-border)] bg-[var(--public-surface)]">
                 {packageItem.faq.map((entry, index) => (
                   <details key={index} className="group p-4">
@@ -207,7 +209,7 @@ export default async function PublicPackageDetailPage({ params }: PageProps) {
           ) : null}
 
           <section id="quy-trinh" aria-labelledby="quy-trinh-title" className="mt-8 border-t border-[var(--public-divider)] pt-6">
-            <h2 id="quy-trinh-title" className="text-lg font-bold">Đặt lịch gồm 4 bước</h2>
+            <h2 id="quy-trinh-title" className="text-xl font-bold">Đặt lịch gồm 4 bước</h2>
             <ol className="mt-3 space-y-2 text-base text-[var(--public-text-soft)]">
               <li><strong className="text-[var(--public-ink)]">1. Chọn gói.</strong> Gói này đã được chuyển sẵn sang trang đặt lịch.</li>
               <li><strong className="text-[var(--public-ink)]">2. Chọn lịch.</strong> Chọn bác sĩ, ngày và khung giờ còn trống.</li>
@@ -219,17 +221,17 @@ export default async function PublicPackageDetailPage({ params }: PageProps) {
           {relatedPackages.length ? (
             <section className="mt-8 border-t border-[var(--public-divider)] pt-6">
               <div className="flex items-baseline justify-between gap-3">
-                <h2 className="text-lg font-bold">Gói khám liên quan</h2>
+                <h2 className="text-xl font-bold">Gói khám liên quan</h2>
                 <Link href={`/goi-kham?chuyen-khoa=${packageItem.department?.id || ""}`} className="text-sm font-semibold text-[var(--public-primary)] underline underline-offset-4">Xem tất cả</Link>
               </div>
-              <ul className="mt-3 divide-y divide-[var(--public-divider)] overflow-hidden rounded-lg border border-[var(--public-border)] bg-[var(--public-surface)]">
-                {relatedPackages.map((item) => <RelatedPackageRow key={item.id} item={item} />)}
+              <ul className="mt-3 grid gap-4 sm:grid-cols-2">
+                {relatedPackages.map((item) => <li key={item.id}><PackageCard item={item} /></li>)}
               </ul>
             </section>
           ) : null}
         </div>
 
-        <aside aria-label="Chi phí và đặt lịch" className="h-fit min-w-0 rounded-xl border border-[var(--public-border)] bg-[var(--public-surface)] p-4 sm:p-5 lg:sticky lg:top-28">
+        <aside aria-label="Chi phí và đặt lịch" className="hidden h-fit min-w-0 rounded-xl border border-[var(--public-border)] bg-[var(--public-surface)] p-4 sm:p-5 lg:sticky lg:top-28 lg:block">
           <p className="text-sm text-[var(--public-muted)]">Chi phí dự kiến</p>
           <p className="mt-1 text-3xl font-bold tabular-nums text-[var(--public-primary-dark)]">{formatCurrency(packageItem.finalPrice)}</p>
           <dl className="mt-4 space-y-2 border-y border-[var(--public-divider)] py-4 text-sm">
@@ -241,7 +243,18 @@ export default async function PublicPackageDetailPage({ params }: PageProps) {
           <p className="mt-3 text-sm leading-5 text-[var(--public-muted)]">Chi phí cuối cùng có thể thay đổi khi chọn thêm hạng mục hoặc theo chính sách tại thời điểm tiếp nhận.</p>
           <Link href={bookingUrl} className="public-button-primary mt-4 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-lg px-4 text-base font-semibold">Chọn lịch với gói này<ArrowRight className="h-4 w-4" aria-hidden="true" /></Link>
           {packageItem.department?.slug ? <Link href={`/chuyen-khoa/${packageItem.department.slug}`} className="public-button-secondary mt-2 inline-flex min-h-11 w-full items-center justify-center rounded-lg px-4 text-sm font-semibold">Xem chuyên khoa</Link> : null}
+          <div className="mt-2"><AskKunButton label="Hỏi Kun về gói này" /></div>
         </aside>
+      </div>
+
+      {/* Điện thoại: chi phí và nút chọn gói cố định dưới màn hình, dùng chung kiểu với trang đặt lịch. */}
+      <div className="lg:hidden">
+        <div className="booking-action-bar">
+          <div className="booking-action-bar__inner">
+            <p className="min-w-0 shrink-0 text-sm text-[var(--public-muted)]">Chi phí dự kiến<span className="block text-lg font-bold tabular-nums text-[var(--public-primary-dark)]">{formatCurrency(packageItem.finalPrice)}</span></p>
+            <Link href={bookingUrl} className="public-button-primary inline-flex min-h-12 flex-1 items-center justify-center rounded-lg px-4 text-base font-semibold">Chọn gói này</Link>
+          </div>
+        </div>
       </div>
     </main>
   );
@@ -249,19 +262,4 @@ export default async function PublicPackageDetailPage({ params }: PageProps) {
 
 function SummaryRow({ label, value }: { label: string; value: string }) {
   return <div className="flex items-start justify-between gap-4"><dt className="text-[var(--public-muted)]">{label}</dt><dd className="text-right font-semibold text-[var(--public-ink)]">{value}</dd></div>;
-}
-
-function RelatedPackageRow({ item }: { item: MedicalPackage }) {
-  return (
-    <li className="flex flex-col gap-2 p-4 sm:flex-row sm:items-center sm:justify-between">
-      <div className="min-w-0">
-        <h3 className="text-base font-semibold"><Link href={`/goi-kham/${item.slug}`} className="hover:text-[var(--public-primary)]">{item.name}</Link></h3>
-        <p className="text-sm text-[var(--public-muted)]">{item.department?.name || "Đa chuyên khoa"}</p>
-      </div>
-      <div className="flex shrink-0 items-center justify-between gap-4">
-        <p className="text-lg font-bold tabular-nums text-[var(--public-primary-dark)]">{formatCurrency(item.finalPrice)}</p>
-        <Link href={getBookingUrl(item)} className="public-button-primary inline-flex min-h-11 items-center rounded-lg px-4 text-sm font-semibold">Chọn gói</Link>
-      </div>
-    </li>
-  );
 }
