@@ -20,6 +20,10 @@ export type BookingAction =
   | { type: "step_changed"; step: BookingStep }
   | { type: "error"; message: string }
   | { type: "email_rejected"; message: string }
+  | { type: "field_touched"; field: string }
+  | { type: "submit_failed" }
+  | { type: "step_invalid"; message: string }
+  | { type: "otp_error"; message: string }
   | { type: "rate_limited"; until: number; message: string }
   | { type: "notice"; message: string }
   | { type: "submitting"; value: boolean }
@@ -43,6 +47,7 @@ const dropFlowState = (state: BookingState): BookingState => ({
   otp: "",
   notice: "",
   error: "",
+  stepError: "",
 });
 
 const dateOnly = (value?: string | null) => value?.match(/^(\d{4}-\d{2}-\d{2})/)?.[1] || "";
@@ -87,7 +92,7 @@ export function bookingReducer(state: BookingState, action: BookingAction): Book
     case "slot_chosen":
       return { ...dropFlowState(state), draft: { ...state.draft, timeSlotId: action.slot.id }, slot: action.slot };
     case "step_changed":
-      return { ...state, step: action.step, error: "" };
+      return { ...state, step: action.step, error: "", stepError: "" };
     case "error":
       return { ...state, error: action.message, submitting: false };
     case "email_rejected":
@@ -140,7 +145,15 @@ export function bookingReducer(state: BookingState, action: BookingAction): Book
         submitting: false,
       };
     case "otp_changed":
-      return { ...state, otp: action.otp.replace(/\D/g, "").slice(0, 6) };
+      return { ...state, otp: action.otp.replace(/\D/g, "").slice(0, 6), otpError: "" };
+    case "field_touched":
+      return state.touched.includes(action.field) ? state : { ...state, touched: [...state.touched, action.field] };
+    case "submit_failed":
+      return { ...state, submitAttempts: state.submitAttempts + 1, submitting: false };
+    case "step_invalid":
+      return { ...state, stepError: action.message, error: "" };
+    case "otp_error":
+      return { ...state, otpError: action.message, error: "", submitting: false };
     case "otp_resent":
       return {
         ...state,

@@ -5,7 +5,7 @@ import { buildProfilePrefill, resolveUrlPrefill } from "@/features/booking/prefi
 import { bookingReducer } from "@/features/booking/reducer";
 import {
   sanitizePhoneInput,
-  validateBooking,
+  validateDetailFields,
   validateDetails,
   validateOtp,
   validateSchedule,
@@ -40,23 +40,30 @@ describe("validation", () => {
   });
 
   it("kiểm tra thông tin người khám", () => {
-    assert.equal(validateDetails({ ...readyDraft(), patientName: "A" }, TODAY), "Họ tên người khám tối thiểu 2 ký tự.");
-    assert.equal(validateDetails({ ...readyDraft(), patientPhone: "123" }, TODAY), "Số điện thoại không hợp lệ.");
+    assert.equal(validateDetails({ ...readyDraft(), patientName: "A" }, TODAY), "Nhập họ tên người khám, tối thiểu 2 ký tự.");
+    assert.equal(validateDetails({ ...readyDraft(), patientPhone: "123" }, TODAY), "Số điện thoại bắt đầu bằng 0 hoặc +84 và có 10 hoặc 11 số.");
+    assert.equal(validateDetails({ ...readyDraft(), patientPhone: "" }, TODAY), "Nhập số điện thoại để cơ sở khám liên hệ.");
     assert.equal(validateDetails({ ...readyDraft(), patientPhone: "+84901234567" }, TODAY), "");
-    assert.equal(validateDetails({ ...readyDraft(), patientEmail: "sai" }, TODAY), "Email không hợp lệ.");
-    assert.equal(validateDetails({ ...readyDraft(), patientEmail: "" }, TODAY), "Email là bắt buộc để nhận mã OTP và đăng nhập xem lại lịch hẹn.");
-    assert.equal(validateDetails({ ...readyDraft(), dateOfBirth: TODAY }, TODAY), "Ngày sinh phải nhỏ hơn ngày hiện tại.");
-    assert.equal(validateDetails({ ...readyDraft(), hasBHYT: true }, TODAY), "Vui lòng nhập mã thẻ BHYT.");
-    assert.match(validateDetails({ ...readyDraft(), allergies: "penicillin" }, TODAY), /đồng ý/);
+    assert.equal(validateDetails({ ...readyDraft(), patientEmail: "sai" }, TODAY), "Email chưa đúng định dạng.");
+    assert.equal(validateDetails({ ...readyDraft(), patientEmail: "" }, TODAY), "Nhập email để nhận mã OTP và xem lại lịch hẹn.");
+    assert.equal(validateDetails({ ...readyDraft(), dateOfBirth: TODAY }, TODAY), "Ngày sinh phải trước ngày hôm nay.");
+    assert.equal(validateDetails({ ...readyDraft(), hasBHYT: true }, TODAY), "Nhập mã thẻ BHYT hoặc bỏ chọn có bảo hiểm.");
+    assert.match(validateDetails({ ...readyDraft(), allergies: "penicillin" }, TODAY), /Đồng ý/);
     assert.equal(validateDetails({ ...readyDraft(), allergies: "penicillin", healthConsent: true }, TODAY), "");
   });
 
-  it("validateBooking trả lỗi đầu tiên và OTP phải đúng 6 số", () => {
-    assert.equal(validateBooking(readySelection, readyDraft(), TODAY), "");
-    assert.equal(validateBooking({ ...readySelection, doctorId: "" }, { ...readyDraft(), patientName: "" }, TODAY), "Vui lòng chọn bác sĩ.");
+  it("trả lỗi theo từng ô để gắn đúng tại ô đó", () => {
+    assert.deepEqual(validateDetailFields(readyDraft(), TODAY), {});
+    const errors = validateDetailFields({ ...readyDraft(), patientName: "", patientEmail: "sai", hasBHYT: true }, TODAY);
+    assert.deepEqual(Object.keys(errors).sort(), ["healthInsuranceCode", "patientEmail", "patientName"]);
+    assert.equal(errors.patientEmail, "Email chưa đúng định dạng.");
+    assert.equal(validateDetailFields({ ...readyDraft(), dateOfBirth: TODAY }, TODAY).dateOfBirth, "Ngày sinh phải trước ngày hôm nay.");
+  });
+
+  it("OTP phải đúng 6 số", () => {
     assert.equal(validateOtp("123456"), "");
-    assert.equal(validateOtp("12345"), "OTP phải gồm đúng 6 chữ số.");
-    assert.equal(validateOtp("12345a"), "OTP phải gồm đúng 6 chữ số.");
+    assert.equal(validateOtp("12345"), "Mã OTP gồm đúng 6 chữ số.");
+    assert.equal(validateOtp("12345a"), "Mã OTP gồm đúng 6 chữ số.");
   });
 
   it("làm sạch số điện thoại", () => {
@@ -68,6 +75,23 @@ describe("validation", () => {
 
 describe("bookingReducer", () => {
   const pending = { appointmentId: "a1", bookingCode: "HB1", patientPhone: "0901234567", expiresIn: 300, holdExpiresAt: "2099-01-01T00:00:00.000Z" };
+
+  it("trạng thái lỗi: ô đã chạm, lần gửi lỗi, lỗi bước và lỗi OTP", () => {
+    let state = bookingReducer(createInitialState(), { type: "field_touched", field: "patientEmail" });
+    state = bookingReducer(state, { type: "field_touched", field: "patientEmail" });
+    assert.deepEqual(state.touched, ["patientEmail"]);
+    state = bookingReducer(state, { type: "submit_failed" });
+    assert.equal(state.submitAttempts, 1);
+    state = bookingReducer(state, { type: "step_invalid", message: "Vui lòng chọn bác sĩ." });
+    assert.equal(state.stepError, "Vui lòng chọn bác sĩ.");
+    assert.equal(state.error, "");
+    state = bookingReducer(state, { type: "selection_changed", patch: { doctorId: "dr1" } });
+    assert.equal(state.stepError, "");
+    state = bookingReducer(state, { type: "otp_error", message: "Mã OTP không đúng." });
+    assert.equal(state.otpError, "Mã OTP không đúng.");
+    state = bookingReducer(state, { type: "otp_changed", otp: "1234" });
+    assert.equal(state.otpError, "");
+  });
 
   it("áp dụng tham số URL và suy ra hình thức khám", () => {
     const next = bookingReducer(createInitialState(), { type: "url_applied", prefill: { departmentId: "d1", doctorId: "dr1", date: "2026-11-20" } });

@@ -109,7 +109,7 @@ export function PackageCatalogClient() {
           onSubmit={() => applySearch()}
           onReset={reset}
           canReset={hasActiveFilters || Boolean(searchDraft)}
-          placeholder="Tên gói, chuyên khoa hoặc hạng mục khám"
+          placeholder="Tìm gói khám, chuyên khoa hoặc hạng mục"
           controls={
             <>
               <FlatSelect label="Chuyên khoa" value={departmentId} onChange={changeDepartment}>

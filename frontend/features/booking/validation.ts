@@ -28,23 +28,28 @@ export const validateSchedule = (draft: BookingDraft, today: string) => {
   return "";
 };
 
-export const validateDetails = (draft: BookingDraft, today: string) => {
-  if (draft.patientName.trim().length < 2) return "Họ tên người khám tối thiểu 2 ký tự.";
-  if (!isValidPhone(draft.patientPhone)) return "Số điện thoại không hợp lệ.";
+// Các ô ở bước thông tin có kiểm tra riêng; mỗi ô trả thông báo gắn đúng tại ô đó.
+export type DetailField = "patientName" | "patientEmail" | "patientPhone" | "dateOfBirth" | "healthInsuranceCode" | "healthConsent";
+export type DetailErrors = Partial<Record<DetailField, string>>;
+
+export const validateDetailFields = (draft: BookingDraft, today: string): DetailErrors => {
+  const errors: DetailErrors = {};
+  if (draft.patientName.trim().length < 2) errors.patientName = "Nhập họ tên người khám, tối thiểu 2 ký tự.";
   // Email là định danh của người khám: nhận mã OTP và dùng để đăng nhập xem lại lịch hẹn.
   const email = draft.patientEmail.trim();
-  if (!email) return "Email là bắt buộc để nhận mã OTP và đăng nhập xem lại lịch hẹn.";
-  if (!EMAIL_PATTERN.test(email)) return "Email không hợp lệ.";
-  if (draft.dateOfBirth && draft.dateOfBirth >= today) return "Ngày sinh phải nhỏ hơn ngày hiện tại.";
-  if (draft.hasBHYT && !draft.healthInsuranceCode.trim()) return "Vui lòng nhập mã thẻ BHYT.";
+  if (!email) errors.patientEmail = "Nhập email để nhận mã OTP và xem lại lịch hẹn.";
+  else if (!EMAIL_PATTERN.test(email)) errors.patientEmail = "Email chưa đúng định dạng.";
+  const phone = draft.patientPhone.trim();
+  if (!phone) errors.patientPhone = "Nhập số điện thoại để cơ sở khám liên hệ.";
+  else if (!isValidPhone(phone)) errors.patientPhone = "Số điện thoại bắt đầu bằng 0 hoặc +84 và có 10 hoặc 11 số.";
+  if (draft.dateOfBirth && draft.dateOfBirth >= today) errors.dateOfBirth = "Ngày sinh phải trước ngày hôm nay.";
+  if (draft.hasBHYT && !draft.healthInsuranceCode.trim()) errors.healthInsuranceCode = "Nhập mã thẻ BHYT hoặc bỏ chọn có bảo hiểm.";
   if (hasHealthDeclaration(draft) && !draft.healthConsent) {
-    return "Vui lòng đồng ý cho bệnh viện lưu thông tin sức khỏe bạn đã khai báo, hoặc xóa phần dị ứng và tiền sử.";
+    errors.healthConsent = "Đồng ý cho lưu thông tin sức khỏe đã khai, hoặc xóa phần dị ứng và tiền sử.";
   }
-  return "";
+  return errors;
 };
 
-export const validateOtp = (otp: string) => (/^[0-9]{6}$/.test(otp) ? "" : "OTP phải gồm đúng 6 chữ số.");
+export const validateDetails = (draft: BookingDraft, today: string) => Object.values(validateDetailFields(draft, today))[0] ?? "";
 
-// Kiểm tra toàn bộ trước khi gửi: lỗi đầu tiên theo thứ tự các bước.
-export const validateBooking = (selection: BookingSelection, draft: BookingDraft, today: string) =>
-  validateService(selection) || validateSchedule(draft, today) || validateDetails(draft, today);
+export const validateOtp = (otp: string) => (/^[0-9]{6}$/.test(otp) ? "" : "Mã OTP gồm đúng 6 chữ số.");

@@ -93,7 +93,7 @@ export function DepartmentCatalogClient() {
           onSubmit={() => applySearch()}
           onReset={reset}
           canReset={hasActiveFilters || Boolean(searchDraft)}
-          placeholder="Tên chuyên khoa hoặc triệu chứng, ví dụ: đau đầu"
+          placeholder="Tìm chuyên khoa hoặc triệu chứng"
           controls={
             <FlatSelect label="Sắp xếp" value={sort} onChange={(next) => changeSort(next as "POPULAR_DESC" | "NAME_ASC")}>
               <option value="POPULAR_DESC">Nhiều bác sĩ, gói khám trước</option>

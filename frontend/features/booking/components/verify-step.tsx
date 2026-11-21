@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Copy } from "lucide-react";
+import { AlertCircle, Copy } from "lucide-react";
 import { DebugOtpBox } from "@/components/ui/debug-otp-box";
 import type { BookingFlow } from "@/features/booking/use-booking-flow";
 import { StepFrame } from "@/features/booking/components/step-frame";
@@ -12,7 +12,7 @@ const formatCountdown = (seconds: number) => {
 
 export function VerifyStep({ flow }: { flow: BookingFlow }) {
   const { state, dispatch, holdSeconds, resendCooldown, actions } = flow;
-  const { pending, otp, submitting, draft } = state;
+  const { pending, otp, submitting, draft, otpError } = state;
   if (!pending) return null;
 
   const email = draft.patientEmail.trim();
@@ -30,18 +30,26 @@ export function VerifyStep({ flow }: { flow: BookingFlow }) {
 
       <DebugOtpBox otp={pending.debugOtp} onFill={(value) => dispatch({ type: "otp_changed", otp: value })} />
 
-      <label className="block">
-        <span className="block text-sm font-semibold text-[var(--public-ink)]">Mã OTP</span>
+      <div>
+        <label htmlFor="otp-code" className="block text-sm font-semibold text-[var(--public-ink)]">Mã OTP</label>
         <input
+          id="otp-code"
           value={otp}
           onChange={(event) => dispatch({ type: "otp_changed", otp: event.target.value })}
           inputMode="numeric"
           autoComplete="one-time-code"
-          placeholder="000000"
           maxLength={6}
-          className="ui-field mt-1.5 w-full px-3 text-center text-2xl font-semibold tracking-[0.4em] tabular-nums"
+          aria-invalid={otpError ? true : undefined}
+          aria-describedby={otpError ? "otp-code-message" : undefined}
+          className={`ui-field mt-1.5 w-full px-3 text-center text-2xl font-semibold tracking-[0.4em] tabular-nums ${otpError ? "!border-[var(--public-danger)]" : ""}`}
         />
-      </label>
+        {otpError ? (
+          <p id="otp-code-message" role="alert" className="mt-1.5 flex items-start gap-1.5 text-sm font-medium text-[var(--public-danger)]">
+            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+            {otpError}
+          </p>
+        ) : null}
+      </div>
 
       <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-sm">
         <button type="button" onClick={() => void actions.resendOtp()} disabled={submitting || resendCooldown > 0} className="min-h-10 font-semibold text-[var(--public-primary)] underline underline-offset-4 disabled:text-[var(--public-muted)] disabled:no-underline">

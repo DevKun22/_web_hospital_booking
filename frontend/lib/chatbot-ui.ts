@@ -52,7 +52,7 @@ export const getLoadingText = (action?: ChatbotSuggestedAction) =>
 export const SLOW_LOADING_TEXT = "Kun vẫn đang tìm, bạn chờ thêm chút nhé…";
 
 export const getInputPlaceholder = (action?: ChatbotSuggestedAction) => {
-  if (action?.type === "CHANGE_DATE") return "Nhập ngày khám, ví dụ: ngày mai";
+  if (action?.type === "CHANGE_DATE") return "Nhập ngày khám";
   if (action?.type === "CHANGE_DOCTOR") return "Nhập tên bác sĩ hoặc chuyên khoa";
   return "Hỏi Kun về bác sĩ, gói khám, lịch khám…";
 };
