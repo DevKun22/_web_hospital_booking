@@ -35,7 +35,7 @@ export function Notice({ announcement }: { announcement?: HomePageConfigValue["a
 function Band({ id, tone = "plain", labelledBy, children }: { id?: string; tone?: "plain" | "tint" | "blue"; labelledBy?: string; children: ReactNode }) {
   const toneClass = tone === "tint" ? "bg-[var(--public-canvas)]" : tone === "blue" ? "bg-[var(--public-solid)] text-white" : "bg-[var(--public-surface)]";
   return (
-    <section id={id} aria-labelledby={labelledBy} className={`scroll-mt-24 ${toneClass}`}>
+    <section id={id} aria-labelledby={labelledBy} className={`scroll-mt-32 ${toneClass}`}>
       <div className="ui-container py-9 sm:py-12">{children}</div>
     </section>
   );
@@ -44,7 +44,7 @@ function Band({ id, tone = "plain", labelledBy, children }: { id?: string; tone?
 // Tiêu đề mục có gạch chân ngắn màu nhấn.
 function SectionTitle({ id, title, description, href, linkLabel, onBlue = false }: { id: string; title: string; description?: string; href?: string; linkLabel?: string; onBlue?: boolean }) {
   return (
-    <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-1">
+    <div data-reveal="up" className="flex flex-wrap items-end justify-between gap-x-4 gap-y-1">
       <div className="min-w-0 flex-1 basis-60">
         <h2 id={id} className="text-xl font-bold sm:text-2xl">{title}</h2>
         <span aria-hidden="true" className={`mt-2 block h-[3px] w-10 rounded ${onBlue ? "bg-white/80" : "bg-[var(--public-care-mint)]"}`} />
@@ -69,7 +69,7 @@ export function DoctorsSection({ doctors, config, loading }: { doctors: DoctorPr
     <Band id="doctors" tone="tint" labelledBy="doctors-title">
       <SectionTitle id="doctors-title" title={config?.title || "Bác sĩ đang nhận lịch"} description={config?.description || "Chọn giờ còn trống để đặt lịch ngay."} href="/bac-si" linkLabel="Xem tất cả bác sĩ" />
       <div className="mt-6">
-        {loading ? <Skeleton /> : <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">{doctors.map((doctor) => <DoctorCard key={doctor.id} doctor={doctor} />)}</ul>}
+        {loading ? <Skeleton /> : <ul data-reveal-group="up" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">{doctors.map((doctor) => <DoctorCard key={doctor.id} doctor={doctor} />)}</ul>}
       </div>
     </Band>
   );
@@ -84,7 +84,7 @@ export function DepartmentsSection({ departments, config, loading }: { departmen
         {loading ? (
           <Skeleton count={4} />
         ) : (
-          <ul className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 lg:grid-cols-4">
+          <ul data-reveal-group="up" className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 lg:grid-cols-4">
             {departments.map((item) => {
               const keywords = (item.symptomKeywords || []).filter(Boolean).slice(0, 3);
               return (
@@ -139,7 +139,7 @@ export function PackagesSection({ packages, config, loading }: { packages: Medic
   const featured = packages.find((item) => item.isPopular) ?? packages[0];
   const others = packages.filter((item) => item.id !== featured?.id);
   return (
-    <section id="packages" aria-labelledby="packages-title" className="relative scroll-mt-24 overflow-hidden bg-[linear-gradient(180deg,var(--public-canvas)_0%,var(--public-primary-soft)_100%)]">
+    <section id="packages" aria-labelledby="packages-title" className="relative scroll-mt-32 overflow-hidden bg-[linear-gradient(180deg,var(--public-canvas)_0%,var(--public-primary-soft)_100%)]">
       <span aria-hidden="true" className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full bg-[var(--public-primary)] opacity-10 blur-2xl" />
       <span aria-hidden="true" className="pointer-events-none absolute -bottom-28 -left-20 h-72 w-72 rounded-full bg-[var(--dk-teal)] opacity-10 blur-2xl" />
       <div className="ui-container relative py-10 sm:py-14">
@@ -148,7 +148,7 @@ export function PackagesSection({ packages, config, loading }: { packages: Medic
           {loading ? (
             <Skeleton />
           ) : (
-            <div className="space-y-4 sm:space-y-5">
+            <div data-reveal-group="sides" className="space-y-4 sm:space-y-5">
               {featured ? <PackageCard item={featured} featured /> : null}
               {others.length ? (
                 <ul className={`grid gap-4 sm:gap-5 ${others.length > 2 ? "sm:grid-cols-2 lg:grid-cols-3" : "sm:grid-cols-2"}`}>
