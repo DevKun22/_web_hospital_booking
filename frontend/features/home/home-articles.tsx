@@ -86,7 +86,7 @@ export function HomeArticles({ articles }: { articles: PublicArticleList | null 
               </h3>
               {featured.summary ? <p className="mt-2 line-clamp-3 text-base leading-7 text-[var(--public-text-soft)]">{featured.summary}</p> : null}
               <div className="mt-3"><ReviewLine article={featured} /></div>
-              <div className={`${hasCover ? "mt-auto pt-3" : "mt-3"} flex flex-wrap items-center gap-x-4 gap-y-1`}>
+              <div className={`${hasCover ? "mt-auto pt-3" : "mt-3"} flex flex-wrap items-center gap-3`}>
                 <Link href={`/kien-thuc/${featured.slug}`} className="public-button-primary inline-flex min-h-11 items-center gap-1.5 rounded-lg px-5 text-sm font-semibold">
                   Đọc bài
                   <ArrowRight className="h-4 w-4" aria-hidden="true" />

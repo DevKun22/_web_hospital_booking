@@ -55,7 +55,7 @@ export function PublicHomeView({ data, loading, error, articles }: PublicHomeVie
           <DoctorsSection doctors={data.doctors.slice(0, limit(sections?.doctors.limit, 6))} config={sections?.doctors} loading={loading} />
         ) : null}
         <HomeArticles articles={articles} />
-        <SupportSection faqs={data.faqs} settings={data.settings} />
+        <SupportSection faqs={data.faqs} />
         {sections?.partners.enabled !== false ? <Partners banners={data.partnerBanners} config={sections?.partners} /> : null}
       </div>
 
