@@ -181,6 +181,8 @@ export const queryKeys = {
     ["public", "search", filters || {}] as const,
   publicAvailableSlots: (filters?: { doctorId?: string; date?: string }) =>
     ["public", "available-slots", filters || {}] as const,
+  publicAvailableDates: (filters?: { doctorId?: string; from?: string; to?: string }) =>
+    ["public", "available-dates", filters || {}] as const,
   publicAppointmentLookup: (filters?: {
     bookingCode?: string;
     phone?: string;

@@ -11,6 +11,7 @@ import {
 } from "../utils/time.js";
 import type { Actor } from "../types/actor.js";
 import { logger } from "../observability/logger.js";
+import { MAX_AVAILABLE_DATE_RANGE_DAYS, summarizeAvailableDates } from "../utils/availableDates.js";
 
 
 const doctorTimeSlotSelect = {
@@ -357,6 +358,29 @@ class DoctorTimeSlotService {
     return slots.filter(
       (slot) => !isSlotStartInPastVietnamTime(slot.date, slot.startTime),
     );
+  }
+
+  /** Các ngày còn khung giờ trống của bác sĩ trong khoảng [from, to], để lịch đặt khám đánh dấu ngày còn giờ. */
+  async getPublicAvailableDates(doctorId: string, fromString: string, toString: string) {
+    const from = parseDateOnly(fromString);
+    const to = parseDateOnly(toString);
+    if (to < from) throw new AppError("Khoảng ngày không hợp lệ", 400);
+    if ((to.getTime() - from.getTime()) / 86_400_000 > MAX_AVAILABLE_DATE_RANGE_DAYS) {
+      throw new AppError(`Chỉ xem tối đa ${MAX_AVAILABLE_DATE_RANGE_DAYS} ngày một lần`, 400);
+    }
+
+    const slots = await prisma.doctorTimeSlot.findMany({
+      where: {
+        doctorId,
+        date: { gte: from, lte: to },
+        status: "AVAILABLE",
+        isActive: true,
+        doctor: { isAvailable: true, user: { isActive: true }, department: { isActive: true } },
+      },
+      select: { date: true, startTime: true },
+    });
+
+    return summarizeAvailableDates(slots);
   }
 
   private assertDoctorCanManageSlot(

@@ -45,10 +45,13 @@ export function BookingSummary({ flow, hotline }: { flow: BookingFlow; hotline: 
   const status = verified ? "Đã xác thực" : pending ? "Chờ xác thực OTP" : "Đang chọn";
   const link = "underline underline-offset-2 hover:text-[var(--public-primary)]";
   const unset = <span className="text-[var(--public-muted)]">Chưa chọn</span>;
+  // Đủ chuyên khoa, bác sĩ và giờ thì viền xanh đặc; còn thiếu thì viền nét đứt. Đổi bất kỳ mục nào, thẻ được dựng lại để viền nhịp sáng một lần.
+  const complete = Boolean(department && doctor && hasTime);
+  const signature = [department?.id, doctor?.id, pack?.id, hasTime ? when : ""].filter(Boolean).join("|");
 
   return (
     <aside aria-label="Tóm tắt lịch hẹn" className="hidden space-y-4 lg:sticky lg:top-28 lg:block lg:self-start">
-      <div className="rounded-xl border border-[var(--public-border)] bg-[var(--public-surface)] p-4">
+      <div key={signature} className={`rounded-xl border-2 bg-[var(--public-surface)] p-4 transition-colors ${complete ? "border-[var(--public-primary)]" : "border-dashed border-[var(--public-border)]"} ${signature ? "booking-summary-pulse" : ""}`}>
         <div className="flex items-baseline justify-between gap-3 border-b border-[var(--public-divider)] pb-3">
           <h2 className="text-base font-bold text-[var(--public-ink)]">Lịch hẹn của bạn</h2>
           <span className="text-xs font-semibold text-[var(--public-muted)]">{status}</span>

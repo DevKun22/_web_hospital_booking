@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 export function StepFrame({ title, description, children }: { title: string; description?: string; children: ReactNode }) {
   return (
     <section className="rounded-xl border border-[var(--public-border)] bg-[var(--public-surface)] p-4 sm:p-6">
-      <h2 tabIndex={-1} className="text-lg font-bold leading-snug text-[var(--public-ink)] focus:outline-none sm:text-xl">
+      <h2 tabIndex={-1} className="scroll-mt-32 text-lg font-bold leading-snug text-[var(--public-ink)] focus:outline-none sm:text-xl">
         {title}
       </h2>
       {description ? <p className="mt-1 text-sm leading-6 text-[var(--public-muted)]">{description}</p> : null}

@@ -228,6 +228,24 @@ export const listPublicAvailableSlotsHandler = async (
   }
 };
 
+export const listPublicAvailableDatesHandler = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const dates = await DoctorTimeSlotService.getPublicAvailableDates(
+      getParam(req.params.id, "doctorId"),
+      typeof req.query.from === "string" ? req.query.from : "",
+      typeof req.query.to === "string" ? req.query.to : "",
+    );
+
+    return res.json({ success: true, data: dates });
+  } catch (error) {
+    next(error);
+  }
+};
+
 const requireActor = (req: Request) => {
   if (!req.user) throw new AppError("Vui lòng đăng nhập", 401);
   return { userId: req.user.userId, role: req.user.role as Role };

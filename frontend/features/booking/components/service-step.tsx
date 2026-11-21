@@ -38,7 +38,7 @@ export function ServiceStep({ flow, loading }: { flow: BookingFlow; loading: boo
       </Field>
 
       {selection.departmentId ? (
-        <fieldset>
+        <fieldset className="min-w-0">
           <GroupLabel>Hình thức khám</GroupLabel>
           <div className="mt-1.5 grid grid-cols-2 rounded-lg border border-[var(--public-border)] p-1" role="group">
             {MODES.map(({ value, label }) => {
@@ -62,7 +62,7 @@ export function ServiceStep({ flow, loading }: { flow: BookingFlow; loading: boo
       ) : null}
 
       {selection.serviceMode === "PACKAGE" ? (
-        <fieldset>
+        <fieldset className="min-w-0">
           <GroupLabel>Gói khám</GroupLabel>
           <div className="mt-1.5 overflow-hidden rounded-lg border border-[var(--public-border)]" role="radiogroup" aria-label="Gói khám">
             {packages.length ? (
@@ -85,7 +85,7 @@ export function ServiceStep({ flow, loading }: { flow: BookingFlow; loading: boo
       ) : null}
 
       {selection.serviceMode && !needsPackage ? (
-        <fieldset>
+        <fieldset className="min-w-0">
           <GroupLabel>{selection.serviceMode === "PACKAGE" ? "Bác sĩ tiếp nhận gói" : "Bác sĩ"}</GroupLabel>
           <div className="mt-1.5 overflow-hidden rounded-lg border border-[var(--public-border)]" role="radiogroup" aria-label="Bác sĩ">
             {doctors.length ? (

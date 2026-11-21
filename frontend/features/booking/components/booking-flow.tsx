@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useMessageToast } from "@/components/patient/patient-toast";
 import { ActionBar } from "@/features/booking/components/action-bar";
 import { BookingSummary, MobileSummaryLine } from "@/features/booking/components/booking-summary";
@@ -24,6 +24,17 @@ export function BookingFlow({ catalog, loading, hotline }: BookingFlowProps) {
   const { state, slotsError, actions } = flow;
   const stepRef = useRef<HTMLDivElement | null>(null);
   const firstRender = useRef(true);
+  const headerRef = useRef<HTMLElement | null>(null);
+  const [floating, setFloating] = useState(false);
+
+  // Phần đầu trang (tiêu đề và các bước) cuộn khuất phía trên thì hiện dải tiến trình gọn dính dưới thanh menu.
+  useEffect(() => {
+    const node = headerRef.current;
+    if (!node || typeof IntersectionObserver === "undefined") return;
+    const observer = new IntersectionObserver(([entry]) => setFloating(!entry.isIntersecting && entry.boundingClientRect.top < 0), { rootMargin: "-68px 0px 0px 0px" });
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
 
   // Đổi bước thì đưa tiêu đề bước mới vào tầm nhìn và chuyển tiêu điểm cho trình đọc màn hình.
   useEffect(() => {
@@ -63,7 +74,15 @@ export function BookingFlow({ catalog, loading, hotline }: BookingFlowProps) {
     <section id="booking" className="ui-container scroll-mt-24 py-5 sm:py-8">
       <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-6 lg:grid-cols-[minmax(0,1fr)_21rem] lg:gap-8">
         <div className="space-y-4">
-          <header>
+          <div className="sticky top-[4.25rem] z-40 h-0">
+            <div
+              aria-hidden={!floating}
+              className={`absolute inset-x-0 top-0 -mx-4 border-b border-[var(--public-border)] bg-[var(--public-surface)] px-4 py-2.5 shadow-sm transition duration-200 motion-reduce:transition-none sm:mx-0 sm:rounded-b-xl sm:border-x ${floating ? "translate-y-0 opacity-100" : "pointer-events-none -translate-y-2 opacity-0"}`}
+            >
+              <StepProgress step={state.step} compact />
+            </div>
+          </div>
+          <header ref={headerRef}>
             <h1 className="text-2xl font-bold tracking-tight text-[var(--public-ink)]">Đặt lịch khám</h1>
             <div className="mt-3">
               <StepProgress step={state.step} />

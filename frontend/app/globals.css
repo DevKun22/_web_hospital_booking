@@ -1398,6 +1398,23 @@ button:disabled {
 }
 
 /* Hàng chọn một trong nhiều (bác sĩ, gói khám): cả hàng là vùng bấm, ô chọn thật ẩn nhưng vẫn dùng được bằng bàn phím. */
+/* Khung Lịch hẹn của bạn: mỗi lần có mục được chọn, viền nhịp sáng một lần rồi dịu lại; tắt khi máy bật giảm chuyển động. */
+@keyframes booking-summary-pulse {
+  0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--public-primary) 45%, transparent); }
+  55% { box-shadow: 0 0 0 5px color-mix(in srgb, var(--public-primary) 22%, transparent); }
+  100% { box-shadow: 0 0 0 0 transparent; }
+}
+
+.booking-summary-pulse {
+  animation: booking-summary-pulse 650ms ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .booking-summary-pulse {
+    animation: none;
+  }
+}
+
 .choice-row {
   position: relative;
   display: flex;
