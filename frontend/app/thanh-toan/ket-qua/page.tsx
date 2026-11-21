@@ -1,4 +1,4 @@
-import { ArrowRight, Smartphone } from "lucide-react";
+import { ArrowRight, Check, Clock, Smartphone, X } from "lucide-react";
 import Link from "next/link";
 
 type PaymentReturnPageProps = {
@@ -24,11 +24,17 @@ export default async function PaymentReturnPage({ searchParams }: PaymentReturnP
           ? "Vui lòng kiểm tra lại trạng thái trong mục Hóa đơn sau ít phút."
           : "Hệ thống đang đối soát kết quả trực tiếp với nhà cung cấp.";
   const tone = status === "success" ? "text-[var(--public-success)]" : status === "failed" || status === "error" ? "text-[var(--public-danger)]" : "text-[var(--public-ink)]";
+  // Biểu tượng theo trạng thái: tích xanh (thành công), dấu X đỏ (chưa thành công hoặc lỗi), đồng hồ (đang đối soát).
+  const Icon = status === "success" ? Check : status === "failed" || status === "error" ? X : Clock;
+  const iconTone = status === "success" ? "bg-[var(--public-success-soft)] text-[var(--public-success)]" : status === "failed" || status === "error" ? "bg-[var(--public-danger-soft)] text-[var(--public-danger)]" : "bg-[var(--public-primary-soft)] text-[var(--public-primary-dark)]";
 
   return (
     <main className="public-site flex min-h-screen items-start justify-center bg-[var(--public-canvas)] px-4 py-10 text-[var(--public-ink)] sm:items-center">
-      <section className="w-full max-w-md" aria-live="polite">
-        <h1 className={`text-2xl font-bold sm:text-3xl ${tone}`}>{heading}</h1>
+      <section className="w-full max-w-md rounded-2xl border border-[var(--public-border)] bg-[var(--public-surface)] p-6 text-center sm:p-8" aria-live="polite">
+        <span className={`mx-auto flex h-14 w-14 items-center justify-center rounded-full ${iconTone}`} aria-hidden="true">
+          <Icon className="h-7 w-7" />
+        </span>
+        <h1 className={`mt-4 text-2xl font-bold sm:text-3xl ${tone}`}>{heading}</h1>
         <p className="mt-2 text-base leading-7 text-[var(--public-text-soft)]">{description}</p>
 
         {orderId ? (

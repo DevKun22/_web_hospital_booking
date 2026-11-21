@@ -8,9 +8,25 @@ const LABELS: Record<(typeof STEP_ORDER)[number], string> = {
 };
 
 // Bốn đoạn thanh mảnh, đoạn đã qua và đang ở tô màu chính; nhãn bước hiện từ cỡ máy tính bảng.
-export function StepProgress({ step }: { step: BookingStep }) {
+export function StepProgress({ step, compact = false }: { step: BookingStep; compact?: boolean }) {
   const active = stepIndex(step);
   const done = step === "done";
+
+  // Dải gọn dính dưới thanh menu khi phần đầu trang đã cuộn khuất: một dòng chữ và bốn đoạn tiến trình.
+  if (compact) {
+    return (
+      <div className="flex items-center gap-3">
+        <p className="shrink-0 text-sm font-medium text-[var(--public-ink)]">
+          {done ? "Hoàn tất" : <>Bước {active + 1}/{STEP_ORDER.length}<span className="hidden sm:inline">{` · ${LABELS[STEP_ORDER[active]]}`}</span></>}
+        </p>
+        <div className="grid flex-1 grid-cols-4 gap-1.5" aria-hidden="true">
+          {STEP_ORDER.map((key, index) => (
+            <span key={key} className={`block h-1 rounded-full ${done || index <= active ? "bg-[var(--public-primary)]" : "bg-[var(--public-border)]"}`} />
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div>

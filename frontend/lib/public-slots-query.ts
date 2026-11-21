@@ -45,3 +45,24 @@ export function usePublicAvailableSlots(filters: PublicAvailableSlotFilters) {
     refetchOnReconnect: true,
   });
 }
+
+/** Ngày còn khung giờ trống và số khung còn lại của ngày đó. */
+export type PublicAvailableDate = { date: string; count: number };
+
+export type PublicAvailableDateFilters = { doctorId?: string; from?: string; to?: string };
+
+export const fetchPublicAvailableDates = (filters: Required<PublicAvailableDateFilters>) =>
+  apiRequest<PublicAvailableDate[]>(`/doctors/${filters.doctorId}/available-dates`, {
+    query: { from: filters.from, to: filters.to },
+  });
+
+export function usePublicAvailableDates(filters: PublicAvailableDateFilters) {
+  return useQuery({
+    queryKey: queryKeys.publicAvailableDates(filters),
+    queryFn: () => fetchPublicAvailableDates({ doctorId: filters.doctorId || "", from: filters.from || "", to: filters.to || "" }),
+    enabled: Boolean(filters.doctorId && filters.from && filters.to),
+    staleTime: 30 * 1000,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
+  });
+}
