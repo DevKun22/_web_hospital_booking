@@ -10,6 +10,7 @@ import {
   DsField,
   DsInput,
   DsPageHeader,
+  DsEditDialog,
   DsPane,
   DsPanel,
   DsSplit,
@@ -397,7 +398,7 @@ export default function MedicinesPage() {
   );
 
   const createPane = creating ? (
-    <DsPane title="Thêm thuốc vào danh mục" onClose={closePane}>
+    <DsEditDialog size="lg" title="Thêm thuốc vào danh mục" onClose={closePane}>
       <form onSubmit={submit(() => createMutation.mutate())} style={{ display: "grid", gap: 12 }} aria-label="Thêm thuốc">
         <div className="ds-grid-fields">
           {formFields.map(([key, label, required]) => (
@@ -406,14 +407,14 @@ export default function MedicinesPage() {
             </DsField>
           ))}
         </div>
-        <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+        <div className="ds-form-actions">
           <DsButton onClick={closePane}>Hủy</DsButton>
           <DsButton type="submit" variant="primary" disabled={!form.code.trim() || !form.name.trim() || !form.unit.trim() || createMutation.isPending}>
             Thêm thuốc
           </DsButton>
         </div>
       </form>
-    </DsPane>
+    </DsEditDialog>
   ) : null;
 
   const adjustBlock = !adjustDelta || Number(adjustDelta) === 0 ? "Nhập số lượng khác 0" : !adjustReason.trim() ? "Cần ghi lý do điều chỉnh" : "";
@@ -653,7 +654,8 @@ export default function MedicinesPage() {
       />
       <div style={{ display: "grid", gap: 12, marginBottom: 16 }}>
       </div>
-      <DsSplit wide list={list} pane={detailPane ?? createPane} />
+      <DsSplit wide list={list} pane={detailPane} />
+      {createPane}
     </>
   );
 }

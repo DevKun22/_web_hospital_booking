@@ -11,10 +11,9 @@ import {
   DsInput,
   DsNotice,
   DsPageHeader,
-  DsPane,
+  DsEditDialog,
   DsPanel,
   DsSelect,
-  DsSplit,
   DsStatusPill,
   DsTabs,
   DsToolbar,
@@ -390,7 +389,7 @@ export default function UsersPage() {
 
   const passwordPane =
     pane?.kind === "password" && target ? (
-      <DsPane title={`Đổi mật khẩu · ${target.fullName}`} onClose={closePane}>
+      <DsEditDialog size="md" title={`Đổi mật khẩu · ${target.fullName}`} onClose={closePane}>
         <form onSubmit={updatePassword} style={{ display: "grid", gap: 12 }} aria-label="Đổi mật khẩu">
           <DsNotice tone="info">
             Thiết lập mật khẩu tạm cho {target.fullName}. Người này phải tự đổi mật khẩu khi đăng nhập lại, mọi phiên đang mở sẽ bị đăng xuất và thao tác được ghi vào nhật ký truy cập.
@@ -402,19 +401,19 @@ export default function UsersPage() {
             <DsInput id="pw-confirm" type="password" autoComplete="new-password" value={confirmPassword} required onChange={(event) => setConfirmPassword(event.target.value)} />
           </DsField>
           {confirmPassword && newPassword !== confirmPassword ? <DsNotice tone="warn">Xác nhận mật khẩu chưa khớp.</DsNotice> : null}
-          <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+          <div className="ds-form-actions">
             <DsButton onClick={() => setPane({ kind: "edit", id: target.id })}>Quay lại</DsButton>
             <DsButton type="submit" variant="primary" disabled={newPassword.length < 6 || newPassword !== confirmPassword}>
               Cập nhật mật khẩu
             </DsButton>
           </div>
         </form>
-      </DsPane>
+      </DsEditDialog>
     ) : null;
 
   const formPane =
     pane?.kind === "new" || (pane?.kind === "edit" && target) ? (
-      <DsPane
+      <DsEditDialog size="lg"
         title={target ? target.fullName : "Tạo tài khoản nhân sự"}
         badge={target ? <DsStatusPill tone={(target.isActive ?? true) ? "good" : "neutral"}>{(target.isActive ?? true) ? "Hoạt động" : "Đã khóa"}</DsStatusPill> : undefined}
         onClose={closePane}
@@ -506,7 +505,7 @@ export default function UsersPage() {
           </label>
           {isEditingSelf ? <DsNotice tone="info">Đây là tài khoản đang đăng nhập. Bạn có thể cập nhật thông tin cơ bản hoặc đổi mật khẩu, nhưng không tự đổi vai trò hay khóa tài khoản.</DsNotice> : null}
 
-          <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", flexWrap: "wrap" }}>
+          <div className="ds-form-actions">
             {target ? (
               <>
                 <DsButton
@@ -530,7 +529,7 @@ export default function UsersPage() {
             </DsButton>
           </div>
         </form>
-      </DsPane>
+      </DsEditDialog>
     ) : null;
 
   return (
@@ -539,7 +538,9 @@ export default function UsersPage() {
       <div style={{ display: "grid", gap: 12, marginBottom: 16 }}>
         {queryError ? <DsNotice tone="bad">{queryError}</DsNotice> : null}
       </div>
-      <DsSplit list={list} pane={passwordPane ?? formPane} />
+      {list}
+      {passwordPane}
+      {formPane}
     </>
   );
 }
