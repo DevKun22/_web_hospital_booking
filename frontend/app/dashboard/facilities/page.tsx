@@ -2,7 +2,7 @@
 
 import { FormEvent, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { DsButton, DsField, DsInput, DsLoading, DsNotice, DsPageHeader, DsPanel, DsStatusPill, useActionToast, useConfirm } from "@/components/ds";
+import { DsButton, DsEditDialog, DsField, DsInput, DsLoading, DsNotice, DsPageHeader, DsPanel, DsStatusPill, useActionToast, useConfirm } from "@/components/ds";
 import { apiRequest } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { can } from "@/lib/permissions";
@@ -99,7 +99,7 @@ export default function FacilitiesPage() {
       {query.error ? <DsNotice tone="bad">{query.error instanceof Error ? query.error.message : "Không tải được danh sách"}</DsNotice> : null}
 
       {editingId ? (
-        <DsPanel title={editingId === "new" ? "Thêm cơ sở" : "Sửa cơ sở"}>
+        <DsEditDialog title={editingId === "new" ? "Thêm cơ sở" : "Sửa cơ sở"} onClose={() => setEditingId(null)}>
           <form onSubmit={handleSubmit} style={{ display: "grid", gap: 12 }} aria-label="Biểu mẫu cơ sở">
             <DsField label="Tên cơ sở" htmlFor="fc-name" required><DsInput id="fc-name" maxLength={160} value={form.name} required onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} /></DsField>
             <DsField label="Địa chỉ" htmlFor="fc-address" required><DsInput id="fc-address" maxLength={300} value={form.address} required onChange={(event) => setForm((current) => ({ ...current, address: event.target.value }))} /></DsField>
@@ -114,12 +114,12 @@ export default function FacilitiesPage() {
               <input type="checkbox" checked={form.isActive} onChange={(event) => setForm((current) => ({ ...current, isActive: event.target.checked }))} style={{ marginTop: 3 }} />
               <span><strong>Đang hoạt động</strong><small style={{ display: "block", color: "var(--ds-muted)" }}>Cơ sở tạm ngừng không nhận ca mới và không hiện công khai.</small></span>
             </label>
-            <div style={{ display: "flex", gap: 8 }}>
-              <DsButton type="submit" variant="primary" loading={save.isPending}>Lưu</DsButton>
+            <div className="ds-form-actions">
               <DsButton onClick={() => setEditingId(null)}>Hủy</DsButton>
+              <DsButton type="submit" variant="primary" loading={save.isPending}>Lưu</DsButton>
             </div>
           </form>
-        </DsPanel>
+        </DsEditDialog>
       ) : null}
 
       <div style={{ display: "grid", gap: 10, marginTop: 14 }}>

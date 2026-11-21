@@ -15,6 +15,7 @@ export function DsDialog({
   open,
   onOpenChange,
   title,
+  badge,
   description,
   footer,
   size = "md",
@@ -24,6 +25,8 @@ export function DsDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
   title: string;
+  /** Nhãn trạng thái đứng cạnh tiêu đề. */
+  badge?: React.ReactNode;
   /** Mô tả ngắn cho trình đọc màn hình (và hiện dưới tiêu đề). */
   description?: string;
   /** Hàng nút hành động cuối hộp thoại. */
@@ -59,7 +62,10 @@ export function DsDialog({
         >
           <div className="ds-dialog__head">
             <div className="ds-dialog__heading">
-              <Dialog.Title className="ds-dialog__title">{title}</Dialog.Title>
+              <div className="ds-dialog__titlerow">
+                <Dialog.Title className="ds-dialog__title">{title}</Dialog.Title>
+                {badge}
+              </div>
               {description ? <Dialog.Description className="ds-dialog__desc">{description}</Dialog.Description> : null}
             </div>
             <Dialog.Close asChild>
