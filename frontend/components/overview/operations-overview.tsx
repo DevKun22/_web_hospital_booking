@@ -28,6 +28,7 @@ import { useDashboardStatistics } from "@/lib/dashboard-overview-query";
 import { appointmentStatusLabel, appointmentStatusTone } from "@/lib/appointment-status";
 import { formatVietnamDate, getVietnamDateInput } from "@/lib/date";
 import type { PaymentMethod } from "@/lib/types";
+import { formatCurrency } from "@/lib/format";
 
 // Tổng quan vận hành cho quản trị và nhân viên: việc cần xử lý trước, số liệu trong kỳ, hai biểu đồ chính
 // (lịch hẹn, doanh thu) và các bảng top. Mỗi con số chỉ xuất hiện một lần.
@@ -41,8 +42,6 @@ const paymentLabel: Record<PaymentMethod, string> = {
 };
 
 const formatNumber = (value: number) => new Intl.NumberFormat("vi-VN").format(value || 0);
-const formatCurrency = (value: number) =>
-  new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND", maximumFractionDigits: 0 }).format(value || 0);
 const compactCurrency = (value: number) => {
   if (!value) return "0";
   if (Math.abs(value) >= 1_000_000_000) return `${Math.round(value / 1_000_000_000)} tỷ`;

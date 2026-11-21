@@ -1,13 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import {
-  buildInsuranceForm,
-  buildInsurancePayload,
-  calculateInsuranceDiscount,
-  formatMoneyInput,
-  parseMoneyInput,
-  toMoneyNumber,
-} from "../../app/dashboard/invoices/invoice-model";
+import { buildInsuranceForm, buildInsurancePayload, calculateInsuranceDiscount } from "../../app/dashboard/invoices/invoice-model";
+import { formatMoneyInput, parseMoneyInput, toMoneyNumber } from "../money-input";
 import type { Invoice } from "../types";
 
 const invoice = (patch: Partial<Invoice>) => patch as Invoice;

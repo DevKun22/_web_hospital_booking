@@ -2,6 +2,8 @@
 // trích dẫn, in đậm, in nghiêng, liên kết). Trả về cấu trúc dữ liệu thay vì HTML nên không có đường nào chèn mã vào trang:
 // liên kết chỉ nhận http, https hoặc đường dẫn nội bộ.
 
+import { createSlug } from "./slug";
+
 export type InlineNode =
   | { type: "text"; text: string }
   | { type: "bold"; children: InlineNode[] }
@@ -15,15 +17,7 @@ export type Block =
   | { type: "quote"; children: InlineNode[] };
 
 /** Cùng cách tạo neo với backend (createSlug) để liên kết nguồn của chatbot trỏ đúng mục. */
-export const slugifyHeading = (value: string) =>
-  value
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .replace(/[đĐ]/g, "d")
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
+export const slugifyHeading = createSlug;
 
 const isSafeHref = (href: string) => /^(https?:\/\/|\/(?!\/)|#)/i.test(href.trim());
 

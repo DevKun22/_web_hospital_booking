@@ -42,6 +42,7 @@ import {
 } from "@/lib/dashboard-invoices-query";
 import { formatVietnamDate, formatVietnamDateTime } from "@/lib/date";
 import { can } from "@/lib/permissions";
+import { formatCurrency } from "@/lib/format";
 import { queryKeys } from "@/lib/query-keys";
 import type {
   Invoice,
@@ -61,7 +62,6 @@ import {
   paymentLabel,
   transactionStatusLabel,
   transactionTone,
-  formatCurrency,
   calculateInsuranceDiscount,
   buildInsuranceForm,
   buildInsurancePayload,
