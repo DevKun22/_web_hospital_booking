@@ -4,7 +4,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { Loader2, MapPin, Star } from "lucide-react";
+import { Check, Loader2, MapPin, Star } from "lucide-react";
 import { TrustLine } from "@/components/public/catalog-content";
 import { DayStrip } from "@/features/booking/components/day-strip";
 import { groupSlotsByPeriod } from "@/features/booking/dates";
@@ -37,12 +37,16 @@ const formatMonthYear = (value: string) => new Intl.DateTimeFormat("vi-VN", { mo
 
 export function DoctorDetailClient({ doctor, initialDate, initialSlots }: DoctorDetailClientProps) {
   const [date, setDate] = useState(initialDate);
+  const [slotId, setSlotId] = useState<string | null>(null);
   const query = usePublicAvailableSlots({ doctorId: doctor.id, date });
   // Ngày đầu tiên dùng khung giờ máy chủ đã tải sẵn để không phải chờ.
   const slots = query.data ?? (date === initialDate ? initialSlots : []);
   const loading = query.isLoading && !slots.length;
   const groups = groupSlotsByPeriod(slots);
   const bookingUrl = `/dat-lich?departmentId=${doctor.department.id}&doctorId=${doctor.id}`;
+  const selectedSlot = slots.find((slot) => slot.id === slotId);
+  // Chọn giờ rồi mới bấm Đặt lịch: giờ đã chọn được mang sang bước đặt, người khám vẫn đổi được sang giờ hoặc ngày khác.
+  const bookingHref = selectedSlot ? `${bookingUrl}&date=${dateOnly(selectedSlot.date)}&timeSlotId=${selectedSlot.id}` : bookingUrl;
   const summary = doctor.reviewSummary;
   const weeklySchedule = groupWeeklySchedule(doctor.schedules);
   // Chỉ nêu tên cơ sở khi bác sĩ khám ở từ hai cơ sở trở lên.
@@ -190,7 +194,7 @@ export function DoctorDetailClient({ doctor, initialDate, initialSlots }: Doctor
       <aside id="lich-trong" aria-label="Đặt lịch với bác sĩ" className="h-fit rounded-xl border border-[var(--public-border)] bg-[var(--public-surface)] p-4 lg:sticky lg:top-28">
         <h2 className="text-lg font-semibold">Lịch trống</h2>
         <div className="mt-3">
-          <DayStrip today={initialDate} value={date} onChange={setDate} />
+          <DayStrip today={initialDate} value={date} onChange={(next) => { setDate(next); setSlotId(null); }} />
         </div>
 
         <div className="mt-4 min-h-16" aria-live="polite">
@@ -205,9 +209,16 @@ export function DoctorDetailClient({ doctor, initialDate, initialSlots }: Doctor
                   <p className="text-xs font-semibold text-[var(--public-muted)]">{group.label}</p>
                   <div className="mt-1.5 grid grid-cols-3 gap-2">
                     {group.slots.map((slot) => (
-                      <Link key={slot.id} href={`${bookingUrl}&date=${dateOnly(slot.date)}&timeSlotId=${slot.id}`} className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--public-border)] text-sm font-semibold tabular-nums hover:border-[var(--public-primary)] hover:bg-[var(--public-primary-soft)]">
+                      <button
+                        key={slot.id}
+                        type="button"
+                        aria-pressed={slot.id === slotId}
+                        onClick={() => setSlotId(slot.id === slotId ? null : slot.id)}
+                        className={`relative inline-flex min-h-11 items-center justify-center rounded-lg border text-sm font-semibold tabular-nums transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--public-primary)] ${slot.id === slotId ? "border-[var(--public-solid)] bg-[var(--public-solid)] text-[var(--public-on-solid)]" : "border-[var(--public-border)] hover:border-[var(--public-primary)] hover:bg-[var(--public-primary-soft)]"}`}
+                      >
+                        {slot.id === slotId ? <Check className="absolute left-2 h-4 w-4" aria-hidden="true" /> : null}
                         {formatTime(slot.startTime)}
-                      </Link>
+                      </button>
                     ))}
                   </div>
                 </div>
@@ -218,7 +229,8 @@ export function DoctorDetailClient({ doctor, initialDate, initialSlots }: Doctor
           )}
         </div>
 
-        <Link href={bookingUrl} className="public-button-primary mt-4 inline-flex min-h-12 w-full items-center justify-center rounded-lg px-4 text-base font-semibold">
+        {selectedSlot ? <p className="mt-4 text-sm text-[var(--public-text-soft)]">Đã chọn <strong className="font-semibold tabular-nums text-[var(--public-ink)]">{formatTime(selectedSlot.startTime)}</strong>. Bấm lại giờ đó để bỏ chọn, hoặc chọn giờ khác.</p> : null}
+        <Link href={bookingHref} className={`public-button-primary inline-flex min-h-12 w-full items-center justify-center rounded-lg px-4 text-base font-semibold ${selectedSlot ? "mt-2" : "mt-4"}`}>
           Đặt lịch với bác sĩ này
         </Link>
       </aside>
@@ -227,7 +239,7 @@ export function DoctorDetailClient({ doctor, initialDate, initialSlots }: Doctor
       <div className="lg:hidden">
         <div className="booking-action-bar">
           <div className="booking-action-bar__inner">
-            <a href="#lich-trong" className="public-button-primary inline-flex min-h-12 flex-1 items-center justify-center rounded-lg px-5 text-base font-semibold">Xem giờ trống</a>
+            <a href="#lich-trong" className="public-button-primary inline-flex min-h-12 flex-1 items-center justify-center rounded-lg px-5 text-base font-semibold">Đặt lịch</a>
           </div>
         </div>
       </div>

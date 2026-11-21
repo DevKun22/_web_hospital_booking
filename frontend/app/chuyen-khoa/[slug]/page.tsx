@@ -205,7 +205,7 @@ export default async function PublicDepartmentDetailPage({ params }: PageProps) 
             <p className="mt-1 text-base leading-7 text-[var(--public-text-soft)]">Chọn bác sĩ và giờ còn trống.</p>
             <div className="mt-4 space-y-2">
               <Link href={bookingUrl} className="public-button-primary inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-lg px-5 text-base font-semibold">
-                Xem giờ trống
+                Đặt lịch
                 <ArrowRight className="h-4 w-4" aria-hidden="true" />
               </Link>
               <Link href={doctorsUrl} className="public-button-secondary inline-flex min-h-11 w-full items-center justify-center rounded-lg px-4 text-sm font-semibold">Xem bác sĩ</Link>
@@ -220,7 +220,7 @@ export default async function PublicDepartmentDetailPage({ params }: PageProps) 
         <div className="booking-action-bar">
           <div className="booking-action-bar__inner">
             <Link href={bookingUrl} className="public-button-primary inline-flex min-h-12 flex-1 items-center justify-center gap-2 rounded-lg px-5 text-base font-semibold">
-              Xem giờ trống
+              Đặt lịch
               <ArrowRight className="h-4 w-4" aria-hidden="true" />
             </Link>
           </div>
