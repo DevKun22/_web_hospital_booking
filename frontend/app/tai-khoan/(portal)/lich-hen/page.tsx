@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { CalendarPlus } from "lucide-react";
+import { PersonFilter, usePersonFilter } from "@/components/patient/person-filter";
 import { DateBlock, doctorLine, StatusChip, timeRange } from "@/components/patient/appointment-parts";
 import { PatientEmptyState, PatientPageError, PatientPageHeader, PatientPageLoading } from "@/components/patient/patient-page-ui";
 import { usePatientAppointments } from "@/features/portal/hooks";
@@ -20,6 +21,8 @@ const TABS: { key: Filter; label: string; empty: string }[] = [
 
 // Lịch cũ chưa gắn hồ sơ người thân tính là của bản thân.
 const personKey = (item: PatientAppointment) => item.dependentProfileId || "";
+const personName = (item: PatientAppointment) => item.patientName;
+const NONE: PatientAppointment[] = [];
 const startOf = (item: PatientAppointment) => new Date(`${item.appointmentDate.slice(0, 10)}T${item.startTime || "00:00"}`);
 
 function applyFilter(items: PatientAppointment[], filter: Filter) {
@@ -36,19 +39,10 @@ function applyFilter(items: PatientAppointment[], filter: Filter) {
 
 export default function PatientAppointmentsPage() {
   const [filter, setFilter] = useState<Filter>("upcoming");
-  const [person, setPerson] = useState<string | null>(null);
   const query = usePatientAppointments();
-  const people = useMemo(() => {
-    const map = new Map<string, string>();
-    for (const item of query.data || []) if (!map.has(personKey(item))) map.set(personKey(item), item.patientName);
-    // "Bản thân" luôn đứng đầu.
-    return [...map.entries()].sort(([a], [b]) => Number(a !== "") - Number(b !== ""));
-  }, [query.data]);
-  const activePerson = person !== null && people.some(([key]) => key === person) ? person : null;
-  const items = useMemo(
-    () => applyFilter((query.data || []).filter((item) => activePerson === null || personKey(item) === activePerson), filter),
-    [activePerson, filter, query.data],
-  );
+  const appointments = query.data ?? NONE;
+  const { people, active, setPerson, matches } = usePersonFilter(appointments, personKey, personName);
+  const items = useMemo(() => applyFilter(appointments.filter(matches), filter), [appointments, matches, filter]);
   const tab = TABS.find((item) => item.key === filter)!;
 
   return (
@@ -80,24 +74,7 @@ export default function PatientAppointmentsPage() {
         ))}
       </div>
 
-      {people.length >= 2 ? (
-        <div role="group" aria-label="Lọc theo người khám" className="flex flex-wrap gap-2">
-          {[["all", "Tất cả"] as const, ...people.map(([key, name]) => [key, key === "" ? "Bản thân" : name] as const)].map(([key, label]) => {
-            const active = (key === "all" ? null : key) === activePerson;
-            return (
-              <button
-                key={key}
-                type="button"
-                aria-pressed={active}
-                onClick={() => setPerson(key === "all" ? null : key)}
-                className={`min-h-11 rounded-full border px-4 text-sm font-semibold transition-colors ${active ? "border-[var(--public-primary)] bg-[var(--public-primary-soft)] text-[var(--public-primary-dark)]" : "border-[var(--public-border)] text-[var(--public-text-soft)] hover:bg-[var(--public-surface-muted)]"}`}
-              >
-                {label}
-              </button>
-            );
-          })}
-        </div>
-      ) : null}
+      <PersonFilter people={people} active={active} onChange={setPerson} />
 
       {query.isLoading ? (
         <PatientPageLoading label="Đang tải lịch hẹn..." />
