@@ -1,75 +1,141 @@
 "use client";
 
+import { useState, type FormEvent } from "react";
 import { VietnamDateInput } from "@/components/ui/vietnam-date-input";
-
-import { FormEvent, useState } from "react";
-import Link from "next/link";
-import { Loader2, Pencil, Plus, Trash2, UserRound, UsersRound, X } from "lucide-react";
 import { useMutationToast } from "@/components/patient/patient-toast";
 import { PatientPageError, PatientPageHeader, PatientPageLoading } from "@/components/patient/patient-page-ui";
+import { FIELD_CLASS, FoldSection, FormSection, PersonSwitcher, READONLY_CLASS, SaveBar, StateBadge } from "@/components/patient/profile-parts";
 import { usePatientAuth } from "@/lib/patient-auth";
-import type { PatientDependent, PatientUser } from "@/lib/patient-portal-types";
+import type { PatientUser } from "@/lib/patient-portal-types";
+import { usePatientProfile, useUpdateProfile } from "@/features/portal/hooks";
 
-import { useArchiveDependent, useCreateDependent, usePatientProfile, useUpdateProfile } from "@/features/portal/hooks";
 type ProfileDraft = { fullName: string; dateOfBirth: string; gender: string; cccd: string; address: string; hasBHYT: boolean; healthInsuranceCode: string; registeredHospital: string; bloodType: string; height: string; weight: string; allergies: string; medicalHistory: string };
 const nullable = (value: string) => value.trim() || null;
 // Phải khớp HEALTH_CONSENT_VERSION ở backend/src/services/appointment.service.ts.
 const HEALTH_CONSENT_VERSION = "2026-11";
 
+const draftFromProfile = (profile: PatientUser): ProfileDraft => {
+  const detail = profile.patientProfile;
+  return {
+    fullName: profile.fullName || "",
+    dateOfBirth: detail?.dateOfBirth?.slice(0, 10) || "",
+    gender: detail?.gender || "",
+    cccd: detail?.cccd || "",
+    address: detail?.address || "",
+    hasBHYT: detail?.hasBHYT || false,
+    healthInsuranceCode: detail?.healthInsuranceCode || "",
+    registeredHospital: detail?.registeredHospital || "",
+    bloodType: detail?.bloodType || "",
+    height: detail?.height?.toString() || "",
+    weight: detail?.weight?.toString() || "",
+    allergies: detail?.allergies || "",
+    medicalHistory: detail?.medicalHistory || "",
+  };
+};
+
 function ProfileForm({ profile }: { profile: PatientUser }) {
   const { refreshUser } = usePatientAuth();
   const detail = profile.patientProfile;
-  const [draft, setDraft] = useState<ProfileDraft>({ fullName: profile.fullName || "", dateOfBirth: detail?.dateOfBirth?.slice(0, 10) || "", gender: detail?.gender || "", cccd: detail?.cccd || "", address: detail?.address || "", hasBHYT: detail?.hasBHYT || false, healthInsuranceCode: detail?.healthInsuranceCode || "", registeredHospital: detail?.registeredHospital || "", bloodType: detail?.bloodType || "", height: detail?.height?.toString() || "", weight: detail?.weight?.toString() || "", allergies: detail?.allergies || "", medicalHistory: detail?.medicalHistory || "" });
+  const [initial] = useState(() => draftFromProfile(profile));
+  const [draft, setDraft] = useState<ProfileDraft>(initial);
   const [healthConsent, setHealthConsent] = useState(false);
   const [consentError, setConsentError] = useState(false);
-  const buildBody = () => ({ fullName: draft.fullName.trim(), dateOfBirth: nullable(draft.dateOfBirth), gender: draft.gender || null, cccd: nullable(draft.cccd), address: nullable(draft.address), hasBHYT: draft.hasBHYT, healthInsuranceCode: draft.hasBHYT ? nullable(draft.healthInsuranceCode) : null, registeredHospital: draft.hasBHYT ? nullable(draft.registeredHospital) : null, bloodType: nullable(draft.bloodType), height: draft.height ? Number(draft.height) : null, weight: draft.weight ? Number(draft.weight) : null, allergies: nullable(draft.allergies), medicalHistory: nullable(draft.medicalHistory), ...(healthConsent ? { healthConsent: true } : {}) });
   const mutation = useUpdateProfile(async () => { await refreshUser(); });
   useMutationToast(mutation, { success: "Đã cập nhật hồ sơ.", fallbackError: "Không thể lưu hồ sơ." });
   const set = <K extends keyof ProfileDraft>(key: K, value: ProfileDraft[K]) => setDraft((current) => ({ ...current, [key]: value }));
-  const input = "mt-2 min-h-11 w-full rounded-xl border border-[var(--public-border)] bg-white px-3 text-sm outline-none focus:border-[var(--public-primary)]";
+
+  const dirty = JSON.stringify(draft) !== JSON.stringify(initial);
   const savedAllergies = (detail?.allergies || "").trim();
   const savedHistory = (detail?.medicalHistory || "").trim();
   const hadHealthConsent = detail?.healthConsentVersion === HEALTH_CONSENT_VERSION;
   const hasHealthText = draft.allergies.trim() !== "" || draft.medicalHistory.trim() !== "";
   const changesHealthData = (draft.allergies.trim() !== "" && draft.allergies.trim() !== savedAllergies) || (draft.medicalHistory.trim() !== "" && draft.medicalHistory.trim() !== savedHistory);
-  return <form onSubmit={(event) => { event.preventDefault(); if (changesHealthData && !hadHealthConsent && !healthConsent) { setConsentError(true); return; } setConsentError(false); mutation.mutate(buildBody()); }} className="rounded-xl border border-[var(--public-border)] bg-white p-5 sm:p-6">
-    <div className="flex items-center justify-between"><div><h2 className="text-xl font-bold">Thông tin cá nhân</h2><p className="mt-1 text-sm text-[var(--public-muted)]">Thông tin này được dùng để tự điền khi đặt lịch.</p></div><UserRound className="h-6 w-6 text-[var(--public-primary)]" /></div>
-    <div className="mt-6 grid gap-4 sm:grid-cols-2">
-      <label className="text-sm font-semibold">Họ và tên <span className="text-[var(--public-danger)]">*</span><input className={input} value={draft.fullName} onChange={(e) => set("fullName", e.target.value)} required minLength={2} /></label>
-      <label className="text-sm font-semibold">Số điện thoại<input className={`${input} bg-[var(--public-surface-muted)]`} value={profile.phone || ""} readOnly aria-readonly="true" /></label>
-      <label className="text-sm font-semibold">Email đăng nhập<input className={`${input} bg-[var(--public-surface-muted)]`} value={profile.email || ""} readOnly aria-readonly="true" /></label>
-      <label className="text-sm font-semibold">Ngày sinh<VietnamDateInput className={input} ariaLabel="Ngày sinh" value={draft.dateOfBirth} max={new Date().toISOString().slice(0, 10)} onChange={(value) => set("dateOfBirth", value)} /></label>
-      <label className="text-sm font-semibold">Giới tính<select className={input} value={draft.gender} onChange={(e) => set("gender", e.target.value)}><option value="">Chưa cập nhật</option><option value="MALE">Nam</option><option value="FEMALE">Nữ</option><option value="OTHER">Khác</option></select></label>
-      <label className="text-sm font-semibold">CCCD/Định danh<input className={input} value={draft.cccd} onChange={(e) => set("cccd", e.target.value.replace(/\D/g, "").slice(0, 20))} inputMode="numeric" /></label>
-      <label className="text-sm font-semibold sm:col-span-2">Địa chỉ<input className={input} value={draft.address} onChange={(e) => set("address", e.target.value)} maxLength={300} /></label>
-    </div>
-    <fieldset className="mt-6 rounded-lg border border-[var(--public-border)] p-4"><legend className="px-2 text-sm font-bold">Bảo hiểm y tế</legend><label className="flex min-h-11 items-center gap-3 text-sm font-semibold"><input type="checkbox" checked={draft.hasBHYT} onChange={(e) => set("hasBHYT", e.target.checked)} className="h-4 w-4" /> Tôi có thẻ BHYT</label>{draft.hasBHYT ? <div className="mt-3 grid gap-4 sm:grid-cols-2"><label className="text-sm font-semibold">Mã thẻ BHYT<input className={input} value={draft.healthInsuranceCode} onChange={(e) => set("healthInsuranceCode", e.target.value)} required /></label><label className="text-sm font-semibold">Nơi đăng ký khám ban đầu<input className={input} value={draft.registeredHospital} onChange={(e) => set("registeredHospital", e.target.value)} /></label></div> : null}</fieldset>
-    <details className="mt-5 rounded-lg border border-[var(--public-border)] p-4"><summary className="cursor-pointer text-sm font-bold">Thông tin sức khỏe bổ sung</summary><div className="mt-4 grid gap-4 sm:grid-cols-3"><label className="text-sm font-semibold">Nhóm máu<input className={input} value={draft.bloodType} onChange={(e) => set("bloodType", e.target.value)} /></label><label className="text-sm font-semibold">Chiều cao (cm)<input className={input} type="number" min="1" max="300" value={draft.height} onChange={(e) => set("height", e.target.value)} /></label><label className="text-sm font-semibold">Cân nặng (kg)<input className={input} type="number" min="1" max="500" value={draft.weight} onChange={(e) => set("weight", e.target.value)} /></label><label className="text-sm font-semibold sm:col-span-3">Dị ứng<textarea className={`${input} min-h-24 py-3`} value={draft.allergies} onChange={(e) => set("allergies", e.target.value)} /></label><label className="text-sm font-semibold sm:col-span-3">Tiền sử sức khỏe<textarea className={`${input} min-h-24 py-3`} value={draft.medicalHistory} onChange={(e) => set("medicalHistory", e.target.value)} /></label></div></details>
-    {hasHealthText && !hadHealthConsent ? <label className="mt-4 flex items-start gap-3 rounded-lg border border-[var(--public-border)] p-4 text-sm"><input type="checkbox" className="mt-1 h-4 w-4" checked={healthConsent} onChange={(e) => { setHealthConsent(e.target.checked); setConsentError(false); }} /><span><strong>Đồng ý lưu thông tin sức khỏe.</strong> Tôi đồng ý cho cơ sở khám lưu dị ứng và tiền sử bệnh để phục vụ khám chữa bệnh. Tôi có thể xóa các nội dung này bất cứ lúc nào.</span></label> : null}
-    {consentError ? <p role="alert" className="mt-4 rounded-xl bg-[var(--public-danger-soft)] p-3 text-sm text-[var(--public-danger)]">Vui lòng đồng ý lưu thông tin sức khỏe để cập nhật dị ứng và tiền sử.</p> : null}
-    
-    <div className="mt-5 flex justify-end"><button disabled={mutation.isPending} className="public-button-primary inline-flex min-h-11 items-center gap-2 rounded-xl px-5 text-sm font-bold disabled:opacity-60">{mutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null} Lưu thay đổi</button></div>
-  </form>;
-}
 
-function DependentsSection({ items }: { items: PatientDependent[] }) {
-  const [open, setOpen] = useState(false);
-  const [draft, setDraft] = useState({ fullName: "", relationship: "CHILD", dateOfBirth: "", gender: "", hasBHYT: false, healthInsuranceCode: "" });
-  const create = useCreateDependent(() => { setOpen(false); setDraft({ fullName: "", relationship: "CHILD", dateOfBirth: "", gender: "", hasBHYT: false, healthInsuranceCode: "" }); });
-  useMutationToast(create, { success: "Đã thêm hồ sơ người thân.", fallbackError: "Không thể thêm hồ sơ." });
-  const buildDependentBody = () => ({ fullName: draft.fullName.trim(), relationship: draft.relationship, dateOfBirth: nullable(draft.dateOfBirth), gender: draft.gender || null, hasBHYT: draft.hasBHYT, healthInsuranceCode: draft.hasBHYT ? nullable(draft.healthInsuranceCode) : null, consentConfirmed: true });
-  const archive = useArchiveDependent();
-  useMutationToast(archive, { success: "Đã xóa hồ sơ người thân.", fallbackError: "Không thể xóa hồ sơ." });
-  const relationship: Record<string, string> = { CHILD: "Con", SPOUSE: "Vợ/chồng", PARENT: "Cha/mẹ", SIBLING: "Anh/chị/em", OTHER: "Khác" };
-  const input = "mt-2 min-h-11 w-full rounded-xl border border-[var(--public-border)] px-3 text-sm outline-none focus:border-[var(--public-primary)]";
-  return <section className="rounded-xl border border-[var(--public-border)] bg-white p-5 sm:p-6"><div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-xl font-bold">Hồ sơ người thân</h2><p className="mt-1 text-sm text-[var(--public-muted)]">Dùng khi đặt lịch thay cho người thuộc quyền quản lý.</p></div><button type="button" onClick={() => setOpen((value) => !value)} className="public-button-secondary inline-flex min-h-11 items-center gap-2 rounded-xl px-4 text-sm font-bold">{open ? <X className="h-4 w-4" /> : <Plus className="h-4 w-4" />} {open ? "Đóng" : "Thêm người thân"}</button></div>
-    {open ? <form onSubmit={(event: FormEvent) => { event.preventDefault(); create.mutate(buildDependentBody()); }} className="mt-5 rounded-lg bg-[var(--public-surface-muted)] p-4"><div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3"><label className="text-sm font-semibold">Họ và tên<input className={input} value={draft.fullName} onChange={(e) => setDraft((c) => ({ ...c, fullName: e.target.value }))} minLength={2} required /></label><label className="text-sm font-semibold">Mối quan hệ<select className={input} value={draft.relationship} onChange={(e) => setDraft((c) => ({ ...c, relationship: e.target.value }))}>{Object.entries(relationship).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label><label className="text-sm font-semibold">Ngày sinh<VietnamDateInput className={input} ariaLabel="Ngày sinh" value={draft.dateOfBirth} onChange={(value) => setDraft((c) => ({ ...c, dateOfBirth: value }))} /></label><label className="flex min-h-11 items-center gap-2 text-sm font-semibold"><input type="checkbox" checked={draft.hasBHYT} onChange={(e) => setDraft((c) => ({ ...c, hasBHYT: e.target.checked }))} /> Có thẻ BHYT</label>{draft.hasBHYT ? <label className="text-sm font-semibold">Mã thẻ BHYT<input className={input} value={draft.healthInsuranceCode} onChange={(e) => setDraft((c) => ({ ...c, healthInsuranceCode: e.target.value }))} required /></label> : null}</div><button disabled={create.isPending} className="public-button-primary mt-4 inline-flex min-h-11 items-center gap-2 rounded-xl px-4 text-sm font-bold">{create.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null} Lưu hồ sơ người thân</button></form> : null}
-    <div className="mt-5 grid gap-3 md:grid-cols-2">{items.length ? items.map((item) => <article key={item.id} className="flex items-start justify-between gap-3 rounded-lg border border-[var(--public-border)] p-4"><div className="flex min-w-0 gap-3"><span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[var(--public-primary-soft)] text-[var(--public-primary)]"><UsersRound className="h-5 w-5" /></span><div><h3 className="font-bold">{item.fullName}</h3><p className="mt-1 text-xs text-[var(--public-muted)]">{relationship[item.relationship] || item.relationship}{item.dateOfBirth ? ` · ${new Intl.DateTimeFormat("vi-VN").format(new Date(item.dateOfBirth))}` : ""}</p><p className="mt-1 text-xs font-semibold text-[var(--public-primary)]">{item.hasBHYT ? "Có BHYT" : "Chưa có BHYT"}</p></div></div><div className="flex shrink-0 gap-1"><Link href={`/tai-khoan/ho-so/nguoi-than/${item.id}`} className="flex h-11 w-11 items-center justify-center rounded-xl text-[var(--public-primary)] hover:bg-[var(--public-primary-soft)]" aria-label={`Chỉnh sửa hồ sơ ${item.fullName}`}><Pencil className="h-4 w-4" /></Link><button type="button" disabled={archive.isPending} onClick={() => { if (window.confirm(`Ngừng quản lý hồ sơ ${item.fullName}?`)) archive.mutate(item.id); }} className="flex h-11 w-11 items-center justify-center rounded-xl text-[var(--public-danger)] hover:bg-[var(--public-danger-soft)]" aria-label={`Ngừng quản lý hồ sơ ${item.fullName}`}><Trash2 className="h-4 w-4" /></button></div></article>) : <p className="col-span-full rounded-lg bg-[var(--public-surface-muted)] p-5 text-sm text-[var(--public-muted)]">Chưa có hồ sơ người thân.</p>}</div>
-  </section>;
+  const submit = (event: FormEvent) => {
+    event.preventDefault();
+    if (changesHealthData && !hadHealthConsent && !healthConsent) {
+      setConsentError(true);
+      return;
+    }
+    setConsentError(false);
+    mutation.mutate({
+      fullName: draft.fullName.trim(),
+      dateOfBirth: nullable(draft.dateOfBirth),
+      gender: draft.gender || null,
+      cccd: nullable(draft.cccd),
+      address: nullable(draft.address),
+      hasBHYT: draft.hasBHYT,
+      healthInsuranceCode: draft.hasBHYT ? nullable(draft.healthInsuranceCode) : null,
+      registeredHospital: draft.hasBHYT ? nullable(draft.registeredHospital) : null,
+      bloodType: nullable(draft.bloodType),
+      height: draft.height ? Number(draft.height) : null,
+      weight: draft.weight ? Number(draft.weight) : null,
+      allergies: nullable(draft.allergies),
+      medicalHistory: nullable(draft.medicalHistory),
+      ...(healthConsent ? { healthConsent: true } : {}),
+    });
+  };
+
+  return (
+    <form onSubmit={submit} className="space-y-4">
+      <FormSection title="Thông tin chung">
+        <div className="grid gap-4 sm:grid-cols-2">
+          <label className="text-sm font-semibold">Họ và tên <span className="text-[var(--public-danger)]">*</span><input className={FIELD_CLASS} value={draft.fullName} onChange={(e) => set("fullName", e.target.value)} required minLength={2} /></label>
+          <label className="text-sm font-semibold">Ngày sinh<VietnamDateInput className={FIELD_CLASS} ariaLabel="Ngày sinh" value={draft.dateOfBirth} max={new Date().toISOString().slice(0, 10)} onChange={(value) => set("dateOfBirth", value)} /></label>
+          <label className="text-sm font-semibold">Giới tính<select className={FIELD_CLASS} value={draft.gender} onChange={(e) => set("gender", e.target.value)}><option value="">Chưa cập nhật</option><option value="MALE">Nam</option><option value="FEMALE">Nữ</option><option value="OTHER">Khác</option></select></label>
+          <label className="text-sm font-semibold">CCCD/Định danh<input className={FIELD_CLASS} value={draft.cccd} onChange={(e) => set("cccd", e.target.value.replace(/\D/g, "").slice(0, 20))} inputMode="numeric" /></label>
+          <label className="text-sm font-semibold">Email đăng nhập<input className={READONLY_CLASS} value={profile.email || ""} readOnly aria-readonly="true" /></label>
+          <label className="text-sm font-semibold">Số điện thoại<input className={READONLY_CLASS} value={profile.phone || ""} readOnly aria-readonly="true" /></label>
+          <label className="text-sm font-semibold sm:col-span-2">Địa chỉ<input className={FIELD_CLASS} value={draft.address} onChange={(e) => set("address", e.target.value)} maxLength={300} /></label>
+        </div>
+      </FormSection>
+
+      <FormSection title="Bảo hiểm y tế" badge={<StateBadge tone={draft.hasBHYT ? "ok" : "warn"}>{draft.hasBHYT ? "Có thẻ" : "Chưa có thẻ"}</StateBadge>}>
+        <label className="flex min-h-11 items-center gap-3 text-sm font-semibold"><input type="checkbox" checked={draft.hasBHYT} onChange={(e) => set("hasBHYT", e.target.checked)} className="h-4 w-4" /> Tôi có thẻ BHYT</label>
+        {draft.hasBHYT ? (
+          <div className="mt-3 grid gap-4 sm:grid-cols-2">
+            <label className="text-sm font-semibold">Mã thẻ BHYT <span className="text-[var(--public-danger)]">*</span><input className={FIELD_CLASS} value={draft.healthInsuranceCode} onChange={(e) => set("healthInsuranceCode", e.target.value)} required /></label>
+            <label className="text-sm font-semibold">Nơi đăng ký khám ban đầu<input className={FIELD_CLASS} value={draft.registeredHospital} onChange={(e) => set("registeredHospital", e.target.value)} /></label>
+          </div>
+        ) : null}
+      </FormSection>
+
+      <FoldSection title="Sức khỏe" hint="Nhóm máu, dị ứng, tiền sử" badge={<StateBadge tone={savedAllergies || savedHistory ? "ok" : "warn"}>{savedAllergies || savedHistory ? "Đã lưu" : "Chưa có"}</StateBadge>}>
+        <div className="grid gap-4 sm:grid-cols-3">
+          <label className="text-sm font-semibold">Nhóm máu<input className={FIELD_CLASS} value={draft.bloodType} onChange={(e) => set("bloodType", e.target.value)} /></label>
+          <label className="text-sm font-semibold">Chiều cao (cm)<input className={FIELD_CLASS} type="number" min="1" max="300" value={draft.height} onChange={(e) => set("height", e.target.value)} /></label>
+          <label className="text-sm font-semibold">Cân nặng (kg)<input className={FIELD_CLASS} type="number" min="1" max="500" value={draft.weight} onChange={(e) => set("weight", e.target.value)} /></label>
+          <label className="text-sm font-semibold sm:col-span-3">Dị ứng<textarea className={`${FIELD_CLASS} min-h-24 py-3`} value={draft.allergies} onChange={(e) => set("allergies", e.target.value)} /></label>
+          <label className="text-sm font-semibold sm:col-span-3">Tiền sử sức khỏe<textarea className={`${FIELD_CLASS} min-h-24 py-3`} value={draft.medicalHistory} onChange={(e) => set("medicalHistory", e.target.value)} /></label>
+        </div>
+        {hasHealthText && !hadHealthConsent ? (
+          <label className="mt-4 flex items-start gap-3 rounded-lg border border-[var(--public-border)] p-4 text-sm">
+            <input type="checkbox" className="mt-1 h-4 w-4" checked={healthConsent} onChange={(e) => { setHealthConsent(e.target.checked); setConsentError(false); }} />
+            <span><strong>Đồng ý lưu thông tin sức khỏe.</strong> Tôi đồng ý cho cơ sở khám lưu dị ứng và tiền sử bệnh để phục vụ khám chữa bệnh. Tôi có thể xóa các nội dung này bất cứ lúc nào.</span>
+          </label>
+        ) : null}
+        {consentError ? <p role="alert" className="mt-4 rounded-lg bg-[var(--public-danger-soft)] p-3 text-sm text-[var(--public-danger)]">Đồng ý lưu thông tin sức khỏe để cập nhật dị ứng và tiền sử.</p> : null}
+      </FoldSection>
+
+      <SaveBar dirty={dirty} pending={mutation.isPending} />
+    </form>
+  );
 }
 
 export default function PatientProfilePage() {
   const query = usePatientProfile();
-  return <div className="space-y-6"><PatientPageHeader title="Thông tin người khám" description="Cập nhật một lần để đồng bộ với ứng dụng Mobile và tự điền nhanh trong những lần đặt lịch tiếp theo." />{query.isLoading ? <PatientPageLoading /> : query.isError || !query.data ? <PatientPageError message={query.error instanceof Error ? query.error.message : "Không tải được hồ sơ."} onRetry={() => query.refetch()} /> : <><ProfileForm key={`${query.data.profile.id}-${query.data.profile.email}-${query.data.profile.patientProfile?.dateOfBirth}`} profile={query.data.profile} /><DependentsSection items={query.data.dependents} /></>}</div>;
+  return (
+    <div className="space-y-5">
+      <PatientPageHeader title="Hồ sơ và người thân" description="Chọn một người để xem và sửa thông tin. Hồ sơ đầy đủ giúp điền nhanh khi đặt lịch." />
+      <PersonSwitcher selected="self" />
+      {query.isLoading ? (
+        <PatientPageLoading />
+      ) : query.isError || !query.data ? (
+        <PatientPageError message={query.error instanceof Error ? query.error.message : "Không tải được hồ sơ."} onRetry={() => query.refetch()} />
+      ) : (
+        <ProfileForm key={`${query.data.profile.id}-${query.data.profile.email}-${JSON.stringify(draftFromProfile(query.data.profile))}`} profile={query.data.profile} />
+      )}
+    </div>
+  );
 }
 
