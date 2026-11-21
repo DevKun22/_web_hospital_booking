@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 import { cache } from "react";
 import { ArrowRight } from "lucide-react";
 import Link from "next/link";
+import { AskKunButton } from "@/components/public/ask-kun-button";
 import { AnchorNav, IntroSections, TrustLine } from "@/components/public/catalog-content";
 import { sectionAnchors } from "@/lib/section-anchors";
 import { PublicBreadcrumb } from "@/components/public/public-page-layout";
@@ -114,36 +115,27 @@ export default async function PublicDepartmentDetailPage({ params }: PageProps) 
       <section className="ui-container py-5 sm:py-8">
         <PublicBreadcrumb current={department.name} />
 
-        <header className="grid grid-cols-[minmax(0,1fr)] gap-5 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start lg:gap-8">
-          <div>
-            <h1 className="text-2xl font-bold sm:text-3xl">{department.name}</h1>
-            <p className="mt-3 max-w-2xl text-base leading-7 text-[var(--public-text-soft)]">{description}</p>
-            <TrustLine updatedAt={department.contentUpdatedAt} reviewerName={department.contentReviewerName} />
-            <p className="mt-3 text-sm text-[var(--public-muted)]">
-              {summary.doctorCount} bác sĩ có lịch · {summary.packageCount} gói khám · {summary.availableSlotCount} khung giờ trong 14 ngày
-              {summary.reviewSummary.count ? ` · ${summary.reviewSummary.averageRating.toFixed(1)} sao (${summary.reviewSummary.count} đánh giá)` : ""}
-            </p>
-            <div className="mt-4 flex flex-col gap-2 sm:flex-row">
-              <Link href={bookingUrl} className="public-button-primary inline-flex min-h-12 items-center justify-center gap-2 rounded-lg px-5 text-base font-semibold">
-                Đặt lịch chuyên khoa này
-                <ArrowRight className="h-4 w-4" aria-hidden="true" />
-              </Link>
-              <Link href={doctorsUrl} className="public-button-secondary inline-flex min-h-12 items-center justify-center rounded-lg px-5 text-base font-semibold">
-                Xem bác sĩ
-              </Link>
-            </div>
-          </div>
-          {department.image ? (
-            <img src={department.image} alt={department.name} decoding="async" fetchPriority="high" className="aspect-[4/3] w-full rounded-lg object-cover" />
-          ) : null}
-        </header>
+        <div className="grid grid-cols-[minmax(0,1fr)] gap-8 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start">
+          <div className="min-w-0">
+            <header>
+              <h1 className="text-2xl font-bold sm:text-3xl">{department.name}</h1>
+              <p className="mt-3 max-w-2xl text-base leading-7 text-[var(--public-text-soft)]">{description}</p>
+              <TrustLine updatedAt={department.contentUpdatedAt} reviewerName={department.contentReviewerName} />
+              <p className="mt-3 text-sm text-[var(--public-muted)]">
+                {summary.doctorCount} bác sĩ có lịch · {summary.packageCount} gói khám · {summary.availableSlotCount} khung giờ trong 14 ngày
+                {summary.reviewSummary.count ? ` · ${summary.reviewSummary.averageRating.toFixed(1)} sao (${summary.reviewSummary.count} đánh giá)` : ""}
+              </p>
+              {department.image ? (
+                <img src={department.image} alt={department.name} decoding="async" fetchPriority="high" className="mt-5 aspect-[2/1] w-full rounded-2xl object-cover" />
+              ) : null}
+            </header>
 
         <AnchorNav items={[...anchors.map((item) => ({ id: item.id, label: item.title })), { id: "goi-kham", label: "Gói khám" }, { id: "bac-si", label: "Bác sĩ" }]} />
         <IntroSections sections={department.sections} />
 
         {department.symptomKeywords?.length || department.triageDescription ? (
           <section aria-labelledby="nhu-cau-kham" className="mt-8 border-t border-[var(--public-divider)] pt-6">
-            <h2 id="nhu-cau-kham" className="text-lg font-bold">Nên đến khám khi</h2>
+            <h2 id="nhu-cau-kham" className="text-xl font-bold">Nên đến khám khi</h2>
             {department.symptomKeywords?.length ? (
               <ul className="mt-3 flex flex-wrap gap-2">
                 {department.symptomKeywords.map((keyword) => (
@@ -157,7 +149,7 @@ export default async function PublicDepartmentDetailPage({ params }: PageProps) 
 
         <section id="bac-si" aria-labelledby="bac-si-title" className="mt-8 border-t border-[var(--public-divider)] pt-6">
           <div className="flex items-baseline justify-between gap-3">
-            <h2 id="bac-si-title" className="text-lg font-bold">Bác sĩ thuộc chuyên khoa</h2>
+            <h2 id="bac-si-title" className="text-xl font-bold">Bác sĩ thuộc chuyên khoa</h2>
             <Link href={doctorsUrl} className="text-sm font-semibold text-[var(--public-primary)] underline underline-offset-4">Xem tất cả</Link>
           </div>
           {doctors.length ? (
@@ -185,7 +177,7 @@ export default async function PublicDepartmentDetailPage({ params }: PageProps) 
         </section>
 
         <section id="goi-kham" aria-labelledby="goi-kham-title" className="mt-8 border-t border-[var(--public-divider)] pt-6">
-          <h2 id="goi-kham-title" className="text-lg font-bold">Gói khám liên quan</h2>
+          <h2 id="goi-kham-title" className="text-xl font-bold">Gói khám liên quan</h2>
           {packages.length ? (
             <ul className="mt-3 divide-y divide-[var(--public-divider)] overflow-hidden rounded-lg border border-[var(--public-border)] bg-[var(--public-surface)]">
               {packages.slice(0, 4).map((item) => (
@@ -206,7 +198,34 @@ export default async function PublicDepartmentDetailPage({ params }: PageProps) 
             <EmptyState label="Chưa có gói khám riêng cho chuyên khoa này." />
           )}
         </section>
+          </div>
+
+          <aside aria-labelledby="dat-lich-title" className="hidden rounded-2xl border border-[var(--public-border)] bg-[var(--public-surface)] p-5 lg:sticky lg:top-24 lg:block">
+            <h2 id="dat-lich-title" className="text-lg font-semibold">Đặt lịch {department.name}</h2>
+            <p className="mt-1 text-base leading-7 text-[var(--public-text-soft)]">Chọn bác sĩ và giờ còn trống.</p>
+            <div className="mt-4 space-y-2">
+              <Link href={bookingUrl} className="public-button-primary inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-lg px-5 text-base font-semibold">
+                Xem giờ trống
+                <ArrowRight className="h-4 w-4" aria-hidden="true" />
+              </Link>
+              <Link href={doctorsUrl} className="public-button-secondary inline-flex min-h-11 w-full items-center justify-center rounded-lg px-4 text-sm font-semibold">Xem bác sĩ</Link>
+              <AskKunButton label="Hỏi Kun về chuyên khoa này" />
+            </div>
+          </aside>
+        </div>
       </section>
+
+      {/* Điện thoại: thanh nút cố định dưới màn hình, dùng chung kiểu với trang đặt lịch (ẩn thanh điều hướng dưới khi có). */}
+      <div className="lg:hidden">
+        <div className="booking-action-bar">
+          <div className="booking-action-bar__inner">
+            <Link href={bookingUrl} className="public-button-primary inline-flex min-h-12 flex-1 items-center justify-center gap-2 rounded-lg px-5 text-base font-semibold">
+              Xem giờ trống
+              <ArrowRight className="h-4 w-4" aria-hidden="true" />
+            </Link>
+          </div>
+        </div>
+      </div>
     </main>
   );
 }

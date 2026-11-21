@@ -4,12 +4,12 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useMemo, useState } from "react";
 import { PublicCatalogSearch, PublicPagination } from "@/components/public/public-catalog-controls";
-import { CatalogHeader, ChatbotHint, FilterChip, FIELD_LABEL_CLASS, ResultCount, RowList, RowSkeleton, SELECT_CLASS } from "@/components/public/catalog-parts";
+import { CatalogHeader, ChatbotHint, FilterChip, FIELD_LABEL_CLASS, ResultCount, SELECT_CLASS } from "@/components/public/catalog-parts";
 import { PublicEmptyState } from "@/components/public/public-page-layout";
 import type { PublicDepartmentCatalogItem } from "@/components/public/public-home-types";
 import { usePublicDepartmentCatalog } from "@/lib/public-lists-query";
 
-const PAGE_SIZE = 8;
+const PAGE_SIZE = 9;
 
 export function DepartmentCatalogClient() {
   const router = useRouter();
@@ -115,11 +115,11 @@ export function DepartmentCatalogClient() {
           <ResultCount loading={loading} shown={items.length} total={data?.pagination.total || 0} noun="chuyên khoa" />
         </div>
         {loading ? (
-          <RowSkeleton />
+          <CardSkeleton />
         ) : items.length ? (
-          <RowList busy={catalogQuery.isFetching}>
-            {items.map((department) => <DepartmentRow key={department.id} department={department} />)}
-          </RowList>
+          <ul aria-busy={catalogQuery.isFetching} className={`grid gap-4 sm:grid-cols-2 lg:grid-cols-3 ${catalogQuery.isFetching ? "opacity-70" : ""}`}>
+            {items.map((department) => <DepartmentCard key={department.id} department={department} />)}
+          </ul>
         ) : (
           <PublicEmptyState>Không tìm thấy chuyên khoa phù hợp. Thử tên khác hoặc mô tả triệu chứng ngắn hơn.</PublicEmptyState>
         )}
@@ -130,23 +130,50 @@ export function DepartmentCatalogClient() {
   );
 }
 
-function DepartmentRow({ department }: { department: PublicDepartmentCatalogItem }) {
-  const detailUrl = department.slug ? `/chuyen-khoa/${department.slug}` : `/bac-si?departmentId=${department.id}`;
-  const meta = [`${department.doctorCount} bác sĩ`, `${department.packageCount} gói khám`, department.reviewSummary.count ? `${department.reviewSummary.averageRating.toFixed(1)} sao (${department.reviewSummary.count})` : ""].filter(Boolean).join(" · ");
+function CardSkeleton() {
   return (
-    <li className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:gap-6">
-      <div className="min-w-0 flex-1">
-        <h2 className="text-lg font-bold"><Link href={detailUrl} className="hover:text-[var(--public-primary)]">{department.name}</Link></h2>
-        <p className="mt-0.5 line-clamp-2 text-base text-[var(--public-text-soft)]">{department.description || "Thông tin chuyên khoa đang được cập nhật."}</p>
-        <p className="mt-1.5 text-sm text-[var(--public-muted)]">
-          {meta}
-          {department.availableSlotCount > 0 ? <span className="ml-2 font-semibold text-[var(--public-success)]">Có lịch trống</span> : null}
-        </p>
-        {department.symptomKeywords?.length ? <p className="mt-1 text-sm text-[var(--public-muted)]">Thường khám: {department.symptomKeywords.slice(0, 4).join(", ")}</p> : null}
-      </div>
-      <div className="flex shrink-0 gap-2">
-        <Link href={detailUrl} className="public-button-secondary inline-flex min-h-11 items-center rounded-lg px-4 text-sm font-semibold">Chi tiết</Link>
-        <Link href={`/dat-lich?departmentId=${department.id}`} className="public-button-primary inline-flex min-h-11 items-center rounded-lg px-4 text-sm font-semibold">Đặt lịch</Link>
+    <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      {Array.from({ length: 6 }).map((_, index) => (
+        <li key={index} className="overflow-hidden rounded-2xl border border-[var(--public-border)] bg-[var(--public-surface)]">
+          <span className="skeleton-shimmer block aspect-[2/1] w-full" />
+          <span className="block space-y-2 p-4">
+            <span className="skeleton-shimmer block h-5 w-1/2 rounded" />
+            <span className="skeleton-shimmer block h-4 w-4/5 rounded" />
+            <span className="skeleton-shimmer block h-4 w-1/3 rounded" />
+          </span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+// Thẻ chuyên khoa: ảnh (hoặc nền màu khi chưa có ảnh), tên, mô tả, số liệu thật; cả thẻ là một vùng bấm vào trang chi tiết, nút đặt lịch đi thẳng vào luồng đặt.
+function DepartmentCard({ department }: { department: PublicDepartmentCatalogItem }) {
+  const detailUrl = department.slug ? `/chuyen-khoa/${department.slug}` : `/bac-si?departmentId=${department.id}`;
+  const meta = [
+    department.doctorCount ? `${department.doctorCount} bác sĩ` : "",
+    department.packageCount ? `${department.packageCount} gói khám` : "",
+    department.reviewSummary.count ? `${department.reviewSummary.averageRating.toFixed(1)} sao (${department.reviewSummary.count})` : "",
+  ].filter(Boolean).join(" · ");
+  return (
+    <li className="group/dept flex flex-col overflow-hidden rounded-2xl border border-[var(--public-border)] bg-[var(--public-surface)] transition hover:-translate-y-0.5 hover:border-[var(--public-primary)] hover:shadow-lg">
+      <Link href={detailUrl} tabIndex={-1} aria-hidden="true" className="block aspect-[2/1] overflow-hidden bg-[var(--public-tint-strong)]">
+        {department.image ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={department.image} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover transition-transform duration-300 group-hover/dept:scale-105" />
+        ) : null}
+      </Link>
+      <div className="flex min-w-0 flex-1 flex-col p-4">
+        <h2 className="text-lg font-semibold leading-snug"><Link href={detailUrl} className="hover:text-[var(--public-primary)]">{department.name}</Link></h2>
+        <p className="mt-1 line-clamp-2 text-base leading-7 text-[var(--public-text-soft)]">{department.description || "Thông tin chuyên khoa đang được cập nhật."}</p>
+        {meta ? <p className="mt-2 text-sm text-[var(--public-muted)]">{meta}</p> : null}
+        {department.availableSlotCount > 0 ? (
+          <p className="mt-2"><span className="inline-flex rounded-full bg-[var(--public-success-soft)] px-2.5 py-0.5 text-sm font-medium text-[var(--public-success)]">Có lịch trống</span></p>
+        ) : null}
+        <div className="mt-auto flex flex-wrap gap-2 pt-4">
+          <Link href={`/dat-lich?departmentId=${department.id}`} className="public-button-primary inline-flex min-h-11 items-center rounded-lg px-4 text-sm font-semibold">Xem giờ trống</Link>
+          <Link href={detailUrl} className="public-button-secondary inline-flex min-h-11 items-center rounded-lg px-4 text-sm font-semibold">Chi tiết</Link>
+        </div>
       </div>
     </li>
   );
