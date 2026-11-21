@@ -36,95 +36,28 @@ import {
   useDashboardAppointmentDoctors,
   useDashboardAppointments,
 } from "@/lib/dashboard-appointments-query";
-import { formatVietnamDate, getVietnamDateInput, getVietnamYesterdayDateInput } from "@/lib/date";
+import { formatVietnamDate, getVietnamYesterdayDateInput } from "@/lib/date";
 import { can } from "@/lib/permissions";
 import { formatCurrency } from "@/lib/format";
 import { usePublicAvailableSlots } from "@/lib/public-slots-query";
 import { queryKeys } from "@/lib/query-keys";
-import type { Appointment, AppointmentStatus, DoctorProfile } from "@/lib/types";
+import type { Appointment } from "@/lib/types";
 import { useDebouncedValue } from "@/lib/use-debounced-value";
+import {
+  today,
+  doctorName,
+  isCancelled,
+  type PatientInfoForm,
+  emptyPatientInfoForm,
+  buildPatientInfoForm,
+  canEditPatientInfoStatus,
+  otherStatuses,
+  ACTIVE_TAB,
+  mainStatusTabs,
+} from "./appointment-model";
 
 // Lịch hẹn: danh sách bên trái; chọn một lịch thì danh sách thu hẹp và khung bên phải gom thông tin người khám,
 // thanh toán và các thao tác (xác nhận, tiếp nhận, đổi lịch, hủy, cập nhật thông tin tiếp nhận).
-
-const today = () => getVietnamDateInput();
-
-const doctorName = (doctor: DoctorProfile | Appointment["doctor"]) =>
-  [doctor.title, doctor.user.fullName].filter(Boolean).join(" ");
-
-const isCancelled = (status: AppointmentStatus) => status.startsWith("CANCELLED");
-
-type PatientInfoForm = {
-  patientName: string;
-  patientEmail: string;
-  gender: "" | "MALE" | "FEMALE" | "OTHER";
-  dateOfBirth: string;
-  cccd: string;
-  address: string;
-  hasBHYT: boolean;
-  healthInsuranceCode: string;
-  registeredHospital: string;
-  allergies: string;
-  medicalHistory: string;
-  familyHistory: string;
-};
-
-const emptyPatientInfoForm: PatientInfoForm = {
-  patientName: "",
-  patientEmail: "",
-  gender: "",
-  dateOfBirth: "",
-  cccd: "",
-  address: "",
-  hasBHYT: false,
-  healthInsuranceCode: "",
-  registeredHospital: "",
-  allergies: "",
-  medicalHistory: "",
-  familyHistory: "",
-};
-
-const toDateInputValue = (value: string | null) => (value ? value.slice(0, 10) : "");
-
-const buildPatientInfoForm = (appointment: Appointment): PatientInfoForm => ({
-  patientName: appointment.patientName,
-  patientEmail: appointment.patientEmail || "",
-  gender: appointment.patientGender || "",
-  dateOfBirth: toDateInputValue(appointment.patientDateOfBirth),
-  cccd: appointment.patientCccd || "",
-  address: appointment.patientAddress || "",
-  hasBHYT: appointment.hasBHYT,
-  healthInsuranceCode: appointment.healthInsuranceCode || "",
-  registeredHospital: appointment.registeredHospital || "",
-  allergies: appointment.allergies || "",
-  medicalHistory: appointment.medicalHistory || "",
-  familyHistory: appointment.familyHistory || "",
-});
-
-const canEditPatientInfoStatus = (status: AppointmentStatus) =>
-  ["PENDING_CONFIRM", "CONFIRMED", "CHECKED_IN", "IN_PROGRESS", "COMPLETED"].includes(status);
-
-// Các trạng thái hiếm gặp gom vào một ô chọn để dãy tab gọn.
-const otherStatuses: { value: AppointmentStatus; label: string }[] = [
-  { value: "PENDING_OTP", label: "Chờ mã xác thực" },
-  { value: "RESCHEDULED", label: "Đã đổi lịch" },
-  { value: "NO_SHOW", label: "Không đến" },
-  { value: "CANCELLED_BY_PATIENT", label: "Người khám hủy" },
-  { value: "CANCELLED_BY_DOCTOR", label: "Bác sĩ hủy" },
-  { value: "CANCELLED_BY_ADMIN", label: "Quản trị hủy" },
-];
-
-// "Cần xử lý" là hàng đợi mặc định: ca đang khám, người đã đến chờ, lịch đã xác nhận, lịch chờ xác nhận theo thứ tự ưu tiên.
-const ACTIVE_TAB = "ACTIVE";
-const mainStatusTabs = [
-  { id: ACTIVE_TAB, label: "Cần xử lý" },
-  { id: "all", label: "Tất cả" },
-  { id: "PENDING_CONFIRM", label: "Chờ xác nhận" },
-  { id: "CONFIRMED", label: "Đã xác nhận" },
-  { id: "CHECKED_IN", label: "Đã tiếp nhận" },
-  { id: "IN_PROGRESS", label: "Đang khám" },
-  { id: "COMPLETED", label: "Hoàn thành" },
-];
 
 export default function AppointmentsPage() {
   const { user } = useAuth();

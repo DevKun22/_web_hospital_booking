@@ -19,7 +19,6 @@ import {
   DsTextarea,
   DsToolbar,
   type DsColumn,
-  type DsTone,
   useActionToast,
   useConfirm,
   DsLoading,
@@ -42,95 +41,26 @@ import { useDebouncedValue } from "@/lib/use-debounced-value";
 
 import { can } from "@/lib/permissions";
 import { queryKeys } from "@/lib/query-keys";
-import type { DoctorProfile, LabResult, MedicalRecord, MedicalResultStatus } from "@/lib/types";
+import type { LabResult, MedicalRecord } from "@/lib/types";
+import {
+  type RecordForm,
+  type LabForm,
+  emptyRecordForm,
+  emptyLabForm,
+  statusLabel,
+  statusTone,
+  doctorName,
+  toRecordForm,
+  toLabForm,
+  buildRecordPayload,
+  buildLabPayload,
+  statusTabs,
+  textFields,
+} from "./record-model";
 
 // Hồ sơ khám: danh sách bên trái; chọn một hồ sơ thì danh sách thu hẹp và khung làm việc chiếm phần còn lại
 // (biểu mẫu chuyên môn, tệp kết quả, kết quả cận lâm sàng, việc cần làm trước khi công bố).
 
-type RecordForm = {
-  symptoms: string;
-  diagnosis: string;
-  treatment: string;
-  doctorNotes: string;
-  resultPdfUrl: string;
-};
-
-type LabForm = {
-  testName: string;
-  resultValue: string;
-  unit: string;
-  referenceRange: string;
-  conclusion: string;
-  fileUrl: string;
-};
-
-const emptyRecordForm: RecordForm = { symptoms: "", diagnosis: "", treatment: "", doctorNotes: "", resultPdfUrl: "" };
-const emptyLabForm: LabForm = { testName: "", resultValue: "", unit: "", referenceRange: "", conclusion: "", fileUrl: "" };
-
-const statusLabel: Record<MedicalResultStatus, string> = {
-  DRAFT: "Bản nháp",
-  PUBLISHED: "Đã công bố",
-  ARCHIVED: "Đã lưu trữ",
-};
-
-const statusTone: Record<MedicalResultStatus, DsTone> = {
-  DRAFT: "warn",
-  PUBLISHED: "good",
-  ARCHIVED: "neutral",
-};
-
-const doctorName = (doctor: DoctorProfile | MedicalRecord["doctor"]) =>
-  [doctor.title, doctor.user.fullName].filter(Boolean).join(" ");
-
-const toRecordForm = (record: MedicalRecord): RecordForm => ({
-  symptoms: record.symptoms || "",
-  diagnosis: record.diagnosis || "",
-  treatment: record.treatment || "",
-  doctorNotes: record.doctorNotes || "",
-  resultPdfUrl: record.resultPdfUrl || "",
-});
-
-const toLabForm = (lab: LabResult): LabForm => ({
-  testName: lab.testName,
-  resultValue: lab.resultValue || "",
-  unit: lab.unit || "",
-  referenceRange: lab.referenceRange || "",
-  conclusion: lab.conclusion || "",
-  fileUrl: lab.fileUrl || "",
-});
-
-const buildRecordPayload = (form: RecordForm) => ({
-  symptoms: form.symptoms.trim() || null,
-  diagnosis: form.diagnosis.trim() || null,
-  treatment: form.treatment.trim() || null,
-  doctorNotes: form.doctorNotes.trim() || null,
-  resultPdfUrl: form.resultPdfUrl.trim() || null,
-});
-
-const buildLabPayload = (form: LabForm) => ({
-  testName: form.testName.trim(),
-  resultValue: form.resultValue.trim() || null,
-  unit: form.unit.trim() || null,
-  referenceRange: form.referenceRange.trim() || null,
-  conclusion: form.conclusion.trim() || null,
-  fileUrl: form.fileUrl.trim() || null,
-});
-
-const statusTabs = [
-  { id: "", label: "Tất cả" },
-  { id: "DRAFT", label: "Bản nháp" },
-  { id: "PUBLISHED", label: "Đã công bố" },
-  { id: "ARCHIVED", label: "Đã lưu trữ" },
-];
-
-const textFields: { key: keyof RecordForm; label: string; hint?: string; rows: number; internal?: boolean }[] = [
-  { key: "symptoms", label: "Triệu chứng", rows: 3 },
-  { key: "diagnosis", label: "Chẩn đoán", rows: 3 },
-  { key: "treatment", label: "Hướng điều trị", rows: 3 },
-  { key: "doctorNotes", label: "Ghi chú của bác sĩ", hint: "Nội bộ: người khám không nhìn thấy.", rows: 2, internal: true },
-];
-
-// Vùng chọn hoặc kéo thả tệp, dùng cho tệp kết quả của hồ sơ và của từng kết quả cận lâm sàng.
 function FileDrop({ inputId, busy, onFile }: { inputId: string; busy: boolean; onFile: (file: File | undefined) => void }) {
   const [over, setOver] = useState(false);
 
