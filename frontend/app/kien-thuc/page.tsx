@@ -1,7 +1,8 @@
 /* eslint-disable @next/next/no-img-element */
 import Link from "next/link";
-import { BookOpenText, Search } from "lucide-react";
-import { PublicBreadcrumb } from "@/components/public/public-page-layout";
+import { BookOpenText, ChevronLeft, ChevronRight, Search } from "lucide-react";
+import { CatalogHeader } from "@/components/public/catalog-parts";
+import { chipClass, FLAT_SEARCH_BUTTON_CLASS, FLAT_SEARCH_INPUT_CLASS } from "@/components/public/chip-styles";
 import { serverApiRequest } from "@/lib/server-api";
 import { buildCollectionPageJsonLd, jsonLdString } from "@/lib/seo";
 import type { PublicArticleList } from "@/lib/types";
@@ -42,75 +43,69 @@ export default async function KnowledgePage({ searchParams }: PageProps) {
   return (
     <main className="min-h-screen bg-[var(--public-canvas)] text-[var(--public-ink)]">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdString(pageJsonLd) }} />
-      <div className="ui-container py-5 sm:py-8">
-        <PublicBreadcrumb current="Kiến thức sức khỏe" />
-        <h1 className="text-2xl font-bold sm:text-3xl">Kiến thức sức khỏe</h1>
-        <p className="mt-2 max-w-2xl text-base leading-7 text-[var(--public-text-soft)]">
-          Bài viết do đội ngũ bác sĩ biên soạn và duyệt. Đây là thông tin tham khảo, không thay thế tư vấn của bác sĩ.
-        </p>
+      <CatalogHeader current="Kiến thức sức khỏe" title="Kiến thức sức khỏe" description="Bài viết do đội ngũ bác sĩ biên soạn và duyệt. Đây là thông tin tham khảo, không thay thế tư vấn của bác sĩ.">
+        <div className="space-y-3">
+          <form action="/kien-thuc" method="get" role="search" className="max-w-xl">
+            {category ? <input type="hidden" name="category" value={category} /> : null}
+            <label className="relative block">
+              <span className="sr-only">Tìm bài viết</span>
+              <input name="q" defaultValue={q} placeholder="Tìm bài viết, ví dụ: ăn uống, giấc ngủ" autoComplete="off" enterKeyHint="search" className={FLAT_SEARCH_INPUT_CLASS} />
+              <button type="submit" aria-label="Tìm kiếm" className={FLAT_SEARCH_BUTTON_CLASS}>
+                <Search className="h-4 w-4" aria-hidden="true" />
+              </button>
+            </label>
+          </form>
+          {data?.categories.length ? (
+            <nav aria-label="Danh mục bài viết" className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0 sm:pb-0">
+              <Link href={hrefFor({ q })} aria-current={!category ? "true" : undefined} className={chipClass(!category)}>Tất cả</Link>
+              {data.categories.map((item) => (
+                <Link key={item.name} href={hrefFor({ category: item.name, q })} aria-current={category === item.name ? "true" : undefined} className={chipClass(category === item.name)}>
+                  {item.name} ({item.count})
+                </Link>
+              ))}
+              {q || category ? <Link href="/kien-thuc" className="inline-flex min-h-9 shrink-0 items-center text-sm font-medium text-[var(--public-primary)] underline underline-offset-4">Xóa lọc</Link> : null}
+            </nav>
+          ) : null}
+        </div>
+      </CatalogHeader>
 
-        <form action="/kien-thuc" method="get" className="mt-5 flex max-w-xl gap-2" role="search">
-          {category ? <input type="hidden" name="category" value={category} /> : null}
-          <label className="sr-only" htmlFor="article-search">Tìm bài viết</label>
-          <input id="article-search" name="q" defaultValue={q} placeholder="Tìm bài viết, ví dụ: ăn uống, giấc ngủ" className="ui-field min-w-0 flex-1 px-3 py-2 text-base sm:text-sm" />
-          <button type="submit" className="public-button-primary inline-flex min-h-11 items-center gap-2 rounded-xl px-4 text-sm font-semibold text-white">
-            <Search className="h-4 w-4" aria-hidden="true" />
-            Tìm
-          </button>
-        </form>
-
-        {data?.categories.length ? (
-          <nav aria-label="Danh mục bài viết" className="mt-4 flex flex-wrap gap-2">
-            <Link href={hrefFor({ q })} className={`rounded-full border px-3 py-1.5 text-sm ${!category ? "border-[var(--public-primary)] bg-[var(--public-primary-soft)] font-semibold text-[var(--public-primary-dark)]" : "border-[var(--public-border)] bg-white text-[var(--public-text-soft)] hover:bg-[var(--public-surface-muted)]"}`}>
-              Tất cả
-            </Link>
-            {data.categories.map((item) => (
-              <Link key={item.name} href={hrefFor({ category: item.name, q })} className={`rounded-full border px-3 py-1.5 text-sm ${category === item.name ? "border-[var(--public-primary)] bg-[var(--public-primary-soft)] font-semibold text-[var(--public-primary-dark)]" : "border-[var(--public-border)] bg-white text-[var(--public-text-soft)] hover:bg-[var(--public-surface-muted)]"}`}>
-                {item.name} ({item.count})
-              </Link>
-            ))}
-          </nav>
-        ) : null}
-
+      <section className="ui-container py-6 sm:py-8">
         {!data ? (
-          <p className="mt-8 rounded-lg border border-dashed border-[var(--public-border)] p-6 text-sm text-[var(--public-muted)]">Chưa tải được danh sách bài viết. Bạn thử tải lại trang nhé.</p>
+          <p className="rounded-lg border border-dashed border-[var(--public-border)] p-6 text-sm text-[var(--public-muted)]">Chưa tải được danh sách bài viết. Bạn thử tải lại trang nhé.</p>
         ) : data.items.length ? (
-          <ul className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {data.items.map((article) => (
               <li key={article.id}>
-                <Link href={`/kien-thuc/${article.slug}`} className="flex h-full flex-col overflow-hidden rounded-xl border border-[var(--public-border)] bg-[var(--public-surface)] transition hover:border-[var(--public-primary)]">
-                  <span className="flex aspect-[16/9] items-center justify-center overflow-hidden bg-[var(--public-primary-soft)] text-[var(--public-primary-dark)]" aria-hidden="true">
-                    {article.coverImage ? <img src={article.coverImage} alt="" width={640} height={360} loading="lazy" decoding="async" className="h-full w-full object-cover" /> : <BookOpenText className="h-9 w-9" />}
+                <Link href={`/kien-thuc/${article.slug}`} className="group flex h-full flex-col overflow-hidden rounded-2xl border border-[var(--public-border)] bg-[var(--public-surface)] transition hover:-translate-y-0.5 hover:border-[var(--public-primary)] hover:shadow-lg motion-reduce:transition-none">
+                  <span className="flex aspect-[5/2] items-center justify-center overflow-hidden bg-[var(--public-tint-strong)] text-[var(--public-primary-dark)]" aria-hidden="true">
+                    {article.coverImage ? <img src={article.coverImage} alt="" width={640} height={256} loading="lazy" decoding="async" className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105" /> : <BookOpenText className="h-9 w-9" />}
                   </span>
                   <span className="flex flex-1 flex-col p-4">
-                  <span className="flex items-center gap-1.5 text-xs font-semibold text-[var(--public-primary)]">
-                    <BookOpenText className="h-3.5 w-3.5" aria-hidden="true" />
-                    {article.category || "Kiến thức sức khỏe"}
-                  </span>
-                  <h2 className="mt-2 text-lg font-bold leading-snug">{article.title}</h2>
-                  {article.summary ? <p className="mt-2 line-clamp-3 text-sm leading-6 text-[var(--public-text-soft)]">{article.summary}</p> : null}
-                  <span className="mt-auto pt-3 text-xs text-[var(--public-muted)]">
-                    {[article.reviewerName ? `Duyệt: ${article.reviewerName}` : "", formatDate(article.publishedAt)].filter(Boolean).join(" · ")}
-                  </span>
+                    <span className="text-sm font-medium text-[var(--public-primary)]">{article.category || "Kiến thức sức khỏe"}</span>
+                    <h2 className="mt-1 text-lg font-semibold leading-snug">{article.title}</h2>
+                    {article.summary ? <span className="mt-1.5 line-clamp-2 text-base leading-7 text-[var(--public-text-soft)]">{article.summary}</span> : null}
+                    <span className="mt-auto pt-3 text-sm text-[var(--public-muted)]">
+                      {[article.reviewerName ? `Duyệt: ${article.reviewerName}` : "", formatDate(article.publishedAt)].filter(Boolean).join(" · ")}
+                    </span>
                   </span>
                 </Link>
               </li>
             ))}
           </ul>
         ) : (
-          <p className="mt-8 rounded-lg border border-dashed border-[var(--public-border)] p-6 text-sm text-[var(--public-muted)]">
+          <p className="rounded-lg border border-dashed border-[var(--public-border)] p-6 text-sm text-[var(--public-muted)]">
             {q || category ? "Chưa có bài viết phù hợp. Bạn thử từ khóa hoặc danh mục khác." : "Các bài viết kiến thức sức khỏe sẽ sớm được cập nhật."}
           </p>
         )}
 
         {data && data.pagination.totalPages > 1 ? (
-          <nav aria-label="Phân trang" className="mt-6 flex items-center justify-between gap-3 text-sm">
-            {page > 1 ? <Link href={hrefFor({ category, q, page: page - 1 })} className="rounded-xl border border-[var(--public-border)] bg-white px-4 py-2 font-medium">Trang trước</Link> : <span />}
+          <nav aria-label="Phân trang" className="mt-8 flex items-center justify-center gap-3 text-sm">
+            {page > 1 ? <Link href={hrefFor({ category, q, page: page - 1 })} aria-label="Trang trước" className="inline-flex min-h-10 min-w-10 items-center justify-center rounded-lg border border-[var(--public-border)] bg-[var(--public-surface)] hover:border-[var(--public-primary)]"><ChevronLeft className="h-4 w-4" aria-hidden="true" /></Link> : null}
             <span className="text-[var(--public-muted)]">Trang {page}/{data.pagination.totalPages}</span>
-            {page < data.pagination.totalPages ? <Link href={hrefFor({ category, q, page: page + 1 })} className="rounded-xl border border-[var(--public-border)] bg-white px-4 py-2 font-medium">Trang sau</Link> : <span />}
+            {page < data.pagination.totalPages ? <Link href={hrefFor({ category, q, page: page + 1 })} aria-label="Trang sau" className="inline-flex min-h-10 min-w-10 items-center justify-center rounded-lg border border-[var(--public-border)] bg-[var(--public-surface)] hover:border-[var(--public-primary)]"><ChevronRight className="h-4 w-4" aria-hidden="true" /></Link> : null}
           </nav>
         ) : null}
-      </div>
+      </section>
     </main>
   );
 }

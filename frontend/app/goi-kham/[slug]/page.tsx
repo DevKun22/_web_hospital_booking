@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { cache } from "react";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, Check } from "lucide-react";
 import Link from "next/link";
 import { PublicBreadcrumb } from "@/components/public/public-page-layout";
 import { AnchorNav } from "@/components/public/catalog-content";
@@ -159,9 +159,12 @@ export default async function PublicPackageDetailPage({ params }: PageProps) {
             {includedItems.length ? (
               <ul className="mt-3 divide-y divide-[var(--public-divider)] overflow-hidden rounded-lg border border-[var(--public-border)] bg-[var(--public-surface)]">
                 {includedItems.map((item) => (
-                  <li key={item.id} className="p-4">
-                    <p className="text-base font-semibold">{item.name}</p>
-                    {item.description ? <p className="mt-1 text-sm leading-6 text-[var(--public-muted)]">{item.description}</p> : null}
+                  <li key={item.id} className="flex items-start gap-3 p-4">
+                    <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[var(--public-success-soft)] text-[var(--public-success)]" aria-hidden="true"><Check className="h-4 w-4" /></span>
+                    <div className="min-w-0">
+                      <p className="text-base font-semibold">{item.name}</p>
+                      {item.description ? <p className="mt-1 text-sm leading-6 text-[var(--public-muted)]">{item.description}</p> : null}
+                    </div>
                   </li>
                 ))}
               </ul>

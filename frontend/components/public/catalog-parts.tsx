@@ -3,6 +3,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { ChevronRight } from "lucide-react";
+import { chipClass } from "@/components/public/chip-styles";
 import { openPublicChatbot } from "@/lib/public-ui-events";
 
 // Đầu trang danh mục: đường dẫn, tiêu đề, một câu mô tả; không có ảnh nền, ô số liệu hay nhãn trang trí.
@@ -30,11 +31,7 @@ export function FilterChip({ selected, onClick, children }: { selected: boolean;
       type="button"
       aria-pressed={selected}
       onClick={onClick}
-      className={`inline-flex min-h-9 shrink-0 items-center rounded-full border px-3.5 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--public-primary)] ${
-        selected
-          ? "border-[var(--public-primary)] bg-[var(--public-primary-soft)] text-[var(--public-primary-dark)]"
-          : "border-[var(--public-border)] bg-[var(--public-surface)] text-[var(--public-text-soft)] hover:border-[var(--public-primary)]"
-      }`}
+      className={chipClass(selected)}
     >
       {children}
     </button>

@@ -4,6 +4,8 @@ import { notFound } from "next/navigation";
 import { cache } from "react";
 import { ArrowRight, ShieldCheck } from "lucide-react";
 import { ArticleContent } from "@/components/public/article-content";
+import { ArticleOutline } from "@/components/public/article-outline";
+import { AskKunButton } from "@/components/public/ask-kun-button";
 import { PublicBreadcrumb } from "@/components/public/public-page-layout";
 import { SummarizeWithKun } from "@/components/public/summarize-with-kun";
 import { estimateReadingMinutes, getOutline, parseMarkdown } from "@/lib/markdown";
@@ -107,26 +109,36 @@ export default async function KnowledgeArticlePage({ params }: PageProps) {
             Đây là thông tin tham khảo, không thay thế tư vấn, chẩn đoán hay điều trị của bác sĩ. Nếu có dấu hiệu nặng hoặc kéo dài, hãy đến cơ sở y tế gần nhất.
           </p>
 
-          <Link href={bookingHref} className="public-button-primary mt-5 inline-flex min-h-11 items-center gap-2 rounded-xl px-5 text-sm font-semibold text-white">
-            {article.department ? `Đặt lịch khám ${article.department.name}` : "Đặt lịch khám"}
-            <ArrowRight className="h-4 w-4" aria-hidden="true" />
-          </Link>
         </article>
 
-        {outline.length > 1 ? (
-          <aside className="lg:sticky lg:top-24">
-            <nav aria-label="Mục lục" className="rounded-xl border border-[var(--public-border)] bg-[var(--public-surface)] p-4">
-              <p className="text-sm font-bold">Trong bài viết</p>
-              <ol className="mt-3 space-y-2 text-sm">
-                {outline.map((item) => (
-                  <li key={item.id}>
-                    <a href={`#${item.id}`} className="text-[var(--public-text-soft)] hover:text-[var(--public-primary)]">{item.text}</a>
-                  </li>
-                ))}
-              </ol>
-            </nav>
+        {outline.length > 1 || article.department ? (
+          <aside className="space-y-4 lg:sticky lg:top-24">
+            {outline.length > 1 ? <ArticleOutline items={outline} /> : null}
+            <section aria-label="Đặt lịch khám" className="hidden rounded-2xl border border-[var(--public-border)] bg-[var(--public-surface)] p-4 lg:block">
+              <p className="text-base font-semibold">{article.department ? `Đặt lịch khám ${article.department.name}` : "Đặt lịch khám"}</p>
+              <p className="mt-1 text-sm leading-6 text-[var(--public-text-soft)]">Chọn bác sĩ và giờ còn trống.</p>
+              <div className="mt-3 space-y-2">
+                <Link href={bookingHref} className="public-button-primary inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg px-4 text-sm font-semibold">
+                  Đặt lịch
+                  <ArrowRight className="h-4 w-4" aria-hidden="true" />
+                </Link>
+                <AskKunButton label="Hỏi Kun về bài này" />
+              </div>
+            </section>
           </aside>
         ) : null}
+      </div>
+
+      {/* Điện thoại: thanh nút đặt lịch cố định dưới màn hình, dùng chung kiểu với trang đặt lịch. */}
+      <div className="lg:hidden">
+        <div className="booking-action-bar">
+          <div className="booking-action-bar__inner">
+            <Link href={bookingHref} className="public-button-primary inline-flex min-h-12 flex-1 items-center justify-center gap-2 rounded-lg px-5 text-base font-semibold">
+              {article.department ? `Đặt lịch khám ${article.department.name}` : "Đặt lịch khám"}
+              <ArrowRight className="h-4 w-4" aria-hidden="true" />
+            </Link>
+          </div>
+        </div>
       </div>
     </main>
   );
