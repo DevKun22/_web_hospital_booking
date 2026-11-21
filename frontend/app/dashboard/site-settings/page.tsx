@@ -11,10 +11,9 @@ import {
   DsInput,
   DsNotice,
   DsPageHeader,
-  DsPane,
+  DsEditDialog,
   DsPanel,
   DsSelect,
-  DsSplit,
   DsStatusPill,
   DsTabs,
   DsTextarea,
@@ -792,7 +791,7 @@ export default function SiteSettingsPage() {
 
   const bannerPane =
     pane?.kind === "banner" ? (
-      <DsPane
+      <DsEditDialog size="lg"
         title={pane.banner ? "Sửa ảnh quảng bá" : "Tạo ảnh quảng bá"}
         badge={pane.banner ? <DsStatusPill tone={pane.banner.isActive ? "good" : "neutral"}>{pane.banner.isActive ? "Đang bật" : "Đang tắt"}</DsStatusPill> : undefined}
         onClose={closePane}
@@ -838,7 +837,7 @@ export default function SiteSettingsPage() {
             </DsField>
           </div>
           <Check id="bn-active" checked={bannerForm.isActive} onChange={(isActive) => setBannerForm((current) => ({ ...current, isActive }))} label="Đang bật" />
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+          <div className="ds-form-actions">
             {pane.banner ? (
               <>
                 <DsButton onClick={() => void toggleBanner(pane.banner as Banner)}>{pane.banner.isActive ? "Tắt ngay" : "Bật ngay"}</DsButton>
@@ -862,7 +861,7 @@ export default function SiteSettingsPage() {
             </DsNotice>
           ) : null}
         </div>
-      </DsPane>
+      </DsEditDialog>
     ) : null;
 
   const faqList = (
@@ -907,7 +906,7 @@ export default function SiteSettingsPage() {
 
   const faqPane =
     pane?.kind === "faq" ? (
-      <DsPane
+      <DsEditDialog size="lg"
         title={pane.faq ? "Sửa câu hỏi" : "Tạo câu hỏi"}
         badge={pane.faq ? <DsStatusPill tone={pane.faq.isActive ? "good" : "neutral"}>{pane.faq.isActive ? "Đang bật" : "Đang tắt"}</DsStatusPill> : undefined}
         onClose={closePane}
@@ -939,7 +938,7 @@ export default function SiteSettingsPage() {
           <Check id="faq-web" checked={faqForm.showOnWeb} onChange={(showOnWeb) => setFAQForm((current) => ({ ...current, showOnWeb }))} label="Hiện trên trang Hỏi đáp" />
           <Check id="faq-bot" checked={faqForm.useInChatbot} onChange={(useInChatbot) => setFAQForm((current) => ({ ...current, useInChatbot }))} label="Dùng cho trợ lý ảo" />
           <Check id="faq-active" checked={faqForm.isActive} onChange={(isActive) => setFAQForm((current) => ({ ...current, isActive }))} label="Đang bật" />
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+          <div className="ds-form-actions">
             {pane.faq ? (
               <>
                 <DsButton onClick={() => void toggleFAQ(pane.faq as DashboardFAQ)}>{pane.faq.isActive ? "Tắt ngay" : "Bật ngay"}</DsButton>
@@ -963,7 +962,7 @@ export default function SiteSettingsPage() {
             </DsNotice>
           ) : null}
         </div>
-      </DsPane>
+      </DsEditDialog>
     ) : null;
 
   return (
@@ -975,8 +974,8 @@ export default function SiteSettingsPage() {
       </div>
       {activeTab === "settings" ? settingsTab : null}
       {activeTab === "home" ? homeTab : null}
-      {activeTab === "banners" ? <DsSplit list={bannerList} pane={bannerPane} /> : null}
-      {activeTab === "faqs" ? <DsSplit list={faqList} pane={faqPane} /> : null}
+      {activeTab === "banners" ? <>{bannerList}{bannerPane}</> : null}
+      {activeTab === "faqs" ? <>{faqList}{faqPane}</> : null}
     </>
   );
 }

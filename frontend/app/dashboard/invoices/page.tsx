@@ -12,6 +12,7 @@ import {
   DsKeyValue,
   DsNotice,
   DsPageHeader,
+  DsEditDialog,
   DsPane,
   DsPanel,
   DsSelect,
@@ -948,7 +949,7 @@ export default function InvoicesPage() {
   );
 
   const createPane = creating ? (
-    <DsPane title="Tạo hóa đơn" onClose={closePane}>
+    <DsEditDialog size="lg" title="Tạo hóa đơn" onClose={closePane}>
       <form
         onSubmit={createInvoice}
         style={{ display: "grid", gap: 12 }}
@@ -1074,15 +1075,7 @@ export default function InvoicesPage() {
             />
           </div>
         </div>
-        <div
-          style={{
-            display: "flex",
-            gap: 8,
-            justifyContent: "flex-end",
-            alignItems: "center",
-            flexWrap: "wrap",
-          }}
-        >
+        <div className="ds-form-actions" style={{ alignItems: "center" }}>
           {!appointmentReadyForInvoice ? (
             <span className="ds-hint">
               Cần một lịch hẹn đã hoàn thành khám và chưa có hóa đơn.
@@ -1098,7 +1091,7 @@ export default function InvoicesPage() {
           </DsButton>
         </div>
       </form>
-    </DsPane>
+    </DsEditDialog>
   ) : null;
 
   const activeAction =
@@ -1675,7 +1668,8 @@ export default function InvoicesPage() {
       {queryErrorMessage ? (
         <DsNotice tone="bad">{queryErrorMessage}</DsNotice>
       ) : null}
-      <DsSplit wide list={list} pane={detailPane ?? createPane} />
+      <DsSplit wide list={list} pane={detailPane} />
+      {createPane}
     </>
   );
 }

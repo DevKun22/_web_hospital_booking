@@ -12,6 +12,7 @@ import {
   DsKeyValue,
   DsNotice,
   DsPageHeader,
+  DsEditDialog,
   DsPane,
   DsPanel,
   DsSelect,
@@ -293,8 +294,11 @@ export default function UploadsPage() {
           ) : null}
         </div>
       </DsPane>
-    ) : pane?.kind === "cleanup" && canDelete ? (
-      <DsPane title="Dọn ảnh chưa sử dụng" onClose={closePane}>
+    ) : null;
+
+  const cleanupDialog =
+    pane?.kind === "cleanup" && canDelete ? (
+      <DsEditDialog size="md" title="Dọn ảnh chưa sử dụng" onClose={closePane}>
         <div style={{ display: "grid", gap: 12 }}>
           <p className="ds-hint" style={{ margin: 0 }}>
             Chỉ xoá ảnh chưa được sử dụng và cũ hơn thời gian chỉ định. Hệ thống luôn chặn xoá ảnh đang được dùng.
@@ -307,7 +311,7 @@ export default function UploadsPage() {
               <DsInput id="cl-limit" inputMode="numeric" value={cleanupLimit} onChange={(event) => setCleanupLimit(event.target.value.replace(/\D/g, ""))} />
             </DsField>
           </div>
-          <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+          <div className="ds-form-actions">
             <DsButton onClick={closePane}>Đóng</DsButton>
             <DsButton variant="danger" disabled={busy} onClick={() => void cleanupUnused()}>
               {busy ? "Đang xử lý..." : "Dọn ảnh thừa"}
@@ -315,7 +319,7 @@ export default function UploadsPage() {
           </div>
           {cleanupResult ? <DsNotice tone="info">Đã quét {cleanupResult.scanned} ảnh, xoá {cleanupResult.deletedCount} ảnh, lỗi {cleanupResult.failedCount} ảnh.</DsNotice> : null}
         </div>
-      </DsPane>
+      </DsEditDialog>
     ) : null;
 
   return (
@@ -325,6 +329,7 @@ export default function UploadsPage() {
         {queryError ? <DsNotice tone="bad">{queryError}</DsNotice> : null}
       </div>
       <DsSplit list={list} pane={paneNode} />
+      {cleanupDialog}
     </>
   );
 }
