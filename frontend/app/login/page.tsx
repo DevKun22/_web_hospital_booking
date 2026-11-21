@@ -233,7 +233,6 @@ export default function LoginPage() {
                   onChange={(event) => setEmail(event.target.value)}
                   type="email"
                   inputMode="email"
-                  placeholder="ten@benhvien.vn"
                   autoComplete="username email"
                   autoFocus
                   required

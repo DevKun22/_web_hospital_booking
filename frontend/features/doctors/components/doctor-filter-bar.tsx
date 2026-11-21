@@ -17,7 +17,7 @@ export function DoctorFilterBar({ state, departments }: { state: FilterState; de
       onSubmit={submitSearch}
       onReset={reset}
       canReset={hasActiveFilters}
-      placeholder="Tên bác sĩ, chức danh, chuyên môn hoặc chuyên khoa"
+      placeholder="Tìm bác sĩ, chuyên khoa hoặc chuyên môn"
       controls={
         <>
           <FlatSelect label="Chuyên khoa" value={filters.departmentId} onChange={(departmentId) => update({ departmentId })}>

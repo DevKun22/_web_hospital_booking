@@ -54,7 +54,7 @@ export function FAQsClient({
             type="search"
             value={search}
             onChange={(event) => setSearch(event.target.value)}
-            placeholder="Ví dụ: OTP, BHYT, hủy lịch"
+            placeholder="Tìm câu hỏi"
             className="min-w-0 flex-1 border-0 bg-transparent py-2 text-base"
             style={{ outline: "none", boxShadow: "none" }}
           />

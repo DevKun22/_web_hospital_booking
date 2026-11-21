@@ -13,13 +13,13 @@ import {
 import { clearPendingAppointment, readPendingAppointment, writePendingAppointment } from "@/features/booking/pending-storage";
 import { buildProfilePrefill, resolveUrlPrefill } from "@/features/booking/prefill";
 import { useBookingStore } from "@/features/booking/store";
-import { validateBooking, validateOtp, validateSchedule, validateService } from "@/features/booking/validation";
+import { validateDetailFields, validateOtp, validateSchedule, validateService } from "@/features/booking/validation";
 import { loadOptionalPatientSession, patientSessionQueryKey } from "@/lib/patient-session-client";
 import { usePublicAvailableSlots } from "@/lib/public-slots-query";
 import { usePublicCapabilities } from "@/lib/public-capabilities-query";
 import { queryKeys } from "@/lib/query-keys";
 import { ApiError } from "@/lib/api";
-import { TERMS_REQUIRED_MESSAGE, legalQueryKey, useLegal } from "@/lib/legal";
+import { legalQueryKey, useLegal } from "@/lib/legal";
 
 const RESEND_COOLDOWN_SECONDS = 30;
 
@@ -158,15 +158,15 @@ export function useBookingFlow(catalog: BookingCatalog) {
 
   const continueFromService = useCallback(() => {
     const error = validateService(selection);
-    if (error) return fail(error);
+    if (error) return dispatch({ type: "step_invalid", message: error });
     dispatch({ type: "step_changed", step: "schedule" });
-  }, [selection, dispatch, fail]);
+  }, [selection, dispatch]);
 
   const continueFromSchedule = useCallback(() => {
     const error = validateSchedule(draft, todayInVietnam());
-    if (error) return fail(error);
+    if (error) return dispatch({ type: "step_invalid", message: error });
     dispatch({ type: "step_changed", step: "details" });
-  }, [draft, dispatch, fail]);
+  }, [draft, dispatch]);
 
   const goToStep = useCallback((step: "service" | "schedule" | "details") => dispatch({ type: "step_changed", step }), [dispatch]);
 
@@ -176,11 +176,15 @@ export function useBookingFlow(catalog: BookingCatalog) {
   const submitDetails = useCallback(async () => {
     if (submitInFlight.current) return;
     const today = todayInVietnam();
-    const error = validateBooking(selection, draft, today);
-    if (error) return fail(error);
+    // Thiếu lựa chọn ở các bước trước là hiếm (đã chặn ở từng bước): báo bằng thông báo nổi. Lỗi nhập liệu thì hiện tại từng ô.
+    const earlier = validateService(selection) || validateSchedule(draft, today);
+    if (earlier) return fail(earlier);
     // Khách chưa đăng nhập phải đồng ý điều khoản (nếu cơ sở đã soạn) trước khi nhận OTP; người đã đăng nhập đã đồng ý lúc đăng nhập.
     const needsTerms = !patient && Boolean(terms);
-    if (needsTerms && !draft.termsAccepted) return fail(TERMS_REQUIRED_MESSAGE);
+    if (Object.keys(validateDetailFields(draft, today)).length > 0 || (needsTerms && !draft.termsAccepted)) {
+      dispatch({ type: "submit_failed" });
+      return;
+    }
 
     submitInFlight.current = true;
     dispatch({ type: "submitting", value: true });
@@ -217,7 +221,7 @@ export function useBookingFlow(catalog: BookingCatalog) {
   const verifyOtp = useCallback(async () => {
     if (!pending) return;
     const error = validateOtp(state.otp);
-    if (error) return fail(error);
+    if (error) return dispatch({ type: "otp_error", message: error });
 
     dispatch({ type: "submitting", value: true });
     try {
@@ -228,7 +232,10 @@ export function useBookingFlow(catalog: BookingCatalog) {
       dispatch({ type: "verified", appointment, notice: "Xác thực OTP thành công. Lịch hẹn đã được xác nhận." });
       void refreshSlots();
     } catch (err) {
-      fail(messageOf(err, "Xác thực OTP thất bại"));
+      // Mã sai hoặc hết hạn là lỗi của ô nhập mã: hiện ngay dưới ô. Lỗi mạng, giới hạn tần suất hoặc máy chủ thì dùng thông báo nổi.
+      const message = messageOf(err, "Xác thực OTP thất bại");
+      if (err instanceof ApiError && err.status >= 400 && err.status < 500 && err.status !== 429) dispatch({ type: "otp_error", message });
+      else fail(message);
     }
   }, [pending, state.otp, dispatch, fail, refreshSlots, queryClient]);
 
@@ -288,6 +295,7 @@ export function useBookingFlow(catalog: BookingCatalog) {
     emailOtpAvailable,
     patient,
     profilePrefilled,
+    termsRequired: !patient && Boolean(terms),
     holdSeconds,
     resendCooldown,
     amount: estimateAmount(selection, catalog),

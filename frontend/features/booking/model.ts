@@ -69,6 +69,14 @@ export type BookingState = {
   error: string;
   // Lỗi gắn với ô Email (email bị từ chối): hiện ngay dưới ô, xóa khi người dùng sửa email.
   emailError: string;
+  // Các ô ở bước thông tin đã rời ô ít nhất một lần: chỉ ô đã chạm tới mới hiện lỗi hoặc dấu đúng.
+  touched: string[];
+  // Số lần bấm gửi mà còn ô sai: lớn hơn 0 thì hiện lỗi mọi ô, đổi giá trị để đưa tiêu điểm tới ô sai đầu tiên.
+  submitAttempts: number;
+  // Lỗi chọn thiếu ở bước dịch vụ hoặc ngày giờ: hiện ngay tại bước, xóa khi người dùng đổi lựa chọn.
+  stepError: string;
+  // Lỗi mã OTP (sai, hết hạn, thiếu số): hiện ngay dưới ô nhập mã, xóa khi nhập lại.
+  otpError: string;
   // Thời điểm (ms) hết bị giới hạn tần suất; 0 khi không bị giới hạn. Nút gửi bị khóa và đếm ngược tới mốc này.
   cooldownUntil: number;
   // Đã áp dụng tham số trên URL (doctorId, packageId, ...) một lần.
@@ -132,6 +140,10 @@ export const createInitialState = (): BookingState => ({
   notice: "",
   error: "",
   emailError: "",
+  touched: [],
+  submitAttempts: 0,
+  stepError: "",
+  otpError: "",
   cooldownUntil: 0,
   urlApplied: false,
 });

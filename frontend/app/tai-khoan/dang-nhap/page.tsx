@@ -137,7 +137,7 @@ export default function PatientLoginPage() {
                 Email
                 <span className="ui-input-shell mt-2 flex min-h-12 items-center border border-[var(--public-border)] bg-[var(--public-surface)] px-3">
                   <Mail className="h-4 w-4 text-[var(--public-muted)]" aria-hidden="true" />
-                  <input type="email" inputMode="email" value={email} onChange={(event) => setEmail(event.target.value.trim().slice(0, 120))} autoComplete="username email" placeholder="ban@email.com" className="min-w-0 flex-1 bg-transparent px-3 py-3 text-base font-normal outline-none" required />
+                  <input type="email" inputMode="email" value={email} onChange={(event) => setEmail(event.target.value.trim().slice(0, 120))} autoComplete="username email" className="min-w-0 flex-1 bg-transparent px-3 py-3 text-base font-normal outline-none" required />
                 </span>
               </label>
               <TermsConsent checked={termsAccepted} onChange={setTermsAccepted} />
@@ -149,7 +149,7 @@ export default function PatientLoginPage() {
             <form onSubmit={handleOtp} className="mt-6 space-y-4">
               <label className="block text-sm font-semibold">
                 Mã xác thực
-                <input ref={otpRef} value={otp} onChange={(event) => setOtp(event.target.value.replace(/\D/g, "").slice(0, 6))} inputMode="numeric" autoComplete="one-time-code" placeholder="••••••" className="login-otp-input mt-2 min-h-14 w-full rounded-lg border border-[var(--public-border)] bg-[var(--public-surface)] px-4 text-center text-2xl font-bold tracking-[0.45em] outline-none focus:border-[var(--public-primary)]" required pattern="[0-9]{6}" />
+                <input ref={otpRef} value={otp} onChange={(event) => setOtp(event.target.value.replace(/\D/g, "").slice(0, 6))} inputMode="numeric" autoComplete="one-time-code" className="login-otp-input mt-2 min-h-14 w-full rounded-lg border border-[var(--public-border)] bg-[var(--public-surface)] px-4 text-center text-2xl font-bold tracking-[0.45em] outline-none focus:border-[var(--public-primary)]" required pattern="[0-9]{6}" />
               </label>
               {debugOtp ? <DebugOtpBox otp={debugOtp} onFill={setOtp} /> : null}
               <p className="text-sm leading-5 text-[var(--public-muted)]">

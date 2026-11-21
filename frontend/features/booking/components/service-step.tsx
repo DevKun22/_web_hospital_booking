@@ -19,7 +19,7 @@ export function ServiceStep({ flow, loading }: { flow: BookingFlow; loading: boo
   const needsPackage = selection.serviceMode === "PACKAGE" && !selection.packageId;
 
   return (
-    <StepFrame title="Bạn muốn khám gì?" description="Chọn chuyên khoa, hình thức khám và bác sĩ tiếp nhận.">
+    <StepFrame error={flow.state.stepError} title="Bạn muốn khám gì?" description="Chọn chuyên khoa, hình thức khám và bác sĩ tiếp nhận.">
       <Field label="Chuyên khoa" required>
         <select
           value={selection.departmentId}

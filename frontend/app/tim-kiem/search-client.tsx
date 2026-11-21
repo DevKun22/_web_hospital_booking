@@ -73,7 +73,7 @@ export default function SearchClient() {
                 type="search"
                 value={keyword}
                 onChange={(event) => setKeyword(event.target.value)}
-                placeholder="Ví dụ: tim mạch, tổng quát, thanh toán"
+                placeholder="Tìm chuyên khoa, bác sĩ, gói khám hoặc câu hỏi"
                 autoComplete="off"
                 enterKeyHint="search"
                 className={FLAT_SEARCH_INPUT_CLASS}

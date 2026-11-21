@@ -49,7 +49,7 @@ export default async function KnowledgePage({ searchParams }: PageProps) {
             {category ? <input type="hidden" name="category" value={category} /> : null}
             <label className="relative block">
               <span className="sr-only">Tìm bài viết</span>
-              <input name="q" defaultValue={q} placeholder="Tìm bài viết, ví dụ: ăn uống, giấc ngủ" autoComplete="off" enterKeyHint="search" className={FLAT_SEARCH_INPUT_CLASS} />
+              <input name="q" defaultValue={q} placeholder="Tìm bài viết" autoComplete="off" enterKeyHint="search" className={FLAT_SEARCH_INPUT_CLASS} />
               <button type="submit" aria-label="Tìm kiếm" className={FLAT_SEARCH_BUTTON_CLASS}>
                 <Search className="h-4 w-4" aria-hidden="true" />
               </button>

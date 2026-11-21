@@ -21,7 +21,7 @@ export function ScheduleStep({ flow }: { flow: BookingFlow }) {
   const pickDate = (value: string) => dispatch({ type: "draft_changed", patch: { date: value, timeSlotId: "" } });
 
   return (
-    <StepFrame title="Chọn ngày và giờ khám" description="Chỉ hiển thị khung giờ còn trống của bác sĩ đã chọn. Giờ theo múi giờ Việt Nam.">
+    <StepFrame error={state.stepError} title="Chọn ngày và giờ khám" description="Chỉ hiển thị khung giờ còn trống của bác sĩ đã chọn. Giờ theo múi giờ Việt Nam.">
       {!selection.doctorId ? (
         <EmptyNote>Chọn bác sĩ ở bước trước để xem lịch.</EmptyNote>
       ) : (

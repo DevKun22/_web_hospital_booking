@@ -105,7 +105,7 @@ export function PublicGlobalSearch({
             closeSearch();
           }
         }}
-        placeholder={large ? "Tìm bác sĩ, khoa, gói khám" : "Nhập tên bác sĩ, chuyên khoa hoặc gói khám..."}
+        placeholder={large ? "Tìm bác sĩ, chuyên khoa, gói khám" : "Tìm bác sĩ, chuyên khoa hoặc gói khám"}
         autoComplete="off"
         enterKeyHint="search"
         role="searchbox"
