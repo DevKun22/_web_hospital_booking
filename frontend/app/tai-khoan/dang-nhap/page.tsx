@@ -20,6 +20,10 @@ import { BrandLogo } from "@/components/branding/brand-logo";
 import { BRAND_NAME } from "@/lib/brand";
 type Step = "email" | "otp";
 
+const OTP_LENGTH = 6;
+const RESEND_COOLDOWN = 60;
+const formatCountdown = (total: number) => `${Math.floor(total / 60)}:${String(total % 60).padStart(2, "0")}`;
+
 // Chỉ cho phép quay về trang trong cổng người khám để tránh open redirect.
 function readSafeNextPath() {
   if (typeof window === "undefined") return "/tai-khoan";
@@ -37,6 +41,7 @@ export default function PatientLoginPage() {
   const [debugOtp, setDebugOtp] = useState("");
   const [sentTo, setSentTo] = useState("");
   const [seconds, setSeconds] = useState(0);
+  const [resendIn, setResendIn] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [termsAccepted, setTermsAccepted] = useState(false);
@@ -56,11 +61,16 @@ export default function PatientLoginPage() {
     return () => window.clearTimeout(timeoutId);
   }, []);
 
+  // Một đồng hồ chạy cho cả hạn của mã và thời gian chờ gửi lại.
+  const ticking = seconds > 0 || resendIn > 0;
   useEffect(() => {
-    if (seconds <= 0) return;
-    const timer = window.setInterval(() => setSeconds((value) => Math.max(0, value - 1)), 1000);
+    if (!ticking) return;
+    const timer = window.setInterval(() => {
+      setSeconds((value) => Math.max(0, value - 1));
+      setResendIn((value) => Math.max(0, value - 1));
+    }, 1000);
     return () => window.clearInterval(timer);
-  }, [seconds]);
+  }, [ticking]);
 
   const sendOtp = async () => {
     setError("");
@@ -75,6 +85,7 @@ export default function PatientLoginPage() {
       setDebugOtp(challenge.debugOtp || "");
       setSentTo(`email ${challenge.maskedTarget ?? email}`);
       setSeconds(challenge.expiresIn || 300);
+      setResendIn(RESEND_COOLDOWN);
       setOtp("");
       setStep("otp");
       window.requestAnimationFrame(() => otpRef.current?.focus());
@@ -126,7 +137,7 @@ export default function PatientLoginPage() {
             {step === "email" ? "Đăng nhập" : "Nhập mã xác thực"}
           </h1>
           <p className="mt-2 text-base leading-7 text-[var(--public-text-soft)]">
-            {step === "email" ? "Dùng email đã dùng khi đặt lịch. Chúng tôi gửi mã OTP đến email để xác nhận, không cần mật khẩu. Tài khoản dùng chung với ứng dụng di động." : `Mã gồm 6 chữ số đã được gửi đến ${sentTo}.`}
+            {step === "email" ? "Dùng email đã đặt lịch. Mã OTP gửi về email, không cần mật khẩu." : `Mã 6 chữ số đã gửi đến ${sentTo}.`}
           </p>
 
           {error ? <div role="alert" className="mt-5 rounded-lg border border-[var(--public-danger)] bg-[var(--public-danger-soft)] px-4 py-3 text-sm font-medium text-[var(--public-danger)]">{error}</div> : null}
@@ -149,27 +160,36 @@ export default function PatientLoginPage() {
             <form onSubmit={handleOtp} className="mt-6 space-y-4">
               <label className="block text-sm font-semibold">
                 Mã xác thực
-                <input ref={otpRef} value={otp} onChange={(event) => setOtp(event.target.value.replace(/\D/g, "").slice(0, 6))} inputMode="numeric" autoComplete="one-time-code" className="login-otp-input mt-2 min-h-14 w-full rounded-lg border border-[var(--public-border)] bg-[var(--public-surface)] px-4 text-center text-2xl font-bold tracking-[0.45em] outline-none focus:border-[var(--public-primary)]" required pattern="[0-9]{6}" />
+                <span className="relative mt-2 block">
+                  <span className="flex gap-2" aria-hidden="true">
+                    {Array.from({ length: OTP_LENGTH }, (_, index) => (
+                      <span key={index} className={`flex min-h-14 flex-1 items-center justify-center rounded-lg border bg-[var(--public-surface)] text-2xl font-bold ${index === Math.min(otp.length, OTP_LENGTH - 1) ? "border-2 border-[var(--public-primary)]" : "border-[var(--public-border)]"}`}>{otp[index] ?? ""}</span>
+                    ))}
+                  </span>
+                  <input ref={otpRef} value={otp} onChange={(event) => setOtp(event.target.value.replace(/\D/g, "").slice(0, OTP_LENGTH))} inputMode="numeric" autoComplete="one-time-code" aria-label="Mã xác thực 6 chữ số" className="login-otp-input absolute inset-0 h-full w-full cursor-text opacity-0" required pattern="[0-9]{6}" />
+                </span>
               </label>
               {debugOtp ? <DebugOtpBox otp={debugOtp} onFill={setOtp} /> : null}
               <p className="text-sm leading-5 text-[var(--public-muted)]">
-                Chưa thấy mã? Kiểm tra thư rác hoặc xác nhận đúng email. Nếu vẫn không nhận được, hãy liên hệ cơ sở khám. Nhân sự cơ sở khám đăng nhập ở{" "}
-                <Link href="/login" className="font-semibold text-[var(--public-primary)] underline underline-offset-4">trang nhân sự</Link>.
+                {seconds > 0 ? `Mã hết hạn sau ${formatCountdown(seconds)}. ` : "Mã đã hết hạn, hãy gửi lại mã. "}
+                Chưa thấy thư? Kiểm tra thư rác hoặc xác nhận đúng email.
               </p>
               <button disabled={submitting || otp.length !== 6} className="public-button-primary flex min-h-12 w-full items-center justify-center gap-2 rounded-lg px-4 text-base font-semibold disabled:cursor-not-allowed disabled:opacity-60">
                 {submitting ? <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" /> : null} Đăng nhập
               </button>
               <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
                 <button type="button" onClick={() => { setStep("email"); setOtp(""); setError(""); }} className="min-h-11 font-semibold text-[var(--public-text-soft)] hover:text-[var(--public-primary)]">Đổi email</button>
-                <button type="button" disabled={seconds > 0 || submitting} onClick={sendOtp} className="inline-flex min-h-11 items-center gap-1.5 font-semibold text-[var(--public-primary)] disabled:text-[var(--public-muted)]">
-                  <RotateCcw className="h-4 w-4" aria-hidden="true" /> {seconds > 0 ? `Gửi lại sau ${seconds}s` : "Gửi lại mã"}
+                <button type="button" disabled={resendIn > 0 || submitting} onClick={sendOtp} className="inline-flex min-h-11 items-center gap-1.5 font-semibold text-[var(--public-primary)] disabled:text-[var(--public-muted)]">
+                  <RotateCcw className="h-4 w-4" aria-hidden="true" /> {resendIn > 0 ? `Gửi lại sau ${resendIn}s` : "Gửi lại mã"}
                 </button>
               </div>
             </form>
           )}
 
           <p className="mt-6 border-t border-[var(--public-divider)] pt-4 text-sm leading-5 text-[var(--public-muted)]">
-            Bạn chỉ truy cập được hồ sơ thuộc quyền quản lý của mình.{" "}
+            Chưa có lịch nào?{" "}
+            <Link href="/dat-lich" className="font-semibold text-[var(--public-primary)] underline underline-offset-4">Đặt lịch khám</Link>.
+            <br />
             Là nhân sự cơ sở khám?{" "}
             <Link href="/login" className="font-semibold text-[var(--public-primary)] underline underline-offset-4">
               Đăng nhập tại đây

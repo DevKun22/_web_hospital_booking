@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { CalendarPlus, ChevronRight, FileHeart, LogOut, ReceiptText } from "lucide-react";
 import { DateBlock, doctorLine, StatusChip, timeRange } from "@/components/patient/appointment-parts";
+import { PersonName } from "@/components/patient/person-tag";
 import { PatientPageError, PatientPageLoading } from "@/components/patient/patient-page-ui";
 import { usePortalOverview, useUnreadNotificationCount } from "@/features/portal/hooks";
 import { PORTAL_GROUPS } from "@/features/portal/nav";
@@ -16,11 +17,15 @@ const RECENT_RESULT_DAYS = 14;
 
 const startOf = (item: PatientAppointment) => new Date(`${item.appointmentDate.slice(0, 10)}T${item.startTime || "00:00"}`);
 
+const UPCOMING_LIMIT = 3;
+
+// Lịch sắp tới của mọi người khám trong tài khoản, gần nhất trước.
 function findUpcoming(items: PatientAppointment[]) {
   const now = new Date();
   return items
     .filter((item) => ACTIVE_APPOINTMENT_STATUSES.has(item.status) && startOf(item) >= now)
-    .sort((a, b) => startOf(a).getTime() - startOf(b).getTime())[0];
+    .sort((a, b) => startOf(a).getTime() - startOf(b).getTime())
+    .slice(0, UPCOMING_LIMIT);
 }
 
 // Kết quả khám được công bố trong vài ngày gần đây thì nhắc xem.
@@ -44,13 +49,13 @@ export default function PatientPortalPage() {
   }
 
   const data = query.data;
-  const upcoming = findUpcoming(data.appointments.items);
+  const [upcoming, ...laterUpcoming] = findUpcoming(data.appointments.items);
   const unpaid = data.invoices.items.find((item) => item.status === "UNPAID");
   const recentResult = findRecentResult(data.medicalRecords.items);
-  const history = data.appointments.items.filter((item) => item !== upcoming && !ACTIVE_APPOINTMENT_STATUSES.has(item.status)).slice(0, 3);
+  const history = data.appointments.items.filter((item) => !ACTIVE_APPOINTMENT_STATUSES.has(item.status)).slice(0, 3);
   const todo = [
-    unpaid && { key: "invoice", href: `/tai-khoan/hoa-don/${unpaid.id}`, icon: ReceiptText, title: "Hóa đơn chờ thanh toán", note: `${unpaid.invoiceCode} · ${unpaid.appointment.department.name}`, trailing: formatMoney(unpaid.finalAmount), warn: true },
-    recentResult && { key: "result", href: `/tai-khoan/ho-so-suc-khoe/ket-qua/${recentResult.id}`, icon: FileHeart, title: "Có kết quả khám mới", note: `${recentResult.recordCode} · công bố ${formatShortDate(recentResult.publishedAt)}`, trailing: "", warn: false },
+    unpaid && { key: "invoice", href: `/tai-khoan/hoa-don/${unpaid.id}`, icon: ReceiptText, title: "Hóa đơn chờ thanh toán", note: `${unpaid.appointment.patientName ? `Của ${unpaid.appointment.patientName} · ` : ""}${unpaid.invoiceCode} · ${unpaid.appointment.department.name}`, trailing: formatMoney(unpaid.finalAmount), warn: true },
+    recentResult && { key: "result", href: `/tai-khoan/ho-so-suc-khoe/ket-qua/${recentResult.id}`, icon: FileHeart, title: "Có kết quả khám mới", note: `${recentResult.appointment.patientName ? `Của ${recentResult.appointment.patientName} · ` : ""}${recentResult.recordCode} · công bố ${formatShortDate(recentResult.publishedAt)}`, trailing: "", warn: false },
   ].filter(Boolean) as Array<{ key: string; href: string; icon: typeof FileHeart; title: string; note: string; trailing: string; warn: boolean }>;
 
   const handleLogout = async () => {
@@ -78,16 +83,17 @@ export default function PatientPortalPage() {
             <div className="flex items-start gap-4">
               <DateBlock date={upcoming.appointmentDate} />
               <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                  <p className="text-lg font-bold tabular-nums">{timeRange(upcoming)}, {formatShortDate(upcoming.appointmentDate)}</p>
+                <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+                  <p className="min-w-0 font-bold"><PersonName item={upcoming} /></p>
                   <StatusChip status={upcoming.status} />
                 </div>
-                <p className="mt-1 font-medium">{doctorLine(upcoming)}</p>
+                <p className="mt-1 text-lg font-bold tabular-nums">{timeRange(upcoming)}, {formatShortDate(upcoming.appointmentDate)}</p>
+                <p className="font-medium">{doctorLine(upcoming)}</p>
                 <p className="text-sm text-[var(--public-muted)]">{upcoming.department.name}{upcoming.package ? ` · ${upcoming.package.name}` : ""} · Mã {upcoming.bookingCode}</p>
               </div>
             </div>
             <Link href={`/tai-khoan/lich-hen/${upcoming.id}`} className="public-button-secondary mt-4 inline-flex min-h-11 w-full items-center justify-center rounded-lg px-4 text-sm font-semibold sm:w-auto">
-              Xem chi tiết hoặc hủy lịch
+              Xem chi tiết
             </Link>
           </div>
         ) : (
@@ -100,6 +106,21 @@ export default function PatientPortalPage() {
             </Link>
           </div>
         )}
+        {laterUpcoming.length ? (
+          <ul className="mt-2 divide-y divide-[var(--public-divider)] overflow-hidden rounded-xl border border-[var(--public-border)] bg-[var(--public-surface)]">
+            {laterUpcoming.map((item) => (
+              <li key={item.id}>
+                <Link href={`/tai-khoan/lich-hen/${item.id}`} className="flex min-h-14 items-center gap-3 px-4 py-2.5 hover:bg-[var(--public-surface-muted)]">
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-sm font-semibold"><PersonName item={item} /></span>
+                    <span className="block truncate text-xs text-[var(--public-muted)]">{timeRange(item)}, {formatShortDate(item.appointmentDate)} · {item.department.name}</span>
+                  </span>
+                  <ChevronRight className="h-4 w-4 shrink-0 text-[var(--public-muted)]" aria-hidden="true" />
+                </Link>
+              </li>
+            ))}
+          </ul>
+        ) : null}
       </section>
 
       {todo.length ? (
@@ -134,7 +155,7 @@ export default function PatientPortalPage() {
               <li key={item.id}>
                 <Link href={`/tai-khoan/lich-hen/${item.id}`} className="flex items-center gap-3 px-4 py-3 hover:bg-[var(--public-surface-muted)]">
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate text-sm font-semibold">{doctorLine(item)}</span>
+                    <span className="block truncate text-sm font-semibold">{item.patientName} · {doctorLine(item)}</span>
                     <span className="block text-xs text-[var(--public-muted)]">{formatShortDate(item.appointmentDate)} · {item.department.name}</span>
                   </span>
                   <StatusChip status={item.status} />
