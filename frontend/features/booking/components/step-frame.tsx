@@ -26,7 +26,7 @@ const LABEL = "block text-sm font-semibold text-[var(--public-ink)]";
 type ControlProps = { id?: string; className?: string; "aria-invalid"?: boolean; "aria-describedby"?: string };
 
 // Nhãn luôn hiện phía trên ô nhập (không dùng placeholder làm nhãn); dòng gợi ý nhỏ phía dưới.
-// Ô sai: viền đỏ, biểu tượng cảnh báo và câu lỗi ngay dưới ô (gắn aria-invalid và aria-describedby). Ô đúng sau khi đã nhập: viền xanh và dấu tích.
+// Ô sai: viền đỏ, biểu tượng cảnh báo và câu lỗi ngay dưới ô (gắn aria-invalid và aria-describedby). Ô đúng sau khi đã nhập: chỉ viền xanh và dấu tích, không thêm chữ.
 export function Field({
   label,
   hint,
@@ -40,7 +40,7 @@ export function Field({
   hint?: string;
   required?: boolean;
   error?: string;
-  success?: string;
+  success?: boolean;
   /** Mã ô, dùng để khung tóm tắt lỗi trỏ tới đúng ô. */
   fieldId?: string;
   children: ReactNode;
@@ -53,7 +53,7 @@ export function Field({
     ? cloneElement(children as ReactElement<ControlProps>, {
         id,
         "aria-invalid": error ? true : undefined,
-        "aria-describedby": error || success || hint ? messageId : undefined,
+        "aria-describedby": error || hint ? messageId : undefined,
         className: `${(children.props as ControlProps).className ?? ""} ${state === "error" ? "!border-[var(--public-danger)]" : state === "success" ? "!border-[var(--public-success)]" : ""} ${state !== "idle" && (children as ReactElement).type === "input" ? "pr-10" : ""}`.trim(),
       })
     : children;
@@ -72,8 +72,7 @@ export function Field({
       </div>
       <div id={messageId}>
         {error ? <p role="alert" className="mt-1.5 text-sm font-medium text-[var(--public-danger)]">{error}</p> : null}
-        {!error && success ? <p className="mt-1.5 text-sm font-medium text-[var(--public-success)]">{success}</p> : null}
-        {!error && !success && hint ? <p className="mt-1.5 text-xs leading-5 text-[var(--public-muted)]">{hint}</p> : null}
+        {!error && hint ? <p className="mt-1.5 text-xs leading-5 text-[var(--public-muted)]">{hint}</p> : null}
       </div>
     </div>
   );

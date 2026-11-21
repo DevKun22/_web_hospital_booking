@@ -28,13 +28,19 @@ export function DetailsStep({ flow }: { flow: BookingFlow }) {
   // Lỗi chỉ hiện ở ô đã rời đi hoặc sau khi bấm gửi; email bị máy chủ từ chối cũng hiện tại ô Email.
   const shown = (field: DetailField) => touched.includes(field) || submitAttempts > 0;
   const errorOf = (field: DetailField) => (field === "patientEmail" && state.emailError ? state.emailError : shown(field) ? errors[field] : "");
-  const successOf = (field: DetailField, message: string, value: string) => (touched.includes(field) && !errorOf(field) && value.trim() ? message : "");
+  const successOf = (field: DetailField, value: string) => touched.includes(field) && !errorOf(field) && Boolean(value.trim());
   const termsInvalid = termsRequired && submitAttempts > 0 && !draft.termsAccepted;
 
   const summary: { id: string; text: string }[] = [
     ...(Object.keys(errors) as DetailField[]).filter(() => submitAttempts > 0).map((field) => ({ id: field, text: `${FIELD_LABELS[field]}: ${errors[field]}` })),
     ...(termsInvalid ? [{ id: "booking-terms", text: "Điều khoản: chưa đồng ý điều khoản sử dụng." }] : []),
   ];
+
+  const goTo = (id: string) => {
+    const target = document.getElementById(id);
+    target?.scrollIntoView({ behavior: "smooth", block: "center" });
+    target?.focus({ preventScroll: true });
+  };
 
   // Bấm gửi mà còn ô sai: cuộn tới ô sai đầu tiên và đặt tiêu điểm vào đó (không dùng thông báo nổi cho lỗi nhập liệu).
   // Email bị máy chủ từ chối cũng đưa con trỏ về ô Email.
@@ -67,18 +73,27 @@ export function DetailsStep({ flow }: { flow: BookingFlow }) {
             <ul className="mt-1.5 list-disc space-y-0.5 pl-9">
               {summary.map((item) => (
                 <li key={item.id}>
-                  <a href={`#${item.id}`} className="underline underline-offset-2">{item.text}</a>
+                  <a
+                    href={`#${item.id}`}
+                    onClick={(event) => {
+                      event.preventDefault();
+                      goTo(item.id);
+                    }}
+                    className="underline underline-offset-2"
+                  >
+                    {item.text}
+                  </a>
                 </li>
               ))}
             </ul>
           </div>
         ) : null}
 
-        <Field label="Họ và tên" required fieldId="patientName" error={errorOf("patientName")} success={successOf("patientName", "Họ tên hợp lệ.", draft.patientName)}>
+        <Field label="Họ và tên" required fieldId="patientName" error={errorOf("patientName")} success={successOf("patientName", draft.patientName)}>
           <input value={draft.patientName} onChange={(event) => set({ patientName: event.target.value })} onBlur={touch("patientName")} className={INPUT_CLASS} autoComplete="name" />
         </Field>
 
-        <Field label="Email" required fieldId="patientEmail" hint="Mã OTP gửi tới email này. Email cũng dùng để đăng nhập xem lại lịch hẹn." error={errorOf("patientEmail")} success={successOf("patientEmail", "Email hợp lệ.", draft.patientEmail)}>
+        <Field label="Email" required fieldId="patientEmail" hint="Mã OTP gửi tới email này. Email cũng dùng để đăng nhập xem lại lịch hẹn." error={errorOf("patientEmail")} success={successOf("patientEmail", draft.patientEmail)}>
           <input value={draft.patientEmail} onChange={(event) => set({ patientEmail: event.target.value })} onBlur={touch("patientEmail")} type="email" autoComplete="email" inputMode="email" className={INPUT_CLASS} />
         </Field>
         {emailOtpAvailable ? null : (
@@ -87,7 +102,7 @@ export function DetailsStep({ flow }: { flow: BookingFlow }) {
           </p>
         )}
 
-        <Field label="Số điện thoại" required fieldId="patientPhone" hint="Để cơ sở khám liên hệ khi cần. Bắt đầu bằng 0 hoặc +84." error={errorOf("patientPhone")} success={successOf("patientPhone", "Số điện thoại hợp lệ.", draft.patientPhone)}>
+        <Field label="Số điện thoại" required fieldId="patientPhone" hint="Để cơ sở khám liên hệ khi cần. Bắt đầu bằng 0 hoặc +84." error={errorOf("patientPhone")} success={successOf("patientPhone", draft.patientPhone)}>
           <input
             value={draft.patientPhone}
             onChange={(event) => set({ patientPhone: sanitizePhoneInput(event.target.value) })}

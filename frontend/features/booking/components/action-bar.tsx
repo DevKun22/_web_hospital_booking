@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Loader2 } from "lucide-react";
 
 type ActionBarProps = {
@@ -42,8 +42,21 @@ const useSecondsUntil = (until: number) => {
 
 export function ActionBar({ summary, onBack, backLabel = "Quay lại", primaryLabel, onPrimary, loading = false, cooldownUntil = 0 }: ActionBarProps) {
   const coolingDown = useSecondsUntil(cooldownUntil);
+  // Máy tính: thanh dính đáy màn hình khi phần cuối bước còn nằm dưới tầm nhìn (có viền và bóng); cuộn tới cuối thì nằm yên trong luồng.
+  // Mốc nhận biết là một điểm đặt ngay trước thanh: còn khuất dưới màn hình tức là thanh đang nổi.
+  const anchor = useRef<HTMLDivElement>(null);
+  const [floating, setFloating] = useState(false);
+  useEffect(() => {
+    const node = anchor.current;
+    if (!node || typeof IntersectionObserver === "undefined") return;
+    const observer = new IntersectionObserver(([entry]) => setFloating(!entry.isIntersecting && entry.boundingClientRect.top > 0));
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
   return (
-    <div className="booking-action-bar">
+    <>
+    <div ref={anchor} aria-hidden="true" className="hidden h-px lg:block" />
+    <div className="booking-action-bar" data-floating={floating}>
       {summary ? <div className="mx-auto mb-2 max-w-xl text-sm lg:hidden">{summary}</div> : null}
       <div className="booking-action-bar__inner">
         {onBack ? (
@@ -63,5 +76,6 @@ export function ActionBar({ summary, onBack, backLabel = "Quay lại", primaryLa
         </button>
       </div>
     </div>
+    </>
   );
 }
