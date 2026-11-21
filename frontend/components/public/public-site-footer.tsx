@@ -2,6 +2,7 @@ import { CalendarCheck, Clock3, Mail, Phone } from "lucide-react";
 import Link from "next/link";
 import { BrandLogo } from "@/components/branding/brand-logo";
 import { FooterAskKun } from "@/components/public/footer-ask-kun";
+import { FooterLookupLink } from "@/components/public/footer-lookup-link";
 import { FooterFacilities } from "@/components/public/footer-facilities";
 import { BRAND_NAME } from "@/lib/brand";
 import type { SiteSettingsValue } from "@/lib/types";
@@ -40,7 +41,7 @@ const LINK_GROUPS = [
     links: [
       { href: "/ho-tro", label: "Trung tâm hỗ trợ" },
       { href: "/huong-dan/dat-lich", label: "Hướng dẫn đặt lịch" },
-      { href: "/tai-khoan/dang-nhap?next=/tai-khoan/lich-hen", label: "Tra cứu lịch hẹn" },
+      { href: "/tai-khoan/lich-hen", label: "Tra cứu lịch hẹn", lookup: true },
       { href: "/hoi-dap", label: "Câu hỏi thường gặp" },
     ],
   },
@@ -133,7 +134,7 @@ export function PublicSiteFooter({ settings }: { settings: SiteSettingsValue | n
             <ul className="mt-4 text-sm">
               {group.links.map((link) => (
                 <li key={link.href}>
-                  <Link href={link.href} className={linkClass}>{link.label}</Link>
+                  {"lookup" in link ? <FooterLookupLink className={linkClass} /> : <Link href={link.href} className={linkClass}>{link.label}</Link>}
                 </li>
               ))}
             </ul>

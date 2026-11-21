@@ -51,7 +51,7 @@ export function BookingSummary({ flow, hotline }: { flow: BookingFlow; hotline: 
 
   return (
     <aside aria-label="Tóm tắt lịch hẹn" className="hidden space-y-4 lg:sticky lg:top-28 lg:block lg:self-start">
-      <div key={signature} className={`rounded-xl border-2 bg-[var(--public-surface)] p-4 transition-colors ${complete ? "border-[var(--public-primary)]" : "border-dashed border-[var(--public-border)]"} ${signature ? "booking-summary-pulse" : ""}`}>
+      <div key={signature} className={`rounded-xl border-2 bg-[var(--public-surface)] p-4 transition-colors ${verified ? "border-[var(--public-success)]" : complete ? "border-[var(--public-primary)]" : "border-dashed border-[var(--public-border)]"} ${signature ? "booking-summary-pulse" : ""}`}>
         <div className="flex items-baseline justify-between gap-3 border-b border-[var(--public-divider)] pb-3">
           <h2 className="text-base font-bold text-[var(--public-ink)]">Lịch hẹn của bạn</h2>
           <span className="text-xs font-semibold text-[var(--public-muted)]">{status}</span>
