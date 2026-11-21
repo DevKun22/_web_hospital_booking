@@ -1384,11 +1384,23 @@ button:disabled {
 }
 
 @media (min-width: 1024px) {
+  /* Dính đáy màn hình khi chỗ vốn có của thanh còn nằm dưới tầm nhìn; tới nơi thì nằm yên trong luồng. Viền và bóng chỉ hiện khi đang nổi. */
   .booking-action-bar {
-    position: static;
-    border-top: 0;
+    position: sticky;
+    inset: auto 0 0 0;
+    z-index: 35;
+    border-top: 1px solid transparent;
     background: transparent;
     padding: 1.25rem 0 0;
+    transition: box-shadow 150ms ease, background-color 150ms ease;
+  }
+
+  .booking-action-bar[data-floating="true"] {
+    border-top-color: var(--public-border);
+    background: var(--public-surface);
+    padding: 0.75rem 1rem;
+    border-radius: 0.75rem 0.75rem 0 0;
+    box-shadow: 0 -6px 14px rgb(0 0 0 / 0.08);
   }
 
   .booking-action-bar__inner {
