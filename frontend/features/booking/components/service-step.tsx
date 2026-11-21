@@ -1,6 +1,7 @@
 /* eslint-disable @next/next/no-img-element */
 import { doctorsFor, packagesFor, type ServiceMode } from "@/features/booking/model";
 import type { BookingFlow } from "@/features/booking/use-booking-flow";
+import { PersonPicker } from "@/features/booking/components/person-picker";
 import { Field, GroupLabel, INPUT_CLASS, StepFrame } from "@/features/booking/components/step-frame";
 import { doctorDisplayName, doctorInitial } from "@/lib/doctor";
 import { formatCurrency } from "@/lib/format";
@@ -20,6 +21,8 @@ export function ServiceStep({ flow, loading }: { flow: BookingFlow; loading: boo
 
   return (
     <StepFrame error={flow.state.stepError} title="Bạn muốn khám gì?" description="Chọn chuyên khoa, hình thức khám và bác sĩ tiếp nhận.">
+      <PersonPicker flow={flow} />
+
       <Field label="Chuyên khoa" required>
         <select
           value={selection.departmentId}

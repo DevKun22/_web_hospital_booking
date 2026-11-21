@@ -10,6 +10,8 @@ export type BookingSelection = {
   doctorId: string;
   packageId: string;
   serviceMode: ServiceMode;
+  // Người khám: rỗng là bản thân, có giá trị là mã hồ sơ người thân của tài khoản đang đăng nhập.
+  dependentId: string;
 };
 
 export type BookingDraft = {
@@ -89,6 +91,8 @@ export type BookingCatalog = {
   packages: MedicalPackage[];
 };
 
+export const DEPENDENT_RELATIONSHIPS: Record<string, string> = { CHILD: "Con", SPOUSE: "Vợ/chồng", PARENT: "Cha/mẹ", SIBLING: "Anh/chị/em", OTHER: "Khác" };
+
 export const STEP_ORDER: readonly Exclude<BookingStep, "done">[] = ["service", "schedule", "details", "verify"];
 
 // Bước hiển thị trên thanh tiến trình: "done" vẫn nằm ở bước xác thực cuối cùng.
@@ -102,6 +106,7 @@ export const initialSelection: BookingSelection = {
   doctorId: "",
   packageId: "",
   serviceMode: "",
+  dependentId: "",
 };
 
 // Ngày mặc định để rỗng khi dựng giao diện trên máy chủ; trình duyệt điền ngày hôm nay sau khi tải (tránh lệch khi hydrate).

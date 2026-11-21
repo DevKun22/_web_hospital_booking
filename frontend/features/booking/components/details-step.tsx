@@ -20,6 +20,7 @@ const FIELD_LABELS: Record<DetailField, string> = {
 export function DetailsStep({ flow }: { flow: BookingFlow }) {
   const { state, dispatch, emailOtpAvailable, profilePrefilled, termsRequired } = flow;
   const { draft, touched, submitAttempts } = state;
+  const dependent = flow.dependents.find((item) => item.id === state.selection.dependentId) ?? null;
   const set = (patch: Partial<BookingDraft>) => dispatch({ type: "draft_changed", patch });
   const touch = (field: DetailField) => () => dispatch({ type: "field_touched", field });
   const root = useRef<HTMLDivElement>(null);
@@ -53,8 +54,16 @@ export function DetailsStep({ flow }: { flow: BookingFlow }) {
 
   return (
     <div ref={root} className="space-y-4">
-      <StepFrame title="Thông tin người khám" description="Họ tên và email dùng để tạo lịch, gửi mã OTP và đăng nhập xem lại lịch hẹn.">
-        {profilePrefilled ? (
+      <StepFrame title="Thông tin người khám" description={dependent ? "Email và số điện thoại là của tài khoản đang đặt hộ; mã OTP gửi tới email này." : "Họ tên và email dùng để tạo lịch, gửi mã OTP và đăng nhập xem lại lịch hẹn."}>
+        {dependent ? (
+          <p className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-[var(--public-success-soft)] px-3 py-2.5 text-sm text-[var(--public-success)]" role="status">
+            <span className="flex items-center gap-2 font-semibold">
+              <CheckCircle2 className="h-4 w-4 shrink-0" aria-hidden="true" />
+              Thông tin khám lấy từ hồ sơ của {dependent.fullName}
+            </span>
+            <Link href={`/tai-khoan/ho-so/nguoi-than/${dependent.id}`} className="font-semibold underline underline-offset-4">Sửa hồ sơ</Link>
+          </p>
+        ) : profilePrefilled ? (
           <p className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-[var(--public-success-soft)] px-3 py-2.5 text-sm text-[var(--public-success)]" role="status">
             <span className="flex items-center gap-2 font-semibold">
               <CheckCircle2 className="h-4 w-4 shrink-0" aria-hidden="true" />
@@ -90,7 +99,7 @@ export function DetailsStep({ flow }: { flow: BookingFlow }) {
         ) : null}
 
         <Field label="Họ và tên" required fieldId="patientName" error={errorOf("patientName")} success={successOf("patientName", draft.patientName)}>
-          <input value={draft.patientName} onChange={(event) => set({ patientName: event.target.value })} onBlur={touch("patientName")} className={INPUT_CLASS} autoComplete="name" />
+          <input value={draft.patientName} readOnly={Boolean(dependent)} onChange={(event) => set({ patientName: event.target.value })} onBlur={touch("patientName")} className={INPUT_CLASS} autoComplete="name" />
         </Field>
 
         <Field label="Email" required fieldId="patientEmail" hint="Mã OTP gửi tới email này. Email cũng dùng để đăng nhập xem lại lịch hẹn." error={errorOf("patientEmail")} success={successOf("patientEmail", draft.patientEmail)}>
@@ -119,7 +128,7 @@ export function DetailsStep({ flow }: { flow: BookingFlow }) {
         </Field>
       </StepFrame>
 
-      <HealthSection flow={flow} />
+      {dependent ? null : <HealthSection flow={flow} />}
 
       {!flow.patient ? <TermsConsent checked={draft.termsAccepted} onChange={(termsAccepted) => set({ termsAccepted })} invalid={termsInvalid} inputId="booking-terms" /> : null}
     </div>

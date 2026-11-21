@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { createInitialDraft, createInitialState, estimateAmount, type BookingCatalog, type BookingSlot } from "@/features/booking/model";
-import { buildProfilePrefill, resolveUrlPrefill } from "@/features/booking/prefill";
+import { buildDependentPatch, buildProfilePrefill, buildSelfPatch, resolveUrlPrefill } from "@/features/booking/prefill";
 import { bookingReducer } from "@/features/booking/reducer";
 import {
   sanitizePhoneInput,
@@ -11,7 +11,7 @@ import {
   validateSchedule,
   validateService,
 } from "@/features/booking/validation";
-import type { PatientUser } from "@/lib/patient-portal-types";
+import type { PatientDependent, PatientUser } from "@/lib/patient-portal-types";
 
 const TODAY = "2026-11-13";
 const slot: BookingSlot = { id: "s1", date: "2026-11-14T00:00:00.000Z", startTime: "08:00", endTime: "08:30" };
@@ -23,7 +23,7 @@ const readyDraft = () => ({
   patientPhone: "0901234567",
   patientEmail: "a@example.com",
 });
-const readySelection = { departmentId: "d1", doctorId: "dr1", packageId: "", serviceMode: "DOCTOR_ONLY" as const };
+const readySelection = { departmentId: "d1", doctorId: "dr1", packageId: "", dependentId: "", serviceMode: "DOCTOR_ONLY" as const };
 
 describe("validation", () => {
   it("kiểm tra từng bước theo thứ tự", () => {
@@ -237,5 +237,42 @@ describe("bookingReducer: lỗi theo trường và giới hạn tần suất", (
 
     state = bookingReducer(state, { type: "draft_changed", patch: { patientPhone: "0901234567" } });
     assert.equal(state.cooldownUntil, until);
+  });
+});
+
+describe("chọn người khám", () => {
+  const user = { id: "u1", fullName: "Gu", email: "gu@example.com", phone: "0901234567", patientProfile: { gender: "MALE", dateOfBirth: "1990-01-02T00:00:00.000Z", allergies: "Penicillin" } } as unknown as PatientUser;
+  const child = { id: "dep1", fullName: "Son", relationship: "CHILD", dateOfBirth: "2018-05-06T00:00:00.000Z", hasBHYT: false, gender: "MALE" } as PatientDependent;
+
+  it("chọn người thân thay hẳn thông tin cá nhân, giữ liên hệ của tài khoản và không mang dữ liệu sức khỏe của chủ tài khoản", () => {
+    let state = bookingReducer(createInitialState(), { type: "draft_changed", patch: { reason: "Ho kéo dài", timeSlotId: "s1", date: "2026-11-14" } });
+    state = bookingReducer(state, { type: "profile_applied", ownerId: "u1", patch: buildProfilePrefill(state.draft, user) });
+    assert.equal(state.draft.allergies, "Penicillin");
+
+    state = bookingReducer(state, { type: "person_chosen", dependentId: "dep1", patch: buildDependentPatch(child, user) });
+    assert.equal(state.selection.dependentId, "dep1");
+    assert.equal(state.draft.patientName, "Son");
+    assert.equal(state.draft.dateOfBirth, "2018-05-06");
+    assert.equal(state.draft.allergies, "");
+    assert.equal(state.draft.patientEmail, "gu@example.com");
+    assert.equal(state.draft.patientPhone, "0901234567");
+    assert.equal(state.draft.reason, "Ho kéo dài");
+    assert.equal(state.draft.date, "2026-11-14");
+  });
+
+  it("quay về bản thân điền lại hồ sơ tài khoản và xóa phần của người thân", () => {
+    let state = bookingReducer(createInitialState(), { type: "person_chosen", dependentId: "dep1", patch: buildDependentPatch(child, user) });
+    state = bookingReducer(state, { type: "person_chosen", dependentId: "", patch: buildSelfPatch(state.draft, user) });
+    assert.equal(state.selection.dependentId, "");
+    assert.equal(state.draft.patientName, "Gu");
+    assert.equal(state.draft.dateOfBirth, "1990-01-02");
+    assert.equal(state.draft.allergies, "Penicillin");
+  });
+
+  it("đăng xuất thì bỏ chọn người thân", () => {
+    let state = bookingReducer(createInitialState(), { type: "profile_applied", ownerId: "u1", patch: {} });
+    state = bookingReducer(state, { type: "person_chosen", dependentId: "dep1", patch: buildDependentPatch(child, user) });
+    state = bookingReducer(state, { type: "profile_cleared" });
+    assert.equal(state.selection.dependentId, "");
   });
 });

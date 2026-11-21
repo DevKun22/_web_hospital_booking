@@ -14,6 +14,7 @@ export function createAppointment(selection: BookingSelection, draft: BookingDra
     body: {
       packageId: selection.packageId || null,
       departmentId: selection.departmentId,
+      dependentProfileId: selection.dependentId || null,
       doctorId: selection.doctorId,
       timeSlotId: draft.timeSlotId,
       patientName: draft.patientName.trim(),
