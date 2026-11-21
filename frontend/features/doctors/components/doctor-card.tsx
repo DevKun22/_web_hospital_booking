@@ -9,7 +9,7 @@ import type { DoctorProfile } from "@/lib/types";
 const formatTime = (value: string) => value.slice(0, 5);
 
 // Thẻ bác sĩ: ảnh chân dung 4:5 (điện thoại: ảnh nhỏ bên trái), học hàm và tên, khoa màu nhấn, số năm kinh nghiệm, đánh giá (chỉ khi có đánh giá công khai),
-// giờ trống thật và hai nút Xem hồ sơ, Xem giờ trống. Chỉ hiện thông tin có trong hồ sơ.
+// giờ trống thật và hai nút Xem hồ sơ, Đặt lịch. Chỉ hiện thông tin có trong hồ sơ.
 export function DoctorCard({ doctor }: { doctor: DoctorProfile }) {
   const slots = doctor.todayAvailableSlots || [];
   const total = doctor.todayAvailableSlots?.length || 0;
@@ -52,7 +52,7 @@ export function DoctorCard({ doctor }: { doctor: DoctorProfile }) {
       </div>
       <div className="mt-auto grid grid-cols-2 gap-2 p-3.5 pt-0">
         <Link href={profileHref} className="public-button-secondary inline-flex min-h-10 items-center justify-center rounded-lg px-3 text-sm font-semibold">Xem hồ sơ</Link>
-        <Link href={bookingBase} className="public-button-primary inline-flex min-h-10 items-center justify-center rounded-lg px-3 text-sm font-semibold">Xem giờ trống</Link>
+        <Link href={bookingBase} className="public-button-primary inline-flex min-h-10 items-center justify-center rounded-lg px-3 text-sm font-semibold">Đặt lịch</Link>
       </div>
     </li>
   );

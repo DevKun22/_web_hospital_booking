@@ -171,7 +171,7 @@ function DepartmentCard({ department }: { department: PublicDepartmentCatalogIte
           <p className="mt-2"><span className="inline-flex rounded-full bg-[var(--public-success-soft)] px-2.5 py-0.5 text-sm font-medium text-[var(--public-success)]">Có lịch trống</span></p>
         ) : null}
         <div className="mt-auto flex flex-wrap gap-2 pt-4">
-          <Link href={`/dat-lich?departmentId=${department.id}`} className="public-button-primary inline-flex min-h-11 items-center rounded-lg px-4 text-sm font-semibold">Xem giờ trống</Link>
+          <Link href={`/dat-lich?departmentId=${department.id}`} className="public-button-primary inline-flex min-h-11 items-center rounded-lg px-4 text-sm font-semibold">Đặt lịch</Link>
           <Link href={detailUrl} className="public-button-secondary inline-flex min-h-11 items-center rounded-lg px-4 text-sm font-semibold">Chi tiết</Link>
         </div>
       </div>
