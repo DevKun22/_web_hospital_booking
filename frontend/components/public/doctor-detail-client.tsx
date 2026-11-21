@@ -4,7 +4,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { Loader2, Star } from "lucide-react";
+import { Loader2, MapPin, Star } from "lucide-react";
 import { TrustLine } from "@/components/public/catalog-content";
 import { DayStrip } from "@/features/booking/components/day-strip";
 import { groupSlotsByPeriod } from "@/features/booking/dates";
@@ -46,6 +46,7 @@ export function DoctorDetailClient({ doctor, initialDate, initialSlots }: Doctor
   const summary = doctor.reviewSummary;
   const weeklySchedule = groupWeeklySchedule(doctor.schedules);
   // Chỉ nêu tên cơ sở khi bác sĩ khám ở từ hai cơ sở trở lên.
+  const facilities = Array.from(new Map((doctor.schedules ?? []).flatMap((item) => (item.facility ? [[item.facility.id, item.facility] as const] : []))).values());
   const showFacilities = new Set((doctor.schedules ?? []).map((item) => item.facility?.id ?? "")).size > 1;
 
   return (
@@ -74,7 +75,7 @@ export function DoctorDetailClient({ doctor, initialDate, initialSlots }: Doctor
         ) : null}
 
         <section className="mt-6 border-t border-[var(--public-divider)] pt-5">
-          <h2 className="text-lg font-bold">Giới thiệu</h2>
+          <h2 className="text-xl font-bold">Giới thiệu</h2>
           <p className="mt-2 text-base leading-7 text-[var(--public-text-soft)]">
             {doctor.bio || "Bác sĩ đang tiếp nhận lịch khám và tư vấn theo chuyên khoa. Chọn ngày để xem khung giờ còn trống."}
           </p>
@@ -82,7 +83,7 @@ export function DoctorDetailClient({ doctor, initialDate, initialSlots }: Doctor
 
         {weeklySchedule.length ? (
           <section className="mt-6 border-t border-[var(--public-divider)] pt-5">
-            <h2 className="text-lg font-bold">Lịch khám theo tuần</h2>
+            <h2 className="text-xl font-bold">Lịch khám theo tuần</h2>
             <p className="mt-1 text-sm text-[var(--public-muted)]">Giờ làm việc thường lệ; khung giờ còn trống từng ngày xem ở mục Lịch trống.</p>
             <dl className="mt-3 divide-y divide-[var(--public-divider)] rounded-lg border border-[var(--public-border)] bg-[var(--public-surface)]">
               {weeklySchedule.map((day) => (
@@ -102,9 +103,23 @@ export function DoctorDetailClient({ doctor, initialDate, initialSlots }: Doctor
           </section>
         ) : null}
 
+        {facilities.length ? (
+          <section className="mt-6 border-t border-[var(--public-divider)] pt-5">
+            <h2 className="text-xl font-bold">Cơ sở khám</h2>
+            <ul className="mt-3 space-y-2">
+              {facilities.map((facility) => (
+                <li key={facility.id} className="flex items-start gap-3 text-base">
+                  <MapPin className="mt-1 h-4 w-4 shrink-0 text-[var(--public-primary)]" aria-hidden="true" />
+                  <span><span className="block font-semibold">{facility.name}</span><span className="block text-sm text-[var(--public-muted)]">{facility.address}</span></span>
+                </li>
+              ))}
+            </ul>
+          </section>
+        ) : null}
+
         {doctor.expertise?.length ? (
           <section className="mt-6 border-t border-[var(--public-divider)] pt-5">
-            <h2 className="text-lg font-bold">Lĩnh vực chuyên sâu</h2>
+            <h2 className="text-xl font-bold">Lĩnh vực chuyên sâu</h2>
             <ul className="mt-3 flex flex-wrap gap-2">
               {doctor.expertise.map((item) => (
                 <li key={item} className="rounded-lg border border-[var(--public-border)] bg-[var(--public-surface)] px-3 py-1.5 text-sm">{item}</li>
@@ -115,7 +130,7 @@ export function DoctorDetailClient({ doctor, initialDate, initialSlots }: Doctor
 
         {doctor.careerTimeline?.length ? (
           <section className="mt-6 border-t border-[var(--public-divider)] pt-5">
-            <h2 className="text-lg font-bold">Quá trình công tác</h2>
+            <h2 className="text-xl font-bold">Quá trình công tác</h2>
             <ol className="mt-3 space-y-3">
               {doctor.careerTimeline.map((entry, index) => (
                 <li key={`${entry.period}-${index}`} className="grid grid-cols-[7.5rem_minmax(0,1fr)] gap-3 text-base">
@@ -132,7 +147,7 @@ export function DoctorDetailClient({ doctor, initialDate, initialSlots }: Doctor
 
         {doctor.memberships?.length ? (
           <section className="mt-6 border-t border-[var(--public-divider)] pt-5">
-            <h2 className="text-lg font-bold">Hiệp hội chuyên môn</h2>
+            <h2 className="text-xl font-bold">Hiệp hội chuyên môn</h2>
             <ul className="mt-3 list-disc space-y-1 pl-6 text-base text-[var(--public-text-soft)]">
               {doctor.memberships.map((item) => (
                 <li key={item}>{item}</li>
@@ -144,7 +159,7 @@ export function DoctorDetailClient({ doctor, initialDate, initialSlots }: Doctor
         {summary?.count ? (
           <section className="mt-6 border-t border-[var(--public-divider)] pt-5">
             <div className="flex flex-wrap items-baseline justify-between gap-2">
-              <h2 className="text-lg font-bold">Đánh giá từ người khám</h2>
+              <h2 className="text-xl font-bold">Đánh giá từ người khám</h2>
               <p className="inline-flex items-center gap-1.5 text-base font-semibold">
                 <Star className="h-4 w-4 fill-[var(--public-warning)] text-[var(--public-warning)]" aria-hidden="true" />
                 {summary.averageRating.toFixed(1)} <span className="font-normal text-[var(--public-muted)]">({summary.count} đánh giá)</span>
@@ -172,8 +187,8 @@ export function DoctorDetailClient({ doctor, initialDate, initialSlots }: Doctor
         ) : null}
       </article>
 
-      <aside aria-label="Đặt lịch với bác sĩ" className="h-fit rounded-xl border border-[var(--public-border)] bg-[var(--public-surface)] p-4 lg:sticky lg:top-28">
-        <h2 className="text-lg font-bold">Lịch trống</h2>
+      <aside id="lich-trong" aria-label="Đặt lịch với bác sĩ" className="h-fit rounded-xl border border-[var(--public-border)] bg-[var(--public-surface)] p-4 lg:sticky lg:top-28">
+        <h2 className="text-lg font-semibold">Lịch trống</h2>
         <div className="mt-3">
           <DayStrip today={initialDate} value={date} onChange={setDate} />
         </div>
@@ -207,6 +222,15 @@ export function DoctorDetailClient({ doctor, initialDate, initialSlots }: Doctor
           Đặt lịch với bác sĩ này
         </Link>
       </aside>
+
+      {/* Điện thoại: thanh nút cố định dưới màn hình, bấm cuộn tới mục Lịch trống (dùng chung kiểu với trang đặt lịch). */}
+      <div className="lg:hidden">
+        <div className="booking-action-bar">
+          <div className="booking-action-bar__inner">
+            <a href="#lich-trong" className="public-button-primary inline-flex min-h-12 flex-1 items-center justify-center rounded-lg px-5 text-base font-semibold">Xem giờ trống</a>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
