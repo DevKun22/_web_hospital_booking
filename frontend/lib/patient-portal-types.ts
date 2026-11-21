@@ -33,6 +33,7 @@ export type PatientAppointment = {
   status: string;
   patientName: string;
   recipientType?: "SELF" | "DEPENDENT";
+  dependentProfileId?: string | null;
   reason?: string | null;
   estimatedPrice?: number;
   serviceFee?: number;
