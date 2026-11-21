@@ -12,10 +12,9 @@ import {
   DsKeyValue,
   DsNotice,
   DsPageHeader,
-  DsPane,
+  DsEditDialog,
   DsPanel,
   DsSelect,
-  DsSplit,
   DsStatusPill,
   DsTabs,
   DsTextarea,
@@ -386,7 +385,7 @@ export default function DoctorsPage() {
   );
 
   const paneNode = open ? (
-    <DsPane
+    <DsEditDialog size="lg"
       title={editing ? displayName(editing) : "Tạo hồ sơ bác sĩ"}
       badge={editing ? <DsStatusPill tone={editing.isAvailable ? "good" : "neutral"}>{editing.isAvailable ? "Sẵn sàng" : "Tạm ngừng"}</DsStatusPill> : undefined}
       onClose={closePane}
@@ -461,7 +460,7 @@ export default function DoctorsPage() {
           </span>
         </label>
         {canWrite ? (
-          <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", flexWrap: "wrap" }}>
+          <div className="ds-form-actions">
             {editing ? (
               <DsButton onClick={() => void handleAvailability(editing)}>{editing.isAvailable ? "Tạm ngừng nhận lịch" : "Mở lại nhận lịch"}</DsButton>
             ) : null}
@@ -489,7 +488,7 @@ export default function DoctorsPage() {
           )
         ) : null}
       </form>
-    </DsPane>
+    </DsEditDialog>
   ) : null;
 
   return (
@@ -498,7 +497,8 @@ export default function DoctorsPage() {
       <div style={{ display: "grid", gap: 12, marginBottom: 16 }}>
         {queryErrorMessage ? <DsNotice tone="bad">{queryErrorMessage}</DsNotice> : null}
       </div>
-      <DsSplit list={list} pane={paneNode} />
+      {list}
+      {paneNode}
     </>
   );
 }

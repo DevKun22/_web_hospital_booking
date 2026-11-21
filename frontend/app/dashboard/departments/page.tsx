@@ -11,9 +11,8 @@ import {
   DsInput,
   DsNotice,
   DsPageHeader,
-  DsPane,
+  DsEditDialog,
   DsPanel,
-  DsSplit,
   DsStatusPill,
   DsTabs,
   DsTextarea,
@@ -342,7 +341,7 @@ export default function DepartmentsPage() {
   );
 
   const paneNode = open ? (
-    <DsPane
+    <DsEditDialog size="lg"
       title={editing ? `Chuyên khoa ${editing.name}` : "Tạo chuyên khoa"}
       badge={editing ? <DsStatusPill tone={editing.isActive ? "good" : "neutral"}>{editing.isActive ? "Hoạt động" : "Tạm ẩn"}</DsStatusPill> : undefined}
       onClose={closePane}
@@ -444,7 +443,7 @@ export default function DepartmentsPage() {
           </span>
         </label>
 
-        <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", flexWrap: "wrap" }}>
+        <div className="ds-form-actions">
           <DsButton onClick={closePane}>Đóng</DsButton>
           <DsButton type="submit" variant="primary" disabled={saving || uploading || !form.name.trim()}>
             {uploading ? "Đang tải lên..." : saving ? "Đang lưu..." : editing ? "Lưu thay đổi" : "Tạo mới"}
@@ -469,7 +468,7 @@ export default function DepartmentsPage() {
           )
         ) : null}
       </form>
-    </DsPane>
+    </DsEditDialog>
   ) : null;
 
   return (
@@ -478,7 +477,8 @@ export default function DepartmentsPage() {
       <div style={{ display: "grid", gap: 12, marginBottom: 16 }}>
         {queryErrorMessage ? <DsNotice tone="bad">{queryErrorMessage}</DsNotice> : null}
       </div>
-      <DsSplit list={list} pane={paneNode} />
+      {list}
+      {paneNode}
     </>
   );
 }

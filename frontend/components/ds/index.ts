@@ -10,5 +10,6 @@ export { DsMenu, DsMenuItem, DsMenuLabel, DsMenuSeparator } from "./menu";
 export { DsSplit, DsPane, DsStepList } from "./split";
 export { useToast, useActionToast } from "./toast";
 export { DsDialog, useConfirm, type ConfirmFn } from "./dialog";
+export { DsEditDialog } from "./edit-dialog";
 export { DsSpinner, DsLoading } from "./spinner";
 export { DsFetchProgress } from "./fetch-progress";
