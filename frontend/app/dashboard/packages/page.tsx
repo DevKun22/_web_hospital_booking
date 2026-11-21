@@ -27,6 +27,9 @@ import { useAuth } from "@/lib/auth";
 import { useDashboardDepartments } from "@/lib/dashboard-departments-query";
 import { useDashboardPackages } from "@/lib/dashboard-packages-query";
 import { can } from "@/lib/permissions";
+import { formatCurrency } from "@/lib/format";
+import { formatMoneyInput, parseMoneyInput } from "@/lib/money-input";
+import { createSlug } from "@/lib/slug";
 import { queryKeys } from "@/lib/query-keys";
 import { FaqEditor, StringListEditor, cleanFaq, cleanStrings } from "@/components/dashboard/content-editors";
 import type { FaqEntry, MedicalPackage, PackageItem } from "@/lib/types";
@@ -87,27 +90,6 @@ const statusTabs = [
   { id: "true", label: "Đang hiển thị" },
   { id: "false", label: "Tạm ẩn" },
 ];
-
-const createSlug = (value: string) =>
-  value
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .replace(/đ/g, "d")
-    .replace(/Đ/g, "D")
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-
-const parseMoneyInput = (value: string) => value.replace(/\D/g, "");
-
-const formatMoneyInput = (value: string) => {
-  const digits = parseMoneyInput(value);
-  return digits ? new Intl.NumberFormat("vi-VN").format(Number(digits)) : "";
-};
-
-const formatCurrency = (value: number) =>
-  new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND", maximumFractionDigits: 0 }).format(value);
 
 const getIncludedItemsTotal = (items: PackageItem[]) => items.filter((item) => item.included).reduce((total, item) => total + item.price, 0);
 

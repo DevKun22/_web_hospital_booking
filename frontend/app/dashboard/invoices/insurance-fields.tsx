@@ -2,7 +2,8 @@
 
 import { DsField, DsInput, DsSelect, DsTextarea } from "@/components/ds";
 import type { InsuranceRouteType } from "@/lib/types";
-import { formatMoneyInput, insuranceCoverageOptions, insuranceRouteOptions, parseMoneyInput, type InsuranceForm } from "./invoice-model";
+import { formatMoneyInput, parseMoneyInput } from "@/lib/money-input";
+import { insuranceCoverageOptions, insuranceRouteOptions, type InsuranceForm } from "./invoice-model";
 // Nhóm ô nhập tính BHYT dùng chung cho lúc tạo hóa đơn và lúc chỉnh giảm.
 export function InsuranceFields({
   idPrefix,

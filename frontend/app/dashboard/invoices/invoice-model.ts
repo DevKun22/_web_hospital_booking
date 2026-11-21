@@ -1,4 +1,5 @@
 import type { DsTone } from "@/components/ds";
+import { toMoneyNumber } from "@/lib/money-input";
 import type { Appointment, InsuranceRouteType, Invoice, InvoiceStatus, PaymentMethod } from "@/lib/types";
 
 // Hóa đơn: nhãn, tùy chọn và phép tính thuần (tiền, BHYT) tách khỏi trang để kiểm thử được.
@@ -99,22 +100,6 @@ export const transactionTone: Record<keyof typeof transactionStatusLabel, DsTone
   CANCELLED: "neutral",
   EXPIRED: "neutral",
 };
-
-export const formatCurrency = (value: number) =>
-  new Intl.NumberFormat("vi-VN", {
-    style: "currency",
-    currency: "VND",
-    maximumFractionDigits: 0,
-  }).format(value);
-
-export const parseMoneyInput = (value: string) => value.replace(/\D/g, "");
-
-export const formatMoneyInput = (value: string) => {
-  const digits = parseMoneyInput(value);
-  return digits ? new Intl.NumberFormat("vi-VN").format(Number(digits)) : "";
-};
-
-export const toMoneyNumber = (value: string) => Number(parseMoneyInput(value) || 0);
 
 export const calculateInsuranceDiscount = (form: InsuranceForm) =>
   Math.floor(

@@ -38,6 +38,7 @@ import {
 } from "@/lib/dashboard-appointments-query";
 import { formatVietnamDate, getVietnamDateInput, getVietnamYesterdayDateInput } from "@/lib/date";
 import { can } from "@/lib/permissions";
+import { formatCurrency } from "@/lib/format";
 import { usePublicAvailableSlots } from "@/lib/public-slots-query";
 import { queryKeys } from "@/lib/query-keys";
 import type { Appointment, AppointmentStatus, DoctorProfile } from "@/lib/types";
@@ -47,9 +48,6 @@ import { useDebouncedValue } from "@/lib/use-debounced-value";
 // thanh toán và các thao tác (xác nhận, tiếp nhận, đổi lịch, hủy, cập nhật thông tin tiếp nhận).
 
 const today = () => getVietnamDateInput();
-
-const formatCurrency = (value: number) =>
-  new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND", maximumFractionDigits: 0 }).format(value);
 
 const doctorName = (doctor: DoctorProfile | Appointment["doctor"]) =>
   [doctor.title, doctor.user.fullName].filter(Boolean).join(" ");

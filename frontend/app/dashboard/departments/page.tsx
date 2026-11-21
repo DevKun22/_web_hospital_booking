@@ -24,6 +24,7 @@ import { apiRequest, uploadImages } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { useDashboardDepartments } from "@/lib/dashboard-departments-query";
 import { can } from "@/lib/permissions";
+import { createSlug } from "@/lib/slug";
 import { queryKeys } from "@/lib/query-keys";
 import { SectionsEditor, cleanSections } from "@/components/dashboard/content-editors";
 import type { ContentSection, Department } from "@/lib/types";
@@ -78,17 +79,6 @@ const toForm = (department: Department): DepartmentForm => ({
   isTriageFallback: department.isTriageFallback,
   isActive: department.isActive,
 });
-
-const createSlug = (value: string) =>
-  value
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .replace(/đ/g, "d")
-    .replace(/Đ/g, "D")
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
 
 const buildPayload = (form: DepartmentForm) => ({
   name: form.name.trim(),

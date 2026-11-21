@@ -27,6 +27,8 @@ import { useAuth } from "@/lib/auth";
 import { useDashboardDepartments } from "@/lib/dashboard-departments-query";
 import { useDashboardDoctors, useDashboardDoctorUsers } from "@/lib/dashboard-doctors-query";
 import { can } from "@/lib/permissions";
+import { formatCurrency } from "@/lib/format";
+import { formatMoneyInput, parseMoneyInput } from "@/lib/money-input";
 import { queryKeys } from "@/lib/query-keys";
 import { StringListEditor, TimelineEditor, cleanStrings, cleanTimeline } from "@/components/dashboard/content-editors";
 import type { DoctorProfile, TimelineEntry } from "@/lib/types";
@@ -101,15 +103,6 @@ const buildUpdatePayload = (form: DoctorForm) => ({
   isAvailable: form.isAvailable,
 });
 
-const formatCurrency = (value: number) =>
-  new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND", maximumFractionDigits: 0 }).format(value);
-
-const formatMoneyInput = (value: string) => {
-  const digits = value.replace(/\D/g, "");
-  return digits ? new Intl.NumberFormat("vi-VN").format(Number(digits)) : "";
-};
-
-const parseMoneyInput = (value: string) => value.replace(/\D/g, "");
 
 const displayName = (doctor: DoctorProfile) => [doctor.title, doctor.user.fullName].filter(Boolean).join(" ");
 
