@@ -69,7 +69,7 @@ function Skeleton({ count = 3 }: { count?: number }) {
 // Thẻ bác sĩ: ảnh chân dung 4:5 (điện thoại: ảnh nhỏ bên trái), học hàm và tên, khoa màu nhấn, số năm kinh nghiệm, đánh giá (chỉ khi có đánh giá công khai),
 // giờ trống thật và hai nút Xem hồ sơ, Xem giờ trống. Chỉ hiện thông tin có trong hồ sơ.
 function DoctorCard({ doctor }: { doctor: DoctorProfile }) {
-  const slots = (doctor.todayAvailableSlots || []).slice(0, 3);
+  const slots = doctor.todayAvailableSlots || [];
   const total = doctor.todayAvailableSlots?.length || 0;
   const next = doctor.nextAvailableSlot;
   const bookingBase = `/dat-lich?departmentId=${doctor.department.id}&doctorId=${doctor.id}`;
@@ -100,22 +100,11 @@ function DoctorCard({ doctor }: { doctor: DoctorProfile }) {
               </span>
             ) : null}
           </p>
-          <div className="mt-3 flex flex-wrap items-center gap-2">
-            {slots.length ? (
-              <>
-                <span className="rounded-full bg-[var(--public-success-soft)] px-2.5 py-0.5 text-sm font-medium text-[var(--public-success)]">Còn {total} giờ hôm nay</span>
-                {slots.map((slot) => (
-                  <Link key={slot.id} href={`${bookingBase}&timeSlotId=${slot.id}`} className="inline-flex min-h-10 items-center rounded-lg border border-[var(--public-border)] px-3 text-sm font-medium tabular-nums hover:border-[var(--public-primary)]">
-                    {formatTime(slot.startTime)}
-                  </Link>
-                ))}
-              </>
-            ) : next ? (
-              <Link href={`${bookingBase}&date=${next.date.slice(0, 10)}&timeSlotId=${next.id}`} className="inline-flex min-h-10 items-center rounded-lg border border-[var(--public-border)] px-3 text-sm hover:border-[var(--public-primary)]">
-                Gần nhất <strong className="ml-1 font-medium tabular-nums">{formatTime(next.startTime)}, {formatShortDate(next.date)}</strong>
-              </Link>
-            ) : null}
-          </div>
+          {slots.length ? (
+            <p className="mt-3"><span className="inline-flex rounded-full bg-[var(--public-success-soft)] px-2.5 py-0.5 text-sm font-medium text-[var(--public-success)]">Còn {total} giờ hôm nay</span></p>
+          ) : next ? (
+            <p className="mt-3 text-sm text-[var(--public-text-soft)]">Gần nhất: <strong className="font-medium tabular-nums">{formatTime(next.startTime)}, {formatShortDate(next.date)}</strong></p>
+          ) : null}
           <p className="mt-3 text-sm text-[var(--public-muted)]">Phí khám <span className="font-semibold tabular-nums text-[var(--public-primary-dark)]">{formatCurrency(doctor.consultationFee)}</span></p>
         </div>
       </div>
@@ -167,13 +156,13 @@ export function DepartmentsSection({ departments, config, loading }: { departmen
                       )}
                     </div>
                     <div className="flex flex-1 flex-col p-3.5 sm:p-4">
-                      <h3 className="text-base font-semibold text-[var(--public-ink)] group-hover:text-[var(--public-primary)]">{item.name}</h3>
+                      <h3 className="text-lg font-semibold leading-snug text-[var(--public-ink)] group-hover:text-[var(--public-primary)]">{item.name}</h3>
                       {keywords.length ? (
                         <div className="mt-2">
-                          <p className="text-xs text-[var(--public-muted)]">Dấu hiệu thường gặp</p>
+                          <p className="text-sm text-[var(--public-muted)]">Dấu hiệu thường gặp</p>
                           <ul className="mt-1.5 flex flex-wrap gap-1.5">
                             {keywords.map((keyword) => (
-                              <li key={keyword} className="rounded-full bg-[var(--public-primary-soft)] px-2.5 py-0.5 text-xs text-[var(--public-primary-dark)]">{keyword}</li>
+                              <li key={keyword} className="rounded-full bg-[var(--public-primary-soft)] px-2.5 py-0.5 text-sm text-[var(--public-primary-dark)]">{keyword}</li>
                             ))}
                           </ul>
                         </div>
@@ -216,32 +205,32 @@ function PackageCard({ item, featured }: { item: MedicalPackage; featured?: bool
         )}
         {item.isPopular || item.isBHYTSupport ? (
           <p className="absolute left-3 top-3 flex flex-wrap gap-1.5">
-            {item.isPopular ? <span className="rounded-full bg-[var(--public-solid)] px-3 py-1 text-xs font-medium text-white shadow">Được chọn nhiều</span> : null}
-            {item.isBHYTSupport ? <span className="rounded-full bg-[var(--public-surface)] px-3 py-1 text-xs font-medium text-[var(--public-success)] shadow">Hỗ trợ BHYT</span> : null}
+            {item.isPopular ? <span className="rounded-full bg-[var(--public-solid)] px-3 py-1 text-sm font-medium text-white shadow">Được chọn nhiều</span> : null}
+            {item.isBHYTSupport ? <span className="rounded-full bg-[var(--public-surface)] px-3 py-1 text-sm font-medium text-[var(--public-success)] shadow">Hỗ trợ BHYT</span> : null}
           </p>
         ) : null}
       </div>
       <div className="flex flex-1 flex-col p-4 sm:p-5">
         {item.department?.name ? <p className="text-sm text-[var(--public-muted)]">{item.department.name}</p> : null}
-        <h3 className={`mt-1 font-semibold text-[var(--public-ink)] ${featured ? "text-xl sm:text-2xl" : "text-lg"}`}>
+        <h3 className={`mt-1 font-semibold text-[var(--public-ink)] ${featured ? "text-xl" : "text-lg"} leading-snug`}>
           <Link href={detailHref} className="hover:text-[var(--public-primary)]">{item.name}</Link>
         </h3>
         {shown.length ? (
-          <ul className={`mt-3 gap-x-4 gap-y-1.5 text-[0.95rem] text-[var(--public-text-soft)] ${featured ? "grid sm:grid-cols-2" : "space-y-1.5"}`}>
+          <ul className={`mt-3 gap-x-4 gap-y-1.5 text-base text-[var(--public-text-soft)] ${featured ? "grid sm:grid-cols-2" : "space-y-1.5"}`}>
             {shown.map((entry) => (
               <li key={entry.id} className="flex items-start gap-2"><Check className="mt-1 h-4 w-4 shrink-0 text-[var(--public-success)]" aria-hidden="true" />{entry.name}</li>
             ))}
           </ul>
         ) : item.summary ? (
-          <p className="mt-3 line-clamp-3 text-[0.95rem] text-[var(--public-text-soft)]">{item.summary}</p>
+          <p className="mt-3 line-clamp-3 text-base text-[var(--public-text-soft)]">{item.summary}</p>
         ) : null}
         {more > 0 ? <Link href={detailHref} className="mt-2 text-sm font-medium text-[var(--public-primary)] underline-offset-4 hover:underline">+ {more} hạng mục khác</Link> : null}
         {item.resultTime ? (
           <p className="mt-3 inline-flex items-center gap-1.5 text-sm text-[var(--public-muted)]"><Clock className="h-4 w-4" aria-hidden="true" />Có kết quả: {item.resultTime}</p>
         ) : null}
         <div className="mt-auto pt-4">
-          <p className="text-xs text-[var(--public-muted)]">Chi phí dự kiến</p>
-          <p className={`font-semibold tabular-nums text-[var(--public-primary-dark)] ${featured ? "text-2xl sm:text-3xl" : "text-xl"}`}>{formatCurrency(item.finalPrice)}</p>
+          <p className="text-sm text-[var(--public-muted)]">Chi phí dự kiến</p>
+          <p className={`font-semibold tabular-nums text-[var(--public-primary-dark)] text-2xl`}>{formatCurrency(item.finalPrice)}</p>
           <div className="mt-3 flex flex-wrap gap-2">
             <Link href={detailHref} className="public-button-secondary inline-flex min-h-11 items-center rounded-lg px-4 text-sm font-semibold">Xem chi tiết</Link>
             <Link href={`/dat-lich?packageId=${item.id}`} className="public-button-primary inline-flex min-h-11 items-center rounded-lg px-5 text-sm font-semibold">Chọn gói</Link>
@@ -252,9 +241,7 @@ function PackageCard({ item, featured }: { item: MedicalPackage; featured?: bool
   );
   if (featured) {
     return (
-      <div className="group/pack rounded-3xl bg-[linear-gradient(135deg,var(--dk-blue),var(--dk-teal))] p-[2px] shadow-xl transition hover:shadow-2xl motion-reduce:transition-none">
-        <div className="grid overflow-hidden rounded-[calc(1.5rem-2px)] bg-[var(--public-surface)] md:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]">{body}</div>
-      </div>
+      <div className="group/pack grid overflow-hidden rounded-2xl border border-[var(--public-border)] bg-[var(--public-surface)] shadow-sm transition duration-200 hover:border-[var(--public-primary)] hover:shadow-lg motion-reduce:transition-none md:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]">{body}</div>
     );
   }
   return <div className="group/pack flex h-full flex-col overflow-hidden rounded-2xl border border-[var(--public-border)] bg-[var(--public-surface)] shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-[var(--public-primary)] hover:shadow-lg motion-reduce:transition-none motion-reduce:hover:translate-y-0">{body}</div>;
