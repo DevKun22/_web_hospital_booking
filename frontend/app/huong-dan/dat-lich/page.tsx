@@ -1,54 +1,32 @@
-"use client";
-
+import type { Metadata } from "next";
 import Link from "next/link";
-import { PublicPageHero } from "@/components/public/public-page-layout";
-import { absoluteUrl, jsonLdString } from "@/lib/seo";
+import { CatalogHeader } from "@/components/public/catalog-parts";
+import { absoluteUrl, buildOpenGraph, jsonLdString } from "@/lib/seo";
+
+export const metadata: Metadata = buildOpenGraph({
+  title: "Hướng dẫn đặt lịch khám trực tuyến",
+  description: "Sáu bước đặt lịch khám: chọn chuyên khoa, bác sĩ hoặc gói khám, ngày giờ, người khám, xác thực OTP và theo dõi lịch hẹn.",
+  path: "/huong-dan/dat-lich",
+  keywords: ["hướng dẫn đặt lịch khám", "đặt lịch khám trực tuyến", "OTP đặt lịch"],
+});
 
 const steps = [
-  {
-    title: "Chọn chuyên khoa",
-    text: "Bắt đầu từ nhu cầu khám hoặc triệu chứng. Bạn có thể xem danh sách chuyên khoa trước khi đặt lịch.",
-    href: "/chuyen-khoa",
-    action: "Xem chuyên khoa",
-  },
-  {
-    title: "Chọn bác sĩ hoặc gói khám",
-    text: "Nếu đã biết bác sĩ, chọn bác sĩ để xem lịch trống. Nếu muốn rõ chi phí, chọn gói khám phù hợp.",
-    href: "/bac-si",
-    action: "Xem bác sĩ",
-  },
-  {
-    title: "Chọn ngày và khung giờ",
-    text: "Form đặt lịch sẽ hiển thị slot trống theo bác sĩ và ngày khám. Slot đã qua hoặc đã được đặt sẽ không hiển thị.",
-    href: "/dat-lich",
-    action: "Đặt lịch",
-  },
-  {
-    title: "Nhập thông tin người khám",
-    text: "Thông tin bắt buộc gồm họ tên, email, số điện thoại liên hệ và khung giờ khám. Thông tin bổ sung có thể nhập khi cần.",
-    href: "/dat-lich",
-    action: "Mở form",
-  },
-  {
-    title: "Xác thực OTP",
-    text: "Sau khi tạo lịch, hệ thống gửi OTP về email bạn đã nhập. Xác thực thành công thì lịch được xác nhận ngay.",
-    href: "/tai-khoan/dang-nhap?next=/tai-khoan/lich-hen",
-    action: "Tra cứu lịch",
-  },
-  {
-    title: "Theo dõi trạng thái",
-    text: "Đăng nhập bằng email đã đặt lịch (mã OTP gửi về email) để xem trạng thái và lịch gần đây.",
-    href: "/tai-khoan/dang-nhap?next=/tai-khoan/lich-hen",
-    action: "Tra cứu ngay",
-  },
-];
+  { title: "Chọn chuyên khoa", text: "Bắt đầu từ nhu cầu khám hoặc triệu chứng. Bạn có thể xem danh sách chuyên khoa trước khi đặt lịch.", href: "/chuyen-khoa", action: "Xem chuyên khoa" },
+  { title: "Chọn bác sĩ hoặc gói khám", text: "Đã biết bác sĩ thì chọn bác sĩ để xem lịch trống. Muốn rõ chi phí thì chọn gói khám phù hợp.", href: "/bac-si", action: "Xem bác sĩ" },
+  { title: "Chọn ngày và giờ trống", text: "Biểu mẫu chỉ hiện những khung giờ còn trống theo bác sĩ và ngày khám. Khung giờ đã qua hoặc đã có người đặt sẽ không hiện.", href: "/dat-lich", action: "Mở trang đặt lịch" },
+  { title: "Chọn người khám và nhập thông tin", text: "Đăng nhập để đặt cho bản thân hoặc cho người thân đã lưu trong hồ sơ. Thông tin bắt buộc gồm họ tên, email, số điện thoại và lý do khám.", href: "/dat-lich", action: "Mở trang đặt lịch", isNew: true },
+  { title: "Xác thực OTP", text: "Hệ thống gửi mã OTP về email bạn đã nhập. Xác thực xong là lịch được xác nhận.", href: "/dat-lich", action: "Bắt đầu đặt lịch" },
+  { title: "Theo dõi lịch hẹn", text: "Đăng nhập bằng email đã đặt lịch, mã OTP gửi về email, để xem trạng thái, kết quả khám và hóa đơn.", href: "/tai-khoan/dang-nhap?next=/tai-khoan/lich-hen", action: "Tra cứu lịch hẹn" },
+] as const;
+
+const prepare = ["Một email dùng được để nhận mã OTP", "Họ tên và ngày sinh của người khám", "Mã thẻ BHYT nếu có"];
 
 export default function BookingGuidePage() {
   const howToJsonLd = {
     "@context": "https://schema.org",
     "@type": "HowTo",
     name: "Cách đặt lịch khám trực tuyến",
-    description: "Các bước chọn dịch vụ, nhập thông tin, xác thực OTP và theo dõi lịch hẹn.",
+    description: "Các bước chọn dịch vụ, chọn người khám, xác thực OTP và theo dõi lịch hẹn.",
     inLanguage: "vi-VN",
     step: steps.map((step, index) => ({
       "@type": "HowToStep",
@@ -62,19 +40,18 @@ export default function BookingGuidePage() {
   return (
     <main className="min-h-screen bg-[var(--public-canvas)] text-[var(--public-ink)]">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdString(howToJsonLd) }} />
-      <PublicPageHero
-        eyebrow="Hướng dẫn đặt lịch"
-        title="Từ chọn chuyên khoa đến tra cứu trạng thái"
-        description="Quy trình đặt lịch được thiết kế để người khám có thể chọn đúng dịch vụ, xác thực OTP và theo dõi lịch hẹn sau khi gửi yêu cầu."
-      />
+      <CatalogHeader current="Hướng dẫn đặt lịch" title="Cách đặt lịch khám trực tuyến" description="Sáu bước, từ chọn chuyên khoa đến theo dõi lịch hẹn." />
 
-      <section className="ui-container py-6 sm:py-8">
-        <ol className="max-w-3xl divide-y divide-[var(--public-divider)] overflow-hidden rounded-lg border border-[var(--public-border)] bg-[var(--public-surface)]">
+      <section className="ui-container grid gap-6 py-6 sm:py-8 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start">
+        <ol className="divide-y divide-[var(--public-divider)] overflow-hidden rounded-xl border border-[var(--public-border)] bg-[var(--public-surface)]">
           {steps.map((step, index) => (
-            <li id={`step-${index + 1}`} key={step.title} className="flex gap-4 p-4 sm:p-5">
+            <li id={`step-${index + 1}`} key={step.title} className="flex scroll-mt-24 gap-4 p-4 sm:p-5">
               <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--public-primary-soft)] text-sm font-bold text-[var(--public-primary-dark)]" aria-hidden="true">{index + 1}</span>
               <div className="min-w-0">
-                <h2 className="text-base font-bold">{step.title}</h2>
+                <h2 className="flex flex-wrap items-center gap-2 text-base font-bold">
+                  {step.title}
+                  {"isNew" in step ? <span className="rounded-full bg-[var(--public-success-soft)] px-2 py-0.5 text-xs font-semibold text-[var(--public-success)]">Mới</span> : null}
+                </h2>
                 <p className="mt-1 text-base leading-7 text-[var(--public-text-soft)]">{step.text}</p>
                 <Link href={step.href} className="mt-1 inline-flex min-h-11 items-center text-sm font-semibold text-[var(--public-primary)] underline underline-offset-4">{step.action}</Link>
               </div>
@@ -82,10 +59,18 @@ export default function BookingGuidePage() {
           ))}
         </ol>
 
-        <div className="mt-6 flex max-w-3xl flex-col gap-2 sm:flex-row">
-          <Link href="/dat-lich" className="public-button-primary inline-flex min-h-12 items-center justify-center rounded-lg px-5 text-base font-semibold">Bắt đầu đặt lịch</Link>
-          <Link href="/ho-tro" className="public-button-secondary inline-flex min-h-12 items-center justify-center rounded-lg px-5 text-base font-semibold">Trung tâm hỗ trợ</Link>
-        </div>
+        <aside className="space-y-3 lg:sticky lg:top-24">
+          <section className="rounded-xl border border-[var(--public-border)] bg-[var(--public-surface)] p-4">
+            <h2 className="text-base font-bold">Cần chuẩn bị</h2>
+            <ul className="mt-2 list-disc space-y-1 pl-5 text-sm leading-6 text-[var(--public-text-soft)]">
+              {prepare.map((item) => <li key={item}>{item}</li>)}
+            </ul>
+          </section>
+          <Link href="/dat-lich" className="public-button-primary inline-flex min-h-12 w-full items-center justify-center rounded-lg px-5 text-base font-semibold">Bắt đầu đặt lịch</Link>
+          <p className="text-center text-sm text-[var(--public-muted)]">
+            Cần hỗ trợ? <Link href="/ho-tro" className="font-semibold text-[var(--public-primary)] underline underline-offset-4">Liên hệ và hỗ trợ</Link>
+          </p>
+        </aside>
       </section>
     </main>
   );
