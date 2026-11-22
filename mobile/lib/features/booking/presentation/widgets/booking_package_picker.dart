@@ -170,32 +170,33 @@ class _PackageTile extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: AppSpacing.xs),
-              Row(
+              Wrap(
+                spacing: AppSpacing.xs,
+                runSpacing: AppSpacing.xxs,
+                crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
                   BookingMiniChip(
                     label: formatVnd(item.finalPrice),
                     background: colors.primarySoft,
                     foreground: colors.primaryDark,
                   ),
-                  if (item.departmentName != null) ...[
-                    const SizedBox(width: AppSpacing.xs),
-                    Flexible(
+                  if (item.departmentName != null)
+                    ConstrainedBox(
+                      constraints: BoxConstraints(
+                        maxWidth: MediaQuery.sizeOf(context).width * 0.5,
+                      ),
                       child: BookingMiniChip(
                         label: item.departmentName!,
                         background: colors.infoContainer,
                         foreground: colors.info,
                       ),
                     ),
-                  ],
-                  if (item.isBhytSupport) ...[
-                    const SizedBox(width: AppSpacing.xs),
+                  if (item.isBhytSupport)
                     BookingMiniChip(
                       label: 'BHYT',
                       background: colors.successContainer,
                       foreground: colors.success,
                     ),
-                  ],
-                  const Spacer(),
                   if (item.slug != null)
                     TextButton(
                       onPressed: () => context.push(

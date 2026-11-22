@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:hospital_booking_mobile/core/design/app_colors.dart';
 import 'package:hospital_booking_mobile/features/invoices/presentation/invoice_status_visuals.dart';
 import 'package:hospital_booking_mobile/core/formatters/display_formatters.dart';
 import 'package:hospital_booking_mobile/core/widgets/app_error_banner.dart';
@@ -8,13 +9,45 @@ import 'package:hospital_booking_mobile/core/widgets/app_ui.dart';
 import 'package:hospital_booking_mobile/features/invoices/application/invoices_controller.dart';
 import 'package:hospital_booking_mobile/features/invoices/domain/patient_invoice.dart';
 
-class InvoicesScreen extends ConsumerWidget {
+enum _InvoiceFilter {
+  due('Cần thanh toán'),
+  paid('Đã thanh toán'),
+  all('Tất cả');
+
+  const _InvoiceFilter(this.label);
+
+  final String label;
+
+  bool matches(PatientInvoice invoice) => switch (this) {
+    _InvoiceFilter.due => invoice.status == PatientInvoiceStatus.unpaid,
+    _InvoiceFilter.paid => invoice.status == PatientInvoiceStatus.paid,
+    _InvoiceFilter.all => true,
+  };
+}
+
+/// Hóa đơn: khung tổng tiền còn phải trả, ba bộ lọc và thẻ hóa đơn có vạch màu theo trạng thái.
+class InvoicesScreen extends ConsumerStatefulWidget {
   const InvoicesScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<InvoicesScreen> createState() => _InvoicesScreenState();
+}
+
+class _InvoicesScreenState extends ConsumerState<InvoicesScreen> {
+  _InvoiceFilter? _filter;
+
+  @override
+  Widget build(BuildContext context) {
     final state = ref.watch(invoicesControllerProvider);
     final controller = ref.read(invoicesControllerProvider.notifier);
+    final unpaid = state.items
+        .where((invoice) => invoice.status == PatientInvoiceStatus.unpaid)
+        .toList(growable: false);
+    // Mặc định xem hóa đơn cần trả nếu có, không thì xem tất cả.
+    final filter =
+        _filter ??
+        (unpaid.isNotEmpty ? _InvoiceFilter.due : _InvoiceFilter.all);
+    final visible = state.items.where(filter.matches).toList(growable: false);
     return Scaffold(
       appBar: AppBar(
         leading: Navigator.of(context).canPop()
@@ -42,25 +75,30 @@ class InvoicesScreen extends ConsumerWidget {
                   physics: const AlwaysScrollableScrollPhysics(),
                   slivers: [
                     SliverPadding(
-                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 14),
+                      padding: const EdgeInsets.fromLTRB(
+                        AppSpacing.page,
+                        AppSpacing.xs,
+                        AppSpacing.page,
+                        AppSpacing.sm,
+                      ),
                       sliver: SliverList.list(
                         children: [
-                          AppGradientOverviewCard(
-                            icon: Icons.receipt_long_outlined,
-                            title: '${state.total} hóa đơn trên hệ thống',
-                            subtitle: state.items.length < state.total
-                                ? 'Đang hiển thị ${state.items.length} hóa đơn gần nhất'
-                                : 'Chi phí và quyền lợi BHYT được đồng bộ từ cơ sở khám',
+                          _DueSummary(unpaid: unpaid),
+                          const SizedBox(height: AppSpacing.sm),
+                          _FilterBar(
+                            selected: filter,
+                            onChanged: (value) =>
+                                setState(() => _filter = value),
                           ),
                           if (state.error != null) ...[
-                            const SizedBox(height: 14),
+                            const SizedBox(height: AppSpacing.sm),
                             AppErrorBanner(
                               error: state.error!,
                               onDismiss: controller.dismissError,
                             ),
                           ],
                           if (state.isRefreshing) ...[
-                            const SizedBox(height: 12),
+                            const SizedBox(height: AppSpacing.xs),
                             const LinearProgressIndicator(minHeight: 2),
                           ],
                         ],
@@ -76,15 +114,34 @@ class InvoicesScreen extends ConsumerWidget {
                               'Hóa đơn sẽ xuất hiện sau khi cơ sở khám hoàn tất chi phí khám.',
                         ),
                       )
+                    else if (visible.isEmpty)
+                      SliverToBoxAdapter(
+                        child: Padding(
+                          padding: const EdgeInsets.all(AppSpacing.xl),
+                          child: Text(
+                            filter == _InvoiceFilter.due
+                                ? 'Bạn không có hóa đơn nào cần thanh toán.'
+                                : 'Chưa có hóa đơn nào ở mục này.',
+                            textAlign: TextAlign.center,
+                            style: Theme.of(context).textTheme.bodyMedium
+                                ?.copyWith(color: context.colors.muted),
+                          ),
+                        ),
+                      )
                     else
                       SliverPadding(
-                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
+                        padding: const EdgeInsets.fromLTRB(
+                          AppSpacing.page,
+                          0,
+                          AppSpacing.page,
+                          AppSpacing.md,
+                        ),
                         sliver: SliverList.separated(
-                          itemCount: state.items.length,
+                          itemCount: visible.length,
                           separatorBuilder: (_, _) =>
-                              const SizedBox(height: 12),
+                              const SizedBox(height: AppSpacing.sm),
                           itemBuilder: (context, index) {
-                            final invoice = state.items[index];
+                            final invoice = visible[index];
                             return _InvoiceCard(
                               invoice: invoice,
                               onTap: () =>
@@ -95,7 +152,12 @@ class InvoicesScreen extends ConsumerWidget {
                       ),
                     if (state.hasNextPage)
                       SliverPadding(
-                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
+                        padding: const EdgeInsets.fromLTRB(
+                          AppSpacing.page,
+                          0,
+                          AppSpacing.page,
+                          AppSpacing.xxl,
+                        ),
                         sliver: SliverToBoxAdapter(
                           child: OutlinedButton.icon(
                             onPressed: state.isLoadingMore
@@ -125,138 +187,254 @@ class InvoicesScreen extends ConsumerWidget {
   }
 }
 
+/// Tổng tiền còn phải trả của các hóa đơn đã tải; xanh lá khi không còn khoản nào.
+class _DueSummary extends StatelessWidget {
+  const _DueSummary({required this.unpaid});
+
+  final List<PatientInvoice> unpaid;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    final text = Theme.of(context).textTheme;
+    final due = unpaid.isNotEmpty;
+    final total = unpaid.fold<int>(0, (sum, item) => sum + item.finalAmount);
+    final background = due ? colors.warningContainer : colors.successContainer;
+    final foreground = due ? colors.warning : colors.success;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: colors.surface,
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              due ? Icons.receipt_long_outlined : Icons.check_circle_outline,
+              color: foreground,
+            ),
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  due ? 'Cần thanh toán' : 'Không có khoản cần thanh toán',
+                  style: text.labelMedium?.copyWith(color: foreground),
+                ),
+                if (due) ...[
+                  Text(
+                    formatVnd(total),
+                    style: text.headlineSmall?.copyWith(color: colors.ink),
+                  ),
+                  Text(
+                    '${unpaid.length} hóa đơn chưa thanh toán',
+                    style: text.bodySmall?.copyWith(color: colors.ink),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _FilterBar extends StatelessWidget {
+  const _FilterBar({required this.selected, required this.onChanged});
+
+  final _InvoiceFilter selected;
+  final ValueChanged<_InvoiceFilter> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    return Container(
+      padding: const EdgeInsets.all(3),
+      decoration: BoxDecoration(
+        color: colors.primarySoft,
+        borderRadius: BorderRadius.circular(AppRadius.md),
+      ),
+      child: Row(
+        children: [
+          for (final filter in _InvoiceFilter.values)
+            Expanded(
+              child: Semantics(
+                button: true,
+                selected: filter == selected,
+                label: filter.label,
+                child: ExcludeSemantics(
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () => onChanged(filter),
+                    child: AnimatedContainer(
+                      duration: AppMotion.responsive(context, AppMotion.fast),
+                      padding: const EdgeInsets.symmetric(vertical: 9),
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: filter == selected
+                            ? colors.surface
+                            : Colors.transparent,
+                        borderRadius: BorderRadius.circular(AppRadius.sm),
+                      ),
+                      child: Text(
+                        filter.label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.labelMedium
+                            ?.copyWith(
+                              color: filter == selected
+                                  ? colors.primaryDark
+                                  : colors.muted,
+                              fontWeight: filter == selected
+                                  ? FontWeight.w600
+                                  : FontWeight.w500,
+                            ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
 class _InvoiceCard extends StatelessWidget {
   const _InvoiceCard({required this.invoice, required this.onTap});
 
   final PatientInvoice invoice;
   final VoidCallback onTap;
 
+  Color _accent(AppColors colors) => switch (invoice.status) {
+    PatientInvoiceStatus.unpaid => colors.warning,
+    PatientInvoiceStatus.paid => colors.success,
+    PatientInvoiceStatus.cancelled => colors.danger,
+    _ => colors.info,
+  };
+
   @override
-  Widget build(BuildContext context) => Card(
-    margin: EdgeInsets.zero,
-    child: InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(18),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                AppStatusBadge(
-                  label: invoice.status.label,
-                  tone: invoice.status.tone,
-                  icon: invoice.status.icon,
-                ),
-                const Spacer(),
-                Text(
-                  invoice.invoiceCode,
-                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 14),
-            Text(
-              invoice.doctorName.isEmpty ? 'Chi phí khám' : invoice.doctorName,
-              style: Theme.of(
-                context,
-              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
-            ),
-            if (invoice.careUnit.isNotEmpty) ...[
-              const SizedBox(height: 3),
-              Text(
-                invoice.careUnit,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
-              ),
-            ],
-            if (invoice.isDependentInvoice && invoice.patientName != null) ...[
-              const SizedBox(height: 7),
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    final text = Theme.of(context).textTheme;
+    final unpaid = invoice.status == PatientInvoiceStatus.unpaid;
+    return Material(
+      color: colors.surface,
+      borderRadius: BorderRadius.circular(AppRadius.lg),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Ink(
+          decoration: BoxDecoration(
+            border: Border(left: BorderSide(color: _accent(colors), width: 4)),
+          ),
+          padding: const EdgeInsets.all(AppSpacing.md),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
               Row(
                 children: [
-                  Icon(
-                    Icons.family_restroom_outlined,
-                    size: 17,
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
-                  const SizedBox(width: 6),
                   Expanded(
                     child: Text(
-                      'Người khám: ${invoice.patientName}',
-                      style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
+                      invoice.invoiceCode,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: text.labelMedium?.copyWith(color: colors.muted),
                     ),
+                  ),
+                  AppStatusBadge(
+                    label: invoice.status.label,
+                    tone: invoice.status.tone,
                   ),
                 ],
               ),
-            ],
-            const SizedBox(height: 14),
-            DecoratedBox(
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.primaryContainer,
-                borderRadius: BorderRadius.circular(14),
+              const SizedBox(height: AppSpacing.xs),
+              Text(
+                invoice.doctorName.isEmpty
+                    ? 'Chi phí khám'
+                    : invoice.doctorName,
+                style: text.titleSmall,
               ),
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            invoice.status.amountLabel,
-                            style: Theme.of(context).textTheme.bodySmall,
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            formatVnd(invoice.finalAmount),
-                            style: Theme.of(context).textTheme.titleMedium
-                                ?.copyWith(
-                                  color: Theme.of(context).colorScheme.primary,
-                                  fontWeight: FontWeight.w900,
-                                ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Text(formatDateVi(invoice.appointmentDate)),
-                    const SizedBox(width: 4),
-                    const Icon(Icons.chevron_right_rounded),
-                  ],
+              if (invoice.careUnit.isNotEmpty)
+                Text(
+                  invoice.careUnit,
+                  style: text.bodySmall?.copyWith(color: colors.muted),
                 ),
-              ),
-            ),
-            if (invoice.appliedInsuranceDiscount > 0) ...[
-              const SizedBox(height: 9),
-              Row(
+              if (invoice.isDependentInvoice && invoice.patientName != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.family_restroom_outlined,
+                        size: 16,
+                        color: colors.primary,
+                      ),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          'Người khám: ${invoice.patientName}',
+                          style: text.labelMedium,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              const SizedBox(height: AppSpacing.sm),
+              Wrap(
+                alignment: WrapAlignment.spaceBetween,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                runSpacing: AppSpacing.xs,
+                spacing: AppSpacing.sm,
                 children: [
-                  Icon(
-                    Icons.health_and_safety_outlined,
-                    size: 18,
-                    color: Theme.of(context).colorScheme.primary,
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        formatVnd(invoice.finalAmount),
+                        style: text.titleMedium?.copyWith(
+                          color: colors.primaryDark,
+                        ),
+                      ),
+                      Text(
+                        formatDateVi(invoice.appointmentDate) +
+                            (invoice.appliedInsuranceDiscount > 0
+                                ? ' · BHYT giảm ${formatVnd(invoice.appliedInsuranceDiscount)}'
+                                : ''),
+                        style: text.bodySmall?.copyWith(color: colors.muted),
+                      ),
+                    ],
                   ),
-                  const SizedBox(width: 7),
-                  Text(
-                    'BHYT giảm ${formatVnd(invoice.appliedInsuranceDiscount)}',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      fontWeight: FontWeight.w700,
+                  if (unpaid)
+                    FilledButton(
+                      onPressed: onTap,
+                      style: FilledButton.styleFrom(
+                        minimumSize: const Size(0, 38),
+                        padding: const EdgeInsets.symmetric(horizontal: 20),
+                      ),
+                      child: const Text('Thanh toán'),
                     ),
-                  ),
                 ],
               ),
             ],
-          ],
+          ),
         ),
       ),
-    ),
-  );
+    );
+  }
 }
 
 class _InvoicesLoading extends StatelessWidget {
@@ -264,10 +442,10 @@ class _InvoicesLoading extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => ListView.separated(
-    padding: const EdgeInsets.all(16),
+    padding: const EdgeInsets.all(AppSpacing.page),
     itemCount: 4,
-    separatorBuilder: (_, _) => const SizedBox(height: 12),
+    separatorBuilder: (_, _) => const SizedBox(height: AppSpacing.sm),
     itemBuilder: (_, index) =>
-        AppLoadingSkeleton(height: index == 0 ? 112 : 210),
+        AppLoadingSkeleton(height: index == 0 ? 96 : 150),
   );
 }
