@@ -12,6 +12,7 @@ Future<String?> showBookingCalendar(
   required String doctorId,
   String? selectedDate,
 }) => showDialog<String>(
+  useRootNavigator: true,
   context: context,
   builder: (_) =>
       BookingCalendarDialog(doctorId: doctorId, selectedDate: selectedDate),

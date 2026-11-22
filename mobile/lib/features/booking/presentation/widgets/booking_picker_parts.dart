@@ -11,6 +11,7 @@ Future<void> showBookingPickerSheet(
 ) => showModalBottomSheet<void>(
   context: context,
   isScrollControlled: true,
+  useRootNavigator: true,
   useSafeArea: true,
   showDragHandle: true,
   backgroundColor: context.colors.canvas,
