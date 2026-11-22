@@ -41,11 +41,6 @@ export type FAQForm = {
   isActive: boolean;
 };
 
-export type Pane =
-  | { kind: "banner"; banner: Banner | null }
-  | { kind: "faq"; faq: DashboardFAQ | null }
-  | null;
-
 export const tabs: { id: TabKey; label: string }[] = [
   { id: "settings", label: "Thông tin trang" },
   { id: "home", label: "Bố cục trang chủ" },
