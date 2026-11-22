@@ -1568,22 +1568,35 @@ button:disabled {
   .kun-dots i { animation: none; opacity: 0.7; }
 }
 
-/* Mục quy trình ở trang chủ: năm bước sáng lên nối tiếp một lần khi mục hiện vào màn hình. Kiểu gốc là trạng thái cuối (không có JavaScript hoặc
-   bật giảm chuyển động thì hiện đủ); thuộc tính data-proc chỉ do mã bật khi chuẩn bị chạy hiệu ứng. */
+/* Mục quy trình ở trang chủ: năm bước sáng lên nối tiếp một lần khi mục hiện vào màn hình, rồi một vệt sáng chạy từ bước 1 đến bước 5 và lặp lại
+   (nghỉ ở mỗi bước một nhịp, nút nở vòng sáng khi vệt tới). Kiểu gốc là trạng thái cuối (không có JavaScript hoặc bật giảm chuyển động thì hiện đủ,
+   không lặp); data-proc chỉ do mã bật. Rê chuột hoặc đặt tiêu điểm vào mục thì mọi chuyển động tạm dừng. Chu kỳ 8 giây: vệt chạy 0,9 giây, nghỉ 0,5 giây ở mỗi nút. */
 @keyframes proc-node-in { from { opacity: 0; transform: scale(0.6); } }
 @keyframes proc-text-in { from { opacity: 0; transform: translateY(8px); } }
 @keyframes proc-fill-x { from { transform: scaleX(0); } }
 @keyframes proc-fill-y { from { transform: scaleY(0); } }
+@keyframes proc-flow-x { 0% { transform: translateX(-100%); } 11% { transform: translateX(250%); } 100% { transform: translateX(250%); } }
+@keyframes proc-flow-y { 0% { transform: translateY(-100%); } 11% { transform: translateY(250%); } 100% { transform: translateY(250%); } }
+@keyframes proc-ring {
+  0% { box-shadow: 0 0 0 4px var(--public-canvas), 0 0 0 4px color-mix(in srgb, var(--public-primary) 55%, transparent); }
+  8% { box-shadow: 0 0 0 4px var(--public-canvas), 0 0 0 15px transparent; }
+  100% { box-shadow: 0 0 0 4px var(--public-canvas), 0 0 0 15px transparent; }
+}
 .proc-fill-x { transform-origin: left center; }
 .proc-fill-y { transform-origin: center top; }
+.proc-flow-x, .proc-flow-y { opacity: 0; background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.9), transparent); }
+.proc-flow-y { background: linear-gradient(180deg, transparent, rgba(255, 255, 255, 0.9), transparent); }
 [data-proc="armed"] .proc-node,
 [data-proc="armed"] .proc-text { opacity: 0; }
 [data-proc="armed"] .proc-fill-x { transform: scaleX(0); }
 [data-proc="armed"] .proc-fill-y { transform: scaleY(0); }
-[data-proc="play"] .proc-node { animation: proc-node-in 0.45s cubic-bezier(0.2, 0.9, 0.3, 1.2) var(--d, 0s) both; }
+[data-proc="play"] .proc-node { animation: proc-node-in 0.45s cubic-bezier(0.2, 0.9, 0.3, 1.2) var(--d, 0s) both, proc-ring 8s ease-out var(--r, 0s) infinite backwards; }
 [data-proc="play"] .proc-text { animation: proc-text-in 0.5s ease-out var(--d, 0s) both; }
 [data-proc="play"] .proc-fill-x { animation: proc-fill-x 0.7s ease-out var(--d, 0s) both; }
 [data-proc="play"] .proc-fill-y { animation: proc-fill-y 0.7s ease-out var(--d, 0s) both; }
+[data-proc="play"] .proc-flow-x { opacity: 1; animation: proc-flow-x 8s ease-in-out var(--f, 0s) infinite backwards; }
+[data-proc="play"] .proc-flow-y { opacity: 1; animation: proc-flow-y 8s ease-in-out var(--f, 0s) infinite backwards; }
+[data-proc="play"]:is(:hover, :focus-within) * { animation-play-state: paused; }
 @media (prefers-reduced-motion: reduce) {
   [data-proc="armed"] .proc-node,
   [data-proc="armed"] .proc-text { opacity: 1; }
@@ -1592,7 +1605,10 @@ button:disabled {
   [data-proc="play"] .proc-node,
   [data-proc="play"] .proc-text,
   [data-proc="play"] .proc-fill-x,
-  [data-proc="play"] .proc-fill-y { animation: none; }
+  [data-proc="play"] .proc-fill-y,
+  [data-proc="play"] .proc-flow-x,
+  [data-proc="play"] .proc-flow-y { animation: none; }
+  .proc-flow-x, .proc-flow-y { display: none; }
 }
 
 /* Trang chủ: hiện dần khi cuộn. Kiểu gốc là trạng thái cuối; data-motion="armed" chỉ do mã bật sau khi trang chạy (xem home-motion.tsx).
@@ -1618,7 +1634,7 @@ button:disabled {
 .hero-wave--b { animation: wave-drift 38s linear infinite reverse; opacity: 0.5; bottom: 0.4rem; }
 /* Sóng đầu hero: màu mép dưới header chảy xuống hero; lật theo trục dọc nên keyframes giữ scaleY(-1) khi trôi. */
 @keyframes wave-drift-top { from { transform: scaleY(-1) translate3d(0, 0, 0); } to { transform: scaleY(-1) translate3d(-50%, 0, 0); } }
-.hero-wave-top { position: absolute; left: 0; top: -1px; width: 200%; height: clamp(1.5rem, 3.5vw, 2.5rem); pointer-events: none; will-change: transform; transform: scaleY(-1); z-index: 1; }
+.hero-wave-top { position: absolute; left: 0; top: -1px; width: 200%; height: clamp(1rem, 2.6vw, 2rem); pointer-events: none; will-change: transform; transform: scaleY(-1); }
 .hero-wave-top--a { animation: wave-drift-top 30s linear infinite reverse; }
 .hero-wave-top--b { animation: wave-drift-top 46s linear infinite; opacity: 0.4; top: 0.45rem; }
 @media (prefers-reduced-motion: reduce) {

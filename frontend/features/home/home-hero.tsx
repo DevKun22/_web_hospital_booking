@@ -92,13 +92,17 @@ export function HomeHero({ data, waveFill = "var(--public-canvas)" }: { data: Pi
   return (
     <section
       aria-labelledby="home-title"
-      className="relative overflow-hidden bg-[radial-gradient(60rem_28rem_at_88%_-12%,rgba(255,255,255,0.16),transparent),linear-gradient(120deg,var(--hero-from)_0%,var(--hero-via)_58%,var(--hero-to)_100%)] text-white"
+      className="relative z-10 bg-[radial-gradient(60rem_28rem_at_88%_-12%,rgba(255,255,255,0.16),transparent),linear-gradient(120deg,var(--hero-from)_0%,var(--hero-via)_58%,var(--hero-to)_100%)] text-white"
     >
-      <svg aria-hidden="true" className="hero-wave-top hero-wave-top--b" viewBox="0 0 2400 56" preserveAspectRatio="none"><path d={WAVE_TOP_B} style={{ fill: "var(--public-surface)" }} /></svg>
-      <svg aria-hidden="true" className="hero-wave-top hero-wave-top--a" viewBox="0 0 2400 56" preserveAspectRatio="none"><path d={WAVE_TOP_A} style={{ fill: "var(--public-surface)" }} /></svg>
-      <span aria-hidden="true" className="hero-blob -left-24 -top-32 h-96 w-96 opacity-40" />
-      <span aria-hidden="true" className="hero-blob -right-20 top-1/3 h-80 w-80 opacity-30 [animation-delay:-6s] [animation-direction:reverse]" />
-      <div className="ui-container relative z-10 grid grid-cols-[minmax(0,1fr)] items-center gap-8 pb-16 pt-14 sm:pb-20 sm:pt-16 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)] lg:gap-12 lg:pb-24 lg:pt-20">
+      <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden">
+        <svg aria-hidden="true" className="hero-wave-top hero-wave-top--b" viewBox="0 0 2400 56" preserveAspectRatio="none"><path d={WAVE_TOP_B} style={{ fill: "var(--public-surface)" }} /></svg>
+        <svg aria-hidden="true" className="hero-wave-top hero-wave-top--a" viewBox="0 0 2400 56" preserveAspectRatio="none"><path d={WAVE_TOP_A} style={{ fill: "var(--public-surface)" }} /></svg>
+        <span aria-hidden="true" className="hero-blob -left-24 -top-32 h-96 w-96 opacity-40" />
+        <span aria-hidden="true" className="hero-blob -right-20 top-1/3 h-80 w-80 opacity-30 [animation-delay:-6s] [animation-direction:reverse]" />
+        <svg aria-hidden="true" className="hero-wave hero-wave--b" viewBox="0 0 2400 56" preserveAspectRatio="none"><path d={WAVE_B} style={{ fill: waveFill }} /></svg>
+        <svg aria-hidden="true" className="hero-wave hero-wave--a" viewBox="0 0 2400 56" preserveAspectRatio="none"><path d={WAVE_A} style={{ fill: waveFill }} /></svg>
+      </div>
+      <div className="ui-container relative z-10 grid grid-cols-[minmax(0,1fr)] items-center gap-8 pb-16 pt-10 sm:pb-20 sm:pt-14 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)] lg:gap-12 lg:pb-24 lg:pt-16">
         <div>
           <h1 id="home-title" className="text-[1.75rem] font-semibold leading-tight text-white sm:text-4xl lg:text-[2.6rem] lg:leading-[1.15]">
             Đặt lịch khám bệnh trực tuyến, biết giờ trống và chi phí trước khi đến
@@ -107,7 +111,7 @@ export function HomeHero({ data, waveFill = "var(--public-canvas)" }: { data: Pi
             Chọn bác sĩ và giờ khám còn trống, xác nhận bằng mã OTP. Quý khách không cần tạo tài khoản.
           </p>
 
-          <div className="hero-rise mt-6 max-w-xl" style={rise(1)}>
+          <div className="hero-rise relative z-20 mt-6 max-w-xl" style={rise(1)}>
             <PublicGlobalSearch large />
             {chips.length ? (
               <p className="mt-3 flex flex-wrap items-center gap-2 text-sm text-white/90">
@@ -134,8 +138,6 @@ export function HomeHero({ data, waveFill = "var(--public-canvas)" }: { data: Pi
           {data.heroBanners.length ? <HomeHeroSlider banners={data.heroBanners} /> : <TodayCard doctors={data.doctors} />}
         </div>
       </div>
-      <svg aria-hidden="true" className="hero-wave hero-wave--b" viewBox="0 0 2400 56" preserveAspectRatio="none"><path d={WAVE_B} style={{ fill: waveFill }} /></svg>
-      <svg aria-hidden="true" className="hero-wave hero-wave--a" viewBox="0 0 2400 56" preserveAspectRatio="none"><path d={WAVE_A} style={{ fill: waveFill }} /></svg>
     </section>
   );
 }
