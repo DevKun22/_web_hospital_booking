@@ -22,6 +22,7 @@ import {
   DsToolbar,
   DsLoading,
   useActionToast,
+  useConfirm,
 } from "@/components/ds";
 import { apiRequest } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
@@ -72,7 +73,7 @@ export default function UploadsPage() {
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
   const [pane, setPane] = useState<PaneState>(null);
-  const [confirmDelete, setConfirmDelete] = useState(false);
+  const confirm = useConfirm();
   const [olderThanHours, setOlderThanHours] = useState("24");
   const [cleanupLimit, setCleanupLimit] = useState("50");
   const [cleanupResult, setCleanupResult] = useState<CleanupUnusedMediaAssetsResult | null>(null);
@@ -93,7 +94,11 @@ export default function UploadsPage() {
 
   const closePane = () => {
     setPane(null);
-    setConfirmDelete(false);
+  };
+
+  const askDelete = async () => {
+    if (!(await confirm({ title: "Xoá ảnh chưa sử dụng?", message: "Ảnh sẽ bị xoá khỏi dịch vụ lưu trữ và bản ghi tài nguyên. Không hoàn tác được.", confirmLabel: "Xoá ảnh", tone: "danger" }))) return;
+    await deleteAsset();
   };
 
   const deleteAsset = async () => {
@@ -204,7 +209,6 @@ export default function UploadsPage() {
             type="button"
             aria-pressed={pane?.kind === "asset" && pane.id === asset.id}
             onClick={() => {
-              setConfirmDelete(false);
               setPane({ kind: "asset", id: asset.id });
             }}
             style={{
@@ -274,23 +278,11 @@ export default function UploadsPage() {
             </a>
           </div>
           {canDelete && !selected.isUsed ? (
-            confirmDelete ? (
-              <div style={{ display: "grid", gap: 8 }}>
-                <span style={{ fontSize: 13 }}>Ảnh sẽ bị xoá khỏi dịch vụ lưu trữ và bản ghi tài nguyên. Không áp dụng cho ảnh đang sử dụng.</span>
-                <div style={{ display: "flex", gap: 8 }}>
-                  <DsButton variant="danger" disabled={busy} onClick={() => void deleteAsset()}>
-                    {busy ? "Đang xoá..." : "Xoá ảnh"}
-                  </DsButton>
-                  <DsButton onClick={() => setConfirmDelete(false)}>Giữ lại</DsButton>
-                </div>
-              </div>
-            ) : (
-              <div>
-                <DsButton variant="ghost" onClick={() => setConfirmDelete(true)}>
+            <div>
+                <DsButton variant="ghost" onClick={() => void askDelete()}>
                   Xoá ảnh chưa sử dụng
                 </DsButton>
               </div>
-            )
           ) : null}
         </div>
       </DsPane>

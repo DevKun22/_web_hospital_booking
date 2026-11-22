@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { DsButton, DsField, DsInput, DsNotice, DsPanel, DsLoading, useActionToast } from "@/components/ds";
+import { DsButton, DsField, DsInput, DsNotice, DsPanel, DsLoading, useActionToast, useConfirm } from "@/components/ds";
 import { apiRequest } from "@/lib/api";
 
 type PolicyKey =
@@ -37,20 +37,24 @@ export function PolicyPanel() {
   const policyQuery = useQuery({ queryKey, queryFn: () => apiRequest<PolicyData>("/dashboard/policy"), staleTime: 0 });
   // Chỉ giữ giá trị người dùng đã gõ; ô chưa sửa hiển thị giá trị từ máy chủ.
   const [edits, setEdits] = useState<Partial<Record<PolicyKey, string>>>({});
-  const [confirmReset, setConfirmReset] = useState(false);
+  const confirm = useConfirm();
 
   const data = policyQuery.data;
   const dirty = useMemo(() => (data ? fields.filter(({ key }) => edits[key] !== undefined && Number(edits[key]) !== data.policy[key]) : []), [data, edits]);
 
   const onDone = (next: PolicyData) => {
     setEdits({});
-    setConfirmReset(false);
     queryClient.setQueryData(queryKey, next);
   };
   const saveMutation = useMutation({
     mutationFn: () => apiRequest<PolicyData>("/dashboard/policy", { method: "PUT", body: Object.fromEntries(dirty.map(({ key }) => [key, Number(edits[key])])) }),
     onSuccess: onDone,
   });
+  const askReset = async () => {
+    if (!(await confirm({ title: "Khôi phục chính sách về mặc định?", message: "Các điều chỉnh đã lưu sẽ bị bỏ.", confirmLabel: "Khôi phục", tone: "danger" }))) return;
+    await resetMutation.mutate();
+  };
+
   const resetMutation = useMutation({
     mutationFn: () => apiRequest<PolicyData>("/dashboard/policy", { method: "DELETE" }),
     onSuccess: onDone,
@@ -65,24 +69,14 @@ export function PolicyPanel() {
       title="Tham số chính sách đặt lịch"
       actions={
         <span style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-          {confirmReset ? (
-            <>
-              <span style={{ fontSize: 13 }}>Khôi phục chính sách về mặc định?</span>
-              <DsButton variant="danger" disabled={resetMutation.isPending} onClick={() => resetMutation.mutate()}>
-                Khôi phục
-              </DsButton>
-              <DsButton onClick={() => setConfirmReset(false)}>Giữ lại</DsButton>
-            </>
-          ) : (
-            <>
-              <DsButton disabled={resetMutation.isPending} onClick={() => setConfirmReset(true)}>
+          <>
+              <DsButton disabled={resetMutation.isPending} onClick={() => void askReset()}>
                 Mặc định
               </DsButton>
               <DsButton variant="primary" disabled={dirty.length === 0 || saveMutation.isPending} onClick={() => saveMutation.mutate()}>
                 Lưu{dirty.length ? ` (${dirty.length})` : ""}
               </DsButton>
             </>
-          )}
         </span>
       }
     >

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { DsButton, DsEditDialog, DsField, DsKeyValue, DsNotice, DsStatusPill, DsTextarea } from "@/components/ds";
+import { DsButton, DsEditDialog, DsField, DsKeyValue, DsNotice, DsStatusPill, DsTextarea, useConfirm } from "@/components/ds";
 import { apiRequest } from "@/lib/api";
 import { formatVietnamDate, isVietnamSlotStartInPast } from "@/lib/date";
 import type { DoctorTimeSlot, TimeSlotStatus } from "@/lib/types";
@@ -28,7 +28,7 @@ export function SlotDialog({
 }) {
   const [lockOpen, setLockOpen] = useState(false);
   const [lockReason, setLockReason] = useState("");
-  const [confirmDelete, setConfirmDelete] = useState(false);
+  const confirm = useConfirm();
   const [saving, setSaving] = useState(false);
 
   const status = effectiveSlotStatus(slot);
@@ -57,6 +57,11 @@ export function SlotDialog({
   const unlock = () => {
     if (!canManageSlots) return;
     void act(() => apiRequest<DoctorTimeSlot>(`/dashboard/doctor-time-slots/${slot.id}/unlock`, { method: "PATCH" }), "Đã mở khóa khung giờ", "Không mở khóa được khung giờ");
+  };
+
+  const askDelete = async () => {
+    if (!(await confirm({ title: "Xoá khung giờ này?", message: "Khung giờ sẽ bị xoá. Không hoàn tác được.", confirmLabel: "Xoá khung giờ", tone: "danger" }))) return;
+    await remove();
   };
 
   const remove = () => {
@@ -140,21 +145,11 @@ export function SlotDialog({
               </div>
             )}
             {canWrite ? (
-              confirmDelete ? (
-                <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-                  <span style={{ fontSize: 13 }}>Xoá khung giờ này?</span>
-                  <DsButton variant="danger" onClick={remove}>
-                    Xoá khung giờ
-                  </DsButton>
-                  <DsButton onClick={() => setConfirmDelete(false)}>Giữ lại</DsButton>
-                </div>
-              ) : (
-                <div>
-                  <DsButton variant="ghost" onClick={() => setConfirmDelete(true)}>
+              <div>
+                  <DsButton variant="ghost" onClick={() => void askDelete()}>
                     Xoá khung giờ
                   </DsButton>
                 </div>
-              )
             ) : null}
           </>
         )}

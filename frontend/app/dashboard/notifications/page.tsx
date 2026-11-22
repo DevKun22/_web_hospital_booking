@@ -23,6 +23,7 @@ import {
   DsToolbar,
   type DsColumn,
   type DsTone,
+  useConfirm,
 } from "@/components/ds";
 import { VietnamDateTimeInput } from "@/components/ui/vietnam-datetime-input";
 import { apiRequest } from "@/lib/api";
@@ -110,7 +111,7 @@ export default function DashboardNotificationsPage() {
   const [confirming, setConfirming] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [cancelling, setCancelling] = useState(false);
-  const [confirmCancel, setConfirmCancel] = useState(false);
+  const confirm = useConfirm();
   const [message, setMessage] = useState<{ tone: "good" | "bad"; text: string } | null>(null);
   const [pane, setPane] = useState<PaneState>(null);
   const [statusFilter, setStatusFilter] = useState("");
@@ -153,7 +154,6 @@ export default function DashboardNotificationsPage() {
   const closePane = () => {
     setPane(null);
     setConfirming(false);
-    setConfirmCancel(false);
   };
 
   const requestConfirmation = (event: FormEvent) => {
@@ -205,13 +205,17 @@ export default function DashboardNotificationsPage() {
     }
   };
 
+  const askCancel = async (campaignId: string) => {
+    if (!(await confirm({ title: "Hủy lịch gửi?", message: "Chiến dịch sẽ không được phát hành tự động.", confirmLabel: "Hủy lịch gửi", cancelLabel: "Giữ lịch", tone: "danger" }))) return;
+    await cancelScheduled(campaignId);
+  };
+
   const cancelScheduled = async (campaignId: string) => {
     setCancelling(true);
     setMessage(null);
     try {
       await apiRequest(`/dashboard/notifications/${campaignId}/cancel`, { method: "PATCH" });
       setMessage({ tone: "good", text: "Đã hủy lịch gửi thông báo." });
-      setConfirmCancel(false);
       await announcementsQuery.refetch();
     } catch (error) {
       setMessage({ tone: "bad", text: error instanceof Error ? error.message : "Không thể hủy lịch gửi." });
@@ -270,7 +274,7 @@ export default function DashboardNotificationsPage() {
             {items.map((item) => {
               const status = campaignStatus(item);
               return (
-                <button key={item.campaignId} type="button" role="option" className="ds-listrow" aria-selected={pane?.kind === "view" && pane.id === item.campaignId} onClick={() => { setConfirmCancel(false); setPane({ kind: "view", id: item.campaignId }); }}>
+                <button key={item.campaignId} type="button" role="option" className="ds-listrow" aria-selected={pane?.kind === "view" && pane.id === item.campaignId} onClick={() => { setPane({ kind: "view", id: item.campaignId }); }}>
                   <span className="ds-listrow__main">
                     <strong>{item.title}</strong>
                     <small>
@@ -294,7 +298,7 @@ export default function DashboardNotificationsPage() {
           loading={announcementsQuery.isLoading}
           emptyTitle="Chưa có chiến dịch"
           emptyDescription="Thông báo đầu tiên sẽ xuất hiện tại đây sau khi được tạo."
-          onRowClick={(row) => { setConfirmCancel(false); setPane({ kind: "view", id: row.campaignId }); }}
+          onRowClick={(row) => { setPane({ kind: "view", id: row.campaignId }); }}
         />
       )}
       {allItems.length >= 50 ? <p className="ds-hint" style={{ margin: 0, padding: "10px 16px" }}>Hiển thị 50 chiến dịch gần nhất.</p> : null}
@@ -439,21 +443,11 @@ export default function DashboardNotificationsPage() {
           ]}
         />
         {campaignStatus(selected) === "SCHEDULED" ? (
-          confirmCancel ? (
-            <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-              <span style={{ fontSize: 13 }}>Hủy lịch gửi? Chiến dịch sẽ không được phát hành tự động.</span>
-              <DsButton variant="danger" disabled={cancelling} onClick={() => void cancelScheduled(selected.campaignId)}>
+          <div>
+              <DsButton variant="danger" disabled={cancelling} onClick={() => void askCancel(selected.campaignId)}>
                 {cancelling ? "Đang hủy..." : "Hủy lịch gửi"}
               </DsButton>
-              <DsButton onClick={() => setConfirmCancel(false)}>Giữ lịch</DsButton>
             </div>
-          ) : (
-            <div>
-              <DsButton variant="danger" onClick={() => setConfirmCancel(true)}>
-                Hủy lịch gửi
-              </DsButton>
-            </div>
-          )
         ) : null}
       </div>
     </DsPane>

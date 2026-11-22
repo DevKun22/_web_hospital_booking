@@ -20,6 +20,7 @@ import {
   DsToolbar,
   type DsColumn,
   useActionToast,
+  useConfirm,
 } from "@/components/ds";
 import { ScheduleRequestForm, requestTypeLabels, scheduleDays } from "@/components/schedules/schedule-request-form";
 import { VietnamDateInput } from "@/components/ui/vietnam-date-input";
@@ -83,7 +84,7 @@ export default function SchedulesPage() {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [scheduleForm, setScheduleForm] = useState<ScheduleForm>(emptyScheduleForm);
-  const [confirmDelete, setConfirmDelete] = useState(false);
+  const confirm = useConfirm();
 
   const canWrite = can(user, "schedule.manage");
   const canReconcile = can(user, "schedule.reconcile");
@@ -154,7 +155,6 @@ export default function SchedulesPage() {
   useActionToast({ notice, error, clear: () => { setNotice(""); setError(""); } });
 
   const resetEditors = () => {
-    setConfirmDelete(false);
   };
 
   const openPane = (next: PaneState) => {
@@ -210,6 +210,11 @@ export default function SchedulesPage() {
     } finally {
       setSaving(false);
     }
+  };
+
+  const askDelete = async () => {
+    if (!(await confirm({ title: `Xoá lịch ${selectedSchedule ? doctorName(selectedSchedule.doctor) : ""}?`, message: "Lịch mẫu sẽ bị xoá; khung giờ trống thuộc lịch này được gỡ, lịch đã đặt được giữ.", confirmLabel: "Xoá lịch", tone: "danger" }))) return;
+    await deleteSchedule();
   };
 
   const deleteSchedule = async () => {
@@ -622,23 +627,11 @@ export default function SchedulesPage() {
         {canWrite ? (
           <div style={{ display: "grid", gap: 12 }}>
             {scheduleFormFields(true)}
-            {confirmDelete ? (
-              <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-                <span style={{ fontSize: 13 }}>
-                  Xoá lịch {doctorName(selectedSchedule.doctor)} · {dayLabel(selectedSchedule.dayOfWeek)}?
-                </span>
-                <DsButton variant="danger" onClick={() => void deleteSchedule()}>
-                  Xoá lịch
-                </DsButton>
-                <DsButton onClick={() => setConfirmDelete(false)}>Giữ lại</DsButton>
-              </div>
-            ) : (
-              <div>
-                <DsButton variant="ghost" onClick={() => setConfirmDelete(true)}>
+            <div>
+                <DsButton variant="ghost" onClick={() => void askDelete()}>
                   Xoá lịch mẫu
                 </DsButton>
               </div>
-            )}
           </div>
         ) : (
           <div style={{ display: "grid", gap: 12 }}>

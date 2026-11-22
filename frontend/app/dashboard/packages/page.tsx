@@ -21,6 +21,7 @@ import {
   DsToolbar,
   type DsColumn,
   useActionToast,
+  useConfirm,
 } from "@/components/ds";
 import { apiRequest, uploadImages } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
@@ -61,7 +62,7 @@ export default function PackagesPage() {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [pane, setPane] = useState<PaneState>(null);
-  const [confirmDelete, setConfirmDelete] = useState(false);
+  const confirm = useConfirm();
   const [form, setForm] = useState<PackageForm>(emptyPackageForm);
   const [uploading, setUploading] = useState(false);
   const [slugTouched, setSlugTouched] = useState(false);
@@ -108,7 +109,6 @@ export default function PackagesPage() {
   const startCreate = () => {
     setForm(emptyPackageForm);
     setSlugTouched(false);
-    setConfirmDelete(false);
     resetItemEditor();
     setError("");
     setPane({ kind: "new" });
@@ -117,7 +117,6 @@ export default function PackagesPage() {
   const openPackage = (item: MedicalPackage) => {
     setForm(toPackageForm(item));
     setSlugTouched(false);
-    setConfirmDelete(false);
     resetItemEditor();
     setError("");
     setPane({ kind: "edit", id: item.id });
@@ -125,7 +124,6 @@ export default function PackagesPage() {
 
   const closePane = () => {
     setPane(null);
-    setConfirmDelete(false);
     resetItemEditor();
   };
 
@@ -176,6 +174,11 @@ export default function PackagesPage() {
     } finally {
       setSaving(false);
     }
+  };
+
+  const askDelete = async () => {
+    if (!(await confirm({ title: `Xóa gói ${selected?.name ?? ""}?`, message: "Gói khám sẽ bị xóa. Không hoàn tác được.", confirmLabel: "Xóa", tone: "danger" }))) return;
+    await handleDelete();
   };
 
   const handleDelete = async () => {
@@ -496,21 +499,11 @@ export default function PackagesPage() {
             </div>
           ) : null}
           {selected && canDelete ? (
-            confirmDelete ? (
-              <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-                <span style={{ fontSize: 13 }}>Xóa gói {selected.name}?</span>
-                <DsButton variant="danger" disabled={saving} onClick={() => void handleDelete()}>
-                  Xóa
-                </DsButton>
-                <DsButton onClick={() => setConfirmDelete(false)}>Giữ lại</DsButton>
-              </div>
-            ) : (
-              <div>
-                <DsButton variant="ghost" onClick={() => setConfirmDelete(true)}>
+            <div>
+                <DsButton variant="ghost" onClick={() => void askDelete()}>
                   Xóa gói khám
                 </DsButton>
               </div>
-            )
           ) : null}
         </div>
       </div>

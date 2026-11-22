@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { DsButton, DsField, DsInput, DsLoading, DsNotice, DsPageHeader, DsPanel, DsTextarea, useActionToast } from "@/components/ds";
+import { DsButton, DsField, DsInput, DsLoading, DsNotice, DsPageHeader, DsPanel, DsStatusPill, DsTextarea, useActionToast, useConfirm } from "@/components/ds";
 import { apiRequest } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { can } from "@/lib/permissions";
@@ -16,11 +16,42 @@ const formatDate = (value: string) => new Date(value).toLocaleString("vi-VN");
 
 function LegalEditor({ docKey, label, hint, doc, canEdit }: { docKey: "terms" | "privacy"; label: string; hint: string; doc: LegalDoc | null; canEdit: boolean }) {
   const queryClient = useQueryClient();
+  const confirm = useConfirm();
   const [title, setTitle] = useState(doc?.title ?? label);
   const [body, setBody] = useState(doc?.body ?? "");
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
   useActionToast({ notice, error, clear: () => { setNotice(""); setError(""); } });
+
+  // Có thay đổi so với bản đang áp dụng (lưu xong thì bản đang áp dụng cập nhật nên cờ này tự tắt).
+  const dirty = title !== (doc?.title ?? label) || body !== (doc?.body ?? "");
+  const publicPath = docKey === "terms" ? "/dieu-khoan" : "/chinh-sach-bao-mat";
+
+  // Lưu có hệ quả lớn nên luôn hỏi lại và nêu rõ: bắt người khám đồng ý lại, hoặc tắt hẳn văn bản.
+  const askSave = async () => {
+    const turningOff = !body.trim();
+    const ok = await confirm(
+      turningOff
+        ? {
+            title: `Tắt ${label.toLowerCase()}?`,
+            message: docKey === "terms" ? "Người khám sẽ không còn bị yêu cầu đồng ý điều khoản trước khi nhận mã OTP, và trang công khai sẽ ẩn." : "Trang công khai sẽ ẩn và liên kết trong ô đồng ý điều khoản không còn.",
+            confirmLabel: "Tắt văn bản",
+            tone: "danger",
+          }
+        : doc
+          ? {
+              title: "Lưu phiên bản mới?",
+              message: docKey === "terms" ? "Nội dung hiển thị công khai ngay. Mọi người khám sẽ được yêu cầu đồng ý lại trước khi nhận mã OTP." : "Nội dung hiển thị công khai ngay.",
+              confirmLabel: "Lưu phiên bản mới",
+            }
+          : {
+              title: "Công bố văn bản?",
+              message: docKey === "terms" ? "Nội dung hiển thị công khai ngay và người khám sẽ phải đồng ý trước khi nhận mã OTP." : "Nội dung hiển thị công khai ngay.",
+              confirmLabel: "Công bố",
+            },
+    );
+    if (ok) save.mutate();
+  };
 
   const save = useMutation({
     mutationFn: () => apiRequest<LegalDocuments>("/dashboard/legal", { method: "PUT", body: { [docKey]: { title: title.trim() || label, body: body.trim() } } }),
@@ -43,8 +74,10 @@ function LegalEditor({ docKey, label, hint, doc, canEdit }: { docKey: "terms" | 
         <DsField label="Nội dung (Markdown)" htmlFor={`${docKey}-body`} hint="Dùng ## cho đề mục, - cho danh sách. Để trống rồi lưu để tắt.">
           <DsTextarea id={`${docKey}-body`} rows={14} maxLength={60000} value={body} disabled={!canEdit} onChange={(event) => setBody(event.target.value)} />
         </DsField>
-        <div>
-          <DsButton variant="primary" disabled={!canEdit} loading={save.isPending} onClick={() => save.mutate()}>Lưu</DsButton>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+          <DsButton variant="primary" disabled={!canEdit || !dirty} loading={save.isPending} onClick={() => void askSave()}>Lưu</DsButton>
+          {dirty ? <DsStatusPill tone="warn">Có thay đổi chưa lưu</DsStatusPill> : null}
+          {doc ? <a href={publicPath} target="_blank" rel="noopener noreferrer" className="ds-link">Xem trang công khai</a> : null}
         </div>
       </div>
     </DsPanel>
