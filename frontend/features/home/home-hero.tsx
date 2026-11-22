@@ -23,6 +23,8 @@ function wavePath(half: number, base: number, amp: number) {
 }
 const WAVE_A = wavePath(300, 34, 22);
 const WAVE_B = wavePath(200, 30, 16);
+const WAVE_TOP_A = wavePath(200, 34, 16);
+const WAVE_TOP_B = wavePath(300, 30, 12);
 
 // Thẻ bên phải hero khi quản trị chưa cấu hình banner: số liệu và bác sĩ có giờ gần nhất lấy từ dữ liệu thật, không dùng ảnh hay con số dựng sẵn.
 function TodayCard({ doctors }: { doctors: DoctorProfile[] }) {
@@ -92,9 +94,11 @@ export function HomeHero({ data, waveFill = "var(--public-canvas)" }: { data: Pi
       aria-labelledby="home-title"
       className="relative overflow-hidden bg-[radial-gradient(60rem_28rem_at_88%_-12%,rgba(255,255,255,0.16),transparent),linear-gradient(120deg,var(--hero-from)_0%,var(--hero-via)_58%,var(--hero-to)_100%)] text-white"
     >
+      <svg aria-hidden="true" className="hero-wave-top hero-wave-top--b" viewBox="0 0 2400 56" preserveAspectRatio="none"><path d={WAVE_TOP_B} style={{ fill: "var(--public-surface)" }} /></svg>
+      <svg aria-hidden="true" className="hero-wave-top hero-wave-top--a" viewBox="0 0 2400 56" preserveAspectRatio="none"><path d={WAVE_TOP_A} style={{ fill: "var(--public-surface)" }} /></svg>
       <span aria-hidden="true" className="hero-blob -left-24 -top-32 h-96 w-96 opacity-40" />
       <span aria-hidden="true" className="hero-blob -right-20 top-1/3 h-80 w-80 opacity-30 [animation-delay:-6s] [animation-direction:reverse]" />
-      <div className="ui-container relative z-10 grid grid-cols-[minmax(0,1fr)] items-center gap-8 pb-16 pt-10 sm:pb-20 sm:pt-14 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)] lg:gap-12 lg:pb-24 lg:pt-16">
+      <div className="ui-container relative z-10 grid grid-cols-[minmax(0,1fr)] items-center gap-8 pb-16 pt-14 sm:pb-20 sm:pt-16 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)] lg:gap-12 lg:pb-24 lg:pt-20">
         <div>
           <h1 id="home-title" className="text-[1.75rem] font-semibold leading-tight text-white sm:text-4xl lg:text-[2.6rem] lg:leading-[1.15]">
             Đặt lịch khám bệnh trực tuyến, biết giờ trống và chi phí trước khi đến

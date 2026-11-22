@@ -1568,7 +1568,7 @@ button:disabled {
   .kun-dots i { animation: none; opacity: 0.7; }
 }
 
-/* Mục quy trình ở trang chủ: bốn bước sáng lên nối tiếp một lần khi mục hiện vào màn hình. Kiểu gốc là trạng thái cuối (không có JavaScript hoặc
+/* Mục quy trình ở trang chủ: năm bước sáng lên nối tiếp một lần khi mục hiện vào màn hình. Kiểu gốc là trạng thái cuối (không có JavaScript hoặc
    bật giảm chuyển động thì hiện đủ); thuộc tính data-proc chỉ do mã bật khi chuẩn bị chạy hiệu ứng. */
 @keyframes proc-node-in { from { opacity: 0; transform: scale(0.6); } }
 @keyframes proc-text-in { from { opacity: 0; transform: translateY(8px); } }
@@ -1616,9 +1616,14 @@ button:disabled {
 .hero-wave { position: absolute; left: 0; bottom: -1px; width: 200%; height: clamp(2.5rem, 6vw, 4.5rem); pointer-events: none; will-change: transform; }
 .hero-wave--a { animation: wave-drift 24s linear infinite; }
 .hero-wave--b { animation: wave-drift 38s linear infinite reverse; opacity: 0.5; bottom: 0.4rem; }
+/* Sóng đầu hero: màu mép dưới header chảy xuống hero; lật theo trục dọc nên keyframes giữ scaleY(-1) khi trôi. */
+@keyframes wave-drift-top { from { transform: scaleY(-1) translate3d(0, 0, 0); } to { transform: scaleY(-1) translate3d(-50%, 0, 0); } }
+.hero-wave-top { position: absolute; left: 0; top: -1px; width: 200%; height: clamp(1.5rem, 3.5vw, 2.5rem); pointer-events: none; will-change: transform; transform: scaleY(-1); z-index: 1; }
+.hero-wave-top--a { animation: wave-drift-top 30s linear infinite reverse; }
+.hero-wave-top--b { animation: wave-drift-top 46s linear infinite; opacity: 0.4; top: 0.45rem; }
 @media (prefers-reduced-motion: reduce) {
   [data-motion="armed"] [data-reveal] { opacity: 1; transform: none; transition: none; }
-  .hero-rise, .hero-blob, .hero-wave--a, .hero-wave--b { animation: none; }
+  .hero-rise, .hero-blob, .hero-wave--a, .hero-wave--b, .hero-wave-top--a, .hero-wave-top--b { animation: none; }
 }
 /* Phần tử chưa hiện đang lệch sang bên không được làm trang cuộn ngang. */
 [data-motion="armed"] { overflow-x: clip; }
