@@ -32,8 +32,15 @@ export function HomeProcess({ title = "Đặt lịch trong 5 bước" }: { title
   useEffect(() => {
     const element = sectionRef.current;
     if (!element || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-    // Chuẩn bị (ẩn bước) rồi chỉ chạy khi mục thật sự hiện vào màn hình; đã chạy một lần thì thôi.
-    const armTimer = window.setTimeout(() => setPhase("armed"), 0);
+    // Tải lại giữa trang: mục đã nằm sẵn trong màn hình thì chạy ngay, không ẩn rồi chờ (trước đây bộ quan sát có thể báo trước khi bước "chuẩn bị" chạy,
+    // khiến mục kẹt ở trạng thái ẩn).
+    const rect = element.getBoundingClientRect();
+    if (rect.top < window.innerHeight * 0.6 && rect.bottom > 0) {
+      const playTimer = window.setTimeout(() => setPhase("play"), 0);
+      return () => window.clearTimeout(playTimer);
+    }
+    // Chuẩn bị (ẩn bước) rồi chỉ chạy khi mục thật sự hiện vào màn hình; đã chạy một lần thì thôi. Bước chuẩn bị không được ghi đè trạng thái đã chạy.
+    const armTimer = window.setTimeout(() => setPhase((current) => (current === "idle" ? "armed" : current)), 0);
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (!entry.isIntersecting) return;
