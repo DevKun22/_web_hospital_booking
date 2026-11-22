@@ -4,14 +4,18 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:hospital_booking_mobile/core/formatters/display_formatters.dart';
 import 'package:hospital_booking_mobile/app/sync/patient_data_sync_coordinator.dart';
+import 'package:hospital_booking_mobile/core/design/app_colors.dart';
+import 'package:hospital_booking_mobile/core/formatters/display_formatters.dart';
 import 'package:hospital_booking_mobile/core/widgets/app_ui.dart';
+import 'package:hospital_booking_mobile/features/appointments/application/appointment_device_actions.dart';
 import 'package:hospital_booking_mobile/features/auth/application/auth_controller.dart';
 import 'package:hospital_booking_mobile/features/booking/application/booking_flow_controller.dart';
 import 'package:hospital_booking_mobile/features/booking/application/booking_submission_controller.dart';
-import 'package:hospital_booking_mobile/core/design/app_colors.dart';
+import 'package:hospital_booking_mobile/features/booking/presentation/booking_date_format.dart';
 
+/// Kết quả đặt lịch: đầu trang xanh báo đã tiếp nhận, mã lịch có nút sao chép, tóm tắt từng dòng có màu,
+/// rồi các việc kế tiếp (thêm vào lịch máy, xem lịch hẹn, về trang chủ).
 class BookingSuccessScreen extends ConsumerWidget {
   const BookingSuccessScreen({super.key});
 
@@ -35,43 +39,59 @@ class BookingSuccessScreen extends ConsumerWidget {
       );
     }
 
+    final colors = context.colors;
+    final text = Theme.of(context).textTheme;
+    final authenticated = ref.watch(authControllerProvider).isAuthenticated;
     return PopScope<void>(
       canPop: false,
       onPopInvokedWithResult: (didPop, _) {
         if (!didPop) _finish(ref, context, '/home');
       },
       child: Scaffold(
-        appBar: AppBar(title: const Text('Đặt lịch thành công')),
         body: SafeArea(
           child: ListView(
-            padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.page,
+              AppSpacing.md,
+              AppSpacing.page,
+              AppSpacing.xxl,
+            ),
             children: [
               Container(
-                padding: const EdgeInsets.all(24),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.lg,
+                  vertical: AppSpacing.xl,
+                ),
                 decoration: BoxDecoration(
-                  color: context.colors.successContainer,
-                  borderRadius: BorderRadius.circular(24),
+                  color: colors.successContainer,
+                  borderRadius: BorderRadius.circular(AppRadius.xl),
                 ),
                 child: Column(
                   children: [
                     CircleAvatar(
-                      radius: 34,
-                      backgroundColor: context.colors.primary,
-                      foregroundColor: context.colors.onPrimary,
-                      child: Icon(Icons.check_rounded, size: 38),
+                      radius: 32,
+                      backgroundColor: colors.success,
+                      child: Icon(
+                        Icons.check_rounded,
+                        size: 36,
+                        color: colors.surface,
+                      ),
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: AppSpacing.md),
                     Text(
                       'Đã tiếp nhận lịch khám',
-                      style: Theme.of(context).textTheme.headlineSmall
-                          ?.copyWith(fontWeight: FontWeight.w800),
+                      textAlign: TextAlign.center,
+                      style: text.headlineSmall?.copyWith(
+                        color: colors.success,
+                      ),
                     ),
-                    const SizedBox(height: 8),
-                    const Text(
+                    const SizedBox(height: AppSpacing.xs),
+                    Text(
                       'Cơ sở khám sẽ kiểm tra và xác nhận lịch của bạn.',
                       textAlign: TextAlign.center,
+                      style: text.bodyMedium?.copyWith(color: colors.ink),
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: AppSpacing.sm),
                     AppStatusBadge(
                       label: appointment.status == 'PENDING_CONFIRM'
                           ? 'CHỜ CƠ SỞ KHÁM XÁC NHẬN'
@@ -82,95 +102,155 @@ class BookingSuccessScreen extends ConsumerWidget {
                   ],
                 ),
               ),
-              const SizedBox(height: 20),
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(18),
-                  child: Column(
-                    children: [
-                      _DetailRow(
-                        icon: Icons.confirmation_number_outlined,
-                        label: 'Mã lịch hẹn',
-                        value: appointment.bookingCode,
-                        trailing: IconButton(
-                          tooltip: 'Sao chép mã lịch',
-                          onPressed: () async {
-                            await Clipboard.setData(
-                              ClipboardData(text: appointment.bookingCode),
-                            );
-                            if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Đã sao chép mã lịch.'),
-                                ),
-                              );
-                            }
-                          },
-                          icon: const Icon(Icons.copy_rounded),
-                        ),
+              const SizedBox(height: AppSpacing.md),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.md,
+                  vertical: AppSpacing.sm,
+                ),
+                decoration: BoxDecoration(
+                  color: colors.surface,
+                  borderRadius: BorderRadius.circular(AppRadius.lg),
+                  border: Border.all(color: colors.border),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Mã lịch hẹn',
+                            style: text.labelMedium?.copyWith(
+                              color: colors.muted,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          SelectableText(
+                            appointment.bookingCode,
+                            style: text.titleMedium?.copyWith(
+                              color: colors.primaryDark,
+                              letterSpacing: 0.6,
+                            ),
+                          ),
+                        ],
                       ),
-                      const Divider(height: 26),
-                      _DetailRow(
-                        icon: Icons.person_outline_rounded,
-                        label: 'Người khám',
-                        value: appointment.patientName,
-                      ),
-                      const Divider(height: 26),
-                      _DetailRow(
-                        icon: Icons.medical_services_outlined,
-                        label: appointment.departmentName,
-                        value: appointment.doctorName,
-                      ),
-                      if (appointment.packageName != null) ...[
-                        const Divider(height: 26),
-                        _DetailRow(
-                          icon: Icons.health_and_safety_outlined,
-                          label: 'Gói khám',
-                          value: appointment.packageName!,
-                        ),
-                      ],
-                      const Divider(height: 26),
-                      _DetailRow(
-                        icon: Icons.calendar_month_outlined,
-                        label: _displayDate(appointment.appointmentDate),
-                        value:
-                            '${_shortTime(appointment.startTime)} – ${_shortTime(appointment.endTime)}',
-                      ),
-                      const Divider(height: 26),
-                      _DetailRow(
-                        icon: Icons.payments_outlined,
-                        label: 'Chi phí dự kiến',
-                        value: formatVnd(appointment.finalAmount),
-                      ),
-                    ],
-                  ),
+                    ),
+                    FilledButton.tonalIcon(
+                      onPressed: () async {
+                        await Clipboard.setData(
+                          ClipboardData(text: appointment.bookingCode),
+                        );
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Đã sao chép mã lịch.'),
+                            ),
+                          );
+                        }
+                      },
+                      icon: const Icon(Icons.copy_rounded, size: 18),
+                      label: const Text('Sao chép'),
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(height: 18),
-              // Đã đăng nhập (vừa được cấp phiên sau OTP): vào thẳng lịch hẹn, không phải nhập OTP lần hai.
-              if (ref.watch(authControllerProvider).isAuthenticated) ...[
-                FilledButton.icon(
-                  onPressed: () => _finish(ref, context, '/appointments'),
-                  icon: const Icon(Icons.event_available_outlined),
-                  label: const Text('Xem lịch hẹn của tôi'),
+              const SizedBox(height: AppSpacing.sm),
+              Container(
+                padding: const EdgeInsets.all(AppSpacing.md),
+                decoration: BoxDecoration(
+                  color: colors.surface,
+                  borderRadius: BorderRadius.circular(AppRadius.lg),
+                  border: Border.all(color: colors.border),
                 ),
-                const SizedBox(height: 8),
-                OutlinedButton.icon(
-                  onPressed: () => _finish(ref, context, '/home'),
-                  icon: const Icon(Icons.home_outlined),
-                  label: const Text('Về trang chủ'),
+                child: Column(
+                  children: [
+                    _DetailRow(
+                      icon: Icons.calendar_month_outlined,
+                      tint: colors.tintPairs[1],
+                      label: displayDate(appointment.appointmentDate),
+                      value:
+                          '${shortTime(appointment.startTime)} – ${shortTime(appointment.endTime)}',
+                    ),
+                    _DetailRow(
+                      icon: Icons.medical_services_outlined,
+                      tint: colors.tintPairs[0],
+                      label: appointment.departmentName,
+                      value: appointment.doctorName,
+                    ),
+                    if (appointment.packageName != null)
+                      _DetailRow(
+                        icon: Icons.health_and_safety_outlined,
+                        tint: colors.tintPairs[3],
+                        label: 'Gói khám',
+                        value: appointment.packageName!,
+                      ),
+                    _DetailRow(
+                      icon: Icons.person_outline_rounded,
+                      tint: colors.tintPairs[4],
+                      label: 'Người khám',
+                      value: appointment.patientName,
+                    ),
+                    _DetailRow(
+                      icon: Icons.payments_outlined,
+                      tint: colors.tintPairs[5],
+                      label: 'Chi phí dự kiến',
+                      value: formatVnd(appointment.finalAmount),
+                      last: true,
+                    ),
+                  ],
                 ),
-              ] else
-                FilledButton.icon(
-                  onPressed: () => _finish(ref, context, '/home'),
-                  icon: const Icon(Icons.home_outlined),
-                  label: const Text('Về trang chủ'),
-                ),
-              const SizedBox(height: 8),
+              ),
+              const SizedBox(height: AppSpacing.md),
               OutlinedButton.icon(
-                onPressed: () => _finish(ref, context, '/booking'),
-                icon: const Icon(Icons.add_rounded),
-                label: const Text('Đặt thêm lịch khác'),
+                onPressed: () async {
+                  final added = await ref
+                      .read(appointmentDeviceActionsProvider)
+                      .addBookedToCalendar(appointment);
+                  if (!context.mounted || added) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Không mở được lịch trên thiết bị.'),
+                    ),
+                  );
+                },
+                icon: const Icon(Icons.event_available_outlined),
+                label: const Text('Thêm vào lịch điện thoại'),
+              ),
+              const SizedBox(height: AppSpacing.xs),
+              // Đã đăng nhập (vừa được cấp phiên sau OTP): vào thẳng lịch hẹn, không phải nhập OTP lần hai.
+              FilledButton.icon(
+                onPressed: () => _finish(
+                  ref,
+                  context,
+                  authenticated ? '/appointments' : '/home',
+                ),
+                icon: Icon(
+                  authenticated
+                      ? Icons.event_note_outlined
+                      : Icons.home_outlined,
+                ),
+                label: Text(
+                  authenticated ? 'Xem lịch hẹn của tôi' : 'Về trang chủ',
+                ),
+              ),
+              const SizedBox(height: AppSpacing.xxs),
+              Row(
+                children: [
+                  if (authenticated)
+                    Expanded(
+                      child: TextButton(
+                        onPressed: () => _finish(ref, context, '/home'),
+                        child: const Text('Về trang chủ'),
+                      ),
+                    ),
+                  Expanded(
+                    child: TextButton(
+                      onPressed: () => _finish(ref, context, '/booking'),
+                      child: const Text('Đặt thêm lịch khác'),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -202,45 +282,50 @@ class BookingSuccessScreen extends ConsumerWidget {
 class _DetailRow extends StatelessWidget {
   const _DetailRow({
     required this.icon,
+    required this.tint,
     required this.label,
     required this.value,
-    this.trailing,
+    this.last = false,
   });
 
   final IconData icon;
+  final ({Color background, Color foreground}) tint;
   final String label;
   final String value;
-  final Widget? trailing;
+  final bool last;
 
   @override
-  Widget build(BuildContext context) => Row(
-    children: [
-      Icon(icon, color: Theme.of(context).colorScheme.primary),
-      const SizedBox(width: 12),
-      Expanded(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              label,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    final text = Theme.of(context).textTheme;
+    return Padding(
+      padding: EdgeInsets.only(bottom: last ? 0 : AppSpacing.sm),
+      child: Row(
+        children: [
+          Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              color: tint.background,
+              shape: BoxShape.circle,
             ),
-            const SizedBox(height: 3),
-            Text(value, style: Theme.of(context).textTheme.titleSmall),
-          ],
-        ),
+            child: Icon(icon, size: 20, color: tint.foreground),
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: text.labelMedium?.copyWith(color: colors.muted),
+                ),
+                Text(value, style: text.titleSmall),
+              ],
+            ),
+          ),
+        ],
       ),
-      ?trailing,
-    ],
-  );
-}
-
-String _shortTime(String value) =>
-    value.length >= 5 ? value.substring(0, 5) : value;
-
-String _displayDate(String value) {
-  final parts = value.split('-');
-  return parts.length == 3 ? '${parts[2]}/${parts[1]}/${parts[0]}' : value;
+    );
+  }
 }

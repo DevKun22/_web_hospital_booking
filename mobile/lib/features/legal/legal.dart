@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hospital_booking_mobile/core/network/api_contract.dart';
@@ -71,8 +72,9 @@ bool refreshIfTermsOutdated(WidgetRef ref, String? errorCode) {
   return true;
 }
 
-/// Ô đồng ý điều khoản trước khi gửi OTP. Không hiện gì khi cơ sở khám chưa soạn điều khoản.
-class TermsConsentTile extends ConsumerWidget {
+/// Ô đồng ý điều khoản trước khi gửi OTP, một đến hai dòng: tên tài liệu là liên kết bấm để đọc.
+/// Không hiện gì khi cơ sở khám chưa soạn điều khoản.
+class TermsConsentTile extends ConsumerStatefulWidget {
   const TermsConsentTile({
     super.key,
     required this.value,
@@ -83,50 +85,67 @@ class TermsConsentTile extends ConsumerWidget {
   final ValueChanged<bool> onChanged;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<TermsConsentTile> createState() => _TermsConsentTileState();
+}
+
+class _TermsConsentTileState extends ConsumerState<TermsConsentTile> {
+  final _termsTap = TapGestureRecognizer();
+  final _privacyTap = TapGestureRecognizer();
+
+  @override
+  void dispose() {
+    _termsTap.dispose();
+    _privacyTap.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final legal = ref.watch(legalDocumentsProvider).value;
     final terms = legal?.terms;
     if (terms == null) return const SizedBox.shrink();
     final privacy = legal?.privacy;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    final base = Theme.of(context).textTheme.bodySmall;
+    final link = base?.copyWith(
+      color: Theme.of(context).colorScheme.primary,
+      decoration: TextDecoration.underline,
+      fontWeight: FontWeight.w600,
+    );
+    _termsTap.onTap = () => _showDocument(context, terms);
+    if (privacy != null) {
+      _privacyTap.onTap = () => _showDocument(context, privacy);
+    }
+    return Row(
       children: [
-        CheckboxListTile(
+        Checkbox(
           key: const ValueKey('terms-consent-checkbox'),
-          contentPadding: EdgeInsets.zero,
-          dense: true,
           visualDensity: VisualDensity.compact,
-          controlAffinity: ListTileControlAffinity.leading,
-          value: value,
-          onChanged: (checked) => onChanged(checked ?? false),
-          title: Text(
-            privacy == null
-                ? 'Tôi đồng ý Điều khoản sử dụng.'
-                : 'Tôi đồng ý Điều khoản sử dụng và Chính sách bảo mật.',
-            style: Theme.of(context).textTheme.bodySmall,
-          ),
+          value: widget.value,
+          onChanged: (checked) => widget.onChanged(checked ?? false),
         ),
-        Wrap(
-          spacing: 4,
-          children: [
-            TextButton(
-              style: TextButton.styleFrom(
-                visualDensity: VisualDensity.compact,
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              ),
-              onPressed: () => _showDocument(context, terms),
-              child: const Text('Xem điều khoản'),
-            ),
-            if (privacy != null)
-              TextButton(
-                style: TextButton.styleFrom(
-                  visualDensity: VisualDensity.compact,
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        Expanded(
+          child: Text.rich(
+            TextSpan(
+              style: base,
+              children: [
+                const TextSpan(text: 'Tôi đồng ý '),
+                TextSpan(
+                  text: 'Điều khoản sử dụng',
+                  style: link,
+                  recognizer: _termsTap,
                 ),
-                onPressed: () => _showDocument(context, privacy),
-                child: const Text('Xem chính sách bảo mật'),
-              ),
-          ],
+                if (privacy != null) ...[
+                  const TextSpan(text: ' và '),
+                  TextSpan(
+                    text: 'Chính sách bảo mật',
+                    style: link,
+                    recognizer: _privacyTap,
+                  ),
+                ],
+                const TextSpan(text: '.'),
+              ],
+            ),
+          ),
         ),
       ],
     );
