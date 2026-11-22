@@ -50,7 +50,7 @@ const router = Router();
 router.get("/capabilities", patientCapabilitiesHandler);
 // Nội dung chuyên khoa, bác sĩ, gói khám, hỏi đáp, thông tin cơ sở và chính sách đặt lịch là nguồn của kho tri thức chatbot: sửa xong thì nạp lại.
 router.use(
-  ["/dashboard/departments", "/dashboard/doctors", "/dashboard/packages", "/dashboard/faqs", "/dashboard/site-settings", "/dashboard/policy"],
+  ["/dashboard/departments", "/dashboard/doctors", "/dashboard/packages", "/dashboard/faqs", "/dashboard/site-settings", "/dashboard/policy", "/dashboard/legal"],
   syncKnowledgeAfterWrite,
 );
 router.use("/auth", patientAuthRouter);

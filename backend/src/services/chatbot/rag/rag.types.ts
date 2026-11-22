@@ -1,6 +1,6 @@
 // Kiểu dùng chung của kho tri thức chatbot (RAG).
 
-const KNOWLEDGE_SOURCE_TYPES = ["FAQ", "DEPARTMENT", "DOCTOR", "PACKAGE", "POLICY", "SITE", "ARTICLE"] as const;
+const KNOWLEDGE_SOURCE_TYPES = ["FAQ", "DEPARTMENT", "DOCTOR", "PACKAGE", "POLICY", "SITE", "ARTICLE", "LEGAL"] as const;
 export type KnowledgeSourceType = (typeof KNOWLEDGE_SOURCE_TYPES)[number];
 
 /** Một đoạn tri thức dựng từ dữ liệu nghiệp vụ, chưa nhúng. */

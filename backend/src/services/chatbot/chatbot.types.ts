@@ -215,4 +215,6 @@ export type ChatbotResponse = AIChatbotOutput & {
   sessionId: string;
   source: ChatbotResponseSource;
   draftSummary?: ChatbotDraftSummary;
+  /** Mã bản ghi nhật ký của câu trả lời này, để người dùng gửi phản hồi hữu ích / chưa đúng; vắng khi không ghi được nhật ký. */
+  messageId?: string;
 };

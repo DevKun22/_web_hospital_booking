@@ -15,6 +15,8 @@ const logSelect = {
   response: true,
   intent: true,
   sourceIds: true,
+  feedback: true,
+  noInformation: true,
   createdAt: true,
   user: {
     select: {
@@ -219,6 +221,9 @@ class DashboardChatbotService {
       intentGroups,
       stateGroups,
       latestSessions,
+      helpfulCount,
+      notHelpfulCount,
+      noInformationCount,
     ] = await prisma.$transaction([
       prisma.chatbotSession.count({ where: { createdAt } }),
       prisma.chatbotSession.count({ where: { createdAt, isActive: true } }),
@@ -243,13 +248,24 @@ class DashboardChatbotService {
         orderBy: { updatedAt: "desc" },
         take: 5,
       }),
+      prisma.chatbotLog.count({ where: { createdAt, feedback: "HELPFUL" } }),
+      prisma.chatbotLog.count({ where: { createdAt, feedback: "NOT_HELPFUL" } }),
+      prisma.chatbotLog.count({ where: { createdAt, noInformation: true } }),
     ]);
+
+    const rated = helpfulCount + notHelpfulCount;
 
     return {
       metrics: {
         totalSessions,
         activeSessions,
         totalLogs,
+        helpfulCount,
+        notHelpfulCount,
+        // Tỉ lệ 0..1; null khi chưa có đủ dữ liệu để tính.
+        helpfulRate: rated ? helpfulCount / rated : null,
+        noInformationCount,
+        noInformationRate: totalLogs ? noInformationCount / totalLogs : null,
       },
       intents: intentGroups.map((group) => ({
         intent: group.intent,
