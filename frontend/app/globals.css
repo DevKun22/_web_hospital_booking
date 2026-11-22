@@ -1570,7 +1570,7 @@ button:disabled {
 
 /* Mục quy trình ở trang chủ: năm bước sáng lên nối tiếp một lần khi mục hiện vào màn hình, rồi một vệt sáng chạy từ bước 1 đến bước 5 và lặp lại
    (nghỉ ở mỗi bước một nhịp, nút nở vòng sáng khi vệt tới). Kiểu gốc là trạng thái cuối (không có JavaScript hoặc bật giảm chuyển động thì hiện đủ,
-   không lặp); data-proc chỉ do mã bật. Rê chuột hoặc đặt tiêu điểm vào mục thì mọi chuyển động tạm dừng. Chu kỳ 8 giây: vệt chạy 0,9 giây, nghỉ 0,5 giây ở mỗi nút. */
+   không lặp); data-proc chỉ do mã bật. Chạy tự động, không dừng khi rê chuột. Chu kỳ 8 giây: vệt chạy 0,9 giây, nghỉ 0,5 giây ở mỗi nút. */
 @keyframes proc-node-in { from { opacity: 0; transform: scale(0.6); } }
 @keyframes proc-text-in { from { opacity: 0; transform: translateY(8px); } }
 @keyframes proc-fill-x { from { transform: scaleX(0); } }
@@ -1596,7 +1596,6 @@ button:disabled {
 [data-proc="play"] .proc-fill-y { animation: proc-fill-y 0.7s ease-out var(--d, 0s) both; }
 [data-proc="play"] .proc-flow-x { opacity: 1; animation: proc-flow-x 8s ease-in-out var(--f, 0s) infinite backwards; }
 [data-proc="play"] .proc-flow-y { opacity: 1; animation: proc-flow-y 8s ease-in-out var(--f, 0s) infinite backwards; }
-[data-proc="play"]:is(:hover, :focus-within) * { animation-play-state: paused; }
 @media (prefers-reduced-motion: reduce) {
   [data-proc="armed"] .proc-node,
   [data-proc="armed"] .proc-text { opacity: 1; }
