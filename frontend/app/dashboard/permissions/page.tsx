@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { RefreshCw } from "lucide-react";
-import { DsButton, DsInput, DsNotice, DsPageHeader, DsPanel, DsTabs, DsToolbar, DsLoading, useActionToast } from "@/components/ds";
+import { DsButton, DsInput, DsNotice, DsPageHeader, DsPanel, DsTabs, DsToolbar, DsLoading, useActionToast, useConfirm } from "@/components/ds";
 import { PolicyPanel } from "@/components/dashboard/policy-panel";
 import { apiRequest } from "@/lib/api";
 import { dashboardRoleLabels } from "@/lib/dashboard-navigation";
@@ -32,7 +32,7 @@ export default function DashboardPermissionsPage() {
   const [edits, setEdits] = useState<Record<string, DashboardRole[]>>({});
   const [view, setView] = useState("matrix");
   const [search, setSearch] = useState("");
-  const [confirmReset, setConfirmReset] = useState(false);
+  const confirm = useConfirm();
   const [notice, setNotice] = useState("");
   const term = useDebouncedValue(search.trim().toLowerCase());
 
@@ -57,11 +57,15 @@ export default function DashboardPermissionsPage() {
       setNotice("Đã lưu phân quyền, có hiệu lực ngay");
     },
   });
+  const askReset = async () => {
+    if (!(await confirm({ title: "Khôi phục phân quyền về mặc định?", message: "Toàn bộ thay đổi phân quyền đã lưu sẽ bị bỏ.", confirmLabel: "Khôi phục", tone: "danger" }))) return;
+    await resetMutation.mutate();
+  };
+
   const resetMutation = useMutation({
     mutationFn: () => apiRequest<Matrix>("/dashboard/rbac", { method: "DELETE" }),
     onSuccess: (data) => {
       setEdits({});
-      setConfirmReset(false);
       queryClient.setQueryData(queryKey, data);
       setNotice("Đã khôi phục phân quyền mặc định");
     },
@@ -123,19 +127,9 @@ export default function DashboardPermissionsPage() {
                   <RefreshCw aria-hidden="true" className={matrixQuery.isFetching ? "animate-spin" : undefined} />
                   Làm mới
                 </DsButton>
-                {confirmReset ? (
-                  <span style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-                    <span style={{ fontSize: 13 }}>Khôi phục toàn bộ phân quyền về mặc định?</span>
-                    <DsButton variant="danger" disabled={resetMutation.isPending} onClick={() => resetMutation.mutate()}>
-                      Khôi phục
-                    </DsButton>
-                    <DsButton onClick={() => setConfirmReset(false)}>Giữ lại</DsButton>
-                  </span>
-                ) : (
-                  <DsButton disabled={resetMutation.isPending} onClick={() => setConfirmReset(true)}>
+                <DsButton disabled={resetMutation.isPending} onClick={() => void askReset()}>
                     Mặc định
                   </DsButton>
-                )}
               </DsToolbar>
               {matrixQuery.isLoading ? <DsLoading label="Đang tải phân quyền..." /> : null}
             </DsPanel>

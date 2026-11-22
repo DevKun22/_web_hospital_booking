@@ -19,6 +19,7 @@ import {
   DsToolbar,
   type DsColumn,
   useActionToast,
+  useConfirm,
 } from "@/components/ds";
 import { apiRequest, uploadImages } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
@@ -115,7 +116,7 @@ export default function DepartmentsPage() {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [pane, setPane] = useState<PaneState>(null);
-  const [confirmDelete, setConfirmDelete] = useState(false);
+  const confirm = useConfirm();
   const [form, setForm] = useState<DepartmentForm>(emptyForm);
   const [slugTouched, setSlugTouched] = useState(false);
 
@@ -146,7 +147,6 @@ export default function DepartmentsPage() {
   const startCreate = () => {
     setForm(emptyForm);
     setSlugTouched(false);
-    setConfirmDelete(false);
     setError("");
     setPane({ kind: "new" });
   };
@@ -155,14 +155,12 @@ export default function DepartmentsPage() {
     if (!canWrite) return;
     setForm(toForm(department));
     setSlugTouched(false);
-    setConfirmDelete(false);
     setError("");
     setPane({ kind: "edit", id: department.id });
   };
 
   const closePane = () => {
     setPane(null);
-    setConfirmDelete(false);
   };
 
   const handleNameChange = (name: string) => {
@@ -214,6 +212,11 @@ export default function DepartmentsPage() {
     } finally {
       setUploading(false);
     }
+  };
+
+  const askDelete = async () => {
+    if (!(await confirm({ title: `Xóa chuyên khoa ${editing?.name ?? ""}?`, message: "Chuyên khoa sẽ bị xóa. Không hoàn tác được.", confirmLabel: "Xóa", tone: "danger" }))) return;
+    await handleDelete();
   };
 
   const handleDelete = async () => {
@@ -441,21 +444,11 @@ export default function DepartmentsPage() {
         </div>
 
         {editing && canDelete ? (
-          confirmDelete ? (
-            <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-              <span style={{ fontSize: 13 }}>Xóa chuyên khoa {editing.name}?</span>
-              <DsButton variant="danger" disabled={saving} onClick={() => void handleDelete()}>
-                Xóa
-              </DsButton>
-              <DsButton onClick={() => setConfirmDelete(false)}>Giữ lại</DsButton>
-            </div>
-          ) : (
-            <div>
-              <DsButton variant="ghost" onClick={() => setConfirmDelete(true)}>
+          <div>
+              <DsButton variant="ghost" onClick={() => void askDelete()}>
                 Xóa chuyên khoa
               </DsButton>
             </div>
-          )
         ) : null}
       </form>
     </DsEditDialog>

@@ -21,6 +21,7 @@ import {
   DsToolbar,
   type DsColumn,
   useActionToast,
+  useConfirm,
 } from "@/components/ds";
 import { apiRequest } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
@@ -133,7 +134,7 @@ export default function DoctorsPage() {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [pane, setPane] = useState<PaneState>(null);
-  const [confirmDelete, setConfirmDelete] = useState(false);
+  const confirm = useConfirm();
   const [form, setForm] = useState<DoctorForm>(emptyForm);
 
   const canWrite = can(user, "catalog.manage");
@@ -170,21 +171,18 @@ export default function DoctorsPage() {
 
   const startCreate = () => {
     setForm(emptyForm);
-    setConfirmDelete(false);
     setError("");
     setPane({ kind: "new" });
   };
 
   const openDoctor = (doctor: DoctorProfile) => {
     setForm(toForm(doctor));
-    setConfirmDelete(false);
     setError("");
     setPane({ kind: "edit", id: doctor.id });
   };
 
   const closePane = () => {
     setPane(null);
-    setConfirmDelete(false);
   };
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -226,6 +224,11 @@ export default function DoctorsPage() {
     } catch (err) {
       setError(err instanceof Error ? err.message : "Không cập nhật được trạng thái");
     }
+  };
+
+  const askDelete = async () => {
+    if (!(await confirm({ title: `Xóa hồ sơ bác sĩ ${editing?.user.fullName ?? ""}?`, message: "Hồ sơ bác sĩ sẽ bị xóa. Không hoàn tác được.", confirmLabel: "Xóa", tone: "danger" }))) return;
+    await handleDelete();
   };
 
   const handleDelete = async () => {
@@ -464,21 +467,11 @@ export default function DoctorsPage() {
           </div>
         ) : null}
         {editing && canDelete ? (
-          confirmDelete ? (
-            <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-              <span style={{ fontSize: 13 }}>Xóa hồ sơ bác sĩ {editing.user.fullName}?</span>
-              <DsButton variant="danger" disabled={saving} onClick={() => void handleDelete()}>
-                Xóa
-              </DsButton>
-              <DsButton onClick={() => setConfirmDelete(false)}>Giữ lại</DsButton>
-            </div>
-          ) : (
-            <div>
-              <DsButton variant="ghost" onClick={() => setConfirmDelete(true)}>
+          <div>
+              <DsButton variant="ghost" onClick={() => void askDelete()}>
                 Xóa hồ sơ
               </DsButton>
             </div>
-          )
         ) : null}
       </form>
     </DsEditDialog>

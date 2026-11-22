@@ -4,7 +4,7 @@
 
 import { useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { DsButton, DsEditDialog, DsEmptyState, DsField, DsInput, DsLoading, DsNotice, DsPanel, DsSelect, DsStatusPill, DsTextarea, DsToolbar } from "@/components/ds";
+import { DsButton, DsEditDialog, DsEmptyState, DsField, DsInput, DsLoading, DsNotice, DsPanel, DsSelect, DsStatusPill, DsTextarea, DsToolbar, useConfirm } from "@/components/ds";
 import { NumberStepper } from "@/components/ui/number-stepper";
 import { VietnamDateTimeInput } from "@/components/ui/vietnam-datetime-input";
 import { apiRequest } from "@/lib/api";
@@ -35,7 +35,7 @@ export function BannersTab({
   const [activeFilter, setActiveFilter] = useState("");
   const [editing, setEditing] = useState<{ banner: Banner | null } | null>(null);
   const [form, setForm] = useState<BannerForm>(emptyBannerForm);
-  const [confirmDelete, setConfirmDelete] = useState(false);
+  const confirm = useConfirm();
   const [saving, setSaving] = useState(false);
   const { uploading, upload } = useImageUpload(onNotice, onError);
 
@@ -55,12 +55,10 @@ export function BannersTab({
 
   const close = () => {
     setEditing(null);
-    setConfirmDelete(false);
   };
 
   const openBanner = (banner: Banner | null) => {
     setForm(banner ? toBannerForm(banner) : emptyBannerForm);
-    setConfirmDelete(false);
     setEditing({ banner });
   };
 
@@ -115,6 +113,11 @@ export function BannersTab({
     } catch (err) {
       onError(err instanceof Error ? err.message : "Không cập nhật được ảnh quảng bá");
     }
+  };
+
+  const askDelete = async () => {
+    if (!(await confirm({ title: `Xoá ảnh quảng bá “${current?.title ?? ""}”?`, message: "Không hoàn tác được.", confirmLabel: "Xoá ảnh", tone: "danger" }))) return;
+    await remove();
   };
 
   const remove = async () => {
@@ -247,7 +250,7 @@ export function BannersTab({
               {current ? (
                 <>
                   <DsButton onClick={() => void toggle(current)}>{current.isActive ? "Tắt ngay" : "Bật ngay"}</DsButton>
-                  {canWrite ? <DsButton variant="ghost" onClick={() => setConfirmDelete(true)}>Xoá</DsButton> : null}
+                  {canWrite ? <DsButton variant="ghost" onClick={() => void askDelete()}>Xoá</DsButton> : null}
                 </>
               ) : null}
               <DsButton onClick={close}>Đóng</DsButton>
@@ -255,17 +258,6 @@ export function BannersTab({
                 {saving ? "Đang lưu..." : current ? "Lưu thay đổi" : "Tạo ảnh quảng bá"}
               </DsButton>
             </div>
-            {confirmDelete && current ? (
-              <DsNotice tone="bad">
-                <div style={{ display: "grid", gap: 8 }}>
-                  <span>Xoá ảnh quảng bá “{current.title}”? Không hoàn tác được.</span>
-                  <div style={{ display: "flex", gap: 8 }}>
-                    <DsButton variant="danger" disabled={saving} onClick={() => void remove()}>Xoá ảnh</DsButton>
-                    <DsButton onClick={() => setConfirmDelete(false)}>Giữ lại</DsButton>
-                  </div>
-                </div>
-              </DsNotice>
-            ) : null}
           </div>
         </DsEditDialog>
       ) : null}

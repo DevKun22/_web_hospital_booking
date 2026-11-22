@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { DsButton, DsEditDialog, DsEmptyState, DsField, DsInput, DsLoading, DsNotice, DsPanel, DsSelect, DsStatusPill, DsTextarea, DsToolbar } from "@/components/ds";
+import { DsButton, DsEditDialog, DsEmptyState, DsField, DsInput, DsLoading, DsNotice, DsPanel, DsSelect, DsStatusPill, DsTextarea, DsToolbar, useConfirm } from "@/components/ds";
 import { NumberStepper } from "@/components/ui/number-stepper";
 import { apiRequest } from "@/lib/api";
 import { useDashboardFAQs } from "@/lib/dashboard-site-settings-query";
@@ -30,7 +30,7 @@ export function FaqsTab({
   const [activeFilter, setActiveFilter] = useState("");
   const [editing, setEditing] = useState<{ faq: DashboardFAQ | null } | null>(null);
   const [form, setForm] = useState<FAQForm>(emptyFAQForm);
-  const [confirmDelete, setConfirmDelete] = useState(false);
+  const confirm = useConfirm();
   const [saving, setSaving] = useState(false);
 
   const filters = useMemo(() => ({ category: category || undefined, isActive: activeFilter || undefined }), [category, activeFilter]);
@@ -48,12 +48,10 @@ export function FaqsTab({
 
   const close = () => {
     setEditing(null);
-    setConfirmDelete(false);
   };
 
   const openFAQ = (faq: DashboardFAQ | null) => {
     setForm(faq ? toFAQForm(faq) : emptyFAQForm);
-    setConfirmDelete(false);
     setEditing({ faq });
   };
 
@@ -103,6 +101,11 @@ export function FaqsTab({
     } catch (err) {
       onError(err instanceof Error ? err.message : "Không cập nhật được câu hỏi");
     }
+  };
+
+  const askDelete = async () => {
+    if (!(await confirm({ title: "Xoá câu hỏi này?", message: "Không hoàn tác được.", confirmLabel: "Xoá câu hỏi", tone: "danger" }))) return;
+    await remove();
   };
 
   const remove = async () => {
@@ -203,7 +206,7 @@ export function FaqsTab({
               {current ? (
                 <>
                   <DsButton onClick={() => void toggle(current)}>{current.isActive ? "Tắt ngay" : "Bật ngay"}</DsButton>
-                  {canWrite ? <DsButton variant="ghost" onClick={() => setConfirmDelete(true)}>Xoá</DsButton> : null}
+                  {canWrite ? <DsButton variant="ghost" onClick={() => void askDelete()}>Xoá</DsButton> : null}
                 </>
               ) : null}
               <DsButton onClick={close}>Đóng</DsButton>
@@ -211,17 +214,6 @@ export function FaqsTab({
                 {saving ? "Đang lưu..." : current ? "Lưu thay đổi" : "Tạo câu hỏi"}
               </DsButton>
             </div>
-            {confirmDelete && current ? (
-              <DsNotice tone="bad">
-                <div style={{ display: "grid", gap: 8 }}>
-                  <span>Xoá câu hỏi này? Không hoàn tác được.</span>
-                  <div style={{ display: "flex", gap: 8 }}>
-                    <DsButton variant="danger" disabled={saving} onClick={() => void remove()}>Xoá câu hỏi</DsButton>
-                    <DsButton onClick={() => setConfirmDelete(false)}>Giữ lại</DsButton>
-                  </div>
-                </div>
-              </DsNotice>
-            ) : null}
           </div>
         </DsEditDialog>
       ) : null}
