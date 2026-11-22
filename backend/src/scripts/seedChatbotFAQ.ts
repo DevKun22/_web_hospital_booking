@@ -45,7 +45,7 @@ const faqs = [
     question: "Tôi quên mã lịch thì phải làm sao?",
     legacyQuestions: [],
     answer:
-      "Bạn không cần mã lịch. Hãy đăng nhập Tài khoản bằng số điện thoại đã đặt lịch và mã OTP để xem toàn bộ lịch hẹn gần đây.",
+      "Bạn không cần mã lịch. Hãy đăng nhập Cổng thông tin bằng email đã đặt lịch và mã OTP gửi về email đó để xem các lịch hẹn của bạn.",
     keywords: [
       "quen ma lich",
       "quen ma dat lich",
@@ -102,7 +102,7 @@ const faqs = [
     question: "Tôi có thể hủy hoặc đổi lịch khám không?",
     legacyQuestions: ["Toi co the huy lich kham khong?"],
     answer:
-      "Bạn có thể liên hệ nhân viên hỗ trợ để hủy hoặc đổi lịch nếu lịch chưa đến thời gian thực hiện. Một số trường hợp cần kiểm tra trạng thái lịch trước khi thay đổi.",
+      "Bạn tự hủy lịch được trong Cổng thông tin (mục Lịch hẹn) cho đến mốc trước giờ khám do cơ sở quy định. Việc đổi lịch do nhân viên thực hiện: bạn liên hệ nhân viên hỗ trợ để được chuyển sang khung giờ khác, hoặc hủy lịch rồi đặt lịch mới.",
     keywords: [
       "huy lich",
       "doi lich",
