@@ -62,6 +62,52 @@ void main() {
     expect(picked, 'a');
   });
 
+  testWidgets('vuốt ngang danh sách bác sĩ sang chip chuyên khoa kế tiếp', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) => TextButton(
+            onPressed: () => showBookingDoctorPicker(
+              context,
+              doctors: [
+                _doctor('a', 'Đỗ Quang Huy', 'd1'),
+                _doctor('b', 'Lê Thu An', 'd2'),
+              ],
+              departments: const [
+                BookingDepartment(id: 'd1', name: 'Da liễu'),
+                BookingDepartment(id: 'd2', name: 'Tim mạch'),
+              ],
+              onSelected: (_) {},
+            ),
+            child: const Text('mở'),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('mở'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('booking-doctor-b')), findsOneWidget);
+
+    await tester.fling(
+      find.byKey(const ValueKey('booking-doctor-a')),
+      const Offset(-400, 0),
+      1500,
+    );
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('booking-doctor-a')), findsOneWidget);
+    expect(find.byKey(const ValueKey('booking-doctor-b')), findsNothing);
+
+    await tester.fling(
+      find.byKey(const ValueKey('booking-doctor-a')),
+      const Offset(400, 0),
+      1500,
+    );
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('booking-doctor-b')), findsOneWidget);
+  });
+
   testWidgets('lịch tháng chỉ cho chọn ngày còn giờ trống', (tester) async {
     final today = vietnamToday();
     final from = DateTime(today.year, today.month, today.day);

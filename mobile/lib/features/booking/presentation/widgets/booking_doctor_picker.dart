@@ -55,6 +55,37 @@ class _DoctorPicker extends StatefulWidget {
 class _DoctorPickerState extends State<_DoctorPicker> {
   String _query = '';
   String? _departmentId;
+  late final List<GlobalKey> _chipKeys = List.generate(
+    widget.departments.length + 1,
+    (_) => GlobalKey(),
+  );
+
+  /// Thứ tự chip: "Tất cả" rồi từng chuyên khoa; vuốt ngang trên danh sách để sang chip kế.
+  List<String?> get _chipIds => [null, ...widget.departments.map((d) => d.id)];
+
+  void _selectChip(int index) {
+    final ids = _chipIds;
+    if (index < 0 || index >= ids.length) return;
+    setState(() => _departmentId = ids[index]);
+    if (widget.scrollController.hasClients) widget.scrollController.jumpTo(0);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final target = _chipKeys[index].currentContext;
+      if (target == null || !mounted) return;
+      Scrollable.ensureVisible(
+        target,
+        duration: const Duration(milliseconds: 240),
+        curve: Curves.easeOutCubic,
+        alignment: 0.5,
+      );
+    });
+  }
+
+  void _onSwipe(DragEndDetails details) {
+    final velocity = details.primaryVelocity ?? 0;
+    if (velocity.abs() < 350) return;
+    final current = _chipIds.indexOf(_departmentId);
+    _selectChip(current + (velocity < 0 ? 1 : -1));
+  }
 
   @override
   void initState() {
@@ -109,15 +140,17 @@ class _DoctorPickerState extends State<_DoctorPicker> {
               padding: const EdgeInsets.symmetric(horizontal: AppSpacing.page),
               children: [
                 _FilterChip(
+                  key: _chipKeys[0],
                   label: 'Tất cả',
                   selected: _departmentId == null,
-                  onTap: () => setState(() => _departmentId = null),
+                  onTap: () => _selectChip(0),
                 ),
-                for (final department in widget.departments)
+                for (var i = 0; i < widget.departments.length; i += 1)
                   _FilterChip(
-                    label: department.name,
-                    selected: _departmentId == department.id,
-                    onTap: () => setState(() => _departmentId = department.id),
+                    key: _chipKeys[i + 1],
+                    label: widget.departments[i].name,
+                    selected: _departmentId == widget.departments[i].id,
+                    onTap: () => _selectChip(i + 1),
                   ),
               ],
             ),
@@ -140,14 +173,18 @@ class _DoctorPickerState extends State<_DoctorPicker> {
           ),
         ),
         Expanded(
-          child: BookingPagedList<BookingDoctor>(
-            items: filtered,
-            scrollController: widget.scrollController,
-            emptyMessage: 'Không tìm thấy bác sĩ phù hợp. Thử từ khóa khác.',
-            itemBuilder: (context, doctor) => _DoctorTile(
-              doctor: doctor,
-              selected: doctor.id == widget.selectedId,
-              onTap: () => widget.onSelected(doctor.id),
+          child: GestureDetector(
+            behavior: HitTestBehavior.translucent,
+            onHorizontalDragEnd: locked ? null : _onSwipe,
+            child: BookingPagedList<BookingDoctor>(
+              items: filtered,
+              scrollController: widget.scrollController,
+              emptyMessage: 'Không tìm thấy bác sĩ phù hợp. Thử từ khóa khác.',
+              itemBuilder: (context, doctor) => _DoctorTile(
+                doctor: doctor,
+                selected: doctor.id == widget.selectedId,
+                onTap: () => widget.onSelected(doctor.id),
+              ),
             ),
           ),
         ),
@@ -158,6 +195,7 @@ class _DoctorPickerState extends State<_DoctorPicker> {
 
 class _FilterChip extends StatelessWidget {
   const _FilterChip({
+    super.key,
     required this.label,
     required this.selected,
     required this.onTap,
