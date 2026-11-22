@@ -189,12 +189,12 @@ test("nguồn là nội dung được duyệt kèm người duyệt và ngày c�
   const updatedAt = new Date("2026-11-12T03:00:00.000Z");
   await prisma.department.update({
     where: { id: fixture.department.id },
-    data: { symptomKeywords: ["đau ngực", "hồi hộp"], contentReviewerName: "TS.BS Trần Minh", contentUpdatedAt: updatedAt },
+    data: { symptomKeywords: ["tim đập nhanh", "hồi hộp"], contentReviewerName: "TS.BS Trần Minh", contentUpdatedAt: updatedAt },
   });
   await prisma.fAQ.create({ data: { question: "Khám tổng quát có cần nhịn ăn không?", answer: "Bạn nên nhịn ăn 8 giờ.", keywords: [] } });
   KnowledgeService.invalidate();
 
-  const reviewed = await ask("đau ngực hồi hộp");
+  const reviewed = await ask("tim đập nhanh hồi hộp");
   assert.equal(reviewed.status, 200);
   const source = reviewed.body.data.sources.find((item: { type: string }) => item.type === "DEPARTMENT");
   assert.ok(source, "phải có nguồn là chuyên khoa");
