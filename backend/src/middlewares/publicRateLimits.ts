@@ -54,3 +54,31 @@ export const chatbotMessageLimiter = rateLimit({
   failureMode: "deny",
   key: (req) => getClientIp(req),
 });
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+export const chatbotSessionKey = (req: { body?: unknown }) => {
+  const value = (req.body as { sessionId?: unknown } | undefined)?.sessionId;
+  return typeof value === "string" && UUID.test(value) ? value.toLowerCase() : null;
+};
+
+// Giới hạn theo phiên trò chuyện, bên cạnh giới hạn theo IP: một phiên không thể dồn nhiều lượt gọi AI trong thời gian ngắn,
+// và có trần mỗi ngày. Tin đầu tiên chưa có sessionId nên chỉ chịu giới hạn theo IP.
+export const chatbotSessionBurstLimiter = rateLimit({
+  name: "chatbot-session-burst",
+  windowMs: MINUTE_MS,
+  max: 12,
+  degraded: { mode: "enforce", max: 6 },
+  failureMode: "deny",
+  key: chatbotSessionKey,
+  message: "Bạn nhắn hơi nhanh, đợi một lát rồi hỏi tiếp nhé.",
+});
+
+export const chatbotSessionDailyLimiter = rateLimit({
+  name: "chatbot-session-daily",
+  windowMs: 24 * 60 * MINUTE_MS,
+  max: 300,
+  degraded: { mode: "enforce", max: 150 },
+  failureMode: "deny",
+  key: chatbotSessionKey,
+  message: "Phiên trò chuyện này đã đạt giới hạn trong ngày. Bạn thử lại vào ngày mai hoặc nhờ nhân viên hỗ trợ nhé.",
+});

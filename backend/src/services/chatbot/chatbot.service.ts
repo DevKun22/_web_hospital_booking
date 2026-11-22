@@ -24,6 +24,7 @@ import ChatbotEntityResolver from "./retrieval/entity.resolver.js";
 import { hasEmergencySignal } from "./rules/emergency-detector.js";
 import { sanitizeBookingDraft } from "./rules/draft-sanitizer.js";
 import { sanitizeReplyText } from "./rules/reply-sanitizer.js";
+import { maskPersonalData } from "./rules/pii-masker.js";
 import { foldVietnamese, normalizeMessage } from "./rules/text-normalizer.js";
 import { getOrCreateChatSession, mergeDrafts, updateChatSession } from "./chatbot.session.js";
 import ChatbotDraftReducer from "./workflow/draft.reducer.js";
@@ -69,7 +70,9 @@ const emptyNLUResult = (): NLUResult => ({
 const hasSelection = (draft: ChatBookingDraft) => Boolean(draft.departmentId || draft.packageId || draft.doctorId || draft.timeSlotId);
 
 class ChatbotService {
-  async handleMessage(input: ChatbotRequestInput): Promise<ChatbotResponse> {
+  async handleMessage(rawInput: ChatbotRequestInput): Promise<ChatbotResponse> {
+    // Số điện thoại, email, số giấy tờ người dùng gõ vào khung chat được che ngay từ đầu: không lưu nhật ký, không gửi cho dịch vụ AI.
+    const input: ChatbotRequestInput = { ...rawInput, message: maskPersonalData(rawInput.message) };
     const startedAt = Date.now();
     const stages: Record<string, number> = {};
     const mark = (stage: string) => {
@@ -100,9 +103,12 @@ class ChatbotService {
         suggestedActions,
         draftSummary: await buildDraftSummary(output.draft),
       };
+      // Lưu phiên và nhật ký chỉ là ghi nhận: lỗi ghi không được làm mất câu trả lời đã có.
       await Promise.all([
-        updateChatSession(sessionId, response, input.message, input.phone, settings.sessionExpiresDays),
-        this.saveLog(input, response, sourceIds),
+        updateChatSession(sessionId, response, input.message, input.phone, settings.sessionExpiresDays).catch((error) =>
+          logger.warn("[CHATBOT] Không lưu được phiên trò chuyện:", error),
+        ),
+        this.saveLog(input, response, sourceIds).catch((error) => logger.warn("[CHATBOT] Không ghi được nhật ký trò chuyện:", error)),
       ]);
       mark("total");
       // Mốc thời gian từng bước (ms từ lúc nhận tin) để thấy chậm ở đâu: nlu = phân tích ý định, info = truy hồi + sinh câu trả lời.

@@ -48,8 +48,11 @@ import patientPortalRouter from "./patientPortalV1.route.js";
 const router = Router();
 
 router.get("/capabilities", patientCapabilitiesHandler);
-// Nội dung chuyên khoa, bác sĩ, gói khám là nguồn của kho tri thức chatbot: sửa xong thì nạp lại.
-router.use(["/dashboard/departments", "/dashboard/doctors", "/dashboard/packages"], syncKnowledgeAfterWrite);
+// Nội dung chuyên khoa, bác sĩ, gói khám, hỏi đáp, thông tin cơ sở và chính sách đặt lịch là nguồn của kho tri thức chatbot: sửa xong thì nạp lại.
+router.use(
+  ["/dashboard/departments", "/dashboard/doctors", "/dashboard/packages", "/dashboard/faqs", "/dashboard/site-settings", "/dashboard/policy"],
+  syncKnowledgeAfterWrite,
+);
 router.use("/auth", patientAuthRouter);
 router.use("/me/notifications", patientNotificationRouter);
 router.use("/me", patientPortalRouter);
