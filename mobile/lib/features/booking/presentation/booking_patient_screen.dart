@@ -223,7 +223,7 @@ class _BookingPatientScreenState extends ConsumerState<BookingPatientScreen> {
               const SizedBox(height: 20),
               Text(
                 'Người đến khám',
-                style: Theme.of(context).textTheme.titleMedium,
+                style: Theme.of(context).textTheme.titleSmall,
               ),
               const SizedBox(height: 10),
               BookingPatientTypeSelector(
@@ -257,7 +257,7 @@ class _BookingPatientScreenState extends ConsumerState<BookingPatientScreen> {
                   Expanded(
                     child: Text(
                       'Thông tin liên hệ',
-                      style: Theme.of(context).textTheme.titleMedium,
+                      style: Theme.of(context).textTheme.titleSmall,
                     ),
                   ),
                   if (profileState.isInitialLoading)

@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
-
 import 'package:hospital_booking_mobile/core/design/app_colors.dart';
+import 'package:hospital_booking_mobile/core/design/app_design_tokens.dart';
 
+/// Thanh tiến trình 3 bước: ba vạch mỏng và nhãn nhỏ bên dưới; bước đang làm và bước đã qua dùng màu chính.
 class BookingJourneyIndicator extends StatelessWidget {
   const BookingJourneyIndicator({
     required this.currentStep,
@@ -18,90 +19,61 @@ class BookingJourneyIndicator extends StatelessWidget {
   List<String> get _labels => ['Chọn lịch', 'Thông tin', finalStepLabel];
 
   @override
-  Widget build(BuildContext context) => Semantics(
-    label: 'Bước ${currentStep + 1} trên 3: ${_labels[currentStep]}',
-    child: Row(
-      children: List.generate(_labels.length, (index) {
-        final completed = index < currentStep;
-        final active = index == currentStep;
-        final color = completed || active
-            ? context.colors.primary
-            : Theme.of(context).colorScheme.outlineVariant;
-        return Expanded(
-          child: Row(
-            children: [
-              Expanded(
-                child: Column(
-                  children: [
-                    Row(
-                      children: [
-                        if (index > 0)
-                          Expanded(child: Divider(color: color, thickness: 2)),
-                        AnimatedContainer(
-                          duration: const Duration(milliseconds: 180),
-                          width: 30,
-                          height: 30,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: active
-                                ? context.colors.primary
-                                : completed
-                                ? context.colors.primarySoft
-                                : context.colors.surfaceMuted,
-                            border: Border.all(color: color, width: 1.5),
-                          ),
-                          child: completed
-                              ? Icon(
-                                  Icons.check_rounded,
-                                  size: 18,
-                                  color: context.colors.primaryDark,
-                                )
-                              : Center(
-                                  child: Text(
-                                    '${index + 1}',
-                                    style: TextStyle(
-                                      color: active
-                                          ? context.colors.onPrimary
-                                          : Theme.of(
-                                              context,
-                                            ).colorScheme.onSurfaceVariant,
-                                      fontWeight: FontWeight.w800,
-                                    ),
-                                  ),
-                                ),
-                        ),
-                        if (index < _labels.length - 1)
-                          Expanded(
-                            child: Divider(
-                              color: index < currentStep
-                                  ? context.colors.primary
-                                  : Theme.of(
-                                      context,
-                                    ).colorScheme.outlineVariant,
-                              thickness: 2,
-                            ),
-                          ),
-                      ],
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    return Semantics(
+      label: 'Bước ${currentStep + 1} trên 3: ${_labels[currentStep]}',
+      child: ExcludeSemantics(
+        child: Column(
+          children: [
+            Row(
+              children: List.generate(_labels.length, (index) {
+                final reached = index <= currentStep;
+                return Expanded(
+                  child: Padding(
+                    padding: EdgeInsets.only(
+                      right: index == _labels.length - 1 ? 0 : AppSpacing.xxs,
                     ),
-                    const SizedBox(height: 5),
-                    Text(
-                      _labels[index],
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: active || completed
-                            ? context.colors.primaryDark
-                            : Theme.of(context).colorScheme.onSurfaceVariant,
-                        fontWeight: active ? FontWeight.w800 : FontWeight.w500,
+                    child: AnimatedContainer(
+                      duration: AppMotion.responsive(
+                        context,
+                        AppMotion.standard,
+                      ),
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: reached ? colors.primary : colors.border,
+                        borderRadius: BorderRadius.circular(2),
                       ),
                     ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        );
-      }),
-    ),
-  );
+                  ),
+                );
+              }),
+            ),
+            const SizedBox(height: 6),
+            Row(
+              children: List.generate(_labels.length, (index) {
+                final active = index == currentStep;
+                return Expanded(
+                  child: Text(
+                    _labels[index],
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: index == 0
+                        ? TextAlign.start
+                        : index == _labels.length - 1
+                        ? TextAlign.end
+                        : TextAlign.center,
+                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                      color: active ? colors.primaryDark : colors.muted,
+                      fontWeight: active ? FontWeight.w600 : FontWeight.w400,
+                    ),
+                  ),
+                );
+              }),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }

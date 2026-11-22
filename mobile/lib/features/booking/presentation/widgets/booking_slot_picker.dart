@@ -28,14 +28,14 @@ _PeriodStyle _styleOf(SlotPeriod period, AppColors colors) => switch (period) {
   SlotPeriod.morning => _PeriodStyle(
     'Buổi sáng',
     Icons.wb_sunny_rounded,
-    colors.warningContainer,
-    colors.warning,
+    colors.infoContainer,
+    colors.info,
   ),
   SlotPeriod.afternoon => _PeriodStyle(
     'Buổi chiều',
     Icons.wb_twilight_rounded,
-    colors.infoContainer,
-    colors.info,
+    colors.warningContainer,
+    colors.warning,
   ),
   SlotPeriod.evening => _PeriodStyle(
     'Buổi tối',
@@ -127,7 +127,7 @@ class _PeriodCard extends StatelessWidget {
                   style.title,
                   style: Theme.of(context).textTheme.titleSmall?.copyWith(
                     color: style.accent,
-                    fontWeight: FontWeight.w800,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ),
@@ -203,10 +203,10 @@ class _SlotTile extends StatelessWidget {
                 duration: AppMotion.responsive(context, AppMotion.fast),
                 curve: AppMotion.emphasized,
                 decoration: BoxDecoration(
-                  color: selected ? colors.primary : colors.surface,
+                  color: selected ? accent : colors.surface,
                   borderRadius: BorderRadius.circular(AppRadius.md),
                   border: Border.all(
-                    color: selected ? colors.primary : colors.border,
+                    color: selected ? accent : accent.withValues(alpha: 0.35),
                     width: selected ? 1.5 : 1,
                   ),
                   boxShadow: selected ? AppShadow.soft : null,
@@ -228,8 +228,15 @@ class _SlotTile extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                         style: Theme.of(context).textTheme.labelMedium
                             ?.copyWith(
-                              color: selected ? colors.onPrimary : colors.ink,
-                              fontWeight: FontWeight.w800,
+                              color: selected
+                                  ? (ThemeData.estimateBrightnessForColor(
+                                              accent,
+                                            ) ==
+                                            Brightness.dark
+                                        ? Colors.white
+                                        : colors.ink)
+                                  : colors.ink,
+                              fontWeight: FontWeight.w600,
                             ),
                       ),
                     ),
@@ -244,15 +251,11 @@ class _SlotTile extends StatelessWidget {
                     decoration: BoxDecoration(
                       color: colors.surface,
                       shape: BoxShape.circle,
-                      border: Border.all(color: colors.primary, width: 1.5),
+                      border: Border.all(color: accent, width: 1.5),
                     ),
                     child: Padding(
                       padding: const EdgeInsets.all(2),
-                      child: Icon(
-                        Icons.check_rounded,
-                        size: 12,
-                        color: colors.primary,
-                      ),
+                      child: Icon(Icons.check_rounded, size: 12, color: accent),
                     ),
                   ),
                 ),

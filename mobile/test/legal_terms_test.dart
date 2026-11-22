@@ -56,10 +56,7 @@ void main() {
       find.byKey(const ValueKey('terms-consent-checkbox')),
       findsOneWidget,
     );
-    expect(
-      find.text('Tôi đã đọc và đồng ý Điều khoản sử dụng.'),
-      findsOneWidget,
-    );
+    expect(find.text('Tôi đồng ý Điều khoản sử dụng.'), findsOneWidget);
     // Chưa có chính sách bảo mật thì không có nút xem chính sách.
     expect(find.text('Xem chính sách bảo mật'), findsNothing);
 

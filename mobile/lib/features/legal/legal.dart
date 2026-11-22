@@ -94,24 +94,35 @@ class TermsConsentTile extends ConsumerWidget {
         CheckboxListTile(
           key: const ValueKey('terms-consent-checkbox'),
           contentPadding: EdgeInsets.zero,
+          dense: true,
+          visualDensity: VisualDensity.compact,
           controlAffinity: ListTileControlAffinity.leading,
           value: value,
           onChanged: (checked) => onChanged(checked ?? false),
           title: Text(
             privacy == null
-                ? 'Tôi đã đọc và đồng ý Điều khoản sử dụng.'
-                : 'Tôi đã đọc và đồng ý Điều khoản sử dụng và Chính sách bảo mật.',
+                ? 'Tôi đồng ý Điều khoản sử dụng.'
+                : 'Tôi đồng ý Điều khoản sử dụng và Chính sách bảo mật.',
+            style: Theme.of(context).textTheme.bodySmall,
           ),
         ),
         Wrap(
-          spacing: 8,
+          spacing: 4,
           children: [
             TextButton(
+              style: TextButton.styleFrom(
+                visualDensity: VisualDensity.compact,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
               onPressed: () => _showDocument(context, terms),
               child: const Text('Xem điều khoản'),
             ),
             if (privacy != null)
               TextButton(
+                style: TextButton.styleFrom(
+                  visualDensity: VisualDensity.compact,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
                 onPressed: () => _showDocument(context, privacy),
                 child: const Text('Xem chính sách bảo mật'),
               ),
