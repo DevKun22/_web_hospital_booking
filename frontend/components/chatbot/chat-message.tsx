@@ -1,9 +1,9 @@
-import { AlertTriangle, BadgeCheck, Clock, FileText, Phone, RotateCcw, SearchX, WifiOff } from "lucide-react";
+import { AlertTriangle, BadgeCheck, Clock, FileText, Phone, RotateCcw, SearchX, ThumbsDown, ThumbsUp, WifiOff } from "lucide-react";
 import Link from "next/link";
 import { FollowUps } from "@/components/chatbot/follow-ups";
 import { ChatbotResultCards } from "@/components/chatbot/result-cards";
 import { KunAvatar } from "@/components/chatbot/kun-avatar";
-import { getQuickReplies, getSourceReviewLine, type ChatWidgetMessage } from "@/lib/chatbot-ui";
+import { getNoInformationLinks, getQuickReplies, getSourceReviewLine, type ChatContact, type ChatWidgetMessage } from "@/lib/chatbot-ui";
 import type { ChatbotSuggestedAction } from "@/lib/types";
 
 const NOTICE_KIND = {
@@ -25,11 +25,13 @@ type Props = {
   isLatest?: boolean;
   onAction: (action: ChatbotSuggestedAction) => void;
   onRetry: () => void;
+  onRate?: (messageId: string, value: "HELPFUL" | "NOT_HELPFUL") => void;
+  contact?: ChatContact;
 };
 
 // Một tin trong cuộc trò chuyện: người dùng (bên phải), Kun (bên trái, kèm nguồn và thẻ kết quả), thông báo hệ thống (viên thuốc),
 // và cảnh báo cấp cứu (thẻ đỏ có nút gọi).
-export function ChatMessage({ message, selectedSlotId, disabled, isLatest, onAction, onRetry }: Props) {
+export function ChatMessage({ message, selectedSlotId, disabled, isLatest, onAction, onRetry, onRate, contact }: Props) {
   if (message.role === "system") {
     return (
       <div className="kun-enter flex justify-center">
@@ -115,6 +117,51 @@ export function ChatMessage({ message, selectedSlotId, disabled, isLatest, onAct
                 );
               })}
             </ul>
+          </div>
+        ) : null}
+        {message.kind === "no-info" ? (
+          <ul className="mt-2 flex flex-wrap gap-1.5" aria-label="Nơi có thể xem thêm">
+            {getNoInformationLinks(contact).map((link) => (
+              <li key={link.href}>
+                <Link
+                  href={link.href}
+                  className="inline-flex min-h-10 items-center rounded-full border border-[var(--public-primary)] bg-[var(--public-primary-soft)] px-3 text-[13px] font-medium text-[var(--public-primary-dark)] hover:bg-white"
+                >
+                  {link.label}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        ) : null}
+        {message.messageId && !message.kind && onRate ? (
+          <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-[var(--public-muted)]">
+            {message.feedback ? (
+              <p role="status">Cảm ơn bạn đã phản hồi.</p>
+            ) : (
+              <>
+                <span id={`fb-${message.id}`}>Câu trả lời này thế nào?</span>
+                <button
+                  type="button"
+                  disabled={disabled}
+                  onClick={() => onRate(message.messageId as string, "HELPFUL")}
+                  aria-describedby={`fb-${message.id}`}
+                  className="inline-flex min-h-9 items-center gap-1 rounded-full border border-[var(--public-border)] px-3 text-xs font-medium text-[var(--public-primary)] hover:bg-[var(--public-primary-soft)] disabled:opacity-60"
+                >
+                  <ThumbsUp className="h-3.5 w-3.5" aria-hidden="true" />
+                  Hữu ích
+                </button>
+                <button
+                  type="button"
+                  disabled={disabled}
+                  onClick={() => onRate(message.messageId as string, "NOT_HELPFUL")}
+                  aria-describedby={`fb-${message.id}`}
+                  className="inline-flex min-h-9 items-center gap-1 rounded-full border border-[var(--public-border)] px-3 text-xs font-medium text-[var(--public-muted)] hover:bg-[var(--public-surface-muted)] disabled:opacity-60"
+                >
+                  <ThumbsDown className="h-3.5 w-3.5" aria-hidden="true" />
+                  Chưa đúng
+                </button>
+              </>
+            )}
           </div>
         ) : null}
         {isLatest && !message.retryable ? (

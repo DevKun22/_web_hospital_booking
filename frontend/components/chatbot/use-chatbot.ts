@@ -151,6 +151,7 @@ export function useChatbot({ online }: { online: boolean }) {
             role: result.state === "EMERGENCY_CARE" ? "alert" : "assistant",
             content: result.reply,
             kind: isNoInformationReply(result) ? "no-info" : undefined,
+            messageId: result.messageId,
             results: result.results,
             sources: result.sources,
             actions: result.suggestedActions,
@@ -190,6 +191,23 @@ export function useChatbot({ online }: { online: boolean }) {
     [send],
   );
 
+  /** Gửi phản hồi hữu ích / chưa đúng cho một câu trả lời; hiện ngay, lỗi mạng thì hoàn lại và nhắc thử lại. */
+  const rate = useCallback(
+    async (messageId: string, value: "HELPFUL" | "NOT_HELPFUL") => {
+      if (!sessionId) return;
+      const set = (feedback?: "HELPFUL" | "NOT_HELPFUL") =>
+        setMessages((current) => current.map((item) => (item.messageId === messageId ? { ...item, feedback } : item)));
+      set(value);
+      try {
+        await apiRequest("/chatbot/feedback", { method: "POST", body: { sessionId, messageId, value } });
+      } catch {
+        set(undefined);
+        setNotice("Chưa gửi được phản hồi, bạn thử lại sau nhé.");
+      }
+    },
+    [sessionId],
+  );
+
   /** Gửi lại yêu cầu vừa lỗi (không lặp tin của người dùng). */
   const retry = useCallback(() => {
     const last = lastRequestRef.current;
@@ -222,5 +240,5 @@ export function useChatbot({ online }: { online: boolean }) {
     }
   }, []);
 
-  return { messages, draft, draftSummary, sending, loadingText, placeholder, notice, send, pick, retry, clearSelection, reset };
+  return { messages, draft, draftSummary, sending, loadingText, placeholder, notice, send, pick, rate, retry, clearSelection, reset };
 }
