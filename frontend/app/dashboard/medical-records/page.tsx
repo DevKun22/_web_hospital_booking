@@ -21,12 +21,11 @@ import {
   type DsColumn,
   useActionToast,
   useConfirm,
-  DsLoading,
   DsNotice,
 } from "@/components/ds";
-import { PrescriptionEditor, confirmShortage } from "@/components/doctor/prescription-editor";
+import { confirmShortage } from "@/components/doctor/prescription-editor";
 import { VietnamDateInput } from "@/components/ui/vietnam-date-input";
-import { apiRequest, apiUrl, uploadMedicalFile } from "@/lib/api";
+import { apiRequest, uploadMedicalFile } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import {
   fetchDashboardMedicalRecord,
@@ -41,66 +40,24 @@ import { useDebouncedValue } from "@/lib/use-debounced-value";
 
 import { can } from "@/lib/permissions";
 import { queryKeys } from "@/lib/query-keys";
-import type { LabResult, MedicalRecord } from "@/lib/types";
+import type { MedicalRecord } from "@/lib/types";
+import { LabResultsCard } from "./lab-results-card";
+import { PrescriptionSection } from "./prescription-section";
+import { ResultFileCard } from "./result-file-card";
 import {
   type RecordForm,
-  type LabForm,
   emptyRecordForm,
-  emptyLabForm,
   statusLabel,
   statusTone,
   doctorName,
   toRecordForm,
-  toLabForm,
   buildRecordPayload,
-  buildLabPayload,
   statusTabs,
   textFields,
 } from "./record-model";
 
 // Hồ sơ khám: danh sách bên trái; chọn một hồ sơ thì danh sách thu hẹp và khung làm việc chiếm phần còn lại
 // (biểu mẫu chuyên môn, tệp kết quả, kết quả cận lâm sàng, việc cần làm trước khi công bố).
-
-function FileDrop({ inputId, busy, onFile }: { inputId: string; busy: boolean; onFile: (file: File | undefined) => void }) {
-  const [over, setOver] = useState(false);
-
-  return (
-    <div
-      className={`ds-drop${over ? " is-over" : ""}`}
-      onDragOver={(event) => {
-        event.preventDefault();
-        setOver(true);
-      }}
-      onDragLeave={() => setOver(false)}
-      onDrop={(event) => {
-        event.preventDefault();
-        setOver(false);
-        onFile(event.dataTransfer.files?.[0]);
-      }}
-    >
-      {busy ? (
-        "Đang tải tệp lên..."
-      ) : (
-        <>
-          Kéo thả tệp vào đây hoặc <label htmlFor={inputId}>chọn từ máy</label>
-          <input
-            id={inputId}
-            type="file"
-            accept="application/pdf,image/jpeg,image/png,image/webp"
-            className="sr-only"
-            onChange={(event) => {
-              onFile(event.target.files?.[0]);
-              event.target.value = "";
-            }}
-          />
-          <div className="ds-hint" style={{ marginTop: 4 }}>
-            PDF, JPG, PNG, WEBP · tối đa 10 MB · lưu riêng tư, người khám chỉ xem được sau khi công bố
-          </div>
-        </>
-      )}
-    </div>
-  );
-}
 
 export default function MedicalRecordsPage() {
   const { user } = useAuth();
@@ -116,15 +73,10 @@ export default function MedicalRecordsPage() {
   const [page, setPage] = useState(1);
   const [busy, setBusy] = useState(false);
   const [uploadingRecordFile, setUploadingRecordFile] = useState(false);
-  const [uploadingLabFile, setUploadingLabFile] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [selectedSnapshot, setSelected] = useState<MedicalRecord | null>(null);
   const [recordForm, setRecordForm] = useState<RecordForm>(emptyRecordForm);
-  const [labOpen, setLabOpen] = useState(false);
-  const [editingLab, setEditingLab] = useState<LabResult | null>(null);
-  const [deleteLabTarget, setDeleteLabTarget] = useState<LabResult | null>(null);
-  const [labForm, setLabForm] = useState<LabForm>(emptyLabForm);
   const [chosenPrescriptionId, setChosenPrescriptionId] = useState<string | undefined>(undefined);
 
   const canArchive = can(user, "record.archive");
@@ -212,10 +164,6 @@ export default function MedicalRecordsPage() {
   const openDetail = (record: MedicalRecord) => {
     setSelected(record);
     setRecordForm(toRecordForm(record));
-    setLabOpen(false);
-    setEditingLab(null);
-    setDeleteLabTarget(null);
-    setLabForm(emptyLabForm);
   };
 
   const closeDetail = () => setSelected(null);
@@ -268,22 +216,6 @@ export default function MedicalRecordsPage() {
       setError(err instanceof Error ? err.message : "Không tải được tệp kết quả lên");
     } finally {
       setUploadingRecordFile(false);
-    }
-  };
-
-  const uploadLabResultFile = async (file: File | undefined) => {
-    if (!file) return;
-    setUploadingLabFile(true);
-    setError("");
-    setNotice("");
-    try {
-      const asset = await uploadMedicalFile(file);
-      setLabForm((current) => ({ ...current, fileUrl: asset.url }));
-      setNotice("Đã tải tệp cận lâm sàng lên");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Không tải được tệp cận lâm sàng lên");
-    } finally {
-      setUploadingLabFile(false);
     }
   };
 
@@ -365,55 +297,10 @@ export default function MedicalRecordsPage() {
     }
   };
 
-  const saveLabResult = async (event: FormEvent) => {
-    event.preventDefault();
+  const reloadAfterLabChange = async () => {
     if (!selected) return;
-    setBusy(true);
-    setError("");
-    setNotice("");
-    try {
-      if (editingLab) {
-        await apiRequest<LabResult>(`/dashboard/medical-records/${selected.id}/lab-results/${editingLab.id}`, {
-          method: "PATCH",
-          body: buildLabPayload(labForm),
-        });
-        setNotice("Đã cập nhật kết quả cận lâm sàng");
-      } else {
-        await apiRequest<LabResult>(`/dashboard/medical-records/${selected.id}/lab-results`, {
-          method: "POST",
-          body: buildLabPayload(labForm),
-        });
-        setNotice("Đã thêm kết quả cận lâm sàng");
-      }
-      setEditingLab(null);
-      setDeleteLabTarget(null);
-      setLabOpen(false);
-      setLabForm(emptyLabForm);
-      await refreshSelectedRecord(selected.id);
-      await invalidateMedicalRecords();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Không lưu được kết quả cận lâm sàng");
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const deleteLabResult = async () => {
-    if (!selected || !deleteLabTarget) return;
-    setBusy(true);
-    setError("");
-    setNotice("");
-    try {
-      await apiRequest<LabResult>(`/dashboard/medical-records/${selected.id}/lab-results/${deleteLabTarget.id}`, { method: "DELETE" });
-      setNotice("Đã xoá kết quả cận lâm sàng");
-      setDeleteLabTarget(null);
-      await refreshSelectedRecord(selected.id);
-      await invalidateMedicalRecords();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Không xoá được kết quả cận lâm sàng");
-    } finally {
-      setBusy(false);
-    }
+    await refreshSelectedRecord(selected.id);
+    await invalidateMedicalRecords();
   };
 
   const applyRecordSearch = (event: FormEvent<HTMLFormElement>) => event.preventDefault();
@@ -628,205 +515,41 @@ export default function MedicalRecordsPage() {
         </form>
 
         <div className="ds-editor__col">
-          <div className="ds-card">
-            <div className="ds-card__head">
-              <h3>Tệp kết quả</h3>
-              <DsStatusPill>Riêng tư</DsStatusPill>
-            </div>
-            <div className="ds-card__body">
-              {hasFile ? (
-                <div className="ds-file">
-                  <div className="ds-file__text">
-                    <strong>{savedFile ? "Tệp kết quả đã đính kèm" : "Tệp mới, chưa lưu"}</strong>
-                    <small>{savedFile ? "Đã lưu trong hồ sơ" : "Bấm Lưu hồ sơ để đính kèm"}</small>
-                  </div>
-                  {savedFile && selected ? (
-                    <a href={apiUrl(`/dashboard/medical-records/${selected.id}/file`)} target="_blank" rel="noopener" className="ds-link">
-                      Mở
-                    </a>
-                  ) : null}
-                  {canEdit ? (
-                    <DsButton variant="ghost" onClick={() => setRecordForm((current) => ({ ...current, resultPdfUrl: "" }))}>
-                      Gỡ
-                    </DsButton>
-                  ) : null}
-                </div>
-              ) : null}
-              {canEdit ? <FileDrop inputId="record-file" busy={uploadingRecordFile} onFile={(file) => void uploadRecordResultFile(file)} /> : null}
-            </div>
-          </div>
+          <ResultFileCard
+            recordId={selected.id}
+            hasFile={hasFile}
+            saved={Boolean(savedFile)}
+            canEdit={canEdit}
+            uploading={uploadingRecordFile}
+            onUpload={(file) => void uploadRecordResultFile(file)}
+            onRemove={() => setRecordForm((current) => ({ ...current, resultPdfUrl: "" }))}
+          />
 
-          <div className="ds-card">
-            <div className="ds-card__head">
-              <h3>Kết quả cận lâm sàng</h3>
-              {canEdit && !labOpen ? (
-                <DsButton
-                  onClick={() => {
-                    setEditingLab(null);
-                    setDeleteLabTarget(null);
-                    setLabForm(emptyLabForm);
-                    setLabOpen(true);
-                  }}
-                >
-                  Thêm kết quả
-                </DsButton>
-              ) : null}
-            </div>
-            {selected.labResults.length === 0 && !labOpen ? (
-              <p style={{ margin: 0, padding: "14px", color: "var(--ds-muted)" }}>Chưa có kết quả cận lâm sàng.</p>
-            ) : null}
-            {selected.labResults.map((lab) => (
-              <div key={lab.id} className="ds-labrow">
-                <div className="ds-labrow__main">
-                  <strong>{lab.testName}</strong>
-                  <small>
-                    {lab.resultValue || "-"} {lab.unit || ""}
-                    {lab.referenceRange ? ` · tham chiếu ${lab.referenceRange}` : ""}
-                  </small>
-                  {lab.conclusion ? <small>{lab.conclusion}</small> : null}
-                  {lab.fileUrl ? (
-                    <a href={apiUrl(`/dashboard/medical-records/${selected.id}/lab-results/${lab.id}/file`)} target="_blank" rel="noopener" className="ds-link">
-                      Mở tệp
-                    </a>
-                  ) : null}
-                  {deleteLabTarget?.id === lab.id ? (
-                    <div style={{ display: "flex", gap: 8, marginTop: 8, alignItems: "center", flexWrap: "wrap" }}>
-                      <span style={{ fontSize: 13 }}>Xoá kết quả này?</span>
-                      <DsButton variant="danger" loading={busy} onClick={() => void deleteLabResult()}>
-                        Xoá
-                      </DsButton>
-                      <DsButton onClick={() => setDeleteLabTarget(null)}>Giữ lại</DsButton>
-                    </div>
-                  ) : null}
-                </div>
-                {canEdit && deleteLabTarget?.id !== lab.id ? (
-                  <span style={{ display: "flex", gap: 4 }}>
-                    <DsButton
-                      variant="ghost"
-                      onClick={() => {
-                        setEditingLab(lab);
-                        setDeleteLabTarget(null);
-                        setLabForm(toLabForm(lab));
-                        setLabOpen(true);
-                      }}
-                    >
-                      Sửa
-                    </DsButton>
-                    <DsButton
-                      variant="ghost"
-                      onClick={() => {
-                        setDeleteLabTarget(lab);
-                        setEditingLab(null);
-                        setLabOpen(false);
-                      }}
-                    >
-                      Xoá
-                    </DsButton>
-                  </span>
-                ) : null}
-              </div>
-            ))}
-            {labOpen ? (
-              <form className="ds-card__body" onSubmit={saveLabResult} style={{ borderTop: "1px solid var(--ds-line)" }} aria-label={editingLab ? "Sửa kết quả" : "Thêm kết quả"}>
-                <DsField label="Tên xét nghiệm" htmlFor="lab-name" required>
-                  <DsInput id="lab-name" value={labForm.testName} required onChange={(event) => setLabForm((current) => ({ ...current, testName: event.target.value }))} />
-                </DsField>
-                <div className="ds-grid-fields">
-                  <DsField label="Giá trị" htmlFor="lab-value">
-                    <DsInput id="lab-value" value={labForm.resultValue} onChange={(event) => setLabForm((current) => ({ ...current, resultValue: event.target.value }))} />
-                  </DsField>
-                  <DsField label="Đơn vị" htmlFor="lab-unit">
-                    <DsInput id="lab-unit" value={labForm.unit} onChange={(event) => setLabForm((current) => ({ ...current, unit: event.target.value }))} />
-                  </DsField>
-                  <DsField label="Khoảng tham chiếu" htmlFor="lab-ref">
-                    <DsInput id="lab-ref" value={labForm.referenceRange} onChange={(event) => setLabForm((current) => ({ ...current, referenceRange: event.target.value }))} />
-                  </DsField>
-                </div>
-                <DsField label="Kết luận" htmlFor="lab-conclusion">
-                  <DsTextarea id="lab-conclusion" rows={2} value={labForm.conclusion} onChange={(event) => setLabForm((current) => ({ ...current, conclusion: event.target.value }))} />
-                </DsField>
-                {labForm.fileUrl ? (
-                  <div className="ds-file">
-                    <div className="ds-file__text">
-                      <strong>Đã có tệp đính kèm</strong>
-                    </div>
-                    <DsButton variant="ghost" onClick={() => setLabForm((current) => ({ ...current, fileUrl: "" }))}>
-                      Gỡ
-                    </DsButton>
-                  </div>
-                ) : null}
-                <FileDrop inputId="lab-file" busy={uploadingLabFile} onFile={(file) => void uploadLabResultFile(file)} />
-                <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-                  <DsButton
-                    onClick={() => {
-                      setLabOpen(false);
-                      setEditingLab(null);
-                      setLabForm(emptyLabForm);
-                    }}
-                  >
-                    Hủy
-                  </DsButton>
-                  <DsButton type="submit" variant="primary" disabled={busy || uploadingLabFile}>
-                    {editingLab ? "Lưu kết quả" : "Thêm kết quả"}
-                  </DsButton>
-                </div>
-              </form>
-            ) : null}
-          </div>
+          <LabResultsCard
+            key={selected.id}
+            recordId={selected.id}
+            labResults={selected.labResults}
+            canEdit={canEdit}
+            onChanged={reloadAfterLabChange}
+            onNotice={setNotice}
+            onError={setError}
+          />
         </div>
       </div>
 
-      {canCreatePrescription || prescriptions.length > 0 || !canViewPrescriptions ? (
-        <section aria-label="Đơn thuốc" style={{ borderTop: "1px solid var(--ds-line)" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "14px 16px 0", flexWrap: "wrap" }}>
-            <h3 style={{ margin: 0, fontSize: 15 }}>Đơn thuốc</h3>
-            {prescription ? (
-              <DsStatusPill tone={prescription.status === "ISSUED" ? "good" : prescription.status === "CANCELLED" ? "bad" : "warn"}>
-                {prescription.status === "ISSUED" ? "Đã phát hành" : prescription.status === "CANCELLED" ? "Đã huỷ" : "Bản nháp"}
-              </DsStatusPill>
-            ) : null}
-          </div>
-          {prescriptions.length > 1 ? (
-            <div role="tablist" aria-label="Các đơn thuốc của hồ sơ" style={{ display: "flex", gap: 8, padding: "10px 16px 0", flexWrap: "wrap" }}>
-              {prescriptions.map((item, index) => (
-                <DsButton
-                  key={item.id}
-                  variant={item.id === activePrescriptionId ? "primary" : "default"}
-                  onClick={() => setChosenPrescriptionId(item.id)}
-                  aria-pressed={item.id === activePrescriptionId}
-                >
-                  {index === 0 ? "Đơn chính" : `Đơn bổ sung ${index}`}
-                  {item.status === "DRAFT" ? " (nháp)" : item.status === "CANCELLED" ? " (đã huỷ)" : ""}
-                </DsButton>
-              ))}
-            </div>
-          ) : null}
-          {!canViewPrescriptions ? (
-            <p style={{ margin: 0, padding: 16, color: "var(--ds-muted)" }}>
-              Bạn chưa được cấp quyền xem đơn thuốc nên nội dung đơn không hiển thị ở đây. Liên hệ quản trị nếu cần xử lý khiếu nại.
-            </p>
-          ) : null}
-          {prescription ? (
-            <PrescriptionEditor key={prescription.id} prescription={prescription} canEdit={canCreatePrescription} onChange={() => void refreshSelectedRecord(selected.id)} />
-          ) : activePrescriptionId ? (
-            <DsLoading label="Đang tải đơn thuốc..." />
-          ) : null}
-          {canCreatePrescription && !hasDraftPrescription && selected.status !== "ARCHIVED" && ["IN_PROGRESS", "COMPLETED"].includes(selected.appointment.status) ? (
-            <div style={{ padding: 16 }}>
-              <DsButton loading={busy} onClick={() => void createPrescriptionFromRecord(selected)}>
-                {prescriptions.length > 0 ? "Tạo đơn bổ sung" : "Kê đơn thuốc"}
-              </DsButton>
-              {prescriptions.length > 0 ? (
-                <p style={{ margin: "8px 0 0", fontSize: 13, color: "var(--ds-muted)" }}>
-                  Đơn đã phát hành không sửa được. Cần thêm thuốc thì tạo đơn bổ sung; tiền thuốc đơn bổ sung sau khi hóa đơn đã thu được tính thành hóa đơn phụ.
-                </p>
-              ) : null}
-            </div>
-          ) : prescriptions.length === 0 && canViewPrescriptions ? (
-            <p style={{ margin: 0, padding: 16, color: "var(--ds-muted)" }}>Chưa có đơn thuốc.</p>
-          ) : null}
-        </section>
-      ) : null}
+      <PrescriptionSection
+        record={selected}
+        prescriptions={prescriptions}
+        activePrescriptionId={activePrescriptionId}
+        prescription={prescription}
+        canView={canViewPrescriptions}
+        canCreate={canCreatePrescription}
+        hasDraft={hasDraftPrescription}
+        busy={busy}
+        onChoose={setChosenPrescriptionId}
+        onCreate={() => void createPrescriptionFromRecord(selected)}
+        onChanged={() => void refreshSelectedRecord(selected.id)}
+      />
 
       <div className="ds-savebar">
         <span className="ds-savebar__msg">{dirty ? <DsStatusPill tone="warn">Có thay đổi chưa lưu</DsStatusPill> : "Mọi thay đổi đã được lưu"}</span>
