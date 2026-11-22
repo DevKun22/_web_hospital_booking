@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { useQueryClient } from "@tanstack/react-query";
-import { CircleCheck, Copy } from "lucide-react";
+import { Copy, UserRound } from "lucide-react";
 import type { BookingFlow } from "@/features/booking/use-booking-flow";
 import { copyBookingCode } from "@/features/booking/components/copy-code";
 import { patientApiRequest } from "@/lib/patient-portal-api";
@@ -24,7 +24,7 @@ export function SuccessStep({ flow }: { flow: BookingFlow }) {
   return (
     <section aria-labelledby="booking-success" className="rounded-xl border border-[var(--public-border)] bg-[var(--public-surface)] p-4 sm:p-6" role="status">
       <h2 id="booking-success" tabIndex={-1} className="flex items-start gap-3 text-xl font-bold leading-snug text-[var(--public-ink)] focus:outline-none">
-        <CircleCheck className="mt-0.5 h-6 w-6 shrink-0 text-[var(--public-success)]" aria-hidden="true" />
+        <svg viewBox="0 0 24 24" className="draw-check mt-0.5 h-7 w-7 shrink-0 text-[var(--public-success)]" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10" /><path d="m8 12.5 2.8 2.8L16 9.5" /></svg>
         Đặt lịch thành công
       </h2>
       <p className="mt-2 text-sm leading-6 text-[var(--public-muted)]">Lịch hẹn đã được xác nhận. Thông tin xác nhận đã gửi tới email {email}.</p>
@@ -45,12 +45,13 @@ export function SuccessStep({ flow }: { flow: BookingFlow }) {
         <p className="mt-2 text-xs leading-5 text-[var(--public-muted)]">Mã dùng để báo cho cơ sở khám khi cần hỗ trợ.</p>
       </div>
 
-      <div className="mt-5">
-        <p className="text-sm font-semibold text-[var(--public-ink)]">Tiếp theo</p>
-        <ul className="mt-2 list-disc space-y-1 pl-5 text-sm leading-6 text-[var(--public-text-soft)]">
-          <li>Xem, quản lý hoặc hủy lịch trong mục Lịch hẹn của tôi.</li>
-          <li>Hóa đơn và thanh toán trực tuyến có sau khi bệnh viện hoàn tất khám.</li>
-        </ul>
+      <div className="mt-5 rounded-lg border border-dashed border-[var(--public-primary)] p-4">
+        <p className="flex flex-wrap items-center gap-2 text-sm font-semibold text-[var(--public-ink)]">
+          <UserRound className="h-4 w-4 text-[var(--public-primary)]" aria-hidden="true" />
+          Theo dõi lịch trong cổng thông tin
+          <span className="rounded-full border border-dashed border-[var(--public-primary)] px-2 text-xs font-normal text-[var(--public-primary-dark)]">Không bắt buộc</span>
+        </p>
+        <p className="mt-1.5 text-sm leading-6 text-[var(--public-text-soft)]">Đăng nhập bằng email đã đặt lịch để xem trạng thái, hủy hoặc đổi lịch. Hóa đơn và thanh toán trực tuyến có sau khi bệnh viện hoàn tất khám.</p>
       </div>
 
       <div className="mt-5 flex flex-col gap-2 sm:flex-row">

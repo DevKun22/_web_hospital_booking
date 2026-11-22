@@ -1,7 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
+import { ChevronRight } from "lucide-react";
 import { useMessageToast } from "@/components/patient/patient-toast";
+import { WaveEdge } from "@/components/public/wave-edge";
 import { ActionBar } from "@/features/booking/components/action-bar";
 import { BookingSummary, MobileSummaryLine } from "@/features/booking/components/booking-summary";
 import { DetailsStep } from "@/features/booking/components/details-step";
@@ -71,10 +74,26 @@ export function BookingFlow({ catalog, loading, hotline }: BookingFlowProps) {
   }[state.step];
 
   return (
-    <section id="booking" className="ui-container scroll-mt-24 py-5 sm:py-8">
+    <>
+      <header ref={headerRef} className="relative bg-[linear-gradient(120deg,var(--hero-from)_0%,var(--hero-via)_58%,var(--hero-to)_100%)] text-white">
+        <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden">
+          <WaveEdge />
+        </div>
+        <div className="ui-container relative z-10 pb-14 pt-5 sm:pt-7 lg:pb-16">
+          <nav aria-label="Đường dẫn trang" className="mb-3 flex items-center gap-1.5 text-sm text-white/80">
+            <Link href="/" className="hover:text-white hover:underline">Trang chủ</Link>
+            <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" />
+            <span className="font-semibold text-white" aria-current="page">Đặt lịch khám</span>
+          </nav>
+          <h1 className="text-2xl font-bold tracking-tight text-white sm:text-3xl">Đặt lịch khám</h1>
+          <StepProgress step={state.step} onBrand onGo={actions.goToStep} />
+        </div>
+      </header>
+
+    <section id="booking" className="ui-container relative z-10 -mt-8 scroll-mt-24 pb-8 sm:pb-12 lg:-mt-10">
       <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-6 lg:grid-cols-[minmax(0,1fr)_21rem] lg:gap-8">
         <div className="space-y-4">
-          <div className="sticky top-[4.25rem] z-40 h-0">
+          <div className="sticky top-[7.6rem] z-40 h-0 xl:top-[4.25rem]">
             <div
               aria-hidden={!floating}
               className={`absolute inset-x-0 top-0 -mx-4 border-b border-[var(--public-border)] bg-[var(--public-surface)] px-4 py-2.5 shadow-sm transition duration-200 motion-reduce:transition-none sm:mx-0 sm:rounded-b-xl sm:border-x ${floating ? "translate-y-0 opacity-100" : "pointer-events-none -translate-y-2 opacity-0"}`}
@@ -82,13 +101,6 @@ export function BookingFlow({ catalog, loading, hotline }: BookingFlowProps) {
               <StepProgress step={state.step} compact />
             </div>
           </div>
-          <header ref={headerRef}>
-            <h1 className="text-2xl font-bold tracking-tight text-[var(--public-ink)]">Đặt lịch khám</h1>
-            <div className="mt-3">
-              <StepProgress step={state.step} />
-            </div>
-          </header>
-
           <div ref={stepRef}>
             {state.step === "service" ? <ServiceStep flow={flow} loading={loading} /> : null}
             {state.step === "schedule" ? <ScheduleStep flow={flow} /> : null}
@@ -103,5 +115,6 @@ export function BookingFlow({ catalog, loading, hotline }: BookingFlowProps) {
         <BookingSummary flow={flow} hotline={hotline} />
       </div>
     </section>
+    </>
   );
 }

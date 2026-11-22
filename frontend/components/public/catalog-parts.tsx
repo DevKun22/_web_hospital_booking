@@ -52,7 +52,7 @@ export function CatalogHeader({ current, title, description, children, brand = f
 }
 
 // Thanh kết quả dính dưới header khi cuộn: số kết quả, các lọc đang bật (mỗi chip bấm × để bỏ) và "Xóa lọc". Đổi lọc không cần cuộn lên đầu trang.
-export function CatalogStatusBar({ status, chips, onReset }: { status: string; chips: { key: string; label: string; onRemove: () => void }[]; onReset: () => void }) {
+export function CatalogStatusBar({ status, chips, onReset, extra }: { status: string; chips: { key: string; label: string; onRemove: () => void }[]; onReset: () => void; extra?: ReactNode }) {
   return (
     <div className="sticky top-[7.6rem] z-30 border-b border-[var(--public-border)] bg-[var(--public-surface)]/95 backdrop-blur xl:top-[4.25rem]">
       <div className="ui-container flex min-h-12 flex-wrap items-center gap-2 py-2">
@@ -69,11 +69,14 @@ export function CatalogStatusBar({ status, chips, onReset }: { status: string; c
             <X className="h-3.5 w-3.5" aria-hidden="true" />
           </button>
         ))}
-        {chips.length ? (
-          <button type="button" onClick={onReset} className="ml-auto inline-flex min-h-8 items-center text-sm font-medium text-[var(--public-primary)] underline underline-offset-4">
-            Xóa lọc
-          </button>
-        ) : null}
+        <span className="ml-auto flex items-center gap-3">
+          {extra}
+          {chips.length ? (
+            <button type="button" onClick={onReset} className="inline-flex min-h-8 items-center text-sm font-medium text-[var(--public-primary)] underline underline-offset-4">
+              Xóa lọc
+            </button>
+          ) : null}
+        </span>
       </div>
     </div>
   );
