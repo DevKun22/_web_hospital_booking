@@ -245,8 +245,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                               order: order++,
                               title: 'Chuyên khoa',
                               onAction: () => context.push('/departments'),
-                              child: HomeDepartmentChips(
-                                items: content.departments.take(10).toList(),
+                              child: HomeDepartmentGrid(
+                                items: content.departments.take(6).toList(),
                               ),
                             ),
                           if (content.packages.isNotEmpty)
@@ -318,7 +318,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                               8,
                             ),
                             child: SizedBox(
-                              height: 40,
+                              height: 48,
                               child: HomeSearchRow(
                                 showBell: isAuthenticated,
                                 unreadNotificationCount:

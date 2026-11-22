@@ -4,9 +4,9 @@ import 'package:hospital_booking_mobile/core/widgets/app_motion.dart';
 
 /// Chiều cao phần nền màu của dải đầu Trang chủ (không tính banner nổi đè lên phía dưới).
 double homeBandHeight(BuildContext context) =>
-    MediaQuery.paddingOf(context).top + 10 + _controlSize + 52;
+    MediaQuery.paddingOf(context).top + 10 + _controlSize + 50;
 
-const double _controlSize = 40;
+const double _controlSize = 48;
 
 /// Dải đầu Trang chủ: ô tìm kiếm dạng viên có nút hỏi Kun, và chuông thông báo khi đã đăng nhập (khách không thấy).
 /// Nền có hai lớp sóng mờ trôi chậm.
@@ -110,10 +110,10 @@ class _SearchPill extends StatelessWidget {
       key: const Key('home-search-button'),
       onTap: onSearch,
       child: Padding(
-        padding: const EdgeInsets.only(left: 14, right: 4),
+        padding: const EdgeInsets.only(left: 16, right: 5),
         child: Row(
           children: [
-            Icon(Icons.search_rounded, color: AppPalette.heroMid, size: 20),
+            Icon(Icons.search_rounded, color: AppPalette.heroMid, size: 24),
             const SizedBox(width: 8),
             Expanded(
               child: Text(
@@ -132,15 +132,15 @@ class _SearchPill extends StatelessWidget {
                 onTap: onAsk,
                 radius: 22,
                 child: Container(
-                  width: 32,
-                  height: 32,
+                  width: 38,
+                  height: 38,
                   decoration: BoxDecoration(
                     color: context.colors.primarySoft,
                     shape: BoxShape.circle,
                   ),
                   child: Icon(
                     Icons.auto_awesome_rounded,
-                    size: 18,
+                    size: 21,
                     color: AppPalette.heroMid,
                   ),
                 ),

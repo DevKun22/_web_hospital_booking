@@ -58,24 +58,28 @@ class HomeServiceCard extends StatelessWidget {
                   key: const Key('home-link-departments'),
                   icon: Icons.medical_services_outlined,
                   label: 'Chuyên khoa',
+                  tint: context.colors.tintPairs[1],
                   onTap: () => unawaited(context.push<void>('/departments')),
                 ),
                 _ServiceLink(
                   key: const Key('home-link-doctors'),
                   icon: Icons.groups_2_outlined,
                   label: 'Bác sĩ',
+                  tint: context.colors.tintPairs[4],
                   onTap: () => unawaited(context.push<void>('/doctors')),
                 ),
                 _ServiceLink(
                   key: const Key('home-link-packages'),
                   icon: Icons.inventory_2_outlined,
                   label: 'Gói khám',
+                  tint: context.colors.tintPairs[3],
                   onTap: () => unawaited(context.push<void>('/packages')),
                 ),
                 _ServiceLink(
                   key: const Key('home-link-knowledge'),
                   icon: Icons.menu_book_outlined,
                   label: 'Kiến thức',
+                  tint: context.colors.tintPairs[5],
                   onTap: () => unawaited(
                     launchUrl(
                       Uri.parse('${AppBrand.webUrl}/kien-thuc'),
@@ -97,10 +101,12 @@ class _ServiceLink extends StatelessWidget {
     super.key,
     required this.icon,
     required this.label,
+    required this.tint,
     required this.onTap,
   });
 
   final IconData icon;
+  final ({Color background, Color foreground}) tint;
   final String label;
   final VoidCallback onTap;
 
@@ -123,10 +129,10 @@ class _ServiceLink extends StatelessWidget {
                   width: 40,
                   height: 40,
                   decoration: BoxDecoration(
-                    color: context.colors.primarySoft,
+                    color: tint.background,
                     borderRadius: BorderRadius.circular(AppRadius.md),
                   ),
-                  child: Icon(icon, color: context.colors.primary, size: 22),
+                  child: Icon(icon, color: tint.foreground, size: 22),
                 ),
                 const SizedBox(height: 4),
                 Text(

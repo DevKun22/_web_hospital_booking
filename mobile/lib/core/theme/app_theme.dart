@@ -31,7 +31,7 @@ abstract final class AppTheme {
     );
     final isDark = brightness == Brightness.dark;
 
-    // Chữ gọn và nhẹ: thân 13 đến 15, tiêu đề 14 đến 21, chỉ dùng độ đậm 400, 500, 600.
+    // Chữ gọn và nhẹ: thân 14 đến 16, tiêu đề 15 đến 22, chỉ dùng độ đậm 400, 500, 600.
     const textTheme = TextTheme(
       displaySmall: TextStyle(
         fontSize: 32,
@@ -46,32 +46,32 @@ abstract final class AppTheme {
         letterSpacing: -0.3,
       ),
       headlineSmall: TextStyle(
-        fontSize: 21,
+        fontSize: 22,
         height: 1.25,
         fontWeight: FontWeight.w600,
         letterSpacing: -0.2,
       ),
       titleLarge: TextStyle(
-        fontSize: 18,
+        fontSize: 19,
         height: 1.3,
         fontWeight: FontWeight.w600,
       ),
       titleMedium: TextStyle(
-        fontSize: 15,
+        fontSize: 16,
         height: 1.3,
         fontWeight: FontWeight.w600,
       ),
       titleSmall: TextStyle(
-        fontSize: 14,
+        fontSize: 15,
         height: 1.3,
         fontWeight: FontWeight.w600,
       ),
-      bodyLarge: TextStyle(fontSize: 15, height: 1.45),
-      bodyMedium: TextStyle(fontSize: 13, height: 1.45),
-      bodySmall: TextStyle(fontSize: 12, height: 1.4),
-      labelLarge: TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
-      labelMedium: TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
-      labelSmall: TextStyle(fontSize: 11, fontWeight: FontWeight.w500),
+      bodyLarge: TextStyle(fontSize: 16, height: 1.45),
+      bodyMedium: TextStyle(fontSize: 14, height: 1.45),
+      bodySmall: TextStyle(fontSize: 13, height: 1.4),
+      labelLarge: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+      labelMedium: TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+      labelSmall: TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
     );
 
     return ThemeData(
