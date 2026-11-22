@@ -79,6 +79,29 @@ export function CatalogStatusBar({ status, chips, onReset }: { status: string; c
   );
 }
 
+// Thanh kết quả dính cho trang máy chủ (danh sách bài viết): số kết quả, chip lọc đang bật là liên kết bỏ lọc và liên kết Xóa lọc.
+export function CatalogStatusLinks({ status, chips, resetHref }: { status: string; chips: { key: string; label: string; href: string }[]; resetHref: string }) {
+  return (
+    <div className="sticky top-[7.6rem] z-30 border-b border-[var(--public-border)] bg-[var(--public-surface)]/95 backdrop-blur xl:top-[4.25rem]">
+      <div className="ui-container flex min-h-12 flex-wrap items-center gap-2 py-2">
+        <p className="mr-1 text-sm font-semibold text-[var(--public-ink)]" aria-live="polite">{status}</p>
+        {chips.map((chip) => (
+          <Link
+            key={chip.key}
+            href={chip.href}
+            aria-label={`Bỏ lọc ${chip.label}`}
+            className="inline-flex min-h-8 items-center gap-1 rounded-full border border-[var(--public-primary)] bg-[var(--public-primary-soft)] px-3 text-sm font-medium text-[var(--public-primary-dark)] transition hover:bg-[var(--public-tint-strong)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--public-primary)]"
+          >
+            {chip.label}
+            <X className="h-3.5 w-3.5" aria-hidden="true" />
+          </Link>
+        ))}
+        {chips.length ? <Link href={resetHref} className="ml-auto inline-flex min-h-8 items-center text-sm font-medium text-[var(--public-primary)] underline underline-offset-4">Xóa lọc</Link> : null}
+      </div>
+    </div>
+  );
+}
+
 // Chip lọc nhanh: bo tròn, chip đang chọn tô nhạt; dùng chung cho các trang danh mục, hỏi đáp và tìm kiếm.
 export function FilterChip({ selected, onClick, children }: { selected: boolean; onClick: () => void; children: ReactNode }) {
   return (
