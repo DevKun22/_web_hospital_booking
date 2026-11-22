@@ -16,6 +16,7 @@ import { useDialogA11y } from "@/components/chatbot/use-dialog-a11y";
 import { WaveEdge } from "@/components/public/wave-edge";
 import { buildBookingHref } from "@/lib/chatbot-ui";
 import { usePublicChatbotSettings } from "@/lib/public-chatbot-query";
+import { usePublicSiteSettings } from "@/lib/public-bootstrap-client";
 import { PUBLIC_CHATBOT_CLOSE_EVENT, PUBLIC_CHATBOT_OPEN_EVENT, setPublicFloatingPanelVisibility } from "@/lib/public-ui-events";
 
 // Trợ lý ảo Kun trên website công khai: nút nổi và khung trò chuyện. Logic ở use-chatbot, từng phần giao diện ở các tệp cùng thư mục.
@@ -26,6 +27,8 @@ export function ChatbotWidget() {
   const online = Boolean(settingsQuery.data?.isActive && (runtime?.aiEnabled || runtime?.faqEnabled || runtime?.fallbackEnabled));
   const statusText = settingsQuery.isLoading ? "Đang kiểm tra trạng thái" : online ? "Đang sẵn sàng hỗ trợ" : "Đang tạm nghỉ";
 
+  const siteSettings = usePublicSiteSettings();
+  const contact = { hotline: siteSettings.data?.hotline, email: siteSettings.data?.email };
   const chat = useChatbot({ online });
   const [open, setOpen] = useState(false);
   const dialogRef = useRef<HTMLElement | null>(null);
@@ -137,6 +140,8 @@ export function ChatbotWidget() {
                 isLatest={item.id === chat.messages[chat.messages.length - 1]?.id && !chat.sending}
                 onAction={chat.pick}
                 onRetry={chat.retry}
+                onRate={chat.rate}
+                contact={contact}
               />
             ))}
             {chat.sending ? <ChatTyping text={chat.loadingText} /> : null}

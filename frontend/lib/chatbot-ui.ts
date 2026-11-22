@@ -22,6 +22,9 @@ export type ChatWidgetMessage = {
   /** Gợi ý bước tiếp theo đi kèm câu trả lời này; chỉ tin mới nhất hiện cho bấm. */
   actions?: ChatbotSuggestedAction[];
   kind?: ChatMessageKind;
+  /** Mã câu trả lời phía máy chủ; có thì người dùng gửi được phản hồi hữu ích / chưa đúng. */
+  messageId?: string;
+  feedback?: "HELPFUL" | "NOT_HELPFUL";
   /** Tin lỗi gửi: hiện nút "Thử lại". */
   retryable?: boolean;
 };
@@ -204,3 +207,19 @@ export const describeChatError = (error: unknown, online = true): { content: str
 /** Câu trả lời "chưa có thông tin": hệ thống trả (không phải AI, không có nguồn, độ tin cậy thấp) cho câu hỏi thông tin. */
 export const isNoInformationReply = (response: { source: string; intent: string; confidence: number; sources?: unknown[] }) =>
   response.source === "SYSTEM" && response.intent === "GENERAL_HOSPITAL_INFO" && response.confidence <= 0.3 && !response.sources?.length;
+
+export type ChatContact = { hotline?: string | null; email?: string | null };
+
+/** Lối đi khi Kun chưa có thông tin: trang có sẵn; số điện thoại và email chỉ hiện khi cơ sở đã cấu hình (không dùng số mẫu). */
+export const getNoInformationLinks = (contact: ChatContact = {}) => {
+  const links = [
+    { href: "/hoi-dap", label: "Câu hỏi thường gặp" },
+    { href: "/huong-dan/dat-lich", label: "Hướng dẫn đặt lịch" },
+    { href: "/ho-tro", label: "Trang hỗ trợ" },
+  ];
+  const hotline = contact.hotline?.trim();
+  const email = contact.email?.trim();
+  if (hotline) links.push({ href: `tel:${hotline.replace(/\s+/g, "")}`, label: `Gọi ${hotline}` });
+  if (email) links.push({ href: `mailto:${email}`, label: email });
+  return links;
+};

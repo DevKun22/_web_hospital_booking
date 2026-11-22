@@ -740,6 +740,12 @@ export type ChatbotOverview = {
     totalSessions: number;
     activeSessions: number;
     totalLogs: number;
+    helpfulCount: number;
+    notHelpfulCount: number;
+    /** 0..1; null khi chưa có phản hồi nào. */
+    helpfulRate: number | null;
+    noInformationCount: number;
+    noInformationRate: number | null;
   };
   intents: { intent: string | null; count: number }[];
   states: { state: string | null; count: number }[];
@@ -854,6 +860,8 @@ export type ChatbotMessageResponse = {
   results?: ChatbotResultGroup[];
   sources?: ChatbotSource[];
   suggestedActions: ChatbotSuggestedAction[];
+  /** Mã câu trả lời để gửi phản hồi; vắng khi máy chủ không ghi được nhật ký. */
+  messageId?: string;
 };
 
 export type StatisticsRange = {

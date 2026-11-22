@@ -257,6 +257,8 @@ export default function ChatbotPage() {
           ["Tổng phiên", overview.metrics.totalSessions],
           ["Phiên đang hoạt động", overview.metrics.activeSessions],
           ["Tổng tin nhắn", overview.metrics.totalLogs],
+          ["Tỉ lệ hữu ích", overview.metrics.helpfulRate === null ? "Chưa có phản hồi" : `${Math.round(overview.metrics.helpfulRate * 100)}% (${overview.metrics.helpfulCount}/${overview.metrics.helpfulCount + overview.metrics.notHelpfulCount})`],
+          ["Tỉ lệ chưa có thông tin", overview.metrics.noInformationRate === null ? "Chưa có dữ liệu" : `${Math.round(overview.metrics.noInformationRate * 100)}% (${overview.metrics.noInformationCount}/${overview.metrics.totalLogs})`],
         ].map(([label, value]) => (
           <div key={label} className="ds-attn">
             <span className="ds-attn__label">{label}</span>

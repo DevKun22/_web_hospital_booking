@@ -5,6 +5,7 @@ import {
   buildBookingHref,
   buildSummarizeArticleAction,
   describeChatError,
+  getNoInformationLinks,
   isNoInformationReply,
   getLoadingText,
   getBookingProgress,
@@ -129,4 +130,13 @@ test("nhận ra câu trả lời chưa có thông tin, không nhầm với lời
   assert.equal(isNoInformationReply({ ...base, confidence: 1 }), false);
   assert.equal(isNoInformationReply({ ...base, source: "AI" }), false);
   assert.equal(isNoInformationReply({ ...base, sources: [{}] }), false);
+});
+
+test("chưa có thông tin: luôn có ba trang trợ giúp; hotline và email chỉ hiện khi cơ sở đã cấu hình", () => {
+  const bare = getNoInformationLinks({ hotline: null, email: " " });
+  assert.deepEqual(bare.map((link) => link.href), ["/hoi-dap", "/huong-dan/dat-lich", "/ho-tro"]);
+  const full = getNoInformationLinks({ hotline: "0352 412 318", email: "a@b.vn" });
+  assert.equal(full.length, 5);
+  assert.equal(full[3].href, "tel:0352412318");
+  assert.equal(full[4].href, "mailto:a@b.vn");
 });
