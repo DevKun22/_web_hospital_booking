@@ -18,7 +18,7 @@ import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { PublicGlobalSearch } from "@/components/public/public-global-search";
-import { PublicSubNav } from "@/components/public/public-sub-nav";
+import { ServiceNavChips, ServiceNavInline, ServiceNavProgress, useServiceNav } from "@/components/public/public-sub-nav";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import type { PatientUser } from "@/lib/patient-portal-types";
 import {
@@ -43,13 +43,24 @@ const mobileNavItems = [
   { href: "/ho-tro", label: "Hỗ trợ", aliases: ["/hoi-dap", "/huong-dan"] },
 ] as const;
 
-const primaryNavItems = [
-  { href: "/", label: "Trang chủ", aliases: [] as string[] },
-  { href: "/ho-tro", label: "Hỗ trợ", aliases: ["/hoi-dap", "/huong-dan"] },
-];
+const homeNavItem = { href: "/", label: "Trang chủ", aliases: [] as string[] };
+const supportNavItem = { href: "/ho-tro", label: "Hỗ trợ", aliases: ["/hoi-dap", "/huong-dan"] };
 
 const isActivePath = (pathname: string, href: string) =>
   pathname === href || pathname.startsWith(`${href}/`);
+
+function PrimaryNavLink({ item, pathname }: { item: { href: string; label: string; aliases: string[] }; pathname: string }) {
+  const active = item.href === "/" ? pathname === "/" : isActivePath(pathname, item.href) || item.aliases.some((href) => isActivePath(pathname, href));
+  return (
+    <Link
+      href={item.href}
+      aria-current={active ? "page" : undefined}
+      className={`rounded-lg px-3 py-2 text-sm font-medium transition-colors ${active ? "text-[var(--public-primary)]" : "text-[var(--public-text-soft)] hover:text-[var(--public-primary)]"}`}
+    >
+      {item.label}
+    </Link>
+  );
+}
 
 function getPatientInitials(fullName: string) {
   const parts = fullName.trim().split(/\s+/).filter(Boolean);
@@ -142,6 +153,7 @@ export function PublicSiteHeader({
   accountSlot?: ReactNode;
 }) {
   const pathname = usePathname();
+  const serviceNav = useServiceNav(pathname);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const searchRef = useRef<HTMLDivElement | null>(null);
@@ -236,19 +248,9 @@ export function PublicSiteHeader({
           </Link>
 
           <nav aria-label="Điều hướng chính" className="hidden min-w-0 flex-1 items-center gap-1 xl:flex">
-            {primaryNavItems.map((item) => {
-              const active = item.href === "/" ? pathname === "/" : isActivePath(pathname, item.href) || item.aliases.some((href) => isActivePath(pathname, href));
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  aria-current={active ? "page" : undefined}
-                  className={`rounded-lg px-3 py-2 text-sm font-medium transition-colors ${active ? "text-[var(--public-primary)]" : "text-[var(--public-text-soft)] hover:text-[var(--public-primary)]"}`}
-                >
-                  {item.label}
-                </Link>
-              );
-            })}
+            <PrimaryNavLink item={homeNavItem} pathname={pathname} />
+            <ServiceNavInline nav={serviceNav} />
+            <PrimaryNavLink item={supportNavItem} pathname={pathname} />
           </nav>
 
           <div className="ml-auto hidden items-center gap-1.5 xl:flex">
@@ -302,7 +304,8 @@ export function PublicSiteHeader({
           </div>
         </div>
 
-        <PublicSubNav pathname={pathname} />
+        <ServiceNavChips nav={serviceNav} />
+        <ServiceNavProgress home={serviceNav.home} />
 
         {searchOpen ? (
           <div id="public-header-search" ref={searchRef} className="border-t border-[var(--public-border)] bg-[var(--public-surface-muted)]">

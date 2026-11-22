@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
 import {
@@ -12,7 +12,6 @@ import {
   DsKeyValue,
   DsNotice,
   DsPageHeader,
-  DsEditDialog,
   DsPane,
   DsPanel,
   DsSelect,
@@ -33,9 +32,8 @@ import {
   PrintButton,
   PrintableInvoice,
 } from "@/components/dashboard/printable-documents";
-import { ApiError, apiRequest } from "@/lib/api";
+import { apiRequest } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
-import { useDashboardAppointments } from "@/lib/dashboard-appointments-query";
 import {
   useDashboardInvoice,
   useDashboardInvoices,
@@ -66,8 +64,8 @@ import {
   buildInsuranceForm,
   buildInsurancePayload,
   doctorName,
-  appointmentDoctorName,
 } from "./invoice-model";
+import { CreateInvoiceDialog } from "./create-invoice-dialog";
 import { InsuranceFields } from "./insurance-fields";
 
 // Hóa đơn: danh sách bên trái; chọn một hóa đơn (hoặc bấm "Tạo hóa đơn") thì khung bên phải mở cạnh để xem chi tiết,
@@ -87,9 +85,7 @@ export default function InvoicesPage() {
   const [notice, setNotice] = useState("");
   const [creating, setCreating] = useState(false);
   const [selectedSnapshot, setSelected] = useState<Invoice | null>(null);
-  const [appointmentId, setAppointmentId] = useState("");
-  const [insuranceForm, setInsuranceForm] =
-    useState<InsuranceForm>(defaultInsuranceForm);
+  const [initialCode, setInitialCode] = useState("");
   const [actionTarget, setActionTarget] = useState<{
     type: InvoiceAction;
     invoice: Invoice;
@@ -104,18 +100,14 @@ export default function InvoicesPage() {
 
   const canUse = can(user, "invoice.view");
   const canRefund = can(user, "invoice.refund");
-  const createDiscount = calculateInsuranceDiscount(insuranceForm);
   const adjustedDiscount = calculateInsuranceDiscount(adjustInsuranceForm);
   const adjustedFinalAmount =
     actionTarget?.type === "adjust"
       ? Math.max(actionTarget.invoice.totalAmount - adjustedDiscount, 0)
       : 0;
 
-  // Gõ đến đâu lọc đến đó; mã lịch khi tạo hóa đơn cũng tự tra sau khi ngừng gõ.
+  // Gõ đến đâu lọc đến đó.
   const term = useDebouncedValue(search.trim());
-  const appointmentLookupKey = useDebouncedValue(
-    appointmentId.trim().toUpperCase(),
-  );
 
   const query = useMemo(
     () => ({
@@ -128,10 +120,6 @@ export default function InvoicesPage() {
     [page, paymentMethod, status, term],
   );
   const invoicesQuery = useDashboardInvoices(query);
-  const appointmentPreviewQuery = useDashboardAppointments(
-    { bookingCode: appointmentLookupKey || undefined, page: 1, limit: 1 },
-    Boolean(appointmentLookupKey) && creating && canUse,
-  );
   const selectedInvoiceQuery = useDashboardInvoice(selectedSnapshot?.id);
   const loading = invoicesQuery.isLoading;
   const invoices = invoicesQuery.data?.items ?? [];
@@ -142,11 +130,7 @@ export default function InvoicesPage() {
     totalPages: 1,
   };
   const selected = selectedInvoiceQuery.data ?? selectedSnapshot;
-  const appointmentPreview = appointmentPreviewQuery.data?.items[0] ?? null;
-  const queryError =
-    invoicesQuery.error ||
-    selectedInvoiceQuery.error ||
-    appointmentPreviewQuery.error;
+  const queryError = invoicesQuery.error || selectedInvoiceQuery.error;
   const queryErrorMessage = queryError
     ? queryError instanceof Error
       ? queryError.message
@@ -161,16 +145,6 @@ export default function InvoicesPage() {
       setError("");
     },
   });
-  const appointmentReadyForInvoice = Boolean(
-    appointmentPreview &&
-    appointmentPreview.status === "COMPLETED" &&
-    !appointmentPreview.invoice,
-  );
-  const previewSettled =
-    Boolean(appointmentLookupKey) &&
-    appointmentLookupKey === appointmentId.trim().toUpperCase() &&
-    !appointmentPreviewQuery.isFetching;
-
   const invalidateInvoices = async () => {
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: queryKeys.dashboardInvoices }),
@@ -203,7 +177,7 @@ export default function InvoicesPage() {
       if (appointmentCode) {
         setCreating(true);
         setSelected(null);
-        setAppointmentId(appointmentCode.trim().toUpperCase());
+        setInitialCode(appointmentCode.trim().toUpperCase());
       }
       if (initialInvoiceCode) {
         setSearch(initialInvoiceCode.trim().toUpperCase());
@@ -238,6 +212,7 @@ export default function InvoicesPage() {
   const startCreate = () => {
     setSelected(null);
     resetActionState();
+    setInitialCode("");
     setCreating(true);
   };
 
@@ -261,60 +236,6 @@ export default function InvoicesPage() {
     resetActionState();
     setNotice(message);
     await invalidateInvoices();
-  };
-
-  const createInvoice = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    if (!canUse) return;
-    setBusy(true);
-    setError("");
-    setNotice("");
-    try {
-      const invoice = await apiRequest<Invoice>(
-        `/dashboard/invoices/appointments/${appointmentId.trim().toUpperCase()}`,
-        {
-          method: "POST",
-          body: buildInsurancePayload(insuranceForm),
-        },
-      );
-      setCreating(false);
-      setSelected(invoice);
-      setAppointmentId("");
-      setInsuranceForm(defaultInsuranceForm);
-      setNotice("Đã phát hành hóa đơn");
-      await invalidateInvoices();
-    } catch (err) {
-      if (err instanceof ApiError && err.status === 409) {
-        try {
-          const refreshedAppointment = await appointmentPreviewQuery.refetch();
-          const existingInvoiceId =
-            refreshedAppointment.data?.items[0]?.invoice?.id;
-          await invalidateInvoices();
-
-          if (existingInvoiceId) {
-            const existingInvoice = await apiRequest<Invoice>(
-              `/dashboard/invoices/${existingInvoiceId}`,
-            );
-            setCreating(false);
-            setSelected(existingInvoice);
-            setNotice(
-              "Hóa đơn đã được phát hành ở một thao tác khác. Đã mở hóa đơn hiện có.",
-            );
-            return;
-          }
-        } catch (recoveryError) {
-          setError(
-            recoveryError instanceof Error
-              ? recoveryError.message
-              : "Hóa đơn đã được phát hành nhưng chưa thể tải lại dữ liệu",
-          );
-          return;
-        }
-      }
-      setError(err instanceof Error ? err.message : "Không tạo được hóa đơn");
-    } finally {
-      setBusy(false);
-    }
   };
 
   // Thu tiền mặt ngay từ dòng danh sách: bấm lần một để chọn, bấm lần hai (trong 4 giây) để xác nhận, tránh thu nhầm.
@@ -737,152 +658,6 @@ export default function InvoicesPage() {
       </div>
     </DsPanel>
   );
-
-  const createPane = creating ? (
-    <DsEditDialog size="lg" title="Tạo hóa đơn" onClose={closePane}>
-      <form
-        onSubmit={createInvoice}
-        style={{ display: "grid", gap: 12 }}
-        aria-label="Tạo hóa đơn"
-      >
-        <DsField
-          label="Mã lịch hẹn"
-          htmlFor="create-appointment"
-          hint="Lịch phải ở trạng thái hoàn thành khám và chưa có hóa đơn"
-        >
-          <DsInput
-            id="create-appointment"
-            value={appointmentId}
-            placeholder="Ví dụ: HB-8492"
-            required
-            onChange={(event) => setAppointmentId(event.target.value)}
-          />
-        </DsField>
-        {appointmentLookupKey && appointmentPreviewQuery.isFetching ? (
-          <p className="ds-hint">Đang kiểm tra lịch hẹn...</p>
-        ) : null}
-        {previewSettled ? (
-          appointmentPreview ? (
-            <div className="ds-card">
-              <div className="ds-card__head">
-                <h3>{appointmentPreview.patientName}</h3>
-                <DsStatusPill
-                  tone={appointmentReadyForInvoice ? "good" : "warn"}
-                >
-                  {appointmentPreview.invoice
-                    ? "Đã có hóa đơn"
-                    : appointmentPreview.status === "COMPLETED"
-                      ? "Sẵn sàng phát hành"
-                      : "Chưa hoàn tất khám"}
-                </DsStatusPill>
-              </div>
-              <div className="ds-card__body">
-                <DsKeyValue
-                  items={[
-                    {
-                      label: "Lịch hẹn",
-                      value: `${appointmentPreview.bookingCode} · ${appointmentPreview.patientPhone}`,
-                    },
-                    {
-                      label: "Dịch vụ",
-                      value:
-                        appointmentPreview.package?.name ||
-                        appointmentPreview.department.name,
-                    },
-                    {
-                      label: "Bác sĩ",
-                      value: appointmentDoctorName(appointmentPreview),
-                    },
-                    {
-                      label: "Giá khám",
-                      value: formatCurrency(appointmentPreview.estimatedPrice),
-                    },
-                    {
-                      label: "Phí dịch vụ",
-                      value: formatCurrency(appointmentPreview.serviceFee),
-                    },
-                    {
-                      label: "BHYT",
-                      value: appointmentPreview.hasBHYT
-                        ? appointmentPreview.healthInsuranceCode ||
-                          "Có đăng ký BHYT"
-                        : "Không sử dụng",
-                    },
-                    {
-                      label: "Tổng trước giảm trừ",
-                      value: (
-                        <strong>
-                          {formatCurrency(
-                            appointmentPreview.estimatedPrice +
-                              appointmentPreview.serviceFee,
-                          )}
-                        </strong>
-                      ),
-                    },
-                  ]}
-                />
-                {appointmentPreview.invoice ? (
-                  <DsButton
-                    onClick={() => {
-                      setCreating(false);
-                      setSearch(appointmentPreview.invoice?.invoiceCode || "");
-                      setPage(1);
-                    }}
-                  >
-                    Mở hóa đơn {appointmentPreview.invoice.invoiceCode}
-                  </DsButton>
-                ) : null}
-              </div>
-            </div>
-          ) : (
-            <DsNotice tone="bad">
-              Không tìm thấy lịch hẹn có mã {appointmentLookupKey}. Hãy kiểm tra
-              lại mã lịch.
-            </DsNotice>
-          )
-        ) : null}
-        <div className="ds-card">
-          <div className="ds-card__head">
-            <h3>Tính BHYT</h3>
-          </div>
-          <div className="ds-card__body">
-            <p className="ds-hint" style={{ margin: 0 }}>
-              Nhập phần tiền đủ điều kiện BHYT và mức hưởng, hệ thống tự tính
-              giảm trừ.
-            </p>
-            <InsuranceFields
-              idPrefix="create"
-              form={insuranceForm}
-              onChange={setInsuranceForm}
-            />
-            <DsKeyValue
-              items={[
-                {
-                  label: "Giảm BHYT dự kiến",
-                  value: <strong>{formatCurrency(createDiscount)}</strong>,
-                },
-              ]}
-            />
-          </div>
-        </div>
-        <div className="ds-form-actions" style={{ alignItems: "center" }}>
-          {!appointmentReadyForInvoice ? (
-            <span className="ds-hint">
-              Cần một lịch hẹn đã hoàn thành khám và chưa có hóa đơn.
-            </span>
-          ) : null}
-          <DsButton onClick={closePane}>Hủy</DsButton>
-          <DsButton
-            type="submit"
-            variant="primary"
-            disabled={busy || !appointmentReadyForInvoice}
-          >
-            {busy ? "Đang phát hành..." : "Phát hành hóa đơn"}
-          </DsButton>
-        </div>
-      </form>
-    </DsEditDialog>
-  ) : null;
 
   const activeAction =
     selected && actionTarget?.invoice.id === selected.id ? actionTarget : null;
@@ -1459,7 +1234,25 @@ export default function InvoicesPage() {
         <DsNotice tone="bad">{queryErrorMessage}</DsNotice>
       ) : null}
       <DsSplit wide list={list} pane={detailPane} />
-      {createPane}
+      {creating ? (
+        <CreateInvoiceDialog
+          initialCode={initialCode}
+          canUse={canUse}
+          onClose={closePane}
+          onIssued={(invoice, message) => {
+            setCreating(false);
+            setSelected(invoice);
+            setNotice(message);
+          }}
+          onShowInvoiceCode={(code) => {
+            setCreating(false);
+            setSearch(code);
+            setPage(1);
+          }}
+          invalidate={invalidateInvoices}
+          onError={setError}
+        />
+      ) : null}
     </>
   );
 }
