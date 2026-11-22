@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 
 // Mục quy trình ở trang chủ: năm bước (bốn bước đặt lịch và bước tùy chọn vào cổng thông tin), sáng lên nối tiếp khi mục hiện vào màn hình, sau đó một vệt sáng chạy nối các bước và lặp lại.
-// Rê chuột hoặc đặt tiêu điểm vào mục thì tạm dừng; không có JavaScript hoặc bật giảm chuyển động thì hiện sẵn đủ năm bước, không lặp.
+// Chạy tự động; không có JavaScript hoặc bật giảm chuyển động thì hiện sẵn đủ năm bước, không lặp.
 
 const STEP_GAP_S = 0.85;
 // Vệt sáng bắt đầu sau khi các bước hiện xong; mỗi chặng 1,4 giây gồm 0,9 giây chạy và 0,5 giây nghỉ ở nút (chu kỳ 8 giây, xem globals.css).

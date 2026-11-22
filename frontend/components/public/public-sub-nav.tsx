@@ -41,24 +41,34 @@ export function useServiceNav(pathname: string): ServiceNavState {
     const found = ITEMS.filter((item) => document.getElementById(item.anchor));
     const timer = window.setTimeout(() => setPresent(found.map((item) => item.key)), 0);
 
-    const observer = new IntersectionObserver(
-      (entries) => {
-        for (const entry of entries) {
-          if (!entry.isIntersecting) continue;
-          const item = ITEMS.find((candidate) => candidate.anchor === entry.target.id);
-          if (item) setActive(item.key);
+    // Mục đang xem: mục có đầu gần đường ngang 30% chiều cao màn hình nhất (đã cuộn qua nó); ở đầu trang (chưa tới mục nào) hoặc đã cuộn khỏi hẳn mục đó thì không mục nào sáng.
+    let frame = 0;
+    const compute = () => {
+      frame = 0;
+      const line = window.innerHeight * 0.3;
+      let current = "";
+      let best = -Infinity;
+      for (const item of found) {
+        const rect = document.getElementById(item.anchor)?.getBoundingClientRect();
+        if (rect && rect.top <= line && rect.bottom > 0 && rect.top > best) {
+          best = rect.top;
+          current = item.key;
         }
-      },
-      { rootMargin: "-25% 0px -65% 0px" },
-    );
-    found.forEach((item) => {
-      const element = document.getElementById(item.anchor);
-      if (element) observer.observe(element);
-    });
+      }
+      setActive(current);
+    };
+    const onScroll = () => {
+      if (!frame) frame = window.requestAnimationFrame(compute);
+    };
+    compute();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onScroll);
 
     return () => {
       window.clearTimeout(timer);
-      observer.disconnect();
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onScroll);
+      if (frame) window.cancelAnimationFrame(frame);
     };
   }, [home]);
 

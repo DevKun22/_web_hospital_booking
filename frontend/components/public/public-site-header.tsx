@@ -49,8 +49,8 @@ const supportNavItem = { href: "/ho-tro", label: "Hỗ trợ", aliases: ["/hoi-d
 const isActivePath = (pathname: string, href: string) =>
   pathname === href || pathname.startsWith(`${href}/`);
 
-function PrimaryNavLink({ item, pathname }: { item: { href: string; label: string; aliases: string[] }; pathname: string }) {
-  const active = item.href === "/" ? pathname === "/" : isActivePath(pathname, item.href) || item.aliases.some((href) => isActivePath(pathname, href));
+function PrimaryNavLink({ item, pathname, suppressHome = false }: { item: { href: string; label: string; aliases: string[] }; pathname: string; suppressHome?: boolean }) {
+  const active = item.href === "/" ? pathname === "/" && !suppressHome : isActivePath(pathname, item.href) || item.aliases.some((href) => isActivePath(pathname, href));
   return (
     <Link
       href={item.href}
@@ -248,7 +248,7 @@ export function PublicSiteHeader({
           </Link>
 
           <nav aria-label="Điều hướng chính" className="hidden min-w-0 flex-1 items-center gap-1 xl:flex">
-            <PrimaryNavLink item={homeNavItem} pathname={pathname} />
+            <PrimaryNavLink item={homeNavItem} pathname={pathname} suppressHome={Boolean(serviceNav.active)} />
             <ServiceNavInline nav={serviceNav} />
             <PrimaryNavLink item={supportNavItem} pathname={pathname} />
           </nav>
