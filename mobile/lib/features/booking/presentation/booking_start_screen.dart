@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:hospital_booking_mobile/core/formatters/display_formatters.dart';
 import 'package:hospital_booking_mobile/core/widgets/app_error_banner.dart';
 import 'package:hospital_booking_mobile/core/widgets/app_ui.dart';
 import 'package:hospital_booking_mobile/features/auth/application/auth_controller.dart';
@@ -10,7 +11,11 @@ import 'package:hospital_booking_mobile/features/booking/application/booking_sub
 import 'package:hospital_booking_mobile/features/booking/domain/booking_catalog.dart';
 import 'package:hospital_booking_mobile/features/booking/presentation/widgets/booking_journey_indicator.dart';
 import 'package:hospital_booking_mobile/features/booking/presentation/widgets/booking_selection_widgets.dart';
-import 'package:hospital_booking_mobile/features/booking/presentation/widgets/booking_schedule_widgets.dart';
+import 'package:hospital_booking_mobile/features/booking/presentation/booking_date_format.dart';
+import 'package:hospital_booking_mobile/features/booking/presentation/widgets/booking_calendar_dialog.dart';
+import 'package:hospital_booking_mobile/features/booking/presentation/widgets/booking_pick_row.dart';
+import 'package:hospital_booking_mobile/features/booking/presentation/widgets/booking_doctor_picker.dart';
+import 'package:hospital_booking_mobile/features/booking/presentation/widgets/booking_package_picker.dart';
 import 'package:hospital_booking_mobile/features/booking/presentation/widgets/booking_slot_picker.dart';
 import 'package:hospital_booking_mobile/features/booking/presentation/widgets/booking_service_widgets.dart';
 import 'package:hospital_booking_mobile/features/booking/presentation/widgets/booking_summary_widgets.dart';
@@ -46,8 +51,6 @@ class _BookingStartScreenState extends ConsumerState<BookingStartScreen> {
     onTick: _pollSlotsIfVisible,
   );
 
-  final _doctorKey = GlobalKey();
-  final _dateKey = GlobalKey();
   final _slotKey = GlobalKey();
 
   @override
@@ -108,15 +111,59 @@ class _BookingStartScreenState extends ConsumerState<BookingStartScreen> {
 
   void _revealNextStep(BookingSelection? previous, BookingSelection next) {
     if (previous == null) return;
-    if (next.slotId != null && previous.slotId != next.slotId) return;
-    if (next.date != null && previous.date != next.date) {
-      _reveal(_slotKey);
-    } else if (next.doctorId != null && previous.doctorId != next.doctorId) {
-      _reveal(_dateKey);
-    } else if (next.departmentId != null &&
-        previous.departmentId != next.departmentId) {
-      _reveal(_doctorKey);
-    }
+    if (next.date != null && previous.date != next.date) _reveal(_slotKey);
+  }
+
+  Future<void> _pickPackage(BookingFlowState state) async {
+    final controller = ref.read(bookingFlowControllerProvider.notifier);
+    await showBookingPackagePicker(
+      context,
+      packages: state.packages,
+      selectedId: state.selection.packageId,
+      onSelected: (id) {
+        unawaited(
+          controller.selectPackage(id).then((_) {
+            if (!mounted) return;
+            unawaited(_pickDoctor(ref.read(bookingFlowControllerProvider)));
+          }),
+        );
+      },
+    );
+  }
+
+  Future<void> _pickDoctor(BookingFlowState state) async {
+    if (!mounted) return;
+    final controller = ref.read(bookingFlowControllerProvider.notifier);
+    await showBookingDoctorPicker(
+      context,
+      doctors: state.doctors,
+      departments: state.departments,
+      selectedId: state.selection.doctorId,
+      lockedDepartmentId: state.selectedPackage?.departmentId,
+      onSelected: (id) {
+        unawaited(
+          controller.selectDoctor(id).then((_) {
+            if (!mounted) return;
+            final current = ref.read(bookingFlowControllerProvider);
+            if (current.selection.date == null) {
+              unawaited(_pickDate(current));
+            }
+          }),
+        );
+      },
+    );
+  }
+
+  Future<void> _pickDate(BookingFlowState state) async {
+    final doctorId = state.selection.doctorId;
+    if (doctorId == null || !mounted) return;
+    final value = await showBookingCalendar(
+      context,
+      doctorId: doctorId,
+      selectedDate: state.selection.date,
+    );
+    if (value == null || !mounted) return;
+    await ref.read(bookingFlowControllerProvider.notifier).selectDate(value);
   }
 
   void _pollSlotsIfVisible() {
@@ -139,6 +186,8 @@ class _BookingStartScreenState extends ConsumerState<BookingStartScreen> {
     final state = ref.watch(bookingFlowControllerProvider);
     final submission = ref.watch(bookingSubmissionControllerProvider);
     final controller = ref.read(bookingFlowControllerProvider.notifier);
+    final isPackageMode =
+        state.selection.serviceMode == BookingServiceMode.package;
     ref.listen(
       bookingFlowControllerProvider.select((value) => value.selection),
       (previous, next) => _revealNextStep(previous, next),
@@ -177,13 +226,7 @@ class _BookingStartScreenState extends ConsumerState<BookingStartScreen> {
                     ? 'Hoàn tất'
                     : 'Xác thực',
               ),
-              const SizedBox(height: 20),
-              const AppPageIntro(
-                title: 'Chọn lịch khám phù hợp',
-                subtitle:
-                    'Lựa chọn được lưu trên thiết bị. Khung giờ luôn được kiểm tra lại từ cơ sở khám.',
-              ),
-              const SizedBox(height: 18),
+              const SizedBox(height: 14),
               if (submission.pending != null &&
                   submission.status != BookingSubmissionStatus.success) ...[
                 const SizedBox(height: 16),
@@ -230,124 +273,64 @@ class _BookingStartScreenState extends ConsumerState<BookingStartScreen> {
                   selected: state.selection.serviceMode,
                   onSelected: controller.selectServiceMode,
                 ),
-                const SizedBox(height: 24),
-                if (state.selection.serviceMode ==
-                    BookingServiceMode.package) ...[
-                  const BookingStepHeader(
-                    number: 1,
-                    title: 'Chọn gói khám',
-                    subtitle:
-                        'Giá và danh mục dịch vụ được đồng bộ từ cơ sở khám.',
+                const SizedBox(height: 16),
+                if (isPackageMode) ...[
+                  BookingPickRow(
+                    key: const ValueKey('booking-pick-package'),
+                    icon: Icons.health_and_safety_outlined,
+                    label: 'Gói khám',
+                    placeholder: 'Chọn gói khám',
+                    value: state.selectedPackage?.name,
+                    detail: state.selectedPackage == null
+                        ? null
+                        : formatVnd(state.selectedPackage!.finalPrice),
+                    enabled: state.packages.isNotEmpty,
+                    onTap: () => _pickPackage(state),
                   ),
-                  const SizedBox(height: 12),
-                  if (state.selectedPackage != null)
-                    BookingSelectedPackageCard(
-                      packageItem: state.selectedPackage!,
-                      onChange: controller.clearPackage,
-                    )
-                  else if (state.packages.isEmpty)
-                    const BookingInlineEmpty(
-                      message: 'Hiện chưa có gói khám khả dụng.',
-                    )
-                  else
-                    ...state.packages.map(
-                      (packageItem) => Padding(
-                        padding: const EdgeInsets.only(bottom: 12),
-                        child: BookingPackageChoiceCard(
-                          packageItem: packageItem,
-                          selected: packageItem.id == state.selection.packageId,
-                          onSelected: () =>
-                              controller.selectPackage(packageItem.id),
+                  const SizedBox(height: 10),
+                ],
+                BookingPickRow(
+                  key: const ValueKey('booking-pick-doctor'),
+                  icon: Icons.person_search_outlined,
+                  label: 'Bác sĩ',
+                  placeholder: 'Chọn bác sĩ',
+                  value: state.selectedDoctor?.displayName,
+                  detail: state.selectedDoctor == null
+                      ? (isPackageMode && state.selectedPackage == null
+                            ? 'Chọn gói khám trước'
+                            : null)
+                      : '${state.selectedDoctor!.departmentName} · '
+                            '${formatVnd(state.selectedDoctor!.consultationFee)}',
+                  leading: state.selectedDoctor == null
+                      ? null
+                      : BookingDoctorAvatar(
+                          doctor: state.selectedDoctor!,
+                          radius: 20,
                         ),
-                      ),
-                    ),
-                ],
-                if (state.selection.serviceMode == BookingServiceMode.doctor ||
-                    state.selectedPackage != null) ...[
-                  BookingStepHeader(
-                    number:
-                        state.selection.serviceMode ==
-                            BookingServiceMode.package
-                        ? 2
-                        : 1,
-                    title: 'Chọn chuyên khoa',
-                    subtitle: state.selectedPackage?.departmentId != null
-                        ? 'Chuyên khoa được xác định theo gói khám đã chọn.'
-                        : 'Bác sĩ sẽ được lọc theo chuyên khoa bạn chọn.',
-                  ),
-                  const SizedBox(height: 12),
-                  if (state.selectedPackage?.departmentId != null)
-                    BookingLockedDepartmentCard(
-                      name:
-                          state.selectedPackage!.departmentName ??
-                          state.selectedDepartment?.name ??
-                          'Chuyên khoa của gói',
-                    )
-                  else
-                    BookingDepartmentPicker(
-                      items: state.departments,
-                      selectedId: state.selection.departmentId,
-                      onSelected: controller.selectDepartment,
-                    ),
-                ],
-                if (state.selection.departmentId != null) ...[
-                  const SizedBox(height: 28),
-                  BookingStepHeader(
-                    key: _doctorKey,
-                    number:
-                        state.selection.serviceMode ==
-                            BookingServiceMode.package
-                        ? 3
-                        : 2,
-                    title: 'Chọn bác sĩ',
-                    subtitle: 'Thông tin được đồng bộ từ hồ sơ công khai.',
-                  ),
-                  const SizedBox(height: 12),
-                  if (state.visibleDoctors.isEmpty)
-                    const BookingInlineEmpty(
-                      message: 'Chuyên khoa này chưa có bác sĩ nhận lịch.',
-                    )
-                  else
-                    ...state.visibleDoctors.map(
-                      (doctor) => Padding(
-                        padding: const EdgeInsets.only(bottom: 12),
-                        child: BookingDoctorChoiceCard(
-                          doctor: doctor,
-                          selected: doctor.id == state.selection.doctorId,
-                          onTap: () => controller.selectDoctor(doctor.id),
-                        ),
-                      ),
-                    ),
-                ],
-                if (state.selection.doctorId != null) ...[
-                  const SizedBox(height: 16),
-                  BookingStepHeader(
-                    key: _dateKey,
-                    number:
-                        state.selection.serviceMode ==
-                            BookingServiceMode.package
-                        ? 4
-                        : 3,
-                    title: 'Chọn ngày khám',
-                    subtitle: 'Hiển thị 14 ngày gần nhất theo giờ Việt Nam.',
-                  ),
-                  const SizedBox(height: 12),
-                  BookingDatePicker(
-                    selectedDate: state.selection.date,
-                    onSelected: controller.selectDate,
-                  ),
-                ],
+                  enabled: !isPackageMode || state.selectedPackage != null,
+                  onTap: () => _pickDoctor(state),
+                ),
+                const SizedBox(height: 10),
+                BookingPickRow(
+                  key: const ValueKey('booking-pick-date'),
+                  icon: Icons.calendar_month_outlined,
+                  label: 'Ngày khám',
+                  placeholder: 'Chọn ngày khám',
+                  value: state.selection.date == null
+                      ? null
+                      : displayDate(state.selection.date!),
+                  detail: state.selection.doctorId == null
+                      ? 'Chọn bác sĩ trước'
+                      : null,
+                  enabled: state.selection.doctorId != null,
+                  onTap: () => _pickDate(state),
+                ),
                 if (state.selection.date != null) ...[
-                  const SizedBox(height: 28),
+                  const SizedBox(height: 20),
                   BookingStepHeader(
                     key: _slotKey,
-                    number:
-                        state.selection.serviceMode ==
-                            BookingServiceMode.package
-                        ? 5
-                        : 4,
+                    number: isPackageMode ? 4 : 3,
                     title: 'Chọn khung giờ',
-                    subtitle: 'Slot có thể thay đổi nếu người khác đặt trước.',
                   ),
                   const SizedBox(height: 12),
                   if (state.isSlotsLoading)

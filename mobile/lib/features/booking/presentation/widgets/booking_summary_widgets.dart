@@ -13,73 +13,56 @@ class BookingStickySummary extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final department = state.selectedDepartment!;
     final doctor = state.selectedDoctor!;
     final slot = state.selectedSlot!;
     final packageItem = state.selectedPackage;
     final price = packageItem?.finalPrice ?? doctor.consultationFee;
+    final text = Theme.of(context).textTheme;
     return Material(
-      color: Theme.of(context).colorScheme.surface,
-      elevation: 8,
-      shadowColor: context.colors.ink.withValues(alpha: 0.12),
+      color: context.colors.surface,
+      shape: Border(top: BorderSide(color: context.colors.border, width: 0.5)),
       child: SafeArea(
         top: false,
+        // Chừa chỗ phía dưới: nút tròn Đặt lịch của thanh điều hướng nổi cao hơn thanh này khoảng 22dp.
         minimum: const EdgeInsets.fromLTRB(
           AppSpacing.page,
           AppSpacing.sm,
           AppSpacing.page,
-          AppSpacing.sm,
+          AppSpacing.xl + AppSpacing.sm,
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Row(
               children: [
-                const AppStatusBadge(
-                  label: 'ĐÃ CHỌN ĐỦ THÔNG TIN',
-                  tone: AppStatusTone.success,
-                  icon: Icons.check_circle_outline_rounded,
+                Expanded(
+                  child: Text(
+                    '${displayDate(slot.date)} · ${shortTime(slot.startTime)}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: text.titleSmall,
+                  ),
                 ),
-                const Spacer(),
                 Text(
-                  packageItem == null
-                      ? formatVnd(price)
-                      : 'Giá gói: ${formatVnd(price)}',
-                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                  formatVnd(price),
+                  style: text.titleSmall?.copyWith(
                     color: context.colors.primaryDark,
-                    fontWeight: FontWeight.w800,
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: AppSpacing.xxs),
             Text(
               packageItem?.name ?? doctor.displayName,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: Theme.of(
-                context,
-              ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
-            ),
-            const SizedBox(height: AppSpacing.xxs),
-            Text(
-              '${department.name} · ${displayDate(slot.date)} · ${shortTime(slot.startTime)}–${shortTime(slot.endTime)}',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
+              style: text.bodySmall?.copyWith(color: context.colors.muted),
             ),
             const SizedBox(height: AppSpacing.xs),
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton.icon(
-                key: const Key('booking-sticky-continue'),
-                onPressed: () => context.push('/booking/patient'),
-                icon: const Icon(Icons.arrow_forward_rounded),
-                label: const Text('Tiếp tục nhập thông tin'),
-              ),
+            FilledButton(
+              key: const Key('booking-sticky-continue'),
+              onPressed: () => context.push('/booking/patient'),
+              child: const Text('Tiếp tục'),
             ),
           ],
         ),

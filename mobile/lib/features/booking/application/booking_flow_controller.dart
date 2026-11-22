@@ -9,6 +9,7 @@ import 'package:hospital_booking_mobile/core/providers/app_providers.dart';
 import 'package:hospital_booking_mobile/features/booking/data/booking_catalog_repository.dart';
 import 'package:hospital_booking_mobile/features/booking/data/booking_selection_store.dart';
 import 'package:hospital_booking_mobile/features/booking/domain/booking_catalog.dart';
+import 'package:hospital_booking_mobile/features/booking/presentation/booking_date_format.dart';
 import 'package:hospital_booking_mobile/features/packages/domain/medical_package.dart';
 
 final bookingSelectionStoreProvider = Provider<BookingSelectionStore>(
@@ -24,6 +25,24 @@ final doctorDetailProvider = FutureProvider.autoDispose
       (ref, doctorId) =>
           ref.watch(bookingCatalogRepositoryProvider).fetchDoctor(doctorId),
     );
+
+/// Ngày còn giờ trống của bác sĩ trong 14 ngày đặt được; dùng đánh dấu trên lịch tháng.
+final doctorAvailableDatesProvider = FutureProvider.autoDispose
+    .family<Map<String, int>, String>((ref, doctorId) {
+      final today = vietnamToday();
+      final from = DateTime(today.year, today.month, today.day);
+      final to = from.add(const Duration(days: bookingWindowDays - 1));
+      return ref
+          .watch(bookingCatalogRepositoryProvider)
+          .fetchAvailableDates(
+            doctorId: doctorId,
+            from: formatApiDate(from),
+            to: formatApiDate(to),
+          );
+    });
+
+/// Số ngày tính từ hôm nay (gồm hôm nay) mà bệnh nhân được đặt lịch.
+const bookingWindowDays = 14;
 
 final bookingFlowControllerProvider =
     NotifierProvider<BookingFlowController, BookingFlowState>(
@@ -532,6 +551,6 @@ bool _isSelectableDate(String value) {
     vietnamToday.day,
   );
   final date = DateTime(parsed.year, parsed.month, parsed.day);
-  final lastDate = today.add(const Duration(days: 13));
+  final lastDate = today.add(const Duration(days: bookingWindowDays - 1));
   return !date.isBefore(today) && !date.isAfter(lastDate);
 }

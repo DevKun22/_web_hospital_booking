@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:hospital_booking_mobile/core/errors/api_exception.dart';
 import 'package:hospital_booking_mobile/core/network/api_contract.dart';
+import 'package:hospital_booking_mobile/core/network/json_readers.dart';
 import 'package:hospital_booking_mobile/features/booking/domain/booking_catalog.dart';
 import 'package:hospital_booking_mobile/features/packages/domain/medical_package.dart';
 
@@ -82,6 +83,29 @@ class BookingCatalogRepository {
       return requireDataList(
         response.data,
       ).map(BookingSlot.fromJson).toList(growable: false);
+    });
+  }
+
+  /// Ngày còn khung giờ trống của bác sĩ trong khoảng [from, to] (yyyy-MM-dd) và số khung của từng ngày.
+  Future<Map<String, int>> fetchAvailableDates({
+    required String doctorId,
+    required String from,
+    required String to,
+  }) async {
+    return guardApi(() async {
+      final response = await _dio.get<dynamic>(
+        '/doctors/$doctorId/available-dates',
+        queryParameters: {'from': from, 'to': to},
+      );
+      final result = <String, int>{};
+      for (final item in requireDataList(response.data)) {
+        final date = jsonDateOnly(item['date']?.toString() ?? '');
+        final count = item['count'];
+        if (date.isNotEmpty && count is num && count > 0) {
+          result[date] = count.toInt();
+        }
+      }
+      return result;
     });
   }
 }

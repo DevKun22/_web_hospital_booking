@@ -1,6 +1,7 @@
 import 'dart:ui' show Tristate;
 
 import 'package:flutter/material.dart';
+import 'package:hospital_booking_mobile/features/booking/presentation/booking_date_format.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hospital_booking_mobile/features/booking/application/booking_flow_controller.dart';
@@ -160,23 +161,16 @@ void main() {
       ),
     );
 
-    expect(find.text('Chọn chuyên khoa'), findsOneWidget);
-    expect(find.text('Chọn bác sĩ'), findsOneWidget);
-    expect(find.text('Chọn ngày khám'), findsOneWidget);
+    expect(find.byKey(const ValueKey('booking-pick-doctor')), findsOneWidget);
+    expect(find.byKey(const ValueKey('booking-pick-date')), findsOneWidget);
     expect(find.text('Chọn khung giờ'), findsOneWidget);
+    expect(find.text(displayDate(_tomorrowInVietnam())), findsOneWidget);
     expect(find.text('BS. CKI Nguyễn Văn An'), findsWidgets);
     expect(find.text('09:00 – 09:30'), findsWidgets);
-    expect(find.text('ĐÃ CHỌN ĐỦ THÔNG TIN'), findsOneWidget);
+    expect(find.byKey(const Key('booking-sticky-continue')), findsOneWidget);
 
-    final dateSemantics = tester.getSemantics(
-      find.byKey(ValueKey('booking-date-${_tomorrowInVietnam()}')),
-    );
     final slotSemantics = tester.getSemantics(
       find.byKey(const ValueKey('booking-slot-slot-1')),
-    );
-    expect(
-      dateSemantics.getSemanticsData().flagsCollection.isSelected,
-      Tristate.isTrue,
     );
     expect(
       slotSemantics.getSemanticsData().flagsCollection.isSelected,
@@ -206,10 +200,9 @@ void main() {
 
     expect(find.text('Theo gói khám'), findsOneWidget);
     expect(find.text('Gói tim mạch'), findsWidgets);
-    expect(find.text('Giá gói: 850.000 đ'), findsOneWidget);
-    expect(find.text('Đổi gói'), findsOneWidget);
-    expect(find.byIcon(Icons.lock_outline_rounded), findsOneWidget);
-    expect(find.text('ĐÃ CHỌN ĐỦ THÔNG TIN'), findsOneWidget);
+    expect(find.text('850.000 đ'), findsWidgets);
+    expect(find.byKey(const ValueKey('booking-pick-package')), findsOneWidget);
+    expect(find.byKey(const Key('booking-sticky-continue')), findsOneWidget);
   });
 
   testWidgets('reapplies route preset when booking query changes', (

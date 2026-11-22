@@ -289,7 +289,6 @@ class BookingPatientSubmitSection extends StatelessWidget {
             price,
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
               color: context.colors.primaryDark,
-              fontWeight: FontWeight.w800,
             ),
           ),
         ],
@@ -312,16 +311,18 @@ class BookingPatientSubmitSection extends StatelessWidget {
               : (skipsOtp ? 'Đặt lịch' : 'Giữ lịch và gửi OTP'),
         ),
       ),
-      const SizedBox(height: 8),
-      Text(
-        skipsOtp
-            ? 'Cơ sở khám sẽ xác nhận lịch của bạn sau khi tiếp nhận.'
-            : 'Khung giờ chỉ được giữ tạm thời cho đến khi bạn xác thực OTP.',
-        textAlign: TextAlign.center,
-        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-          color: Theme.of(context).colorScheme.onSurfaceVariant,
+      if (skipsOtp || termsConsent == null) ...[
+        const SizedBox(height: 8),
+        Text(
+          skipsOtp
+              ? 'Cơ sở khám sẽ xác nhận lịch của bạn sau khi tiếp nhận.'
+              : 'Khung giờ chỉ được giữ tạm thời cho đến khi bạn xác thực OTP.',
+          textAlign: TextAlign.center,
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
         ),
-      ),
+      ],
     ],
   );
 }

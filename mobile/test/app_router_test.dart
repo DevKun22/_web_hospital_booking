@@ -244,7 +244,7 @@ void main() {
       container.read(appRouterProvider).routeInformationProvider.value.uri.path,
       '/booking',
     );
-    expect(find.text('Chọn lịch khám phù hợp'), findsOneWidget);
+    expect(find.byKey(const ValueKey('booking-pick-doctor')), findsOneWidget);
 
     await tester.tap(find.byKey(const ValueKey('main-navigation-item-0')));
     await tester.pumpAndSettle();
@@ -327,7 +327,7 @@ void main() {
     router.go('/booking?origin=chatbot');
     await tester.pumpAndSettle();
 
-    expect(find.text('Chọn lịch khám phù hợp'), findsOneWidget);
+    expect(find.byKey(const ValueKey('booking-pick-doctor')), findsOneWidget);
     await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
 
