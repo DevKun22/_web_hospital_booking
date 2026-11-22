@@ -173,8 +173,8 @@ void main() {
     expect(find.text('Chăm sóc từ trái tim'), findsOneWidget);
     expect(find.text('Tim mạch'), findsWidgets);
     expect(find.text('BS. CKI Nguyễn Văn An'), findsOneWidget);
-    expect(find.text('4.9'), findsOneWidget);
-    expect(find.text('Hôm nay 14:30'), findsOneWidget);
+    expect(find.text('★ 4,9'), findsOneWidget);
+    expect(find.text('14:30'), findsOneWidget);
     expect(find.text('Khám tổng quát'), findsOneWidget);
     for (final key in [
       'home-link-departments',
