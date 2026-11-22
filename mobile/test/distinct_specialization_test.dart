@@ -17,30 +17,28 @@ void main() {
     expect(distinctSpecialization('nhi', null), 'nhi');
   });
 
-  testWidgets('home band opens the account, search and Kun chat', (
-    tester,
-  ) async {
+  testWidgets('home band shows the bell only for members', (tester) async {
     final taps = <String>[];
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: HomeBand(
-            isAuthenticated: false,
-            avatar: null,
-            unreadNotificationCount: 3,
-            onAccount: () => taps.add('account'),
-            onSearch: () => taps.add('search'),
-            onAsk: () => taps.add('ask'),
-            onNotifications: () => taps.add('bell'),
-          ),
+    Widget band({required bool member}) => MaterialApp(
+      home: Scaffold(
+        body: HomeBand(
+          showBell: member,
+          unreadNotificationCount: 3,
+          onSearch: () => taps.add('search'),
+          onAsk: () => taps.add('ask'),
+          onNotifications: () => taps.add('bell'),
         ),
       ),
     );
 
-    await tester.tap(find.byKey(const Key('home-login-button')));
+    await tester.pumpWidget(band(member: false));
+    expect(find.byIcon(Icons.notifications_none_rounded), findsNothing);
+    expect(find.byIcon(Icons.login_rounded), findsNothing);
     await tester.tap(find.byKey(const Key('home-search-button')));
     await tester.tap(find.byKey(const Key('home-ask-kun-button')));
+
+    await tester.pumpWidget(band(member: true));
     await tester.tap(find.byTooltip('3 thông báo chưa đọc'));
-    expect(taps, ['account', 'search', 'ask', 'bell']);
+    expect(taps, ['search', 'ask', 'bell']);
   });
 }

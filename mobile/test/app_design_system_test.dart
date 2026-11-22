@@ -13,7 +13,7 @@ void main() {
     final cardShape = theme.cardTheme.shape as RoundedRectangleBorder;
 
     expect(theme.scaffoldBackgroundColor, AppColors.light.canvas);
-    expect(theme.textTheme.titleLarge?.fontWeight, FontWeight.w800);
+    expect(theme.textTheme.titleLarge?.fontWeight, FontWeight.w600);
     expect(buttonSize?.height, AppSize.controlHeight);
     expect(buttonSize?.width, AppSize.minimumTouchTarget);
     expect(cardShape.borderRadius, BorderRadius.circular(AppRadius.card));

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:hospital_booking_mobile/core/design/app_design_tokens.dart';
 import 'package:hospital_booking_mobile/core/design/app_colors.dart';
+import 'package:hospital_booking_mobile/core/widgets/app_motion.dart';
 
 export 'app_brand_mark.dart';
 export 'app_catalog_scaffold.dart';
@@ -472,12 +473,6 @@ class AppLoadingSkeleton extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Semantics(
     label: 'Đang tải nội dung',
-    child: Container(
-      height: height,
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(AppRadius.card),
-      ),
-    ),
+    child: PulseBox(height: height),
   );
 }
