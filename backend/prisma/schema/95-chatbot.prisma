@@ -18,6 +18,13 @@ model ChatbotLog {
   // Nguồn tri thức (ChatKnowledgeChunk.id) mà câu trả lời đã dựa vào; rỗng nếu không dùng truy hồi.
   sourceIds String[] @default([])
 
+  // Câu trả lời là "chưa có thông tin" (để đo tỉ lệ kho tri thức không đáp ứng được).
+  noInformation Boolean @default(false)
+
+  // Phản hồi của người dùng về câu trả lời: HELPFUL | NOT_HELPFUL; chỉ lưu giá trị và thời điểm, không thêm nội dung nào.
+  feedback   String?
+  feedbackAt DateTime?
+
   createdAt DateTime @default(now())
 
   @@index([userId])
@@ -30,7 +37,7 @@ model ChatbotLog {
 model ChatKnowledgeChunk {
   id String @id @default(uuid())
 
-  sourceType String // FAQ | DEPARTMENT | DOCTOR | PACKAGE | POLICY | SITE
+  sourceType String // FAQ | DEPARTMENT | DOCTOR | PACKAGE | POLICY | SITE | ARTICLE | LEGAL
   sourceId   String
 
   title   String

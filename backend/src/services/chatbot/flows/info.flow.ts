@@ -95,6 +95,11 @@ export const noInformationOutput = (draft: ChatBookingDraft): AIChatbotOutput =>
   suggestedActions: knowledgeActions(),
 });
 
+/** Câu trả lời cuối là "chưa có thông tin" (đường lùi hoặc hệ thống không có căn cứ): dùng để đo tỉ lệ kho tri thức chưa đáp ứng được. */
+export const isNoInformationOutput = (output: AIChatbotOutput, source: ChatbotResponseSource) =>
+  source === "FALLBACK" ||
+  (source === "SYSTEM" && output.intent === "GENERAL_HOSPITAL_INFO" && output.confidence <= 0.3 && !output.sources?.length);
+
 /** Kết quả một lần nhờ AI sinh câu trả lời: có câu trả lời, AI báo không đủ căn cứ (grounded null), hoặc không gọi được AI (failed). */
 export type Generation = { grounded: GroundedAnswer | null; failed: boolean };
 

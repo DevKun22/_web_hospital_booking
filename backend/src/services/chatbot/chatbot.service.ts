@@ -8,7 +8,7 @@ import ChatbotContextService from "./chatbot.context.js";
 import { buildDraftSummary } from "./chatbot.summary.js";
 import ChatbotSettingsService from "./chatbot.settings.js";
 import BookingFlow from "./flows/booking.flow.js";
-import InfoFlow, { noInformationOutput, noInformationRepeatOutput, withConversationTopic } from "./flows/info.flow.js";
+import InfoFlow, { isNoInformationOutput, noInformationOutput, noInformationRepeatOutput, withConversationTopic } from "./flows/info.flow.js";
 import {
   capabilitiesOutput,
   emergencyOutput,
@@ -103,13 +103,19 @@ class ChatbotService {
         suggestedActions,
         draftSummary: await buildDraftSummary(output.draft),
       };
+      let messageId: string | undefined;
       // Lưu phiên và nhật ký chỉ là ghi nhận: lỗi ghi không được làm mất câu trả lời đã có.
       await Promise.all([
         updateChatSession(sessionId, response, input.message, input.phone, settings.sessionExpiresDays).catch((error) =>
           logger.warn("[CHATBOT] Không lưu được phiên trò chuyện:", error),
         ),
-        this.saveLog(input, response, sourceIds).catch((error) => logger.warn("[CHATBOT] Không ghi được nhật ký trò chuyện:", error)),
+        this.saveLog(input, response, sourceIds, isNoInformationOutput(output, source))
+          .then((id) => {
+            messageId = id;
+          })
+          .catch((error) => logger.warn("[CHATBOT] Không ghi được nhật ký trò chuyện:", error)),
       ]);
+      response.messageId = messageId;
       mark("total");
       // Mốc thời gian từng bước (ms từ lúc nhận tin) để thấy chậm ở đâu: nlu = phân tích ý định, info = truy hồi + sinh câu trả lời.
       logger.info("[CHATBOT_TIMING]", JSON.stringify({ source, intent: response.intent, ...stages }));
@@ -267,8 +273,17 @@ class ChatbotService {
     return finish(output, aiPhrased ? "AI" : "SYSTEM");
   }
 
-  private async saveLog(input: ChatbotRequestInput, response: ChatbotResponse, sourceIds: string[]) {
-    await prisma.chatbotLog.create({
+  /** Ghi nhận phản hồi hữu ích / chưa đúng của người dùng cho một câu trả lời; chỉ chấp nhận khi mã nhật ký thuộc đúng phiên đó. */
+  async recordFeedback(input: { sessionId: string; messageId: string; value: "HELPFUL" | "NOT_HELPFUL" }) {
+    const result = await prisma.chatbotLog.updateMany({
+      where: { id: input.messageId, sessionId: input.sessionId },
+      data: { feedback: input.value, feedbackAt: new Date() },
+    });
+    if (!result.count) throw new AppError("Không tìm thấy câu trả lời cần phản hồi", 404);
+  }
+
+  private async saveLog(input: ChatbotRequestInput, response: ChatbotResponse, sourceIds: string[], noInformation: boolean) {
+    const log = await prisma.chatbotLog.create({
       data: {
         guestPhone: input.phone,
         sessionId: response.sessionId,
@@ -276,8 +291,11 @@ class ChatbotService {
         response: response.reply,
         intent: response.intent,
         sourceIds,
+        noInformation,
       },
+      select: { id: true },
     });
+    return log.id;
   }
 }
 

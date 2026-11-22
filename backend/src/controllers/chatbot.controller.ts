@@ -44,3 +44,12 @@ export const sendChatbotMessageHandler = async (
     next(error);
   }
 };
+
+export const sendChatbotFeedbackHandler = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    await ChatbotService.recordFeedback(req.body);
+    return res.json({ success: true, data: { recorded: true } });
+  } catch (error) {
+    next(error);
+  }
+};

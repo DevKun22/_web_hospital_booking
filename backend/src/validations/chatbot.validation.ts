@@ -58,3 +58,9 @@ export const chatbotMessageSchema = z.object({
     })
     .optional(),
 });
+
+export const chatbotFeedbackSchema = z.object({
+  sessionId: z.string().uuid("Session không hợp lệ"),
+  messageId: z.string().uuid("Mã câu trả lời không hợp lệ"),
+  value: z.enum(["HELPFUL", "NOT_HELPFUL"]),
+});

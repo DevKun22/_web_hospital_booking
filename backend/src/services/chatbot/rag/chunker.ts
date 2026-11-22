@@ -287,3 +287,23 @@ export const articleDocs = (article: {
 
 export const contentHash = (doc: KnowledgeDoc) =>
   createHash("sha256").update(`${doc.title}\n${doc.url ?? ""}\n${doc.content}`).digest("hex");
+
+// ---- Điều khoản sử dụng và chính sách bảo mật (văn bản do cơ sở soạn; chưa soạn thì không có đoạn nào) ----
+
+const LEGAL_PAGES = {
+  terms: { label: "Điều khoản sử dụng", url: "/dieu-khoan" },
+  privacy: { label: "Chính sách bảo mật", url: "/chinh-sach-bao-mat" },
+} as const;
+
+export const legalDocs = (key: keyof typeof LEGAL_PAGES, doc: { title: string; body: string } | null): KnowledgeDoc[] => {
+  if (!doc || !doc.body.trim()) return [];
+  const page = LEGAL_PAGES[key];
+  const title = doc.title.trim() || page.label;
+  return splitArticleSections(doc.body).map((section, index) => ({
+    sourceType: "LEGAL" as const,
+    sourceId: `${key}#${index}`,
+    title,
+    url: page.url,
+    content: lines(`${page.label} của cơ sở khám${section.heading ? `, mục "${section.heading}"` : ""}.`, section.body),
+  }));
+};
