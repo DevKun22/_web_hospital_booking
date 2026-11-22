@@ -32,8 +32,8 @@ abstract final class AppRadius {
 
 abstract final class AppSize {
   static const double minimumTouchTarget = 48;
-  static const double controlHeight = 52;
-  static const double primaryControlHeight = 56;
+  static const double controlHeight = 44;
+  static const double primaryControlHeight = 48;
   static const double bottomNavigationHeight = 80;
 }
 
@@ -49,6 +49,9 @@ abstract final class AppMotion {
   static const Duration standard = Duration(milliseconds: 220);
   static const Duration deliberate = Duration(milliseconds: 350);
   static const Curve emphasized = Curves.easeOutCubic;
+
+  /// Công tắc các hiệu ứng nền lặp vô hạn (sóng, ô chờ nhấp nháy). Kiểm thử tắt nó để màn hình có thể 'yên' và pumpAndSettle kết thúc.
+  static bool ambientEnabled = true;
 
   static Duration responsive(BuildContext context, Duration duration) =>
       MediaQuery.disableAnimationsOf(context) ? Duration.zero : duration;

@@ -5,6 +5,7 @@ import 'package:hospital_booking_mobile/features/home/domain/home_content.dart';
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:hospital_booking_mobile/core/design/app_colors.dart';
+import 'package:hospital_booking_mobile/core/design/app_design_tokens.dart';
 
 class HomeHeroCarousel extends StatefulWidget {
   const HomeHeroCarousel({super.key, required this.banners});
@@ -128,8 +129,8 @@ class _HeroCarouselState extends State<HomeHeroCarousel>
   @override
   Widget build(BuildContext context) => LayoutBuilder(
     builder: (context, constraints) {
-      final bannerHeight = (constraints.maxWidth / 2.02)
-          .clamp(208.0, 232.0)
+      final bannerHeight = (constraints.maxWidth / 2.2)
+          .clamp(148.0, 172.0)
           .toDouble();
       return Column(
         children: [
@@ -155,7 +156,7 @@ class _HeroCarouselState extends State<HomeHeroCarousel>
             ),
           ),
           if (_slides.length > 1) ...[
-            const SizedBox(height: 4),
+            const SizedBox(height: 0),
             Semantics(
               label: 'Banner ${_currentPage + 1} trên ${_slides.length}',
               liveRegion: true,
@@ -217,6 +218,7 @@ class _HeroBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final image = banner?.preferredImage;
+    final text = Theme.of(context).textTheme;
     final imageCacheWidth =
         (MediaQuery.sizeOf(context).width *
                 MediaQuery.devicePixelRatioOf(context))
@@ -230,7 +232,7 @@ class _HeroBanner extends StatelessWidget {
           end: Alignment.bottomRight,
           colors: [AppPalette.heroDeep, AppPalette.heroMid],
         ),
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(16),
       ),
       child: Stack(
         children: [
@@ -244,6 +246,7 @@ class _HeroBanner extends StatelessWidget {
                 ),
                 fit: BoxFit.cover,
                 filterQuality: FilterQuality.medium,
+                // Ảnh hiện dần khi giải mã xong, không nháy từ nền trống sang ảnh.
                 errorBuilder: (_, _, _) => const SizedBox.shrink(),
               ),
             ),
@@ -252,9 +255,9 @@ class _HeroBanner extends StatelessWidget {
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   colors: [
-                    AppPalette.heroDeep.withValues(alpha: 0.96),
+                    AppPalette.heroDeep.withValues(alpha: 0.92),
                     AppPalette.heroMid.withValues(
-                      alpha: image == null ? 0.7 : 0.18,
+                      alpha: image == null ? 0.6 : 0.12,
                     ),
                   ],
                 ),
@@ -263,78 +266,50 @@ class _HeroBanner extends StatelessWidget {
           ),
           Padding(
             padding: const EdgeInsets.all(14),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(minHeight: 138),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 6,
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: FractionallySizedBox(
+                widthFactor: 0.72,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      banner?.title.isNotEmpty == true
+                          ? banner!.title
+                          : 'Đặt lịch khám trực tuyến',
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: text.titleMedium?.copyWith(color: Colors.white),
                     ),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.16),
-                      borderRadius: BorderRadius.circular(999),
-                      border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.3),
+                    const SizedBox(height: 2),
+                    Text(
+                      banner?.subtitle ?? 'Bác sĩ, giờ trống, chi phí',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: text.bodySmall?.copyWith(
+                        color: AppPalette.onHeroMuted,
                       ),
                     ),
-                    child: const Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.verified_user_outlined,
-                          color: Colors.white,
-                          size: 15,
+                    const SizedBox(height: 10),
+                    FilledButton(
+                      key: const Key('home-hero-book'),
+                      style: FilledButton.styleFrom(
+                        minimumSize: const Size(0, 34),
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        backgroundColor: Colors.white,
+                        foregroundColor: AppPalette.heroDeep,
+                        textStyle: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
                         ),
-                        SizedBox(width: 5),
-                        Text(
-                          'ĐẶT LỊCH TRỰC TUYẾN',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 10,
-                            fontWeight: FontWeight.w900,
-                            letterSpacing: 0.5,
-                          ),
-                        ),
-                      ],
+                      ),
+                      onPressed: () =>
+                          openBookingFromCurrentRoute(context, '/booking'),
+                      child: const Text('Đặt lịch'),
                     ),
-                  ),
-                  const SizedBox(height: 7),
-                  Text(
-                    banner?.title.isNotEmpty == true
-                        ? banner!.title
-                        : 'Đặt lịch đúng chuyên khoa,\nan tâm từng bước',
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  const SizedBox(height: 5),
-                  Text(
-                    banner?.subtitle ??
-                        'Chủ động chọn dịch vụ, bác sĩ và thời gian phù hợp.',
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(color: AppPalette.onHeroMuted),
-                  ),
-                  const SizedBox(height: 8),
-                  FilledButton.icon(
-                    style: FilledButton.styleFrom(
-                      minimumSize: const Size(0, 38),
-                      backgroundColor: Colors.white,
-                      foregroundColor: AppPalette.heroDeep,
-                    ),
-                    onPressed: () =>
-                        openBookingFromCurrentRoute(context, '/booking'),
-                    icon: const Icon(Icons.calendar_month_outlined),
-                    label: const Text('Bắt đầu đặt lịch'),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),

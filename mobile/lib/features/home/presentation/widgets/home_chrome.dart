@@ -26,11 +26,9 @@ class HomeSectionHeader extends StatelessWidget {
           children: [
             Text(
               title,
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                color: context.colors.ink,
-                fontWeight: FontWeight.w900,
-                letterSpacing: -0.2,
-              ),
+              style: Theme.of(
+                context,
+              ).textTheme.titleSmall?.copyWith(color: context.colors.ink),
             ),
             if (subtitle != null) ...[
               const SizedBox(height: 2),
@@ -50,11 +48,12 @@ class HomeSectionHeader extends StatelessWidget {
         TextButton.icon(
           onPressed: onAction,
           style: TextButton.styleFrom(
-            foregroundColor: context.colors.primaryDark,
-            padding: const EdgeInsets.symmetric(horizontal: 6),
+            foregroundColor: context.colors.primary,
+            minimumSize: const Size(0, 32),
+            padding: const EdgeInsets.symmetric(horizontal: 4),
           ),
           label: Text(actionLabel!),
-          icon: const Icon(Icons.chevron_right_rounded, size: 18),
+          icon: const Icon(Icons.chevron_right_rounded, size: 16),
           iconAlignment: IconAlignment.end,
         ),
     ],

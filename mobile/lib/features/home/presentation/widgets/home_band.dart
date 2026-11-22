@@ -1,30 +1,27 @@
 import 'package:flutter/material.dart';
 import 'package:hospital_booking_mobile/core/design/app_colors.dart';
-import 'package:hospital_booking_mobile/core/widgets/resized_network_image.dart';
+import 'package:hospital_booking_mobile/core/widgets/app_motion.dart';
 
-/// Chiều cao phần nền màu của dải đầu Trang chủ (không tính thẻ nổi đè lên phía dưới).
+/// Chiều cao phần nền màu của dải đầu Trang chủ (không tính banner nổi đè lên phía dưới).
 double homeBandHeight(BuildContext context) =>
-    MediaQuery.paddingOf(context).top + 10 + _controlSize + 58;
+    MediaQuery.paddingOf(context).top + 10 + _controlSize + 52;
 
-const double _controlSize = 44;
+const double _controlSize = 40;
 
-/// Dải đầu Trang chủ: avatar (hoặc biểu tượng đăng nhập), ô tìm kiếm dạng viên có nút hỏi Kun, và chuông thông báo.
+/// Dải đầu Trang chủ: ô tìm kiếm dạng viên có nút hỏi Kun, và chuông thông báo khi đã đăng nhập (khách không thấy).
+/// Nền có hai lớp sóng mờ trôi chậm.
 class HomeBand extends StatelessWidget {
   const HomeBand({
     super.key,
-    required this.isAuthenticated,
-    required this.avatar,
+    required this.showBell,
     required this.unreadNotificationCount,
-    required this.onAccount,
     required this.onSearch,
     required this.onAsk,
     required this.onNotifications,
   });
 
-  final bool isAuthenticated;
-  final String? avatar;
+  final bool showBell;
   final int unreadNotificationCount;
-  final VoidCallback onAccount;
   final VoidCallback onSearch;
   final VoidCallback onAsk;
   final VoidCallback onNotifications;
@@ -34,84 +31,68 @@ class HomeBand extends StatelessWidget {
     height: homeBandHeight(context),
     child: ColoredBox(
       color: AppPalette.heroMid,
-      child: Padding(
-        padding: EdgeInsets.fromLTRB(
-          12,
-          MediaQuery.paddingOf(context).top + 10,
-          12,
-          0,
-        ),
-        child: Align(
-          alignment: Alignment.topCenter,
-          child: SizedBox(
-            height: _controlSize,
-            child: Row(
-              children: [
-                _AccountButton(
-                  isAuthenticated: isAuthenticated,
-                  avatar: avatar,
-                  onTap: onAccount,
+      child: Stack(
+        children: [
+          const Positioned(left: 0, right: 0, bottom: 0, child: WaveBackdrop()),
+          Padding(
+            padding: EdgeInsets.fromLTRB(
+              12,
+              MediaQuery.paddingOf(context).top + 10,
+              12,
+              0,
+            ),
+            child: Align(
+              alignment: Alignment.topCenter,
+              child: SizedBox(
+                height: _controlSize,
+                child: HomeSearchRow(
+                  showBell: showBell,
+                  unreadNotificationCount: unreadNotificationCount,
+                  onSearch: onSearch,
+                  onAsk: onAsk,
+                  onNotifications: onNotifications,
                 ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: _SearchPill(onSearch: onSearch, onAsk: onAsk),
-                ),
-                const SizedBox(width: 8),
-                _BellButton(
-                  unreadCount: unreadNotificationCount,
-                  onTap: onNotifications,
-                ),
-              ],
+              ),
             ),
           ),
-        ),
+        ],
       ),
     ),
   );
 }
 
-class _AccountButton extends StatelessWidget {
-  const _AccountButton({
-    required this.isAuthenticated,
-    required this.avatar,
-    required this.onTap,
+/// Hàng tìm kiếm dùng cho cả dải đầu lẫn thanh thu gọn khi cuộn.
+class HomeSearchRow extends StatelessWidget {
+  const HomeSearchRow({
+    super.key,
+    required this.showBell,
+    required this.unreadNotificationCount,
+    required this.onSearch,
+    required this.onAsk,
+    required this.onNotifications,
   });
 
-  final bool isAuthenticated;
-  final String? avatar;
-  final VoidCallback onTap;
+  final bool showBell;
+  final int unreadNotificationCount;
+  final VoidCallback onSearch;
+  final VoidCallback onAsk;
+  final VoidCallback onNotifications;
 
   @override
-  Widget build(BuildContext context) {
-    final hasAvatar = isAuthenticated && avatar?.trim().isNotEmpty == true;
-    return Semantics(
-      button: true,
-      label: isAuthenticated ? 'Mở tài khoản' : 'Đăng nhập',
-      child: InkResponse(
-        key: const Key('home-login-button'),
-        onTap: onTap,
-        radius: 26,
-        child: CircleAvatar(
-          radius: _controlSize / 2,
-          backgroundColor: Colors.white,
-          backgroundImage: hasAvatar
-              ? resizedNetworkImage(
-                  context,
-                  avatar,
-                  logicalWidth: _controlSize,
-                  logicalHeight: _controlSize,
-                )
-              : null,
-          child: hasAvatar
-              ? null
-              : Icon(
-                  isAuthenticated ? Icons.person_rounded : Icons.login_rounded,
-                  color: AppPalette.heroMid,
-                ),
-        ),
+  Widget build(BuildContext context) => Row(
+    children: [
+      Expanded(
+        child: _SearchPill(onSearch: onSearch, onAsk: onAsk),
       ),
-    );
-  }
+      if (showBell) ...[
+        const SizedBox(width: 8),
+        _BellButton(
+          unreadCount: unreadNotificationCount,
+          onTap: onNotifications,
+        ),
+      ],
+    ],
+  );
 }
 
 class _SearchPill extends StatelessWidget {
@@ -121,58 +102,55 @@ class _SearchPill extends StatelessWidget {
   final VoidCallback onAsk;
 
   @override
-  Widget build(BuildContext context) {
-    final colors = context.colors;
-    return Material(
-      color: Colors.white,
-      shape: const StadiumBorder(),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        key: const Key('home-search-button'),
-        onTap: onSearch,
-        child: Padding(
-          padding: const EdgeInsets.only(left: 14, right: 5),
-          child: Row(
-            children: [
-              Icon(Icons.search_rounded, color: AppPalette.heroMid, size: 22),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  'Tìm bác sĩ, khoa, gói',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: const Color(0xFF4F6663),
+  Widget build(BuildContext context) => Material(
+    color: Colors.white,
+    shape: const StadiumBorder(),
+    clipBehavior: Clip.antiAlias,
+    child: InkWell(
+      key: const Key('home-search-button'),
+      onTap: onSearch,
+      child: Padding(
+        padding: const EdgeInsets.only(left: 14, right: 4),
+        child: Row(
+          children: [
+            Icon(Icons.search_rounded, color: AppPalette.heroMid, size: 20),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'Tìm bác sĩ, khoa, gói',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: const Color(0xFF4F6663),
+                ),
+              ),
+            ),
+            Tooltip(
+              message: 'Hỏi Kun',
+              child: InkResponse(
+                key: const Key('home-ask-kun-button'),
+                onTap: onAsk,
+                radius: 22,
+                child: Container(
+                  width: 32,
+                  height: 32,
+                  decoration: BoxDecoration(
+                    color: context.colors.primarySoft,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.auto_awesome_rounded,
+                    size: 18,
+                    color: AppPalette.heroMid,
                   ),
                 ),
               ),
-              Tooltip(
-                message: 'Hỏi Kun',
-                child: InkResponse(
-                  key: const Key('home-ask-kun-button'),
-                  onTap: onAsk,
-                  radius: 22,
-                  child: Container(
-                    width: 34,
-                    height: 34,
-                    decoration: BoxDecoration(
-                      color: colors.primarySoft,
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      Icons.auto_awesome_rounded,
-                      size: 19,
-                      color: AppPalette.heroMid,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
-    );
-  }
+    ),
+  );
 }
 
 class _BellButton extends StatelessWidget {
@@ -200,7 +178,7 @@ class _BellButton extends StatelessWidget {
               child: Icon(
                 Icons.notifications_none_rounded,
                 color: Colors.white,
-                size: 24,
+                size: 22,
               ),
             ),
           ),
@@ -212,7 +190,7 @@ class _BellButton extends StatelessWidget {
           top: -2,
           child: IgnorePointer(
             child: Container(
-              constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
+              constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
               padding: const EdgeInsets.symmetric(horizontal: 4),
               decoration: BoxDecoration(
                 color: Theme.of(context).colorScheme.error,
@@ -225,7 +203,6 @@ class _BellButton extends StatelessWidget {
                 style: Theme.of(context).textTheme.labelSmall?.copyWith(
                   color: Theme.of(context).colorScheme.onError,
                   fontSize: 10,
-                  fontWeight: FontWeight.w800,
                 ),
               ),
             ),

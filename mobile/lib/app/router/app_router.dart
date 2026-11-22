@@ -38,6 +38,7 @@ import 'package:hospital_booking_mobile/features/profile/presentation/profile_sc
 import 'package:hospital_booking_mobile/features/profile/presentation/profile_edit_screen.dart';
 import 'package:hospital_booking_mobile/features/prescriptions/presentation/prescription_detail_screen.dart';
 import 'package:hospital_booking_mobile/features/prescriptions/presentation/prescriptions_screen.dart';
+import 'package:hospital_booking_mobile/features/services/presentation/services_hub_screen.dart';
 import 'package:hospital_booking_mobile/features/support/presentation/support_center_screen.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
@@ -100,7 +101,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                 path: '/services',
                 builder: (_, _) => MainBranchBackScope(
                   controller: mainNavigationHistory,
-                  child: const DepartmentListScreen(),
+                  child: const ServicesHubScreen(),
                 ),
               ),
             ],
