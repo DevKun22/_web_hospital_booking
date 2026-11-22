@@ -14,6 +14,42 @@ class ProfilePatientShortcuts extends StatelessWidget {
     child: Column(
       children: [
         ListTile(
+          key: const Key('profile-medical-records'),
+          leading: const Icon(Icons.folder_shared_outlined),
+          title: const Text('Kết quả khám'),
+          subtitle: const Text('Hồ sơ và kết quả đã được công bố'),
+          trailing: const Icon(Icons.chevron_right_rounded),
+          onTap: () => context.push('/medical-records'),
+        ),
+        const Divider(height: 1),
+        ListTile(
+          key: const Key('profile-prescriptions'),
+          leading: const Icon(Icons.medication_outlined),
+          title: const Text('Đơn thuốc'),
+          subtitle: const Text('Hướng dẫn dùng thuốc sau buổi khám'),
+          trailing: const Icon(Icons.chevron_right_rounded),
+          onTap: () => context.push('/prescriptions'),
+        ),
+        const Divider(height: 1),
+        ListTile(
+          key: const Key('profile-invoices'),
+          leading: const Icon(Icons.receipt_long_outlined),
+          title: const Text('Hóa đơn'),
+          subtitle: const Text('Chi phí và trạng thái thanh toán'),
+          trailing: const Icon(Icons.chevron_right_rounded),
+          onTap: () => context.push('/invoices'),
+        ),
+        const Divider(height: 1),
+        ListTile(
+          key: const Key('profile-dependents'),
+          leading: const Icon(Icons.family_restroom_outlined),
+          title: const Text('Hồ sơ người thân'),
+          subtitle: const Text('Đặt lịch nhanh cho người thân'),
+          trailing: const Icon(Icons.chevron_right_rounded),
+          onTap: () => context.push('/dependents'),
+        ),
+        const Divider(height: 1),
+        ListTile(
           key: const Key('profile-mobile-tools'),
           leading: const Icon(Icons.phone_android_rounded),
           title: const Text('Thẻ số & bảo mật'),

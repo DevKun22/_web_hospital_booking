@@ -187,20 +187,20 @@ class _MainBottomNavigationBar extends StatelessWidget {
       selectedIcon: Icons.home_rounded,
     ),
     _NavigationDestination(
-      label: 'Hồ sơ',
-      icon: Icons.badge_outlined,
-      selectedIcon: Icons.badge_rounded,
+      label: 'Dịch vụ',
+      icon: Icons.grid_view_outlined,
+      selectedIcon: Icons.grid_view_rounded,
     ),
     _NavigationDestination(
-      label: 'Đặt khám',
-      icon: Icons.add_rounded,
-      selectedIcon: Icons.add_rounded,
+      label: 'Đặt lịch',
+      icon: Icons.event_available_outlined,
+      selectedIcon: Icons.event_available_rounded,
       isPrimaryAction: true,
     ),
     _NavigationDestination(
-      label: 'Trợ lý',
-      icon: Icons.smart_toy_outlined,
-      selectedIcon: Icons.smart_toy_rounded,
+      label: 'Lịch hẹn',
+      icon: Icons.calendar_month_outlined,
+      selectedIcon: Icons.calendar_month_rounded,
     ),
     _NavigationDestination(
       label: 'Tài khoản',
@@ -210,54 +210,46 @@ class _MainBottomNavigationBar extends StatelessWidget {
   ];
 
   @override
-  Widget build(BuildContext context) => DecoratedBox(
-    decoration: BoxDecoration(
-      color: context.colors.surface,
-      boxShadow: AppShadow.floating,
-    ),
-    child: Material(
-      color: Colors.transparent,
-      surfaceTintColor: Colors.transparent,
-      child: SafeArea(
-        top: false,
-        child: SizedBox(
-          height:
-              AppSize.bottomNavigationHeight +
-              (MediaQuery.textScalerOf(context).scale(12) - 12)
-                  .clamp(0, 14)
-                  .toDouble(),
-          child: Stack(
-            clipBehavior: Clip.none,
-            alignment: Alignment.topCenter,
-            children: [
-              Positioned.fill(
-                top: 8,
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    border: Border(
-                      top: BorderSide(color: context.colors.border),
-                    ),
-                  ),
-                  child: Row(
-                    children: List.generate(_destinations.length, (index) {
-                      if (index == MainNavigationBranch.booking.index) {
-                        return const Expanded(child: SizedBox());
-                      }
-                      final destination = _destinations[index];
-                      return Expanded(
-                        child: _NavigationItem(
-                          key: ValueKey('main-navigation-item-$index'),
-                          destination: destination,
-                          selected: currentIndex == index,
-                          badgeCount: 0,
-                          onTap: () => onDestinationSelected(index),
-                        ),
-                      );
-                    }),
-                  ),
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+    child: SafeArea(
+      top: false,
+      child: SizedBox(
+        height: 64,
+        child: Stack(
+          clipBehavior: Clip.none,
+          alignment: Alignment.center,
+          children: [
+            Positioned.fill(
+              child: Material(
+                color: context.colors.surface,
+                elevation: 0,
+                surfaceTintColor: Colors.transparent,
+                shape: StadiumBorder(
+                  side: BorderSide(color: context.colors.border),
+                ),
+                shadowColor: context.colors.shadowTint,
+                child: Row(
+                  children: List.generate(_destinations.length, (index) {
+                    if (index == MainNavigationBranch.booking.index) {
+                      return const Expanded(child: SizedBox());
+                    }
+                    return Expanded(
+                      child: _NavigationItem(
+                        key: ValueKey('main-navigation-item-$index'),
+                        destination: _destinations[index],
+                        selected: currentIndex == index,
+                        badgeCount: 0,
+                        onTap: () => onDestinationSelected(index),
+                      ),
+                    );
+                  }),
                 ),
               ),
-              _PrimaryNavigationItem(
+            ),
+            Positioned(
+              top: -22,
+              child: _PrimaryNavigationItem(
                 key: ValueKey(
                   'main-navigation-item-${MainNavigationBranch.booking.index}',
                 ),
@@ -266,8 +258,8 @@ class _MainBottomNavigationBar extends StatelessWidget {
                 onTap: () =>
                     onDestinationSelected(MainNavigationBranch.booking.index),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     ),
@@ -344,9 +336,9 @@ class _NavigationItem extends StatelessWidget {
                     color: selected
                         ? context.colors.primary
                         : context.colors.muted,
-                    fontSize: 11.5,
+                    fontSize: 11,
                     height: 1.15,
-                    fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                    fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
                   ),
                 ),
               ],
@@ -417,7 +409,7 @@ class _PrimaryNavigationItem extends StatelessWidget {
                   maxLines: 1,
                   style: Theme.of(context).textTheme.labelSmall?.copyWith(
                     color: context.colors.primary,
-                    fontSize: 11.5,
+                    fontSize: 11,
                     height: 1,
                     fontWeight: FontWeight.w800,
                   ),

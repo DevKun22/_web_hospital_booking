@@ -170,7 +170,7 @@ void main() {
 
       final coordinator = container.read(patientDataSyncCoordinatorProvider);
       await coordinator.handleAppResumed();
-      await coordinator.handleMainBranchSelected(1);
+      await coordinator.handleMainBranchSelected(3);
       await coordinator.handleMainBranchSelected(0);
       await coordinator.handleMainBranchSelected(4);
 

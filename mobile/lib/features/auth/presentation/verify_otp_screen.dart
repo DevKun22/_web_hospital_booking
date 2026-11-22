@@ -6,6 +6,7 @@ import 'package:hospital_booking_mobile/core/providers/app_providers.dart';
 import 'package:hospital_booking_mobile/core/widgets/app_error_banner.dart';
 import 'package:hospital_booking_mobile/features/auth/application/auth_controller.dart';
 import 'package:hospital_booking_mobile/features/auth/application/auth_state.dart';
+import 'package:hospital_booking_mobile/features/auth/presentation/auth_shell.dart';
 
 class VerifyOtpScreen extends ConsumerStatefulWidget {
   const VerifyOtpScreen({super.key, this.returnTo});
@@ -41,97 +42,73 @@ class _VerifyOtpScreenState extends ConsumerState<VerifyOtpScreen> {
           });
         }
       },
-      child: Scaffold(
-        appBar: AppBar(
-          leading: IconButton(
-            onPressed: isLoading ? null : _returnToLogin,
-            icon: const Icon(Icons.arrow_back),
-            tooltip: 'Quay lại đăng nhập',
-          ),
-        ),
-        body: SafeArea(
-          child: Center(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(24),
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 480),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Text(
-                      'Xác thực OTP',
-                      style: Theme.of(context).textTheme.headlineSmall
-                          ?.copyWith(fontWeight: FontWeight.w700),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Mã xác thực đã được gửi đến '
-                      'email ${auth.challenge?.maskedTarget ?? auth.email ?? ''}.',
-                    ),
-                    const SizedBox(height: 24),
-                    if (visibleError != null) ...[
-                      AppErrorBanner(
-                        error: visibleError,
-                        onDismiss: ref
-                            .read(authControllerProvider.notifier)
-                            .dismissError,
-                      ),
-                      const SizedBox(height: 16),
-                    ],
-                    if (config.enableNetworkLogs &&
-                        auth.challenge?.debugOtp != null) ...[
-                      Card(
-                        child: Padding(
-                          padding: const EdgeInsets.all(12),
-                          child: Text(
-                            'OTP local: ${auth.challenge!.debugOtp}',
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(fontWeight: FontWeight.w700),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                    ],
-                    TextField(
-                      controller: _otpController,
-                      keyboardType: TextInputType.number,
-                      maxLength: 6,
-                      textAlign: TextAlign.center,
-                      style: Theme.of(context).textTheme.headlineSmall
-                          ?.copyWith(
-                            letterSpacing: 10,
-                            fontWeight: FontWeight.w700,
-                          ),
-                      decoration: const InputDecoration(
-                        labelText: 'Mã OTP gồm 6 số',
-                        counterText: '',
-                      ),
-                      onSubmitted: (_) => _submit(),
-                    ),
-                    const SizedBox(height: 18),
-                    FilledButton(
-                      onPressed: isLoading ? null : _submit,
-                      child: isLoading
-                          ? const SizedBox.square(
-                              dimension: 22,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Text('Xác nhận'),
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      'Chưa thấy mã? Kiểm tra thư rác hoặc xác nhận đúng email. '
-                      'Nếu vẫn không nhận được, hãy liên hệ cơ sở khám.',
-                      textAlign: TextAlign.center,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
+      child: AuthShell(
+        title: 'Xác thực OTP',
+        subtitle:
+            'Mã xác thực đã được gửi đến email ${auth.challenge?.maskedTarget ?? auth.email ?? ''}.',
+        backTooltip: 'Quay lại đăng nhập',
+        onBack: isLoading ? null : _returnToLogin,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (visibleError != null) ...[
+              AppErrorBanner(
+                error: visibleError,
+                onDismiss: ref
+                    .read(authControllerProvider.notifier)
+                    .dismissError,
+              ),
+              const SizedBox(height: 16),
+            ],
+            if (config.enableNetworkLogs &&
+                auth.challenge?.debugOtp != null) ...[
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Text(
+                    'OTP local: ${auth.challenge!.debugOtp}',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(fontWeight: FontWeight.w700),
+                  ),
                 ),
               ),
+              const SizedBox(height: 12),
+            ],
+            TextField(
+              controller: _otpController,
+              keyboardType: TextInputType.number,
+              maxLength: 6,
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                letterSpacing: 10,
+                fontWeight: FontWeight.w700,
+              ),
+              decoration: const InputDecoration(
+                labelText: 'Mã OTP gồm 6 số',
+                counterText: '',
+              ),
+              onSubmitted: (_) => _submit(),
             ),
-          ),
+            const SizedBox(height: 18),
+            FilledButton(
+              onPressed: isLoading ? null : _submit,
+              child: isLoading
+                  ? const SizedBox.square(
+                      dimension: 22,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Text('Xác nhận'),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Chưa thấy mã? Kiểm tra thư rác hoặc xác nhận đúng email. '
+              'Nếu vẫn không nhận được, hãy liên hệ cơ sở khám.',
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
         ),
       ),
     );

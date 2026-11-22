@@ -270,7 +270,7 @@ void main() {
       '/home',
     );
 
-    container.read(appRouterProvider).go('/chatbot');
+    unawaited(container.read(appRouterProvider).push<void>('/chatbot'));
     await tester.pumpAndSettle();
     expect(find.text('Trợ lý đặt lịch'), findsOneWidget);
 
@@ -335,7 +335,7 @@ void main() {
     expect(find.text('Trợ lý đặt lịch'), findsOneWidget);
   });
 
-  testWidgets('health records and AI assistant are stable main branches', (
+  testWidgets('services and appointments are stable main branches', (
     tester,
   ) async {
     await tester.binding.setSurfaceSize(const Size(430, 900));
@@ -376,21 +376,19 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byTooltip('Hồ sơ'));
+    await tester.tap(find.byTooltip('Dịch vụ'));
     await tester.pumpAndSettle();
     expect(
       container.read(appRouterProvider).routeInformationProvider.value.uri.path,
-      '/records',
+      '/services',
     );
-    expect(find.text('Hồ sơ sức khỏe'), findsOneWidget);
 
-    await tester.tap(find.byTooltip('Trợ lý'));
+    await tester.tap(find.byTooltip('Lịch hẹn'));
     await tester.pumpAndSettle();
     expect(
       container.read(appRouterProvider).routeInformationProvider.value.uri.path,
-      '/chatbot',
+      '/appointments',
     );
-    expect(find.text('Trợ lý đặt lịch'), findsOneWidget);
 
     await tester.tap(find.byTooltip('Trang chủ'));
     await tester.pumpAndSettle();
