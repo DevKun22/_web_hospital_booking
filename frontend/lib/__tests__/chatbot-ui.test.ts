@@ -4,6 +4,8 @@ import test from "node:test";
 import {
   buildBookingHref,
   buildSummarizeArticleAction,
+  describeChatError,
+  isNoInformationReply,
   getLoadingText,
   getBookingProgress,
   getKunTeaser,
@@ -105,4 +107,26 @@ test("nút tóm tắt bài viết mang mã bài và có lời nhắn chờ riên
   assert.equal(action.type, "SUMMARIZE_ARTICLE");
   assert.deepEqual(action.payload, { articleSlug: "tang-huyet-ap" });
   assert.match(getLoadingText(action), /tóm tắt bài viết/);
+});
+
+test("lỗi gửi tin được phân biệt: quá nhanh, Kun tạm nghỉ, mất mạng, lỗi khác", () => {
+  const rate = describeChatError({ status: 429, retryAfterSeconds: 12.2 });
+  assert.equal(rate.kind, "rate-limited");
+  assert.equal(rate.retryable, false);
+  assert.match(rate.content, /13 giây/);
+
+  assert.equal(describeChatError({ status: 503 }).kind, "offline");
+  assert.equal(describeChatError(new TypeError("Failed to fetch")).kind, "network");
+  assert.equal(describeChatError({ status: 500 }, false).kind, "network");
+  const other = describeChatError({ status: 500 });
+  assert.equal(other.kind, "error");
+  assert.equal(other.retryable, true);
+});
+
+test("nhận ra câu trả lời chưa có thông tin, không nhầm với lời chào hay câu trả lời có nguồn", () => {
+  const base = { source: "SYSTEM", intent: "GENERAL_HOSPITAL_INFO", confidence: 0.3 };
+  assert.equal(isNoInformationReply(base), true);
+  assert.equal(isNoInformationReply({ ...base, confidence: 1 }), false);
+  assert.equal(isNoInformationReply({ ...base, source: "AI" }), false);
+  assert.equal(isNoInformationReply({ ...base, sources: [{}] }), false);
 });

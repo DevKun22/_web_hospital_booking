@@ -13,7 +13,8 @@ export const ChatComposer = forwardRef<HTMLInputElement, { placeholder: string; 
     };
 
     return (
-      <form className="flex gap-2 px-3 pb-3" onSubmit={submit}>
+      <form className="px-3 pb-3" onSubmit={submit} aria-describedby="kun-privacy-note">
+        <div className="flex gap-2">
         <input
           ref={ref}
           value={text}
@@ -32,6 +33,10 @@ export const ChatComposer = forwardRef<HTMLInputElement, { placeholder: string; 
         >
           <Send className="h-4 w-4" aria-hidden="true" />
         </button>
+        </div>
+        <p id="kun-privacy-note" className="mt-1.5 text-[11px] leading-4 text-[var(--public-muted)]">
+          Kun không chẩn đoán hay kê đơn. Đừng nhập số điện thoại hay số giấy tờ vào đây.
+        </p>
       </form>
     );
   },

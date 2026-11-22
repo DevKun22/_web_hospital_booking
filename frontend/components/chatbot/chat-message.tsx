@@ -1,10 +1,18 @@
-import { AlertTriangle, BadgeCheck, FileText, Phone, RotateCcw } from "lucide-react";
+import { AlertTriangle, BadgeCheck, Clock, FileText, Phone, RotateCcw, SearchX, WifiOff } from "lucide-react";
 import Link from "next/link";
 import { FollowUps } from "@/components/chatbot/follow-ups";
 import { ChatbotResultCards } from "@/components/chatbot/result-cards";
 import { KunAvatar } from "@/components/chatbot/kun-avatar";
 import { getQuickReplies, getSourceReviewLine, type ChatWidgetMessage } from "@/lib/chatbot-ui";
 import type { ChatbotSuggestedAction } from "@/lib/types";
+
+const NOTICE_KIND = {
+  "no-info": { Icon: SearchX, title: "Kun chưa có thông tin này" },
+  offline: { Icon: WifiOff, title: "Kun đang tạm nghỉ" },
+  network: { Icon: WifiOff, title: "Kết nối gián đoạn" },
+  "rate-limited": { Icon: Clock, title: "Nhắn hơi nhanh" },
+  error: { Icon: AlertTriangle, title: "Chưa gửi được" },
+} as const;
 
 /** Số cấp cứu y tế toàn quốc. */
 const EMERGENCY_NUMBER = "115";
@@ -33,7 +41,7 @@ export function ChatMessage({ message, selectedSlotId, disabled, isLatest, onAct
   if (message.role === "user") {
     return (
       <div className="kun-enter flex justify-end">
-        <p className="max-w-[85%] rounded-xl rounded-br-sm bg-[var(--public-solid)] px-3 py-2 text-sm leading-6 text-white">{message.content}</p>
+        <p className="max-w-[85%] rounded-2xl rounded-br-sm bg-[var(--public-solid)] px-3 py-2 text-sm leading-6 text-white">{message.content}</p>
       </div>
     );
   }
@@ -60,14 +68,24 @@ export function ChatMessage({ message, selectedSlotId, disabled, isLatest, onAct
     );
   }
 
+  const notice = message.kind ? NOTICE_KIND[message.kind] : null;
+
   return (
     <div className="kun-enter flex items-end gap-2">
       <KunAvatar size={28} />
-      <div className="min-w-0 max-w-[88%] rounded-xl rounded-bl-sm border border-[var(--public-border)] bg-white px-3 py-2 text-sm leading-6 text-[var(--public-ink)]">
+      <div
+        className={`min-w-0 max-w-[88%] rounded-2xl rounded-bl-sm border px-3 py-2 text-sm leading-6 text-[var(--public-ink)] ${notice ? "border-dashed border-[var(--public-border)] bg-[var(--public-surface-muted)]" : "border-[var(--public-border)] bg-white"}`}
+      >
+        {notice ? (
+          <p className="mb-0.5 flex items-center gap-1.5 text-xs font-semibold text-[var(--public-muted)]">
+            <notice.Icon className="h-3.5 w-3.5" aria-hidden="true" />
+            {notice.title}
+          </p>
+        ) : null}
         <p className="whitespace-pre-line">{message.content}</p>
         <ChatbotResultCards groups={message.results} selectedSlotId={selectedSlotId} disabled={disabled} onAction={onAction} />
         {message.sources?.length ? (
-          <div className="mt-2 border-t border-[var(--public-divider)] pt-2 text-[11px] text-[var(--public-muted)]">
+          <div className="mt-2 rounded-xl border border-[var(--public-border)] bg-[var(--public-surface-muted)] px-2.5 py-2 text-[11px] text-[var(--public-muted)]">
             <p className="flex items-center gap-1.5">
               <FileText className="h-3 w-3 shrink-0" aria-hidden="true" />
               <span>Nguồn</span>
