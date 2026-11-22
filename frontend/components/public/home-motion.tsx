@@ -33,8 +33,17 @@ export function HomeMotion() {
       },
       { threshold: 0.12, rootMargin: "0px 0px -8% 0px" },
     );
+    // Phần tử đã nằm trong hoặc phía trên màn hình lúc gài (tải lại giữa trang) hiện luôn, không ẩn rồi hiện lại gây nháy và cảm giác trang đơ.
+    const fold = window.innerHeight * 0.92;
+    const pending = targets.filter((target) => {
+      if (target.getBoundingClientRect().top < fold) {
+        target.dataset.in = "1";
+        return false;
+      }
+      return true;
+    });
     root.dataset.motion = "armed";
-    targets.forEach((target) => observer.observe(target));
+    pending.forEach((target) => observer.observe(target));
 
     return () => {
       observer.disconnect();
