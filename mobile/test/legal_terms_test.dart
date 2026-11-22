@@ -56,15 +56,18 @@ void main() {
       find.byKey(const ValueKey('terms-consent-checkbox')),
       findsOneWidget,
     );
-    expect(find.text('Tôi đồng ý Điều khoản sử dụng.'), findsOneWidget);
+    expect(
+      find.textContaining('Tôi đồng ý Điều khoản sử dụng.'),
+      findsOneWidget,
+    );
     // Chưa có chính sách bảo mật thì không có nút xem chính sách.
-    expect(find.text('Xem chính sách bảo mật'), findsNothing);
+    expect(find.textContaining('Chính sách bảo mật'), findsNothing);
 
     await tester.tap(find.byKey(const ValueKey('terms-consent-checkbox')));
     await tester.pump();
     expect(value.value, isTrue);
 
-    await tester.tap(find.text('Xem điều khoản'));
+    await tester.tapOnText(find.textRange.ofSubstring('Điều khoản sử dụng'));
     await tester.pumpAndSettle();
     expect(find.text('Nội dung điều khoản thử.'), findsOneWidget);
   });

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:hospital_booking_mobile/core/design/app_colors.dart';
+import 'package:hospital_booking_mobile/core/design/app_design_tokens.dart';
 import 'package:hospital_booking_mobile/features/booking/presentation/booking_date_format.dart';
 import 'package:hospital_booking_mobile/core/errors/api_exception.dart';
 import 'package:hospital_booking_mobile/core/widgets/app_error_banner.dart';
@@ -265,66 +266,105 @@ class BookingPatientSubmitSection extends StatelessWidget {
   final Widget? termsConsent;
 
   @override
-  Widget build(BuildContext context) => Column(
-    crossAxisAlignment: CrossAxisAlignment.stretch,
-    children: [
-      if (error != null) ...[
-        const SizedBox(height: 16),
-        AppErrorBanner(error: error!, onDismiss: onDismissError),
-        if (error!.kind == ApiErrorKind.conflict) ...[
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    final text = Theme.of(context).textTheme;
+    final slotTaken = error?.kind == ApiErrorKind.conflict;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (error != null && !slotTaken) ...[
           const SizedBox(height: 8),
-          TextButton.icon(
-            onPressed: onReselectSlot,
-            icon: const Icon(Icons.schedule_rounded),
-            label: const Text('Chọn lại khung giờ'),
-          ),
+          AppErrorBanner(error: error!, onDismiss: onDismissError),
         ],
-      ],
-      const SizedBox(height: 8),
-      Row(
-        children: [
-          Text(priceLabel, style: Theme.of(context).textTheme.bodyMedium),
-          const Spacer(),
-          Text(
-            price,
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              color: context.colors.primaryDark,
+        if (slotTaken) ...[
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: colors.warningContainer,
+              borderRadius: BorderRadius.circular(AppRadius.md),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.event_busy_outlined, color: colors.warning),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Giờ này vừa có người đặt',
+                        style: text.titleSmall?.copyWith(color: colors.warning),
+                      ),
+                      Text(
+                        'Hãy chọn một khung giờ trống khác.',
+                        style: text.bodySmall?.copyWith(color: colors.ink),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                FilledButton.tonal(
+                  onPressed: onReselectSlot,
+                  child: const Text('Chọn giờ khác'),
+                ),
+              ],
             ),
           ),
         ],
-      ),
-      if (termsConsent != null) ...[const SizedBox(height: 6), termsConsent!],
-      const SizedBox(height: 10),
-      FilledButton.icon(
-        onPressed: isBusy ? null : onSubmit,
-        icon: isBusy
-            ? const SizedBox.square(
-                dimension: 20,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              )
-            : const Icon(Icons.lock_clock_outlined),
-        label: Text(
-          isRevalidatingSlot
-              ? 'Đang kiểm tra khung giờ…'
-              : isSubmitting
-              ? (skipsOtp ? 'Đang đặt lịch…' : 'Đang giữ lịch…')
-              : (skipsOtp ? 'Đặt lịch' : 'Giữ lịch và gửi OTP'),
+        if (termsConsent != null) ...[const SizedBox(height: 4), termsConsent!],
+        const SizedBox(height: 6),
+        Row(
+          children: [
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  priceLabel,
+                  style: text.labelMedium?.copyWith(color: colors.muted),
+                ),
+                Text(
+                  price,
+                  style: text.titleMedium?.copyWith(color: colors.primaryDark),
+                ),
+              ],
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: FilledButton.icon(
+                onPressed: isBusy ? null : onSubmit,
+                icon: isBusy
+                    ? const SizedBox.square(
+                        dimension: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.lock_clock_outlined),
+                label: Text(
+                  isRevalidatingSlot
+                      ? 'Đang kiểm tra giờ…'
+                      : isSubmitting
+                      ? (skipsOtp ? 'Đang đặt lịch…' : 'Đang giữ lịch…')
+                      : (skipsOtp ? 'Đặt lịch' : 'Giữ lịch, gửi OTP'),
+                ),
+              ),
+            ),
+          ],
         ),
-      ),
-      if (skipsOtp || termsConsent == null) ...[
-        const SizedBox(height: 8),
-        Text(
-          skipsOtp
-              ? 'Cơ sở khám sẽ xác nhận lịch của bạn sau khi tiếp nhận.'
-              : 'Khung giờ chỉ được giữ tạm thời cho đến khi bạn xác thực OTP.',
-          textAlign: TextAlign.center,
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
+        if (skipsOtp || termsConsent == null) ...[
+          const SizedBox(height: 6),
+          Text(
+            skipsOtp
+                ? 'Cơ sở khám sẽ xác nhận lịch của bạn sau khi tiếp nhận.'
+                : 'Khung giờ chỉ được giữ tạm thời cho đến khi bạn xác thực OTP.',
+            textAlign: TextAlign.center,
+            style: text.bodySmall?.copyWith(color: colors.muted),
           ),
-        ),
+        ],
       ],
-    ],
-  );
+    );
+  }
 }
 
 /// Gợi ý nhanh cho ô "Lý do khám": chạm để điền hoặc nối thêm.
