@@ -22,7 +22,6 @@ class AppointmentDeviceActions {
         location: appointment.departmentName,
         startDate: start,
         endDate: end,
-        iosParams: const IOSParams(reminder: Duration(minutes: 30)),
       ),
     );
   }

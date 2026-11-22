@@ -1,5 +1,5 @@
 import 'package:dio/dio.dart';
-import 'package:flutter/foundation.dart';
+import 'package:hospital_booking_mobile/core/config/client_platform.dart';
 import 'package:hospital_booking_mobile/core/errors/api_exception.dart';
 import 'package:hospital_booking_mobile/core/network/access_token_store.dart';
 import 'package:hospital_booking_mobile/core/network/api_contract.dart';
@@ -87,8 +87,8 @@ class SessionRefreshCoordinator {
         data: {
           'refreshToken': refreshToken,
           'deviceId': deviceId,
-          'deviceName': 'Flutter ${defaultTargetPlatform.name}',
-          'platform': _platformName,
+          'deviceName': clientDeviceName,
+          'platform': clientPlatform,
         },
       );
       final payload = requireDataMap(response.data);
@@ -116,10 +116,4 @@ class SessionRefreshCoordinator {
       throw exception;
     }
   }
-
-  String get _platformName => switch (defaultTargetPlatform) {
-    TargetPlatform.iOS => 'ios',
-    TargetPlatform.android => 'android',
-    _ => 'web',
-  };
 }

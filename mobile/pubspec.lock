@@ -513,7 +513,7 @@ packages:
     source: hosted
     version: "2.0.8"
   local_auth_darwin:
-    dependency: "direct main"
+    dependency: transitive
     description:
       name: local_auth_darwin
       sha256: b1b2d938cc3511512e552d92e782e055b8dc29c83e21c59e6ecfc6bd79ab0744

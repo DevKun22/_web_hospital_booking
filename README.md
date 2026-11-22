@@ -102,7 +102,7 @@ flutter pub get
 .\tool\run_android_device.ps1                        # điện thoại Android kết nối USB
 ```
 
-Hướng dẫn chi tiết (thiết bị thật, emulator, đóng gói): [mobile/README.md](mobile/README.md). Ứng dụng đã được kiểm thử trên Android; chưa có bằng chứng kiểm thử trên iOS.
+Hướng dẫn chi tiết (thiết bị thật, emulator, đóng gói): [mobile/README.md](mobile/README.md). Ứng dụng chỉ phát hành cho Android.
 
 ### Dữ liệu mẫu
 
@@ -175,8 +175,7 @@ Cấu hình (chỉ ở backend, biến mẫu trong `backend/.env.example`): `PAY
 
 - Chưa tích hợp SMS thật; OTP gửi qua email. Số điện thoại vì vậy chưa được xác minh độc lập.
 - Thanh toán mới ở sandbox VNPay; đối soát và hoàn tiền chưa thử với sandbox thật.
-- Push trên iOS chưa được cấu hình và kiểm thử; mobile mới kiểm thử trên Android.
-- Chatbot chỉ cung cấp thông tin và điều hướng, không chẩn đoán.
+- Mobile chỉ phát hành cho Android; không có bản iOS.- Chatbot chỉ cung cấp thông tin và điều hướng, không chẩn đoán.
 - Chính sách BHYT dừng ở mức nhập thông tin và tính giảm trừ, chưa thay quy trình giám định.
 - Bác sĩ chỉ xem bệnh án do chính mình lập, chưa hỗ trợ xem lịch sử khám từ bác sĩ khác khi có lịch hiện hành.
 - Máy chủ gói miễn phí có độ trễ khi khởi động lại; các việc nền chạy trong tiến trình API nên tạm dừng khi máy chủ ngủ.

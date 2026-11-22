@@ -13,5 +13,3 @@ Script cần `npm ci` trong `frontend` (dùng `sharp` ở đó để vẽ SVG). 
 - `android/app/src/main/res/drawable/ic_launcher_foreground.xml` và `ic_launcher_monochrome.xml`
   (biểu tượng thích ứng Android, nền màu `ic_launcher_background` = `#07549C`)
 
-iOS: biểu tượng là ảnh RGB đục; ảnh màn hình khởi động là dấu trong suốt đặt trên nền xanh
-`#07549C` của `LaunchScreen.storyboard`.

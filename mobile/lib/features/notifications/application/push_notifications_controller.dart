@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart';
+import 'package:hospital_booking_mobile/core/config/client_platform.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hospital_booking_mobile/app/sync/patient_data_sync_coordinator.dart';
 import 'package:hospital_booking_mobile/core/errors/swallowed_error.dart';
@@ -289,7 +289,7 @@ class PushNotificationsController extends Notifier<PushNotificationsState> {
     try {
       await ref
           .read(pushRegistrationRepositoryProvider)
-          .register(token: token, platform: _platformName);
+          .register(token: token, platform: clientPlatform);
       if (generation != _generation) return;
       state = state.copyWith(
         isRegisteringToken: false,
@@ -349,9 +349,4 @@ class PushNotificationsController extends Notifier<PushNotificationsState> {
       messageEvent: state.messageEvent + 1,
     );
   }
-
-  String get _platformName => switch (defaultTargetPlatform) {
-    TargetPlatform.iOS => 'ios',
-    _ => 'android',
-  };
 }
