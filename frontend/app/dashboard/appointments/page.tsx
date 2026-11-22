@@ -1,15 +1,13 @@
 "use client";
 
-import { type FormEvent, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   DsButton,
   DsDataTable,
-  DsDialog,
   DsEmptyState,
-  DsField,
   DsInput,
   DsKeyValue,
   DsPageHeader,
@@ -19,7 +17,6 @@ import {
   DsSplit,
   DsStatusPill,
   DsTabs,
-  DsTextarea,
   DsToolbar,
   type DsColumn,
   useActionToast,
@@ -36,20 +33,19 @@ import {
   useDashboardAppointmentDoctors,
   useDashboardAppointments,
 } from "@/lib/dashboard-appointments-query";
-import { formatVietnamDate, getVietnamYesterdayDateInput } from "@/lib/date";
+import { formatVietnamDate } from "@/lib/date";
 import { can } from "@/lib/permissions";
 import { formatCurrency } from "@/lib/format";
-import { usePublicAvailableSlots } from "@/lib/public-slots-query";
 import { queryKeys } from "@/lib/query-keys";
 import type { Appointment } from "@/lib/types";
 import { useDebouncedValue } from "@/lib/use-debounced-value";
+import { CancelAppointmentDialog } from "./cancel-appointment-dialog";
+import { PatientInfoDialog } from "./patient-info-dialog";
+import { RescheduleDialog } from "./reschedule-dialog";
 import {
   today,
   doctorName,
   isCancelled,
-  type PatientInfoForm,
-  emptyPatientInfoForm,
-  buildPatientInfoForm,
   canEditPatientInfoStatus,
   otherStatuses,
   ACTIVE_TAB,
@@ -78,13 +74,8 @@ export default function AppointmentsPage() {
   const [notice, setNotice] = useState("");
   const [selectedSnapshot, setSelected] = useState<Appointment | null>(null);
   const [cancelTarget, setCancelTarget] = useState<Appointment | null>(null);
-  const [cancelReason, setCancelReason] = useState("");
   const [rescheduleTarget, setRescheduleTarget] = useState<Appointment | null>(null);
-  const [rescheduleDate, setRescheduleDate] = useState(today());
-  const [rescheduleSlotId, setRescheduleSlotId] = useState("");
-  const [rescheduleReason, setRescheduleReason] = useState("");
   const [editingPatientInfo, setEditingPatientInfo] = useState(false);
-  const [patientInfoForm, setPatientInfoForm] = useState<PatientInfoForm>(emptyPatientInfoForm);
 
   const canStaffActions = can(user, "appointment.front_desk");
   const isDoctor = user?.role === "DOCTOR";
@@ -108,10 +99,6 @@ export default function AppointmentsPage() {
   const doctorQuery = useMemo(() => ({ limit: 100 }), []);
   const appointmentsQuery = useDashboardAppointments(query);
   const doctorsQuery = useDashboardAppointmentDoctors(doctorQuery, !isDoctor && can(user, "catalog.view"));
-  const rescheduleSlotsQuery = usePublicAvailableSlots({
-    doctorId: rescheduleTarget?.doctor.id,
-    date: rescheduleTarget ? rescheduleDate : undefined,
-  });
   const loading = appointmentsQuery.isLoading;
   const appointments = appointmentsQuery.data?.items ?? [];
   const doctors = doctorsQuery.data?.items ?? [];
@@ -147,15 +134,11 @@ export default function AppointmentsPage() {
   const resetEditors = () => {
     setEditingPatientInfo(false);
     setCancelTarget(null);
-    setCancelReason("");
     setRescheduleTarget(null);
-    setRescheduleSlotId("");
-    setRescheduleReason("");
   };
 
   const openDetail = (appointment: Appointment) => {
     setSelected(appointment);
-    setPatientInfoForm(buildPatientInfoForm(appointment));
     resetEditors();
     setError("");
     setNotice("");
@@ -196,70 +179,16 @@ export default function AppointmentsPage() {
     }
   };
 
-  const startPatientInfoEdit = (appointment: Appointment) => {
-    setPatientInfoForm(buildPatientInfoForm(appointment));
+  const startPatientInfoEdit = () => {
     setCancelTarget(null);
     setRescheduleTarget(null);
     setEditingPatientInfo(true);
-  };
-
-  const updatePatientInfoField = <K extends keyof PatientInfoForm>(key: K, value: PatientInfoForm[K]) => {
-    setPatientInfoForm((current) => {
-      const next = { ...current, [key]: value };
-      if (key === "hasBHYT" && value === false) {
-        next.healthInsuranceCode = "";
-        next.registeredHospital = "";
-      }
-      return next;
-    });
-  };
-
-  const updatePatientInfo = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    if (!selected || !canEditSelectedPatientInfo) return;
-    if (patientInfoForm.hasBHYT && !patientInfoForm.healthInsuranceCode.trim()) {
-      setError("Vui lòng nhập mã thẻ BHYT");
-      return;
-    }
-
-    setBusy(true);
-    setError("");
-    setNotice("");
-    try {
-      const updated = await apiRequest<Appointment>(`/dashboard/appointments/${selected.id}/patient-info`, {
-        method: "PATCH",
-        body: {
-          patientName: patientInfoForm.patientName.trim(),
-          patientEmail: patientInfoForm.patientEmail.trim() || null,
-          gender: patientInfoForm.gender || null,
-          dateOfBirth: patientInfoForm.dateOfBirth || null,
-          cccd: patientInfoForm.cccd.trim() || null,
-          address: patientInfoForm.address.trim() || null,
-          hasBHYT: patientInfoForm.hasBHYT,
-          healthInsuranceCode: patientInfoForm.hasBHYT ? patientInfoForm.healthInsuranceCode.trim() : null,
-          registeredHospital: patientInfoForm.hasBHYT ? patientInfoForm.registeredHospital.trim() || null : null,
-          allergies: patientInfoForm.allergies.trim() || null,
-          medicalHistory: patientInfoForm.medicalHistory.trim() || null,
-          familyHistory: patientInfoForm.familyHistory.trim() || null,
-        },
-      });
-      setSelected(updated);
-      setPatientInfoForm(buildPatientInfoForm(updated));
-      setEditingPatientInfo(false);
-      setNotice("Đã cập nhật thông tin tiếp nhận");
-      await invalidateAppointments();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Không cập nhật được thông tin tiếp nhận");
-    } finally {
-      setBusy(false);
-    }
   };
 
   const startCancel = (appointment: Appointment) => {
     setEditingPatientInfo(false);
     setRescheduleTarget(null);
     setCancelTarget(appointment);
-    setCancelReason("");
     setError("");
   };
 
@@ -267,57 +196,7 @@ export default function AppointmentsPage() {
     setEditingPatientInfo(false);
     setCancelTarget(null);
     setRescheduleTarget(appointment);
-    setRescheduleDate(appointment.appointmentDate.slice(0, 10));
-    setRescheduleSlotId("");
-    setRescheduleReason("");
     setError("");
-  };
-
-  const rescheduleAppointment = async () => {
-    if (!rescheduleTarget) return;
-    if (!rescheduleSlotId) {
-      setError("Vui lòng chọn khung giờ mới");
-      return;
-    }
-    if (rescheduleReason.trim().length < 2) {
-      setError("Vui lòng nhập lý do đổi lịch");
-      return;
-    }
-
-    setBusy(true);
-    setError("");
-    setNotice("");
-    try {
-      const updated = await apiRequest<Appointment>(`/dashboard/appointments/${rescheduleTarget.id}/reschedule`, {
-        method: "PATCH",
-        body: { timeSlotId: rescheduleSlotId, reason: rescheduleReason.trim() },
-      });
-      setSelected(updated);
-      setPatientInfoForm(buildPatientInfoForm(updated));
-      setRescheduleTarget(null);
-      setRescheduleSlotId("");
-      setRescheduleReason("");
-      setNotice(`Đã đổi lịch sang ${formatVietnamDate(updated.appointmentDate)} lúc ${updated.startTime}`);
-      await Promise.all([invalidateAppointments(), queryClient.invalidateQueries({ queryKey: ["public", "available-slots"] })]);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Không đổi được lịch hẹn");
-      await rescheduleSlotsQuery.refetch();
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const cancelAppointment = async () => {
-    if (!cancelTarget) return;
-    if (cancelReason.trim().length < 2) {
-      setError("Vui lòng nhập lý do hủy lịch");
-      return;
-    }
-    const ok = await runAction(cancelTarget, "/cancel", "Đã hủy lịch hẹn", { reason: cancelReason.trim() });
-    if (ok) {
-      setCancelTarget(null);
-      setCancelReason("");
-    }
   };
 
   // Bước tiếp theo của quy trình ứng với trạng thái hiện tại (hiện cả ở dòng danh sách lẫn trong khung chi tiết).
@@ -619,92 +498,29 @@ export default function AppointmentsPage() {
 
       <div className="ds-editor">
         <div className="ds-editor__col">
-          <DsDialog
-            open={cancelTarget?.id === selected.id}
-            onOpenChange={(open) => {
-              if (!open) { setCancelTarget(null); setCancelReason(""); }
-            }}
-            title="Hủy lịch hẹn"
-            description="Lịch hẹn được hủy và khung giờ được giải phóng; người khám sẽ nhận thông báo."
-            size="md"
-            footer={
-              <>
-                <DsButton onClick={() => { setCancelTarget(null); setCancelReason(""); }}>Giữ lịch</DsButton>
-                <DsButton variant="danger" disabled={busy || cancelReason.trim().length < 2} onClick={() => void cancelAppointment()}>
-                  Xác nhận hủy
-                </DsButton>
-              </>
-            }
-          >
-            <DsField label="Lý do hủy" htmlFor="cancel-reason" required>
-              <DsTextarea id="cancel-reason" rows={3} value={cancelReason} placeholder="Ví dụ: người khám yêu cầu hủy lịch" onChange={(event) => setCancelReason(event.target.value)} />
-            </DsField>
-          </DsDialog>
+          {cancelTarget?.id === selected.id ? (
+            <CancelAppointmentDialog
+              busy={busy}
+              onClose={() => setCancelTarget(null)}
+              onConfirm={(reason) => runAction(cancelTarget, "/cancel", "Đã hủy lịch hẹn", { reason })}
+            />
+          ) : null}
 
-          <DsDialog
-            open={rescheduleTarget?.id === selected.id}
-            onOpenChange={(open) => {
-              if (!open) { setRescheduleTarget(null); setRescheduleSlotId(""); setRescheduleReason(""); }
-            }}
-            title="Đổi lịch hẹn"
-            description="Giữ nguyên bác sĩ và thông tin khám; hệ thống phát hành mã lịch mới, giải phóng khung giờ cũ và gửi thông báo cho người khám."
-            size="lg"
-            footer={
-              <>
-                <DsButton onClick={() => { setRescheduleTarget(null); setRescheduleSlotId(""); setRescheduleReason(""); }}>Đóng</DsButton>
-                <DsButton
-                  variant="primary"
-                  disabled={busy || !rescheduleSlotId || rescheduleReason.trim().length < 2}
-                  title={!rescheduleSlotId ? "Chọn khung giờ mới" : rescheduleReason.trim().length < 2 ? "Nhập lý do đổi lịch" : undefined}
-                  onClick={() => void rescheduleAppointment()}
-                >
-                  {busy ? "Đang đổi lịch..." : "Xác nhận đổi lịch"}
-                </DsButton>
-              </>
-            }
-          >
-            <DsField label="Ngày khám mới" htmlFor="reschedule-date">
-              <VietnamDateInput
-                value={rescheduleDate}
-                min={today()}
-                ariaLabel="Ngày khám mới"
-                onChange={(value) => {
-                  setRescheduleDate(value);
-                  setRescheduleSlotId("");
-                }}
-                className="ds-input"
-                required
-              />
-            </DsField>
-            <div>
-              <strong style={{ fontSize: 13 }}>Khung giờ còn trống</strong>
-              {rescheduleSlotsQuery.isLoading || rescheduleSlotsQuery.isFetching ? (
-                <p className="ds-hint">Đang cập nhật khung giờ...</p>
-              ) : rescheduleSlotsQuery.isError ? (
-                <p>
-                  <DsButton onClick={() => void rescheduleSlotsQuery.refetch()}>Không tải được khung giờ. Thử lại</DsButton>
-                </p>
-              ) : (rescheduleSlotsQuery.data?.length || 0) === 0 ? (
-                <p className="ds-hint">Bác sĩ chưa còn khung giờ trống trong ngày này.</p>
-              ) : (
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(110px, 1fr))", gap: 8, marginTop: 8 }}>
-                  {rescheduleSlotsQuery.data?.map((slot) => (
-                    <DsButton key={slot.id} variant={rescheduleSlotId === slot.id ? "primary" : "default"} aria-pressed={rescheduleSlotId === slot.id} onClick={() => setRescheduleSlotId(slot.id)}>
-                      {slot.startTime} - {slot.endTime}
-                    </DsButton>
-                  ))}
-                </div>
-              )}
-            </div>
-            <DsField label="Lý do đổi lịch" htmlFor="reschedule-reason" required>
-              <DsTextarea id="reschedule-reason" rows={2} value={rescheduleReason} placeholder="Ví dụ: bác sĩ thay đổi lịch làm việc" onChange={(event) => setRescheduleReason(event.target.value)} />
-            </DsField>
-          </DsDialog>
+          {rescheduleTarget?.id === selected.id ? (
+            <RescheduleDialog
+              appointment={rescheduleTarget}
+              onClose={() => setRescheduleTarget(null)}
+              onRescheduled={setSelected}
+              onNotice={setNotice}
+              onError={setError}
+              invalidate={invalidateAppointments}
+            />
+          ) : null}
 
           <div className="ds-card">
             <div className="ds-card__head">
               <h3>Người khám</h3>
-              {canEditSelectedPatientInfo && !editingPatientInfo ? <DsButton onClick={() => startPatientInfoEdit(selected)}>Cập nhật tiếp nhận</DsButton> : null}
+              {canEditSelectedPatientInfo && !editingPatientInfo ? <DsButton onClick={startPatientInfoEdit}>Cập nhật tiếp nhận</DsButton> : null}
             </div>
             <div className="ds-card__body">
               <DsKeyValue
@@ -726,77 +542,16 @@ export default function AppointmentsPage() {
             </div>
           </div>
 
-          <DsDialog
-            open={editingPatientInfo && canEditSelectedPatientInfo}
-            onOpenChange={(open) => {
-              if (!open) { setEditingPatientInfo(false); setPatientInfoForm(buildPatientInfoForm(selected)); }
-            }}
-            title="Thông tin tiếp nhận"
-            description="Dùng để xác minh thông tin người khám và BHYT trước khi phát hành hóa đơn."
-            size="lg"
-            footer={
-              <>
-                <DsButton onClick={() => { setEditingPatientInfo(false); setPatientInfoForm(buildPatientInfoForm(selected)); }}>Đóng</DsButton>
-                <DsButton type="submit" variant="primary" loading={busy}>
-                  {busy ? "Đang lưu..." : "Lưu thông tin"}
-                </DsButton>
-              </>
-            }
-          >
-            <form id="pi-form" onSubmit={updatePatientInfo} aria-label="Thông tin tiếp nhận" className="ds-dialog__form">
-                    <DsField label="Họ tên người khám" htmlFor="pi-name" required>
-                      <DsInput id="pi-name" value={patientInfoForm.patientName} required onChange={(event) => updatePatientInfoField("patientName", event.target.value)} />
-                    </DsField>
-                    <div className="ds-grid-fields">
-                      <DsField label="Email" htmlFor="pi-email">
-                        <DsInput id="pi-email" type="email" value={patientInfoForm.patientEmail} onChange={(event) => updatePatientInfoField("patientEmail", event.target.value)} />
-                      </DsField>
-                      <DsField label="Giới tính" htmlFor="pi-gender">
-                        <DsSelect id="pi-gender" value={patientInfoForm.gender} onChange={(event) => updatePatientInfoField("gender", event.target.value as PatientInfoForm["gender"])}>
-                          <option value="">Chưa cập nhật</option>
-                          <option value="MALE">Nam</option>
-                          <option value="FEMALE">Nữ</option>
-                          <option value="OTHER">Khác</option>
-                        </DsSelect>
-                      </DsField>
-                      <DsField label="Ngày sinh" htmlFor="pi-dob">
-                        <VietnamDateInput value={patientInfoForm.dateOfBirth} max={getVietnamYesterdayDateInput()} ariaLabel="Ngày sinh người khám" onChange={(value) => updatePatientInfoField("dateOfBirth", value)} className="ds-input" />
-                      </DsField>
-                      <DsField label="Căn cước công dân" htmlFor="pi-cccd">
-                        <DsInput id="pi-cccd" value={patientInfoForm.cccd} onChange={(event) => updatePatientInfoField("cccd", event.target.value)} />
-                      </DsField>
-                    </div>
-                    <DsField label="Địa chỉ" htmlFor="pi-address">
-                      <DsInput id="pi-address" value={patientInfoForm.address} onChange={(event) => updatePatientInfoField("address", event.target.value)} />
-                    </DsField>
-                    <label className="ds-check" style={{ cursor: "pointer" }}>
-                      <input type="checkbox" checked={patientInfoForm.hasBHYT} onChange={(event) => updatePatientInfoField("hasBHYT", event.target.checked)} style={{ marginTop: 3 }} />
-                      <span>
-                        <strong>Người khám có BHYT</strong>
-                        <small style={{ display: "block", color: "var(--ds-muted)" }}>Tắt mục này sẽ đặt giảm trừ BHYT về 0.</small>
-                      </span>
-                    </label>
-                    {patientInfoForm.hasBHYT ? (
-                      <div className="ds-grid-fields">
-                        <DsField label="Mã thẻ BHYT" htmlFor="pi-bhyt" required>
-                          <DsInput id="pi-bhyt" value={patientInfoForm.healthInsuranceCode} required onChange={(event) => updatePatientInfoField("healthInsuranceCode", event.target.value)} />
-                        </DsField>
-                        <DsField label="Nơi đăng ký khám chữa bệnh" htmlFor="pi-hospital">
-                          <DsInput id="pi-hospital" value={patientInfoForm.registeredHospital} onChange={(event) => updatePatientInfoField("registeredHospital", event.target.value)} />
-                        </DsField>
-                      </div>
-                    ) : null}
-                    <DsField label="Dị ứng" htmlFor="pi-allergies">
-                      <DsTextarea id="pi-allergies" rows={2} value={patientInfoForm.allergies} onChange={(event) => updatePatientInfoField("allergies", event.target.value)} />
-                    </DsField>
-                    <DsField label="Tiền sử bệnh" htmlFor="pi-history">
-                      <DsTextarea id="pi-history" rows={2} value={patientInfoForm.medicalHistory} onChange={(event) => updatePatientInfoField("medicalHistory", event.target.value)} />
-                    </DsField>
-                    <DsField label="Tiền sử gia đình" htmlFor="pi-family">
-                      <DsTextarea id="pi-family" rows={2} value={patientInfoForm.familyHistory} onChange={(event) => updatePatientInfoField("familyHistory", event.target.value)} />
-                    </DsField>
-            </form>
-          </DsDialog>
+          {editingPatientInfo && canEditSelectedPatientInfo ? (
+            <PatientInfoDialog
+              appointment={selected}
+              onClose={() => setEditingPatientInfo(false)}
+              onSaved={setSelected}
+              onNotice={setNotice}
+              onError={setError}
+              invalidate={invalidateAppointments}
+            />
+          ) : null}
         </div>
 
         <div className="ds-editor__col">
