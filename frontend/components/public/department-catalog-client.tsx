@@ -8,6 +8,7 @@ import { PublicCatalogSearch, PublicPagination } from "@/components/public/publi
 import { CatalogHeader, CatalogStatusBar, ChatbotHint, ChipRow, FilterChip, FlatSelect } from "@/components/public/catalog-parts";
 import { PublicEmptyState } from "@/components/public/public-page-layout";
 import type { PublicDepartmentCatalogItem } from "@/components/public/public-home-types";
+import { toneGradient } from "@/lib/dept-tone";
 import { usePublicDepartmentCatalog } from "@/lib/public-lists-query";
 import { openPublicChatbot } from "@/lib/public-ui-events";
 
@@ -159,16 +160,11 @@ function CardSkeleton() {
   );
 }
 
-// Màu thẻ chuyên khoa chưa có ảnh: chọn theo tên để mỗi khoa luôn cùng một màu.
-const TONES = [["#2f7fc4", "#1d5a96"], ["#2aa198", "#177d74"], ["#d98a3d", "#b36a22"], ["#6c63c7", "#4a43a0"]] as const;
-const toneOf = (name: string) => TONES[(name.charCodeAt(0) + name.length) % TONES.length];
-
 // Thẻ chuyên khoa: ảnh (hoặc ô biểu tượng màu khi chưa có ảnh), tên, mô tả, số liệu thật; cả thẻ là một vùng bấm vào trang chi tiết.
 // Còn lịch trống thì nút chính là Đặt lịch; hết lịch thì nút chính đổi thành Xem bác sĩ (không đẩy người dùng vào luồng đặt khi chưa có giờ).
 function DepartmentCard({ department, index }: { department: PublicDepartmentCatalogItem; index: number }) {
   const detailUrl = department.slug ? `/chuyen-khoa/${department.slug}` : `/bac-si?departmentId=${department.id}`;
   const hasSlots = department.availableSlotCount > 0;
-  const [from, to] = toneOf(department.name);
   const meta = [
     department.doctorCount ? `${department.doctorCount} bác sĩ` : "",
     department.packageCount ? `${department.packageCount} gói khám` : "",
@@ -181,7 +177,7 @@ function DepartmentCard({ department, index }: { department: PublicDepartmentCat
           // eslint-disable-next-line @next/next/no-img-element
           <img src={department.image} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover transition-transform duration-300 group-hover/dept:scale-105" />
         ) : (
-          <span className="flex h-full w-full items-center justify-center" style={{ background: `linear-gradient(135deg, ${from}, ${to})` }}>
+          <span className="flex h-full w-full items-center justify-center" style={{ background: toneGradient(department.name) }}>
             <Stethoscope className="h-10 w-10 text-white/90" aria-hidden="true" />
           </span>
         )}

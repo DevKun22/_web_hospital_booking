@@ -9,18 +9,24 @@ import { openPublicChatbot } from "@/lib/public-ui-events";
 
 // Đầu trang danh mục: đường dẫn, tiêu đề, một câu mô tả. Biến thể "brand" (các danh mục dịch vụ) là dải xanh thấp cùng ngôn ngữ với trang chủ, sóng nhẹ ở đáy; biến thể mặc định
 // là nền trắng trơn. Không có ảnh nền, ô số liệu hay nhãn trang trí.
-export function CatalogHeader({ current, title, description, children, brand = false }: { current: string; title: string; description?: string; children?: ReactNode; brand?: boolean }) {
+export function CatalogHeader({ current, title, description, children, brand = false, trail = [], overlap = false }: { current: string; title: string; description?: string; children?: ReactNode; brand?: boolean; trail?: { label: string; href: string }[]; overlap?: boolean }) {
   if (brand) {
     return (
       <header className="relative bg-[linear-gradient(120deg,var(--hero-from)_0%,var(--hero-via)_58%,var(--hero-to)_100%)] text-white">
         <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden">
           <WaveEdge />
         </div>
-        <div className="ui-container relative z-10 pb-9 pt-5 sm:pb-11 sm:pt-7">
+        <div className={`ui-container relative z-10 pt-5 sm:pt-7 ${overlap ? "pb-9 sm:pb-11 lg:pb-28" : "pb-9 sm:pb-11"}`}>
           <nav aria-label="Đường dẫn trang" className="mb-3 flex items-center gap-1.5 text-sm text-white/80">
             <Link href="/" className="hover:text-white hover:underline">Trang chủ</Link>
-            <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" />
-            <span className="font-semibold text-white" aria-current="page">{current}</span>
+            {trail.map((crumb) => (
+              <span key={crumb.href} className="contents">
+                <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" />
+                <Link href={crumb.href} className="hover:text-white hover:underline">{crumb.label}</Link>
+              </span>
+            ))}
+            <ChevronRight className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+            <span className="truncate font-semibold text-white" aria-current="page">{current}</span>
           </nav>
           <h1 className="text-2xl font-bold text-white sm:text-3xl">{title}</h1>
           {description ? <p className="mt-2 max-w-2xl text-base leading-7 text-white/90">{description}</p> : null}
