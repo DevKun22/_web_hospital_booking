@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hospital_booking_mobile/core/widgets/app_error_banner.dart';
 import 'package:hospital_booking_mobile/core/widgets/app_ui.dart';
+import 'package:hospital_booking_mobile/features/auth/presentation/auth_shell.dart';
 import 'package:hospital_booking_mobile/features/auth/application/auth_controller.dart';
 import 'package:hospital_booking_mobile/features/auth/application/auth_state.dart';
 import 'package:hospital_booking_mobile/features/legal/legal.dart';
@@ -41,142 +42,101 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       onPopInvokedWithResult: (didPop, _) {
         if (!didPop) _leaveLoginAfterFrame();
       },
-      child: Scaffold(
-        appBar: AppBar(
-          leading: IconButton(
-            onPressed: _leaveLogin,
-            icon: const Icon(Icons.arrow_back_rounded),
-            tooltip: 'Về trang chủ',
-          ),
-        ),
-        body: SafeArea(
-          child: Center(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(24),
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 480),
-                child: Form(
-                  key: _formKey,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
+      child: AuthShell(
+        title: 'Đăng nhập người khám',
+        subtitle: 'Nhập email đã dùng khi đặt lịch để nhận mã OTP bảo mật.',
+        backTooltip: 'Về trang chủ',
+        onBack: _leaveLogin,
+        child: Form(
+          key: _formKey,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (protectedFeatureMessage != null) ...[
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 12,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.primaryContainer,
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Center(child: AppBrandMark(size: 64)),
-                      const SizedBox(height: 24),
-                      Text(
-                        'Đăng nhập người khám',
-                        textAlign: TextAlign.center,
-                        style: Theme.of(context).textTheme.headlineSmall
-                            ?.copyWith(fontWeight: FontWeight.w700),
+                      Icon(
+                        Icons.lock_outline_rounded,
+                        size: 20,
+                        color: Theme.of(context).colorScheme.onPrimaryContainer,
                       ),
-                      const SizedBox(height: 8),
-                      const Text(
-                        'Nhập email đã dùng khi đặt lịch để nhận mã OTP bảo mật.',
-                        textAlign: TextAlign.center,
-                      ),
-                      if (protectedFeatureMessage != null) ...[
-                        const SizedBox(height: 14),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 14,
-                            vertical: 12,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Theme.of(
-                              context,
-                            ).colorScheme.primaryContainer,
-                            borderRadius: BorderRadius.circular(14),
-                          ),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Icon(
-                                Icons.lock_outline_rounded,
-                                size: 20,
-                                color: Theme.of(
-                                  context,
-                                ).colorScheme.onPrimaryContainer,
-                              ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: Text(
-                                  protectedFeatureMessage,
-                                  style: Theme.of(context).textTheme.bodyMedium
-                                      ?.copyWith(
-                                        color: Theme.of(
-                                          context,
-                                        ).colorScheme.onPrimaryContainer,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                      const SizedBox(height: 28),
-                      if (visibleError != null) ...[
-                        AppErrorBanner(
-                          error: visibleError,
-                          onDismiss: ref
-                              .read(authControllerProvider.notifier)
-                              .dismissError,
-                        ),
-                        const SizedBox(height: 16),
-                      ],
-                      TextFormField(
-                        controller: _emailController,
-                        keyboardType: TextInputType.emailAddress,
-                        textInputAction: TextInputAction.done,
-                        autofillHints: const [AutofillHints.email],
-                        decoration: const InputDecoration(
-                          labelText: 'Email',
-                          hintText: 'ban@email.com',
-                          prefixIcon: Icon(Icons.email_outlined),
-                        ),
-                        validator: (value) =>
-                            RegExp(
-                              r'^[^\s@]+@[^\s@]+\.[^\s@]+$',
-                            ).hasMatch(value?.trim() ?? '')
-                            ? null
-                            : 'Nhập email hợp lệ',
-                        onFieldSubmitted: (_) => _submit(),
-                      ),
-                      const SizedBox(height: 8),
-                      TermsConsentTile(
-                        value: _termsAccepted,
-                        onChanged: (value) =>
-                            setState(() => _termsAccepted = value),
-                      ),
-                      const SizedBox(height: 10),
-                      AppPrimaryButton(
-                        label: 'Gửi mã OTP',
-                        loading: isLoading,
-                        onPressed: _submit,
-                      ),
-                      const SizedBox(height: 18),
-                      Text(
-                        'Bằng việc tiếp tục, bạn đồng ý sử dụng email để xác thực tài khoản người khám.',
-                        textAlign: TextAlign.center,
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
-                      if (widget.returnTo != null) ...[
-                        const SizedBox(height: 12),
-                        Text(
-                          'Sau khi đăng nhập, bạn sẽ được đưa trở lại tính năng vừa chọn.',
-                          textAlign: TextAlign.center,
-                          style: Theme.of(context).textTheme.bodySmall
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          protectedFeatureMessage,
+                          style: Theme.of(context).textTheme.bodyMedium
                               ?.copyWith(
                                 color: Theme.of(
                                   context,
-                                ).colorScheme.onSurfaceVariant,
+                                ).colorScheme.onPrimaryContainer,
+                                fontWeight: FontWeight.w600,
                               ),
                         ),
-                      ],
+                      ),
                     ],
                   ),
                 ),
+                const SizedBox(height: 16),
+              ],
+              if (visibleError != null) ...[
+                AppErrorBanner(
+                  error: visibleError,
+                  onDismiss: ref
+                      .read(authControllerProvider.notifier)
+                      .dismissError,
+                ),
+                const SizedBox(height: 16),
+              ],
+              TextFormField(
+                controller: _emailController,
+                keyboardType: TextInputType.emailAddress,
+                textInputAction: TextInputAction.done,
+                autofillHints: const [AutofillHints.email],
+                decoration: const InputDecoration(
+                  labelText: 'Email',
+                  hintText: 'ban@email.com',
+                  prefixIcon: Icon(Icons.email_outlined),
+                ),
+                validator: (value) =>
+                    RegExp(
+                      r'^[^\s@]+@[^\s@]+\.[^\s@]+$',
+                    ).hasMatch(value?.trim() ?? '')
+                    ? null
+                    : 'Nhập email hợp lệ',
+                onFieldSubmitted: (_) => _submit(),
               ),
-            ),
+              const SizedBox(height: 8),
+              TermsConsentTile(
+                value: _termsAccepted,
+                onChanged: (value) => setState(() => _termsAccepted = value),
+              ),
+              const SizedBox(height: 10),
+              AppPrimaryButton(
+                label: 'Gửi mã OTP',
+                loading: isLoading,
+                onPressed: _submit,
+              ),
+              const SizedBox(height: 18),
+              Text(
+                widget.returnTo == null
+                    ? 'Đặt lịch lần đầu sẽ tự tạo tài khoản người khám bằng email này.'
+                    : 'Sau khi đăng nhập, bạn sẽ được đưa trở lại tính năng vừa chọn.',
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
           ),
         ),
       ),
@@ -241,9 +201,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     }
     if (returnTo.startsWith('/notifications')) {
       return 'Vui lòng đăng nhập để xem thông báo.';
-    }
-    if (returnTo.startsWith('/records')) {
-      return 'Vui lòng đăng nhập để xem hồ sơ của bạn.';
     }
     return 'Vui lòng đăng nhập để tiếp tục tính năng đã chọn.';
   }

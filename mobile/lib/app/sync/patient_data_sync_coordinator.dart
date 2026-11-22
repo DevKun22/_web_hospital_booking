@@ -166,12 +166,12 @@ class DefaultPatientDataSyncCoordinator implements PatientDataSyncCoordinator {
     switch (MainNavigationBranch.fromIndex(branchIndex)) {
       case MainNavigationBranch.home:
         await _refreshStale(_homeSources);
-      case MainNavigationBranch.records:
+      case MainNavigationBranch.appointments:
         await _refreshStale(_recordsSources);
       case MainNavigationBranch.profile:
         // Tab hồ sơ cá nhân luôn đồng bộ, kể cả khi chưa mở màn hình trước đó.
         await _profile.refreshIfStale(_ref);
-      case MainNavigationBranch.assistant:
+      case MainNavigationBranch.services:
       case MainNavigationBranch.booking:
         return;
     }

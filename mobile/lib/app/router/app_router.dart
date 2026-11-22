@@ -23,7 +23,6 @@ import 'package:hospital_booking_mobile/features/auth/presentation/login_screen.
 import 'package:hospital_booking_mobile/features/auth/presentation/auth_gate.dart';
 import 'package:hospital_booking_mobile/features/auth/presentation/verify_otp_screen.dart';
 import 'package:hospital_booking_mobile/features/home/presentation/home_screen.dart';
-import 'package:hospital_booking_mobile/features/health_hub/presentation/health_hub_screen.dart';
 import 'package:hospital_booking_mobile/features/invoices/presentation/invoice_detail_screen.dart';
 import 'package:hospital_booking_mobile/features/invoices/presentation/invoices_screen.dart';
 import 'package:hospital_booking_mobile/features/medical_records/presentation/medical_document_screen.dart';
@@ -98,13 +97,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           StatefulShellBranch(
             routes: [
               GoRoute(
-                path: '/records',
+                path: '/services',
                 builder: (_, _) => MainBranchBackScope(
                   controller: mainNavigationHistory,
-                  child: const AuthGate(
-                    title: 'hồ sơ sức khỏe',
-                    child: HealthHubScreen(),
-                  ),
+                  child: const DepartmentListScreen(),
                 ),
               ),
             ],
@@ -142,14 +138,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           StatefulShellBranch(
             routes: [
               GoRoute(
-                path: '/chatbot',
-                pageBuilder: (_, state) => NoTransitionPage<void>(
-                  key: ValueKey(state.uri.toString()),
-                  child: MainBranchBackScope(
-                    controller: mainNavigationHistory,
-                    child: ChatbotScreen(
-                      initialPrompt: state.uri.queryParameters['prompt'],
-                    ),
+                path: '/appointments',
+                builder: (_, _) => MainBranchBackScope(
+                  controller: mainNavigationHistory,
+                  child: const AuthGate(
+                    title: 'lịch hẹn',
+                    child: AppointmentsScreen(),
                   ),
                 ),
               ),
@@ -238,11 +232,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (_, _) => const BookingSuccessScreen(),
       ),
       GoRoute(
-        path: '/appointments',
-        builder: (_, _) => const AppRouteBackScope(
-          fallbackLocation: '/home',
-          child: AuthGate(title: 'lịch hẹn', child: AppointmentsScreen()),
-        ),
+        path: '/chatbot',
+        builder: (_, state) =>
+            ChatbotScreen(initialPrompt: state.uri.queryParameters['prompt']),
       ),
       GoRoute(
         path: '/notification-appointments',

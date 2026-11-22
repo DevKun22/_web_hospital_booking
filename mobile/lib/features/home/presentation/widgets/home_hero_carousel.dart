@@ -129,7 +129,7 @@ class _HeroCarouselState extends State<HomeHeroCarousel>
   Widget build(BuildContext context) => LayoutBuilder(
     builder: (context, constraints) {
       final bannerHeight = (constraints.maxWidth / 2.02)
-          .clamp(166.0, 190.0)
+          .clamp(208.0, 232.0)
           .toDouble();
       return Column(
         children: [

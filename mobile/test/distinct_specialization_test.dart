@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hospital_booking_mobile/core/formatters/display_formatters.dart';
-import 'package:hospital_booking_mobile/features/home/presentation/widgets/home_chrome.dart';
+import 'package:hospital_booking_mobile/features/home/presentation/widgets/home_band.dart';
 
 void main() {
   test('specialization that only repeats the department is hidden', () {
@@ -17,29 +17,30 @@ void main() {
     expect(distinctSpecialization('nhi', null), 'nhi');
   });
 
-  testWidgets('guests see a login button on the home header, members do not', (
+  testWidgets('home band opens the account, search and Kun chat', (
     tester,
   ) async {
-    var taps = 0;
-    Widget header({required bool authenticated}) => MaterialApp(
-      home: Scaffold(
-        body: HomeHeader(
-          hospitalName: 'DevKunCare',
-          userName: authenticated ? 'Gu' : null,
-          avatar: null,
-          isAuthenticated: authenticated,
-          unreadNotificationCount: 0,
-          onNotifications: () {},
-          onLogin: () => taps += 1,
+    final taps = <String>[];
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: HomeBand(
+            isAuthenticated: false,
+            avatar: null,
+            unreadNotificationCount: 3,
+            onAccount: () => taps.add('account'),
+            onSearch: () => taps.add('search'),
+            onAsk: () => taps.add('ask'),
+            onNotifications: () => taps.add('bell'),
+          ),
         ),
       ),
     );
 
-    await tester.pumpWidget(header(authenticated: false));
     await tester.tap(find.byKey(const Key('home-login-button')));
-    expect(taps, 1);
-
-    await tester.pumpWidget(header(authenticated: true));
-    expect(find.byKey(const Key('home-login-button')), findsNothing);
+    await tester.tap(find.byKey(const Key('home-search-button')));
+    await tester.tap(find.byKey(const Key('home-ask-kun-button')));
+    await tester.tap(find.byTooltip('3 thông báo chưa đọc'));
+    expect(taps, ['account', 'search', 'ask', 'bell']);
   });
 }

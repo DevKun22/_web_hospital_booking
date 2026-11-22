@@ -148,7 +148,7 @@ void main() {
       ),
     );
 
-    expect(find.text('DevKunCare'), findsOneWidget);
+    expect(find.text('Đặt lịch khám trực tuyến'), findsOneWidget);
     expect(find.text('Vui lòng đợi trước khi gửi lại OTP.'), findsNothing);
   });
 
@@ -170,7 +170,6 @@ void main() {
       ),
     );
 
-    expect(find.text('Cơ sở khám kiểm thử'), findsOneWidget);
     expect(find.text('Chăm sóc từ trái tim'), findsOneWidget);
     expect(find.text('Tim mạch'), findsWidgets);
     expect(find.text('BS. CKI Nguyễn Văn An'), findsOneWidget);
@@ -180,15 +179,15 @@ void main() {
     expect(find.text('15:30'), findsNothing);
     expect(find.text('Xem thêm +1'), findsOneWidget);
     expect(find.text('Khám tổng quát'), findsOneWidget);
-    expect(find.text('Tiện ích chăm sóc sức khỏe'), findsOneWidget);
-    expect(find.text('Trợ lý đặt lịch 24/7'), findsNothing);
-    expect(find.text('Tất cả'), findsOneWidget);
-
-    await tester.tap(find.text('Tất cả'));
-    await tester.pumpAndSettle();
-    expect(find.text('Tất cả dịch vụ'), findsOneWidget);
-    expect(find.text('Danh sách chuyên khoa'), findsOneWidget);
-    expect(find.text('Trợ lý đặt lịch 24/7'), findsOneWidget);
+    for (final key in [
+      'home-link-departments',
+      'home-link-doctors',
+      'home-link-packages',
+      'home-link-knowledge',
+    ]) {
+      expect(find.byKey(Key(key)), findsOneWidget, reason: key);
+    }
+    expect(find.byKey(const Key('home-hero-book')), findsOneWidget);
   });
 
   testWidgets('authenticated home shows the unread notification badge', (
@@ -244,7 +243,6 @@ void main() {
 
     expect(find.text('Lịch khám sắp tới'), findsOneWidget);
     expect(find.byKey(const Key('home-appointment-qr')), findsOneWidget);
-    expect(find.text('Trợ lý đặt lịch 24/7'), findsNothing);
 
     await tester.tap(find.byKey(const Key('home-appointment-qr')));
     await tester.pumpAndSettle();
@@ -395,14 +393,6 @@ void main() {
     );
     expect(find.text('Kết nối lại'), findsOneWidget);
     expect(find.textContaining('nội dung công khai đã lưu'), findsOneWidget);
-    expect(find.text('Cần mạng'), findsWidgets);
     expect(find.text('Đã có tài khoản bệnh nhân?'), findsNothing);
-
-    await tester.tap(find.text('Tra cứu lịch hẹn'));
-    await tester.pump();
-    expect(
-      find.text('Cần kết nối mạng và khôi phục phiên để mở thông tin cá nhân.'),
-      findsOneWidget,
-    );
   });
 }

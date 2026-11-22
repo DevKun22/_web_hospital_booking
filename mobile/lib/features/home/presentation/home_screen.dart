@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hospital_booking_mobile/core/widgets/app_error_banner.dart';
@@ -15,7 +16,9 @@ import 'package:hospital_booking_mobile/features/home/application/home_search_hi
 
 import 'package:hospital_booking_mobile/features/home/presentation/widgets/home_appointment_action_card.dart';
 import 'package:hospital_booking_mobile/features/notifications/application/notifications_controller.dart';
-import 'package:hospital_booking_mobile/features/home/presentation/widgets/home_service_hub.dart';
+import 'package:hospital_booking_mobile/features/home/presentation/widgets/home_band.dart';
+import 'package:hospital_booking_mobile/features/home/presentation/widgets/home_hero_card.dart';
+import 'package:hospital_booking_mobile/features/home/presentation/widgets/home_quick_links.dart';
 import 'package:hospital_booking_mobile/features/home/presentation/widgets/home_catalog_sections.dart';
 import 'package:hospital_booking_mobile/features/home/presentation/widgets/home_chrome.dart';
 import 'package:hospital_booking_mobile/features/home/presentation/widgets/home_doctor_section.dart';
@@ -38,235 +41,294 @@ class HomeScreen extends ConsumerWidget {
     final isOfflineBrowsing = dashboard.isOfflineBrowsing;
     final sessionError = auth.errorFor(AuthErrorOrigin.session);
     final restoreError = auth.errorFor(AuthErrorOrigin.sessionRestore);
-    final hospitalName = content?.siteSettings.hospitalName;
     final upcomingAppointment = dashboard.nextAppointment;
     final unreadNotificationCount = dashboard.unreadNotificationCount;
 
+    final openSearch = content == null
+        ? ref.read(homeContentControllerProvider.notifier).refresh
+        : () => showHomeSearch(
+            context,
+            content,
+            ref.read(homeSearchHistoryStoreProvider),
+          );
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Scaffold(
       backgroundColor: context.colors.canvas,
-      body: RefreshIndicator(
-        onRefresh: () => Future.wait([
-          ref.read(homeContentControllerProvider.notifier).refresh(),
-          if (isAuthenticated)
-            ref.read(notificationsControllerProvider.notifier).refresh(),
-          if (isAuthenticated)
-            ref.read(appointmentsControllerProvider.notifier).refresh(),
-        ]),
-        child: CustomScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          slivers: [
-            SliverAppBar(
-              pinned: true,
-              automaticallyImplyLeading: false,
-              backgroundColor: context.colors.surface,
-              surfaceTintColor: Colors.transparent,
-              elevation: 0,
-              scrolledUnderElevation: 2,
-              shadowColor: context.colors.shadowTint,
-              toolbarHeight: 64,
-              titleSpacing: 14,
-              title: HomeHeader(
-                hospitalName: hospitalName,
-                userName: user?.fullName,
-                avatar: user?.avatar,
-                isAuthenticated: isAuthenticated,
-                unreadNotificationCount: unreadNotificationCount,
-                onLogin: () => context.go('/login'),
-                onNotifications: isOfflineBrowsing
-                    ? ref.read(authControllerProvider.notifier).bootstrapSession
-                    : isAuthenticated
-                    ? () => context.go('/notifications')
-                    : () => context.go('/login'),
-              ),
-            ),
-            if (sessionError != null && restoreError == null)
-              SliverPadding(
-                padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
-                sliver: SliverToBoxAdapter(
-                  child: AppErrorBanner(
-                    error: sessionError,
-                    onDismiss: ref
-                        .read(authControllerProvider.notifier)
-                        .dismissError,
-                  ),
-                ),
-              ),
-            if (restoreError != null)
-              SliverPadding(
-                padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
-                sliver: SliverToBoxAdapter(
-                  child: HomeOfflineContentNotice(
-                    message: restoreError.message,
-                    onRetry: ref
-                        .read(authControllerProvider.notifier)
-                        .bootstrapSession,
-                  ),
-                ),
-              ),
-            if (homeState.error != null &&
-                content != null &&
-                restoreError == null)
-              SliverPadding(
-                padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
-                sliver: SliverToBoxAdapter(
-                  child: AppErrorBanner(
-                    error: homeState.error!,
-                    onDismiss: ref
-                        .read(homeContentControllerProvider.notifier)
-                        .dismissError,
-                  ),
-                ),
-              ),
-            SliverPadding(
-              padding: const EdgeInsets.fromLTRB(14, 10, 14, 0),
-              sliver: SliverToBoxAdapter(
-                child: Column(
-                  children: [
-                    HomeSearchBar(
-                      onTap: content == null
+      body: AnnotatedRegion<SystemUiOverlayStyle>(
+        value: SystemUiOverlayStyle(
+          statusBarColor: Colors.transparent,
+          statusBarIconBrightness: Brightness.light,
+          statusBarBrightness: Brightness.dark,
+          systemNavigationBarColor: context.colors.canvas,
+          systemNavigationBarIconBrightness: isDark
+              ? Brightness.light
+              : Brightness.dark,
+          systemNavigationBarDividerColor: Colors.transparent,
+        ),
+        child: Stack(
+          children: [
+            RefreshIndicator(
+              onRefresh: () => Future.wait([
+                ref.read(homeContentControllerProvider.notifier).refresh(),
+                if (isAuthenticated)
+                  ref.read(notificationsControllerProvider.notifier).refresh(),
+                if (isAuthenticated)
+                  ref.read(appointmentsControllerProvider.notifier).refresh(),
+              ]),
+              child: CustomScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                slivers: [
+                  SliverToBoxAdapter(
+                    child: _HomeTop(
+                      isAuthenticated: isAuthenticated,
+                      avatar: user?.avatar,
+                      unreadNotificationCount: unreadNotificationCount,
+                      onAccount: () =>
+                          context.go(isAuthenticated ? '/profile' : '/login'),
+                      onSearch: openSearch,
+                      onAsk: () => context.push('/chatbot'),
+                      onNotifications: isOfflineBrowsing
                           ? ref
-                                .read(homeContentControllerProvider.notifier)
-                                .refresh
-                          : () => showHomeSearch(
-                              context,
-                              content,
-                              ref.read(homeSearchHistoryStoreProvider),
+                                .read(authControllerProvider.notifier)
+                                .bootstrapSession
+                          : isAuthenticated
+                          ? () => context.push('/notifications')
+                          : () => context.push('/login'),
+                      card: upcomingAppointment == null
+                          ? HomeBookingHeroCard(
+                              isAuthenticated: isAuthenticated,
+                            )
+                          : Column(
+                              children: [
+                                HomeAppointmentActionCard(
+                                  appointment: upcomingAppointment,
+                                  onOpen: () => context.push(
+                                    '/appointments/${Uri.encodeComponent(upcomingAppointment.id)}',
+                                  ),
+                                  onShowQr: () => showAppointmentQrTicket(
+                                    context,
+                                    appointment: upcomingAppointment,
+                                    payload: ref
+                                        .read(appointmentDeviceActionsProvider)
+                                        .qrPayload(upcomingAppointment),
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                const Align(
+                                  alignment: Alignment.centerLeft,
+                                  child: HomeShortcutChips(
+                                    items: homeMemberShortcuts,
+                                  ),
+                                ),
+                              ],
                             ),
                     ),
-                    if (content != null && content.departments.isNotEmpty) ...[
-                      const SizedBox(height: 8),
-                      HomeQuickDepartmentChips(
-                        items: content.departments.take(5).toList(),
+                  ),
+                  if (sessionError != null && restoreError == null)
+                    SliverPadding(
+                      padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
+                      sliver: SliverToBoxAdapter(
+                        child: AppErrorBanner(
+                          error: sessionError,
+                          onDismiss: ref
+                              .read(authControllerProvider.notifier)
+                              .dismissError,
+                        ),
                       ),
-                    ],
-                  ],
-                ),
-              ),
-            ),
-            if (upcomingAppointment != null)
-              SliverPadding(
-                padding: const EdgeInsets.fromLTRB(14, 12, 14, 0),
-                sliver: SliverToBoxAdapter(
-                  child: HomeAppointmentActionCard(
-                    appointment: upcomingAppointment,
-                    onOpen: () => context.push(
-                      '/appointments/${Uri.encodeComponent(upcomingAppointment.id)}',
                     ),
-                    onShowQr: () => showAppointmentQrTicket(
-                      context,
-                      appointment: upcomingAppointment,
-                      payload: ref
-                          .read(appointmentDeviceActionsProvider)
-                          .qrPayload(upcomingAppointment),
+                  if (restoreError != null)
+                    SliverPadding(
+                      padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
+                      sliver: SliverToBoxAdapter(
+                        child: HomeOfflineContentNotice(
+                          message: restoreError.message,
+                          onRetry: ref
+                              .read(authControllerProvider.notifier)
+                              .bootstrapSession,
+                        ),
+                      ),
+                    ),
+                  if (homeState.error != null &&
+                      content != null &&
+                      restoreError == null)
+                    SliverPadding(
+                      padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
+                      sliver: SliverToBoxAdapter(
+                        child: AppErrorBanner(
+                          error: homeState.error!,
+                          onDismiss: ref
+                              .read(homeContentControllerProvider.notifier)
+                              .dismissError,
+                        ),
+                      ),
+                    ),
+                  if (isAuthenticated)
+                    const SliverPadding(
+                      padding: EdgeInsets.fromLTRB(14, 12, 14, 0),
+                      sliver: SliverToBoxAdapter(child: HomeSetupPrompts()),
+                    ),
+                  const SliverPadding(
+                    padding: EdgeInsets.fromLTRB(14, 12, 14, 0),
+                    sliver: SliverToBoxAdapter(child: HomeQuickLinks()),
+                  ),
+                  SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(
+                      14,
+                      14,
+                      14,
+                      appMainContentBottomInset,
+                    ),
+                    sliver: SliverList(
+                      delegate: SliverChildListDelegate([
+                        if (homeState.isInitialLoading) ...[
+                          const AppLoadingSkeleton(height: 120),
+                          const SizedBox(height: 12),
+                          const AppLoadingSkeleton(height: 180),
+                        ] else if (content == null) ...[
+                          AppEmptyState(
+                            icon: Icons.cloud_off_rounded,
+                            title: 'Chưa tải được nội dung',
+                            message:
+                                homeState.error?.message ??
+                                'Kéo xuống hoặc thử lại để kết nối máy chủ.',
+                            action: FilledButton.icon(
+                              onPressed: ref
+                                  .read(homeContentControllerProvider.notifier)
+                                  .refresh,
+                              icon: const Icon(Icons.refresh_rounded),
+                              label: const Text('Thử lại'),
+                            ),
+                          ),
+                        ] else ...[
+                          if (homeState.isRefreshing)
+                            const LinearProgressIndicator(minHeight: 2),
+                          if (homeState.usingCachedData &&
+                              restoreError == null) ...[
+                            const SizedBox(height: 8),
+                            const HomeCachedDataIndicator(),
+                          ],
+                          if (content.banners.isNotEmpty) ...[
+                            HomeSectionHeader(
+                              title: 'Chương trình & ưu đãi',
+                              actionLabel: null,
+                              onAction: null,
+                            ),
+                            const SizedBox(height: 6),
+                            HomeHeroCarousel(banners: content.banners),
+                          ],
+                          if (content.doctors.isNotEmpty) ...[
+                            const SizedBox(height: 14),
+                            HomeSectionHeader(
+                              title: 'Bác sĩ nổi bật',
+                              subtitle:
+                                  'Chọn bác sĩ và khung giờ phù hợp với bạn.',
+                              actionLabel: 'Xem tất cả',
+                              onAction: () => context.push('/doctors'),
+                            ),
+                            const SizedBox(height: 6),
+                            HomeDoctorList(
+                              items: content.doctors.take(5).toList(),
+                            ),
+                          ],
+                          if (content.departments.isNotEmpty) ...[
+                            const SizedBox(height: 14),
+                            HomeSectionHeader(
+                              title: 'Chuyên khoa nổi bật',
+                              actionLabel: 'Xem tất cả',
+                              onAction: () => context.push('/departments'),
+                            ),
+                            const SizedBox(height: 8),
+                            HomeDepartmentList(
+                              items: content.departments.take(6).toList(),
+                            ),
+                          ],
+                          if (content.packages.isNotEmpty) ...[
+                            const SizedBox(height: 14),
+                            HomeSectionHeader(
+                              title: 'Gói khám sức khỏe',
+                              actionLabel: 'Xem tất cả',
+                              onAction: () => context.push('/packages'),
+                            ),
+                            const SizedBox(height: 6),
+                            HomePackageList(
+                              items: content.packages.take(5).toList(),
+                            ),
+                          ],
+                          if (content.siteSettings.emergencyHotline !=
+                              null) ...[
+                            const SizedBox(height: 14),
+                            HomeEmergencyCard(
+                              hotline: content.siteSettings.emergencyHotline!,
+                              onTap: () => context.push('/support'),
+                            ),
+                          ],
+                        ],
+                      ]),
                     ),
                   ),
-                ),
-              ),
-            if (isAuthenticated)
-              const SliverPadding(
-                padding: EdgeInsets.fromLTRB(14, 12, 14, 0),
-                sliver: SliverToBoxAdapter(child: HomeSetupPrompts()),
-              ),
-            SliverPadding(
-              padding: const EdgeInsets.fromLTRB(14, 10, 14, 0),
-              sliver: SliverToBoxAdapter(
-                child: HomeServiceHub(
-                  isAuthenticated: isAuthenticated,
-                  isOfflineBrowsing: isOfflineBrowsing,
-                ),
+                ],
               ),
             ),
-            SliverPadding(
-              padding: const EdgeInsets.fromLTRB(
-                14,
-                14,
-                14,
-                appMainContentBottomInset,
-              ),
-              sliver: SliverList(
-                delegate: SliverChildListDelegate([
-                  if (homeState.isInitialLoading) ...[
-                    const AppLoadingSkeleton(height: 120),
-                    const SizedBox(height: 12),
-                    const AppLoadingSkeleton(height: 180),
-                  ] else if (content == null) ...[
-                    AppEmptyState(
-                      icon: Icons.cloud_off_rounded,
-                      title: 'Chưa tải được nội dung',
-                      message:
-                          homeState.error?.message ??
-                          'Kéo xuống hoặc thử lại để kết nối máy chủ.',
-                      action: FilledButton.icon(
-                        onPressed: ref
-                            .read(homeContentControllerProvider.notifier)
-                            .refresh,
-                        icon: const Icon(Icons.refresh_rounded),
-                        label: const Text('Thử lại'),
-                      ),
-                    ),
-                  ] else ...[
-                    if (homeState.isRefreshing)
-                      const LinearProgressIndicator(minHeight: 2),
-                    if (homeState.usingCachedData && restoreError == null) ...[
-                      const SizedBox(height: 8),
-                      const HomeCachedDataIndicator(),
-                    ],
-                    if (content.banners.isNotEmpty) ...[
-                      HomeSectionHeader(
-                        title: 'Chương trình & ưu đãi',
-                        actionLabel: null,
-                        onAction: null,
-                      ),
-                      const SizedBox(height: 6),
-                      HomeHeroCarousel(banners: content.banners),
-                    ],
-                    if (content.doctors.isNotEmpty) ...[
-                      const SizedBox(height: 14),
-                      HomeSectionHeader(
-                        title: 'Bác sĩ nổi bật',
-                        subtitle: 'Chọn bác sĩ và khung giờ phù hợp với bạn.',
-                        actionLabel: 'Xem tất cả',
-                        onAction: () => context.push('/doctors'),
-                      ),
-                      const SizedBox(height: 6),
-                      HomeDoctorList(items: content.doctors.take(5).toList()),
-                    ],
-                    if (content.departments.isNotEmpty) ...[
-                      const SizedBox(height: 14),
-                      HomeSectionHeader(
-                        title: 'Chuyên khoa nổi bật',
-                        actionLabel: 'Xem tất cả',
-                        onAction: () => context.push('/departments'),
-                      ),
-                      const SizedBox(height: 8),
-                      HomeDepartmentList(
-                        items: content.departments.take(6).toList(),
-                      ),
-                    ],
-                    if (content.packages.isNotEmpty) ...[
-                      const SizedBox(height: 14),
-                      HomeSectionHeader(
-                        title: 'Gói khám sức khỏe',
-                        actionLabel: 'Xem tất cả',
-                        onAction: () => context.push('/packages'),
-                      ),
-                      const SizedBox(height: 6),
-                      HomePackageList(items: content.packages.take(5).toList()),
-                    ],
-                    if (content.siteSettings.emergencyHotline != null) ...[
-                      const SizedBox(height: 14),
-                      HomeEmergencyCard(
-                        hotline: content.siteSettings.emergencyHotline!,
-                        onTap: () => context.push('/support'),
-                      ),
-                    ],
-                  ],
-                ]),
-              ),
+            // Nền màu dưới thanh trạng thái để biểu tượng hệ thống luôn đọc được khi nội dung cuộn lên.
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              height: MediaQuery.paddingOf(context).top,
+              child: const ColoredBox(color: AppPalette.heroMid),
             ),
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Dải đầu và thẻ nổi đè lên phía dưới nó (thẻ lịch sắp tới hoặc thẻ mời đặt lịch).
+class _HomeTop extends StatelessWidget {
+  const _HomeTop({
+    required this.isAuthenticated,
+    required this.avatar,
+    required this.unreadNotificationCount,
+    required this.onAccount,
+    required this.onSearch,
+    required this.onAsk,
+    required this.onNotifications,
+    required this.card,
+  });
+
+  final bool isAuthenticated;
+  final String? avatar;
+  final int unreadNotificationCount;
+  final VoidCallback onAccount;
+  final VoidCallback onSearch;
+  final VoidCallback onAsk;
+  final VoidCallback onNotifications;
+  final Widget card;
+
+  static const double _overlap = 34;
+
+  @override
+  Widget build(BuildContext context) {
+    final bandHeight = homeBandHeight(context);
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        HomeBand(
+          isAuthenticated: isAuthenticated,
+          avatar: avatar,
+          unreadNotificationCount: unreadNotificationCount,
+          onAccount: onAccount,
+          onSearch: onSearch,
+          onAsk: onAsk,
+          onNotifications: onNotifications,
+        ),
+        Padding(
+          padding: EdgeInsets.fromLTRB(14, bandHeight - _overlap, 14, 0),
+          child: card,
+        ),
+      ],
     );
   }
 }

@@ -5,4 +5,7 @@ abstract final class AppBrand {
 
   static const name = 'DevKunCare';
   static const tagline = 'Đặt lịch trực tuyến';
+
+  /// Website của cơ sở: bài viết Kiến thức và trang pháp lý mở ở đây, ứng dụng không dựng lại.
+  static const webUrl = 'https://hospital.ngoloi.dev';
 }
