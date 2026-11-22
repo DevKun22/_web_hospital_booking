@@ -56,9 +56,12 @@ class FadeSlideIn extends StatelessWidget {
       tween: Tween(begin: 0, end: 1),
       duration: total,
       curve: Interval(start, 1, curve: Curves.easeOutCubic),
-      builder: (context, value, child) => Transform.translate(
-        offset: Offset(0, 14 * (1 - value)),
-        child: child,
+      builder: (context, value, child) => Opacity(
+        opacity: value,
+        child: Transform.translate(
+          offset: Offset(0, 14 * (1 - value)),
+          child: child,
+        ),
       ),
       child: child,
     );
@@ -162,9 +165,7 @@ class _WaveBackdropState extends State<WaveBackdrop>
   }
 
   @override
-  Widget build(BuildContext context) => const SizedBox.shrink(); // TẠM: loại trừ nguyên nhân sập
-
-  Widget _unused(BuildContext context) => IgnorePointer(
+  Widget build(BuildContext context) => IgnorePointer(
     child: RepaintBoundary(
       child: SizedBox(
         height: widget.height,

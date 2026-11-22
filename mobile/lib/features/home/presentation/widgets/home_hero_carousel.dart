@@ -247,6 +247,16 @@ class _HeroBanner extends StatelessWidget {
                 fit: BoxFit.cover,
                 filterQuality: FilterQuality.medium,
                 // Ảnh hiện dần khi giải mã xong, không nháy từ nền trống sang ảnh.
+                frameBuilder: (context, child, frame, wasSynchronouslyLoaded) =>
+                    AnimatedOpacity(
+                      opacity: frame == null && !wasSynchronouslyLoaded ? 0 : 1,
+                      duration: AppMotion.responsive(
+                        context,
+                        AppMotion.deliberate,
+                      ),
+                      curve: Curves.easeOut,
+                      child: child,
+                    ),
                 errorBuilder: (_, _, _) => const SizedBox.shrink(),
               ),
             ),
