@@ -2,210 +2,94 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hospital_booking_mobile/app/router/route_guard.dart';
 import 'package:hospital_booking_mobile/features/auth/application/auth_state.dart';
 
+String? _redirect(
+  AuthStatus status,
+  String location, {
+  bool hasChallenge = false,
+  String? returnTo,
+}) => resolveAppRedirect(
+  authStatus: status,
+  hasChallenge: hasChallenge,
+  location: location,
+  returnTo: returnTo,
+);
+
 void main() {
-  test('first unauthenticated launch opens welcome', () {
+  test(
+    'guest and restoring sessions never get redirected away from content',
+    () {
+      for (final status in [
+        AuthStatus.bootstrapping,
+        AuthStatus.unauthenticated,
+        AuthStatus.loggedOut,
+        AuthStatus.offline,
+        AuthStatus.offlineBrowsing,
+      ]) {
+        for (final location in [
+          '/home',
+          '/appointments',
+          '/profile',
+          '/invoices/abc',
+          '/doctors/1',
+        ]) {
+          expect(
+            _redirect(status, location),
+            isNull,
+            reason: '$status $location',
+          );
+        }
+      }
+    },
+  );
+
+  test('authenticated user leaves auth routes for the return location', () {
+    expect(_redirect(AuthStatus.authenticated, '/login'), '/home');
     expect(
-      resolveAppRedirect(
-        authStatus: AuthStatus.unauthenticated,
-        hasChallenge: false,
-        welcomeSeen: false,
-        location: '/splash',
+      _redirect(
+        AuthStatus.authenticated,
+        '/verify-otp',
+        returnTo: '/appointments',
       ),
-      '/welcome',
+      '/appointments',
     );
+    expect(_redirect(AuthStatus.authenticated, '/appointments'), isNull);
   });
 
-  test('returning guest opens public home', () {
-    expect(
-      resolveAppRedirect(
-        authStatus: AuthStatus.unauthenticated,
-        hasChallenge: false,
-        welcomeSeen: true,
-        location: '/splash',
-      ),
-      '/home',
-    );
+  test('OTP flow keeps the user on verify and preserves the destination', () {
+    for (final status in [AuthStatus.awaitingOtp, AuthStatus.verifyingOtp]) {
+      expect(
+        _redirect(status, '/login', hasChallenge: true, returnTo: '/invoices'),
+        '/verify-otp?from=%2Finvoices',
+      );
+      expect(
+        _redirect(
+          status,
+          '/verify-otp',
+          hasChallenge: true,
+          returnTo: '/invoices',
+        ),
+        isNull,
+      );
+    }
   });
 
-  test('offline browsing opens public home but not protected data', () {
+  test('verify screen without a challenge goes back to login', () {
+    expect(_redirect(AuthStatus.unauthenticated, '/verify-otp'), '/login');
     expect(
-      resolveAppRedirect(
-        authStatus: AuthStatus.offlineBrowsing,
-        hasChallenge: false,
-        welcomeSeen: null,
-        location: '/splash',
+      _redirect(
+        AuthStatus.unauthenticated,
+        '/verify-otp',
+        returnTo: '/invoices',
       ),
-      '/home',
-    );
-    expect(
-      resolveAppRedirect(
-        authStatus: AuthStatus.offlineBrowsing,
-        hasChallenge: false,
-        welcomeSeen: true,
-        location: '/departments',
-      ),
-      isNull,
-    );
-    expect(
-      resolveAppRedirect(
-        authStatus: AuthStatus.offlineBrowsing,
-        hasChallenge: false,
-        welcomeSeen: true,
-        location: '/appointments',
-      ),
-      '/home',
-    );
-  });
-
-  test('guest is sent to login only for protected routes', () {
-    expect(
-      resolveAppRedirect(
-        authStatus: AuthStatus.unauthenticated,
-        hasChallenge: false,
-        welcomeSeen: true,
-        location: '/profile',
-      ),
-      '/login?from=%2Fprofile',
-    );
-    expect(
-      resolveAppRedirect(
-        authStatus: AuthStatus.unauthenticated,
-        hasChallenge: false,
-        welcomeSeen: true,
-        location: '/booking',
-      ),
-      isNull,
-    );
-    expect(
-      resolveAppRedirect(
-        authStatus: AuthStatus.unauthenticated,
-        hasChallenge: false,
-        welcomeSeen: true,
-        location: '/notifications',
-      ),
-      '/login?from=%2Fnotifications',
-    );
-    expect(
-      resolveAppRedirect(
-        authStatus: AuthStatus.unauthenticated,
-        hasChallenge: false,
-        welcomeSeen: true,
-        location: '/records',
-      ),
-      '/login?from=%2Frecords',
-    );
-    expect(
-      resolveAppRedirect(
-        authStatus: AuthStatus.unauthenticated,
-        hasChallenge: false,
-        welcomeSeen: true,
-        location: '/notification-appointments',
-      ),
-      '/login?from=%2Fnotification-appointments',
-    );
-    expect(
-      resolveAppRedirect(
-        authStatus: AuthStatus.unauthenticated,
-        hasChallenge: false,
-        welcomeSeen: true,
-        location: '/dependents',
-      ),
-      '/login?from=%2Fdependents',
-    );
-  });
-
-  test('explicit logout leaves protected screens for guest home', () {
-    expect(
-      resolveAppRedirect(
-        authStatus: AuthStatus.loggingOut,
-        hasChallenge: false,
-        welcomeSeen: true,
-        location: '/profile',
-      ),
-      isNull,
-      reason: 'The profile must remain visible while logout is in progress.',
-    );
-    expect(
-      resolveAppRedirect(
-        authStatus: AuthStatus.loggedOut,
-        hasChallenge: false,
-        welcomeSeen: true,
-        location: '/profile',
-      ),
-      '/home',
-    );
-    expect(
-      resolveAppRedirect(
-        authStatus: AuthStatus.loggedOut,
-        hasChallenge: false,
-        welcomeSeen: true,
-        location: '/login',
-      ),
-      isNull,
-      reason: 'A logged-out guest can still choose to sign in again.',
-    );
-  });
-
-  test('OTP flow preserves the protected destination', () {
-    expect(
-      resolveAppRedirect(
-        authStatus: AuthStatus.requestingOtp,
-        hasChallenge: false,
-        welcomeSeen: true,
-        location: '/login',
-      ),
-      isNull,
-      reason: 'Requesting OTP must remain on the login screen',
-    );
-    expect(
-      resolveAppRedirect(
-        authStatus: AuthStatus.awaitingOtp,
-        hasChallenge: true,
-        welcomeSeen: true,
-        location: '/login',
-        returnTo: '/profile',
-      ),
-      '/verify-otp?from=%2Fprofile',
-    );
-    expect(
-      resolveAppRedirect(
-        authStatus: AuthStatus.authenticated,
-        hasChallenge: false,
-        welcomeSeen: true,
-        location: '/verify-otp',
-        returnTo: '/profile',
-      ),
-      '/profile',
+      '/login?from=%2Finvoices',
     );
   });
 
   test('external and auth-loop return locations are rejected', () {
-    expect(safeReturnLocation('https://malicious.example'), isNull);
-    expect(safeReturnLocation('//malicious.example/path'), isNull);
+    expect(safeReturnLocation('https://evil.example'), isNull);
+    expect(safeReturnLocation('//evil.example'), isNull);
+    expect(safeReturnLocation('/login'), isNull);
     expect(safeReturnLocation('/verify-otp'), isNull);
-    expect(safeReturnLocation('/appointments/123'), '/appointments/123');
-  });
-
-  test('launch presentation keeps every route on splash until complete', () {
-    expect(
-      resolveAppRedirect(
-        authStatus: AuthStatus.authenticated,
-        hasChallenge: false,
-        welcomeSeen: true,
-        location: '/home',
-        launchPresentationCompleted: false,
-      ),
-      '/splash',
-    );
-    expect(
-      resolveAppRedirect(
-        authStatus: AuthStatus.authenticated,
-        hasChallenge: false,
-        welcomeSeen: true,
-        location: '/splash',
-        launchPresentationCompleted: false,
-      ),
-      isNull,
-    );
+    expect(safeReturnLocation('/appointments?x=1'), '/appointments?x=1');
   });
 }

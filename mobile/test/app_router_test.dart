@@ -436,6 +436,9 @@ void main() {
 
     container.read(appRouterProvider).go('/appointments');
     await tester.pumpAndSettle();
+    expect(find.text('Đăng nhập để xem lịch hẹn'), findsOneWidget);
+    await tester.tap(find.widgetWithText(FilledButton, 'Đăng nhập'));
+    await tester.pumpAndSettle();
     expect(find.text('Đăng nhập người khám'), findsOneWidget);
     expect(
       find.text('Vui lòng đăng nhập để xem và quản lý lịch khám của bạn.'),

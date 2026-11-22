@@ -9,9 +9,9 @@ abstract final class AppPalette {
   static const star = Color(0xFFE09B2D);
 
   /// Nền hero (gradient xanh đậm). Chữ trên nền này luôn là [onHero].
-  static const heroDeep = Color(0xFF084E8F);
-  static const heroMid = Color(0xFF0A6BC0);
-  static const heroCare = Color(0xFF07766A);
+  static const heroDeep = Color(0xFF084C46);
+  static const heroMid = Color(0xFF0A6F65);
+  static const heroCare = Color(0xFF0B7F73);
   static const onHero = Color(0xFFFFFFFF);
   static const onHeroMuted = Color(0xDFFFFFFF);
   static const onHeroSubtle = Color(0xBFFFFFFF);
@@ -80,20 +80,20 @@ class AppColors extends ThemeExtension<AppColors> {
   final Color shadowTint;
 
   static const light = AppColors(
-    primary: Color(0xFF0A6BC0),
+    primary: Color(0xFF0B7F73),
     onPrimary: Color(0xFFFFFFFF),
-    primaryDark: Color(0xFF084E8F),
-    primarySoft: Color(0xFFE4F2FF),
-    care: Color(0xFF07766A),
-    careSoft: Color(0xFFE0F4F1),
-    ink: Color(0xFF0B1F3A),
-    textSoft: Color(0xFF33495E),
-    muted: Color(0xFF52697A),
-    canvas: Color(0xFFF4F8FA),
+    primaryDark: Color(0xFF0A5F57),
+    primarySoft: Color(0xFFE0F4F1),
+    care: Color(0xFF0B5FA8),
+    careSoft: Color(0xFFE4F2FF),
+    ink: Color(0xFF10302D),
+    textSoft: Color(0xFF2B4743),
+    muted: Color(0xFF4F6663),
+    canvas: Color(0xFFF3F8F7),
     surface: Color(0xFFFFFFFF),
-    surfaceMuted: Color(0xFFEAF1F5),
-    border: Color(0xFFD3DFE7),
-    divider: Color(0xFFE3EBF0),
+    surfaceMuted: Color(0xFFE6F0EE),
+    border: Color(0xFFD2E3E0),
+    divider: Color(0xFFE2EDEB),
     success: Color(0xFF1E7B34),
     successContainer: Color(0xFFE3F3E7),
     warning: Color(0xFF8A4B00),
@@ -108,20 +108,20 @@ class AppColors extends ThemeExtension<AppColors> {
   );
 
   static const dark = AppColors(
-    primary: Color(0xFF6DB6F5),
-    onPrimary: Color(0xFF06263F),
-    primaryDark: Color(0xFFA4D0F8),
-    primarySoft: Color(0xFF173149),
-    care: Color(0xFF53D3BE),
-    careSoft: Color(0xFF123A38),
-    ink: Color(0xFFE8F0F7),
-    textSoft: Color(0xFFC8D6E2),
-    muted: Color(0xFF9DB3C5),
-    canvas: Color(0xFF0B1620),
-    surface: Color(0xFF132230),
-    surfaceMuted: Color(0xFF1A2D3E),
-    border: Color(0xFF34495D),
-    divider: Color(0xFF243A4D),
+    primary: Color(0xFF4CCBBB),
+    onPrimary: Color(0xFF032925),
+    primaryDark: Color(0xFF9CE4DA),
+    primarySoft: Color(0xFF123734),
+    care: Color(0xFF86BDF2),
+    careSoft: Color(0xFF16304A),
+    ink: Color(0xFFE6F2F0),
+    textSoft: Color(0xFFC3D6D2),
+    muted: Color(0xFF9DB5B0),
+    canvas: Color(0xFF0B1918),
+    surface: Color(0xFF132624),
+    surfaceMuted: Color(0xFF1B332F),
+    border: Color(0xFF2F4A46),
+    divider: Color(0xFF223A36),
     success: Color(0xFF72D08A),
     successContainer: Color(0xFF16341F),
     warning: Color(0xFFF2B863),

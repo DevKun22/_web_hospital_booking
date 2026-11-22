@@ -18,10 +18,9 @@ import 'package:hospital_booking_mobile/features/catalog/presentation/doctor_lis
 import 'package:hospital_booking_mobile/features/catalog/presentation/package_list_screen.dart';
 import 'package:hospital_booking_mobile/features/dependents/presentation/dependent_form_screen.dart';
 import 'package:hospital_booking_mobile/features/dependents/presentation/dependents_screen.dart';
-import 'package:hospital_booking_mobile/features/auth/application/app_launch_controller.dart';
 import 'package:hospital_booking_mobile/features/auth/application/auth_controller.dart';
 import 'package:hospital_booking_mobile/features/auth/presentation/login_screen.dart';
-import 'package:hospital_booking_mobile/features/auth/presentation/splash_screen.dart';
+import 'package:hospital_booking_mobile/features/auth/presentation/auth_gate.dart';
 import 'package:hospital_booking_mobile/features/auth/presentation/verify_otp_screen.dart';
 import 'package:hospital_booking_mobile/features/home/presentation/home_screen.dart';
 import 'package:hospital_booking_mobile/features/health_hub/presentation/health_hub_screen.dart';
@@ -34,8 +33,7 @@ import 'package:hospital_booking_mobile/features/mobile_tools/presentation/mobil
 import 'package:hospital_booking_mobile/features/notifications/presentation/notifications_screen.dart';
 import 'package:hospital_booking_mobile/features/notifications/presentation/notification_preferences_screen.dart';
 import 'package:hospital_booking_mobile/features/notifications/domain/patient_notification.dart';
-import 'package:hospital_booking_mobile/features/onboarding/application/onboarding_controller.dart';
-import 'package:hospital_booking_mobile/features/onboarding/presentation/welcome_screen.dart';
+import 'package:hospital_booking_mobile/features/onboarding/presentation/first_run_gate.dart';
 import 'package:hospital_booking_mobile/features/packages/presentation/package_detail_screen.dart';
 import 'package:hospital_booking_mobile/features/profile/presentation/profile_screen.dart';
 import 'package:hospital_booking_mobile/features/profile/presentation/profile_edit_screen.dart';
@@ -52,35 +50,22 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     ),
     (_, _) => refresh.value += 1,
   );
-  ref.listen(onboardingControllerProvider, (_, _) => refresh.value += 1);
-  ref.listen(appLaunchControllerProvider, (_, _) => refresh.value += 1);
 
   final router = GoRouter(
-    initialLocation: '/splash',
+    initialLocation: '/home',
     refreshListenable: refresh,
     redirect: (context, routeState) {
       final auth = ref.read(authControllerProvider);
-      final onboarding = ref.read(onboardingControllerProvider);
-      final launchPresentationCompleted = ref.read(appLaunchControllerProvider);
-      final welcomeSeen = onboarding.when<bool?>(
-        data: (value) => value,
-        error: (_, _) => true,
-        loading: () => null,
-      );
       final location = routeState.matchedLocation;
       final returnTo = routeState.uri.queryParameters['from'] ?? auth.returnTo;
       return resolveAppRedirect(
         authStatus: auth.status,
         hasChallenge: auth.challenge != null,
-        welcomeSeen: welcomeSeen,
-        launchPresentationCompleted: launchPresentationCompleted,
         location: location,
         returnTo: returnTo,
       );
     },
     routes: [
-      GoRoute(path: '/splash', builder: (_, _) => const SplashScreen()),
-      GoRoute(path: '/welcome', builder: (_, _) => const WelcomeScreen()),
       GoRoute(
         path: '/login',
         builder: (_, state) => LoginScreen(
@@ -105,7 +90,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                 path: '/home',
                 builder: (_, _) => MainBranchBackScope(
                   controller: mainNavigationHistory,
-                  child: const HomeScreen(),
+                  child: const FirstRunGate(child: HomeScreen()),
                 ),
               ),
             ],
@@ -116,7 +101,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                 path: '/records',
                 builder: (_, _) => MainBranchBackScope(
                   controller: mainNavigationHistory,
-                  child: const HealthHubScreen(),
+                  child: const AuthGate(
+                    title: 'hồ sơ sức khỏe',
+                    child: HealthHubScreen(),
+                  ),
                 ),
               ),
             ],
@@ -173,7 +161,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                 path: '/profile',
                 builder: (_, _) => MainBranchBackScope(
                   controller: mainNavigationHistory,
-                  child: const ProfileScreen(),
+                  child: const AuthGate(
+                    title: 'tài khoản',
+                    child: ProfileScreen(),
+                  ),
                 ),
               ),
             ],
@@ -182,13 +173,16 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/notification-settings',
-        builder: (_, _) => const NotificationPreferencesScreen(),
+        builder: (_, _) => const AuthGate(
+          title: 'tùy chọn thông báo',
+          child: NotificationPreferencesScreen(),
+        ),
       ),
       GoRoute(
         path: '/notifications',
         builder: (_, _) => const AppRouteBackScope(
           fallbackLocation: '/home',
-          child: NotificationsScreen(),
+          child: AuthGate(title: 'thông báo', child: NotificationsScreen()),
         ),
       ),
       GoRoute(
@@ -247,55 +241,70 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: '/appointments',
         builder: (_, _) => const AppRouteBackScope(
           fallbackLocation: '/home',
-          child: AppointmentsScreen(),
+          child: AuthGate(title: 'lịch hẹn', child: AppointmentsScreen()),
         ),
       ),
       GoRoute(
         path: '/notification-appointments',
         builder: (_, _) => const AppRouteBackScope(
           fallbackLocation: '/notifications',
-          child: AppointmentsScreen(),
+          child: AuthGate(title: 'lịch hẹn', child: AppointmentsScreen()),
         ),
       ),
       GoRoute(
         path: '/appointments/:appointmentId',
-        builder: (_, state) => AppointmentDetailScreen(
-          appointmentId: state.pathParameters['appointmentId']!,
-          notificationType:
-              state.uri.queryParameters['origin'] == 'notification'
-              ? PatientNotificationType.fromApi(
-                  state.uri.queryParameters['notificationType'],
-                )
-              : null,
-          notificationPublishedAt:
-              state.uri.queryParameters['origin'] == 'notification'
-              ? DateTime.tryParse(
-                  state.uri.queryParameters['notificationAt'] ?? '',
-                )?.toLocal()
-              : null,
+        builder: (_, state) => AuthGate(
+          title: 'lịch hẹn',
+          child: AppointmentDetailScreen(
+            appointmentId: state.pathParameters['appointmentId']!,
+            notificationType:
+                state.uri.queryParameters['origin'] == 'notification'
+                ? PatientNotificationType.fromApi(
+                    state.uri.queryParameters['notificationType'],
+                  )
+                : null,
+            notificationPublishedAt:
+                state.uri.queryParameters['origin'] == 'notification'
+                ? DateTime.tryParse(
+                    state.uri.queryParameters['notificationAt'] ?? '',
+                  )?.toLocal()
+                : null,
+          ),
         ),
       ),
       GoRoute(
         path: '/medical-records',
-        builder: (_, _) => const MedicalRecordsScreen(),
+        builder: (_, _) => const AuthGate(
+          title: 'kết quả khám',
+          child: MedicalRecordsScreen(),
+        ),
         routes: [
           GoRoute(
             path: ':recordId',
-            builder: (_, state) => MedicalRecordDetailScreen(
-              recordId: state.pathParameters['recordId']!,
+            builder: (_, state) => AuthGate(
+              title: 'kết quả khám',
+              child: MedicalRecordDetailScreen(
+                recordId: state.pathParameters['recordId']!,
+              ),
             ),
             routes: [
               GoRoute(
                 path: 'file',
-                builder: (_, state) => MedicalDocumentScreen(
-                  recordId: state.pathParameters['recordId']!,
+                builder: (_, state) => AuthGate(
+                  title: 'tệp kết quả',
+                  child: MedicalDocumentScreen(
+                    recordId: state.pathParameters['recordId']!,
+                  ),
                 ),
               ),
               GoRoute(
                 path: 'lab-results/:labResultId/file',
-                builder: (_, state) => MedicalDocumentScreen(
-                  recordId: state.pathParameters['recordId']!,
-                  labResultId: state.pathParameters['labResultId']!,
+                builder: (_, state) => AuthGate(
+                  title: 'tệp kết quả',
+                  child: MedicalDocumentScreen(
+                    recordId: state.pathParameters['recordId']!,
+                    labResultId: state.pathParameters['labResultId']!,
+                  ),
                 ),
               ),
             ],
@@ -304,45 +313,67 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/prescriptions',
-        builder: (_, _) => const PrescriptionsScreen(),
+        builder: (_, _) =>
+            const AuthGate(title: 'đơn thuốc', child: PrescriptionsScreen()),
         routes: [
           GoRoute(
             path: ':prescriptionId',
-            builder: (_, state) => PrescriptionDetailScreen(
-              prescriptionId: state.pathParameters['prescriptionId']!,
+            builder: (_, state) => AuthGate(
+              title: 'đơn thuốc',
+              child: PrescriptionDetailScreen(
+                prescriptionId: state.pathParameters['prescriptionId']!,
+              ),
             ),
           ),
         ],
       ),
       GoRoute(
         path: '/invoices',
-        builder: (_, _) => const InvoicesScreen(),
+        builder: (_, _) =>
+            const AuthGate(title: 'hóa đơn', child: InvoicesScreen()),
         routes: [
           GoRoute(
             path: ':invoiceId',
-            builder: (_, state) => InvoiceDetailScreen(
-              invoiceId: state.pathParameters['invoiceId']!,
+            builder: (_, state) => AuthGate(
+              title: 'hóa đơn',
+              child: InvoiceDetailScreen(
+                invoiceId: state.pathParameters['invoiceId']!,
+              ),
             ),
           ),
         ],
       ),
       GoRoute(
         path: '/profile/edit',
-        builder: (_, _) => const ProfileEditScreen(),
+        builder: (_, _) =>
+            const AuthGate(title: 'hồ sơ', child: ProfileEditScreen()),
       ),
       GoRoute(
         path: '/mobile-tools',
-        builder: (_, _) => const MobileToolsScreen(),
+        builder: (_, _) =>
+            const AuthGate(title: 'thẻ số', child: MobileToolsScreen()),
       ),
       GoRoute(
         path: '/dependents',
-        builder: (_, _) => const DependentsScreen(),
+        builder: (_, _) => const AuthGate(
+          title: 'hồ sơ người thân',
+          child: DependentsScreen(),
+        ),
         routes: [
-          GoRoute(path: 'new', builder: (_, _) => const DependentFormScreen()),
+          GoRoute(
+            path: 'new',
+            builder: (_, _) => const AuthGate(
+              title: 'hồ sơ người thân',
+              child: DependentFormScreen(),
+            ),
+          ),
           GoRoute(
             path: ':dependentId/edit',
-            builder: (_, state) => DependentFormScreen(
-              dependentId: state.pathParameters['dependentId']!,
+            builder: (_, state) => AuthGate(
+              title: 'hồ sơ người thân',
+              child: DependentFormScreen(
+                dependentId: state.pathParameters['dependentId']!,
+              ),
             ),
           ),
         ],

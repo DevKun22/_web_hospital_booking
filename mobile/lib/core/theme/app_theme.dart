@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:hospital_booking_mobile/core/config/app_brand.dart';
 import 'package:hospital_booking_mobile/core/design/app_colors.dart';
 import 'package:hospital_booking_mobile/core/design/app_design_tokens.dart';
 
@@ -74,6 +75,7 @@ abstract final class AppTheme {
 
     return ThemeData(
       useMaterial3: true,
+      fontFamily: AppBrand.fontFamily,
       colorScheme: colorScheme,
       extensions: [c],
       scaffoldBackgroundColor: c.canvas,
