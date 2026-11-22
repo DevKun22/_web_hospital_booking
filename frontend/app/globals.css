@@ -1632,7 +1632,6 @@ button:disabled {
 @keyframes hero-rise { from { opacity: 0; transform: translate3d(0, 16px, 0); } }
 @keyframes blob-float { 0%, 100% { transform: translate3d(0, 0, 0) scale(1); } 50% { transform: translate3d(4%, 7%, 0) scale(1.12); } }
 @keyframes wave-drift { to { transform: translate3d(-50%, 0, 0); } }
-.hero-rise { animation: hero-rise 0.7s cubic-bezier(0.2, 0.7, 0.2, 1) both; animation-delay: calc(var(--i, 0) * 90ms + 120ms); }
 .hero-blob { position: absolute; border-radius: 9999px; pointer-events: none; background: radial-gradient(closest-side, rgba(255, 255, 255, 0.5), transparent); animation: blob-float 18s ease-in-out infinite; }
 .hero-wave { position: absolute; left: 0; bottom: -1px; width: 200%; height: clamp(2.5rem, 6vw, 4.5rem); pointer-events: none; will-change: transform; }
 .hero-wave--slim { height: clamp(0.9rem, 2.2vw, 1.5rem); }
@@ -1648,7 +1647,7 @@ button:disabled {
 @media (prefers-reduced-motion: reduce) {
   [data-motion="armed"] [data-reveal] { opacity: 1; transform: none; transition: none; }
   .catalog-rise,
-  .hero-rise, .hero-blob, .hero-wave--a, .hero-wave--b, .hero-wave-top--a, .hero-wave-top--b { animation: none; }
+  .hero-blob, .hero-wave--a, .hero-wave--b, .hero-wave-top--a, .hero-wave-top--b { animation: none; }
 }
 /* Phần tử chưa hiện đang lệch sang bên không được làm trang cuộn ngang. */
 [data-motion="armed"] { overflow-x: clip; }

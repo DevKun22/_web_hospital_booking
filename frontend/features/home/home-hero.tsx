@@ -1,4 +1,3 @@
-import type { CSSProperties } from "react";
 import Link from "next/link";
 import { ArrowRight, CalendarCheck, Clock } from "lucide-react";
 import { HomeHeroAskKun } from "@/components/public/home-hero-ask-kun";
@@ -13,8 +12,6 @@ import type { DoctorProfile } from "@/lib/types";
 const formatTime = (value: string) => value.slice(0, 5);
 const MAX_CHIPS = 4;
 const MAX_FALLBACK_DOCTORS = 3;
-
-const rise = (index: number) => ({ "--i": index }) as CSSProperties;
 
 const WAVE_A = wavePath(300, 34, 22);
 const WAVE_B = wavePath(200, 30, 16);
@@ -81,6 +78,7 @@ function TodayCard({ doctors }: { doctors: DoctorProfile[] }) {
   );
 }
 
+// Không có hoạt ảnh vào màn hình: máy chủ đã dựng sẵn toàn bộ, hiện từng phần sau tiêu đề khiến trang trông như tải hai lần.
 // Hero trang chủ: nền gradient màu thương hiệu; bên trái tiêu ngữ, ô tìm kiếm, gợi ý chuyên khoa và hai nút; bên phải trình chiếu banner (hoặc thẻ giờ trống).
 export function HomeHero({ data, waveFill = "var(--public-canvas)" }: { data: Pick<PublicHomeData, "departments" | "doctors" | "heroBanners">; waveFill?: string }) {
   const chips = data.departments.filter((item) => item.slug).slice(0, MAX_CHIPS);
@@ -102,11 +100,11 @@ export function HomeHero({ data, waveFill = "var(--public-canvas)" }: { data: Pi
           <h1 id="home-title" className="text-[1.75rem] font-semibold leading-tight text-white sm:text-4xl lg:text-[2.6rem] lg:leading-[1.15]">
             Đặt lịch khám bệnh trực tuyến, biết giờ trống và chi phí trước khi đến
           </h1>
-          <p className="hero-rise mt-3 max-w-xl text-base leading-7 text-white/90 sm:text-lg" style={rise(0)}>
+          <p className="mt-3 max-w-xl text-base leading-7 text-white/90 sm:text-lg">
             Chọn bác sĩ và giờ khám còn trống, xác nhận bằng mã OTP. Quý khách không cần tạo tài khoản.
           </p>
 
-          <div className="hero-rise relative z-20 mt-6 max-w-xl" style={rise(1)}>
+          <div className="relative z-20 mt-6 max-w-xl">
             <PublicGlobalSearch large />
             {chips.length ? (
               <p className="mt-3 flex flex-wrap items-center gap-2 text-sm text-white/90">
@@ -120,7 +118,7 @@ export function HomeHero({ data, waveFill = "var(--public-canvas)" }: { data: Pi
             ) : null}
           </div>
 
-          <div className="hero-rise mt-6 flex flex-col gap-3 sm:flex-row" style={rise(2)}>
+          <div className="mt-6 flex flex-col gap-3 sm:flex-row">
             <Link href="/dat-lich" className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-[var(--hero-btn-bg)] px-6 text-base font-semibold text-[var(--hero-btn-fg)] transition hover:brightness-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">
               <CalendarCheck className="h-5 w-5" aria-hidden="true" />
               Đặt lịch khám
@@ -129,7 +127,7 @@ export function HomeHero({ data, waveFill = "var(--public-canvas)" }: { data: Pi
           </div>
         </div>
 
-        <div className="hero-rise" style={rise(3)}>
+        <div>
           {data.heroBanners.length ? <HomeHeroSlider banners={data.heroBanners} /> : <TodayCard doctors={data.doctors} />}
         </div>
       </div>
