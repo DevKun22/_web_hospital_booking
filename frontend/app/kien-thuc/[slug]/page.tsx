@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { cache } from "react";
+import { cache, Suspense } from "react";
 import { ArrowRight, ShieldCheck } from "lucide-react";
 import { ArticleContent } from "@/components/public/article-content";
 import { ArticleOutline } from "@/components/public/article-outline";
@@ -32,6 +32,20 @@ async function getRelatedArticles(article: Article) {
   }
 }
 
+// Bài cùng chuyên mục tải sau, không chặn phần nội dung chính: bài hiện ngay khi có dữ liệu bài, khối này đến sau.
+async function RelatedArticles({ article }: { article: Article }) {
+  const related = await getRelatedArticles(article);
+  if (!related.length) return null;
+  return (
+    <section aria-labelledby="related-title" className="mt-10 border-t border-[var(--public-divider)] pt-6">
+      <h2 id="related-title" className="text-xl font-bold">Bài viết cùng chuyên mục</h2>
+      <ul className="mt-4 grid gap-4 sm:grid-cols-3">
+        {related.map((item, index) => <ArticleCard key={item.id} article={item} index={index} />)}
+      </ul>
+    </section>
+  );
+}
+
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { slug } = await params;
   try {
@@ -56,7 +70,6 @@ export default async function KnowledgeArticlePage({ params }: PageProps) {
     notFound();
   }
 
-  const related = await getRelatedArticles(article);
   const blocks = parseMarkdown(article.content);
   const outline = getOutline(blocks);
   const description = cleanText(article.summary, `Bài viết kiến thức sức khỏe: ${article.title}`);
@@ -130,14 +143,9 @@ export default async function KnowledgeArticlePage({ params }: PageProps) {
             Đây là thông tin tham khảo, không thay thế tư vấn, chẩn đoán hay điều trị của bác sĩ. Nếu có dấu hiệu nặng hoặc kéo dài, hãy đến cơ sở y tế gần nhất.
           </p>
 
-          {related.length ? (
-            <section aria-labelledby="related-title" className="mt-10 border-t border-[var(--public-divider)] pt-6">
-              <h2 id="related-title" className="text-xl font-bold">Bài viết cùng chuyên mục</h2>
-              <ul className="mt-4 grid gap-4 sm:grid-cols-3">
-                {related.map((item, index) => <ArticleCard key={item.id} article={item} index={index} />)}
-              </ul>
-            </section>
-          ) : null}
+          <Suspense fallback={null}>
+            <RelatedArticles article={article} />
+          </Suspense>
         </article>
 
         {outline.length > 1 || article.department ? (
