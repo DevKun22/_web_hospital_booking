@@ -4,7 +4,7 @@
 
 ## Phạm vi Phase 2
 
-- Khung ứng dụng Android/iOS theo feature, Riverpod và GoRouter.
+- Khung ứng dụng Android theo feature, Riverpod và GoRouter.
 - Đăng nhập bệnh nhân bằng OTP theo contract của backend Phase 1.
 - Access token chỉ giữ trong RAM; refresh token và mã thiết bị lưu bằng secure storage.
 - Tự refresh khi API trả `401`, chỉ cho phép một refresh chạy tại cùng thời điểm và thử lại request đúng một lần.
@@ -22,9 +22,7 @@ kết quả khám, đơn thuốc, hóa đơn, thanh toán và hoàn tiền. Mỗ
 điều hướng tới route nằm trong danh sách cho phép và màn đích luôn tải trạng
 thái mới nhất từ backend.
 
-Android đã cấu hình Firebase Messaging và notification channel. iOS vẫn cần
-`GoogleService-Info.plist`, APNs key/certificate và signing trên macOS trước khi
-có thể xác nhận push ở môi trường phát hành.
+Android đã cấu hình Firebase Messaging và notification channel. Ứng dụng chỉ phát hành cho Android; không có bản iOS.
 
 Người dùng có thể mở **Thông báo → Tùy chọn thông báo** để bật/tắt push theo
 nhóm. Các tùy chọn được lưu theo tài khoản trên backend; việc tắt một nhóm chỉ
@@ -111,10 +109,7 @@ flutter test
 
 ```powershell
 flutter build appbundle -t lib/main_prod.dart --dart-define-from-file=config/prod.json
-flutter build ipa -t lib/main_prod.dart --dart-define-from-file=config/prod.json
 ```
-
-Build iOS cần macOS, Xcode và tài khoản ký ứng dụng.
 
 ## Phát hành Android
 

@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:dio/dio.dart';
-import 'package:flutter/foundation.dart';
+import 'package:hospital_booking_mobile/core/config/client_platform.dart';
 import 'package:hospital_booking_mobile/core/errors/api_exception.dart';
 import 'package:hospital_booking_mobile/core/network/api_contract.dart';
 import 'package:hospital_booking_mobile/core/network/session_refresh_coordinator.dart';
@@ -58,8 +58,8 @@ class AuthRepository {
           'challengeId': challengeId,
           'otp': otp.trim(),
           'deviceId': deviceId,
-          'deviceName': 'Flutter ${defaultTargetPlatform.name}',
-          'platform': _platformName,
+          'deviceName': clientDeviceName,
+          'platform': clientPlatform,
         },
       );
       final session = AuthSession.fromJson(requireDataMap(response.data));
@@ -112,10 +112,4 @@ class AuthRepository {
       await _authenticatedDio.get<dynamic>('/me');
     });
   }
-
-  String get _platformName => switch (defaultTargetPlatform) {
-    TargetPlatform.iOS => 'ios',
-    TargetPlatform.android => 'android',
-    _ => 'web',
-  };
 }

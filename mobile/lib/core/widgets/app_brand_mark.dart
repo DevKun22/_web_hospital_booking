@@ -4,7 +4,7 @@ import 'package:hospital_booking_mobile/core/design/app_colors.dart';
 
 /// Biểu tượng gọn của DevKunCare: dấu cộng trắng và bong bóng trò chuyện teal trên nền xanh.
 ///
-/// Hình học khớp biểu tượng web (`favicon.svg`) và biểu tượng ứng dụng Android/iOS do
+/// Hình học khớp biểu tượng web (`favicon.svg`) và biểu tượng ứng dụng Android do
 /// `tool/generate_brand_assets.mjs` sinh ra.
 class AppBrandMark extends StatelessWidget {
   const AppBrandMark({super.key, this.size = 48});

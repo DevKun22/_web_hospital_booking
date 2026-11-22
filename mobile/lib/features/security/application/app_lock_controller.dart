@@ -4,7 +4,6 @@ import 'package:hospital_booking_mobile/core/providers/app_providers.dart';
 import 'package:hospital_booking_mobile/features/auth/application/auth_controller.dart';
 import 'package:local_auth/local_auth.dart';
 import 'package:local_auth_android/local_auth_android.dart';
-import 'package:local_auth_darwin/local_auth_darwin.dart';
 
 final localAuthenticationGatewayProvider = Provider<LocalAuthenticationGateway>(
   (ref) => DeviceLocalAuthenticationGateway(LocalAuthentication()),
@@ -38,10 +37,6 @@ class DeviceLocalAuthenticationGateway implements LocalAuthenticationGateway {
         signInTitle: 'Mở khóa DevKunCare',
         signInHint: 'Xác nhận bằng vân tay hoặc mã khóa máy',
         cancelButton: 'Hủy',
-      ),
-      IOSAuthMessages(
-        cancelButton: 'Hủy',
-        localizedFallbackTitle: 'Dùng mã khóa thiết bị',
       ),
     ],
     biometricOnly: false,
