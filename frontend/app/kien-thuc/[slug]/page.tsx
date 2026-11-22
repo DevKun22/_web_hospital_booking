@@ -6,18 +6,31 @@ import { ArrowRight, ShieldCheck } from "lucide-react";
 import { ArticleContent } from "@/components/public/article-content";
 import { ArticleOutline } from "@/components/public/article-outline";
 import { AskKunButton } from "@/components/public/ask-kun-button";
-import { PublicBreadcrumb } from "@/components/public/public-page-layout";
+import { ArticleCard } from "@/components/public/article-card";
+import { CatalogHeader } from "@/components/public/catalog-parts";
+import { ReadingProgress } from "@/components/public/reading-progress";
 import { SummarizeWithKun } from "@/components/public/summarize-with-kun";
 import { estimateReadingMinutes, getOutline, parseMarkdown } from "@/lib/markdown";
 import { serverApiRequest } from "@/lib/server-api";
 import { absoluteUrl, buildBreadcrumbJsonLd, buildNoIndexMetadata, buildOpenGraph, cleanText, jsonLdString, truncateText } from "@/lib/seo";
-import type { Article } from "@/lib/types";
+import type { Article, PublicArticleList } from "@/lib/types";
 
 type PageProps = { params: Promise<{ slug: string }> };
 
 const getArticle = cache(async (slug: string) => serverApiRequest<Article>(`/articles/${slug}`, { next: { revalidate: 300 } }));
 
 const formatDate = (value: string | null) => (value ? new Date(value).toLocaleDateString("vi-VN") : "");
+
+// Bài cùng chuyên mục (không tính bài đang xem); lỗi hoặc không có thì không hiện khối này.
+async function getRelatedArticles(article: Article) {
+  if (!article.category) return [];
+  try {
+    const result = await serverApiRequest<PublicArticleList>("/articles", { query: { category: article.category, limit: 4 }, next: { revalidate: 300 } });
+    return result.items.filter((item) => item.slug !== article.slug).slice(0, 3);
+  } catch {
+    return [];
+  }
+}
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { slug } = await params;
@@ -43,6 +56,7 @@ export default async function KnowledgeArticlePage({ params }: PageProps) {
     notFound();
   }
 
+  const related = await getRelatedArticles(article);
   const blocks = parseMarkdown(article.content);
   const outline = getOutline(blocks);
   const description = cleanText(article.summary, `Bài viết kiến thức sức khỏe: ${article.title}`);
@@ -73,21 +87,28 @@ export default async function KnowledgeArticlePage({ params }: PageProps) {
     <main className="min-h-screen bg-[var(--public-canvas)] text-[var(--public-ink)]">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdString(jsonLd) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdString(breadcrumbJsonLd) }} />
-      <div className="ui-container grid min-w-0 grid-cols-[minmax(0,1fr)] gap-8 py-5 sm:py-8 lg:grid-cols-[minmax(0,1fr)_18rem] lg:items-start">
-        <article className="min-w-0 max-w-3xl">
-          <PublicBreadcrumb current={article.title} />
-          <header>
-            {article.category ? <p className="text-sm font-semibold text-[var(--public-primary)]">{article.category}</p> : null}
-            <h1 className="mt-1 text-2xl font-bold leading-snug sm:text-3xl">{article.title}</h1>
-            {article.summary ? <p className="mt-3 text-base leading-7 text-[var(--public-text-soft)]">{article.summary}</p> : null}
-            <p className="mt-3 text-xs text-[var(--public-muted)]">
-              {[article.authorName ? `Biên soạn: ${article.authorName}` : "", `Cập nhật ${formatDate(article.updatedAt)}`, `${estimateReadingMinutes(article.content)} phút đọc`].filter(Boolean).join(" · ")}
-            </p>
-          </header>
+      <CatalogHeader
+        brand
+        current={article.title}
+        title={article.title}
+        description={article.summary || undefined}
+        trail={[{ label: "Kiến thức sức khỏe", href: "/kien-thuc" }]}
+      >
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-sm text-white/90">
+          {article.category ? <span className="rounded-full border border-white/50 px-3 py-0.5 font-medium text-white">{article.category}</span> : null}
+          {article.authorName ? <span>Biên soạn: {article.authorName}</span> : null}
+          <span>Cập nhật {formatDate(article.updatedAt)}</span>
+          <span>{estimateReadingMinutes(article.content)} phút đọc</span>
+          {article.reviewerName ? <span className="inline-flex items-center gap-1 font-medium text-white"><ShieldCheck className="h-4 w-4" aria-hidden="true" />Bác sĩ duyệt</span> : null}
+        </div>
+      </CatalogHeader>
+      <ReadingProgress targetId="bai-viet" />
 
+      <div className="ui-container grid min-w-0 grid-cols-[minmax(0,1fr)] gap-8 py-5 sm:py-8 lg:grid-cols-[minmax(0,1fr)_18rem] lg:items-start">
+        <article id="bai-viet" className="min-w-0 max-w-3xl">
           {article.coverImage ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={article.coverImage} alt="" width={1200} height={675} fetchPriority="high" decoding="async" className="mt-5 aspect-[16/9] w-full rounded-xl object-cover" />
+            <img src={article.coverImage} alt="" width={1200} height={675} fetchPriority="high" decoding="async" className="aspect-[16/9] w-full rounded-xl object-cover" />
           ) : null}
 
           <div className="mt-4"><SummarizeWithKun slug={article.slug} /></div>
@@ -109,10 +130,18 @@ export default async function KnowledgeArticlePage({ params }: PageProps) {
             Đây là thông tin tham khảo, không thay thế tư vấn, chẩn đoán hay điều trị của bác sĩ. Nếu có dấu hiệu nặng hoặc kéo dài, hãy đến cơ sở y tế gần nhất.
           </p>
 
+          {related.length ? (
+            <section aria-labelledby="related-title" className="mt-10 border-t border-[var(--public-divider)] pt-6">
+              <h2 id="related-title" className="text-xl font-bold">Bài viết cùng chuyên mục</h2>
+              <ul className="mt-4 grid gap-4 sm:grid-cols-3">
+                {related.map((item, index) => <ArticleCard key={item.id} article={item} index={index} />)}
+              </ul>
+            </section>
+          ) : null}
         </article>
 
         {outline.length > 1 || article.department ? (
-          <aside className="space-y-4 lg:sticky lg:top-24">
+          <aside className="space-y-4 lg:sticky lg:top-28">
             {outline.length > 1 ? <ArticleOutline items={outline} /> : null}
             <section aria-label="Đặt lịch khám" className="hidden rounded-2xl border border-[var(--public-border)] bg-[var(--public-surface)] p-4 lg:block">
               <p className="text-base font-semibold">{article.department ? `Đặt lịch khám ${article.department.name}` : "Đặt lịch khám"}</p>
