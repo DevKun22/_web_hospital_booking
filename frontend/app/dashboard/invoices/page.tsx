@@ -7,9 +7,7 @@ import {
   DsButton,
   DsDataTable,
   DsEmptyState,
-  DsField,
   DsInput,
-  DsKeyValue,
   DsNotice,
   DsPageHeader,
   DsPane,
@@ -18,16 +16,11 @@ import {
   DsSplit,
   DsStatusPill,
   DsTabs,
-  DsTextarea,
   DsToolbar,
   type DsColumn,
   useActionToast,
-  useConfirm,
-  DsDialog,
 } from "@/components/ds";
 import { ExportCsvButton } from "@/components/dashboard/export-csv-button";
-import { MedicineRefundPanel } from "@/components/dashboard/medicine-refund-panel";
-import { SupplementPanel } from "@/components/dashboard/supplement-panel";
 import {
   PrintButton,
   PrintableInvoice,
@@ -38,42 +31,32 @@ import {
   useDashboardInvoice,
   useDashboardInvoices,
 } from "@/lib/dashboard-invoices-query";
-import { formatVietnamDate, formatVietnamDateTime } from "@/lib/date";
+import { formatVietnamDate } from "@/lib/date";
 import { can } from "@/lib/permissions";
 import { formatCurrency } from "@/lib/format";
 import { queryKeys } from "@/lib/query-keys";
 import type {
   Invoice,
-  PaymentMethod,
 } from "@/lib/types";
 import { useDebouncedValue } from "@/lib/use-debounced-value";
 import {
   type InvoiceAction,
-  type InsuranceForm,
   statusTabs,
   paymentOptions,
-  manualPayments,
-  defaultInsuranceForm,
-  insuranceRouteLabel,
   statusLabel,
   statusTone,
   paymentLabel,
-  transactionStatusLabel,
-  transactionTone,
-  calculateInsuranceDiscount,
-  buildInsuranceForm,
-  buildInsurancePayload,
   doctorName,
 } from "./invoice-model";
 import { CreateInvoiceDialog } from "./create-invoice-dialog";
-import { InsuranceFields } from "./insurance-fields";
+import { AdjustInvoiceDialog, CancelInvoiceDialog, PayInvoiceDialog, RefundInvoiceDialog } from "./invoice-action-dialogs";
+import { InvoiceDetailCards } from "./invoice-detail-cards";
 
 // Hóa đơn: danh sách bên trái; chọn một hóa đơn (hoặc bấm "Tạo hóa đơn") thì khung bên phải mở cạnh để xem chi tiết,
 // áp dụng BHYT, ghi nhận thu, hủy hoặc hoàn tiền.
 
 export default function InvoicesPage() {
   const { user } = useAuth();
-  const confirm = useConfirm();
   const queryClient = useQueryClient();
   const [status, setStatus] = useState("UNPAID");
   const [paymentMethod, setPaymentMethod] = useState("");
@@ -90,21 +73,9 @@ export default function InvoicesPage() {
     type: InvoiceAction;
     invoice: Invoice;
   } | null>(null);
-  const [payMethod, setPayMethod] =
-    useState<Exclude<PaymentMethod, "VNPAY">>("CASH");
-  const [paymentReference, setPaymentReference] = useState("");
-  const [adjustInsuranceForm, setAdjustInsuranceForm] =
-    useState<InsuranceForm>(defaultInsuranceForm);
-  const [refundReason, setRefundReason] = useState("");
-  const [refundReference, setRefundReference] = useState("");
 
   const canUse = can(user, "invoice.view");
   const canRefund = can(user, "invoice.refund");
-  const adjustedDiscount = calculateInsuranceDiscount(adjustInsuranceForm);
-  const adjustedFinalAmount =
-    actionTarget?.type === "adjust"
-      ? Math.max(actionTarget.invoice.totalAmount - adjustedDiscount, 0)
-      : 0;
 
   // Gõ đến đâu lọc đến đó.
   const term = useDebouncedValue(search.trim());
@@ -188,14 +159,7 @@ export default function InvoicesPage() {
     return () => window.clearTimeout(timeoutId);
   }, []);
 
-  const resetActionState = () => {
-    setActionTarget(null);
-    setRefundReason("");
-    setRefundReference("");
-    setPaymentReference("");
-    setAdjustInsuranceForm(defaultInsuranceForm);
-    setPayMethod("CASH");
-  };
+  const resetActionState = () => setActionTarget(null);
 
   const openDetail = (invoice: Invoice) => {
     setCreating(false);
@@ -220,13 +184,6 @@ export default function InvoicesPage() {
     setCreating(false);
     setSelected(invoice);
     setActionTarget({ type, invoice });
-    setRefundReason("");
-    setRefundReference("");
-    setPaymentReference("");
-    setAdjustInsuranceForm(
-      type === "adjust" ? buildInsuranceForm(invoice) : defaultInsuranceForm,
-    );
-    setPayMethod("CASH");
     setError("");
     setNotice("");
   };
@@ -271,168 +228,6 @@ export default function InvoicesPage() {
     } finally {
       setBusy(false);
       setBusyId("");
-    }
-  };
-
-  const payInvoice = async () => {
-    if (!actionTarget || actionTarget.type !== "pay") return;
-    if (
-      ["CARD", "BANK_TRANSFER"].includes(payMethod) &&
-      paymentReference.trim().length < 3
-    ) {
-      setError("Vui lòng nhập mã tham chiếu của giao dịch");
-      return;
-    }
-    setBusy(true);
-    setError("");
-    setNotice("");
-    try {
-      const updated = await apiRequest<Invoice>(
-        `/dashboard/invoices/${actionTarget.invoice.id}/pay`,
-        {
-          method: "PATCH",
-          body: {
-            paymentMethod: payMethod,
-            paymentReference: paymentReference.trim() || null,
-          },
-        },
-      );
-      await updateSelectedInvoice(updated, "Đã thanh toán hóa đơn");
-    } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Không thanh toán được hóa đơn",
-      );
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const cancelInvoice = async () => {
-    if (!actionTarget || actionTarget.type !== "cancel") return;
-    setBusy(true);
-    setError("");
-    setNotice("");
-    try {
-      const updated = await apiRequest<Invoice>(
-        `/dashboard/invoices/${actionTarget.invoice.id}/cancel`,
-        { method: "PATCH" },
-      );
-      await updateSelectedInvoice(updated, "Đã hủy hóa đơn");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Không hủy được hóa đơn");
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const adjustInvoice = async () => {
-    if (!actionTarget || actionTarget.type !== "adjust") return;
-    if (adjustedDiscount > actionTarget.invoice.totalAmount) {
-      setError("Giảm trừ BHYT không được lớn hơn tổng tiền");
-      return;
-    }
-
-    setBusy(true);
-    setError("");
-    setNotice("");
-    try {
-      const updated = await apiRequest<Invoice>(
-        `/dashboard/invoices/${actionTarget.invoice.id}`,
-        {
-          method: "PATCH",
-          body: buildInsurancePayload(adjustInsuranceForm),
-        },
-      );
-      await updateSelectedInvoice(
-        updated,
-        actionTarget.invoice.status === "CANCELLED"
-          ? "Đã điều chỉnh và mở lại hóa đơn"
-          : "Đã điều chỉnh hóa đơn",
-      );
-    } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Không điều chỉnh được hóa đơn",
-      );
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const refundInvoice = async () => {
-    if (!actionTarget || actionTarget.type !== "refund") return;
-    if (refundReason.trim().length < 5) {
-      setError("Lý do hoàn tiền phải có ít nhất 5 ký tự");
-      return;
-    }
-    if (
-      actionTarget.invoice.paymentMethod === "VNPAY" &&
-      refundReference.trim().length < 3
-    ) {
-      setError("Vui lòng nhập mã tham chiếu do cổng thanh toán trả về");
-      return;
-    }
-
-    setBusy(true);
-    setError("");
-    setNotice("");
-    try {
-      const updated = await apiRequest<Invoice>(
-        `/dashboard/invoices/${actionTarget.invoice.id}/refund`,
-        {
-          method: "PATCH",
-          body: {
-            refundReason: refundReason.trim(),
-            refundReference: refundReference.trim() || null,
-          },
-        },
-      );
-      await updateSelectedInvoice(updated, "Đã hoàn tiền hóa đơn");
-    } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Không hoàn tiền được hóa đơn",
-      );
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  // Hoàn tiền toàn phần tự động qua API VNPay; chỉ dùng cho hóa đơn đã trả bằng VNPay.
-  const refundInvoiceViaVnpay = async () => {
-    if (!actionTarget || actionTarget.type !== "refund") return;
-    if (refundReason.trim().length < 5) {
-      setError("Lý do hoàn tiền phải có ít nhất 5 ký tự");
-      return;
-    }
-    const agreed = await confirm({
-      title: `Hoàn ${actionTarget.invoice.finalAmount.toLocaleString("vi-VN")} đ qua VNPay?`,
-      message:
-        "Yêu cầu hoàn tiền được gửi ngay tới VNPay. Thao tác không thể hoàn tác.",
-      confirmLabel: "Gửi yêu cầu hoàn",
-      tone: "danger",
-    });
-    if (!agreed) return;
-
-    setBusy(true);
-    setError("");
-    setNotice("");
-    try {
-      const updated = await apiRequest<Invoice>(
-        `/dashboard/invoices/${actionTarget.invoice.id}/refund/vnpay`,
-        {
-          method: "POST",
-          body: { refundReason: refundReason.trim() },
-        },
-      );
-      await updateSelectedInvoice(
-        updated,
-        "Đã gửi yêu cầu hoàn tiền tới VNPay",
-      );
-    } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Không hoàn tiền được qua VNPay",
-      );
-    } finally {
-      setBusy(false);
     }
   };
 
@@ -662,6 +457,8 @@ export default function InvoicesPage() {
   const activeAction =
     selected && actionTarget?.invoice.id === selected.id ? actionTarget : null;
 
+  const actionProps = { onClose: resetActionState, onDone: updateSelectedInvoice, onError: setError };
+
   const detailPane = selected ? (
     <DsPane
       wide
@@ -740,472 +537,12 @@ export default function InvoicesPage() {
         ) : null}
       </div>
 
-      <div className="ds-editor">
-        <div className="ds-editor__col">
-          {activeAction?.type === "pay" ? (
-            <DsDialog
-              open
-              onOpenChange={(open) => {
-                if (!open) setActionTarget(null);
-              }}
-              title="Ghi nhận thu tại quầy"
-              description="Chỉ xác nhận sau khi nhân viên đã thực nhận tiền. VNPay được hệ thống tự ghi nhận qua cổng thanh toán."
-              size="md"
-              footer={
-                <>
-                  <DsButton onClick={() => setActionTarget(null)}>
-                    Đóng
-                  </DsButton>
-                  <DsButton
-                    variant="primary"
-                    loading={busy}
-                    onClick={() => void payInvoice()}
-                  >
-                    Xác nhận đã thu
-                  </DsButton>
-                </>
-              }
-            >
-              {selected.paymentTransactions.some(
-                (transaction) => transaction.status === "PENDING",
-              ) ? (
-                <DsNotice tone="warn">
-                  Có giao dịch trực tuyến đang chờ hoặc chưa đồng bộ hết hạn.
-                  Máy chủ sẽ kiểm tra lại và chặn thu tại quầy nếu giao dịch còn
-                  hiệu lực để tránh thu hai lần.
-                </DsNotice>
-              ) : null}
-              <DsField label="Phương thức" htmlFor="pay-method">
-                <DsSelect
-                  id="pay-method"
-                  value={payMethod}
-                  onChange={(event) =>
-                    setPayMethod(
-                      event.target.value as Exclude<PaymentMethod, "VNPAY">,
-                    )
-                  }
-                >
-                  {manualPayments.map((item) => (
-                    <option key={item.value} value={item.value}>
-                      {item.label}
-                    </option>
-                  ))}
-                </DsSelect>
-              </DsField>
-              {payMethod !== "CASH" ? (
-                <DsField
-                  label="Mã tham chiếu"
-                  htmlFor="pay-reference"
-                  required={
-                    payMethod === "CARD" || payMethod === "BANK_TRANSFER"
-                  }
-                >
-                  <DsInput
-                    id="pay-reference"
-                    value={paymentReference}
-                    maxLength={100}
-                    placeholder="Mã giao dịch trên POS hoặc ngân hàng"
-                    onChange={(event) =>
-                      setPaymentReference(event.target.value)
-                    }
-                  />
-                </DsField>
-              ) : null}
-              <DsKeyValue
-                items={[
-                  {
-                    label: "Số tiền cần thu",
-                    value: (
-                      <strong>{formatCurrency(selected.finalAmount)}</strong>
-                    ),
-                  },
-                ]}
-              />
-            </DsDialog>
-          ) : null}
+      {activeAction?.type === "pay" ? <PayInvoiceDialog invoice={selected} {...actionProps} /> : null}
+      {activeAction?.type === "cancel" ? <CancelInvoiceDialog invoice={activeAction.invoice} {...actionProps} /> : null}
+      {activeAction?.type === "adjust" ? <AdjustInvoiceDialog invoice={activeAction.invoice} {...actionProps} /> : null}
+      {activeAction?.type === "refund" ? <RefundInvoiceDialog invoice={activeAction.invoice} {...actionProps} /> : null}
 
-          {activeAction?.type === "cancel" ? (
-            <DsDialog
-              open
-              onOpenChange={(open) => {
-                if (!open) setActionTarget(null);
-              }}
-              title="Xác nhận hủy hóa đơn"
-              description="Hóa đơn chưa thanh toán sẽ chuyển sang trạng thái đã hủy; có thể chỉnh và mở lại sau."
-              size="sm"
-              footer={
-                <>
-                  <DsButton onClick={() => setActionTarget(null)}>
-                    Giữ hóa đơn
-                  </DsButton>
-                  <DsButton
-                    variant="danger"
-                    loading={busy}
-                    onClick={() => void cancelInvoice()}
-                  >
-                    Xác nhận hủy
-                  </DsButton>
-                </>
-              }
-            ></DsDialog>
-          ) : null}
-
-          {activeAction?.type === "adjust" ? (
-            <DsDialog
-              open
-              onOpenChange={(open) => {
-                if (!open) resetActionState();
-              }}
-              title={
-                activeAction.invoice.status === "CANCELLED"
-                  ? "Chỉnh và mở lại hóa đơn"
-                  : "Chỉnh giảm BHYT"
-              }
-              description="Chỉ áp dụng cho hóa đơn chưa thanh toán. Nếu hóa đơn đang bị hủy, lưu điều chỉnh sẽ đưa hóa đơn về trạng thái chưa thanh toán."
-              size="lg"
-              footer={
-                <>
-                  <DsButton onClick={resetActionState}>Đóng</DsButton>
-                  <DsButton
-                    variant="primary"
-                    disabled={
-                      busy ||
-                      adjustedDiscount > activeAction.invoice.totalAmount
-                    }
-                    onClick={() => void adjustInvoice()}
-                  >
-                    Lưu điều chỉnh
-                  </DsButton>
-                </>
-              }
-            >
-              <InsuranceFields
-                idPrefix="adjust"
-                form={adjustInsuranceForm}
-                onChange={setAdjustInsuranceForm}
-              />
-              <DsKeyValue
-                items={[
-                  {
-                    label: "Tổng tiền",
-                    value: formatCurrency(activeAction.invoice.totalAmount),
-                  },
-                  {
-                    label: "Giảm BHYT mới",
-                    value: formatCurrency(adjustedDiscount),
-                  },
-                  {
-                    label: "Cần thu mới",
-                    value: (
-                      <strong>{formatCurrency(adjustedFinalAmount)}</strong>
-                    ),
-                  },
-                ]}
-              />
-              {adjustedDiscount > activeAction.invoice.totalAmount ? (
-                <DsNotice tone="bad">
-                  Giảm trừ BHYT không được lớn hơn tổng tiền.
-                </DsNotice>
-              ) : null}
-            </DsDialog>
-          ) : null}
-
-          {activeAction?.type === "refund" ? (
-            <DsDialog
-              open
-              onOpenChange={(open) => {
-                if (!open) {
-                  setActionTarget(null);
-                  setRefundReason("");
-                }
-              }}
-              title="Xác nhận hoàn tiền"
-              size="md"
-              footer={
-                <>
-                  <DsButton
-                    onClick={() => {
-                      setActionTarget(null);
-                      setRefundReason("");
-                    }}
-                  >
-                    Đóng
-                  </DsButton>
-                  {activeAction.invoice.paymentMethod === "VNPAY" ? (
-                    <DsButton
-                      variant="danger"
-                      disabled={busy || refundReason.trim().length < 5}
-                      onClick={() => void refundInvoiceViaVnpay()}
-                    >
-                      Hoàn tự động qua VNPay
-                    </DsButton>
-                  ) : null}
-                  <DsButton
-                    variant="primary"
-                    loading={busy}
-                    onClick={() => void refundInvoice()}
-                  >
-                    Hoàn tiền
-                  </DsButton>
-                </>
-              }
-            >
-              <DsField
-                label="Lý do hoàn tiền"
-                htmlFor="refund-reason"
-                required
-                hint="Ít nhất 5 ký tự"
-              >
-                <DsTextarea
-                  id="refund-reason"
-                  rows={3}
-                  value={refundReason}
-                  placeholder="Ví dụ: người khám yêu cầu hoàn tiền"
-                  onChange={(event) => setRefundReason(event.target.value)}
-                />
-              </DsField>
-              <DsField
-                label="Mã tham chiếu hoàn tiền"
-                htmlFor="refund-reference"
-                required={activeAction.invoice.paymentMethod === "VNPAY"}
-              >
-                <DsInput
-                  id="refund-reference"
-                  value={refundReference}
-                  maxLength={100}
-                  placeholder="Mã hoàn tiền từ quầy hoặc cổng thanh toán"
-                  onChange={(event) => setRefundReference(event.target.value)}
-                />
-              </DsField>
-              {activeAction.invoice.paymentMethod === "VNPAY" ? (
-                <DsNotice tone="warn">
-                  Dùng nút &quot;Hoàn tự động qua VNPay&quot; để hệ thống gửi
-                  yêu cầu hoàn toàn phần tới VNPay. Nếu đã hoàn trực tiếp trên
-                  cổng VNPay (hoặc hệ thống báo chưa xác nhận được kết quả), hãy
-                  nhập mã tham chiếu rồi bấm &quot;Hoàn tiền&quot; để chỉ đồng
-                  bộ trạng thái.
-                </DsNotice>
-              ) : null}
-            </DsDialog>
-          ) : null}
-
-          <div className="ds-card">
-            <div className="ds-card__head">
-              <h3>Chi tiết khoản thu</h3>
-            </div>
-            <div className="ds-card__body">
-              {selected.items?.length ? (
-                selected.items.map((item) => (
-                  <div
-                    key={item.id}
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      gap: 12,
-                    }}
-                  >
-                    <div>
-                      <strong style={{ fontSize: 13 }}>
-                        {item.description}
-                      </strong>
-                      {item.quantity > 1 ? (
-                        <div style={{ color: "var(--ds-muted)", fontSize: 12 }}>
-                          {item.quantity} × {formatCurrency(item.unitPrice)}
-                        </div>
-                      ) : null}
-                    </div>
-                    <strong style={{ flex: "none" }}>
-                      {formatCurrency(item.amount)}
-                    </strong>
-                  </div>
-                ))
-              ) : (
-                <p className="ds-hint" style={{ margin: 0 }}>
-                  Hóa đơn cũ chưa có dữ liệu khoản thu chi tiết.
-                </p>
-              )}
-              <DsKeyValue
-                items={[
-                  {
-                    label: "Tổng chi phí",
-                    value: formatCurrency(selected.totalAmount),
-                  },
-                  {
-                    label: "Giảm BHYT",
-                    value:
-                      selected.bhytDiscount > 0
-                        ? `- ${formatCurrency(selected.bhytDiscount)}`
-                        : formatCurrency(0),
-                  },
-                  {
-                    label: "Cần thu",
-                    value: (
-                      <strong>{formatCurrency(selected.finalAmount)}</strong>
-                    ),
-                  },
-                ]}
-              />
-            </div>
-          </div>
-
-          <div className="ds-card">
-            <div className="ds-card__head">
-              <h3>Tiêu chuẩn BHYT</h3>
-            </div>
-            <div className="ds-card__body">
-              <DsKeyValue
-                items={[
-                  {
-                    label: "Phần đủ điều kiện",
-                    value: formatCurrency(selected.insuranceEligibleAmount),
-                  },
-                  {
-                    label: "Mức hưởng",
-                    value: `${selected.insuranceCoverageRate}%`,
-                  },
-                  {
-                    label: "Tuyến/loại",
-                    value: selected.insuranceRouteType
-                      ? insuranceRouteLabel[selected.insuranceRouteType]
-                      : "-",
-                  },
-                  {
-                    label: "Quỹ BHYT giảm",
-                    value: formatCurrency(selected.insuranceDiscountAmount),
-                  },
-                ]}
-              />
-              {selected.insuranceNote ? (
-                <p className="ds-hint" style={{ margin: 0 }}>
-                  Ghi chú: {selected.insuranceNote}
-                </p>
-              ) : null}
-            </div>
-          </div>
-        </div>
-
-        <div className="ds-editor__col">
-          <div className="ds-card">
-            <div className="ds-card__head">
-              <h3>Thanh toán</h3>
-            </div>
-            <div className="ds-card__body">
-              {selected.status === "PAID" || selected.status === "REFUNDED" ? (
-                <DsKeyValue
-                  items={[
-                    { label: "Mã biên nhận", value: selected.invoiceCode },
-                    {
-                      label: "Phương thức",
-                      value: selected.paymentMethod
-                        ? paymentLabel[selected.paymentMethod] ||
-                          selected.paymentMethod
-                        : "-",
-                    },
-                    {
-                      label: "Thời gian",
-                      value: selected.paidAt
-                        ? formatVietnamDateTime(selected.paidAt)
-                        : "-",
-                    },
-                    {
-                      label: "Số tiền",
-                      value: (
-                        <strong>{formatCurrency(selected.finalAmount)}</strong>
-                      ),
-                    },
-                    ...(selected.paymentReference
-                      ? [
-                          {
-                            label: "Mã tham chiếu",
-                            value: selected.paymentReference,
-                          },
-                        ]
-                      : []),
-                  ]}
-                />
-              ) : (
-                <p style={{ margin: 0, color: "var(--ds-muted)" }}>
-                  Chưa thanh toán.
-                </p>
-              )}
-              {selected.status === "PAID" &&
-              selected.supplements &&
-              selected.supplements.length > 0 ? (
-                <SupplementPanel
-                  invoiceId={selected.id}
-                  supplements={selected.supplements}
-                  canCollect={can(user, "invoice.collect")}
-                  onChanged={invalidateInvoices}
-                />
-              ) : null}
-              {canRefund && selected.status === "PAID" ? (
-                <MedicineRefundPanel
-                  invoiceId={selected.id}
-                  onChanged={invalidateInvoices}
-                />
-              ) : null}
-              {selected.status === "REFUNDED" ? (
-                <DsKeyValue
-                  items={[
-                    {
-                      label: "Lý do hoàn",
-                      value: selected.refundReason || "-",
-                    },
-                    ...(selected.refundReference
-                      ? [
-                          {
-                            label: "Tham chiếu hoàn",
-                            value: selected.refundReference,
-                          },
-                        ]
-                      : []),
-                    {
-                      label: "Hoàn lúc",
-                      value: selected.refundedAt
-                        ? formatVietnamDateTime(selected.refundedAt)
-                        : "-",
-                    },
-                  ]}
-                />
-              ) : null}
-            </div>
-          </div>
-
-          <div className="ds-card">
-            <div className="ds-card__head">
-              <h3>Giao dịch trực tuyến</h3>
-            </div>
-            {selected.paymentTransactions.length ? (
-              selected.paymentTransactions.map((transaction) => (
-                <div key={transaction.id} className="ds-labrow">
-                  <div className="ds-labrow__main">
-                    <strong>
-                      {transaction.provider} · {transaction.transactionCode}
-                    </strong>
-                    <small>{formatCurrency(transaction.amount)}</small>
-                    <small>
-                      Tạo lúc {formatVietnamDateTime(transaction.createdAt)} ·
-                      hết hạn {formatVietnamDateTime(transaction.expiredAt)}
-                    </small>
-                    {transaction.providerOrderId ? (
-                      <small>
-                        Mã nhà cung cấp: {transaction.providerOrderId}
-                      </small>
-                    ) : null}
-                  </div>
-                  <DsStatusPill tone={transactionTone[transaction.status]}>
-                    {transactionStatusLabel[transaction.status]}
-                  </DsStatusPill>
-                </div>
-              ))
-            ) : (
-              <p style={{ margin: 0, padding: 14, color: "var(--ds-muted)" }}>
-                Chưa có giao dịch trực tuyến.
-              </p>
-            )}
-          </div>
-        </div>
-      </div>
+      <InvoiceDetailCards invoice={selected} canRefund={canRefund} canCollect={can(user, "invoice.collect")} onChanged={invalidateInvoices} />
     </DsPane>
   ) : null;
 
