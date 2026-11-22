@@ -2,12 +2,33 @@
 
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, X } from "lucide-react";
+import { WaveEdge } from "@/components/public/wave-edge";
 import { chipClass } from "@/components/public/chip-styles";
 import { openPublicChatbot } from "@/lib/public-ui-events";
 
-// Đầu trang danh mục: đường dẫn, tiêu đề, một câu mô tả; không có ảnh nền, ô số liệu hay nhãn trang trí.
-export function CatalogHeader({ current, title, description, children }: { current: string; title: string; description?: string; children?: ReactNode }) {
+// Đầu trang danh mục: đường dẫn, tiêu đề, một câu mô tả. Biến thể "brand" (các danh mục dịch vụ) là dải xanh thấp cùng ngôn ngữ với trang chủ, sóng nhẹ ở đáy; biến thể mặc định
+// là nền trắng trơn. Không có ảnh nền, ô số liệu hay nhãn trang trí.
+export function CatalogHeader({ current, title, description, children, brand = false }: { current: string; title: string; description?: string; children?: ReactNode; brand?: boolean }) {
+  if (brand) {
+    return (
+      <header className="relative bg-[linear-gradient(120deg,var(--hero-from)_0%,var(--hero-via)_58%,var(--hero-to)_100%)] text-white">
+        <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden">
+          <WaveEdge />
+        </div>
+        <div className="ui-container relative z-10 pb-9 pt-5 sm:pb-11 sm:pt-7">
+          <nav aria-label="Đường dẫn trang" className="mb-3 flex items-center gap-1.5 text-sm text-white/80">
+            <Link href="/" className="hover:text-white hover:underline">Trang chủ</Link>
+            <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" />
+            <span className="font-semibold text-white" aria-current="page">{current}</span>
+          </nav>
+          <h1 className="text-2xl font-bold text-white sm:text-3xl">{title}</h1>
+          {description ? <p className="mt-2 max-w-2xl text-base leading-7 text-white/90">{description}</p> : null}
+          {children ? <div className="mt-5">{children}</div> : null}
+        </div>
+      </header>
+    );
+  }
   return (
     <header className="border-b border-[var(--public-border)] bg-[var(--public-surface)]">
       <div className="ui-container py-5 sm:py-7">
@@ -21,6 +42,34 @@ export function CatalogHeader({ current, title, description, children }: { curre
         {children ? <div className="mt-5">{children}</div> : null}
       </div>
     </header>
+  );
+}
+
+// Thanh kết quả dính dưới header khi cuộn: số kết quả, các lọc đang bật (mỗi chip bấm × để bỏ) và "Xóa lọc". Đổi lọc không cần cuộn lên đầu trang.
+export function CatalogStatusBar({ status, chips, onReset }: { status: string; chips: { key: string; label: string; onRemove: () => void }[]; onReset: () => void }) {
+  return (
+    <div className="sticky top-[7.6rem] z-30 border-b border-[var(--public-border)] bg-[var(--public-surface)]/95 backdrop-blur xl:top-[4.25rem]">
+      <div className="ui-container flex min-h-12 flex-wrap items-center gap-2 py-2">
+        <p className="mr-1 text-sm font-semibold text-[var(--public-ink)]" aria-live="polite">{status}</p>
+        {chips.map((chip) => (
+          <button
+            key={chip.key}
+            type="button"
+            onClick={chip.onRemove}
+            aria-label={`Bỏ lọc ${chip.label}`}
+            className="inline-flex min-h-8 items-center gap-1 rounded-full border border-[var(--public-primary)] bg-[var(--public-primary-soft)] px-3 text-sm font-medium text-[var(--public-primary-dark)] transition hover:bg-[var(--public-tint-strong)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--public-primary)]"
+          >
+            {chip.label}
+            <X className="h-3.5 w-3.5" aria-hidden="true" />
+          </button>
+        ))}
+        {chips.length ? (
+          <button type="button" onClick={onReset} className="ml-auto inline-flex min-h-8 items-center text-sm font-medium text-[var(--public-primary)] underline underline-offset-4">
+            Xóa lọc
+          </button>
+        ) : null}
+      </div>
+    </div>
   );
 }
 

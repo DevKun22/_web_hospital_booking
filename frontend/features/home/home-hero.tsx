@@ -3,6 +3,7 @@ import Link from "next/link";
 import { ArrowRight, CalendarCheck, Clock } from "lucide-react";
 import { HomeHeroAskKun } from "@/components/public/home-hero-ask-kun";
 import { HomeHeroSlider } from "@/components/public/home-hero-slider";
+import { wavePath } from "@/components/public/wave-edge";
 import { PublicGlobalSearch } from "@/components/public/public-global-search";
 import type { PublicHomeData } from "@/components/public/public-home-types";
 import { doctorDisplayName } from "@/lib/doctor";
@@ -15,12 +16,6 @@ const MAX_FALLBACK_DOCTORS = 3;
 
 const rise = (index: number) => ({ "--i": index }) as CSSProperties;
 
-// Sóng lặp theo chu kỳ 2 * half, và chu kỳ phải là ước của 1200 để lớp sóng rộng gấp đôi trôi nửa chiều rộng rồi nối liền không thấy mối.
-function wavePath(half: number, base: number, amp: number) {
-  let d = `M0 ${base} Q${half / 2} ${base - amp} ${half} ${base}`;
-  for (let x = half * 2; x <= 2400; x += half) d += ` T${x} ${base}`;
-  return `${d} V56 H0Z`;
-}
 const WAVE_A = wavePath(300, 34, 22);
 const WAVE_B = wavePath(200, 30, 16);
 const WAVE_TOP_A = wavePath(200, 34, 16);

@@ -15,6 +15,7 @@ export function PublicCatalogSearch({
   children,
   onReset,
   canReset,
+  onBrand = false,
 }: {
   value: string;
   onChange: (value: string) => void;
@@ -24,6 +25,8 @@ export function PublicCatalogSearch({
   children?: ReactNode;
   onReset: () => void;
   canReset: boolean;
+  // Đặt trên nền xanh của đầu trang danh mục: liên kết Xóa lọc chuyển sang màu trắng.
+  onBrand?: boolean;
 }) {
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -53,7 +56,7 @@ export function PublicCatalogSearch({
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
           {children}
           {canReset ? (
-            <button type="button" onClick={onReset} className="inline-flex min-h-9 items-center gap-1.5 text-sm font-medium text-[var(--public-primary)] underline underline-offset-4">
+            <button type="button" onClick={onReset} className={`inline-flex min-h-9 items-center gap-1.5 text-sm font-medium underline underline-offset-4 ${onBrand ? "text-white" : "text-[var(--public-primary)]"}`}>
               <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />
               Xóa lọc
             </button>

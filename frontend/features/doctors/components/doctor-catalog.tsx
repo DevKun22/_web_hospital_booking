@@ -1,8 +1,8 @@
 "use client";
 
 import { useMemo } from "react";
-import { CatalogHeader, ChatbotHint } from "@/components/public/catalog-parts";
-import { PublicCatalogSection, PublicEmptyState } from "@/components/public/public-page-layout";
+import { CatalogHeader, CatalogStatusBar, ChatbotHint } from "@/components/public/catalog-parts";
+import { PublicEmptyState } from "@/components/public/public-page-layout";
 import { DoctorCard } from "@/features/doctors/components/doctor-card";
 import { DoctorFilterBar } from "@/features/doctors/components/doctor-filter-bar";
 import { DoctorPagination } from "@/features/doctors/components/doctor-pagination";
@@ -14,7 +14,7 @@ const messageOf = (error: unknown) => (error instanceof Error ? error.message : 
 
 export function DoctorCatalog() {
   const state = useDoctorFilters();
-  const { filters, setPage, reset, hasActiveFilters } = state;
+  const { filters, setPage, reset, update, setSearchInput } = state;
 
   const departmentsQuery = usePublicDepartments();
   const doctorsQuery = usePublicDoctorCatalog({
@@ -41,16 +41,27 @@ export function DoctorCatalog() {
 
   return (
     <>
-      <CatalogHeader current="Bác sĩ" title="Đội ngũ bác sĩ" description="Tìm bác sĩ theo tên, chuyên khoa, kinh nghiệm. Chọn bác sĩ rồi đặt lịch theo giờ còn trống.">
+      <CatalogHeader brand current="Bác sĩ" title="Đội ngũ bác sĩ" description="Tìm bác sĩ theo tên, chuyên khoa, kinh nghiệm. Chọn bác sĩ rồi đặt lịch theo giờ còn trống.">
         <DoctorFilterBar state={state} departments={departments} />
       </CatalogHeader>
 
-      <PublicCatalogSection
-        status={loading ? "Đang tải bác sĩ..." : `${pagination?.total || 0} bác sĩ${selectedDepartment ? ` thuộc ${selectedDepartment.name}` : ""}${refreshing ? " · Đang cập nhật" : ""}`}
-        error={messageOf(departmentsQuery.error) || messageOf(doctorsQuery.error)}
-        hasActiveFilters={hasActiveFilters}
-        onResetFilters={reset}
-      >
+      <CatalogStatusBar
+        status={loading ? "Đang tải bác sĩ..." : `${pagination?.total || 0} bác sĩ${refreshing ? " · Đang cập nhật" : ""}`}
+        chips={[
+          ...(filters.search ? [{ key: "search", label: `“${filters.search}”`, onRemove: () => setSearchInput("") }] : []),
+          ...(selectedDepartment ? [{ key: "department", label: selectedDepartment.name, onRemove: () => update({ departmentId: "" }) }] : []),
+          ...(filters.minExperience ? [{ key: "experience", label: `Từ ${filters.minExperience} năm`, onRemove: () => update({ minExperience: "" }) }] : []),
+          ...(filters.availableToday ? [{ key: "today", label: "Có lịch hôm nay", onRemove: () => update({ availableToday: false }) }] : []),
+        ]}
+        onReset={reset}
+      />
+
+      <section className="ui-container py-6 sm:py-8" aria-busy={loading || refreshing}>
+        {messageOf(departmentsQuery.error) || messageOf(doctorsQuery.error) ? (
+          <div className="ui-status-danger mb-4 rounded-xl border px-4 py-3 text-sm" role="alert">
+            {messageOf(departmentsQuery.error) || messageOf(doctorsQuery.error)}
+          </div>
+        ) : null}
         <div id="doctor-results" aria-busy={refreshing}>
           {loading ? (
             <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4" aria-busy="true">
@@ -58,7 +69,7 @@ export function DoctorCatalog() {
             </ul>
           ) : doctors.length ? (
             <ul aria-busy={refreshing} className={`grid gap-4 sm:grid-cols-2 lg:grid-cols-4 ${refreshing ? "opacity-70" : ""}`}>
-              {doctors.map((doctor) => <DoctorCard key={doctor.id} doctor={doctor} />)}
+              {doctors.map((doctor, index) => <DoctorCard key={doctor.id} doctor={doctor} index={index} />)}
             </ul>
           ) : (
             <PublicEmptyState>Chưa tìm thấy bác sĩ phù hợp. Thử từ khóa hoặc chuyên khoa khác.</PublicEmptyState>
@@ -66,7 +77,7 @@ export function DoctorCatalog() {
         </div>
         {pagination ? <DoctorPagination pagination={pagination} onChange={changePage} /> : null}
         <ChatbotHint>Chưa rõ nên chọn bác sĩ hay chuyên khoa nào?</ChatbotHint>
-      </PublicCatalogSection>
+      </section>
 
     </>
   );

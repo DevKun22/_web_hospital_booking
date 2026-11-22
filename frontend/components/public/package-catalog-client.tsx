@@ -102,12 +102,13 @@ export function PackageCatalogClient() {
 
   return (
     <>
-      <CatalogHeader current="Gói khám" title="Gói khám" description="Xem hạng mục, chuyên khoa và mức phí từng gói, rồi đặt lịch theo gói bạn chọn.">
+      <CatalogHeader brand current="Gói khám" title="Gói khám" description="Xem hạng mục, chuyên khoa và mức phí từng gói, rồi đặt lịch theo gói bạn chọn.">
         <PublicCatalogSearch
           value={searchDraft}
           onChange={setSearchDraft}
           onSubmit={() => applySearch()}
           onReset={reset}
+          onBrand
           canReset={hasActiveFilters || Boolean(searchDraft)}
           placeholder="Tìm gói khám, chuyên khoa hoặc hạng mục"
           controls={
