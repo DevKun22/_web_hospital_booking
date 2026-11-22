@@ -17,6 +17,7 @@ export function DoctorFilterBar({ state, departments }: { state: FilterState; de
       onSubmit={submitSearch}
       onReset={reset}
       canReset={hasActiveFilters}
+      onBrand
       placeholder="Tìm bác sĩ, chuyên khoa hoặc chuyên môn"
       controls={
         <>

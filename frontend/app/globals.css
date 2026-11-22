@@ -1629,6 +1629,7 @@ button:disabled {
 .hero-rise { animation: hero-rise 0.7s cubic-bezier(0.2, 0.7, 0.2, 1) both; animation-delay: calc(var(--i, 0) * 90ms + 120ms); }
 .hero-blob { position: absolute; border-radius: 9999px; pointer-events: none; background: radial-gradient(closest-side, rgba(255, 255, 255, 0.5), transparent); animation: blob-float 18s ease-in-out infinite; }
 .hero-wave { position: absolute; left: 0; bottom: -1px; width: 200%; height: clamp(2.5rem, 6vw, 4.5rem); pointer-events: none; will-change: transform; }
+.hero-wave--slim { height: clamp(0.9rem, 2.2vw, 1.5rem); }
 .hero-wave--a { animation: wave-drift 24s linear infinite; }
 .hero-wave--b { animation: wave-drift 38s linear infinite reverse; opacity: 0.5; bottom: 0.4rem; }
 /* Sóng đầu hero: màu mép dưới header chảy xuống hero; lật theo trục dọc nên keyframes giữ scaleY(-1) khi trôi. */
@@ -1636,8 +1637,11 @@ button:disabled {
 .hero-wave-top { position: absolute; left: 0; top: -1px; width: 200%; height: clamp(1rem, 2.6vw, 2rem); pointer-events: none; will-change: transform; transform: scaleY(-1); }
 .hero-wave-top--a { animation: wave-drift-top 30s linear infinite reverse; }
 .hero-wave-top--b { animation: wave-drift-top 46s linear infinite; opacity: 0.4; top: 0.45rem; }
+/* Thẻ danh mục hiện dần theo nhịp khi dựng; chỉ là hoạt ảnh CSS (không ẩn trước bằng mã) nên tải lại giữa trang không bao giờ kẹt ở trạng thái ẩn. */
+.catalog-rise { animation: hero-rise 0.45s cubic-bezier(0.2, 0.7, 0.2, 1) both; animation-delay: calc(min(var(--i, 0), 8) * 45ms); }
 @media (prefers-reduced-motion: reduce) {
   [data-motion="armed"] [data-reveal] { opacity: 1; transform: none; transition: none; }
+  .catalog-rise,
   .hero-rise, .hero-blob, .hero-wave--a, .hero-wave--b, .hero-wave-top--a, .hero-wave-top--b { animation: none; }
 }
 /* Phần tử chưa hiện đang lệch sang bên không được làm trang cuộn ngang. */
