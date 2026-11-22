@@ -3,8 +3,9 @@ import { notFound } from "next/navigation";
 import { cache } from "react";
 import { ArrowRight, Check } from "lucide-react";
 import Link from "next/link";
-import { PublicBreadcrumb } from "@/components/public/public-page-layout";
-import { AnchorNav } from "@/components/public/catalog-content";
+import { CatalogHeader } from "@/components/public/catalog-parts";
+import { BookingSteps } from "@/components/public/booking-steps";
+import { StickyAnchorNav } from "@/components/public/sticky-anchor-nav";
 import { AskKunButton } from "@/components/public/ask-kun-button";
 import { PackageCard } from "@/features/packages/components/package-card";
 import type { PublicPackageCatalogResponse } from "@/components/public/public-home-types";
@@ -87,6 +88,12 @@ export default async function PublicPackageDetailPage({ params }: PageProps) {
   );
   const includedItems = packageItem.items.filter((item) => item.included);
   const additionalItems = packageItem.items.filter((item) => !item.included);
+  // Ô số liệu thật dưới dải xanh; ô nào không có dữ liệu thì không hiện.
+  const facts = [
+    includedItems.length ? { label: "Hạng mục đã gồm", value: String(includedItems.length) } : null,
+    packageItem.resultTime ? { label: "Có kết quả", value: packageItem.resultTime } : null,
+    packageItem.audience?.length ? { label: "Nên làm", value: packageItem.audience[0] } : null,
+  ].filter((fact): fact is { label: string; value: string } => fact !== null);
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "MedicalWebPage",
@@ -126,18 +133,35 @@ export default async function PublicPackageDetailPage({ params }: PageProps) {
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdString(breadcrumbJsonLd) }} />
       {faqJsonLd ? <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdString(faqJsonLd) }} /> : null}
 
-      <div className="ui-container grid grid-cols-[minmax(0,1fr)] min-w-0 gap-6 py-5 sm:py-8 lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-start lg:gap-8">
-        <div className="min-w-0">
-          <PublicBreadcrumb current={packageItem.name} />
-          <header>
-            <h1 className="text-2xl font-bold sm:text-3xl">{packageItem.name}</h1>
-            <p className="mt-1 text-sm text-[var(--public-muted)]">
-              {[packageItem.department?.name || "Đa chuyên khoa", packageItem.isBHYTSupport ? "Hỗ trợ BHYT" : "", packageItem.isPopular ? "Nổi bật" : ""].filter(Boolean).join(" · ")}
-            </p>
-            <p className="mt-3 max-w-2xl text-base leading-7 text-[var(--public-text-soft)]">{description}</p>
-            {packageItem.resultTime ? <p className="mt-3 text-sm text-[var(--public-muted)]">Thời gian có kết quả: <strong className="font-semibold text-[var(--public-ink)]">{packageItem.resultTime}</strong></p> : null}
-          </header>
-          <AnchorNav items={[...(packageItem.audience?.length ? [{ id: "doi-tuong", label: "Đối tượng nên làm" }] : []), { id: "hang-muc", label: "Hạng mục" }, ...(packageItem.faq?.length ? [{ id: "hoi-dap", label: "Hỏi đáp" }] : []), { id: "quy-trinh", label: "Cách đặt lịch" }]} />
+      <CatalogHeader
+        brand
+        overlap
+        current={packageItem.name}
+        title={packageItem.name}
+        description={description}
+        trail={[{ label: "Gói khám", href: "/goi-kham" }]}
+      >
+        <div className="flex flex-wrap gap-2 text-sm font-medium">
+          <span className="rounded-full border border-white/50 px-3 py-1">{packageItem.department?.name || "Đa chuyên khoa"}</span>
+          {packageItem.isBHYTSupport ? <span className="rounded-full border border-white/50 px-3 py-1">Hỗ trợ BHYT</span> : null}
+          {packageItem.isPopular ? <span className="rounded-full border border-white/50 px-3 py-1">Nổi bật</span> : null}
+          {packageItem.resultTime ? <span className="rounded-full border border-white/50 px-3 py-1">Có kết quả: {packageItem.resultTime}</span> : null}
+        </div>
+      </CatalogHeader>
+
+      <div className="ui-container relative z-10 grid grid-cols-[minmax(0,1fr)] min-w-0 gap-6 pb-8 pt-5 sm:pb-12 lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-start lg:gap-8 lg:pt-0">
+        <div className="min-w-0 lg:-mt-20">
+          {facts.length ? (
+            <ul className="flex flex-wrap gap-3">
+              {facts.map((fact) => (
+                <li key={fact.label} className="min-w-[9rem] flex-1 rounded-xl border border-[var(--public-border)] bg-[var(--public-surface)] p-3 shadow-sm">
+                  <p className="text-sm text-[var(--public-muted)]">{fact.label}</p>
+                  <p className="mt-0.5 line-clamp-2 text-base font-semibold text-[var(--public-ink)]">{fact.value}</p>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+          <StickyAnchorNav items={[...(packageItem.audience?.length ? [{ id: "doi-tuong", label: "Đối tượng nên làm" }] : []), { id: "hang-muc", label: "Hạng mục" }, ...(packageItem.faq?.length ? [{ id: "hoi-dap", label: "Hỏi đáp" }] : []), { id: "quy-trinh", label: "Cách đặt lịch" }]} />
           {packageItem.image ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={packageItem.image} alt={packageItem.name} width={960} height={540} fetchPriority="high" decoding="async" className="mt-5 aspect-[16/9] w-full max-w-2xl rounded-xl border border-[var(--public-border)] object-cover" />
@@ -212,13 +236,8 @@ export default async function PublicPackageDetailPage({ params }: PageProps) {
           ) : null}
 
           <section id="quy-trinh" aria-labelledby="quy-trinh-title" className="mt-8 border-t border-[var(--public-divider)] pt-6">
-            <h2 id="quy-trinh-title" className="text-xl font-bold">Đặt lịch gồm 4 bước</h2>
-            <ol className="mt-3 space-y-2 text-base text-[var(--public-text-soft)]">
-              <li><strong className="text-[var(--public-ink)]">1. Chọn gói.</strong> Gói này đã được chuyển sẵn sang trang đặt lịch.</li>
-              <li><strong className="text-[var(--public-ink)]">2. Chọn lịch.</strong> Chọn bác sĩ, ngày và khung giờ còn trống.</li>
-              <li><strong className="text-[var(--public-ink)]">3. Nhập thông tin.</strong> Bổ sung thông tin người khám và BHYT nếu có.</li>
-              <li><strong className="text-[var(--public-ink)]">4. Xác thực OTP.</strong> Nhập mã gửi về để hoàn tất yêu cầu.</li>
-            </ol>
+            <h2 id="quy-trinh-title" className="text-xl font-bold">Đặt lịch trong 5 bước</h2>
+            <BookingSteps />
           </section>
 
           {relatedPackages.length ? (
@@ -234,7 +253,7 @@ export default async function PublicPackageDetailPage({ params }: PageProps) {
           ) : null}
         </div>
 
-        <aside aria-label="Chi phí và đặt lịch" className="hidden h-fit min-w-0 rounded-xl border border-[var(--public-border)] bg-[var(--public-surface)] p-4 sm:p-5 lg:sticky lg:top-28 lg:block">
+        <aside aria-label="Chi phí và đặt lịch" className="hidden h-fit min-w-0 rounded-xl border border-[var(--public-border)] bg-[var(--public-surface)] p-4 sm:p-5 shadow-lg lg:sticky lg:top-28 lg:-mt-28 lg:block">
           <p className="text-sm text-[var(--public-muted)]">Chi phí dự kiến</p>
           <p className="mt-1 text-3xl font-bold tabular-nums text-[var(--public-primary-dark)]">{formatCurrency(packageItem.finalPrice)}</p>
           <dl className="mt-4 space-y-2 border-y border-[var(--public-divider)] py-4 text-sm">

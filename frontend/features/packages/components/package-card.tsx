@@ -1,6 +1,7 @@
 /* eslint-disable @next/next/no-img-element */
 import Link from "next/link";
 import { Check, Clock, PackageCheck } from "lucide-react";
+import { toneGradient } from "@/lib/dept-tone";
 import { formatCurrency } from "@/lib/format";
 import type { MedicalPackage } from "@/lib/types";
 
@@ -18,7 +19,7 @@ export function PackageCard({ item, featured }: { item: MedicalPackage; featured
         {item.image ? (
           <img src={item.image} alt="" width={800} height={450} loading="lazy" decoding="async" className="h-full w-full object-cover transition-transform duration-500 group-hover/pack:scale-105 motion-reduce:transition-none motion-reduce:group-hover/pack:scale-100" />
         ) : (
-          <div className="flex h-full w-full items-center justify-center bg-[linear-gradient(135deg,var(--public-primary-soft),var(--public-tint-strong))] text-[var(--public-primary-dark)]" aria-hidden="true">
+          <div className="flex h-full w-full items-center justify-center text-white/90" style={{ background: toneGradient(item.department?.name || item.name) }} aria-hidden="true">
             <PackageCheck className={featured ? "h-16 w-16" : "h-12 w-12"} />
           </div>
         )}
@@ -43,16 +44,13 @@ export function PackageCard({ item, featured }: { item: MedicalPackage; featured
         ) : item.summary ? (
           <p className="mt-3 line-clamp-3 text-base text-[var(--public-text-soft)]">{item.summary}</p>
         ) : null}
-        {more > 0 ? <Link href={detailHref} className="mt-2 text-sm font-medium text-[var(--public-primary)] underline-offset-4 hover:underline">+ {more} hạng mục khác</Link> : null}
+        {more > 0 ? <Link href={detailHref} className="mt-2 inline-flex min-h-8 items-center text-sm font-medium text-[var(--public-primary)] underline-offset-4 hover:underline">+ {more} hạng mục khác</Link> : null}
         {item.resultTime ? (
           <p className="mt-2 inline-flex items-center gap-1.5 text-sm text-[var(--public-muted)]"><Clock className="h-4 w-4" aria-hidden="true" />Có kết quả: {item.resultTime}</p>
         ) : null}
-        <div className="mt-auto flex flex-wrap items-end justify-between gap-x-3 gap-y-2 pt-3">
+        <div className="mt-auto flex flex-wrap items-end justify-between gap-x-3 gap-y-2 border-t border-[var(--public-divider)] pt-3">
           <p className="text-sm text-[var(--public-muted)]">Chi phí dự kiến<span className="block text-xl font-semibold tabular-nums text-[var(--public-primary-dark)]">{formatCurrency(item.finalPrice)}</span></p>
-          <div className="flex gap-2">
-            <Link href={detailHref} className="public-button-secondary inline-flex min-h-10 items-center rounded-lg px-3.5 text-sm font-semibold">Chi tiết</Link>
-            <Link href={`/dat-lich?packageId=${item.id}`} className="public-button-primary inline-flex min-h-10 items-center rounded-lg px-4 text-sm font-semibold">Chọn gói</Link>
-          </div>
+          <Link href={`/dat-lich?packageId=${item.id}`} className="public-button-primary inline-flex min-h-10 items-center rounded-lg px-4 text-sm font-semibold">Chọn gói</Link>
         </div>
       </div>
     </>

@@ -3,7 +3,7 @@
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useMemo, useState } from "react";
 import { PublicCatalogSearch, PublicPagination } from "@/components/public/public-catalog-controls";
-import { CatalogHeader, ChatbotHint, ChipRow, FilterChip, FlatSelect, ResultCount } from "@/components/public/catalog-parts";
+import { CatalogHeader, CatalogStatusBar, ChatbotHint, ChipRow, FilterChip, FlatSelect } from "@/components/public/catalog-parts";
 import { PublicEmptyState } from "@/components/public/public-page-layout";
 import { usePublicPackageCatalog } from "@/lib/public-lists-query";
 import { PackageCard } from "@/features/packages/components/package-card";
@@ -135,19 +135,26 @@ export function PackageCatalogClient() {
 
       </CatalogHeader>
 
+      <CatalogStatusBar
+        status={loading ? "Đang tải gói khám..." : `${data?.pagination.total || 0} gói khám`}
+        chips={[
+          ...(search ? [{ key: "search", label: `“${search}”`, onRemove: () => applySearch("") }] : []),
+          ...(departmentId ? [{ key: "department", label: data?.filters.departments.find((department) => department.id === departmentId)?.name || "Chuyên khoa", onRemove: () => changeDepartment("") }] : []),
+          ...(kind !== "ALL" ? [{ key: "kind", label: kind === "POPULAR" ? "Gói nổi bật" : "Hỗ trợ BHYT", onRemove: () => changeKind("ALL") }] : []),
+        ]}
+        onReset={reset}
+      />
+
       <section className="ui-container py-6 sm:py-8" aria-busy={catalogQuery.isFetching}>
         {error ? <p className="mb-4 rounded-lg border border-[var(--public-danger)] bg-[var(--public-danger-soft)] px-3 py-2.5 text-sm text-[var(--public-danger)]" role="alert">{error}</p> : null}
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-          <ResultCount loading={loading} shown={items.length} total={data?.pagination.total || 0} noun="gói khám" />
-          {data?.summary.packageCount ? <p className="text-sm text-[var(--public-muted)]">Giá từ {formatCurrency(data.summary.minPrice)} đến {formatCurrency(data.summary.maxPrice)}</p> : null}
-        </div>
+        {data?.summary.packageCount ? <p className="mb-3 text-sm text-[var(--public-muted)]">Giá từ {formatCurrency(data.summary.minPrice)} đến {formatCurrency(data.summary.maxPrice)}</p> : null}
         {loading ? (
           <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3" aria-busy="true">
             {Array.from({ length: 6 }).map((_, index) => <li key={index}><span className="skeleton-shimmer block h-80 rounded-2xl" /></li>)}
           </ul>
         ) : items.length ? (
           <ul aria-busy={catalogQuery.isFetching} className={`grid gap-4 sm:grid-cols-2 lg:grid-cols-3 ${catalogQuery.isFetching ? "opacity-70" : ""}`}>
-            {items.map((item) => <li key={item.id}><PackageCard item={item} /></li>)}
+            {items.map((item, index) => <li key={item.id} style={{ "--i": index } as React.CSSProperties} className="catalog-rise"><PackageCard item={item} /></li>)}
           </ul>
         ) : (
           <PublicEmptyState>Không tìm thấy gói khám phù hợp. Thử từ khóa ngắn hơn hoặc bỏ bớt bộ lọc.</PublicEmptyState>
