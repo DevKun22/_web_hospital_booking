@@ -54,7 +54,7 @@ export function CatalogHeader({ current, title, description, children, brand = f
 // Thanh kết quả dính dưới header khi cuộn: số kết quả, các lọc đang bật (mỗi chip bấm × để bỏ) và "Xóa lọc". Đổi lọc không cần cuộn lên đầu trang.
 export function CatalogStatusBar({ status, chips, onReset, extra }: { status: string; chips: { key: string; label: string; onRemove: () => void }[]; onReset: () => void; extra?: ReactNode }) {
   return (
-    <div className="sticky top-[7.6rem] z-30 border-b border-[var(--public-border)] bg-[var(--public-surface)]/95 backdrop-blur xl:top-[4.25rem]">
+    <div className="sticky top-14 z-30 border-b border-[var(--public-border)] bg-[var(--public-surface)]/95 backdrop-blur xl:top-[4.25rem]">
       <div className="ui-container flex min-h-12 flex-wrap items-center gap-2 py-2">
         <p className="mr-1 text-sm font-semibold text-[var(--public-ink)]" aria-live="polite">{status}</p>
         {chips.map((chip) => (
@@ -85,7 +85,7 @@ export function CatalogStatusBar({ status, chips, onReset, extra }: { status: st
 // Thanh kết quả dính cho trang máy chủ (danh sách bài viết): số kết quả, chip lọc đang bật là liên kết bỏ lọc và liên kết Xóa lọc.
 export function CatalogStatusLinks({ status, chips, resetHref }: { status: string; chips: { key: string; label: string; href: string }[]; resetHref: string }) {
   return (
-    <div className="sticky top-[7.6rem] z-30 border-b border-[var(--public-border)] bg-[var(--public-surface)]/95 backdrop-blur xl:top-[4.25rem]">
+    <div className="sticky top-14 z-30 border-b border-[var(--public-border)] bg-[var(--public-surface)]/95 backdrop-blur xl:top-[4.25rem]">
       <div className="ui-container flex min-h-12 flex-wrap items-center gap-2 py-2">
         <p className="mr-1 text-sm font-semibold text-[var(--public-ink)]" aria-live="polite">{status}</p>
         {chips.map((chip) => (

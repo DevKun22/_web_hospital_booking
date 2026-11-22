@@ -38,7 +38,7 @@ export function StickyAnchorNav({ items }: { items: { id: string; label: string 
 
   if (items.length < 2) return null;
   return (
-    <nav aria-label="Nội dung trang" className="sticky top-[7.6rem] z-30 mt-5 -mx-4 border-b border-[var(--public-border)] bg-[var(--public-canvas)]/95 px-4 backdrop-blur sm:mx-0 sm:px-0 xl:top-[4.25rem]">
+    <nav aria-label="Nội dung trang" className="sticky top-14 z-30 mt-5 -mx-4 border-b border-[var(--public-border)] bg-[var(--public-canvas)]/95 px-4 backdrop-blur sm:mx-0 sm:px-0 xl:top-[4.25rem]">
       <ul className="flex gap-1.5 overflow-x-auto py-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {items.map((item) => (
           <li key={item.id} className="shrink-0">

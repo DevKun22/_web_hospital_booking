@@ -31,7 +31,7 @@ export function ReadingProgress({ targetId }: { targetId: string }) {
   }, [targetId]);
 
   return (
-    <div aria-hidden="true" className="sticky top-[7.6rem] z-30 h-[3px] bg-[var(--public-border)] xl:top-[4.25rem]">
+    <div aria-hidden="true" className="sticky top-14 z-30 h-[3px] bg-[var(--public-border)] xl:top-[4.25rem]">
       <span ref={barRef} className="block h-full origin-left scale-x-0 bg-[var(--public-primary)]" />
     </div>
   );

@@ -1652,3 +1652,29 @@ button:disabled {
 }
 /* Phần tử chưa hiện đang lệch sang bên không được làm trang cuộn ngang. */
 [data-motion="armed"] { overflow-x: clip; }
+
+/* Tấm trượt dưới lên (MobileSheet): nền mờ hiện dần, bảng trượt lên; tắt khi người dùng giảm chuyển động. */
+@keyframes sheet-up {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
+@keyframes sheet-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.mobile-sheet {
+  animation: sheet-up 0.24s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.mobile-sheet__backdrop {
+  animation: sheet-fade 0.2s ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mobile-sheet,
+  .mobile-sheet__backdrop {
+    animation: none;
+  }
+}

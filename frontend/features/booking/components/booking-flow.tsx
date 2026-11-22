@@ -93,7 +93,7 @@ export function BookingFlow({ catalog, loading, hotline }: BookingFlowProps) {
     <section id="booking" className="ui-container relative z-10 -mt-8 scroll-mt-24 pb-8 sm:pb-12 lg:-mt-10">
       <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-6 lg:grid-cols-[minmax(0,1fr)_21rem] lg:gap-8">
         <div className="space-y-4">
-          <div className="sticky top-[7.6rem] z-40 h-0 xl:top-[4.25rem]">
+          <div className="sticky top-14 z-40 h-0 xl:top-[4.25rem]">
             <div
               aria-hidden={!floating}
               className={`absolute inset-x-0 top-0 -mx-4 border-b border-[var(--public-border)] bg-[var(--public-surface)] px-4 py-2.5 shadow-sm transition duration-200 motion-reduce:transition-none sm:mx-0 sm:rounded-b-xl sm:border-x ${floating ? "translate-y-0 opacity-100" : "pointer-events-none -translate-y-2 opacity-0"}`}
