@@ -13,6 +13,7 @@ import { ChatbotLauncher } from "@/components/chatbot/chatbot-launcher";
 import { KunAvatar } from "@/components/chatbot/kun-avatar";
 import { useChatbot } from "@/components/chatbot/use-chatbot";
 import { useDialogA11y } from "@/components/chatbot/use-dialog-a11y";
+import { WaveEdge } from "@/components/public/wave-edge";
 import { buildBookingHref } from "@/lib/chatbot-ui";
 import { usePublicChatbotSettings } from "@/lib/public-chatbot-query";
 import { PUBLIC_CHATBOT_CLOSE_EVENT, PUBLIC_CHATBOT_OPEN_EVENT, setPublicFloatingPanelVisibility } from "@/lib/public-ui-events";
@@ -87,26 +88,26 @@ export function ChatbotWidget() {
           role="dialog"
           aria-modal="true"
           aria-labelledby="kun-title"
-          className="kun-panel flex h-[min(640px,calc(100dvh-2rem-env(safe-area-inset-bottom)))] w-[min(400px,calc(100vw-1.5rem))] flex-col overflow-hidden rounded-xl border border-[var(--public-border)] bg-white shadow-2xl ring-1 ring-[var(--public-primary-soft)] max-sm:fixed max-sm:inset-0 max-sm:h-dvh max-sm:w-screen max-sm:rounded-none"
+          className="kun-panel flex h-[min(640px,calc(100dvh-2rem-env(safe-area-inset-bottom)))] w-[min(400px,calc(100vw-1.5rem))] flex-col overflow-hidden rounded-2xl border border-[var(--public-border)] bg-white shadow-2xl ring-1 ring-[var(--public-primary-soft)] max-sm:fixed max-sm:inset-0 max-sm:h-dvh max-sm:w-screen max-sm:rounded-none"
         >
-          <header className="flex items-center justify-between gap-2 border-b border-[var(--public-divider)] px-4 py-2.5">
-            <div className="flex min-w-0 items-center gap-2.5">
-              <KunAvatar mood={mood} size={38} />
+          <header className="relative flex items-center justify-between gap-2 overflow-hidden bg-[var(--public-solid)] px-4 pb-5 pt-2.5 text-white">
+            <div className="relative z-10 flex min-w-0 items-center gap-2.5">
+              <span className="rounded-full bg-white p-0.5"><KunAvatar mood={mood} size={36} /></span>
               <div className="min-w-0">
-                <h2 id="kun-title" className="truncate text-sm font-semibold text-[var(--public-ink)]">
+                <h2 id="kun-title" className="truncate text-sm font-semibold text-white">
                   Kun
                 </h2>
-                <p className="flex items-center gap-1.5 truncate text-xs text-[var(--public-muted)]">
-                  <span className={`h-2 w-2 shrink-0 rounded-full ${online ? "bg-[var(--public-success)]" : "bg-[var(--public-muted)]"}`} aria-hidden="true" />
+                <p className="flex items-center gap-1.5 truncate text-xs text-white/85">
+                  <span className={`h-2 w-2 shrink-0 rounded-full ${online ? "bg-[#7ee2b8]" : "bg-white/50"}`} aria-hidden="true" />
                   Trợ lý ảo · {statusText}
                 </p>
               </div>
             </div>
-            <div className="flex items-center">
+            <div className="relative z-10 flex items-center">
               <button
                 type="button"
                 onClick={chat.reset}
-                className="flex h-11 w-11 items-center justify-center rounded-xl text-[var(--public-muted)] hover:bg-[var(--public-surface-muted)]"
+                className="flex h-11 w-11 items-center justify-center rounded-xl text-white hover:bg-white/15 focus-visible:outline-2 focus-visible:outline-white"
                 aria-label="Bắt đầu cuộc trò chuyện mới"
                 title="Bắt đầu lại"
               >
@@ -115,12 +116,13 @@ export function ChatbotWidget() {
               <button
                 type="button"
                 onClick={close}
-                className="flex h-11 w-11 items-center justify-center rounded-xl text-[var(--public-muted)] hover:bg-[var(--public-surface-muted)]"
+                className="flex h-11 w-11 items-center justify-center rounded-xl text-white hover:bg-white/15 focus-visible:outline-2 focus-visible:outline-white"
                 aria-label="Đóng"
               >
                 <X className="h-4 w-4" aria-hidden="true" />
               </button>
             </div>
+            <WaveEdge fill="var(--public-canvas)" />
           </header>
 
           <ChatProgress summary={chat.draftSummary} disabled={chat.sending} onClear={chat.clearSelection} />

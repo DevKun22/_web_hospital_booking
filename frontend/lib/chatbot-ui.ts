@@ -10,6 +10,9 @@ import type {
 
 export type ChatMessageRole = "user" | "assistant" | "system" | "alert";
 
+/** Loại tin đặc biệt của Kun, quyết định cách hiện: chưa có thông tin, Kun tạm nghỉ, nhắn quá nhanh, mất mạng, lỗi khác. */
+export type ChatMessageKind = "no-info" | "offline" | "rate-limited" | "network" | "error";
+
 export type ChatWidgetMessage = {
   id: string;
   role: ChatMessageRole;
@@ -18,6 +21,7 @@ export type ChatWidgetMessage = {
   sources?: ChatbotSource[];
   /** Gợi ý bước tiếp theo đi kèm câu trả lời này; chỉ tin mới nhất hiện cho bấm. */
   actions?: ChatbotSuggestedAction[];
+  kind?: ChatMessageKind;
   /** Tin lỗi gửi: hiện nút "Thử lại". */
   retryable?: boolean;
 };
@@ -177,3 +181,26 @@ export const getKunTeaser = (pathname: string): KunTeaser | null => {
   if (pathname.startsWith("/goi-kham")) return { message: "Cần chọn gói khám phù hợp? Hỏi Kun về giá và nội dung gói nhé.", chips: [viewPackagesChip, findDepartmentChip] };
   return { message: "Chào bạn, mình là Kun. Cần tìm bác sĩ hay đặt lịch khám, cứ hỏi mình nhé.", chips: [findDepartmentChip, viewPackagesChip] };
 };
+
+// ---- Lỗi gửi tin và trạng thái trả lời đặc biệt ----
+
+/** Lời nhắn theo nguyên nhân lỗi gửi tin: quá nhanh, Kun tạm tắt, mất mạng hoặc lỗi khác. `retryable`: có nên hiện nút "Thử lại". */
+export const describeChatError = (error: unknown, online = true): { content: string; kind: ChatMessageKind; retryable: boolean } => {
+  const status = typeof error === "object" && error !== null && "status" in error ? Number((error as { status: unknown }).status) : 0;
+  if (status === 429) {
+    const wait = Number((error as { retryAfterSeconds?: unknown }).retryAfterSeconds);
+    const suffix = Number.isFinite(wait) && wait > 0 ? ` Bạn thử lại sau khoảng ${Math.ceil(wait)} giây.` : " Bạn đợi một lát rồi hỏi tiếp nhé.";
+    return { content: `Bạn nhắn hơi nhanh nên Kun cần nghỉ một chút.${suffix}`, kind: "rate-limited", retryable: false };
+  }
+  if (status === 503) {
+    return { content: "Kun đang tạm nghỉ. Bạn xem chuyên khoa, gói khám hoặc nhờ nhân viên hỗ trợ nhé.", kind: "offline", retryable: false };
+  }
+  if (!online || status === 0) {
+    return { content: "Kết nối của bạn có vẻ đang gián đoạn nên mình chưa gửi được tin này. Kiểm tra mạng rồi thử lại nhé.", kind: "network", retryable: true };
+  }
+  return { content: "Ôi, mình chưa gửi được tin này. Bạn thử lại giúp mình nhé.", kind: "error", retryable: true };
+};
+
+/** Câu trả lời "chưa có thông tin": hệ thống trả (không phải AI, không có nguồn, độ tin cậy thấp) cho câu hỏi thông tin. */
+export const isNoInformationReply = (response: { source: string; intent: string; confidence: number; sources?: unknown[] }) =>
+  response.source === "SYSTEM" && response.intent === "GENERAL_HOSPITAL_INFO" && response.confidence <= 0.3 && !response.sources?.length;

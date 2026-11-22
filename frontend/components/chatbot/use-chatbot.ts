@@ -4,10 +4,12 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { apiRequest } from "@/lib/api";
 import {
+  describeChatError,
   getAskQuestion,
   getInputPlaceholder,
   getLoadingText,
   getNavigationTarget,
+  isNoInformationReply,
   type ChatWidgetMessage,
   type ClearableField,
 } from "@/lib/chatbot-ui";
@@ -33,6 +35,13 @@ const STARTER_ACTIONS: ChatbotSuggestedAction[] = [
   { type: "VIEW_PACKAGES", label: "Khám sức khỏe định kỳ", payload: {} },
   { type: "ASK_QUESTION", label: "Khám cho trẻ em", payload: { question: "Khám cho trẻ em thì nên chọn chuyên khoa nào?" } },
   { type: "LOOKUP_APPOINTMENT", label: "Tra cứu lịch hẹn", payload: {} },
+];
+
+/** Lối đi thay thế khi Kun không trả lời được: không phụ thuộc máy chủ chatbot (đều là nút chuyển trang hoặc gửi lại sau). */
+const FALLBACK_ACTIONS: ChatbotSuggestedAction[] = [
+  { type: "VIEW_DEPARTMENTS", label: "Xem chuyên khoa", payload: {} },
+  { type: "VIEW_PACKAGES", label: "Xem gói khám", payload: {} },
+  { type: "CONTACT_STAFF", label: "Hỏi nhân viên hỗ trợ", payload: {} },
 ];
 
 const WELCOME: ChatWidgetMessage = {
@@ -141,15 +150,25 @@ export function useChatbot({ online }: { online: boolean }) {
             id: createId(),
             role: result.state === "EMERGENCY_CARE" ? "alert" : "assistant",
             content: result.reply,
+            kind: isNoInformationReply(result) ? "no-info" : undefined,
             results: result.results,
             sources: result.sources,
             actions: result.suggestedActions,
           },
         ]);
-      } catch {
+      } catch (error) {
+        const failure = describeChatError(error, typeof navigator === "undefined" ? true : navigator.onLine);
         setMessages((current) => [
           ...current,
-          { id: createId(), role: "assistant", content: "Ôi, mình chưa gửi được tin này. Bạn thử lại giúp mình nhé.", retryable: true },
+          {
+            id: createId(),
+            role: "assistant",
+            content: failure.content,
+            kind: failure.kind,
+            retryable: failure.retryable,
+            // Kun tạm nghỉ hoặc đang nghỉ giữa chừng: vẫn cho lối đi khác thay vì dừng ở lời xin lỗi.
+            actions: failure.kind === "offline" || failure.kind === "rate-limited" ? FALLBACK_ACTIONS : undefined,
+          },
         ]);
       } finally {
         sendingRef.current = false;
