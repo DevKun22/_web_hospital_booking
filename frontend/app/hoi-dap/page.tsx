@@ -58,7 +58,7 @@ export default async function PublicFAQsPage({ searchParams }: PageProps) {
       <FAQsClient
         initialFAQs={faqs}
         initialCategory={category}
-        hotline={settings?.hotline || settings?.emergencyHotline || "1900 0000"}
+        hotline={settings?.hotline?.trim() || settings?.emergencyHotline?.trim() || ""}
       />
     </>
   );

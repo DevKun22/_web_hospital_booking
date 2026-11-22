@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Phone } from "lucide-react";
+import { CircleCheck, Phone } from "lucide-react";
 import { formatDayShort } from "@/features/booking/dates";
 import type { BookingFlow } from "@/features/booking/use-booking-flow";
 import { doctorDisplayName } from "@/lib/doctor";
@@ -51,7 +51,7 @@ export function BookingSummary({ flow, hotline }: { flow: BookingFlow; hotline: 
 
   return (
     <aside aria-label="Tóm tắt lịch hẹn" className="hidden space-y-4 lg:sticky lg:top-28 lg:block lg:self-start">
-      <div key={signature} className={`rounded-xl border-2 bg-[var(--public-surface)] p-4 transition-colors ${verified ? "border-[var(--public-success)]" : complete ? "border-[var(--public-primary)]" : "border-dashed border-[var(--public-border)]"} ${signature ? "booking-summary-pulse" : ""}`}>
+      <div key={signature} className={`rounded-xl border-2 bg-[var(--public-surface)] p-4 transition-colors ${verified ? "border-[var(--public-success)]" : complete ? "border-[var(--public-primary)]" : "border-dashed border-[var(--public-border)]"} ${signature ? "booking-summary-pulse" : ""} shadow-md`}>
         <div className="flex items-baseline justify-between gap-3 border-b border-[var(--public-divider)] pb-3">
           <h2 className="text-base font-bold text-[var(--public-ink)]">Lịch hẹn của bạn</h2>
           <span className="text-xs font-semibold text-[var(--public-muted)]">{status}</span>
@@ -61,7 +61,17 @@ export function BookingSummary({ flow, hotline }: { flow: BookingFlow; hotline: 
             {department ? <Link href={department.slug ? `/chuyen-khoa/${department.slug}` : "/chuyen-khoa"} className={link}>{department.name}</Link> : unset}
           </Row>
           <Row label="Bác sĩ">
-            {doctor ? <Link href={`/bac-si/${encodeURIComponent(doctor.slug || doctor.id)}`} className={link}>{doctorDisplayName(doctor)}</Link> : unset}
+            {doctor ? (
+              <span className="flex items-center gap-2">
+                {doctor.user.avatar ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={doctor.user.avatar} alt="" loading="lazy" className="h-7 w-7 shrink-0 rounded-full object-cover" />
+                ) : (
+                  <span aria-hidden="true" className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[var(--public-primary-soft)] text-xs font-semibold text-[var(--public-primary-dark)]">{doctor.user.fullName.trim().charAt(0)}</span>
+                )}
+                <Link href={`/bac-si/${encodeURIComponent(doctor.slug || doctor.id)}`} className={link}>{doctorDisplayName(doctor)}</Link>
+              </span>
+            ) : unset}
           </Row>
           <Row label="Hình thức">
             {selection.serviceMode === "PACKAGE"
@@ -72,7 +82,7 @@ export function BookingSummary({ flow, hotline }: { flow: BookingFlow; hotline: 
                 ? "Khám theo bác sĩ"
                 : unset}
           </Row>
-          <Row label="Thời gian">{hasTime ? when : unset}</Row>
+          <Row label="Thời gian">{hasTime ? <span className="inline-flex items-center gap-1.5">{when}<CircleCheck className="h-4 w-4 text-[var(--public-success)]" aria-label="Đã chọn giờ" /></span> : unset}</Row>
           {flow.state.slot?.facility ? <Row label="Nơi khám">{flow.state.slot.facility.name}<span className="mt-0.5 block text-xs font-normal text-[var(--public-muted)]">{flow.state.slot.facility.address}</span></Row> : null}
         </dl>
         <div className="mt-1 flex items-baseline justify-between border-t border-[var(--public-border)] pt-3">

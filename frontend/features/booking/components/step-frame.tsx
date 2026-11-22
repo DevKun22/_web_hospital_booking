@@ -5,7 +5,7 @@ import { AlertCircle, CheckCircle2 } from "lucide-react";
 // Khung chung của mỗi bước: tiêu đề (nhận tiêu điểm khi đổi bước), mô tả một dòng, nội dung; lỗi chọn thiếu của bước hiện ngay cuối khung.
 export function StepFrame({ title, description, error, children }: { title: string; description?: string; error?: string; children: ReactNode }) {
   return (
-    <section className="rounded-xl border border-[var(--public-border)] bg-[var(--public-surface)] p-4 sm:p-6">
+    <section className="rounded-xl border border-[var(--public-border)] bg-[var(--public-surface)] p-4 shadow-md sm:p-6">
       <h2 tabIndex={-1} className="scroll-mt-32 text-lg font-bold leading-snug text-[var(--public-ink)] focus:outline-none sm:text-xl">
         {title}
       </h2>
