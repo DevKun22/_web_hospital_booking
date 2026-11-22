@@ -57,6 +57,22 @@ export const buildPatientInfoForm = (appointment: Appointment): PatientInfoForm 
   familyHistory: appointment.familyHistory || "",
 });
 
+// Dữ liệu gửi máy chủ khi cập nhật thông tin tiếp nhận: chuỗi trống thành null; không có BHYT thì bỏ mã thẻ và nơi đăng ký.
+export const buildPatientInfoPayload = (form: PatientInfoForm) => ({
+  patientName: form.patientName.trim(),
+  patientEmail: form.patientEmail.trim() || null,
+  gender: form.gender || null,
+  dateOfBirth: form.dateOfBirth || null,
+  cccd: form.cccd.trim() || null,
+  address: form.address.trim() || null,
+  hasBHYT: form.hasBHYT,
+  healthInsuranceCode: form.hasBHYT ? form.healthInsuranceCode.trim() : null,
+  registeredHospital: form.hasBHYT ? form.registeredHospital.trim() || null : null,
+  allergies: form.allergies.trim() || null,
+  medicalHistory: form.medicalHistory.trim() || null,
+  familyHistory: form.familyHistory.trim() || null,
+});
+
 export const canEditPatientInfoStatus = (status: AppointmentStatus) =>
   ["PENDING_CONFIRM", "CONFIRMED", "CHECKED_IN", "IN_PROGRESS", "COMPLETED"].includes(status);
 

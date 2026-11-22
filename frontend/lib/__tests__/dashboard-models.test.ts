@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { buildPatientInfoForm, canEditPatientInfoStatus, toDateInputValue } from "../../app/dashboard/appointments/appointment-model";
+import { buildPatientInfoForm, buildPatientInfoPayload, canEditPatientInfoStatus, toDateInputValue } from "../../app/dashboard/appointments/appointment-model";
 import { buildLabPayload, buildRecordPayload } from "../../app/dashboard/medical-records/record-model";
 import { buildItemPayload, getIncludedItemsTotal } from "../../app/dashboard/packages/package-model";
 import type { Appointment, PackageItem } from "../types";
@@ -14,6 +14,19 @@ describe("lịch hẹn: thông tin người khám", () => {
     assert.equal(form.gender, "");
     assert.equal(form.cccd, "");
     assert.equal(form.hasBHYT, false);
+  });
+
+  it("dữ liệu gửi đi: chuỗi trống thành null, không có BHYT thì bỏ mã thẻ và nơi đăng ký", () => {
+    const base = { ...buildPatientInfoForm({ patientName: " An ", hasBHYT: false } as Appointment), healthInsuranceCode: "DN123", registeredHospital: "BV A", allergies: "  " };
+    const withoutBhyt = buildPatientInfoPayload(base);
+    assert.equal(withoutBhyt.patientName, "An");
+    assert.equal(withoutBhyt.healthInsuranceCode, null);
+    assert.equal(withoutBhyt.registeredHospital, null);
+    assert.equal(withoutBhyt.allergies, null);
+    assert.equal(withoutBhyt.gender, null);
+    const withBhyt = buildPatientInfoPayload({ ...base, hasBHYT: true });
+    assert.equal(withBhyt.healthInsuranceCode, "DN123");
+    assert.equal(withBhyt.registeredHospital, "BV A");
   });
 
   it("chỉ sửa được thông tin khi lịch còn hiệu lực", () => {
