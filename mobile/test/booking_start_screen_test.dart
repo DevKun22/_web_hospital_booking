@@ -1,7 +1,8 @@
+import 'package:hospital_booking_mobile/features/catalog/domain/catalog_entities.dart';
 import 'dart:ui' show Tristate;
 
 import 'package:flutter/material.dart';
-import 'package:hospital_booking_mobile/features/booking/presentation/booking_date_format.dart';
+import 'package:hospital_booking_mobile/core/formatters/display_formatters.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hospital_booking_mobile/features/booking/application/booking_flow_controller.dart';
@@ -29,10 +30,10 @@ class _LoadedBookingFlowController extends BookingFlowController {
     final date = _tomorrowInVietnam();
     return BookingFlowState(
       departments: const [
-        BookingDepartment(id: 'department-1', name: 'Tim mạch'),
+        CatalogDepartment(id: 'department-1', name: 'Tim mạch'),
       ],
       doctors: const [
-        BookingDoctor(
+        CatalogDoctor(
           id: 'doctor-1',
           fullName: 'Nguyễn Văn An',
           departmentId: 'department-1',
@@ -66,10 +67,10 @@ class _PackageBookingFlowController extends BookingFlowController {
     final date = _tomorrowInVietnam();
     return BookingFlowState(
       departments: const [
-        BookingDepartment(id: 'department-1', name: 'Tim mạch'),
+        CatalogDepartment(id: 'department-1', name: 'Tim mạch'),
       ],
       doctors: const [
-        BookingDoctor(
+        CatalogDoctor(
           id: 'doctor-1',
           fullName: 'Nguyễn Văn An',
           departmentId: 'department-1',
@@ -118,8 +119,8 @@ class _RecordingBookingFlowController extends BookingFlowController {
   @override
   BookingFlowState build() => const BookingFlowState(
     departments: [
-      BookingDepartment(id: 'department-1', name: 'Tim mạch'),
-      BookingDepartment(id: 'department-2', name: 'Khoa nhi'),
+      CatalogDepartment(id: 'department-1', name: 'Tim mạch'),
+      CatalogDepartment(id: 'department-2', name: 'Khoa nhi'),
     ],
   );
 
@@ -164,7 +165,7 @@ void main() {
     expect(find.byKey(const ValueKey('booking-pick-doctor')), findsOneWidget);
     expect(find.byKey(const ValueKey('booking-pick-date')), findsOneWidget);
     expect(find.text('Chọn khung giờ'), findsOneWidget);
-    expect(find.text(displayDate(_tomorrowInVietnam())), findsOneWidget);
+    expect(find.text(formatDateVi(_tomorrowInVietnam())), findsOneWidget);
     expect(find.text('BS. CKI Nguyễn Văn An'), findsWidgets);
     expect(find.text('09:00 – 09:30'), findsWidgets);
     expect(find.byKey(const Key('booking-sticky-continue')), findsOneWidget);

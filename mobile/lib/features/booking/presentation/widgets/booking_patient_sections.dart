@@ -1,8 +1,8 @@
+import 'package:hospital_booking_mobile/core/formatters/display_formatters.dart';
 import 'package:flutter/material.dart';
 import 'package:hospital_booking_mobile/core/widgets/app_form.dart';
 import 'package:hospital_booking_mobile/core/design/app_colors.dart';
 import 'package:hospital_booking_mobile/core/design/app_design_tokens.dart';
-import 'package:hospital_booking_mobile/features/booking/presentation/booking_date_format.dart';
 import 'package:hospital_booking_mobile/core/errors/api_exception.dart';
 import 'package:hospital_booking_mobile/core/widgets/app_error_banner.dart';
 
@@ -170,7 +170,7 @@ class BookingPatientExtraSection extends StatelessWidget {
             return AppPickerField(
               label: 'Ngày sinh',
               placeholder: 'Chọn ngày sinh',
-              value: text.isEmpty ? null : displayDate(text),
+              value: text.isEmpty ? null : formatDateVi(text),
               icon: Icons.calendar_month_outlined,
               onTap: isRelative ? null : onPickDateOfBirth,
             );

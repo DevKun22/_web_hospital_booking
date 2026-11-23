@@ -4,11 +4,12 @@ String formatDateVi(String value) {
   return '${match.group(3)}/${match.group(2)}/${match.group(1)}';
 }
 
-String formatTimeRange(String startTime, String endTime) {
-  String compact(String value) =>
-      value.length >= 5 ? value.substring(0, 5) : value;
-  return '${compact(startTime)} – ${compact(endTime)}';
-}
+/// Giờ dạng HH:mm (bỏ phần giây nếu có).
+String formatTimeShort(String value) =>
+    value.length >= 5 ? value.substring(0, 5) : value;
+
+String formatTimeRange(String startTime, String endTime) =>
+    '${formatTimeShort(startTime)} – ${formatTimeShort(endTime)}';
 
 String formatVnd(num value) {
   final digits = value.round().toString();

@@ -1,33 +1,18 @@
-import 'package:hospital_booking_mobile/features/appointments/presentation/appointment_labels.dart';
+import 'package:hospital_booking_mobile/features/appointments/presentation/widgets/appointment_list_widgets.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:hospital_booking_mobile/features/appointments/presentation/appointment_status_visuals.dart';
-import 'package:hospital_booking_mobile/app/navigation/booking_navigation.dart';
-import 'package:hospital_booking_mobile/core/formatters/display_formatters.dart';
 import 'package:hospital_booking_mobile/core/design/app_colors.dart';
 import 'package:hospital_booking_mobile/core/widgets/app_error_banner.dart';
 import 'package:hospital_booking_mobile/core/widgets/app_filter_tabs.dart';
 import 'package:hospital_booking_mobile/core/widgets/app_route_back_scope.dart';
 import 'package:hospital_booking_mobile/core/widgets/app_ui.dart';
 import 'package:hospital_booking_mobile/features/appointments/application/appointments_controller.dart';
-import 'package:hospital_booking_mobile/features/appointments/application/appointment_device_actions.dart';
 import 'package:hospital_booking_mobile/features/appointments/domain/patient_appointment.dart';
-import 'package:hospital_booking_mobile/features/appointments/presentation/widgets/appointment_qr_ticket.dart';
 
 import 'package:hospital_booking_mobile/core/lifecycle/foreground_poller.dart';
-
-enum _AppointmentFilter {
-  upcoming('Sắp tới'),
-  history('Đã qua'),
-  all('Tất cả');
-
-  const _AppointmentFilter(this.label);
-
-  final String label;
-}
 
 class AppointmentsScreen extends ConsumerStatefulWidget {
   const AppointmentsScreen({super.key});
@@ -41,7 +26,7 @@ class _AppointmentsScreenState extends ConsumerState<AppointmentsScreen> {
   static const _pollInterval = Duration(seconds: 60);
   static const _pollFreshness = Duration(seconds: 55);
 
-  _AppointmentFilter _filter = _AppointmentFilter.upcoming;
+  AppointmentListFilter _filter = AppointmentListFilter.upcoming;
   late final ForegroundPoller _poller = ForegroundPoller(
     interval: _pollInterval,
     onTick: _pollIfVisible,
@@ -79,9 +64,9 @@ class _AppointmentsScreenState extends ConsumerState<AppointmentsScreen> {
     final visibleItems = state.items
         .where(
           (item) => switch (_filter) {
-            _AppointmentFilter.upcoming => !item.isHistory,
-            _AppointmentFilter.history => item.isHistory,
-            _AppointmentFilter.all => true,
+            AppointmentListFilter.upcoming => !item.isHistory,
+            AppointmentListFilter.history => item.isHistory,
+            AppointmentListFilter.all => true,
           },
         )
         .toList(growable: false);
@@ -99,13 +84,13 @@ class _AppointmentsScreenState extends ConsumerState<AppointmentsScreen> {
           ),
         ],
       ),
-      body: AppSwipeTabs<_AppointmentFilter>(
-        items: _AppointmentFilter.values,
+      body: AppSwipeTabs<AppointmentListFilter>(
+        items: AppointmentListFilter.values,
         selected: _filter,
         onChanged: (value) => setState(() => _filter = value),
         child: SafeArea(
           child: state.isInitialLoading && !state.hasItems
-              ? const _AppointmentsLoading()
+              ? const AppointmentsLoading()
               : RefreshIndicator(
                   onRefresh: controller.refresh,
                   child: CustomScrollView(
@@ -124,12 +109,12 @@ class _AppointmentsScreenState extends ConsumerState<AppointmentsScreen> {
                               // Thẻ dày nút và chữ: giới hạn cỡ chữ để nút không tràn ở máy đặt chữ rất lớn.
                               MediaQuery.withClampedTextScaling(
                                 maxScaleFactor: 1.3,
-                                child: _NextAppointmentCard(appointment: next),
+                                child: AppointmentNextCard(appointment: next),
                               ),
                               const SizedBox(height: AppSpacing.sm),
                             ],
-                            AppFilterTabs<_AppointmentFilter>(
-                              items: _AppointmentFilter.values,
+                            AppFilterTabs<AppointmentListFilter>(
+                              items: AppointmentListFilter.values,
                               selected: _filter,
                               labelOf: (item) => item.label,
                               onChanged: (value) =>
@@ -158,7 +143,7 @@ class _AppointmentsScreenState extends ConsumerState<AppointmentsScreen> {
                             AppSpacing.xxl,
                           ),
                           sliver: SliverToBoxAdapter(
-                            child: _EmptyAppointments(filter: _filter),
+                            child: AppointmentsEmpty(filter: _filter),
                           ),
                         )
                       else
@@ -178,7 +163,8 @@ class _AppointmentsScreenState extends ConsumerState<AppointmentsScreen> {
                                   : visibleItems[index - 1];
                               final newMonth =
                                   previous == null ||
-                                  _monthKey(previous) != _monthKey(item);
+                                  appointmentMonthKey(previous) !=
+                                      appointmentMonthKey(item);
                               return Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
@@ -191,7 +177,7 @@ class _AppointmentsScreenState extends ConsumerState<AppointmentsScreen> {
                                         bottom: AppSpacing.xs,
                                       ),
                                       child: Text(
-                                        _monthLabel(item),
+                                        appointmentMonthLabel(item),
                                         style: Theme.of(context)
                                             .textTheme
                                             .labelMedium
@@ -201,7 +187,7 @@ class _AppointmentsScreenState extends ConsumerState<AppointmentsScreen> {
                                             ),
                                       ),
                                     ),
-                                  _AppointmentRow(
+                                  AppointmentRow(
                                     appointment: item,
                                     onTap: () => context.push(
                                       '/appointments/${item.id}',
@@ -264,302 +250,4 @@ PatientAppointment? _nextAppointment(List<PatientAppointment> items) {
           .toList()
         ..sort((a, b) => a.scheduledStart!.compareTo(b.scheduledStart!));
   return upcoming.isEmpty ? null : upcoming.first;
-}
-
-String _monthKey(PatientAppointment item) => item.appointmentDate.length >= 7
-    ? item.appointmentDate.substring(0, 7)
-    : '';
-
-String _monthLabel(PatientAppointment item) {
-  final parts = item.appointmentDate.split('-');
-  return parts.length >= 2
-      ? 'Tháng ${int.tryParse(parts[1]) ?? parts[1]}/${parts[0]}'
-      : '';
-}
-
-/// Thẻ xanh đầu trang: lịch khám gần nhất, kèm hai việc cần nhất là mở vé QR và thêm vào lịch máy.
-class _NextAppointmentCard extends ConsumerWidget {
-  const _NextAppointmentCard({required this.appointment});
-
-  final PatientAppointment appointment;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final colors = context.colors;
-    final text = Theme.of(context).textTheme;
-    final actions = ref.read(appointmentDeviceActionsProvider);
-    return Semantics(
-      container: true,
-      label:
-          'Lịch khám sắp tới, ${appointment.doctorName}, ${formatDateVi(appointment.appointmentDate)}',
-      child: Material(
-        color: colors.primary,
-        borderRadius: BorderRadius.circular(AppRadius.lg),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(AppRadius.lg),
-          onTap: () => context.push('/appointments/${appointment.id}'),
-          child: Padding(
-            padding: const EdgeInsets.all(AppSpacing.md),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        'Lịch khám sắp tới',
-                        style: text.labelMedium?.copyWith(
-                          color: colors.onPrimary,
-                        ),
-                      ),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: AppSpacing.sm,
-                        vertical: AppSpacing.xxs,
-                      ),
-                      decoration: BoxDecoration(
-                        color: colors.surface,
-                        borderRadius: BorderRadius.circular(AppRadius.pill),
-                      ),
-                      child: Text(
-                        appointmentCountdown(appointment),
-                        style: text.labelMedium?.copyWith(
-                          color: colors.primaryDark,
-                          fontWeight: AppFontWeight.strong,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: AppSpacing.xs),
-                Text(
-                  '${appointmentWeekday(appointment)}, ${formatDateVi(appointment.appointmentDate)} · ${appointmentHhmm(appointment.startTime)}',
-                  style: text.titleMedium?.copyWith(color: colors.onPrimary),
-                ),
-                Text(
-                  appointment.doctorName.isEmpty
-                      ? appointment.careUnit
-                      : '${appointment.doctorName} · ${appointment.careUnit}',
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: text.bodySmall?.copyWith(color: colors.onPrimary),
-                ),
-                const SizedBox(height: AppSpacing.sm),
-                Row(
-                  children: [
-                    Expanded(
-                      child: FilledButton.icon(
-                        key: const Key('appointment-next-qr'),
-                        onPressed: () => showAppointmentQrTicket(
-                          context,
-                          appointment: appointment,
-                          payload: actions.qrPayload(appointment),
-                        ),
-                        style: FilledButton.styleFrom(
-                          backgroundColor: colors.surface,
-                          foregroundColor: colors.primaryDark,
-                        ),
-                        icon: const Icon(Icons.qr_code_2_outlined, size: 20),
-                        label: const Text('Mở vé QR'),
-                      ),
-                    ),
-                    const SizedBox(width: AppSpacing.xs),
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        key: const Key('appointment-next-calendar'),
-                        onPressed: () async {
-                          var opened = false;
-                          try {
-                            opened = await actions.addToCalendar(appointment);
-                          } catch (_) {
-                            opened = false;
-                          }
-                          if (!context.mounted || opened) return;
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text(
-                                'Không thể mở ứng dụng lịch trên thiết bị này.',
-                              ),
-                            ),
-                          );
-                        },
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: colors.onPrimary,
-                          side: BorderSide(
-                            color: colors.onPrimary.withValues(alpha: 0.6),
-                          ),
-                        ),
-                        icon: const Icon(
-                          Icons.edit_calendar_outlined,
-                          size: 20,
-                        ),
-                        label: const Text('Thêm vào lịch'),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// Một lịch khám dạng hàng: cột ngày bên trái, thẻ gọn có vạch màu theo trạng thái bên phải.
-class _AppointmentRow extends StatelessWidget {
-  const _AppointmentRow({required this.appointment, required this.onTap});
-
-  final PatientAppointment appointment;
-  final VoidCallback onTap;
-
-  Color _accent(AppColors colors) => switch (appointment.status.tone) {
-    AppStatusTone.success => colors.success,
-    AppStatusTone.warning => colors.warning,
-    AppStatusTone.danger => colors.danger,
-    _ => colors.info,
-  };
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.colors;
-    final text = Theme.of(context).textTheme;
-    final day = appointment.appointmentDate.split('-').last;
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        SizedBox(
-          width: 40,
-          child: Padding(
-            padding: const EdgeInsets.only(top: AppSpacing.xs),
-            child: Column(
-              children: [
-                Text(
-                  int.tryParse(day)?.toString() ?? day,
-                  style: text.titleMedium?.copyWith(color: colors.primaryDark),
-                ),
-                Text(
-                  appointmentWeekday(appointment),
-                  style: text.labelMedium?.copyWith(color: colors.muted),
-                ),
-              ],
-            ),
-          ),
-        ),
-        Expanded(
-          child: Semantics(
-            button: true,
-            label:
-                '${appointment.status.label}, ${appointment.doctorName}, ${formatDateVi(appointment.appointmentDate)}',
-            child: ExcludeSemantics(
-              child: Material(
-                color: colors.surface,
-                borderRadius: BorderRadius.circular(AppRadius.md),
-                clipBehavior: Clip.antiAlias,
-                child: InkWell(
-                  onTap: onTap,
-                  child: Ink(
-                    decoration: BoxDecoration(
-                      border: Border(
-                        left: BorderSide(color: _accent(colors), width: 4),
-                      ),
-                    ),
-                    padding: const EdgeInsets.all(AppSpacing.sm),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                formatTimeRange(
-                                  appointment.startTime,
-                                  appointment.endTime,
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: text.titleSmall,
-                              ),
-                            ),
-                            const SizedBox(width: AppSpacing.xs),
-                            Flexible(
-                              child: AppStatusBadge(
-                                label: appointment.status.label,
-                                tone: appointment.status.tone,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: AppSpacing.hair),
-                        Text(
-                          appointment.doctorName.isEmpty
-                              ? appointment.careUnit
-                              : '${appointment.doctorName} · ${appointment.careUnit}',
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: text.bodySmall?.copyWith(color: colors.muted),
-                        ),
-                        if (appointment.isDependentBooking)
-                          Text(
-                            'Người khám: ${appointment.patientName}',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: text.labelMedium?.copyWith(
-                              color: colors.primaryDark,
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _EmptyAppointments extends StatelessWidget {
-  const _EmptyAppointments({required this.filter});
-
-  final _AppointmentFilter filter;
-
-  @override
-  Widget build(BuildContext context) => AppEmptyState(
-    icon: filter == _AppointmentFilter.history
-        ? Icons.history_outlined
-        : Icons.event_available_outlined,
-    title: switch (filter) {
-      _AppointmentFilter.upcoming => 'Chưa có lịch sắp tới',
-      _AppointmentFilter.history => 'Chưa có lịch đã qua',
-      _AppointmentFilter.all => 'Chưa có lịch khám',
-    },
-    message: filter == _AppointmentFilter.history
-        ? 'Các lịch hoàn tất hoặc đã hủy sẽ xuất hiện tại đây.'
-        : 'Đặt lịch với bác sĩ phù hợp và theo dõi trạng thái ngay trên ứng dụng.',
-    action: filter == _AppointmentFilter.history
-        ? null
-        : FilledButton.icon(
-            onPressed: () => openBookingFromCurrentRoute(context, '/booking'),
-            icon: const Icon(Icons.add_outlined),
-            label: const Text('Đặt lịch khám'),
-          ),
-  );
-}
-
-class _AppointmentsLoading extends StatelessWidget {
-  const _AppointmentsLoading();
-
-  @override
-  Widget build(BuildContext context) => ListView.separated(
-    padding: const EdgeInsets.all(AppSpacing.md),
-    itemCount: 4,
-    separatorBuilder: (_, _) => const SizedBox(height: AppSpacing.sm),
-    itemBuilder: (_, index) =>
-        AppLoadingSkeleton(height: index == 0 ? 112 : 190),
-  );
 }

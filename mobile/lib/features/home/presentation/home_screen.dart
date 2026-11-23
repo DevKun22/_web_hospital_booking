@@ -21,7 +21,10 @@ import 'package:hospital_booking_mobile/features/home/application/home_search_hi
 import 'package:hospital_booking_mobile/features/home/presentation/widgets/home_appointment_action_card.dart';
 import 'package:hospital_booking_mobile/features/home/presentation/widgets/home_band.dart';
 import 'package:hospital_booking_mobile/features/home/presentation/widgets/home_chrome.dart';
-import 'package:hospital_booking_mobile/features/home/presentation/widgets/home_content_sections.dart';
+import 'package:hospital_booking_mobile/features/home/presentation/widgets/home_article_list.dart';
+import 'package:hospital_booking_mobile/features/home/presentation/widgets/home_department_grid.dart';
+import 'package:hospital_booking_mobile/features/home/presentation/widgets/home_doctor_strip.dart';
+import 'package:hospital_booking_mobile/features/home/presentation/widgets/home_package_strip.dart';
 import 'package:hospital_booking_mobile/features/home/presentation/widgets/home_hero_carousel.dart';
 import 'package:hospital_booking_mobile/features/home/presentation/widgets/home_quick_links.dart';
 import 'package:hospital_booking_mobile/features/home/presentation/widgets/home_search_sheet.dart';

@@ -212,7 +212,7 @@ export function PublicGlobalSearch({
           <Link
             href={`/tim-kiem?q=${encodeURIComponent(debouncedKeyword.trim())}`}
             onClick={closeSearch}
-            className="flex min-h-12 items-center justify-center gap-2 border-t border-[var(--public-divider)] bg-[var(--public-primary-soft)] px-4 py-3 text-center text-sm font-bold text-[var(--public-primary-dark)] transition hover:bg-[#dbeafe] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-inset focus-visible:ring-[var(--public-primary)]"
+            className="flex min-h-12 items-center justify-center gap-2 border-t border-[var(--public-divider)] bg-[var(--public-primary-soft)] px-4 py-3 text-center text-sm font-bold text-[var(--public-primary-dark)] transition hover:bg-[var(--public-tint-strong)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-inset focus-visible:ring-[var(--public-primary)]"
           >
             Xem toàn bộ kết quả
             <ChevronRight className="h-4 w-4" aria-hidden="true" />

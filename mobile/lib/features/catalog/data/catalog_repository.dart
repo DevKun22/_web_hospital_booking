@@ -3,7 +3,6 @@ import 'package:hospital_booking_mobile/features/catalog/domain/catalog_entities
 import 'package:hospital_booking_mobile/core/errors/api_exception.dart';
 import 'package:hospital_booking_mobile/core/network/api_contract.dart';
 import 'package:hospital_booking_mobile/features/catalog/domain/catalog_page.dart';
-import 'package:hospital_booking_mobile/features/booking/domain/booking_catalog.dart';
 import 'package:hospital_booking_mobile/features/packages/domain/medical_package.dart';
 
 import 'package:hospital_booking_mobile/core/network/json_readers.dart';
@@ -15,12 +14,12 @@ class CatalogRepository {
 
   final Dio _dio;
 
-  Future<List<BookingDepartment>> fetchDepartments() async {
+  Future<List<CatalogDepartment>> fetchDepartments() async {
     return guardApi(() async {
       final response = await _dio.get<dynamic>('/departments');
       return requireDataList(
         response.data,
-      ).map(BookingDepartment.fromJson).toList(growable: false);
+      ).map(CatalogDepartment.fromJson).toList(growable: false);
     });
   }
 

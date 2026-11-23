@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hospital_booking_mobile/core/theme/app_theme.dart';
-import 'package:hospital_booking_mobile/features/booking/domain/booking_catalog.dart';
 import 'package:hospital_booking_mobile/features/booking/presentation/widgets/booking_doctor_picker.dart';
 import 'package:hospital_booking_mobile/features/booking/presentation/widgets/booking_package_picker.dart';
 import 'package:hospital_booking_mobile/features/catalog/domain/catalog_entities.dart';
-import 'package:hospital_booking_mobile/features/home/presentation/widgets/home_content_sections.dart';
+import 'package:hospital_booking_mobile/features/home/presentation/widgets/home_doctor_strip.dart';
+import 'package:hospital_booking_mobile/features/home/presentation/widgets/home_package_strip.dart';
 import 'package:hospital_booking_mobile/features/notifications/domain/patient_notification.dart';
 import 'package:hospital_booking_mobile/features/notifications/presentation/widgets/notification_list_widgets.dart';
 import 'package:hospital_booking_mobile/core/widgets/app_filter_tabs.dart';
@@ -46,7 +46,7 @@ final _longPackage = MedicalPackage(
   departmentName: 'Khoa khám bệnh tổng hợp và chăm sóc sức khỏe',
 );
 
-const _longDoctor = BookingDoctor(
+const _longDoctor = CatalogDoctor(
   id: 'a',
   fullName: 'Nguyễn Minh Hoàng Phúc Thịnh',
   title: 'PGS.TS.BSCKII',
@@ -99,11 +99,11 @@ void main() {
                 context,
                 doctors: const [_longDoctor],
                 departments: const [
-                  BookingDepartment(
+                  CatalogDepartment(
                     id: 'd1',
                     name: 'Khoa cơ xương khớp và phục hồi chức năng',
                   ),
-                  BookingDepartment(id: 'd2', name: 'Da liễu'),
+                  CatalogDepartment(id: 'd2', name: 'Da liễu'),
                 ],
                 onSelected: (_) {},
               ),

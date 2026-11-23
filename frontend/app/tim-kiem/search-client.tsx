@@ -30,10 +30,10 @@ const typeLabels: Record<PublicSearchItem["type"], string> = {
 
 // Ô biểu tượng màu theo loại kết quả; nhóm hiện theo thứ tự này ở mục Tất cả.
 const typeStyle: Record<PublicSearchItem["type"], { color: string; icon: LucideIcon }> = {
-  department: { color: "#2aa198", icon: Stethoscope },
-  doctor: { color: "#2f7fc4", icon: UserRound },
-  package: { color: "#d98a3d", icon: Package },
-  faq: { color: "#6c63c7", icon: CircleHelp },
+  department: { color: "var(--tone-teal)", icon: Stethoscope },
+  doctor: { color: "var(--tone-blue)", icon: UserRound },
+  package: { color: "var(--tone-amber)", icon: Package },
+  faq: { color: "var(--tone-violet)", icon: CircleHelp },
 };
 const groupOrder: PublicSearchItem["type"][] = ["department", "doctor", "package", "faq"];
 

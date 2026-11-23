@@ -1,3 +1,4 @@
+import 'package:hospital_booking_mobile/features/catalog/domain/catalog_entities.dart';
 import 'dart:async';
 
 import 'package:dio/dio.dart';
@@ -16,7 +17,6 @@ import 'package:hospital_booking_mobile/features/auth/domain/auth_session.dart';
 import 'package:hospital_booking_mobile/features/auth/domain/patient_user.dart';
 import 'package:hospital_booking_mobile/features/booking/application/booking_flow_controller.dart';
 import 'package:hospital_booking_mobile/features/booking/data/booking_catalog_repository.dart';
-import 'package:hospital_booking_mobile/features/booking/domain/booking_catalog.dart';
 import 'package:hospital_booking_mobile/features/home/application/home_content_controller.dart';
 import 'package:hospital_booking_mobile/features/notifications/application/notifications_controller.dart';
 import 'package:hospital_booking_mobile/features/notifications/application/push_notifications_controller.dart';
@@ -116,7 +116,7 @@ class _EnabledPushController extends PushNotificationsController {
   );
 }
 
-const _testDoctor = BookingDoctor(
+const _testDoctor = CatalogDoctor(
   id: 'doctor-1',
   fullName: 'Nguyễn Văn An',
   departmentId: 'department-1',
@@ -128,13 +128,13 @@ class _DoctorDetailBookingCatalogRepository extends BookingCatalogRepository {
   _DoctorDetailBookingCatalogRepository() : super(Dio());
 
   @override
-  Future<BookingDoctor> fetchDoctor(String doctorId) async => _testDoctor;
+  Future<CatalogDoctor> fetchDoctor(String doctorId) async => _testDoctor;
 }
 
 class _CatalogBookingFlowController extends BookingFlowController {
   @override
   BookingFlowState build() => const BookingFlowState(
-    departments: [BookingDepartment(id: 'department-1', name: 'Tim mạch')],
+    departments: [CatalogDepartment(id: 'department-1', name: 'Tim mạch')],
     doctors: [_testDoctor],
   );
 }

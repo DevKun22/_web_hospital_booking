@@ -1,3 +1,4 @@
+import 'package:hospital_booking_mobile/features/catalog/domain/catalog_entities.dart';
 import 'package:dio/dio.dart';
 import 'package:hospital_booking_mobile/core/errors/api_exception.dart';
 import 'package:hospital_booking_mobile/core/network/api_contract.dart';
@@ -14,8 +15,8 @@ class BookingCatalog {
     this.packages = const [],
   });
 
-  final List<BookingDepartment> departments;
-  final List<BookingDoctor> doctors;
+  final List<CatalogDepartment> departments;
+  final List<CatalogDoctor> doctors;
   final List<MedicalPackage> packages;
 }
 
@@ -35,11 +36,11 @@ class BookingCatalogRepository {
         departments: _list(
           data,
           'departments',
-        ).map(BookingDepartment.fromJson).toList(growable: false),
+        ).map(CatalogDepartment.fromJson).toList(growable: false),
         doctors: _list(
           data,
           'doctors',
-        ).map(BookingDoctor.fromJson).toList(growable: false),
+        ).map(CatalogDoctor.fromJson).toList(growable: false),
         packages: _list(
           data,
           'packages',
@@ -64,10 +65,10 @@ class BookingCatalogRepository {
         .toList(growable: false);
   }
 
-  Future<BookingDoctor> fetchDoctor(String doctorId) async {
+  Future<CatalogDoctor> fetchDoctor(String doctorId) async {
     return guardApi(() async {
       final response = await _dio.get<dynamic>('/doctors/$doctorId');
-      return BookingDoctor.fromJson(requireDataMap(response.data));
+      return CatalogDoctor.fromJson(requireDataMap(response.data));
     });
   }
 

@@ -2,7 +2,6 @@ import 'package:hospital_booking_mobile/core/design/app_design_tokens.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hospital_booking_mobile/core/formatters/display_formatters.dart';
-import 'package:hospital_booking_mobile/features/booking/presentation/booking_date_format.dart';
 
 class BookingCompactSelectionCard extends StatelessWidget {
   const BookingCompactSelectionCard({
@@ -50,7 +49,7 @@ class BookingCompactSelectionCard extends StatelessWidget {
                 ],
                 Text(doctorName, style: Theme.of(context).textTheme.titleSmall),
                 const SizedBox(height: AppSpacing.xxs),
-                Text('$departmentName · ${displayDate(date)} · $time'),
+                Text('$departmentName · ${formatDateVi(date)} · $time'),
               ],
             ),
           ),

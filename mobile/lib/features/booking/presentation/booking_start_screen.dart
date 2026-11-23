@@ -11,7 +11,6 @@ import 'package:hospital_booking_mobile/features/booking/application/booking_sub
 import 'package:hospital_booking_mobile/features/booking/domain/booking_catalog.dart';
 import 'package:hospital_booking_mobile/features/booking/presentation/widgets/booking_journey_indicator.dart';
 import 'package:hospital_booking_mobile/features/booking/presentation/widgets/booking_selection_widgets.dart';
-import 'package:hospital_booking_mobile/features/booking/presentation/booking_date_format.dart';
 import 'package:hospital_booking_mobile/features/booking/presentation/widgets/booking_calendar_dialog.dart';
 import 'package:hospital_booking_mobile/features/booking/presentation/widgets/booking_pick_row.dart';
 import 'package:hospital_booking_mobile/features/booking/presentation/widgets/booking_doctor_picker.dart';
@@ -323,7 +322,7 @@ class _BookingStartScreenState extends ConsumerState<BookingStartScreen> {
                   placeholder: 'Chọn ngày khám',
                   value: state.selection.date == null
                       ? null
-                      : displayDate(state.selection.date!),
+                      : formatDateVi(state.selection.date!),
                   detail: state.selection.doctorId == null
                       ? 'Chọn bác sĩ trước'
                       : null,

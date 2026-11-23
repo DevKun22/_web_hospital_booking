@@ -1,15 +1,15 @@
+import 'package:hospital_booking_mobile/features/catalog/domain/catalog_entities.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hospital_booking_mobile/core/formatters/vietnam_time.dart';
 import 'package:hospital_booking_mobile/features/booking/application/booking_flow_controller.dart';
-import 'package:hospital_booking_mobile/features/booking/domain/booking_catalog.dart';
 import 'package:hospital_booking_mobile/features/booking/presentation/booking_date_format.dart';
 import 'package:hospital_booking_mobile/features/booking/presentation/widgets/booking_calendar_dialog.dart';
 import 'package:hospital_booking_mobile/features/booking/presentation/widgets/booking_doctor_picker.dart';
 
-BookingDoctor _doctor(String id, String name, String departmentId) =>
-    BookingDoctor(
+CatalogDoctor _doctor(String id, String name, String departmentId) =>
+    CatalogDoctor(
       id: id,
       fullName: name,
       departmentId: departmentId,
@@ -33,8 +33,8 @@ void main() {
                 _doctor('b', 'Lê Thu An', 'd2'),
               ],
               departments: const [
-                BookingDepartment(id: 'd1', name: 'Da liễu'),
-                BookingDepartment(id: 'd2', name: 'Tim mạch'),
+                CatalogDepartment(id: 'd1', name: 'Da liễu'),
+                CatalogDepartment(id: 'd2', name: 'Tim mạch'),
               ],
               onSelected: (id) => picked = id,
             ),
@@ -76,8 +76,8 @@ void main() {
                 _doctor('b', 'Lê Thu An', 'd2'),
               ],
               departments: const [
-                BookingDepartment(id: 'd1', name: 'Da liễu'),
-                BookingDepartment(id: 'd2', name: 'Tim mạch'),
+                CatalogDepartment(id: 'd1', name: 'Da liễu'),
+                CatalogDepartment(id: 'd2', name: 'Tim mạch'),
               ],
               onSelected: (_) {},
             ),

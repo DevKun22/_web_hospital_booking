@@ -1,5 +1,3 @@
-import 'package:hospital_booking_mobile/core/formatters/professional_name_formatter.dart';
-
 import 'package:hospital_booking_mobile/core/network/json_readers.dart';
 
 enum BookingServiceMode { doctor, package }
@@ -7,84 +5,6 @@ enum BookingServiceMode { doctor, package }
 extension BookingServiceModeValue on BookingServiceMode {
   String get apiValue =>
       this == BookingServiceMode.package ? 'PACKAGE' : 'DOCTOR_ONLY';
-}
-
-class BookingDepartment {
-  const BookingDepartment({
-    required this.id,
-    required this.name,
-    this.slug,
-    this.description,
-    this.image,
-  });
-
-  factory BookingDepartment.fromJson(Map<String, dynamic> json) =>
-      BookingDepartment(
-        id: json['id']?.toString() ?? '',
-        name: json['name']?.toString() ?? '',
-        slug: jsonNullableString(json['slug']),
-        description: jsonNullableString(json['description']),
-        image: jsonNullableString(json['image']),
-      );
-
-  final String id;
-  final String name;
-  final String? slug;
-  final String? description;
-  final String? image;
-}
-
-class BookingDoctor {
-  const BookingDoctor({
-    required this.id,
-    required this.fullName,
-    required this.departmentId,
-    required this.departmentName,
-    required this.consultationFee,
-    this.title,
-    this.bio,
-    this.specialization,
-    this.avatar,
-    this.experience,
-    this.averageRating = 0,
-    this.reviewCount = 0,
-  });
-
-  factory BookingDoctor.fromJson(Map<String, dynamic> json) {
-    final user = jsonMap(json['user']);
-    final department = jsonMap(json['department']);
-    final reviewSummary = jsonMap(json['reviewSummary']);
-    return BookingDoctor(
-      id: json['id']?.toString() ?? '',
-      fullName: user['fullName']?.toString() ?? '',
-      departmentId: department['id']?.toString() ?? '',
-      departmentName: department['name']?.toString() ?? '',
-      consultationFee: jsonNumber(json['consultationFee']),
-      title: jsonNullableString(json['title']),
-      bio: jsonNullableString(json['bio']),
-      specialization: jsonNullableString(json['specialization']),
-      avatar: jsonNullableString(user['avatar']),
-      experience: _nullableInt(json['experience']),
-      averageRating: jsonNumber(reviewSummary['averageRating']),
-      reviewCount: _nullableInt(reviewSummary['count']) ?? 0,
-    );
-  }
-
-  final String id;
-  final String fullName;
-  final String departmentId;
-  final String departmentName;
-  final double consultationFee;
-  final String? title;
-  final String? bio;
-  final String? specialization;
-  final String? avatar;
-  final int? experience;
-  final double averageRating;
-  final int reviewCount;
-
-  String get displayName =>
-      formatProfessionalName(title: title, fullName: fullName);
 }
 
 class BookingSlot {
@@ -155,6 +75,3 @@ class BookingSelection {
     'slotId': slotId,
   };
 }
-
-int? _nullableInt(dynamic value) =>
-    value is num ? value.toInt() : int.tryParse(value?.toString() ?? '');

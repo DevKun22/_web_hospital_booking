@@ -13,7 +13,6 @@ import 'package:hospital_booking_mobile/features/appointments/application/appoin
 import 'package:hospital_booking_mobile/features/auth/application/auth_controller.dart';
 import 'package:hospital_booking_mobile/features/booking/application/booking_flow_controller.dart';
 import 'package:hospital_booking_mobile/features/booking/application/booking_submission_controller.dart';
-import 'package:hospital_booking_mobile/features/booking/presentation/booking_date_format.dart';
 
 /// Kết quả đặt lịch: đầu trang xanh báo đã tiếp nhận, mã lịch có nút sao chép, tóm tắt từng dòng có màu,
 /// rồi các việc kế tiếp (thêm vào lịch máy, xem lịch hẹn, về trang chủ).
@@ -169,9 +168,9 @@ class BookingSuccessScreen extends ConsumerWidget {
                     _DetailRow(
                       icon: Icons.calendar_month_outlined,
                       tint: colors.zone(AppZone.primary),
-                      label: displayDate(appointment.appointmentDate),
+                      label: formatDateVi(appointment.appointmentDate),
                       value:
-                          '${shortTime(appointment.startTime)} – ${shortTime(appointment.endTime)}',
+                          '${formatTimeShort(appointment.startTime)} – ${formatTimeShort(appointment.endTime)}',
                     ),
                     _DetailRow(
                       icon: Icons.medical_services_outlined,

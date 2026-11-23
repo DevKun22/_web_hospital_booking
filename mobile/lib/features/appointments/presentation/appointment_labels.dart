@@ -37,7 +37,3 @@ String appointmentCountdown(PatientAppointment item) {
   if (days == 1) return 'Ngày mai';
   return 'Còn $days ngày';
 }
-
-/// Giờ dạng HH:mm.
-String appointmentHhmm(String value) =>
-    value.length >= 5 ? value.substring(0, 5) : value;

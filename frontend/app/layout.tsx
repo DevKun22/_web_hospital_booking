@@ -7,7 +7,10 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { serverApiRequest } from "@/lib/server-api";
 import { SITE_URL } from "@/lib/seo";
 import type { SiteSettingsValue } from "@/lib/types";
-import "@fontsource-variable/inter";
+import "@fontsource/be-vietnam-pro/400.css";
+import "@fontsource/be-vietnam-pro/500.css";
+import "@fontsource/be-vietnam-pro/600.css";
+import "@fontsource/be-vietnam-pro/700.css";
 import "@fontsource-variable/source-serif-4";
 import "./globals.css";
 
