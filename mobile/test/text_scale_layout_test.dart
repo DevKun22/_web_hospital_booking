@@ -11,7 +11,9 @@ import 'package:hospital_booking_mobile/features/notifications/presentation/widg
 import 'package:hospital_booking_mobile/core/widgets/app_filter_tabs.dart';
 import 'package:hospital_booking_mobile/features/notifications/application/push_notifications_controller.dart';
 import 'package:hospital_booking_mobile/features/packages/domain/medical_package.dart';
+import 'package:hospital_booking_mobile/core/widgets/app_form.dart';
 import 'package:hospital_booking_mobile/features/profile/domain/patient_profile.dart';
+import 'package:hospital_booking_mobile/features/profile/presentation/widgets/profile_edit_sections.dart';
 import 'package:hospital_booking_mobile/features/profile/presentation/widgets/profile_menu_widgets.dart';
 import 'package:hospital_booking_mobile/features/profile/presentation/widgets/profile_summary_widgets.dart';
 
@@ -238,6 +240,72 @@ void main() {
                 onEditProfile: () {},
               ),
             ],
+          ),
+        ),
+      );
+      await tester.pump();
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('form hồ sơ và dòng tùy chọn không vỡ ở cỡ chữ $scale', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(360, 1200);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final name = TextEditingController(
+        text: 'Nguyễn Thị Minh Hoàng Phương Thảo',
+      );
+      final phone = TextEditingController(text: '0325123346');
+      addTearDown(name.dispose);
+      addTearDown(phone.dispose);
+      await tester.pumpWidget(
+        _host(
+          scale,
+          SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              children: [
+                ProfileBasicsSection(
+                  fullName: name,
+                  phone: phone,
+                  email: 'nguoikham.tenrataidai@example.com',
+                  dateOfBirth: '1993-09-09',
+                  onSelectDateOfBirth: () {},
+                  onClearDateOfBirth: () {},
+                  gender: PatientGender.female,
+                  onGenderChanged: (_) {},
+                ),
+                AppFormGroupRow(
+                  icon: Icons.badge_outlined,
+                  title: 'CCCD và địa chỉ',
+                  summary: 'Chưa có',
+                  expanded: false,
+                  onToggle: () {},
+                  child: const SizedBox(),
+                ),
+                AppFormToggleRow(
+                  icon: Icons.health_and_safety_outlined,
+                  title: 'Có thẻ BHYT',
+                  value: true,
+                  onChanged: (_) {},
+                  child: const Text('Mã thẻ'),
+                ),
+                AppChoiceChips<String>(
+                  items: const [
+                    'Con',
+                    'Vợ / chồng',
+                    'Cha / mẹ',
+                    'Anh / chị / em',
+                    'Khác',
+                  ],
+                  selected: 'Con',
+                  labelOf: (value) => value,
+                  onChanged: (_) {},
+                ),
+              ],
+            ),
           ),
         ),
       );

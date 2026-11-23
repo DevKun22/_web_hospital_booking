@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:hospital_booking_mobile/core/widgets/app_form.dart';
 import 'package:hospital_booking_mobile/core/design/app_colors.dart';
 import 'package:hospital_booking_mobile/core/design/app_design_tokens.dart';
 import 'package:hospital_booking_mobile/features/booking/presentation/booking_date_format.dart';
@@ -145,14 +146,15 @@ class BookingPatientExtraSection extends StatelessWidget {
       subtitle: const Text('BHYT và thông tin tiếp nhận'),
       childrenPadding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
       children: [
-        DropdownButtonFormField<String>(
-          initialValue: gender,
-          decoration: const InputDecoration(labelText: 'Giới tính'),
-          items: const [
-            DropdownMenuItem(value: 'MALE', child: Text('Nam')),
-            DropdownMenuItem(value: 'FEMALE', child: Text('Nữ')),
-            DropdownMenuItem(value: 'OTHER', child: Text('Khác')),
-          ],
+        AppSegmentedChoice<String>(
+          label: 'Giới tính',
+          items: const ['MALE', 'FEMALE', 'OTHER'],
+          selected: gender,
+          labelOf: (value) => switch (value) {
+            'MALE' => 'Nam',
+            'FEMALE' => 'Nữ',
+            _ => 'Khác',
+          },
           onChanged: isRelative ? null : onGenderChanged,
         ),
         const SizedBox(height: 16),

@@ -1,9 +1,9 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hospital_booking_mobile/core/widgets/app_error_banner.dart';
+import 'package:hospital_booking_mobile/core/widgets/app_form.dart';
+import 'package:hospital_booking_mobile/core/widgets/birth_date_picker.dart';
 import 'package:hospital_booking_mobile/core/widgets/app_ui.dart';
 import 'package:hospital_booking_mobile/features/dependents/application/dependent_profiles_controller.dart';
 import 'package:hospital_booking_mobile/features/dependents/domain/dependent_profile.dart';
@@ -103,219 +103,37 @@ class _DependentFormScreenState extends ConsumerState<DependentFormScreen> {
       appBar: AppBar(
         title: Text(editing ? 'Chỉnh sửa người thân' : 'Thêm người thân'),
       ),
-      body: SafeArea(
-        child: Form(
-          key: _formKey,
-          child: ListView(
-            controller: _scrollController,
-            padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
+      bottomNavigationBar: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.page,
+            AppSpacing.xs,
+            AppSpacing.page,
+            AppSpacing.sm,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              if (state.error != null) ...[
-                AppErrorBanner(
-                  error: state.error!,
-                  onDismiss: ref
-                      .read(dependentProfilesControllerProvider.notifier)
-                      .dismissError,
-                ),
-                const SizedBox(height: 14),
-              ],
-              TextFormField(
-                controller: _name,
-                textInputAction: TextInputAction.next,
-                decoration: const InputDecoration(
-                  labelText: 'Họ và tên *',
-                  prefixIcon: Icon(Icons.person_outline_rounded),
-                ),
-                validator: (value) => (value?.trim().length ?? 0) < 2
-                    ? 'Họ tên tối thiểu 2 ký tự.'
-                    : null,
-              ),
-              // Chừa chỗ cho nhãn nổi của ô kế tiếp để không đè lên dòng báo lỗi.
-              const SizedBox(height: 20),
-              DropdownButtonFormField<DependentRelationship>(
-                initialValue: _relationship,
-                decoration: const InputDecoration(
-                  labelText: 'Mối quan hệ *',
-                  prefixIcon: Icon(Icons.family_restroom_outlined),
-                ),
-                items: DependentRelationship.values
-                    .map(
-                      (item) => DropdownMenuItem(
-                        value: item,
-                        child: Text(item.label),
-                      ),
-                    )
-                    .toList(),
-                onChanged: (value) => setState(
-                  () => _relationship = value ?? DependentRelationship.other,
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _dateOfBirth,
-                readOnly: true,
-                decoration: const InputDecoration(
-                  labelText: 'Ngày sinh',
-                  prefixIcon: Icon(Icons.cake_outlined),
-                ),
-                onTap: _pickDate,
-              ),
-              const SizedBox(height: 12),
-              DropdownButtonFormField<String>(
-                initialValue: _gender,
-                decoration: const InputDecoration(labelText: 'Giới tính'),
-                items: const [
-                  DropdownMenuItem(value: 'MALE', child: Text('Nam')),
-                  DropdownMenuItem(value: 'FEMALE', child: Text('Nữ')),
-                  DropdownMenuItem(value: 'OTHER', child: Text('Khác')),
-                ],
-                onChanged: (value) => setState(() => _gender = value),
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _phone,
-                keyboardType: TextInputType.phone,
-                decoration: const InputDecoration(
-                  labelText: 'Số điện thoại riêng (nếu có)',
-                  prefixIcon: Icon(Icons.phone_outlined),
-                ),
-                validator: (value) {
-                  final phone = value?.trim() ?? '';
-                  if (phone.isEmpty) return null;
-                  return RegExp(r'^(0|\+84)[0-9]{9,10}$').hasMatch(phone)
-                      ? null
-                      : 'Số điện thoại không hợp lệ.';
-                },
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _email,
-                keyboardType: TextInputType.emailAddress,
-                decoration: const InputDecoration(
-                  labelText: 'Email riêng (nếu có)',
-                  prefixIcon: Icon(Icons.email_outlined),
-                ),
-                validator: (value) {
-                  final email = value?.trim() ?? '';
-                  if (email.isEmpty) return null;
-                  return RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(email)
-                      ? null
-                      : 'Email không hợp lệ.';
-                },
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _cccd,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
-                  labelText: 'CCCD (nếu có)',
-                  prefixIcon: Icon(Icons.badge_outlined),
-                ),
-                validator: (value) {
-                  final cccd = value?.trim() ?? '';
-                  if (cccd.isEmpty) return null;
-                  return cccd.length >= 9 && cccd.length <= 20
-                      ? null
-                      : 'CCCD cần từ 9 đến 20 ký tự.';
-                },
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _address,
-                decoration: const InputDecoration(
-                  labelText: 'Địa chỉ',
-                  prefixIcon: Icon(Icons.location_on_outlined),
-                ),
-              ),
-              const SizedBox(height: 12),
-              Card(
-                margin: EdgeInsets.zero,
-                child: Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: Column(
-                    children: [
-                      SwitchListTile(
-                        contentPadding: EdgeInsets.zero,
-                        value: _hasBhyt,
-                        title: const Text('Có thẻ BHYT'),
-                        onChanged: (value) => setState(() => _hasBhyt = value),
-                      ),
-                      if (_hasBhyt) ...[
-                        TextFormField(
-                          controller: _insuranceCode,
-                          decoration: const InputDecoration(
-                            labelText: 'Mã thẻ BHYT *',
-                          ),
-                          validator: (value) =>
-                              _hasBhyt && (value?.trim().isEmpty ?? true)
-                              ? 'Vui lòng nhập mã thẻ BHYT.'
-                              : null,
-                        ),
-                        const SizedBox(height: 12),
-                        TextFormField(
-                          controller: _registeredHospital,
-                          decoration: const InputDecoration(
-                            labelText: 'Nơi đăng ký khám ban đầu',
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 12),
-              Card(
-                margin: EdgeInsets.zero,
-                child: ExpansionTile(
-                  leading: const Icon(Icons.monitor_heart_outlined),
-                  title: const Text('Thông tin sức khỏe'),
-                  subtitle: const Text('Không bắt buộc'),
-                  childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                  children: [
-                    TextFormField(
-                      controller: _allergies,
-                      minLines: 1,
-                      maxLines: 3,
-                      decoration: const InputDecoration(labelText: 'Dị ứng'),
-                    ),
-                    const SizedBox(height: 12),
-                    TextFormField(
-                      controller: _medicalHistory,
-                      minLines: 2,
-                      maxLines: 4,
-                      decoration: const InputDecoration(
-                        labelText: 'Tiền sử sức khỏe',
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    TextFormField(
-                      controller: _familyHistory,
-                      minLines: 2,
-                      maxLines: 4,
-                      decoration: const InputDecoration(
-                        labelText: 'Tiền sử gia đình',
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              if (!editing) ...[
-                const SizedBox(height: 12),
+              if (!editing)
                 CheckboxListTile(
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+                  key: const ValueKey('dependent-consent'),
+                  contentPadding: EdgeInsets.zero,
+                  dense: true,
+                  visualDensity: VisualDensity.compact,
                   value: _consentConfirmed,
                   onChanged: state.isSaving
                       ? null
                       : (value) =>
                             setState(() => _consentConfirmed = value ?? false),
-                  title: const Text('Xác nhận quyền quản lý hồ sơ'),
+                  title: const Text(
+                    'Tôi xác nhận có quyền quản lý hồ sơ này *',
+                  ),
                   subtitle: const Text(
-                    'Tôi xác nhận có quyền cung cấp thông tin và đặt lịch khám cho người này.',
+                    'Tôi có quyền cung cấp thông tin và đặt lịch khám cho người này.',
                   ),
                   controlAffinity: ListTileControlAffinity.leading,
                 ),
-              ],
-              const SizedBox(height: 22),
               FilledButton.icon(
                 onPressed: state.isSaving ? null : _save,
                 icon: state.isSaving
@@ -330,8 +148,273 @@ class _DependentFormScreenState extends ConsumerState<DependentFormScreen> {
           ),
         ),
       ),
+      body: SafeArea(
+        child: Form(
+          key: _formKey,
+          // SingleChildScrollView để mọi ô luôn nằm trong cây widget: form kiểm tra đủ mọi ô, các dòng mở rộng giữ trạng thái.
+          child: SingleChildScrollView(
+            controller: _scrollController,
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.page,
+              AppSpacing.xs,
+              AppSpacing.page,
+              AppSpacing.xl,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (state.error != null) ...[
+                  AppErrorBanner(
+                    error: state.error!,
+                    onDismiss: ref
+                        .read(dependentProfilesControllerProvider.notifier)
+                        .dismissError,
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                ],
+                Text(
+                  'Mối quan hệ *',
+                  style: Theme.of(context).textTheme.titleSmall,
+                ),
+                const SizedBox(height: AppSpacing.xs),
+                AppChoiceChips<DependentRelationship>(
+                  items: DependentRelationship.values,
+                  selected: _relationship,
+                  labelOf: (item) => item.label,
+                  onChanged: (value) => setState(() => _relationship = value),
+                ),
+                const SizedBox(height: AppSpacing.md),
+                TextFormField(
+                  controller: _name,
+                  textInputAction: TextInputAction.next,
+                  textCapitalization: TextCapitalization.words,
+                  maxLength: 120,
+                  buildCounter: nearLimitCounter,
+                  decoration: const InputDecoration(labelText: 'Họ và tên *'),
+                  validator: (value) => (value?.trim().length ?? 0) < 2
+                      ? 'Họ tên tối thiểu 2 ký tự.'
+                      : null,
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                TextFormField(
+                  controller: _dateOfBirth,
+                  readOnly: true,
+                  decoration: InputDecoration(
+                    labelText: 'Ngày sinh',
+                    hintText: 'Chọn ngày sinh',
+                    suffixIcon: _dateOfBirth.text.isEmpty
+                        ? const Icon(Icons.calendar_month_outlined)
+                        : IconButton(
+                            tooltip: 'Xóa ngày sinh',
+                            onPressed: () =>
+                                setState(() => _dateOfBirth.clear()),
+                            icon: const Icon(Icons.close_rounded),
+                          ),
+                  ),
+                  onTap: _pickDate,
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                AppSegmentedChoice<String>(
+                  label: 'Giới tính',
+                  items: const ['MALE', 'FEMALE', 'OTHER'],
+                  selected: _gender,
+                  labelOf: (value) => switch (value) {
+                    'MALE' => 'Nam',
+                    'FEMALE' => 'Nữ',
+                    _ => 'Khác',
+                  },
+                  onChanged: (value) => setState(() => _gender = value),
+                ),
+                const SizedBox(height: AppSpacing.md),
+                AppFormGroupRow(
+                  icon: Icons.phone_outlined,
+                  title: 'Số điện thoại, email riêng',
+                  summary:
+                      _phone.text.trim().isEmpty && _email.text.trim().isEmpty
+                      ? 'Nếu có'
+                      : 'Đã nhập',
+                  expanded: _expanded['contact'] ?? false,
+                  onToggle: () => _toggle('contact'),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      TextFormField(
+                        controller: _phone,
+                        keyboardType: TextInputType.phone,
+                        maxLength: 12,
+                        buildCounter: nearLimitCounter,
+                        decoration: const InputDecoration(
+                          labelText: 'Số điện thoại riêng',
+                        ),
+                        validator: (value) {
+                          final phone = value?.trim() ?? '';
+                          if (phone.isEmpty) return null;
+                          return RegExp(
+                                r'^(0|\+84)[0-9]{9,10}$',
+                              ).hasMatch(phone)
+                              ? null
+                              : 'Số điện thoại không hợp lệ.';
+                        },
+                      ),
+                      const SizedBox(height: AppSpacing.sm),
+                      TextFormField(
+                        controller: _email,
+                        keyboardType: TextInputType.emailAddress,
+                        decoration: const InputDecoration(
+                          labelText: 'Email riêng',
+                        ),
+                        validator: (value) {
+                          final email = value?.trim() ?? '';
+                          if (email.isEmpty) return null;
+                          return RegExp(
+                                r'^[^\s@]+@[^\s@]+\.[^\s@]+$',
+                              ).hasMatch(email)
+                              ? null
+                              : 'Email không hợp lệ.';
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.xs),
+                AppFormGroupRow(
+                  icon: Icons.badge_outlined,
+                  title: 'CCCD và địa chỉ',
+                  summary:
+                      _cccd.text.trim().isEmpty && _address.text.trim().isEmpty
+                      ? 'Nếu có'
+                      : 'Đã nhập',
+                  expanded: _expanded['identity'] ?? false,
+                  onToggle: () => _toggle('identity'),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      TextFormField(
+                        controller: _cccd,
+                        keyboardType: TextInputType.number,
+                        maxLength: 20,
+                        buildCounter: nearLimitCounter,
+                        decoration: const InputDecoration(labelText: 'CCCD'),
+                        validator: (value) {
+                          final cccd = value?.trim() ?? '';
+                          if (cccd.isEmpty) return null;
+                          return cccd.length >= 9 && cccd.length <= 20
+                              ? null
+                              : 'CCCD cần từ 9 đến 20 ký tự.';
+                        },
+                      ),
+                      const SizedBox(height: AppSpacing.sm),
+                      TextFormField(
+                        controller: _address,
+                        maxLength: 300,
+                        buildCounter: nearLimitCounter,
+                        minLines: 2,
+                        maxLines: 3,
+                        decoration: const InputDecoration(
+                          labelText: 'Địa chỉ',
+                          alignLabelWithHint: true,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.xs),
+                AppFormToggleRow(
+                  icon: Icons.health_and_safety_outlined,
+                  title: 'Có thẻ BHYT',
+                  value: _hasBhyt,
+                  onChanged: (value) => setState(() => _hasBhyt = value),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      TextFormField(
+                        controller: _insuranceCode,
+                        maxLength: 50,
+                        buildCounter: nearLimitCounter,
+                        textCapitalization: TextCapitalization.characters,
+                        decoration: const InputDecoration(
+                          labelText: 'Mã thẻ BHYT *',
+                        ),
+                        validator: (value) =>
+                            _hasBhyt && (value?.trim().isEmpty ?? true)
+                            ? 'Vui lòng nhập mã thẻ BHYT.'
+                            : null,
+                      ),
+                      const SizedBox(height: AppSpacing.sm),
+                      TextFormField(
+                        controller: _registeredHospital,
+                        maxLength: 200,
+                        buildCounter: nearLimitCounter,
+                        decoration: const InputDecoration(
+                          labelText: 'Nơi đăng ký khám ban đầu',
+                          helperText:
+                              'Tắt công tắc BHYT sẽ xóa mã thẻ và nơi đăng ký đã lưu.',
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.xs),
+                AppFormGroupRow(
+                  icon: Icons.monitor_heart_outlined,
+                  title: 'Thông tin sức khỏe',
+                  summary:
+                      _allergies.text.trim().isEmpty &&
+                          _medicalHistory.text.trim().isEmpty &&
+                          _familyHistory.text.trim().isEmpty
+                      ? 'Tùy chọn'
+                      : 'Đã nhập',
+                  expanded: _expanded['health'] ?? false,
+                  onToggle: () => _toggle('health'),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      TextFormField(
+                        controller: _allergies,
+                        minLines: 1,
+                        maxLines: 3,
+                        maxLength: 2000,
+                        buildCounter: nearLimitCounter,
+                        decoration: const InputDecoration(labelText: 'Dị ứng'),
+                      ),
+                      const SizedBox(height: AppSpacing.sm),
+                      TextFormField(
+                        controller: _medicalHistory,
+                        minLines: 2,
+                        maxLines: 4,
+                        maxLength: 5000,
+                        buildCounter: nearLimitCounter,
+                        decoration: const InputDecoration(
+                          labelText: 'Tiền sử sức khỏe',
+                        ),
+                      ),
+                      const SizedBox(height: AppSpacing.sm),
+                      TextFormField(
+                        controller: _familyHistory,
+                        minLines: 2,
+                        maxLines: 4,
+                        maxLength: 5000,
+                        buildCounter: nearLimitCounter,
+                        decoration: const InputDecoration(
+                          labelText: 'Tiền sử gia đình',
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
+
+  /// Dòng nào đang mở ('contact', 'identity', 'health'); mặc định thu gọn, tự mở khi lưu mà có ô báo lỗi.
+  final Map<String, bool> _expanded = {};
+
+  void _toggle(String key) =>
+      setState(() => _expanded[key] = !(_expanded[key] ?? false));
 
   void _apply(DependentProfile profile) {
     _name.text = profile.fullName;
@@ -348,26 +431,25 @@ class _DependentFormScreenState extends ConsumerState<DependentFormScreen> {
     _relationship = profile.relationship;
     _gender = profile.gender;
     _hasBhyt = profile.hasBhyt;
+    _expanded
+      ..['contact'] = _phone.text.isNotEmpty || _email.text.isNotEmpty
+      ..['identity'] = _cccd.text.isNotEmpty || _address.text.isNotEmpty
+      ..['health'] =
+          _allergies.text.isNotEmpty ||
+          _medicalHistory.text.isNotEmpty ||
+          _familyHistory.text.isNotEmpty;
   }
 
   Future<void> _pickDate() async {
-    final now = DateTime.now();
-    final current = DateTime.tryParse(_dateOfBirth.text);
-    final selected = await showDatePicker(
-      context: context,
-      firstDate: DateTime(1900),
-      lastDate: DateTime(
-        now.year,
-        now.month,
-        now.day,
-      ).subtract(const Duration(days: 1)),
-      initialDate: current ?? DateTime(now.year - 10, now.month, now.day),
-      helpText: 'Chọn ngày sinh',
+    final selected = await showBirthDatePicker(
+      context,
+      initial: DateTime.tryParse(_dateOfBirth.text),
     );
-    if (selected != null) {
+    if (selected == null || !mounted) return;
+    setState(() {
       _dateOfBirth.text =
           '${selected.year.toString().padLeft(4, '0')}-${selected.month.toString().padLeft(2, '0')}-${selected.day.toString().padLeft(2, '0')}';
-    }
+    });
   }
 
   Future<void> _save() async {
@@ -378,15 +460,11 @@ class _DependentFormScreenState extends ConsumerState<DependentFormScreen> {
         ..showSnackBar(
           const SnackBar(content: Text('Vui lòng kiểm tra các ô báo lỗi.')),
         );
-      if (_scrollController.hasClients) {
-        unawaited(
-          _scrollController.animateTo(
-            0,
-            duration: const Duration(milliseconds: 260),
-            curve: Curves.easeOutCubic,
-          ),
-        );
-      }
+      setState(() {
+        _expanded['contact'] = true;
+        _expanded['identity'] = true;
+        _expanded['health'] = true;
+      });
       return;
     }
     if (widget.dependentId == null && !_consentConfirmed) {

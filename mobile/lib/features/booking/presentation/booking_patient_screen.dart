@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:hospital_booking_mobile/core/widgets/birth_date_picker.dart';
 import 'package:hospital_booking_mobile/features/legal/legal.dart';
 import 'package:hospital_booking_mobile/core/formatters/display_formatters.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -379,17 +380,9 @@ class _BookingPatientScreenState extends ConsumerState<BookingPatientScreen> {
   }
 
   Future<void> _pickDateOfBirth() async {
-    final now = DateTime.now();
-    final selected = await showDatePicker(
-      context: context,
-      firstDate: DateTime(1900),
-      lastDate: DateTime(
-        now.year,
-        now.month,
-        now.day,
-      ).subtract(const Duration(days: 1)),
-      initialDate: DateTime(now.year - 25, now.month, now.day),
-      helpText: 'Chọn ngày sinh',
+    final selected = await showBirthDatePicker(
+      context,
+      initial: DateTime.tryParse(_dateOfBirthController.text),
     );
     if (selected != null) {
       _dateOfBirthController.text = formatApiDate(selected);
