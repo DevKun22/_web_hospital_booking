@@ -1,3 +1,4 @@
+import 'package:hospital_booking_mobile/features/booking/domain/slot_availability.dart';
 import 'package:hospital_booking_mobile/core/formatters/display_formatters.dart';
 import 'package:flutter/material.dart';
 import 'package:hospital_booking_mobile/core/design/app_colors.dart';
@@ -137,10 +138,15 @@ class _PeriodCard extends StatelessWidget {
                 ),
               ),
               Text(
-                '${slots.length} khung giờ',
-                style: Theme.of(
-                  context,
-                ).textTheme.labelMedium?.copyWith(color: style.accent),
+                SlotAvailability.of(slots.length) == SlotAvailability.low
+                    ? 'Sắp hết · ${slots.length} khung giờ'
+                    : '${slots.length} khung giờ',
+                style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                  color:
+                      SlotAvailability.of(slots.length) == SlotAvailability.low
+                      ? colors.warning
+                      : style.accent,
+                ),
               ),
             ],
           ),
