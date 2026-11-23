@@ -40,7 +40,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('7'), findsWidgets);
-      expect(find.textContaining('số khung giờ còn trống'), findsOneWidget);
+      expect(find.textContaining('khung giờ còn trống'), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
   }

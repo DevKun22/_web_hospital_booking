@@ -1,3 +1,5 @@
+import 'package:hospital_booking_mobile/features/booking/presentation/slot_availability_visuals.dart';
+import 'package:hospital_booking_mobile/features/booking/domain/slot_availability.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hospital_booking_mobile/core/design/app_colors.dart';
@@ -77,108 +79,122 @@ class _BookingCalendarDialogState extends ConsumerState<BookingCalendarDialog> {
       ),
       child: Padding(
         padding: const EdgeInsets.all(AppSpacing.md),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
-              children: [
-                IconButton(
-                  tooltip: 'Tháng trước',
-                  onPressed: _canGoBack ? () => _shift(-1) : null,
-                  icon: const Icon(Icons.chevron_left_outlined),
-                ),
-                Expanded(
-                  child: Text(
-                    'Tháng ${_month.month}/${_month.year}',
-                    textAlign: TextAlign.center,
-                    style: text.titleSmall,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  IconButton(
+                    tooltip: 'Tháng trước',
+                    onPressed: _canGoBack ? () => _shift(-1) : null,
+                    icon: const Icon(Icons.chevron_left_outlined),
                   ),
-                ),
-                IconButton(
-                  tooltip: 'Tháng sau',
-                  onPressed: _canGoForward ? () => _shift(1) : null,
-                  icon: const Icon(Icons.chevron_right_outlined),
-                ),
-              ],
-            ),
-            const SizedBox(height: AppSpacing.xs),
-            Row(
-              children: [
-                for (final label in const [
-                  'T2',
-                  'T3',
-                  'T4',
-                  'T5',
-                  'T6',
-                  'T7',
-                  'CN',
-                ])
                   Expanded(
                     child: Text(
-                      label,
+                      'Tháng ${_month.month}/${_month.year}',
                       textAlign: TextAlign.center,
-                      style: text.labelMedium?.copyWith(color: colors.muted),
+                      style: text.titleSmall,
                     ),
                   ),
-              ],
-            ),
-            const SizedBox(height: AppSpacing.xs),
-            available.when(
-              loading: () => const SizedBox(
-                height: 240,
-                child: Center(child: CircularProgressIndicator()),
+                  IconButton(
+                    tooltip: 'Tháng sau',
+                    onPressed: _canGoForward ? () => _shift(1) : null,
+                    icon: const Icon(Icons.chevron_right_outlined),
+                  ),
+                ],
               ),
-              error: (_, _) => SizedBox(
-                height: 240,
-                child: Center(
-                  child: TextButton.icon(
-                    onPressed: () => ref.invalidate(
-                      doctorAvailableDatesProvider(widget.doctorId),
+              const SizedBox(height: AppSpacing.xs),
+              Row(
+                children: [
+                  for (final label in const [
+                    'T2',
+                    'T3',
+                    'T4',
+                    'T5',
+                    'T6',
+                    'T7',
+                    'CN',
+                  ])
+                    Expanded(
+                      child: Text(
+                        label,
+                        textAlign: TextAlign.center,
+                        style: text.labelMedium?.copyWith(color: colors.muted),
+                      ),
                     ),
-                    icon: const Icon(Icons.refresh_outlined),
-                    label: const Text('Không tải được lịch. Thử lại'),
+                ],
+              ),
+              const SizedBox(height: AppSpacing.xs),
+              available.when(
+                loading: () => const SizedBox(
+                  height: 240,
+                  child: Center(child: CircularProgressIndicator()),
+                ),
+                error: (_, _) => SizedBox(
+                  height: 240,
+                  child: Center(
+                    child: TextButton.icon(
+                      onPressed: () => ref.invalidate(
+                        doctorAvailableDatesProvider(widget.doctorId),
+                      ),
+                      icon: const Icon(Icons.refresh_outlined),
+                      label: const Text('Không tải được lịch. Thử lại'),
+                    ),
                   ),
                 ),
+                data: (dates) => _MonthGrid(
+                  month: _month,
+                  first: _first,
+                  last: _last,
+                  available: dates,
+                  selectedDate: widget.selectedDate,
+                  onPick: (value) => Navigator.of(context).pop(value),
+                ),
               ),
-              data: (dates) => _MonthGrid(
-                month: _month,
-                first: _first,
-                last: _last,
-                available: dates,
-                selectedDate: widget.selectedDate,
-                onPick: (value) => Navigator.of(context).pop(value),
-              ),
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            Row(
-              children: [
-                Expanded(
-                  child: Text.rich(
-                    TextSpan(
-                      style: text.bodySmall?.copyWith(color: colors.muted),
-                      children: [
-                        TextSpan(
-                          text: 'Số xanh',
-                          style: TextStyle(
-                            color: colors.success,
-                            fontWeight: AppFontWeight.strong,
+              const SizedBox(height: AppSpacing.sm),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text.rich(
+                      TextSpan(
+                        style: text.bodySmall?.copyWith(color: colors.muted),
+                        children: [
+                          const TextSpan(
+                            text: 'Số dưới ngày là khung giờ còn trống: ',
                           ),
-                        ),
-                        const TextSpan(
-                          text: ' dưới ngày là số khung giờ còn trống',
-                        ),
-                      ],
+                          TextSpan(
+                            text: 'xanh',
+                            style: TextStyle(
+                              color: SlotAvailability.plenty.color(colors),
+                              fontWeight: AppFontWeight.strong,
+                            ),
+                          ),
+                          const TextSpan(text: ' còn nhiều, '),
+                          TextSpan(
+                            text: 'vàng',
+                            style: TextStyle(
+                              color: SlotAvailability.low.color(colors),
+                              fontWeight: AppFontWeight.strong,
+                            ),
+                          ),
+                          const TextSpan(
+                            text:
+                                ' sắp hết (từ $lowSlotThreshold giờ trở xuống).',
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-                ),
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: const Text('Đóng'),
-                ),
-              ],
-            ),
-          ],
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: const Text('Đóng'),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -230,7 +246,8 @@ class _MonthGrid extends StatelessWidget {
     final value = formatApiDate(date);
     final inWindow = !date.isBefore(first) && !date.isAfter(last);
     final count = available[value] ?? 0;
-    final pickable = inWindow && count > 0;
+    final level = SlotAvailability.of(count);
+    final pickable = inWindow && level.isBookable;
     final selected = value == selectedDate;
     final text = Theme.of(context).textTheme;
     return Semantics(
@@ -239,7 +256,7 @@ class _MonthGrid extends StatelessWidget {
       enabled: pickable,
       selected: selected,
       label: pickable
-          ? 'Ngày $day tháng ${month.month}, còn $count khung giờ'
+          ? 'Ngày $day tháng ${month.month}, còn $count khung giờ, ${level.label}'
           : 'Ngày $day tháng ${month.month}, không còn giờ trống',
       onTap: pickable ? () => onPick(value) : null,
       child: ExcludeSemantics(
@@ -275,11 +292,13 @@ class _MonthGrid extends StatelessWidget {
                       ),
                     ),
                     if (pickable)
-                      // Số khung giờ còn trống của ngày; màu xanh lá, đổi sang trắng khi ngày đang chọn.
+                      // Số khung giờ còn trống của ngày: xanh lá khi còn nhiều, vàng khi sắp hết; trắng khi ngày đang chọn.
                       Text(
                         '$count',
                         style: text.labelSmall?.copyWith(
-                          color: selected ? colors.onPrimary : colors.success,
+                          color: selected
+                              ? colors.onPrimary
+                              : level.color(colors),
                           fontWeight: AppFontWeight.strong,
                           height: 1.1,
                         ),
