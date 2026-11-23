@@ -9,17 +9,17 @@
   --ds-font: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
   --ds-mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
 
-  --ds-bg: #f4f6f7;
+  --ds-bg: #f8fafc;
   --ds-surface: #ffffff;
-  --ds-sunken: #eceff1;
-  --ds-ink: #14191c;
-  --ds-muted: #5b676e;
-  --ds-line: #d9dfe3;
+  --ds-sunken: #f1f5f9;
+  --ds-ink: #0f172a;
+  --ds-muted: #5b6b7f;
+  --ds-line: #e2e8f0;
   --ds-line-strong: #b9c3c9;
 
-  --ds-accent: #0e6e7e;
-  --ds-accent-hover: #0b5967;
-  --ds-accent-soft: #dff0f3;
+  --ds-accent: #0369a1;
+  --ds-accent-hover: #075985;
+  --ds-accent-soft: #e0f2fe;
   --ds-accent-ink: #ffffff;
 
   --ds-good: #1a7f4b;
@@ -29,7 +29,7 @@
   --ds-bad: #b8322a;
   --ds-bad-soft: #fbe4e1;
 
-  --ds-focus: #0e6e7e;
+  --ds-focus: #0369a1;
   --ds-radius: 8px;
   --ds-radius-sm: 6px;
   --ds-control: 40px;
@@ -52,10 +52,10 @@
   --ds-line: #28343a;
   --ds-line-strong: #3a4a52;
 
-  --ds-accent: #4fb3c4;
-  --ds-accent-hover: #6cc3d2;
-  --ds-accent-soft: #16333a;
-  --ds-accent-ink: #06191d;
+  --ds-accent: #38bdf8;
+  --ds-accent-hover: #7dd3fc;
+  --ds-accent-soft: #0c2a40;
+  --ds-accent-ink: #082f49;
 
   --ds-good: #58c08a;
   --ds-good-soft: #15301f;
@@ -64,7 +64,7 @@
   --ds-bad: #ef7b72;
   --ds-bad-soft: #3a1a18;
 
-  --ds-focus: #4fb3c4;
+  --ds-focus: #38bdf8;
 }
 
 .ds *,
