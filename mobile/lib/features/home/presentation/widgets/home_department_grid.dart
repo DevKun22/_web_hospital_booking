@@ -1,5 +1,4 @@
-import 'package:hospital_booking_mobile/features/catalog/presentation/department_visuals.dart';
-import 'package:hospital_booking_mobile/core/widgets/app_zone.dart';
+import 'package:hospital_booking_mobile/core/widgets/app_entity_mark.dart';
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -9,7 +8,7 @@ import 'package:hospital_booking_mobile/features/catalog/domain/catalog_entities
 
 import 'package:hospital_booking_mobile/features/home/presentation/widgets/home_strip_parts.dart';
 
-/// Chuyên khoa: lưới 2 cột, mỗi khoa một ô biểu tượng màu riêng.
+/// Chuyên khoa: lưới 2 cột, ảnh hoặc chữ viết tắt cùng một tông màu, tên căn giữa theo chiều dọc.
 class HomeDepartmentGrid extends StatelessWidget {
   const HomeDepartmentGrid({super.key, required this.items});
 
@@ -24,8 +23,7 @@ class HomeDepartmentGrid extends StatelessWidget {
         spacing: gap,
         runSpacing: gap,
         children: [
-          for (final (index, item) in items.indexed)
-            _DepartmentTile(width: width, item: item, index: index),
+          for (final item in items) _DepartmentTile(width: width, item: item),
         ],
       );
     },
@@ -33,32 +31,21 @@ class HomeDepartmentGrid extends StatelessWidget {
 }
 
 class _DepartmentTile extends StatelessWidget {
-  const _DepartmentTile({
-    required this.width,
-    required this.item,
-    required this.index,
-  });
+  const _DepartmentTile({required this.width, required this.item});
 
   final double width;
   final CatalogDepartment item;
-  final int index;
 
   @override
   Widget build(BuildContext context) {
-    final visual = departmentVisual(
-      context,
-      name: item.name,
-      slug: item.slug,
-      index: index,
-    );
     return HomeStripCard(
       width: width,
       onTap: () => context.push('/departments/${Uri.encodeComponent(item.id)}'),
       child: Row(
         children: [
-          AppIconTile(
-            icon: visual.icon,
-            tint: visual.tint,
+          AppEntityMark(
+            name: item.name,
+            image: item.image,
             size: AppTileSize.md,
           ),
           const SizedBox(width: AppSpacing.sm),

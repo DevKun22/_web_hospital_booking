@@ -1,7 +1,6 @@
 import 'package:hospital_booking_mobile/features/catalog/domain/catalog_entities.dart';
 import 'package:hospital_booking_mobile/features/packages/domain/medical_package.dart';
-import 'package:hospital_booking_mobile/features/catalog/presentation/department_visuals.dart';
-import 'package:hospital_booking_mobile/core/widgets/app_zone.dart';
+import 'package:hospital_booking_mobile/core/widgets/app_entity_mark.dart';
 import 'package:hospital_booking_mobile/core/widgets/app_detail.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -93,11 +92,6 @@ class DepartmentDetailScreen extends ConsumerWidget {
         .toList(growable: false);
     final colors = context.colors;
     final text = Theme.of(context).textTheme;
-    final visual = departmentVisual(
-      context,
-      name: department.name,
-      slug: department.slug,
-    );
 
     return AppRouteBackScope(
       fallbackLocation: '/departments',
@@ -116,14 +110,12 @@ class DepartmentDetailScreen extends ConsumerWidget {
             ),
             children: [
               AppDetailHeader(
-                tint: visual.tint,
-                leading: AppIconTile(
-                  icon: visual.icon,
-                  tint: (
-                    background: colors.surface,
-                    foreground: visual.tint.foreground,
-                  ),
+                tint: colors.zone(AppZone.primary),
+                leading: AppEntityMark(
+                  name: department.name,
+                  image: department.image,
                   size: AppTileSize.xl,
+                  onTinted: true,
                 ),
                 title: department.name,
                 subtitle: department.description,

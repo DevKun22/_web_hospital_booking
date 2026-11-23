@@ -1,93 +1,67 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hospital_booking_mobile/core/design/app_colors.dart';
+import 'package:hospital_booking_mobile/core/widgets/app_entity_mark.dart';
 import 'package:hospital_booking_mobile/core/widgets/app_ui.dart';
-import 'package:hospital_booking_mobile/core/widgets/app_zone.dart';
-import 'package:hospital_booking_mobile/core/widgets/resized_network_image.dart';
-import 'package:hospital_booking_mobile/features/catalog/presentation/department_visuals.dart';
+import 'package:hospital_booking_mobile/features/catalog/domain/catalog_entities.dart';
 
-/// Ô chuyên khoa trong lưới: biểu tượng (hoặc ảnh) theo khoa, tên tối đa hai dòng và số bác sĩ đang nhận lịch.
+/// Ô chuyên khoa trong lưới, căn giữa: ảnh hoặc chữ viết tắt, tên tối đa hai dòng, số bác sĩ và gói do máy chủ đếm sẵn.
 class DepartmentTile extends StatelessWidget {
-  const DepartmentTile({
-    super.key,
-    required this.id,
-    required this.name,
-    this.slug,
-    this.image,
-    required this.doctorCount,
-    required this.index,
-  });
+  const DepartmentTile({super.key, required this.department});
 
-  final String id;
-  final String name;
-  final String? slug;
-  final String? image;
-  final int doctorCount;
-  final int index;
+  final CatalogDepartment department;
+
+  String get _meta {
+    final parts = [
+      if (department.doctorCount > 0) '${department.doctorCount} bác sĩ',
+      if (department.packageCount > 0) '${department.packageCount} gói',
+    ];
+    return parts.isEmpty ? 'Xem chuyên khoa' : parts.join(' · ');
+  }
 
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
     final text = Theme.of(context).textTheme;
-    final visual = departmentVisual(
-      context,
-      name: name,
-      slug: slug,
-      index: index,
-    );
-    final picture = resizedNetworkImage(
-      context,
-      image,
-      logicalWidth: AppTileSize.lg.box,
-      logicalHeight: AppTileSize.lg.box,
-    );
+    final bookable = department.availableSlotCount > 0;
     return AppSurfaceCard(
-      onTap: () => context.push('/departments/${Uri.encodeComponent(id)}'),
-      semanticLabel: doctorCount == 0
-          ? name
-          : '$name, $doctorCount bác sĩ đang nhận lịch',
+      onTap: () =>
+          context.push('/departments/${Uri.encodeComponent(department.id)}'),
+      semanticLabel: [
+        department.name,
+        _meta,
+        if (bookable) 'còn lịch trống',
+      ].join(', '),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          if (picture == null)
-            AppIconTile(
-              icon: visual.icon,
-              tint: visual.tint,
-              size: AppTileSize.lg,
-            )
-          else
-            ClipRRect(
-              borderRadius: BorderRadius.circular(AppRadius.md),
-              child: SizedBox(
-                width: AppTileSize.lg.box,
-                height: AppTileSize.lg.box,
-                child: Image(
-                  image: picture,
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, _, _) => AppIconTile(
-                    icon: visual.icon,
-                    tint: visual.tint,
-                    size: AppTileSize.lg,
-                  ),
-                ),
-              ),
-            ),
+          AppEntityMark(name: department.name, image: department.image),
           const SizedBox(height: AppSpacing.sm),
           Text(
-            name,
+            department.name,
             maxLines: 2,
+            textAlign: TextAlign.center,
             overflow: TextOverflow.ellipsis,
             style: text.titleSmall,
           ),
           const SizedBox(height: AppSpacing.hair),
           Text(
-            doctorCount == 0
-                ? 'Xem chuyên khoa'
-                : '$doctorCount bác sĩ nhận lịch',
+            _meta,
             maxLines: 1,
+            textAlign: TextAlign.center,
             overflow: TextOverflow.ellipsis,
             style: text.bodySmall?.copyWith(color: colors.muted),
           ),
+          if (bookable) ...[
+            const SizedBox(height: AppSpacing.xxs),
+            Text(
+              'Còn lịch trống',
+              maxLines: 1,
+              textAlign: TextAlign.center,
+              overflow: TextOverflow.ellipsis,
+              style: text.labelSmall?.copyWith(color: colors.success),
+            ),
+          ],
         ],
       ),
     );

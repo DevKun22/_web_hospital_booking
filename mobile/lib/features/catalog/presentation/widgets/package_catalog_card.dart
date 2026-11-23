@@ -6,9 +6,9 @@ import 'package:hospital_booking_mobile/core/formatters/display_formatters.dart'
 import 'package:hospital_booking_mobile/core/widgets/app_ui.dart';
 import 'package:hospital_booking_mobile/core/widgets/app_zone.dart';
 import 'package:hospital_booking_mobile/features/packages/domain/medical_package.dart';
-import 'package:hospital_booking_mobile/features/catalog/presentation/department_visuals.dart';
+import 'package:hospital_booking_mobile/core/widgets/app_entity_mark.dart';
 
-/// Thẻ gói khám: ô biểu tượng theo khoa, tên, mô tả một đến hai dòng, nhãn gọn và giá trọn gói làm tiêu điểm.
+/// Thẻ gói khám: ảnh hoặc chữ viết tắt, tên khoa, tên, mô tả một đến hai dòng, nhãn gọn và giá trọn gói làm tiêu điểm.
 class PackageCatalogCard extends StatelessWidget {
   const PackageCatalogCard({required this.item, super.key});
 
@@ -18,12 +18,6 @@ class PackageCatalogCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = context.colors;
     final text = Theme.of(context).textTheme;
-    final visual = item.departmentName == null
-        ? (
-            icon: Icons.health_and_safety_outlined,
-            tint: colors.zone(AppZone.primary),
-          )
-        : departmentVisual(context, name: item.departmentName!);
     final slug = item.slug;
     return AppSurfaceCard(
       onTap: slug == null
@@ -34,13 +28,9 @@ class PackageCatalogCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              AppIconTile(
-                icon: visual.icon,
-                tint: visual.tint,
-                size: AppTileSize.lg,
-              ),
+              AppEntityMark(name: item.name, image: item.image),
               const SizedBox(width: AppSpacing.sm),
               Expanded(
                 child: Column(
@@ -52,6 +42,17 @@ class PackageCatalogCard extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                       style: text.titleSmall,
                     ),
+                    if (item.departmentName != null) ...[
+                      const SizedBox(height: AppSpacing.hair),
+                      Text(
+                        item.departmentName!,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: text.labelMedium?.copyWith(
+                          color: colors.primaryDark,
+                        ),
+                      ),
+                    ],
                     if (item.summary != null) ...[
                       const SizedBox(height: AppSpacing.hair),
                       Text(

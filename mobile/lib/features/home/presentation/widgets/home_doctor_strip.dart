@@ -28,7 +28,7 @@ class HomeDoctorStrip extends StatelessWidget {
         separatorBuilder: (_, _) => const SizedBox(width: AppSpacing.sm),
         itemBuilder: (context, index) => _DoctorCard(
           doctor: items[index],
-          tint: homeTint(context, index + 4),
+          tint: context.colors.zone(AppZone.primary),
         ),
       ),
     ),

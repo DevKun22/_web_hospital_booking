@@ -8,6 +8,9 @@ class CatalogDepartment {
     this.slug,
     this.description,
     this.image,
+    this.doctorCount = 0,
+    this.packageCount = 0,
+    this.availableSlotCount = 0,
   });
 
   factory CatalogDepartment.fromJson(Map<String, dynamic> json) =>
@@ -17,6 +20,9 @@ class CatalogDepartment {
         slug: jsonNullableString(json['slug']),
         description: jsonNullableString(json['description']),
         image: jsonNullableString(json['image']),
+        doctorCount: jsonInt(json['doctorCount']),
+        packageCount: jsonInt(json['packageCount']),
+        availableSlotCount: jsonInt(json['availableSlotCount']),
       );
 
   final String id;
@@ -24,6 +30,11 @@ class CatalogDepartment {
   final String? slug;
   final String? description;
   final String? image;
+
+  /// Ba số dưới đây chỉ có ở danh mục `/departments/catalog`; nơi khác để 0.
+  final int doctorCount;
+  final int packageCount;
+  final int availableSlotCount;
 
   Map<String, dynamic> toJson() => {
     'id': id,
@@ -132,6 +143,7 @@ class CatalogMedicalPackage {
     required this.isBhytSupport,
     this.slug,
     this.summary,
+    this.image,
   });
 
   factory CatalogMedicalPackage.fromJson(Map<String, dynamic> json) =>
@@ -145,12 +157,14 @@ class CatalogMedicalPackage {
         summary:
             jsonNullableString(json['summary']) ??
             jsonNullableString(json['description']),
+        image: jsonNullableString(json['image']),
       );
 
   final String id;
   final String name;
   final String? slug;
   final String? summary;
+  final String? image;
   final double finalPrice;
   final bool isPopular;
   final bool isBhytSupport;
@@ -160,6 +174,7 @@ class CatalogMedicalPackage {
     'name': name,
     'slug': slug,
     'summary': summary,
+    'image': image,
     'finalPrice': finalPrice,
     'isPopular': isPopular,
     'isBHYTSupport': isBhytSupport,

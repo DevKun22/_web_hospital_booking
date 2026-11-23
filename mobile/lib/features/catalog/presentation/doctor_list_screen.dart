@@ -35,8 +35,9 @@ class _DoctorListScreenState extends ConsumerState<DoctorListScreen> {
           .read(doctorCatalogControllerProvider.notifier)
           .load(
             query: _searchController.text,
-            departmentId: widget.initialDepartmentId,
-            clearDepartment: widget.initialDepartmentId == null,
+            filter: DoctorCatalogFilter(
+              departmentId: widget.initialDepartmentId,
+            ),
           );
     });
   }
@@ -60,7 +61,8 @@ class _DoctorListScreenState extends ConsumerState<DoctorListScreen> {
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(doctorCatalogControllerProvider);
-    final departments = ref.watch(departmentCatalogProvider).value ?? const [];
+    final departments =
+        ref.watch(doctorFilterDepartmentsProvider).value ?? const [];
     final controller = ref.read(doctorCatalogControllerProvider.notifier);
     return AppCatalogScaffold(
       title: 'Đội ngũ bác sĩ',
@@ -96,14 +98,13 @@ class _DoctorListScreenState extends ConsumerState<DoctorListScreen> {
               itemBuilder: (context, index) {
                 final department = index == 0 ? null : departments[index - 1];
                 final selected =
-                    department?.id == state.departmentId ||
-                    (department == null && state.departmentId == null);
+                    department?.id == state.filter.departmentId ||
+                    (department == null && state.filter.departmentId == null);
                 return ChoiceChip(
                   label: Text(department?.name ?? 'Tất cả'),
                   selected: selected,
                   onSelected: (_) => controller.load(
-                    departmentId: department?.id,
-                    clearDepartment: department == null,
+                    filter: DoctorCatalogFilter(departmentId: department?.id),
                   ),
                 );
               },
@@ -139,7 +140,7 @@ class _DoctorListScreenState extends ConsumerState<DoctorListScreen> {
               onPressed: () {
                 _searchController.clear();
                 setState(() {});
-                controller.load(query: '', clearDepartment: true);
+                controller.load(query: '', filter: const DoctorCatalogFilter());
               },
               icon: const Icon(Icons.restart_alt_outlined),
               label: const Text('Đặt lại bộ lọc'),

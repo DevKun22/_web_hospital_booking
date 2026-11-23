@@ -148,10 +148,6 @@ class AppColors extends ThemeExtension<AppColors> {
     AppZone.violet => (background: violetContainer, foreground: violet),
   };
 
-  /// Chọn vùng màu xoay vòng theo thứ tự (danh sách chuyên khoa, người thân) để các ô liền nhau khác màu.
-  ({Color background, Color foreground}) zoneAt(int index) =>
-      zone(AppZone.values[index % AppZone.values.length]);
-
   @override
   AppColors copyWith() => this;
 

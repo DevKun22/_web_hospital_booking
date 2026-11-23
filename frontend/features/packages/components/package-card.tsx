@@ -1,7 +1,7 @@
 /* eslint-disable @next/next/no-img-element */
 import Link from "next/link";
-import { Check, Clock, PackageCheck } from "lucide-react";
-import { toneGradient } from "@/lib/dept-tone";
+import { Check, Clock } from "lucide-react";
+import { EntityMark } from "@/components/public/entity-mark";
 import { formatCurrency } from "@/lib/format";
 import type { MedicalPackage } from "@/lib/types";
 
@@ -19,9 +19,7 @@ export function PackageCard({ item, featured }: { item: MedicalPackage; featured
         {item.image ? (
           <img src={item.image} alt="" width={800} height={450} loading="lazy" decoding="async" className="h-full w-full object-cover transition-transform duration-500 group-hover/pack:scale-105 motion-reduce:transition-none motion-reduce:group-hover/pack:scale-100" />
         ) : (
-          <div className="flex h-full w-full items-center justify-center text-white/90" style={{ background: toneGradient(item.department?.name || item.name) }} aria-hidden="true">
-            <PackageCheck className={featured ? "h-16 w-16" : "h-12 w-12"} />
-          </div>
+          <EntityMark name={item.name} className={featured ? "text-5xl" : "text-4xl"} />
         )}
         {item.isPopular || item.isBHYTSupport ? (
           <p className="absolute left-3 top-3 flex flex-wrap gap-1.5">
