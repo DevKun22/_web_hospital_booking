@@ -128,7 +128,14 @@ class _DoctorDetailContent extends StatelessWidget {
                 doctor.departmentName,
               ) ??
               doctor.departmentName,
-          chips: [AppDetailChip(label: doctor.departmentName)],
+          chips: [
+            if (distinctSpecialization(
+                  doctor.specialization,
+                  doctor.departmentName,
+                ) !=
+                null)
+              AppDetailChip(label: doctor.departmentName),
+          ],
         ),
         const SizedBox(height: AppSpacing.sm),
         AppDetailFacts(facts: facts),
