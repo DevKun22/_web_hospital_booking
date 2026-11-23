@@ -41,8 +41,9 @@ final doctorAvailableDatesProvider = FutureProvider.autoDispose
           );
     });
 
-/// Số ngày tính từ hôm nay (gồm hôm nay) mà bệnh nhân được đặt lịch.
-const bookingWindowDays = 14;
+/// Số ngày tính từ hôm nay (gồm hôm nay) app cho chọn ngày khám. Máy chủ không đặt hạn ngày đặt, chỉ cho hỏi ngày còn giờ
+/// tối đa 62 ngày một lần; ngày nào hết giờ trống thì lịch không đánh dấu.
+const bookingWindowDays = 60;
 
 final bookingFlowControllerProvider =
     NotifierProvider<BookingFlowController, BookingFlowState>(

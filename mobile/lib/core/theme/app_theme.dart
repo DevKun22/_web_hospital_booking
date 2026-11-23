@@ -124,25 +124,30 @@ abstract final class AppTheme {
           horizontal: AppSpacing.md,
           vertical: AppSpacing.md,
         ),
-        border: OutlineInputBorder(
+        // Kiểu filled của Material 3: nhãn nổi nằm trong ô, không đè lên viền như kiểu outline.
+        border: UnderlineInputBorder(
           borderRadius: BorderRadius.circular(AppRadius.field),
           borderSide: BorderSide.none,
         ),
-        enabledBorder: OutlineInputBorder(
+        enabledBorder: UnderlineInputBorder(
           borderRadius: BorderRadius.circular(AppRadius.field),
-          borderSide: BorderSide(color: c.divider),
+          borderSide: BorderSide.none,
         ),
-        focusedBorder: OutlineInputBorder(
+        disabledBorder: UnderlineInputBorder(
           borderRadius: BorderRadius.circular(AppRadius.field),
-          borderSide: BorderSide(color: c.primary, width: 1.6),
+          borderSide: BorderSide.none,
         ),
-        errorBorder: OutlineInputBorder(
+        focusedBorder: UnderlineInputBorder(
           borderRadius: BorderRadius.circular(AppRadius.field),
-          borderSide: BorderSide(color: c.danger),
+          borderSide: BorderSide(color: c.primary, width: 2),
         ),
-        focusedErrorBorder: OutlineInputBorder(
+        errorBorder: UnderlineInputBorder(
           borderRadius: BorderRadius.circular(AppRadius.field),
-          borderSide: BorderSide(color: c.danger, width: 1.6),
+          borderSide: BorderSide(color: c.danger, width: 1.5),
+        ),
+        focusedErrorBorder: UnderlineInputBorder(
+          borderRadius: BorderRadius.circular(AppRadius.field),
+          borderSide: BorderSide(color: c.danger, width: 2),
         ),
       ),
       filledButtonTheme: FilledButtonThemeData(

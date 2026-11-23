@@ -64,7 +64,7 @@ void main() {
       final updated = await repository.updateProfile(
         const PatientProfileDraft(
           fullName: '  Nguyễn Văn Bình  ',
-          email: '  binh@example.test  ',
+          phone: '  0987654321  ',
           dateOfBirth: '1995-05-20',
           gender: PatientGender.male,
           hasBhyt: false,
@@ -83,7 +83,7 @@ void main() {
       expect(requests.map((request) => request.method), ['GET', 'PATCH']);
       expect(Map<String, dynamic>.from(requests.last.data as Map), {
         'fullName': 'Nguyễn Văn Bình',
-        'email': 'binh@example.test',
+        'phone': '0987654321',
         'dateOfBirth': '1995-05-20',
         'gender': 'MALE',
         'cccd': null,

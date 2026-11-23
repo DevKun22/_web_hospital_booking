@@ -49,8 +49,7 @@ enum PatientAppointmentStatus {
       'Lịch chưa hoàn tất xác thực OTP và có thể tự hết hạn.',
     PatientAppointmentStatus.pendingConfirm =>
       'Cơ sở khám đang kiểm tra và sẽ xác nhận lịch của bạn.',
-    PatientAppointmentStatus.confirmed =>
-      'Vui lòng đến sớm khoảng 15 phút để làm thủ tục.',
+    PatientAppointmentStatus.confirmed => 'Vui lòng đến sớm để làm thủ tục.',
     PatientAppointmentStatus.checkedIn =>
       'Bạn đã check-in. Vui lòng chờ hướng dẫn tại cơ sở khám.',
     PatientAppointmentStatus.inProgress => 'Buổi khám đang được thực hiện.',
@@ -111,6 +110,7 @@ class PatientAppointment {
     this.completedAt,
     this.createdAt,
     this.dependentProfileId,
+    this.cancelDeadline,
     this.facilityName,
     this.facilityAddress,
   });
@@ -151,6 +151,7 @@ class PatientAppointment {
       cancelledReason: jsonNullableString(json['cancelledReason']),
       completedAt: jsonDateTime(json['completedAt']),
       createdAt: jsonDateTime(json['createdAt']),
+      cancelDeadline: jsonDateTime(json['cancelDeadline']),
       facilityName: jsonNullableString(facility['name']),
       facilityAddress: jsonNullableString(facility['address']),
     );
@@ -183,6 +184,9 @@ class PatientAppointment {
   final DateTime? completedAt;
   final DateTime? createdAt;
 
+  /// Mốc cuối để tự hủy do máy chủ tính theo chính sách khóa hủy; null khi máy chủ cũ chưa trả.
+  final DateTime? cancelDeadline;
+
   /// Nơi khám (thiếu: cơ sở mặc định, chưa có thông tin riêng).
   final String? facilityName;
   final String? facilityAddress;
@@ -191,6 +195,9 @@ class PatientAppointment {
 
   bool canCancelAt(DateTime now) {
     if (!status.canCancel) return false;
+    // Máy chủ từ chối hủy sau mốc này nên chỉ hiện nút khi còn trước mốc; thiếu mốc thì chỉ biết lịch chưa bắt đầu.
+    final deadline = cancelDeadline;
+    if (deadline != null) return now.isBefore(deadline);
     final scheduledStart = this.scheduledStart;
     return scheduledStart != null && scheduledStart.isAfter(now);
   }

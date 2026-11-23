@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hospital_booking_mobile/core/widgets/app_error_banner.dart';
+import 'package:hospital_booking_mobile/core/widgets/app_form.dart';
+import 'package:hospital_booking_mobile/core/widgets/birth_date_picker.dart';
 import 'package:hospital_booking_mobile/core/widgets/app_ui.dart';
 import 'package:hospital_booking_mobile/features/profile/application/patient_profile_controller.dart';
 import 'package:hospital_booking_mobile/features/profile/domain/patient_profile.dart';
@@ -18,7 +20,7 @@ class ProfileEditScreen extends ConsumerStatefulWidget {
 class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
   final _formKey = GlobalKey<FormState>();
   final _fullName = TextEditingController();
-  final _email = TextEditingController();
+  final _phone = TextEditingController();
   final _cccd = TextEditingController();
   final _address = TextEditingController();
   final _healthInsuranceCode = TextEditingController();
@@ -41,7 +43,7 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
   bool _isHydrating = false;
   bool _allowPop = false;
 
-  /// Mục nào đang mở; chốt một lần khi nạp hồ sơ (mục còn thiếu mở sẵn) để không tự co lại khi đang gõ.
+  /// Dòng nào đang mở ('identity', 'health'); mặc định thu gọn, tự mở khi lưu mà có ô báo lỗi.
   final Map<String, bool> _expanded = {};
   bool _discardDialogOpen = false;
 
@@ -55,7 +57,7 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
 
   List<TextEditingController> get _textControllers => [
     _fullName,
-    _email,
+    _phone,
     _cccd,
     _address,
     _healthInsuranceCode,
@@ -95,6 +97,24 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
       },
       child: Scaffold(
         appBar: AppBar(title: const Text('Chỉnh sửa hồ sơ')),
+        bottomNavigationBar: profile == null
+            ? null
+            : SafeArea(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(
+                    AppSpacing.page,
+                    AppSpacing.xs,
+                    AppSpacing.page,
+                    AppSpacing.sm,
+                  ),
+                  child: AppPrimaryButton(
+                    label: state.isSaving ? 'Đang lưu hồ sơ…' : 'Lưu thay đổi',
+                    icon: Icons.save_outlined,
+                    loading: state.isSaving,
+                    onPressed: state.isSaving ? null : _save,
+                  ),
+                ),
+              ),
         body: SafeArea(
           child: profile == null
               ? state.isInitialLoading
@@ -110,32 +130,31 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
                       )
               : Form(
                   key: _formKey,
-                  child: ListView(
-                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
-                    children: [
-                      if (state.error != null) ...[
-                        AppErrorBanner(
-                          error: state.error!,
-                          onDismiss: ref
-                              .read(patientProfileControllerProvider.notifier)
-                              .dismissError,
-                        ),
-                        const SizedBox(height: 14),
-                      ],
-                      ProfileCollapsibleSection(
-                        title: 'Thông tin cá nhân',
-                        expanded: _expanded['Thông tin cá nhân'] ?? true,
-                        onToggle: () => setState(
-                          () => _expanded['Thông tin cá nhân'] =
-                              !(_expanded['Thông tin cá nhân'] ?? true),
-                        ),
-                        description:
-                            'Còn thiếu ngày sinh, giới tính, CCCD hoặc địa chỉ.',
-                        complete: _personalComplete,
-                        child: ProfilePersonalSection(
+                  // Cuộn bằng SingleChildScrollView để mọi ô luôn nằm trong cây widget: form kiểm tra đủ mọi ô
+                  // và các dòng mở rộng không mất trạng thái khi cuộn đi.
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.fromLTRB(
+                      AppSpacing.page,
+                      0,
+                      AppSpacing.page,
+                      AppSpacing.xl,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        if (state.error != null) ...[
+                          const SizedBox(height: AppSpacing.xs),
+                          AppErrorBanner(
+                            error: state.error!,
+                            onDismiss: ref
+                                .read(patientProfileControllerProvider.notifier)
+                                .dismissError,
+                          ),
+                        ],
+                        ProfileBasicsSection(
                           fullName: _fullName,
-                          phone: profile.phone ?? '',
-                          email: _email,
+                          phone: _phone,
+                          email: profile.email ?? '',
                           dateOfBirth: _dateOfBirth,
                           onSelectDateOfBirth: _selectDateOfBirth,
                           onClearDateOfBirth: () =>
@@ -144,71 +163,73 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
                           onGenderChanged: state.isSaving
                               ? null
                               : (value) => setState(() => _gender = value),
-                          cccd: _cccd,
-                          address: _address,
-                          isSaving: state.isSaving,
                         ),
-                      ),
-                      const SizedBox(height: AppSpacing.sm),
-                      ProfileCollapsibleSection(
-                        title: 'Bảo hiểm y tế',
-                        expanded: _expanded['Bảo hiểm y tế'] ?? true,
-                        onToggle: () => setState(
-                          () => _expanded['Bảo hiểm y tế'] =
-                              !(_expanded['Bảo hiểm y tế'] ?? true),
+                        const SizedBox(height: AppSpacing.md),
+                        AppFormGroupRow(
+                          icon: Icons.badge_outlined,
+                          title: 'CCCD và địa chỉ',
+                          summary:
+                              _cccd.text.trim().isEmpty &&
+                                  _address.text.trim().isEmpty
+                              ? 'Chưa có'
+                              : 'Đã nhập',
+                          expanded: _expanded['identity'] ?? false,
+                          onToggle: () => setState(
+                            () => _expanded['identity'] =
+                                !(_expanded['identity'] ?? false),
+                          ),
+                          child: ProfileIdentitySection(
+                            cccd: _cccd,
+                            address: _address,
+                          ),
                         ),
-                        description:
-                            'Hỗ trợ cơ sở khám chuẩn bị thủ tục tiếp nhận.',
-                        complete: _insuranceComplete,
-                        child: ProfileInsuranceSection(
-                          hasBhyt: _hasBhyt,
-                          onHasBhytChanged: state.isSaving
+                        const SizedBox(height: AppSpacing.xs),
+                        AppFormToggleRow(
+                          icon: Icons.health_and_safety_outlined,
+                          title: 'Có thẻ BHYT',
+                          value: _hasBhyt,
+                          onChanged: state.isSaving
                               ? null
                               : (value) => setState(() => _hasBhyt = value),
-                          healthInsuranceCode: _healthInsuranceCode,
-                          registeredHospital: _registeredHospital,
-                          isSaving: state.isSaving,
+                          child: ProfileInsuranceFields(
+                            healthInsuranceCode: _healthInsuranceCode,
+                            registeredHospital: _registeredHospital,
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: AppSpacing.sm),
-                      ProfileCollapsibleSection(
-                        title: 'Thông tin sức khỏe',
-                        expanded: _expanded['Thông tin sức khỏe'] ?? true,
-                        onToggle: () => setState(
-                          () => _expanded['Thông tin sức khỏe'] =
-                              !(_expanded['Thông tin sức khỏe'] ?? true),
+                        const SizedBox(height: AppSpacing.xs),
+                        AppFormGroupRow(
+                          icon: Icons.monitor_heart_outlined,
+                          title: 'Thông tin sức khỏe',
+                          summary:
+                              _hasHealthText ||
+                                  _bloodType.text.trim().isNotEmpty
+                              ? 'Đã nhập'
+                              : 'Tùy chọn',
+                          expanded: _expanded['health'] ?? false,
+                          onToggle: () => setState(
+                            () => _expanded['health'] =
+                                !(_expanded['health'] ?? false),
+                          ),
+                          child: ProfileHealthSection(
+                            bloodType: _bloodType,
+                            height: _height,
+                            weight: _weight,
+                            bloodPressure: _bloodPressure,
+                            allergies: _allergies,
+                            medicalHistory: _medicalHistory,
+                            familyHistory: _familyHistory,
+                            askConsent: _hasHealthText && !_hadHealthConsent,
+                            healthConsent: _healthConsent,
+                            onHealthConsentChanged: state.isSaving
+                                ? null
+                                : (value) => setState(
+                                    () => _healthConsent = value ?? false,
+                                  ),
+                            isSaving: state.isSaving,
+                          ),
                         ),
-                        description:
-                            'Chỉ nhập điều bạn biết chính xác; không thay thế chẩn đoán của bác sĩ.',
-                        complete: _healthComplete,
-                        child: ProfileHealthSection(
-                          bloodType: _bloodType,
-                          height: _height,
-                          weight: _weight,
-                          bloodPressure: _bloodPressure,
-                          allergies: _allergies,
-                          medicalHistory: _medicalHistory,
-                          familyHistory: _familyHistory,
-                          askConsent: _hasHealthText && !_hadHealthConsent,
-                          healthConsent: _healthConsent,
-                          onHealthConsentChanged: state.isSaving
-                              ? null
-                              : (value) => setState(
-                                  () => _healthConsent = value ?? false,
-                                ),
-                          isSaving: state.isSaving,
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-                      AppPrimaryButton(
-                        label: state.isSaving
-                            ? 'Đang lưu hồ sơ…'
-                            : 'Lưu thay đổi',
-                        icon: Icons.save_outlined,
-                        loading: state.isSaving,
-                        onPressed: state.isSaving ? null : _save,
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
         ),
@@ -220,7 +241,7 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
     _isHydrating = true;
     _hydratedProfileId = profile.id;
     _fullName.text = profile.fullName;
-    _email.text = profile.email ?? '';
+    _phone.text = profile.phone ?? '';
     _cccd.text = profile.cccd ?? '';
     _address.text = profile.address ?? '';
     _healthInsuranceCode.text = profile.healthInsuranceCode ?? '';
@@ -238,27 +259,8 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
     _hadHealthConsent = profile.hasHealthConsent;
     _healthConsent = false;
     _baseline = _snapshot();
-    _expanded
-      ..['Thông tin cá nhân'] = !_personalComplete
-      ..['Bảo hiểm y tế'] = !_insuranceComplete
-      ..['Thông tin sức khỏe'] = !_healthComplete;
     _isHydrating = false;
   }
-
-  bool get _personalComplete =>
-      _fullName.text.trim().isNotEmpty &&
-      _dateOfBirth != null &&
-      _gender != null &&
-      _cccd.text.trim().isNotEmpty &&
-      _address.text.trim().isNotEmpty;
-
-  bool get _insuranceComplete =>
-      !_hasBhyt || _healthInsuranceCode.text.trim().isNotEmpty;
-
-  bool get _healthComplete =>
-      _bloodType.text.trim().isNotEmpty ||
-      _hasHealthText ||
-      _height.text.trim().isNotEmpty;
 
   bool get _hasUnsavedChanges => _baseline != null && _snapshot() != _baseline;
 
@@ -282,7 +284,7 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
 
   _ProfileFormSnapshot _snapshot() => (
     fullName: _fullName.text.trim(),
-    email: _email.text.trim(),
+    phone: _phone.text.trim(),
     cccd: _cccd.text.trim(),
     address: _address.text.trim(),
     healthInsuranceCode: _hasBhyt ? _healthInsuranceCode.text.trim() : '',
@@ -342,18 +344,9 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
   }
 
   Future<void> _selectDateOfBirth() async {
-    final now = DateTime.now();
-    final current = DateTime.tryParse(_dateOfBirth ?? '');
-    final selected = await showDatePicker(
-      context: context,
-      initialDate: current ?? DateTime(now.year - 25, now.month, now.day),
-      firstDate: DateTime(now.year - 120),
-      lastDate: DateTime(
-        now.year,
-        now.month,
-        now.day,
-      ).subtract(const Duration(days: 1)),
-      helpText: 'Chọn ngày sinh',
+    final selected = await showBirthDatePicker(
+      context,
+      initial: DateTime.tryParse(_dateOfBirth ?? ''),
     );
     if (selected == null || !mounted) return;
     setState(() {
@@ -364,7 +357,14 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
 
   Future<void> _save() async {
     FocusManager.instance.primaryFocus?.unfocus();
-    if (_formKey.currentState?.validate() != true) return;
+    if (_formKey.currentState?.validate() != true) {
+      // Mở các dòng thu gọn để người dùng thấy ô báo lỗi.
+      setState(() {
+        _expanded['identity'] = true;
+        _expanded['health'] = true;
+      });
+      return;
+    }
     if (_needsHealthConsent && !_healthConsent) {
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
@@ -379,7 +379,7 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
     }
     final draft = PatientProfileDraft(
       fullName: _fullName.text,
-      email: _email.text,
+      phone: _phone.text,
       dateOfBirth: _dateOfBirth,
       gender: _gender,
       cccd: _cccd.text,
@@ -409,7 +409,7 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
 
 typedef _ProfileFormSnapshot = ({
   String fullName,
-  String email,
+  String phone,
   String cccd,
   String address,
   String healthInsuranceCode,

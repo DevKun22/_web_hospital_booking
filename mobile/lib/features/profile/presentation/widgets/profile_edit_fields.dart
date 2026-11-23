@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:hospital_booking_mobile/core/design/app_colors.dart';
 import 'package:flutter/services.dart';
 import 'package:hospital_booking_mobile/core/formatters/display_formatters.dart';
+import 'package:hospital_booking_mobile/core/widgets/app_form.dart';
 import 'package:hospital_booking_mobile/core/widgets/app_ui.dart';
 
 class ProfileDateField extends StatelessWidget {
@@ -23,7 +24,6 @@ class ProfileDateField extends StatelessWidget {
     child: InputDecorator(
       decoration: InputDecoration(
         labelText: 'Ngày sinh',
-        prefixIcon: const Icon(Icons.cake_outlined),
         suffixIcon: value == null
             ? const Icon(Icons.calendar_month_outlined)
             : IconButton(
@@ -32,7 +32,10 @@ class ProfileDateField extends StatelessWidget {
                 icon: const Icon(Icons.close_rounded),
               ),
       ),
-      child: Text(value == null ? 'Chưa cập nhật' : formatDateVi(value!)),
+      child: Text(
+        value == null ? 'Chọn ngày sinh' : formatDateVi(value!),
+        style: value == null ? TextStyle(color: context.colors.muted) : null,
+      ),
     ),
   );
 }
@@ -87,106 +90,10 @@ class ProfileLongTextField extends StatelessWidget {
     minLines: 2,
     maxLines: 4,
     maxLength: maxLength,
+    buildCounter: nearLimitCounter,
     textCapitalization: TextCapitalization.sentences,
     decoration: InputDecoration(labelText: label, alignLabelWithHint: true),
   );
-}
-
-/// Mục thu gọn của form hồ sơ: dấu tích xanh khi đủ, cảnh báo vàng khi còn thiếu. Trạng thái mở hoặc thu gọn do màn
-/// chỉnh sửa giữ (nên không mất khi cuộn đi), nội dung vẫn nằm trong cây widget khi thu gọn để form kiểm tra đủ mọi ô.
-class ProfileCollapsibleSection extends StatelessWidget {
-  const ProfileCollapsibleSection({
-    super.key,
-    required this.title,
-    required this.description,
-    required this.complete,
-    required this.expanded,
-    required this.onToggle,
-    required this.child,
-  });
-
-  final String title;
-  final String description;
-  final bool complete;
-  final bool expanded;
-  final VoidCallback onToggle;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.colors;
-    final text = Theme.of(context).textTheme;
-    return Container(
-      decoration: BoxDecoration(
-        color: colors.surface,
-        borderRadius: BorderRadius.circular(AppRadius.lg),
-        border: Border.all(color: colors.border),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Semantics(
-            button: true,
-            expanded: expanded,
-            label: title,
-            child: InkWell(
-              onTap: onToggle,
-              child: Padding(
-                padding: const EdgeInsets.all(AppSpacing.sm),
-                child: Row(
-                  children: [
-                    Icon(
-                      complete
-                          ? Icons.check_circle_rounded
-                          : Icons.error_outline_rounded,
-                      color: complete ? colors.success : colors.warning,
-                    ),
-                    const SizedBox(width: AppSpacing.sm),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(title, style: text.titleSmall),
-                          Text(
-                            complete ? 'Đã đủ thông tin' : description,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: text.bodySmall?.copyWith(
-                              color: colors.muted,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Icon(
-                      expanded
-                          ? Icons.expand_less_rounded
-                          : Icons.expand_more_rounded,
-                      color: colors.muted,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          Visibility(
-            visible: expanded,
-            maintainState: true,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(
-                AppSpacing.sm,
-                0,
-                AppSpacing.sm,
-                AppSpacing.sm,
-              ),
-              child: child,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 }
 
 class ProfileEditLoading extends StatelessWidget {

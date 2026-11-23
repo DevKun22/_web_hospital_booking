@@ -130,6 +130,29 @@ void main() {
   });
 
   test(
+    'uses the server cancel deadline instead of guessing from the start time',
+    () {
+      final appointment = PatientAppointment.fromJson({
+        'id': 'a1',
+        'bookingCode': 'BK1',
+        'appointmentDate': '2030-01-02',
+        'startTime': '09:00',
+        'endTime': '09:30',
+        'status': 'CONFIRMED',
+        // Chính sách khóa hủy 2 giờ: mốc là 07:00 theo giờ địa phương của máy chủ trả về.
+        'cancelDeadline': DateTime(2030, 1, 2, 7).toUtc().toIso8601String(),
+      });
+
+      expect(appointment.canCancelAt(DateTime(2030, 1, 2, 6, 59)), isTrue);
+      expect(
+        appointment.canCancelAt(DateTime(2030, 1, 2, 7, 1)),
+        isFalse,
+        reason: 'Within the cutoff the server rejects cancellation.',
+      );
+    },
+  );
+
+  test(
     'loads pages without duplicates and prevents duplicate cancellation',
     () async {
       final repository = _FakeAppointmentsRepository();

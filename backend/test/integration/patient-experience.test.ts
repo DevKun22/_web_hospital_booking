@@ -347,6 +347,28 @@ test("patient v1 auth scopes profile and resources to the authenticated owner", 
   assert.equal(updated.body.data.fullName, "Updated Patient");
   assert.equal(updated.body.data.patientProfile.address, "New address");
 
+  // Số điện thoại là thông tin liên hệ: sửa được, sai định dạng bị từ chối, null là xóa số.
+  const phoneUpdated = await http.request("/api/v1/me", {
+    method: "PATCH",
+    headers: { authorization },
+    body: { phone: "0987654321" },
+  });
+  assert.equal(phoneUpdated.status, 200);
+  assert.equal(phoneUpdated.body.data.phone, "0987654321");
+  const phoneRejected = await http.request("/api/v1/me", {
+    method: "PATCH",
+    headers: { authorization },
+    body: { phone: "12345" },
+  });
+  assert.equal(phoneRejected.status, 400);
+  const phoneCleared = await http.request("/api/v1/me", {
+    method: "PATCH",
+    headers: { authorization },
+    body: { phone: null },
+  });
+  assert.equal(phoneCleared.status, 200);
+  assert.equal(phoneCleared.body.data.phone, null);
+
   const appointments = await http.request("/api/v1/me/appointments?limit=999", {
     headers: { authorization },
   });
