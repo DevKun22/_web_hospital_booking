@@ -1,3 +1,4 @@
+import 'package:hospital_booking_mobile/core/widgets/app_zone.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -39,14 +40,16 @@ class HomeServiceCard extends StatelessWidget {
                   onPressed: () => context.go('/services'),
                   style: TextButton.styleFrom(
                     minimumSize: const Size(0, 32),
-                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.xxs,
+                    ),
                     foregroundColor: colors.primary,
                   ),
                   child: const Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text('Xem tất cả'),
-                      Icon(Icons.chevron_right_rounded, size: 18),
+                      Icon(Icons.chevron_right_outlined, size: 18),
                     ],
                   ),
                 ),
@@ -58,28 +61,28 @@ class HomeServiceCard extends StatelessWidget {
                   key: const Key('home-link-departments'),
                   icon: Icons.medical_services_outlined,
                   label: 'Chuyên khoa',
-                  tint: context.colors.tintPairs[1],
+                  tint: context.colors.zone(AppZone.primary),
                   onTap: () => unawaited(context.push<void>('/departments')),
                 ),
                 _ServiceLink(
                   key: const Key('home-link-doctors'),
                   icon: Icons.groups_2_outlined,
                   label: 'Bác sĩ',
-                  tint: context.colors.tintPairs[4],
+                  tint: context.colors.zone(AppZone.care),
                   onTap: () => unawaited(context.push<void>('/doctors')),
                 ),
                 _ServiceLink(
                   key: const Key('home-link-packages'),
                   icon: Icons.inventory_2_outlined,
                   label: 'Gói khám',
-                  tint: context.colors.tintPairs[3],
+                  tint: context.colors.zone(AppZone.warning),
                   onTap: () => unawaited(context.push<void>('/packages')),
                 ),
                 _ServiceLink(
                   key: const Key('home-link-knowledge'),
                   icon: Icons.menu_book_outlined,
                   label: 'Kiến thức',
-                  tint: context.colors.tintPairs[5],
+                  tint: context.colors.zone(AppZone.violet),
                   onTap: () => unawaited(
                     launchUrl(
                       Uri.parse('${AppBrand.webUrl}/kien-thuc'),
@@ -121,20 +124,12 @@ class _ServiceLink extends StatelessWidget {
           onTap: onTap,
           borderRadius: BorderRadius.circular(AppRadius.md),
           child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 2),
+            padding: const EdgeInsets.symmetric(vertical: AppSpacing.hair),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: tint.background,
-                    borderRadius: BorderRadius.circular(AppRadius.md),
-                  ),
-                  child: Icon(icon, color: tint.foreground, size: 22),
-                ),
-                const SizedBox(height: 4),
+                AppIconTile(icon: icon, tint: tint, size: AppTileSize.sm),
+                const SizedBox(height: AppSpacing.xxs),
                 Text(
                   label,
                   maxLines: 1,

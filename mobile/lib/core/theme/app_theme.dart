@@ -36,42 +36,42 @@ abstract final class AppTheme {
       displaySmall: TextStyle(
         fontSize: 32,
         height: 1.15,
-        fontWeight: FontWeight.w600,
+        fontWeight: AppFontWeight.strong,
         letterSpacing: -0.5,
       ),
       headlineMedium: TextStyle(
         fontSize: 26,
         height: 1.2,
-        fontWeight: FontWeight.w600,
+        fontWeight: AppFontWeight.strong,
         letterSpacing: -0.3,
       ),
       headlineSmall: TextStyle(
         fontSize: 22,
         height: 1.25,
-        fontWeight: FontWeight.w600,
+        fontWeight: AppFontWeight.strong,
         letterSpacing: -0.2,
       ),
       titleLarge: TextStyle(
         fontSize: 19,
         height: 1.3,
-        fontWeight: FontWeight.w600,
+        fontWeight: AppFontWeight.strong,
       ),
       titleMedium: TextStyle(
         fontSize: 16,
         height: 1.3,
-        fontWeight: FontWeight.w600,
+        fontWeight: AppFontWeight.strong,
       ),
       titleSmall: TextStyle(
         fontSize: 15,
         height: 1.3,
-        fontWeight: FontWeight.w600,
+        fontWeight: AppFontWeight.strong,
       ),
       bodyLarge: TextStyle(fontSize: 16, height: 1.45),
       bodyMedium: TextStyle(fontSize: 14, height: 1.45),
       bodySmall: TextStyle(fontSize: 13, height: 1.4),
-      labelLarge: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
-      labelMedium: TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
-      labelSmall: TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+      labelLarge: TextStyle(fontSize: 14, fontWeight: AppFontWeight.medium),
+      labelMedium: TextStyle(fontSize: 13, fontWeight: AppFontWeight.medium),
+      labelSmall: TextStyle(fontSize: 12, fontWeight: AppFontWeight.medium),
     );
 
     return ThemeData(
@@ -101,7 +101,7 @@ abstract final class AppTheme {
           color: c.ink,
           fontSize: 18,
           height: 1.2,
-          fontWeight: FontWeight.w600,
+          fontWeight: AppFontWeight.strong,
         ),
         systemOverlayStyle: SystemUiOverlayStyle(
           statusBarColor: Colors.transparent,
@@ -165,7 +165,10 @@ abstract final class AppTheme {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(AppRadius.md),
           ),
-          textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+          textStyle: const TextStyle(
+            fontSize: 14,
+            fontWeight: AppFontWeight.strong,
+          ),
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
@@ -180,7 +183,10 @@ abstract final class AppTheme {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(AppRadius.md),
           ),
-          textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+          textStyle: const TextStyle(
+            fontSize: 14,
+            fontWeight: AppFontWeight.strong,
+          ),
         ),
       ),
       textButtonTheme: TextButtonThemeData(
@@ -191,7 +197,10 @@ abstract final class AppTheme {
           ),
           foregroundColor: c.primary,
           padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
-          textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+          textStyle: const TextStyle(
+            fontSize: 14,
+            fontWeight: AppFontWeight.strong,
+          ),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(AppRadius.sm),
           ),
@@ -221,10 +230,10 @@ abstract final class AppTheme {
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppRadius.pill),
         ),
-        labelStyle: TextStyle(color: c.ink, fontWeight: FontWeight.w500),
+        labelStyle: TextStyle(color: c.ink, fontWeight: AppFontWeight.medium),
         secondaryLabelStyle: TextStyle(
           color: c.primaryDark,
-          fontWeight: FontWeight.w600,
+          fontWeight: AppFontWeight.strong,
         ),
         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
       ),
@@ -236,7 +245,7 @@ abstract final class AppTheme {
           final selected = states.contains(WidgetState.selected);
           return TextStyle(
             color: selected ? c.primary : c.muted,
-            fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+            fontWeight: selected ? AppFontWeight.strong : AppFontWeight.medium,
           );
         }),
       ),

@@ -23,7 +23,12 @@ class MobileToolsScreen extends ConsumerWidget {
         onRefresh: ref.read(patientProfileControllerProvider.notifier).refresh,
         child: ListView(
           physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.md,
+            AppSpacing.xs,
+            AppSpacing.md,
+            AppSpacing.xxl,
+          ),
           children: [
             if (profileState.error != null) ...[
               AppErrorBanner(
@@ -32,7 +37,7 @@ class MobileToolsScreen extends ConsumerWidget {
                     .read(patientProfileControllerProvider.notifier)
                     .dismissError,
               ),
-              const SizedBox(height: 14),
+              const SizedBox(height: AppSpacing.md),
             ],
             if (profileState.isInitialLoading && profileState.profile == null)
               const AppLoadingSkeleton(height: 330)
@@ -45,13 +50,13 @@ class MobileToolsScreen extends ConsumerWidget {
                   onPressed: ref
                       .read(patientProfileControllerProvider.notifier)
                       .refresh,
-                  icon: const Icon(Icons.refresh_rounded),
+                  icon: const Icon(Icons.refresh_outlined),
                   label: const Text('Thử lại'),
                 ),
               )
             else
               _DigitalPatientCard(profile: profileState.profile!),
-            const SizedBox(height: 18),
+            const SizedBox(height: AppSpacing.lg),
             _SecurityCard(
               state: lockState,
               onChanged: (enabled) async {
@@ -75,7 +80,7 @@ class MobileToolsScreen extends ConsumerWidget {
                   );
               },
             ),
-            const SizedBox(height: 14),
+            const SizedBox(height: AppSpacing.md),
             const _PrivacyNotice(),
           ],
         ),
@@ -92,14 +97,14 @@ class _DigitalPatientCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
     key: const Key('digital-patient-card'),
-    padding: const EdgeInsets.all(20),
+    padding: const EdgeInsets.all(AppSpacing.lg),
     decoration: BoxDecoration(
       gradient: LinearGradient(
         colors: [AppPalette.heroDeep, AppPalette.heroMid],
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
       ),
-      borderRadius: BorderRadius.circular(24),
+      borderRadius: BorderRadius.circular(AppRadius.xl),
       boxShadow: [
         BoxShadow(
           color: AppPalette.heroDeep.withValues(alpha: 0.18),
@@ -114,7 +119,7 @@ class _DigitalPatientCard extends StatelessWidget {
         Row(
           children: [
             const AppBrandMark(size: 42),
-            const SizedBox(width: 12),
+            const SizedBox(width: AppSpacing.sm),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -122,16 +127,16 @@ class _DigitalPatientCard extends StatelessWidget {
                   Text(
                     'THẺ KHÁM SỐ',
                     style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                      color: Colors.white70,
-                      fontWeight: FontWeight.w800,
+                      color: AppPalette.onHeroMuted,
+                      fontWeight: AppFontWeight.strong,
                       letterSpacing: 0.8,
                     ),
                   ),
                   Text(
                     profile.fullName,
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w900,
+                      color: AppPalette.onHero,
+                      fontWeight: AppFontWeight.strong,
                     ),
                   ),
                 ],
@@ -140,12 +145,12 @@ class _DigitalPatientCard extends StatelessWidget {
             InkWell(
               key: const Key('digital-card-qr'),
               onTap: () => _showLargeQr(context, profile),
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(AppRadius.md),
               child: Container(
-                padding: const EdgeInsets.all(7),
+                padding: const EdgeInsets.all(AppSpacing.xs),
                 decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
+                  color: AppPalette.onHero,
+                  borderRadius: BorderRadius.circular(AppRadius.md),
                 ),
                 child: QrImageView(
                   data: 'HB-PATIENT:${profile.id}',
@@ -157,7 +162,7 @@ class _DigitalPatientCard extends StatelessWidget {
             ),
           ],
         ),
-        const SizedBox(height: 22),
+        const SizedBox(height: AppSpacing.lg),
         Wrap(
           spacing: 24,
           runSpacing: 12,
@@ -177,11 +182,11 @@ class _DigitalPatientCard extends StatelessWidget {
             _CardValue(label: 'Mã hồ sơ', value: _shortId(profile.id)),
           ],
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: AppSpacing.md),
         Text(
           'Chạm vào mã QR để phóng to và đưa cho nhân viên khi đến khám. Danh tính vẫn được xác minh theo quy trình của cơ sở khám.',
           style: Theme.of(context).textTheme.bodySmall?.copyWith(
-            color: Colors.white.withValues(alpha: 0.82),
+            color: AppPalette.onHeroMuted,
             height: 1.4,
           ),
         ),
@@ -195,22 +200,22 @@ void _showLargeQr(BuildContext context, PatientProfile profile) {
     context: context,
     builder: (dialogContext) => Dialog(
       child: Padding(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(AppSpacing.lg),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
               profile.fullName,
-              style: Theme.of(
-                dialogContext,
-              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+              style: Theme.of(dialogContext).textTheme.titleMedium?.copyWith(
+                fontWeight: AppFontWeight.strong,
+              ),
             ),
-            const SizedBox(height: 14),
+            const SizedBox(height: AppSpacing.md),
             Container(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.all(AppSpacing.sm),
               decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
+                color: AppPalette.onHero,
+                borderRadius: BorderRadius.circular(AppRadius.lg),
               ),
               child: QrImageView(
                 data: 'HB-PATIENT:${profile.id}',
@@ -219,12 +224,12 @@ void _showLargeQr(BuildContext context, PatientProfile profile) {
                 semanticsLabel: 'Mã QR thẻ khám số',
               ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: AppSpacing.xs),
             Text(
               'Mã hồ sơ ${_shortId(profile.id)}',
               style: Theme.of(dialogContext).textTheme.bodySmall,
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: AppSpacing.sm),
             FilledButton(
               onPressed: () => Navigator.of(dialogContext).pop(),
               child: const Text('Đóng'),
@@ -246,13 +251,13 @@ class _CardValue extends StatelessWidget {
   Widget build(BuildContext context) => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
-      Text(label, style: const TextStyle(color: Colors.white70, fontSize: 12)),
-      const SizedBox(height: 2),
+      Text(label, style: const TextStyle(color: AppPalette.onHeroMuted)),
+      const SizedBox(height: AppSpacing.hair),
       Text(
         value,
         style: const TextStyle(
-          color: Colors.white,
-          fontWeight: FontWeight.w800,
+          color: AppPalette.onHero,
+          fontWeight: AppFontWeight.strong,
         ),
       ),
     ],
@@ -269,19 +274,19 @@ class _SecurityCard extends StatelessWidget {
   Widget build(BuildContext context) => Card(
     margin: EdgeInsets.zero,
     child: Padding(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(AppSpacing.md),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(Icons.fingerprint_rounded, color: context.colors.primary),
-              const SizedBox(width: 10),
+              Icon(Icons.fingerprint_outlined, color: context.colors.primary),
+              const SizedBox(width: AppSpacing.sm),
               Expanded(
                 child: Text(
                   'Khóa ứng dụng',
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w800,
+                    fontWeight: AppFontWeight.strong,
                   ),
                 ),
               ),
@@ -294,7 +299,7 @@ class _SecurityCard extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: AppSpacing.xs),
           Text(
             state.supported
                 ? 'Yêu cầu vân tay, khuôn mặt hoặc mã khóa máy khi mở lại ứng dụng sau 5 phút chạy nền.'
@@ -304,7 +309,7 @@ class _SecurityCard extends StatelessWidget {
             ),
           ),
           if (state.message != null) ...[
-            const SizedBox(height: 8),
+            const SizedBox(height: AppSpacing.xs),
             Text(
               state.message!,
               style: TextStyle(color: Theme.of(context).colorScheme.error),
@@ -328,7 +333,7 @@ class _PrivacyNotice extends StatelessWidget {
         size: 20,
         color: Theme.of(context).colorScheme.onSurfaceVariant,
       ),
-      const SizedBox(width: 9),
+      const SizedBox(width: AppSpacing.xs),
       Expanded(
         child: Text(
           'Vân tay và khuôn mặt chỉ nằm trên máy của bạn, ứng dụng không thu thập hay gửi đi.',

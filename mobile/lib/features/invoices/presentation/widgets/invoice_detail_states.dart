@@ -15,20 +15,20 @@ class InvoiceDetailError extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => ListView(
-    padding: const EdgeInsets.all(16),
+    padding: const EdgeInsets.all(AppSpacing.md),
     children: [
       if (error is ApiException)
         AppErrorBanner(error: error as ApiException)
       else
         const AppEmptyState(
-          icon: Icons.error_outline,
+          icon: Icons.error_outline_outlined,
           title: 'Không tải được hóa đơn',
           message: 'Đã xảy ra lỗi khi đọc hóa đơn. Vui lòng thử lại.',
         ),
-      const SizedBox(height: 14),
+      const SizedBox(height: AppSpacing.md),
       FilledButton.icon(
         onPressed: onRetry,
-        icon: const Icon(Icons.refresh_rounded),
+        icon: const Icon(Icons.refresh_outlined),
         label: const Text('Thử lại'),
       ),
     ],
@@ -40,12 +40,12 @@ class InvoiceDetailLoading extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => ListView(
-    padding: const EdgeInsets.all(16),
+    padding: const EdgeInsets.all(AppSpacing.md),
     children: const [
       AppLoadingSkeleton(height: 210),
-      SizedBox(height: 14),
+      SizedBox(height: AppSpacing.md),
       AppLoadingSkeleton(height: 260),
-      SizedBox(height: 14),
+      SizedBox(height: AppSpacing.md),
       AppLoadingSkeleton(height: 190),
     ],
   );

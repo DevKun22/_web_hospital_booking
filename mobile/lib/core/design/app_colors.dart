@@ -18,6 +18,9 @@ abstract final class AppPalette {
   static const onHeroFaint = Color(0x1FFFFFFF);
 }
 
+/// Vùng màu của thẻ và ô biểu tượng.
+enum AppZone { primary, care, success, warning, danger, violet }
+
 /// Bảng màu theo chế độ sáng/tối, đăng ký vào `ThemeData.extensions`. Dùng qua
 /// `context.colors`. Mọi cặp chữ/nền đạt tối thiểu 4,5:1 ở cả hai chế độ.
 @immutable
@@ -135,15 +138,19 @@ class AppColors extends ThemeExtension<AppColors> {
     shadowTint: Color(0x66000000),
   );
 
-  /// Cặp nền/chữ cho các ô phân loại (chuyên khoa, lối vào dịch vụ).
-  List<({Color background, Color foreground})> get tintPairs => [
-    (background: dangerContainer, foreground: danger),
-    (background: primarySoft, foreground: primaryDark),
-    (background: successContainer, foreground: success),
-    (background: warningContainer, foreground: warning),
-    (background: careSoft, foreground: care),
-    (background: violetContainer, foreground: violet),
-  ];
+  /// Cặp nền/chữ theo vùng màu. Thẻ chỉ xin vùng theo tên, không tự chọn màu: đổi bảng vùng ở đây là đổi cả app.
+  ({Color background, Color foreground}) zone(AppZone zone) => switch (zone) {
+    AppZone.primary => (background: primarySoft, foreground: primaryDark),
+    AppZone.care => (background: careSoft, foreground: care),
+    AppZone.success => (background: successContainer, foreground: success),
+    AppZone.warning => (background: warningContainer, foreground: warning),
+    AppZone.danger => (background: dangerContainer, foreground: danger),
+    AppZone.violet => (background: violetContainer, foreground: violet),
+  };
+
+  /// Chọn vùng màu xoay vòng theo thứ tự (danh sách chuyên khoa, người thân) để các ô liền nhau khác màu.
+  ({Color background, Color foreground}) zoneAt(int index) =>
+      zone(AppZone.values[index % AppZone.values.length]);
 
   @override
   AppColors copyWith() => this;

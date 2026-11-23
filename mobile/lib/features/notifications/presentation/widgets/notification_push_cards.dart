@@ -55,7 +55,9 @@ class NotificationPushPermissionCard extends ConsumerWidget {
                       : notifier.requestPermission,
                   style: FilledButton.styleFrom(
                     minimumSize: const Size(0, 36),
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.md,
+                    ),
                   ),
                   child: Text(
                     state.isRequestingPermission ? 'Đang bật…' : 'Bật',
@@ -74,7 +76,7 @@ class NotificationPushPermissionCard extends ConsumerWidget {
           ),
           if (state.errorMessage != null)
             Padding(
-              padding: const EdgeInsets.only(top: 4),
+              padding: const EdgeInsets.only(top: AppSpacing.xxs),
               child: Text(
                 state.errorMessage!,
                 style: text.bodySmall?.copyWith(color: colors.danger),
@@ -100,7 +102,7 @@ class NotificationPushSyncCard extends ConsumerWidget {
           ? Theme.of(context).colorScheme.secondaryContainer
           : Theme.of(context).colorScheme.errorContainer,
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(AppSpacing.md),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -111,10 +113,10 @@ class NotificationPushSyncCard extends ConsumerWidget {
               )
             else
               Icon(
-                Icons.sync_problem_rounded,
+                Icons.sync_problem_outlined,
                 color: Theme.of(context).colorScheme.error,
               ),
-            const SizedBox(width: 12),
+            const SizedBox(width: AppSpacing.sm),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -124,10 +126,10 @@ class NotificationPushSyncCard extends ConsumerWidget {
                         ? 'Đang kết nối thiết bị'
                         : 'Chưa đồng bộ được thông báo',
                     style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.w800,
+                      fontWeight: AppFontWeight.strong,
                     ),
                   ),
-                  const SizedBox(height: 5),
+                  const SizedBox(height: AppSpacing.xxs),
                   Text(
                     isLoading
                         ? 'Ứng dụng đang đăng ký thiết bị với DevKunCare.'
@@ -135,12 +137,12 @@ class NotificationPushSyncCard extends ConsumerWidget {
                               'Bạn vẫn xem được hộp thư. Hãy thử kết nối lại để nhận thông báo đẩy.',
                   ),
                   if (!isLoading) ...[
-                    const SizedBox(height: 10),
+                    const SizedBox(height: AppSpacing.sm),
                     TextButton.icon(
                       onPressed: () => ref
                           .read(pushNotificationsControllerProvider.notifier)
                           .retryRegistration(),
-                      icon: const Icon(Icons.sync_rounded),
+                      icon: const Icon(Icons.sync_outlined),
                       label: const Text('Thử kết nối lại'),
                     ),
                   ],

@@ -68,7 +68,7 @@ class NotificationCard extends StatelessWidget {
           child: Padding(
             padding: const EdgeInsets.symmetric(
               horizontal: AppSpacing.sm,
-              vertical: 10,
+              vertical: AppSpacing.sm,
             ),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -104,12 +104,12 @@ class NotificationCard extends StatelessWidget {
                               overflow: TextOverflow.ellipsis,
                               style: text.titleSmall?.copyWith(
                                 fontWeight: item.isRead
-                                    ? FontWeight.w500
-                                    : FontWeight.w600,
+                                    ? AppFontWeight.medium
+                                    : AppFontWeight.strong,
                               ),
                             ),
                           ),
-                          const SizedBox(width: 6),
+                          const SizedBox(width: AppSpacing.xs),
                           RelativeTimeText(
                             compact: true,
                             value: item.publishedAt,
@@ -132,7 +132,7 @@ class NotificationCard extends StatelessWidget {
                             ),
                           ),
                           if (!item.isRead) ...[
-                            const SizedBox(width: 8),
+                            const SizedBox(width: AppSpacing.xs),
                             Container(
                               width: 8,
                               height: 8,
@@ -161,9 +161,9 @@ class NotificationsLoading extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => ListView.separated(
-    padding: const EdgeInsets.all(16),
+    padding: const EdgeInsets.all(AppSpacing.md),
     itemCount: 5,
-    separatorBuilder: (_, _) => const SizedBox(height: 10),
+    separatorBuilder: (_, _) => const SizedBox(height: AppSpacing.sm),
     itemBuilder: (_, index) => AppLoadingSkeleton(height: index == 0 ? 24 : 64),
   );
 }

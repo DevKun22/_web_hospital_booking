@@ -73,7 +73,7 @@ class _BookingVerifyOtpScreenState
           leading: IconButton(
             onPressed: isBusy ? null : () => context.go('/home'),
             tooltip: 'Về trang chủ',
-            icon: const Icon(Icons.close_rounded),
+            icon: const Icon(Icons.close_outlined),
           ),
         ),
         body: SafeArea(
@@ -124,31 +124,36 @@ class _BookingVerifyOtpScreenState
 
     return Center(
       child: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(24, 12, 24, 32),
+        padding: const EdgeInsets.fromLTRB(
+          AppSpacing.xl,
+          AppSpacing.sm,
+          AppSpacing.xl,
+          AppSpacing.xxl,
+        ),
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 480),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               const BookingJourneyIndicator(currentStep: 2),
-              const SizedBox(height: 22),
+              const SizedBox(height: AppSpacing.lg),
               const Icon(Icons.mark_email_unread_outlined, size: 58),
-              const SizedBox(height: 18),
+              const SizedBox(height: AppSpacing.lg),
               Text(
                 'Nhập mã OTP',
                 textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.w800,
+                  fontWeight: AppFontWeight.strong,
                 ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: AppSpacing.xs),
               Text(
                 target == null || target.isEmpty
                     ? 'Mã xác thực đã được gửi qua kênh bạn đã chọn.'
                     : 'Mã xác thực đã được gửi đến ${_maskTarget(target)}.',
                 textAlign: TextAlign.center,
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: AppSpacing.sm),
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
@@ -158,7 +163,7 @@ class _BookingVerifyOtpScreenState
                     icon: Icons.confirmation_number_outlined,
                   ),
                   if (remaining != null) ...[
-                    const SizedBox(width: 8),
+                    const SizedBox(width: AppSpacing.xs),
                     AppStatusBadge(
                       label: 'GIỮ ${_formatRemaining(remaining)}',
                       tone: remaining.inMinutes < 2
@@ -169,7 +174,7 @@ class _BookingVerifyOtpScreenState
                   ],
                 ],
               ),
-              const SizedBox(height: 22),
+              const SizedBox(height: AppSpacing.lg),
               if (pending.otpDeliveryStatus == 'FAILED') ...[
                 const _DeliveryNotice(
                   icon: Icons.sms_failed_outlined,
@@ -177,27 +182,27 @@ class _BookingVerifyOtpScreenState
                       'Máy chủ chưa gửi được OTP. Vui lòng đợi hết thời gian giới hạn rồi chọn gửi lại.',
                   warning: true,
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: AppSpacing.sm),
               ] else if (pending.otpDeliveryStatus == 'PENDING') ...[
                 const _DeliveryNotice(
                   icon: Icons.outgoing_mail,
                   message:
                       'Yêu cầu gửi OTP đang được xử lý. Nếu chưa nhận được mã, bạn có thể gửi lại sau thời gian chờ.',
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: AppSpacing.sm),
               ],
               if (showDebugOtp && pending.debugOtp != null) ...[
                 Card(
                   child: Padding(
-                    padding: const EdgeInsets.all(12),
+                    padding: const EdgeInsets.all(AppSpacing.sm),
                     child: Text(
                       'OTP local: ${pending.debugOtp}',
                       textAlign: TextAlign.center,
-                      style: const TextStyle(fontWeight: FontWeight.w700),
+                      style: const TextStyle(fontWeight: AppFontWeight.strong),
                     ),
                   ),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: AppSpacing.sm),
               ],
               if (state.error != null) ...[
                 AppErrorBanner(
@@ -206,7 +211,7 @@ class _BookingVerifyOtpScreenState
                       .read(bookingSubmissionControllerProvider.notifier)
                       .dismissError,
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: AppSpacing.md),
               ],
               TextField(
                 controller: _otpController,
@@ -217,7 +222,7 @@ class _BookingVerifyOtpScreenState
                 autofillHints: const [AutofillHints.oneTimeCode],
                 style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                   letterSpacing: 10,
-                  fontWeight: FontWeight.w800,
+                  fontWeight: AppFontWeight.strong,
                 ),
                 decoration: const InputDecoration(
                   labelText: 'Mã OTP gồm 6 số',
@@ -225,7 +230,7 @@ class _BookingVerifyOtpScreenState
                 ),
                 onSubmitted: (_) => _verify(),
               ),
-              const SizedBox(height: 18),
+              const SizedBox(height: AppSpacing.lg),
               FilledButton(
                 onPressed: state.isBusy ? null : _verify,
                 child: state.status == BookingSubmissionStatus.verifyingOtp
@@ -235,7 +240,7 @@ class _BookingVerifyOtpScreenState
                       )
                     : const Text('Xác nhận lịch khám'),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: AppSpacing.xs),
               TextButton(
                 onPressed: state.isBusy || secondsUntilResend > 0
                     ? null
@@ -248,7 +253,7 @@ class _BookingVerifyOtpScreenState
                       : 'Gửi lại mã OTP',
                 ),
               ),
-              const SizedBox(height: 4),
+              const SizedBox(height: AppSpacing.xxs),
               OutlinedButton.icon(
                 onPressed: state.isBusy ? null : _confirmDiscard,
                 icon: const Icon(Icons.event_busy_outlined),
@@ -258,7 +263,7 @@ class _BookingVerifyOtpScreenState
                       : 'Bỏ lịch và chọn lại',
                 ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: AppSpacing.xs),
               Text(
                 'Bạn có thể về Trang chủ và tiếp tục xác thực sau, miễn là lịch vẫn còn thời gian giữ.',
                 textAlign: TextAlign.center,
@@ -349,10 +354,10 @@ class _DeliveryNotice extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(AppSpacing.sm),
       decoration: BoxDecoration(
         color: warning ? colors.errorContainer : colors.secondaryContainer,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(AppRadius.md),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -363,7 +368,7 @@ class _DeliveryNotice extends StatelessWidget {
                 ? colors.onErrorContainer
                 : colors.onSecondaryContainer,
           ),
-          const SizedBox(width: 10),
+          const SizedBox(width: AppSpacing.sm),
           Expanded(
             child: Text(
               message,

@@ -55,22 +55,22 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               if (protectedFeatureMessage != null) ...[
                 Container(
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 12,
+                    horizontal: AppSpacing.md,
+                    vertical: AppSpacing.sm,
                   ),
                   decoration: BoxDecoration(
                     color: Theme.of(context).colorScheme.primaryContainer,
-                    borderRadius: BorderRadius.circular(14),
+                    borderRadius: BorderRadius.circular(AppRadius.md),
                   ),
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Icon(
-                        Icons.lock_outline_rounded,
+                        Icons.lock_outline,
                         size: 20,
                         color: Theme.of(context).colorScheme.onPrimaryContainer,
                       ),
-                      const SizedBox(width: 10),
+                      const SizedBox(width: AppSpacing.sm),
                       Expanded(
                         child: Text(
                           protectedFeatureMessage,
@@ -79,14 +79,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                 color: Theme.of(
                                   context,
                                 ).colorScheme.onPrimaryContainer,
-                                fontWeight: FontWeight.w600,
+                                fontWeight: AppFontWeight.strong,
                               ),
                         ),
                       ),
                     ],
                   ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: AppSpacing.md),
               ],
               if (visibleError != null) ...[
                 AppErrorBanner(
@@ -95,7 +95,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       .read(authControllerProvider.notifier)
                       .dismissError,
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: AppSpacing.md),
               ],
               TextFormField(
                 controller: _emailController,
@@ -115,18 +115,18 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     : 'Nhập email hợp lệ',
                 onFieldSubmitted: (_) => _submit(),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: AppSpacing.xs),
               TermsConsentTile(
                 value: _termsAccepted,
                 onChanged: (value) => setState(() => _termsAccepted = value),
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: AppSpacing.sm),
               AppPrimaryButton(
                 label: 'Gửi mã OTP',
                 loading: isLoading,
                 onPressed: _submit,
               ),
-              const SizedBox(height: 18),
+              const SizedBox(height: AppSpacing.lg),
               Text(
                 widget.returnTo == null
                     ? 'Đặt lịch lần đầu sẽ tự tạo tài khoản người khám bằng email này.'

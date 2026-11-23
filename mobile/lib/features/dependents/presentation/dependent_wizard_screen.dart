@@ -102,7 +102,7 @@ class _DependentWizardScreenState extends ConsumerState<DependentWizardScreen> {
                       'Bước ${_step + 1} trên ${_lastStep + 1}',
                       style: text.labelMedium?.copyWith(color: colors.muted),
                     ),
-                    const SizedBox(height: 6),
+                    const SizedBox(height: AppSpacing.xs),
                     Row(
                       children: [
                         for (var i = 0; i <= _lastStep; i += 1)
@@ -110,13 +110,15 @@ class _DependentWizardScreenState extends ConsumerState<DependentWizardScreen> {
                             child: Container(
                               height: 4,
                               margin: EdgeInsets.only(
-                                right: i == _lastStep ? 0 : 4,
+                                right: i == _lastStep ? 0 : AppSpacing.xxs,
                               ),
                               decoration: BoxDecoration(
                                 color: i <= _step
                                     ? colors.primary
                                     : colors.border,
-                                borderRadius: BorderRadius.circular(2),
+                                borderRadius: BorderRadius.circular(
+                                  AppRadius.xs,
+                                ),
                               ),
                             ),
                           ),

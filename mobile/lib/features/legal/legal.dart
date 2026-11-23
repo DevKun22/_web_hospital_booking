@@ -1,3 +1,4 @@
+import 'package:hospital_booking_mobile/core/design/app_design_tokens.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -109,7 +110,7 @@ class _TermsConsentTileState extends ConsumerState<TermsConsentTile> {
     final link = base?.copyWith(
       color: Theme.of(context).colorScheme.primary,
       decoration: TextDecoration.underline,
-      fontWeight: FontWeight.w600,
+      fontWeight: AppFontWeight.strong,
     );
     _termsTap.onTap = () => _showDocument(context, terms);
     if (privacy != null) {

@@ -94,7 +94,7 @@ class _AppointmentsScreenState extends ConsumerState<AppointmentsScreen> {
           IconButton(
             tooltip: 'Làm mới',
             onPressed: state.isRefreshing ? null : controller.refresh,
-            icon: const Icon(Icons.refresh_rounded),
+            icon: const Icon(Icons.refresh_outlined),
           ),
         ],
       ),
@@ -111,7 +111,12 @@ class _AppointmentsScreenState extends ConsumerState<AppointmentsScreen> {
                     physics: const AlwaysScrollableScrollPhysics(),
                     slivers: [
                       SliverPadding(
-                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+                        padding: const EdgeInsets.fromLTRB(
+                          AppSpacing.md,
+                          AppSpacing.xs,
+                          AppSpacing.md,
+                          AppSpacing.sm,
+                        ),
                         sliver: SliverList.list(
                           children: [
                             if (next != null) ...[
@@ -130,14 +135,14 @@ class _AppointmentsScreenState extends ConsumerState<AppointmentsScreen> {
                                   setState(() => _filter = value),
                             ),
                             if (state.error != null) ...[
-                              const SizedBox(height: 14),
+                              const SizedBox(height: AppSpacing.md),
                               AppErrorBanner(
                                 error: state.error!,
                                 onDismiss: controller.dismissError,
                               ),
                             ],
                             if (state.isRefreshing) ...[
-                              const SizedBox(height: 12),
+                              const SizedBox(height: AppSpacing.sm),
                               const LinearProgressIndicator(minHeight: 2),
                             ],
                           ],
@@ -145,14 +150,24 @@ class _AppointmentsScreenState extends ConsumerState<AppointmentsScreen> {
                       ),
                       if (visibleItems.isEmpty)
                         SliverPadding(
-                          padding: const EdgeInsets.fromLTRB(16, 4, 16, 32),
+                          padding: const EdgeInsets.fromLTRB(
+                            AppSpacing.md,
+                            AppSpacing.xxs,
+                            AppSpacing.md,
+                            AppSpacing.xxl,
+                          ),
                           sliver: SliverToBoxAdapter(
                             child: _EmptyAppointments(filter: _filter),
                           ),
                         )
                       else
                         SliverPadding(
-                          padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+                          padding: const EdgeInsets.fromLTRB(
+                            AppSpacing.md,
+                            0,
+                            AppSpacing.md,
+                            AppSpacing.xl,
+                          ),
                           sliver: SliverList.builder(
                             itemCount: visibleItems.length,
                             itemBuilder: (context, index) {
@@ -169,8 +184,10 @@ class _AppointmentsScreenState extends ConsumerState<AppointmentsScreen> {
                                   if (newMonth)
                                     Padding(
                                       padding: EdgeInsets.only(
-                                        top: index == 0 ? 4 : 12,
-                                        bottom: 6,
+                                        top: index == 0
+                                            ? AppSpacing.xxs
+                                            : AppSpacing.sm,
+                                        bottom: AppSpacing.xs,
                                       ),
                                       child: Text(
                                         _monthLabel(item),
@@ -179,7 +196,7 @@ class _AppointmentsScreenState extends ConsumerState<AppointmentsScreen> {
                                             .labelMedium
                                             ?.copyWith(
                                               color: context.colors.muted,
-                                              fontWeight: FontWeight.w600,
+                                              fontWeight: AppFontWeight.strong,
                                             ),
                                       ),
                                     ),
@@ -197,7 +214,12 @@ class _AppointmentsScreenState extends ConsumerState<AppointmentsScreen> {
                         ),
                       if (state.hasNextPage)
                         SliverPadding(
-                          padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
+                          padding: const EdgeInsets.fromLTRB(
+                            AppSpacing.md,
+                            0,
+                            AppSpacing.md,
+                            AppSpacing.xxl,
+                          ),
                           sliver: SliverToBoxAdapter(
                             child: OutlinedButton.icon(
                               onPressed: state.isLoadingMore
@@ -210,7 +232,7 @@ class _AppointmentsScreenState extends ConsumerState<AppointmentsScreen> {
                                         strokeWidth: 2,
                                       ),
                                     )
-                                  : const Icon(Icons.expand_more_rounded),
+                                  : const Icon(Icons.expand_more_outlined),
                               label: Text(
                                 state.isLoadingMore
                                     ? 'Đang tải thêm…'
@@ -320,8 +342,8 @@ class _NextAppointmentCard extends ConsumerWidget {
                     ),
                     Container(
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 3,
+                        horizontal: AppSpacing.sm,
+                        vertical: AppSpacing.xxs,
                       ),
                       decoration: BoxDecoration(
                         color: colors.surface,
@@ -331,7 +353,7 @@ class _NextAppointmentCard extends ConsumerWidget {
                         _countdown(appointment),
                         style: text.labelMedium?.copyWith(
                           color: colors.primaryDark,
-                          fontWeight: FontWeight.w600,
+                          fontWeight: AppFontWeight.strong,
                         ),
                       ),
                     ),
@@ -365,7 +387,7 @@ class _NextAppointmentCard extends ConsumerWidget {
                           backgroundColor: colors.surface,
                           foregroundColor: colors.primaryDark,
                         ),
-                        icon: const Icon(Icons.qr_code_2_rounded, size: 20),
+                        icon: const Icon(Icons.qr_code_2_outlined, size: 20),
                         label: const Text('Mở vé QR'),
                       ),
                     ),
@@ -440,7 +462,7 @@ class _AppointmentRow extends StatelessWidget {
         SizedBox(
           width: 40,
           child: Padding(
-            padding: const EdgeInsets.only(top: 6),
+            padding: const EdgeInsets.only(top: AppSpacing.xs),
             child: Column(
               children: [
                 Text(
@@ -490,7 +512,7 @@ class _AppointmentRow extends StatelessWidget {
                                 style: text.titleSmall,
                               ),
                             ),
-                            const SizedBox(width: 6),
+                            const SizedBox(width: AppSpacing.xs),
                             Flexible(
                               child: AppStatusBadge(
                                 label: appointment.status.label,
@@ -499,7 +521,7 @@ class _AppointmentRow extends StatelessWidget {
                             ),
                           ],
                         ),
-                        const SizedBox(height: 2),
+                        const SizedBox(height: AppSpacing.hair),
                         Text(
                           appointment.doctorName.isEmpty
                               ? appointment.careUnit
@@ -538,7 +560,7 @@ class _EmptyAppointments extends StatelessWidget {
   @override
   Widget build(BuildContext context) => AppEmptyState(
     icon: filter == _AppointmentFilter.history
-        ? Icons.history_rounded
+        ? Icons.history_outlined
         : Icons.event_available_outlined,
     title: switch (filter) {
       _AppointmentFilter.upcoming => 'Chưa có lịch sắp tới',
@@ -552,7 +574,7 @@ class _EmptyAppointments extends StatelessWidget {
         ? null
         : FilledButton.icon(
             onPressed: () => openBookingFromCurrentRoute(context, '/booking'),
-            icon: const Icon(Icons.add_rounded),
+            icon: const Icon(Icons.add_outlined),
             label: const Text('Đặt lịch khám'),
           ),
   );
@@ -563,9 +585,9 @@ class _AppointmentsLoading extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => ListView.separated(
-    padding: const EdgeInsets.all(16),
+    padding: const EdgeInsets.all(AppSpacing.md),
     itemCount: 4,
-    separatorBuilder: (_, _) => const SizedBox(height: 12),
+    separatorBuilder: (_, _) => const SizedBox(height: AppSpacing.sm),
     itemBuilder: (_, index) =>
         AppLoadingSkeleton(height: index == 0 ? 112 : 190),
   );

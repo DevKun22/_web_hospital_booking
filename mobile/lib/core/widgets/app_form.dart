@@ -43,14 +43,17 @@ class AppSegmentedChoice<T> extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.only(left: AppSpacing.xxs, bottom: 4),
+          padding: const EdgeInsets.only(
+            left: AppSpacing.xxs,
+            bottom: AppSpacing.xxs,
+          ),
           child: Text(
             label,
             style: text.labelMedium?.copyWith(color: colors.muted),
           ),
         ),
         Container(
-          padding: const EdgeInsets.all(3),
+          padding: const EdgeInsets.all(AppSpacing.xxs),
           decoration: BoxDecoration(
             color: colors.primarySoft,
             borderRadius: BorderRadius.circular(AppRadius.md),
@@ -91,8 +94,8 @@ class AppSegmentedChoice<T> extends StatelessWidget {
                                   ? colors.primaryDark
                                   : colors.muted,
                               fontWeight: item == selected
-                                  ? FontWeight.w600
-                                  : FontWeight.w500,
+                                  ? AppFontWeight.strong
+                                  : AppFontWeight.medium,
                             ),
                           ),
                         ),
@@ -152,8 +155,8 @@ class AppChoiceChips<T> extends StatelessWidget {
                     ),
                     child: Padding(
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 8,
+                        horizontal: AppSpacing.md,
+                        vertical: AppSpacing.xs,
                       ),
                       child: Center(
                         widthFactor: 1,
@@ -165,8 +168,8 @@ class AppChoiceChips<T> extends StatelessWidget {
                                     ? colors.onPrimary
                                     : colors.ink,
                                 fontWeight: item == selected
-                                    ? FontWeight.w600
-                                    : FontWeight.w500,
+                                    ? AppFontWeight.strong
+                                    : AppFontWeight.medium,
                               ),
                         ),
                       ),
@@ -190,7 +193,7 @@ class AppPickerField extends StatelessWidget {
     required this.placeholder,
     required this.onTap,
     this.value,
-    this.icon = Icons.expand_more_rounded,
+    this.icon = Icons.expand_more_outlined,
     this.onClear,
   });
 
@@ -253,7 +256,7 @@ class AppPickerField extends StatelessWidget {
                       IconButton(
                         tooltip: 'Xóa $label',
                         onPressed: onClear,
-                        icon: Icon(Icons.close_rounded, color: colors.primary),
+                        icon: Icon(Icons.close_outlined, color: colors.primary),
                       )
                     else
                       Icon(icon, color: colors.primary),

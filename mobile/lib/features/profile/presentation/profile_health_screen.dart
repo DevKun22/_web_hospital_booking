@@ -164,23 +164,23 @@ class _InsuranceCard extends StatelessWidget {
                 child: Text(
                   'Thẻ bảo hiểm y tế',
                   style: text.labelMedium?.copyWith(
-                    color: active ? Colors.white70 : colors.muted,
+                    color: active ? AppPalette.onHeroMuted : colors.muted,
                   ),
                 ),
               ),
               Container(
                 padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 3,
+                  horizontal: AppSpacing.sm,
+                  vertical: AppSpacing.xxs,
                 ),
                 decoration: BoxDecoration(
-                  color: active ? Colors.white24 : colors.surface,
+                  color: active ? AppPalette.onHeroFaint : colors.surface,
                   borderRadius: BorderRadius.circular(AppRadius.pill),
                 ),
                 child: Text(
                   active ? 'Đang dùng' : 'Không dùng',
                   style: text.labelMedium?.copyWith(
-                    color: active ? Colors.white : colors.muted,
+                    color: active ? AppPalette.onHero : colors.muted,
                   ),
                 ),
               ),
@@ -192,17 +192,17 @@ class _InsuranceCard extends StatelessWidget {
                 ? (code ?? 'Chưa có mã thẻ')
                 : 'Bật công tắc bên dưới để thêm thẻ',
             style: text.titleLarge?.copyWith(
-              color: active ? Colors.white : colors.muted,
+              color: active ? AppPalette.onHero : colors.muted,
               letterSpacing: active && code != null ? 1.2 : 0,
             ),
           ),
           if (active && profile.registeredHospital != null) ...[
-            const SizedBox(height: 4),
+            const SizedBox(height: AppSpacing.xxs),
             Text(
               'Nơi đăng ký: ${profile.registeredHospital}',
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
-              style: text.bodySmall?.copyWith(color: Colors.white70),
+              style: text.bodySmall?.copyWith(color: AppPalette.onHeroMuted),
             ),
           ],
         ],
@@ -282,7 +282,7 @@ class _MetricGrid extends StatelessWidget {
                               color: colors.muted,
                             ),
                           ),
-                          const SizedBox(height: 2),
+                          const SizedBox(height: AppSpacing.hair),
                           Text(
                             tile.$3 ?? 'Thêm',
                             maxLines: 1,
@@ -290,7 +290,7 @@ class _MetricGrid extends StatelessWidget {
                             style: tile.$3 == null
                                 ? text.bodyLarge?.copyWith(
                                     color: colors.primary,
-                                    fontWeight: FontWeight.w600,
+                                    fontWeight: AppFontWeight.strong,
                                   )
                                 : text.titleSmall,
                           ),

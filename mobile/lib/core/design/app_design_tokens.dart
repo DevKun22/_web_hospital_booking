@@ -1,6 +1,14 @@
 import 'package:flutter/material.dart';
 
+/// Độ đậm chữ duy nhất của app (phông Be Vietnam Pro đóng gói đúng ba độ đậm này). Màn hình chỉ dùng tên, không gõ số.
+abstract final class AppFontWeight {
+  static const regular = FontWeight.w400;
+  static const medium = FontWeight.w500;
+  static const strong = FontWeight.w600;
+}
+
 abstract final class AppSpacing {
+  static const double hair = 2;
   static const double xxs = 4;
   static const double xs = 8;
   static const double sm = 12;
@@ -11,14 +19,12 @@ abstract final class AppSpacing {
   static const double xxxl = 48;
   static const double display = 64;
 
-  // Compatibility aliases used while existing screens migrate gradually.
+  /// Lề ngang của trang.
   static const double page = md;
-  static const double section = xl;
-  static const double card = md;
-  static const double compact = xs;
 }
 
 abstract final class AppRadius {
+  static const double xs = 6;
   static const double sm = 10;
   static const double md = 14;
   static const double lg = 18;
@@ -80,4 +86,17 @@ abstract final class AppShadow {
   static const floating = <BoxShadow>[
     BoxShadow(color: Color(0x260B1F3A), blurRadius: 30, offset: Offset(0, 12)),
   ];
+}
+
+/// Kích thước ô biểu tượng: cạnh ô và cỡ biểu tượng bên trong.
+enum AppTileSize {
+  sm(38, 20),
+  md(44, 24),
+  lg(52, 26),
+  xl(64, 30);
+
+  const AppTileSize(this.box, this.icon);
+
+  final double box;
+  final double icon;
 }

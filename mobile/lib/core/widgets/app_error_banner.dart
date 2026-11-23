@@ -1,3 +1,4 @@
+import 'package:hospital_booking_mobile/core/design/app_design_tokens.dart';
 import 'package:flutter/material.dart';
 import 'package:hospital_booking_mobile/core/errors/api_exception.dart';
 
@@ -10,10 +11,10 @@ class AppErrorBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
     width: double.infinity,
-    padding: const EdgeInsets.all(12),
+    padding: const EdgeInsets.all(AppSpacing.sm),
     decoration: BoxDecoration(
       color: Theme.of(context).colorScheme.errorContainer,
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(AppRadius.md),
     ),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -26,12 +27,12 @@ class AppErrorBanner extends StatelessWidget {
                 error.message,
                 style: TextStyle(
                   color: Theme.of(context).colorScheme.onErrorContainer,
-                  fontWeight: FontWeight.w600,
+                  fontWeight: AppFontWeight.strong,
                 ),
               ),
             ),
             if (onDismiss != null) ...[
-              const SizedBox(width: 8),
+              const SizedBox(width: AppSpacing.xs),
               IconButton(
                 visualDensity: VisualDensity.compact,
                 padding: EdgeInsets.zero,
@@ -41,13 +42,13 @@ class AppErrorBanner extends StatelessWidget {
                 ),
                 onPressed: onDismiss,
                 tooltip: 'Đóng thông báo',
-                icon: const Icon(Icons.close_rounded, size: 20),
+                icon: const Icon(Icons.close_outlined, size: 20),
               ),
             ],
           ],
         ),
         if (error.requestId != null) ...[
-          const SizedBox(height: 4),
+          const SizedBox(height: AppSpacing.xxs),
           Text(
             'Mã hỗ trợ: ${error.requestId}',
             style: Theme.of(context).textTheme.bodySmall,

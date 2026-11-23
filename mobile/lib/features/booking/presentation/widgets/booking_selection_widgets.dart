@@ -1,3 +1,4 @@
+import 'package:hospital_booking_mobile/core/design/app_design_tokens.dart';
 import 'package:flutter/material.dart';
 import 'package:hospital_booking_mobile/core/design/app_colors.dart';
 
@@ -30,21 +31,21 @@ class BookingStepHeader extends StatelessWidget {
           '$number',
           style: Theme.of(context).textTheme.labelMedium?.copyWith(
             color: context.colors.primaryDark,
-            fontWeight: FontWeight.w600,
+            fontWeight: AppFontWeight.strong,
           ),
         ),
       ),
-      const SizedBox(width: 10),
+      const SizedBox(width: AppSpacing.sm),
       Expanded(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Padding(
-              padding: const EdgeInsets.only(top: 2),
+              padding: const EdgeInsets.only(top: AppSpacing.hair),
               child: Text(title, style: Theme.of(context).textTheme.titleSmall),
             ),
             if (subtitle != null) ...[
-              const SizedBox(height: 2),
+              const SizedBox(height: AppSpacing.hair),
               Text(
                 subtitle!,
                 style: Theme.of(

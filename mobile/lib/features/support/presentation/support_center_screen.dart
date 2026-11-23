@@ -24,11 +24,16 @@ class SupportCenterScreen extends ConsumerWidget {
         onRefresh: ref.read(homeContentControllerProvider.notifier).refresh,
         child: ListView(
           physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.md,
+            AppSpacing.xs,
+            AppSpacing.md,
+            AppSpacing.xxl,
+          ),
           children: [
             const _SupportIntro(),
             if (homeState.error != null) ...[
-              const SizedBox(height: 12),
+              const SizedBox(height: AppSpacing.sm),
               AppErrorBanner(
                 error: homeState.error!,
                 onDismiss: ref
@@ -36,7 +41,7 @@ class SupportCenterScreen extends ConsumerWidget {
                     .dismissError,
               ),
             ],
-            const SizedBox(height: 16),
+            const SizedBox(height: AppSpacing.md),
             _EmergencySupportCard(
               phoneNumber: content?.siteSettings.emergencyHotline,
               onCall: (number) => _confirmAndOpenDialer(
@@ -46,9 +51,9 @@ class SupportCenterScreen extends ConsumerWidget {
                 isEmergency: true,
               ),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: AppSpacing.lg),
             const AppSectionHeader(title: 'Hỗ trợ nhanh'),
-            const SizedBox(height: 8),
+            const SizedBox(height: AppSpacing.xs),
             _SupportOptions(
               hotline: content?.siteSettings.hotline,
               address: content?.siteSettings.address,
@@ -67,7 +72,7 @@ class SupportCenterScreen extends ConsumerWidget {
                 address: content?.siteSettings.address,
               ),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: AppSpacing.lg),
             AppSectionHeader(
               title: 'Câu hỏi thường gặp',
               actionLabel: content == null ? 'Tải lại' : null,
@@ -75,12 +80,12 @@ class SupportCenterScreen extends ConsumerWidget {
                   ? ref.read(homeContentControllerProvider.notifier).refresh
                   : null,
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: AppSpacing.xs),
             _FaqSection(
               items: content?.faqs ?? const [],
               isLoading: homeState.isInitialLoading,
             ),
-            const SizedBox(height: 18),
+            const SizedBox(height: AppSpacing.lg),
             const _MedicalDisclaimer(),
           ],
         ),
@@ -121,7 +126,7 @@ class SupportCenterScreen extends ConsumerWidget {
       context: context,
       builder: (dialogContext) => AlertDialog(
         icon: Icon(
-          isEmergency ? Icons.emergency_rounded : Icons.phone_in_talk_rounded,
+          isEmergency ? Icons.emergency_outlined : Icons.phone_in_talk_outlined,
           color: isEmergency ? context.colors.danger : context.colors.primary,
         ),
         title: Text(isEmergency ? 'Gọi cấp cứu?' : 'Gọi tổng đài?'),
@@ -138,7 +143,7 @@ class SupportCenterScreen extends ConsumerWidget {
           FilledButton.icon(
             key: const Key('support-confirm-call-button'),
             onPressed: () => Navigator.of(dialogContext).pop(true),
-            icon: const Icon(Icons.phone_rounded),
+            icon: const Icon(Icons.phone_outlined),
             label: const Text('Mở trình gọi'),
           ),
         ],
@@ -173,12 +178,12 @@ class _SupportIntro extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.all(18),
+    padding: const EdgeInsets.all(AppSpacing.lg),
     decoration: BoxDecoration(
       gradient: LinearGradient(
         colors: [AppPalette.heroDeep, AppPalette.heroMid],
       ),
-      borderRadius: BorderRadius.circular(22),
+      borderRadius: BorderRadius.circular(AppRadius.xl),
     ),
     child: Row(
       children: [
@@ -186,16 +191,16 @@ class _SupportIntro extends StatelessWidget {
           width: 52,
           height: 52,
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.16),
-            borderRadius: BorderRadius.circular(17),
+            color: AppPalette.onHeroFaint,
+            borderRadius: BorderRadius.circular(AppRadius.lg),
           ),
           child: const Icon(
-            Icons.support_agent_rounded,
-            color: Colors.white,
+            Icons.support_agent_outlined,
+            color: AppPalette.onHero,
             size: 28,
           ),
         ),
-        const SizedBox(width: 14),
+        const SizedBox(width: AppSpacing.md),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -203,11 +208,11 @@ class _SupportIntro extends StatelessWidget {
               Text(
                 'Bạn cần hỗ trợ gì?',
                 style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w900,
+                  color: AppPalette.onHero,
+                  fontWeight: AppFontWeight.strong,
                 ),
               ),
-              const SizedBox(height: 4),
+              const SizedBox(height: AppSpacing.xxs),
               Text(
                 'Chọn đúng kênh để được hỗ trợ nhanh và an toàn.',
                 style: Theme.of(
@@ -234,11 +239,11 @@ class _EmergencySupportCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
     key: const Key('support-emergency-card'),
-    padding: const EdgeInsets.all(16),
+    padding: const EdgeInsets.all(AppSpacing.md),
     decoration: BoxDecoration(
       color: context.colors.dangerContainer,
       border: Border.all(color: context.colors.danger),
-      borderRadius: BorderRadius.circular(20),
+      borderRadius: BorderRadius.circular(AppRadius.xl),
     ),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -247,10 +252,10 @@ class _EmergencySupportCard extends StatelessWidget {
           children: [
             CircleAvatar(
               backgroundColor: context.colors.danger,
-              foregroundColor: Colors.white,
-              child: Icon(Icons.emergency_rounded),
+              foregroundColor: AppPalette.onHero,
+              child: Icon(Icons.emergency_outlined),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: AppSpacing.sm),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -258,15 +263,15 @@ class _EmergencySupportCard extends StatelessWidget {
                   Text(
                     'Cấp cứu khẩn cấp 24/7',
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w900,
+                      fontWeight: AppFontWeight.strong,
                     ),
                   ),
-                  const SizedBox(height: 2),
+                  const SizedBox(height: AppSpacing.hair),
                   Text(
                     phoneNumber ?? 'Chưa có số cấp cứu',
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
                       color: context.colors.danger,
-                      fontWeight: FontWeight.w900,
+                      fontWeight: AppFontWeight.strong,
                     ),
                   ),
                 ],
@@ -274,16 +279,16 @@ class _EmergencySupportCard extends StatelessWidget {
             ),
           ],
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: AppSpacing.sm),
         const Text(
           'Nếu người khám khó thở, bất tỉnh hoặc có dấu hiệu nguy hiểm, hãy liên hệ cấp cứu ngay.',
         ),
-        const SizedBox(height: 14),
+        const SizedBox(height: AppSpacing.md),
         FilledButton.icon(
           key: const Key('support-emergency-call-button'),
           style: FilledButton.styleFrom(backgroundColor: context.colors.danger),
           onPressed: phoneNumber == null ? null : () => onCall(phoneNumber!),
-          icon: const Icon(Icons.phone_in_talk_rounded),
+          icon: const Icon(Icons.phone_in_talk_outlined),
           label: const Text('Mở trình gọi cấp cứu'),
         ),
       ],
@@ -376,21 +381,27 @@ class _SupportOptionTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) => ListTile(
     onTap: onTap,
-    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
+    contentPadding: const EdgeInsets.symmetric(
+      horizontal: AppSpacing.md,
+      vertical: AppSpacing.xxs,
+    ),
     leading: Container(
       width: 42,
       height: 42,
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.primaryContainer,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(AppRadius.md),
       ),
       child: Icon(icon, color: context.colors.primary),
     ),
-    title: Text(title, style: const TextStyle(fontWeight: FontWeight.w800)),
+    title: Text(
+      title,
+      style: const TextStyle(fontWeight: AppFontWeight.strong),
+    ),
     subtitle: Text(subtitle),
     trailing: onTap == null
-        ? const Icon(Icons.info_outline_rounded)
-        : const Icon(Icons.chevron_right_rounded),
+        ? const Icon(Icons.info_outline)
+        : const Icon(Icons.chevron_right_outlined),
   );
 }
 
@@ -407,7 +418,7 @@ class _FaqSection extends StatelessWidget {
     }
     if (items.isEmpty) {
       return const AppEmptyState(
-        icon: Icons.help_outline_rounded,
+        icon: Icons.help_outline_outlined,
         title: 'Chưa có câu hỏi hướng dẫn',
         message: 'Kéo xuống để tải lại nội dung hỗ trợ từ cơ sở khám.',
       );
@@ -416,7 +427,7 @@ class _FaqSection extends StatelessWidget {
     return Card(
       margin: EdgeInsets.zero,
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 4),
+        padding: const EdgeInsets.symmetric(vertical: AppSpacing.xxs),
         child: Column(
           children: [
             for (var index = 0; index < items.length; index++) ...[
@@ -426,9 +437,14 @@ class _FaqSection extends StatelessWidget {
                 collapsedShape: const Border(),
                 title: Text(
                   items[index].question,
-                  style: const TextStyle(fontWeight: FontWeight.w700),
+                  style: const TextStyle(fontWeight: AppFontWeight.strong),
                 ),
-                childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                childrenPadding: const EdgeInsets.fromLTRB(
+                  AppSpacing.md,
+                  0,
+                  AppSpacing.md,
+                  AppSpacing.md,
+                ),
                 expandedCrossAxisAlignment: CrossAxisAlignment.start,
                 children: [Text(items[index].answer)],
               ),
@@ -454,7 +470,7 @@ class _MedicalDisclaimer extends StatelessWidget {
         size: 18,
         color: Theme.of(context).colorScheme.onSurfaceVariant,
       ),
-      const SizedBox(width: 8),
+      const SizedBox(width: AppSpacing.xs),
       Expanded(
         child: Text(
           'Trợ lý và nội dung hướng dẫn không thay thế chẩn đoán y khoa. Với tình trạng khẩn cấp, hãy gọi cấp cứu.',

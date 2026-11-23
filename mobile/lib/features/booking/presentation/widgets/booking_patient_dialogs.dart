@@ -1,3 +1,4 @@
+import 'package:hospital_booking_mobile/core/design/app_design_tokens.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hospital_booking_mobile/features/dependents/domain/dependent_profile.dart';
@@ -34,32 +35,37 @@ Future<DependentProfile?> showDependentPicker(
   useSafeArea: true,
   builder: (sheetContext) => ListView(
     shrinkWrap: true,
-    padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+    padding: const EdgeInsets.fromLTRB(
+      AppSpacing.md,
+      0,
+      AppSpacing.md,
+      AppSpacing.xl,
+    ),
     children: [
       Text(
         'Chọn người đến khám',
         style: Theme.of(
           sheetContext,
-        ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
+        ).textTheme.titleLarge?.copyWith(fontWeight: AppFontWeight.strong),
       ),
-      const SizedBox(height: 8),
+      const SizedBox(height: AppSpacing.xs),
       for (final dependent in items)
         ListTile(
           leading: const CircleAvatar(
-            child: Icon(Icons.person_outline_rounded),
+            child: Icon(Icons.person_outline_outlined),
           ),
           title: Text(dependent.fullName),
           subtitle: Text(dependent.relationship.label),
           trailing: dependent.id == selectedId
-              ? const Icon(Icons.check_circle_rounded)
-              : const Icon(Icons.chevron_right_rounded),
+              ? const Icon(Icons.check_circle_outlined)
+              : const Icon(Icons.chevron_right_outlined),
           onTap: () => Navigator.pop(sheetContext, dependent),
         ),
       const Divider(),
       ListTile(
         leading: const Icon(Icons.manage_accounts_outlined),
         title: const Text('Quản lý hồ sơ người thân'),
-        trailing: const Icon(Icons.open_in_new_rounded),
+        trailing: const Icon(Icons.open_in_new_outlined),
         onTap: () {
           Navigator.pop(sheetContext);
           context.push('/dependents');
@@ -76,7 +82,12 @@ Future<void> showRelativeLoginNotice(
   showDragHandle: true,
   useSafeArea: true,
   builder: (sheetContext) => Padding(
-    padding: const EdgeInsets.fromLTRB(24, 4, 24, 24),
+    padding: const EdgeInsets.fromLTRB(
+      AppSpacing.xl,
+      AppSpacing.xxs,
+      AppSpacing.xl,
+      AppSpacing.xl,
+    ),
     child: Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -88,14 +99,14 @@ Future<void> showRelativeLoginNotice(
             color: Theme.of(sheetContext).colorScheme.primary,
           ),
         ),
-        const SizedBox(height: 14),
+        const SizedBox(height: AppSpacing.md),
         Text(
           'Đặt lịch cho người thân',
           style: Theme.of(
             sheetContext,
-          ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
+          ).textTheme.titleLarge?.copyWith(fontWeight: AppFontWeight.strong),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: AppSpacing.xs),
         Text(
           'Đăng nhập giúp hệ thống xác nhận bạn là người quản lý hồ sơ, nhận OTP và xem lịch hoặc kết quả khám của người thân.',
           textAlign: TextAlign.center,
@@ -103,7 +114,7 @@ Future<void> showRelativeLoginNotice(
             color: Theme.of(sheetContext).colorScheme.onSurfaceVariant,
           ),
         ),
-        const SizedBox(height: 20),
+        const SizedBox(height: AppSpacing.lg),
         SizedBox(
           width: double.infinity,
           child: FilledButton(

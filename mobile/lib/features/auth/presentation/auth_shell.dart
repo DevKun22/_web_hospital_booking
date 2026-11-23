@@ -59,9 +59,9 @@ class AuthShell extends StatelessWidget {
                       ),
                       child: IconButton(
                         onPressed: onBack,
-                        icon: const Icon(Icons.arrow_back_rounded),
+                        icon: const Icon(Icons.arrow_back_outlined),
                         tooltip: backTooltip,
-                        color: Colors.white,
+                        color: AppPalette.onHero,
                         disabledColor: AppPalette.onHeroSubtle,
                       ),
                     ),
@@ -110,7 +110,7 @@ class AuthShell extends StatelessWidget {
                         decoration: BoxDecoration(
                           color: context.colors.canvas,
                           borderRadius: const BorderRadius.vertical(
-                            top: Radius.circular(28),
+                            top: Radius.circular(AppRadius.xl),
                           ),
                         ),
                         child: SingleChildScrollView(

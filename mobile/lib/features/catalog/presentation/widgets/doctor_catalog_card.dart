@@ -33,10 +33,10 @@ class DoctorCatalogCard extends StatelessWidget {
                   logicalHeight: 62,
                 ),
                 child: doctor.avatar?.trim().isNotEmpty != true
-                    ? const Icon(Icons.person_outline_rounded, size: 29)
+                    ? const Icon(Icons.person_outline_outlined, size: 29)
                     : null,
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: AppSpacing.sm),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -49,14 +49,14 @@ class DoctorCatalogCard extends StatelessWidget {
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                             style: Theme.of(context).textTheme.titleMedium
-                                ?.copyWith(fontWeight: FontWeight.w800),
+                                ?.copyWith(fontWeight: AppFontWeight.strong),
                           ),
                         ),
                         if (doctor.averageRating > 0)
                           Container(
                             padding: const EdgeInsets.symmetric(
-                              horizontal: 7,
-                              vertical: 4,
+                              horizontal: AppSpacing.xs,
+                              vertical: AppSpacing.xxs,
                             ),
                             decoration: BoxDecoration(
                               color: context.colors.warningContainer,
@@ -65,14 +65,13 @@ class DoctorCatalogCard extends StatelessWidget {
                             child: Text(
                               '★ ${doctor.averageRating.toStringAsFixed(1)}',
                               style: const TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w800,
+                                fontWeight: AppFontWeight.strong,
                               ),
                             ),
                           ),
                       ],
                     ),
-                    const SizedBox(height: 3),
+                    const SizedBox(height: AppSpacing.xxs),
                     Text(
                       [
                         doctor.departmentName,
@@ -85,11 +84,11 @@ class DoctorCatalogCard extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: context.colors.primaryDark,
-                        fontWeight: FontWeight.w600,
+                        fontWeight: AppFontWeight.strong,
                       ),
                     ),
                     if (doctor.experience != null) ...[
-                      const SizedBox(height: 3),
+                      const SizedBox(height: AppSpacing.xxs),
                       Text(
                         '${doctor.experience} năm kinh nghiệm',
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
@@ -102,9 +101,12 @@ class DoctorCatalogCard extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: AppSpacing.sm),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 9),
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.sm,
+              vertical: AppSpacing.xs,
+            ),
             decoration: BoxDecoration(
               color: context.colors.infoContainer,
               borderRadius: BorderRadius.circular(AppRadius.md),
@@ -119,14 +121,14 @@ class DoctorCatalogCard extends StatelessWidget {
                         slots.isEmpty ? 'Lịch khám' : 'Giờ trống hôm nay',
                         style: Theme.of(context).textTheme.labelSmall,
                       ),
-                      const SizedBox(height: 4),
+                      const SizedBox(height: AppSpacing.xxs),
                       Text(
                         slots.isEmpty
                             ? 'Xem lịch gần nhất'
                             : slots.map((slot) => slot.startTime).join('   '),
                         style: Theme.of(context).textTheme.labelLarge?.copyWith(
                           color: context.colors.primaryDark,
-                          fontWeight: FontWeight.w800,
+                          fontWeight: AppFontWeight.strong,
                         ),
                       ),
                     ],
@@ -139,11 +141,11 @@ class DoctorCatalogCard extends StatelessWidget {
                       'Phí khám',
                       style: Theme.of(context).textTheme.labelSmall,
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: AppSpacing.xxs),
                     Text(
                       formatVnd(doctor.consultationFee),
                       style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w800,
+                        fontWeight: AppFontWeight.strong,
                       ),
                     ),
                   ],
@@ -151,7 +153,7 @@ class DoctorCatalogCard extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(height: 11),
+          const SizedBox(height: AppSpacing.sm),
           Row(
             children: [
               Expanded(
@@ -162,7 +164,7 @@ class DoctorCatalogCard extends StatelessWidget {
                   child: const Text('Xem hồ sơ'),
                 ),
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: AppSpacing.sm),
               Expanded(
                 child: FilledButton(
                   onPressed: () => openBookingFromCurrentRoute(

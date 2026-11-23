@@ -32,7 +32,9 @@ class BookingJourneyIndicator extends StatelessWidget {
                 return Expanded(
                   child: Padding(
                     padding: EdgeInsets.only(
-                      right: index == _labels.length - 1 ? 0 : AppSpacing.xxs,
+                      right: index == _labels.length - AppSpacing.hair
+                          ? 0
+                          : AppSpacing.xxs,
                     ),
                     child: AnimatedContainer(
                       duration: AppMotion.responsive(
@@ -42,14 +44,14 @@ class BookingJourneyIndicator extends StatelessWidget {
                       height: 4,
                       decoration: BoxDecoration(
                         color: reached ? colors.primary : colors.border,
-                        borderRadius: BorderRadius.circular(2),
+                        borderRadius: BorderRadius.circular(AppRadius.xs),
                       ),
                     ),
                   ),
                 );
               }),
             ),
-            const SizedBox(height: 6),
+            const SizedBox(height: AppSpacing.xs),
             Row(
               children: List.generate(_labels.length, (index) {
                 final active = index == currentStep;
@@ -65,7 +67,9 @@ class BookingJourneyIndicator extends StatelessWidget {
                         : TextAlign.center,
                     style: Theme.of(context).textTheme.labelMedium?.copyWith(
                       color: active ? colors.primaryDark : colors.muted,
-                      fontWeight: active ? FontWeight.w600 : FontWeight.w400,
+                      fontWeight: active
+                          ? AppFontWeight.strong
+                          : AppFontWeight.regular,
                     ),
                   ),
                 );

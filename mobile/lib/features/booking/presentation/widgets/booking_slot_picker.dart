@@ -27,19 +27,19 @@ class _PeriodStyle {
 _PeriodStyle _styleOf(SlotPeriod period, AppColors colors) => switch (period) {
   SlotPeriod.morning => _PeriodStyle(
     'Buổi sáng',
-    Icons.wb_sunny_rounded,
+    Icons.wb_sunny_outlined,
     colors.infoContainer,
     colors.info,
   ),
   SlotPeriod.afternoon => _PeriodStyle(
     'Buổi chiều',
-    Icons.wb_twilight_rounded,
+    Icons.wb_twilight_outlined,
     colors.warningContainer,
     colors.warning,
   ),
   SlotPeriod.evening => _PeriodStyle(
     'Buổi tối',
-    Icons.nights_stay_rounded,
+    Icons.nights_stay_outlined,
     colors.violetContainer,
     colors.violet,
   ),
@@ -72,7 +72,7 @@ class BookingSlotPicker extends StatelessWidget {
     return Column(
       children: [
         for (var i = 0; i < periods.length; i += 1) ...[
-          if (i > 0) const SizedBox(height: 12),
+          if (i > 0) const SizedBox(height: AppSpacing.sm),
           _PeriodCard(
             style: _styleOf(periods[i], colors),
             slots: groups[periods[i]]!,
@@ -102,7 +102,12 @@ class _PeriodCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = context.colors;
     return Container(
-      padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.sm,
+        AppSpacing.sm,
+        AppSpacing.sm,
+        AppSpacing.sm,
+      ),
       decoration: BoxDecoration(
         color: style.background,
         borderRadius: BorderRadius.circular(AppRadius.lg),
@@ -121,13 +126,13 @@ class _PeriodCard extends StatelessWidget {
                 ),
                 child: Icon(style.icon, size: 18, color: style.accent),
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: AppSpacing.sm),
               Expanded(
                 child: Text(
                   style.title,
                   style: Theme.of(context).textTheme.titleSmall?.copyWith(
                     color: style.accent,
-                    fontWeight: FontWeight.w600,
+                    fontWeight: AppFontWeight.strong,
                   ),
                 ),
               ),
@@ -139,7 +144,7 @@ class _PeriodCard extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: AppSpacing.sm),
           LayoutBuilder(
             builder: (context, constraints) {
               const gap = 8.0;
@@ -218,8 +223,8 @@ class _SlotTile extends StatelessWidget {
                     borderRadius: BorderRadius.circular(AppRadius.md),
                     child: Padding(
                       padding: const EdgeInsets.symmetric(
-                        vertical: 11,
-                        horizontal: 4,
+                        vertical: AppSpacing.sm,
+                        horizontal: AppSpacing.xxs,
                       ),
                       child: Text(
                         label,
@@ -233,10 +238,10 @@ class _SlotTile extends StatelessWidget {
                                               accent,
                                             ) ==
                                             Brightness.dark
-                                        ? Colors.white
+                                        ? context.colors.onPrimary
                                         : colors.ink)
                                   : colors.ink,
-                              fontWeight: FontWeight.w600,
+                              fontWeight: AppFontWeight.strong,
                             ),
                       ),
                     ),
@@ -254,8 +259,12 @@ class _SlotTile extends StatelessWidget {
                       border: Border.all(color: accent, width: 1.5),
                     ),
                     child: Padding(
-                      padding: const EdgeInsets.all(2),
-                      child: Icon(Icons.check_rounded, size: 12, color: accent),
+                      padding: const EdgeInsets.all(AppSpacing.hair),
+                      child: Icon(
+                        Icons.check_outlined,
+                        size: 12,
+                        color: accent,
+                      ),
                     ),
                   ),
                 ),

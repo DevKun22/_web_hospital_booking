@@ -28,7 +28,7 @@ class PrescriptionsScreen extends ConsumerWidget {
           IconButton(
             tooltip: 'Làm mới',
             onPressed: state.isRefreshing ? null : controller.refresh,
-            icon: const Icon(Icons.refresh_rounded),
+            icon: const Icon(Icons.refresh_outlined),
           ),
         ],
       ),
@@ -41,7 +41,12 @@ class PrescriptionsScreen extends ConsumerWidget {
                   physics: const AlwaysScrollableScrollPhysics(),
                   slivers: [
                     SliverPadding(
-                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 14),
+                      padding: const EdgeInsets.fromLTRB(
+                        AppSpacing.md,
+                        AppSpacing.xs,
+                        AppSpacing.md,
+                        AppSpacing.md,
+                      ),
                       sliver: SliverList.list(
                         children: [
                           AppGradientOverviewCard(
@@ -51,17 +56,17 @@ class PrescriptionsScreen extends ConsumerWidget {
                                 ? 'Đang hiển thị ${state.items.length} đơn gần nhất'
                                 : 'Theo dõi đúng liều lượng và hướng dẫn của bác sĩ',
                           ),
-                          const SizedBox(height: 12),
+                          const SizedBox(height: AppSpacing.sm),
                           const _SafetyNotice(),
                           if (state.error != null) ...[
-                            const SizedBox(height: 14),
+                            const SizedBox(height: AppSpacing.md),
                             AppErrorBanner(
                               error: state.error!,
                               onDismiss: controller.dismissError,
                             ),
                           ],
                           if (state.isRefreshing) ...[
-                            const SizedBox(height: 12),
+                            const SizedBox(height: AppSpacing.sm),
                             const LinearProgressIndicator(minHeight: 2),
                           ],
                         ],
@@ -79,11 +84,16 @@ class PrescriptionsScreen extends ConsumerWidget {
                       )
                     else
                       SliverPadding(
-                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
+                        padding: const EdgeInsets.fromLTRB(
+                          AppSpacing.md,
+                          0,
+                          AppSpacing.md,
+                          AppSpacing.lg,
+                        ),
                         sliver: SliverList.separated(
                           itemCount: state.items.length,
                           separatorBuilder: (_, _) =>
-                              const SizedBox(height: 12),
+                              const SizedBox(height: AppSpacing.sm),
                           itemBuilder: (context, index) {
                             final prescription = state.items[index];
                             return _PrescriptionCard(
@@ -97,7 +107,12 @@ class PrescriptionsScreen extends ConsumerWidget {
                       ),
                     if (state.hasNextPage)
                       SliverPadding(
-                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
+                        padding: const EdgeInsets.fromLTRB(
+                          AppSpacing.md,
+                          0,
+                          AppSpacing.md,
+                          AppSpacing.xxl,
+                        ),
                         sliver: SliverToBoxAdapter(
                           child: OutlinedButton.icon(
                             onPressed: state.isLoadingMore
@@ -110,7 +125,7 @@ class PrescriptionsScreen extends ConsumerWidget {
                                       strokeWidth: 2,
                                     ),
                                   )
-                                : const Icon(Icons.expand_more_rounded),
+                                : const Icon(Icons.expand_more_outlined),
                             label: Text(
                               state.isLoadingMore
                                   ? 'Đang tải thêm…'
@@ -132,10 +147,10 @@ class _SafetyNotice extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.all(13),
+    padding: const EdgeInsets.all(AppSpacing.sm),
     decoration: BoxDecoration(
       color: Theme.of(context).colorScheme.tertiaryContainer,
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: BorderRadius.circular(AppRadius.lg),
     ),
     child: Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -144,7 +159,7 @@ class _SafetyNotice extends StatelessWidget {
           Icons.health_and_safety_outlined,
           color: Theme.of(context).colorScheme.onTertiaryContainer,
         ),
-        const SizedBox(width: 10),
+        const SizedBox(width: AppSpacing.sm),
         Expanded(
           child: Text(
             'Không tự ý đổi liều, ngừng thuốc hoặc dùng lại đơn cũ nếu chưa hỏi bác sĩ.',
@@ -169,9 +184,9 @@ class _PrescriptionCard extends StatelessWidget {
     margin: EdgeInsets.zero,
     child: InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(18),
+      borderRadius: BorderRadius.circular(AppRadius.lg),
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(AppSpacing.md),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -187,22 +202,22 @@ class _PrescriptionCard extends StatelessWidget {
                   prescription.prescriptionCode,
                   style: Theme.of(context).textTheme.labelMedium?.copyWith(
                     color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    fontWeight: FontWeight.w700,
+                    fontWeight: AppFontWeight.strong,
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 14),
+            const SizedBox(height: AppSpacing.md),
             Text(
               prescription.doctorName.isEmpty
                   ? 'Bác sĩ kê đơn'
                   : prescription.doctorName,
-              style: Theme.of(
-                context,
-              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                fontWeight: AppFontWeight.strong,
+              ),
             ),
             if (prescription.specialization != null) ...[
-              const SizedBox(height: 3),
+              const SizedBox(height: AppSpacing.xxs),
               Text(
                 prescription.specialization!,
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
@@ -212,7 +227,7 @@ class _PrescriptionCard extends StatelessWidget {
             ],
             if (prescription.isDependentPrescription &&
                 prescription.patientName != null) ...[
-              const SizedBox(height: 7),
+              const SizedBox(height: AppSpacing.xs),
               Row(
                 children: [
                   Icon(
@@ -220,19 +235,19 @@ class _PrescriptionCard extends StatelessWidget {
                     size: 17,
                     color: Theme.of(context).colorScheme.primary,
                   ),
-                  const SizedBox(width: 6),
+                  const SizedBox(width: AppSpacing.xs),
                   Expanded(
                     child: Text(
                       'Người khám: ${prescription.patientName}',
                       style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                        fontWeight: FontWeight.w700,
+                        fontWeight: AppFontWeight.strong,
                       ),
                     ),
                   ),
                 ],
               ),
             ],
-            const SizedBox(height: 12),
+            const SizedBox(height: AppSpacing.sm),
             Row(
               children: [
                 Icon(
@@ -240,25 +255,25 @@ class _PrescriptionCard extends StatelessWidget {
                   size: 20,
                   color: Theme.of(context).colorScheme.primary,
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: AppSpacing.xs),
                 Expanded(
                   child: Text(
                     '${prescription.items.length} loại thuốc',
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
+                      fontWeight: AppFontWeight.strong,
                     ),
                   ),
                 ),
                 Text(formatDateVi(prescription.appointmentDate)),
-                const SizedBox(width: 4),
-                const Icon(Icons.chevron_right_rounded),
+                const SizedBox(width: AppSpacing.xxs),
+                const Icon(Icons.chevron_right_outlined),
               ],
             ),
             if (prescription.items.isNotEmpty) ...[
               const Divider(height: 24),
               for (final item in prescription.items.take(2))
                 Padding(
-                  padding: const EdgeInsets.only(bottom: 5),
+                  padding: const EdgeInsets.only(bottom: AppSpacing.xxs),
                   child: Text(
                     '• ${item.medicineName}${item.usageSummary == null ? '' : ' — ${item.usageSummary}'}',
                     maxLines: 1,
@@ -270,7 +285,7 @@ class _PrescriptionCard extends StatelessWidget {
                   '+ ${prescription.items.length - 2} thuốc khác',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: Theme.of(context).colorScheme.primary,
-                    fontWeight: FontWeight.w700,
+                    fontWeight: AppFontWeight.strong,
                   ),
                 ),
             ],
@@ -286,9 +301,9 @@ class _PrescriptionsLoading extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => ListView.separated(
-    padding: const EdgeInsets.all(16),
+    padding: const EdgeInsets.all(AppSpacing.md),
     itemCount: 4,
-    separatorBuilder: (_, _) => const SizedBox(height: 12),
+    separatorBuilder: (_, _) => const SizedBox(height: AppSpacing.sm),
     itemBuilder: (_, index) =>
         AppLoadingSkeleton(height: index == 0 ? 112 : 210),
   );

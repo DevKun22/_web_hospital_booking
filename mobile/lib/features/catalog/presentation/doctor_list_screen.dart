@@ -73,7 +73,7 @@ class _DoctorListScreenState extends ConsumerState<DoctorListScreen> {
           subtitle: 'Tìm theo tên, chuyên môn hoặc lọc theo chuyên khoa.',
           badge: state.total > 0 ? '${state.total} bác sĩ' : null,
         ),
-        const SizedBox(height: 18),
+        const SizedBox(height: AppSpacing.lg),
         AppSearchField(
           key: const Key('doctor-catalog-search'),
           controller: _searchController,
@@ -86,13 +86,13 @@ class _DoctorListScreenState extends ConsumerState<DoctorListScreen> {
           },
         ),
         if (departments.isNotEmpty) ...[
-          const SizedBox(height: 12),
+          const SizedBox(height: AppSpacing.sm),
           SizedBox(
             height: 42,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
               itemCount: departments.length + 1,
-              separatorBuilder: (_, _) => const SizedBox(width: 8),
+              separatorBuilder: (_, _) => const SizedBox(width: AppSpacing.xs),
               itemBuilder: (context, index) {
                 final department = index == 0 ? null : departments[index - 1];
                 final selected =
@@ -111,22 +111,22 @@ class _DoctorListScreenState extends ConsumerState<DoctorListScreen> {
           ),
         ],
         if (state.error != null) ...[
-          const SizedBox(height: 14),
+          const SizedBox(height: AppSpacing.md),
           AppErrorBanner(
             error: state.error!,
             onDismiss: controller.dismissError,
           ),
         ],
         if (state.isLoading && state.items.isNotEmpty) ...[
-          const SizedBox(height: 12),
+          const SizedBox(height: AppSpacing.sm),
           const LinearProgressIndicator(minHeight: 2),
         ],
-        const SizedBox(height: 18),
+        const SizedBox(height: AppSpacing.lg),
         if (state.isLoading && state.items.isEmpty)
           ...List.generate(
             3,
             (_) => const Padding(
-              padding: EdgeInsets.only(bottom: 12),
+              padding: EdgeInsets.only(bottom: AppSpacing.sm),
               child: AppLoadingSkeleton(height: 230),
             ),
           )
@@ -141,20 +141,20 @@ class _DoctorListScreenState extends ConsumerState<DoctorListScreen> {
                 setState(() {});
                 controller.load(query: '', clearDepartment: true);
               },
-              icon: const Icon(Icons.restart_alt_rounded),
+              icon: const Icon(Icons.restart_alt_outlined),
               label: const Text('Đặt lại bộ lọc'),
             ),
           )
         else
           ...state.items.map(
             (doctor) => Padding(
-              padding: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.only(bottom: AppSpacing.sm),
               child: DoctorCatalogCard(doctor: doctor),
             ),
           ),
         if (state.isLoadingMore)
           const Padding(
-            padding: EdgeInsets.symmetric(vertical: 18),
+            padding: EdgeInsets.symmetric(vertical: AppSpacing.lg),
             child: Center(child: CircularProgressIndicator()),
           ),
       ],

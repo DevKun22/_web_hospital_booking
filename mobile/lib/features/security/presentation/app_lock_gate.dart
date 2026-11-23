@@ -1,3 +1,4 @@
+import 'package:hospital_booking_mobile/core/design/app_design_tokens.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hospital_booking_mobile/core/widgets/app_brand_mark.dart';
@@ -29,21 +30,21 @@ class AppLockGate extends ConsumerWidget {
                   child: ConstrainedBox(
                     constraints: const BoxConstraints(maxWidth: 360),
                     child: Padding(
-                      padding: const EdgeInsets.all(28),
+                      padding: const EdgeInsets.all(AppSpacing.xl),
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           const AppBrandMark(size: 72),
-                          const SizedBox(height: 20),
+                          const SizedBox(height: AppSpacing.lg),
                           Text(
                             lock.isChecking
                                 ? 'Đang kiểm tra bảo mật'
                                 : 'Ứng dụng đã được khóa',
                             textAlign: TextAlign.center,
                             style: Theme.of(context).textTheme.headlineSmall
-                                ?.copyWith(fontWeight: FontWeight.w900),
+                                ?.copyWith(fontWeight: AppFontWeight.strong),
                           ),
-                          const SizedBox(height: 8),
+                          const SizedBox(height: AppSpacing.xs),
                           Text(
                             'Xác thực trên thiết bị để tiếp tục xem lịch khám và hồ sơ y tế.',
                             textAlign: TextAlign.center,
@@ -55,7 +56,7 @@ class AppLockGate extends ConsumerWidget {
                                 ),
                           ),
                           if (lock.message != null) ...[
-                            const SizedBox(height: 12),
+                            const SizedBox(height: AppSpacing.sm),
                             Text(
                               lock.message!,
                               textAlign: TextAlign.center,
@@ -64,7 +65,7 @@ class AppLockGate extends ConsumerWidget {
                               ),
                             ),
                           ],
-                          const SizedBox(height: 22),
+                          const SizedBox(height: AppSpacing.lg),
                           if (lock.isChecking || lock.isAuthenticating)
                             const CircularProgressIndicator()
                           else
@@ -73,7 +74,7 @@ class AppLockGate extends ConsumerWidget {
                               onPressed: () => ref
                                   .read(appLockControllerProvider.notifier)
                                   .unlock(),
-                              icon: const Icon(Icons.fingerprint_rounded),
+                              icon: const Icon(Icons.fingerprint_outlined),
                               label: const Text('Mở khóa'),
                             ),
                         ],

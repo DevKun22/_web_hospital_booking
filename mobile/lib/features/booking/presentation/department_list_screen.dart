@@ -49,7 +49,7 @@ class _DepartmentListScreenState extends ConsumerState<DepartmentListScreen> {
               ? null
               : '${state.departments.length} khoa',
         ),
-        const SizedBox(height: 18),
+        const SizedBox(height: AppSpacing.lg),
         AppSearchField(
           key: const Key('department-search'),
           controller: _searchController,
@@ -61,18 +61,18 @@ class _DepartmentListScreenState extends ConsumerState<DepartmentListScreen> {
           },
         ),
         if (state.error != null) ...[
-          const SizedBox(height: 14),
+          const SizedBox(height: AppSpacing.md),
           AppErrorBanner(
             error: state.error!,
             onDismiss: controller.dismissError,
           ),
         ],
-        const SizedBox(height: 18),
+        const SizedBox(height: AppSpacing.lg),
         if (state.isCatalogLoading)
           ...List.generate(
             3,
             (_) => const Padding(
-              padding: EdgeInsets.only(bottom: 12),
+              padding: EdgeInsets.only(bottom: AppSpacing.sm),
               child: AppLoadingSkeleton(height: 116),
             ),
           )
@@ -88,7 +88,7 @@ class _DepartmentListScreenState extends ConsumerState<DepartmentListScreen> {
             action: normalized.isEmpty
                 ? FilledButton.icon(
                     onPressed: controller.load,
-                    icon: const Icon(Icons.refresh_rounded),
+                    icon: const Icon(Icons.refresh_outlined),
                     label: const Text('Tải lại'),
                   )
                 : OutlinedButton.icon(
@@ -96,7 +96,7 @@ class _DepartmentListScreenState extends ConsumerState<DepartmentListScreen> {
                       _searchController.clear();
                       setState(() => _query = '');
                     },
-                    icon: const Icon(Icons.restart_alt_rounded),
+                    icon: const Icon(Icons.restart_alt_outlined),
                     label: const Text('Xóa tìm kiếm'),
                   ),
           )
@@ -112,7 +112,7 @@ class _DepartmentListScreenState extends ConsumerState<DepartmentListScreen> {
               logicalHeight: 62,
             );
             return Padding(
-              padding: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.only(bottom: AppSpacing.sm),
               child: Card(
                 margin: EdgeInsets.zero,
                 shape: RoundedRectangleBorder(
@@ -125,7 +125,7 @@ class _DepartmentListScreenState extends ConsumerState<DepartmentListScreen> {
                     '/departments/${Uri.encodeComponent(department.id)}',
                   ),
                   child: Padding(
-                    padding: const EdgeInsets.all(14),
+                    padding: const EdgeInsets.all(AppSpacing.md),
                     child: Row(
                       children: [
                         Container(
@@ -153,7 +153,7 @@ class _DepartmentListScreenState extends ConsumerState<DepartmentListScreen> {
                                   ),
                                 ),
                         ),
-                        const SizedBox(width: 13),
+                        const SizedBox(width: AppSpacing.sm),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -161,9 +161,11 @@ class _DepartmentListScreenState extends ConsumerState<DepartmentListScreen> {
                               Text(
                                 department.name,
                                 style: Theme.of(context).textTheme.titleMedium
-                                    ?.copyWith(fontWeight: FontWeight.w800),
+                                    ?.copyWith(
+                                      fontWeight: AppFontWeight.strong,
+                                    ),
                               ),
-                              const SizedBox(height: 5),
+                              const SizedBox(height: AppSpacing.xxs),
                               Text(
                                 doctorCount == 0
                                     ? 'Xem thông tin chuyên khoa'
@@ -178,7 +180,7 @@ class _DepartmentListScreenState extends ConsumerState<DepartmentListScreen> {
                             ],
                           ),
                         ),
-                        const Icon(Icons.chevron_right_rounded),
+                        const Icon(Icons.chevron_right_outlined),
                       ],
                     ),
                   ),

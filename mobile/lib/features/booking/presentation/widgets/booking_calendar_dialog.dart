@@ -86,7 +86,7 @@ class _BookingCalendarDialogState extends ConsumerState<BookingCalendarDialog> {
                 IconButton(
                   tooltip: 'Tháng trước',
                   onPressed: _canGoBack ? () => _shift(-1) : null,
-                  icon: const Icon(Icons.chevron_left_rounded),
+                  icon: const Icon(Icons.chevron_left_outlined),
                 ),
                 Expanded(
                   child: Text(
@@ -98,7 +98,7 @@ class _BookingCalendarDialogState extends ConsumerState<BookingCalendarDialog> {
                 IconButton(
                   tooltip: 'Tháng sau',
                   onPressed: _canGoForward ? () => _shift(1) : null,
-                  icon: const Icon(Icons.chevron_right_rounded),
+                  icon: const Icon(Icons.chevron_right_outlined),
                 ),
               ],
             ),
@@ -136,7 +136,7 @@ class _BookingCalendarDialogState extends ConsumerState<BookingCalendarDialog> {
                     onPressed: () => ref.invalidate(
                       doctorAvailableDatesProvider(widget.doctorId),
                     ),
-                    icon: const Icon(Icons.refresh_rounded),
+                    icon: const Icon(Icons.refresh_outlined),
                     label: const Text('Không tải được lịch. Thử lại'),
                   ),
                 ),
@@ -161,7 +161,7 @@ class _BookingCalendarDialogState extends ConsumerState<BookingCalendarDialog> {
                     shape: BoxShape.circle,
                   ),
                 ),
-                const SizedBox(width: 6),
+                const SizedBox(width: AppSpacing.xs),
                 Expanded(
                   child: Text(
                     'Ngày còn khung giờ trống',
@@ -262,14 +262,16 @@ class _MonthGrid extends StatelessWidget {
                       color: selected
                           ? colors.onPrimary
                           : (pickable ? colors.primaryDark : colors.muted),
-                      fontWeight: pickable ? FontWeight.w600 : FontWeight.w400,
+                      fontWeight: pickable
+                          ? AppFontWeight.strong
+                          : AppFontWeight.regular,
                     ),
                   ),
                   if (pickable)
                     Container(
                       width: 4,
                       height: 4,
-                      margin: const EdgeInsets.only(top: 2),
+                      margin: const EdgeInsets.only(top: AppSpacing.hair),
                       decoration: BoxDecoration(
                         color: selected ? colors.onPrimary : colors.primary,
                         shape: BoxShape.circle,

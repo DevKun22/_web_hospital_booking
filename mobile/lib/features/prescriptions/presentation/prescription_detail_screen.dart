@@ -23,7 +23,7 @@ class PrescriptionDetailScreen extends ConsumerWidget {
             tooltip: 'Làm mới',
             onPressed: () =>
                 ref.invalidate(prescriptionDetailProvider(prescriptionId)),
-            icon: const Icon(Icons.refresh_rounded),
+            icon: const Icon(Icons.refresh_outlined),
           ),
         ],
       ),
@@ -49,21 +49,26 @@ class _DetailContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => ListView(
-    padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+    padding: const EdgeInsets.fromLTRB(
+      AppSpacing.md,
+      AppSpacing.xs,
+      AppSpacing.md,
+      AppSpacing.xxl,
+    ),
     children: [
       _PrescriptionHeader(prescription: prescription),
-      const SizedBox(height: 14),
+      const SizedBox(height: AppSpacing.md),
       Container(
-        padding: const EdgeInsets.all(14),
+        padding: const EdgeInsets.all(AppSpacing.md),
         decoration: BoxDecoration(
           color: Theme.of(context).colorScheme.tertiaryContainer,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(AppRadius.lg),
         ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Icon(Icons.info_outline),
-            const SizedBox(width: 10),
+            const SizedBox(width: AppSpacing.sm),
             const Expanded(
               child: Text(
                 'Dùng thuốc đúng liều, đúng thời điểm và đủ thời gian theo chỉ định. Liên hệ bác sĩ nếu có phản ứng bất thường.',
@@ -72,14 +77,14 @@ class _DetailContent extends StatelessWidget {
           ],
         ),
       ),
-      const SizedBox(height: 14),
+      const SizedBox(height: AppSpacing.md),
       Text(
         'Danh sách thuốc (${prescription.items.length})',
         style: Theme.of(
           context,
-        ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+        ).textTheme.titleMedium?.copyWith(fontWeight: AppFontWeight.strong),
       ),
-      const SizedBox(height: 10),
+      const SizedBox(height: AppSpacing.sm),
       if (prescription.items.isEmpty)
         const AppEmptyState(
           icon: Icons.medication_outlined,
@@ -90,17 +95,17 @@ class _DetailContent extends StatelessWidget {
         for (var index = 0; index < prescription.items.length; index++) ...[
           _MedicineCard(index: index + 1, item: prescription.items[index]),
           if (index != prescription.items.length - 1)
-            const SizedBox(height: 10),
+            const SizedBox(height: AppSpacing.sm),
         ],
       if (prescription.note != null) ...[
-        const SizedBox(height: 14),
+        const SizedBox(height: AppSpacing.md),
         Card(
           margin: EdgeInsets.zero,
           child: ListTile(
             leading: const Icon(Icons.notes_outlined),
             title: const Text('Ghi chú của bác sĩ'),
             subtitle: Padding(
-              padding: const EdgeInsets.only(top: 6),
+              padding: const EdgeInsets.only(top: AppSpacing.xs),
               child: Text(prescription.note!),
             ),
           ),
@@ -119,7 +124,7 @@ class _PrescriptionHeader extends StatelessWidget {
   Widget build(BuildContext context) => Card(
     margin: EdgeInsets.zero,
     child: Padding(
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.all(AppSpacing.lg),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -133,13 +138,13 @@ class _PrescriptionHeader extends StatelessWidget {
               const Spacer(),
               Text(
                 prescription.prescriptionCode,
-                style: Theme.of(
-                  context,
-                ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w800),
+                style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                  fontWeight: AppFontWeight.strong,
+                ),
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: AppSpacing.md),
           _IconLine(
             icon: Icons.calendar_today_outlined,
             value:
@@ -147,28 +152,28 @@ class _PrescriptionHeader extends StatelessWidget {
           ),
           if (prescription.isDependentPrescription &&
               prescription.patientName != null) ...[
-            const SizedBox(height: 10),
+            const SizedBox(height: AppSpacing.sm),
             _IconLine(
               icon: Icons.family_restroom_outlined,
               value: 'Người đến khám: ${prescription.patientName}',
             ),
           ],
-          const SizedBox(height: 10),
+          const SizedBox(height: AppSpacing.sm),
           _IconLine(
-            icon: Icons.person_outline,
+            icon: Icons.person_outline_outlined,
             value: prescription.doctorName.isEmpty
                 ? 'Bác sĩ kê đơn'
                 : prescription.doctorName,
           ),
           if (prescription.specialization != null) ...[
-            const SizedBox(height: 10),
+            const SizedBox(height: AppSpacing.sm),
             _IconLine(
               icon: Icons.local_hospital_outlined,
               value: prescription.specialization!,
             ),
           ],
           if (prescription.issuedAt != null) ...[
-            const SizedBox(height: 10),
+            const SizedBox(height: AppSpacing.sm),
             _IconLine(
               icon: Icons.edit_calendar_outlined,
               value: 'Phát hành ${formatDateTimeVi(prescription.issuedAt!)}',
@@ -190,7 +195,7 @@ class _MedicineCard extends StatelessWidget {
   Widget build(BuildContext context) => Card(
     margin: EdgeInsets.zero,
     child: Padding(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(AppSpacing.md),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -204,16 +209,16 @@ class _MedicineCard extends StatelessWidget {
                   '$index',
                   style: TextStyle(
                     color: Theme.of(context).colorScheme.primary,
-                    fontWeight: FontWeight.w800,
+                    fontWeight: AppFontWeight.strong,
                   ),
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: AppSpacing.sm),
               Expanded(
                 child: Text(
                   item.medicineName,
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w800,
+                    fontWeight: AppFontWeight.strong,
                   ),
                 ),
               ),
@@ -225,7 +230,7 @@ class _MedicineCard extends StatelessWidget {
             ],
           ),
           if (item.fulfillmentLabel != null) ...[
-            const SizedBox(height: 10),
+            const SizedBox(height: AppSpacing.sm),
             Align(
               alignment: Alignment.centerLeft,
               child: AppStatusBadge(
@@ -240,7 +245,7 @@ class _MedicineCard extends StatelessWidget {
               ),
             ),
           ],
-          const SizedBox(height: 14),
+          const SizedBox(height: AppSpacing.md),
           _MedicineRow(label: 'Liều dùng', value: item.dosage),
           _MedicineRow(label: 'Tần suất', value: item.frequency),
           _MedicineRow(label: 'Thời gian', value: item.duration),
@@ -254,7 +259,7 @@ class _MedicineCard extends StatelessWidget {
                   size: 20,
                   color: Theme.of(context).colorScheme.primary,
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: AppSpacing.xs),
                 Expanded(child: Text(item.instruction!)),
               ],
             ),
@@ -273,7 +278,7 @@ class _MedicineRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 3),
+    padding: const EdgeInsets.symmetric(vertical: AppSpacing.xxs),
     child: Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -289,7 +294,7 @@ class _MedicineRow extends StatelessWidget {
         Expanded(
           child: Text(
             value ?? 'Theo hướng dẫn của bác sĩ',
-            style: const TextStyle(fontWeight: FontWeight.w600),
+            style: const TextStyle(fontWeight: AppFontWeight.strong),
           ),
         ),
       ],
@@ -307,7 +312,7 @@ class _IconLine extends StatelessWidget {
   Widget build(BuildContext context) => Row(
     children: [
       Icon(icon, size: 20, color: Theme.of(context).colorScheme.primary),
-      const SizedBox(width: 10),
+      const SizedBox(width: AppSpacing.sm),
       Expanded(child: Text(value)),
     ],
   );
@@ -321,20 +326,20 @@ class _DetailError extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => ListView(
-    padding: const EdgeInsets.all(16),
+    padding: const EdgeInsets.all(AppSpacing.md),
     children: [
       if (error is ApiException)
         AppErrorBanner(error: error as ApiException)
       else
         const AppEmptyState(
-          icon: Icons.error_outline,
+          icon: Icons.error_outline_outlined,
           title: 'Không tải được đơn thuốc',
           message: 'Đã xảy ra lỗi khi đọc đơn thuốc. Vui lòng thử lại.',
         ),
-      const SizedBox(height: 14),
+      const SizedBox(height: AppSpacing.md),
       FilledButton.icon(
         onPressed: onRetry,
-        icon: const Icon(Icons.refresh_rounded),
+        icon: const Icon(Icons.refresh_outlined),
         label: const Text('Thử lại'),
       ),
     ],
@@ -346,12 +351,12 @@ class _DetailLoading extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => ListView(
-    padding: const EdgeInsets.all(16),
+    padding: const EdgeInsets.all(AppSpacing.md),
     children: const [
       AppLoadingSkeleton(height: 210),
-      SizedBox(height: 14),
+      SizedBox(height: AppSpacing.md),
       AppLoadingSkeleton(height: 250),
-      SizedBox(height: 10),
+      SizedBox(height: AppSpacing.sm),
       AppLoadingSkeleton(height: 250),
     ],
   );

@@ -24,7 +24,7 @@ class PackageCatalogCard extends StatelessWidget {
           ? null
           : () => context.push('/packages/${Uri.encodeComponent(item.slug!)}'),
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(AppSpacing.md),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -42,10 +42,10 @@ class PackageCatalogCard extends StatelessWidget {
                   ),
                   child: const Icon(
                     Icons.health_and_safety_outlined,
-                    color: Colors.white,
+                    color: AppPalette.onHero,
                   ),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: AppSpacing.sm),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -67,11 +67,11 @@ class PackageCatalogCard extends StatelessWidget {
                         ],
                       ),
                       if (item.isPopular || item.isBhytSupport)
-                        const SizedBox(height: 7),
+                        const SizedBox(height: AppSpacing.xs),
                       Text(
                         item.name,
                         style: Theme.of(context).textTheme.titleMedium
-                            ?.copyWith(fontWeight: FontWeight.w800),
+                            ?.copyWith(fontWeight: AppFontWeight.strong),
                       ),
                     ],
                   ),
@@ -79,7 +79,7 @@ class PackageCatalogCard extends StatelessWidget {
               ],
             ),
             if (item.summary != null) ...[
-              const SizedBox(height: 10),
+              const SizedBox(height: AppSpacing.sm),
               Text(
                 item.summary!,
                 maxLines: 2,
@@ -91,7 +91,7 @@ class PackageCatalogCard extends StatelessWidget {
               ),
             ],
             if (item.departmentName != null) ...[
-              const SizedBox(height: 10),
+              const SizedBox(height: AppSpacing.sm),
               Row(
                 children: [
                   Icon(
@@ -99,7 +99,7 @@ class PackageCatalogCard extends StatelessWidget {
                     size: 17,
                     color: context.colors.primary,
                   ),
-                  const SizedBox(width: 6),
+                  const SizedBox(width: AppSpacing.xs),
                   Expanded(
                     child: Text(
                       item.departmentName!,
@@ -120,12 +120,12 @@ class PackageCatalogCard extends StatelessWidget {
                         'Chi phí dự kiến',
                         style: Theme.of(context).textTheme.labelSmall,
                       ),
-                      const SizedBox(height: 2),
+                      const SizedBox(height: AppSpacing.hair),
                       Text(
                         formatVnd(item.finalPrice),
                         style: Theme.of(context).textTheme.titleLarge?.copyWith(
                           color: context.colors.primaryDark,
-                          fontWeight: FontWeight.w800,
+                          fontWeight: AppFontWeight.strong,
                         ),
                       ),
                     ],

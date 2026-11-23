@@ -91,7 +91,7 @@ class BookingPickRow extends StatelessWidget {
                               color: colors.muted,
                             ),
                           ),
-                          const SizedBox(height: 2),
+                          const SizedBox(height: AppSpacing.hair),
                           Text(
                             value ?? placeholder,
                             maxLines: 1,
@@ -116,10 +116,10 @@ class BookingPickRow extends StatelessWidget {
                     ),
                     Icon(
                       locked
-                          ? Icons.lock_outline_rounded
+                          ? Icons.lock_outline
                           : (chosen
                                 ? Icons.edit_outlined
-                                : Icons.chevron_right_rounded),
+                                : Icons.chevron_right_outlined),
                       size: 20,
                       color: colors.muted,
                     ),

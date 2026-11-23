@@ -37,24 +37,24 @@ class AppointmentJourneyTimeline extends StatelessWidget {
     const steps = [
       ('Đặt lịch', Icons.event_available_outlined),
       ('Xác nhận', Icons.verified_outlined),
-      ('Check-in', Icons.qr_code_scanner_rounded),
+      ('Check-in', Icons.qr_code_scanner_outlined),
       ('Khám', Icons.medical_services_outlined),
       ('Hoàn tất', Icons.task_alt_outlined),
     ];
     return Card(
       margin: EdgeInsets.zero,
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(AppSpacing.md),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
               'Hành trình lịch khám',
-              style: Theme.of(
-                context,
-              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                fontWeight: AppFontWeight.strong,
+              ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppSpacing.md),
             if (cancelled)
               AppStatusBadge(
                 label: status.label,
@@ -109,7 +109,7 @@ class AppointmentJourneyTimeline extends StatelessWidget {
                                 ),
                             ],
                           ),
-                          const SizedBox(height: 7),
+                          const SizedBox(height: AppSpacing.xs),
                           Text(
                             steps[index].$1,
                             textAlign: TextAlign.center,
@@ -117,8 +117,8 @@ class AppointmentJourneyTimeline extends StatelessWidget {
                             style: Theme.of(context).textTheme.labelSmall
                                 ?.copyWith(
                                   fontWeight: index == currentIndex
-                                      ? FontWeight.w800
-                                      : FontWeight.w500,
+                                      ? AppFontWeight.strong
+                                      : AppFontWeight.medium,
                                 ),
                           ),
                         ],
@@ -165,7 +165,7 @@ class AppointmentVisitActions extends ConsumerWidget {
                 child: Container(
                   padding: const EdgeInsets.all(AppSpacing.xs),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: AppPalette.onHero,
                     borderRadius: BorderRadius.circular(AppRadius.md),
                     border: Border.all(color: colors.border),
                   ),
@@ -244,17 +244,17 @@ class AppointmentNotificationHistoryNotice extends StatelessWidget {
         : '${formatDateVi(_dateOnly(publishedAt!))} lúc ${_timeOfDay(publishedAt!)}';
     final foreground = type.foreground(context.colors);
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
         color: type.background(context.colors),
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(AppRadius.lg),
         border: Border.all(color: foreground.withValues(alpha: 0.2)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(Icons.history_rounded, color: foreground),
-          const SizedBox(width: 12),
+          Icon(Icons.history_outlined, color: foreground),
+          const SizedBox(width: AppSpacing.sm),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -265,10 +265,10 @@ class AppointmentNotificationHistoryNotice extends StatelessWidget {
                       : '${type.historyLabel} · $eventTime',
                   style: Theme.of(context).textTheme.titleSmall?.copyWith(
                     color: foreground,
-                    fontWeight: FontWeight.w800,
+                    fontWeight: AppFontWeight.strong,
                   ),
                 ),
-                const SizedBox(height: 5),
+                const SizedBox(height: AppSpacing.xxs),
                 Text(
                   'Đây là thông báo tại thời điểm được gửi. Thông tin bên dưới là trạng thái mới nhất và có thể đã thay đổi sau đó.',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
@@ -332,25 +332,25 @@ class _CancellationSheetState extends State<AppointmentCancellationSheet> {
             height: 4,
             decoration: BoxDecoration(
               color: Theme.of(context).colorScheme.outline,
-              borderRadius: BorderRadius.circular(999),
+              borderRadius: BorderRadius.circular(AppRadius.pill),
             ),
           ),
         ),
-        const SizedBox(height: 18),
+        const SizedBox(height: AppSpacing.lg),
         Text(
           'Xác nhận hủy lịch',
           style: Theme.of(
             context,
-          ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
+          ).textTheme.titleLarge?.copyWith(fontWeight: AppFontWeight.strong),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: AppSpacing.xs),
         Text(
           'Lịch ${widget.appointment.bookingCode} · ${formatDateVi(widget.appointment.appointmentDate)} lúc ${formatTimeRange(widget.appointment.startTime, widget.appointment.endTime)} sẽ bị hủy và không thể hoàn tác.',
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
             color: Theme.of(context).colorScheme.onSurfaceVariant,
           ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: AppSpacing.md),
         TextField(
           controller: _reasonController,
           autofocus: true,
@@ -364,7 +364,7 @@ class _CancellationSheetState extends State<AppointmentCancellationSheet> {
             alignLabelWithHint: true,
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: AppSpacing.xs),
         Row(
           children: [
             Expanded(
@@ -373,7 +373,7 @@ class _CancellationSheetState extends State<AppointmentCancellationSheet> {
                 child: const Text('Giữ lịch'),
               ),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: AppSpacing.sm),
             Expanded(
               child: FilledButton(
                 style: FilledButton.styleFrom(

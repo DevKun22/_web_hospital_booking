@@ -1,3 +1,4 @@
+import 'package:hospital_booking_mobile/core/design/app_design_tokens.dart';
 import 'package:flutter/material.dart';
 import 'package:hospital_booking_mobile/core/design/app_colors.dart';
 import 'package:hospital_booking_mobile/core/widgets/app_motion.dart';
@@ -85,7 +86,7 @@ class HomeSearchRow extends StatelessWidget {
         child: _SearchPill(onSearch: onSearch, onAsk: onAsk),
       ),
       if (showBell) ...[
-        const SizedBox(width: 8),
+        const SizedBox(width: AppSpacing.xs),
         _BellButton(
           unreadCount: unreadNotificationCount,
           onTap: onNotifications,
@@ -103,26 +104,29 @@ class _SearchPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Material(
-    color: Colors.white,
+    color: AppPalette.onHero,
     shape: const StadiumBorder(),
     clipBehavior: Clip.antiAlias,
     child: InkWell(
       key: const Key('home-search-button'),
       onTap: onSearch,
       child: Padding(
-        padding: const EdgeInsets.only(left: 16, right: 5),
+        padding: const EdgeInsets.only(
+          left: AppSpacing.md,
+          right: AppSpacing.xxs,
+        ),
         child: Row(
           children: [
-            Icon(Icons.search_rounded, color: AppPalette.heroMid, size: 24),
-            const SizedBox(width: 8),
+            Icon(Icons.search_outlined, color: AppPalette.heroMid, size: 24),
+            const SizedBox(width: AppSpacing.xs),
             Expanded(
               child: Text(
                 'Tìm bác sĩ, khoa, gói',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: const Color(0xFF4F6663),
-                ),
+                style: Theme.of(
+                  context,
+                ).textTheme.bodyMedium?.copyWith(color: context.colors.muted),
               ),
             ),
             Tooltip(
@@ -139,7 +143,7 @@ class _SearchPill extends StatelessWidget {
                     shape: BoxShape.circle,
                   ),
                   child: Icon(
-                    Icons.auto_awesome_rounded,
+                    Icons.auto_awesome_outlined,
                     size: 21,
                     color: AppPalette.heroMid,
                   ),
@@ -164,7 +168,7 @@ class _BellButton extends StatelessWidget {
     clipBehavior: Clip.none,
     children: [
       Material(
-        color: Colors.white.withValues(alpha: 0.2),
+        color: AppPalette.onHeroFaint,
         shape: const CircleBorder(),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
@@ -176,8 +180,8 @@ class _BellButton extends StatelessWidget {
             child: const SizedBox.square(
               dimension: _controlSize,
               child: Icon(
-                Icons.notifications_none_rounded,
-                color: Colors.white,
+                Icons.notifications_none_outlined,
+                color: AppPalette.onHero,
                 size: 22,
               ),
             ),
@@ -191,18 +195,17 @@ class _BellButton extends StatelessWidget {
           child: IgnorePointer(
             child: Container(
               constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
-              padding: const EdgeInsets.symmetric(horizontal: 4),
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xxs),
               decoration: BoxDecoration(
                 color: Theme.of(context).colorScheme.error,
-                borderRadius: BorderRadius.circular(999),
-                border: Border.all(color: Colors.white, width: 1.5),
+                borderRadius: BorderRadius.circular(AppRadius.pill),
+                border: Border.all(color: AppPalette.onHero, width: 1.5),
               ),
               alignment: Alignment.center,
               child: Text(
                 unreadCount > 99 ? '99+' : '$unreadCount',
                 style: Theme.of(context).textTheme.labelSmall?.copyWith(
                   color: Theme.of(context).colorScheme.onError,
-                  fontSize: 10,
                 ),
               ),
             ),

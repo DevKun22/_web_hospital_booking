@@ -1,3 +1,4 @@
+import 'package:hospital_booking_mobile/core/design/app_design_tokens.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hospital_booking_mobile/core/errors/swallowed_error.dart';
@@ -119,7 +120,12 @@ class _AppointmentPreparationCardState
     return Card(
       margin: EdgeInsets.zero,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+        padding: const EdgeInsets.fromLTRB(
+          AppSpacing.md,
+          AppSpacing.md,
+          AppSpacing.md,
+          AppSpacing.sm,
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -129,12 +135,12 @@ class _AppointmentPreparationCardState
                   Icons.fact_check_outlined,
                   color: Theme.of(context).colorScheme.primary,
                 ),
-                const SizedBox(width: 10),
+                const SizedBox(width: AppSpacing.sm),
                 Expanded(
                   child: Text(
                     'Chuẩn bị trước buổi khám',
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w800,
+                      fontWeight: AppFontWeight.strong,
                     ),
                   ),
                 ),
@@ -142,21 +148,21 @@ class _AppointmentPreparationCardState
                   '$completedCount/${_items.length}',
                   style: Theme.of(context).textTheme.labelLarge?.copyWith(
                     color: Theme.of(context).colorScheme.primary,
-                    fontWeight: FontWeight.w800,
+                    fontWeight: AppFontWeight.strong,
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: AppSpacing.xs),
             LinearProgressIndicator(
               value: _items.isEmpty ? 0 : completedCount / _items.length,
               minHeight: 5,
-              borderRadius: BorderRadius.circular(999),
+              borderRadius: BorderRadius.circular(AppRadius.pill),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: AppSpacing.xs),
             if (_isLoading)
               const Padding(
-                padding: EdgeInsets.symmetric(vertical: 20),
+                padding: EdgeInsets.symmetric(vertical: AppSpacing.lg),
                 child: Center(child: CircularProgressIndicator()),
               )
             else
@@ -170,7 +176,7 @@ class _AppointmentPreparationCardState
                       : (value) => _toggle(item.id, value == true),
                   title: Text(
                     item.title,
-                    style: const TextStyle(fontWeight: FontWeight.w700),
+                    style: const TextStyle(fontWeight: AppFontWeight.strong),
                   ),
                   subtitle: Text(item.description),
                 ),

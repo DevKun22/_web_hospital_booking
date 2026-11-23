@@ -42,7 +42,10 @@ class AppPrimaryButton extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             mainAxisSize: MainAxisSize.min,
             children: [
-              if (icon != null) ...[Icon(icon), const SizedBox(width: 8)],
+              if (icon != null) ...[
+                Icon(icon),
+                const SizedBox(width: AppSpacing.xs),
+              ],
               Text(label),
             ],
           ),
@@ -54,7 +57,7 @@ class AppSurfaceCard extends StatelessWidget {
   const AppSurfaceCard({
     required this.child,
     super.key,
-    this.padding = const EdgeInsets.all(AppSpacing.card),
+    this.padding = const EdgeInsets.all(AppSpacing.md),
     this.onTap,
     this.semanticLabel,
     this.backgroundColor,
@@ -114,7 +117,7 @@ class AppSectionHeader extends StatelessWidget {
           title,
           style: Theme.of(
             context,
-          ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+          ).textTheme.titleMedium?.copyWith(fontWeight: AppFontWeight.strong),
         ),
       ),
       if (actionLabel != null)
@@ -152,7 +155,12 @@ class AppStickyActionBar extends StatelessWidget {
     shadowColor: Colors.transparent,
     child: SafeArea(
       top: false,
-      minimum: const EdgeInsets.fromLTRB(16, 10, 16, 12),
+      minimum: const EdgeInsets.fromLTRB(
+        AppSpacing.md,
+        AppSpacing.sm,
+        AppSpacing.md,
+        AppSpacing.sm,
+      ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -173,12 +181,12 @@ class AppStickyActionBar extends StatelessWidget {
                     value!,
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
                       color: Theme.of(context).colorScheme.primary,
-                      fontWeight: FontWeight.w800,
+                      fontWeight: AppFontWeight.strong,
                     ),
                   ),
               ],
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: AppSpacing.xs),
           ],
           Row(
             children: [
@@ -186,16 +194,16 @@ class AppStickyActionBar extends StatelessWidget {
                 Expanded(
                   child: OutlinedButton.icon(
                     onPressed: onSecondary,
-                    icon: Icon(secondaryIcon ?? Icons.info_outline_rounded),
+                    icon: Icon(secondaryIcon ?? Icons.info_outline),
                     label: Text(secondaryLabel!),
                   ),
                 ),
-                const SizedBox(width: 10),
+                const SizedBox(width: AppSpacing.sm),
               ],
               Expanded(
                 child: FilledButton.icon(
                   onPressed: onPrimary,
-                  icon: Icon(primaryIcon ?? Icons.arrow_forward_rounded),
+                  icon: Icon(primaryIcon ?? Icons.arrow_forward_outlined),
                   label: Text(primaryLabel),
                 ),
               ),
@@ -221,7 +229,7 @@ class AppGradientOverviewCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.all(18),
+    padding: const EdgeInsets.all(AppSpacing.lg),
     decoration: BoxDecoration(
       gradient: LinearGradient(
         colors: [AppPalette.heroDeep, AppPalette.heroMid],
@@ -235,12 +243,12 @@ class AppGradientOverviewCard extends StatelessWidget {
           width: 50,
           height: 50,
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.15),
+            color: AppPalette.onHeroFaint,
             borderRadius: BorderRadius.circular(AppRadius.md),
           ),
-          child: Icon(icon, color: Colors.white),
+          child: Icon(icon, color: AppPalette.onHero),
         ),
-        const SizedBox(width: 14),
+        const SizedBox(width: AppSpacing.md),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -248,15 +256,15 @@ class AppGradientOverviewCard extends StatelessWidget {
               Text(
                 title,
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w800,
+                  color: AppPalette.onHero,
+                  fontWeight: AppFontWeight.strong,
                 ),
               ),
-              const SizedBox(height: 4),
+              const SizedBox(height: AppSpacing.xxs),
               Text(
                 subtitle,
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Colors.white.withValues(alpha: 0.84),
+                  color: AppPalette.onHeroMuted,
                   height: 1.35,
                 ),
               ),
@@ -291,7 +299,7 @@ class AppPageIntro extends StatelessWidget {
             child: Text(
               title,
               style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                fontWeight: FontWeight.w800,
+                fontWeight: AppFontWeight.strong,
                 letterSpacing: -0.4,
               ),
             ),
@@ -300,7 +308,7 @@ class AppPageIntro extends StatelessWidget {
             AppStatusBadge(label: badge!, tone: AppStatusTone.info),
         ],
       ),
-      const SizedBox(height: 6),
+      const SizedBox(height: AppSpacing.xs),
       Text(
         subtitle,
         style: Theme.of(context).textTheme.bodyLarge?.copyWith(
@@ -336,13 +344,13 @@ class AppSearchField extends StatelessWidget {
       textInputAction: TextInputAction.search,
       decoration: InputDecoration(
         hintText: hintText,
-        prefixIcon: const Icon(Icons.search_rounded),
+        prefixIcon: const Icon(Icons.search_outlined),
         suffixIcon: controller.text.isEmpty
             ? null
             : IconButton(
                 tooltip: 'Xóa từ khóa',
                 onPressed: onClear,
-                icon: const Icon(Icons.close_rounded),
+                icon: const Icon(Icons.close_outlined),
               ),
       ),
     ),
@@ -385,13 +393,16 @@ class AppStatusBadge extends StatelessWidget {
         borderRadius: BorderRadius.circular(AppRadius.pill),
       ),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.sm,
+          vertical: AppSpacing.xs,
+        ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             if (icon != null) ...[
               Icon(icon, size: 16, color: foreground),
-              const SizedBox(width: 5),
+              const SizedBox(width: AppSpacing.xxs),
             ],
             // Flexible để nhãn dài tự xuống dòng thay vì tràn khỏi khung.
             Flexible(
@@ -399,7 +410,7 @@ class AppStatusBadge extends StatelessWidget {
                 label,
                 style: Theme.of(context).textTheme.labelMedium?.copyWith(
                   color: foreground,
-                  fontWeight: FontWeight.w700,
+                  fontWeight: AppFontWeight.strong,
                 ),
               ),
             ),
@@ -429,7 +440,7 @@ class AppEmptyState extends StatelessWidget {
     child: ConstrainedBox(
       constraints: const BoxConstraints(maxWidth: 420),
       child: Padding(
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.all(AppSpacing.xl),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -446,13 +457,13 @@ class AppEmptyState extends StatelessWidget {
                 color: Theme.of(context).colorScheme.primary,
               ),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: AppSpacing.lg),
             Text(
               title,
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.titleLarge,
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: AppSpacing.xs),
             Text(
               message,
               textAlign: TextAlign.center,
@@ -460,7 +471,10 @@ class AppEmptyState extends StatelessWidget {
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
             ),
-            if (action != null) ...[const SizedBox(height: 20), action!],
+            if (action != null) ...[
+              const SizedBox(height: AppSpacing.lg),
+              action!,
+            ],
           ],
         ),
       ),

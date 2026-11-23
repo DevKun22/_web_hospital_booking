@@ -1,3 +1,4 @@
+import 'package:hospital_booking_mobile/core/design/app_colors.dart';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -132,7 +133,11 @@ class _PulseBoxState extends State<PulseBox>
 /// Hai lớp sóng mờ trôi chậm ở đáy dải đầu: nền sống động nhưng nhẹ (một bộ điều khiển 26 giây, vẽ lại đúng một vùng).
 /// Đứng yên khi giảm chuyển động; tự dừng khi màn hình không hiển thị (TickerMode).
 class WaveBackdrop extends StatefulWidget {
-  const WaveBackdrop({super.key, this.color = Colors.white, this.height = 36});
+  const WaveBackdrop({
+    super.key,
+    this.color = AppPalette.onHero,
+    this.height = 36,
+  });
 
   final Color color;
   final double height;

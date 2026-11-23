@@ -1,3 +1,4 @@
+import 'package:hospital_booking_mobile/core/widgets/app_zone.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hospital_booking_mobile/core/design/app_colors.dart';
@@ -32,7 +33,7 @@ class ProfileHeader extends StatelessWidget {
             children: [
               CircleAvatar(
                 radius: 26,
-                backgroundColor: Colors.white,
+                backgroundColor: AppPalette.onHero,
                 child: Text(
                   profile.fullName.isEmpty
                       ? 'B'
@@ -49,14 +50,18 @@ class ProfileHeader extends StatelessWidget {
                       profile.fullName,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: text.titleMedium?.copyWith(color: Colors.white),
+                      style: text.titleMedium?.copyWith(
+                        color: AppPalette.onHero,
+                      ),
                     ),
                     if (profile.email != null)
                       Text(
                         profile.email!,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: text.bodySmall?.copyWith(color: Colors.white70),
+                        style: text.bodySmall?.copyWith(
+                          color: AppPalette.onHeroMuted,
+                        ),
                       ),
                   ],
                 ),
@@ -70,7 +75,7 @@ class ProfileHeader extends StatelessWidget {
               vertical: AppSpacing.xs,
             ),
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.16),
+              color: AppPalette.onHeroFaint,
               borderRadius: BorderRadius.circular(AppRadius.md),
             ),
             child: Wrap(
@@ -82,17 +87,19 @@ class ProfileHeader extends StatelessWidget {
                   missing
                       ? 'Hồ sơ đã đủ ${profile.completedCount}/${profile.totalCount} mục'
                       : 'Hồ sơ đã đủ thông tin',
-                  style: text.labelLarge?.copyWith(color: Colors.white),
+                  style: text.labelLarge?.copyWith(color: AppPalette.onHero),
                 ),
                 if (missing && onComplete != null)
                   TextButton(
                     key: const Key('profile-complete'),
                     onPressed: onComplete,
                     style: TextButton.styleFrom(
-                      backgroundColor: Colors.white,
+                      backgroundColor: AppPalette.onHero,
                       foregroundColor: AppPalette.heroDeep,
                       visualDensity: VisualDensity.compact,
-                      padding: const EdgeInsets.symmetric(horizontal: 14),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.md,
+                      ),
                     ),
                     child: const Text('Hoàn thiện'),
                   ),
@@ -111,35 +118,35 @@ class ProfileQuickTiles extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final tints = context.colors.tintPairs;
+    final colors = context.colors;
     final tiles = [
       (
         const Key('profile-medical-records'),
         Icons.folder_shared_outlined,
         'Kết quả',
         '/medical-records',
-        tints[1],
+        colors.zone(AppZone.primary),
       ),
       (
         const Key('profile-prescriptions'),
         Icons.medication_outlined,
         'Đơn thuốc',
         '/prescriptions',
-        tints[5],
+        colors.zone(AppZone.violet),
       ),
       (
         const Key('profile-invoices'),
         Icons.receipt_long_outlined,
         'Hóa đơn',
         '/invoices',
-        tints[3],
+        colors.zone(AppZone.warning),
       ),
       (
         const Key('profile-dependents'),
         Icons.family_restroom_outlined,
         'Người thân',
         '/dependents',
-        tints[4],
+        colors.zone(AppZone.care),
       ),
     ];
     return Row(
@@ -155,16 +162,13 @@ class ProfileQuickTiles extends StatelessWidget {
                   padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
                   child: Column(
                     children: [
-                      Container(
-                        width: 52,
-                        height: 52,
-                        decoration: BoxDecoration(
-                          color: tile.$5.background,
-                          shape: BoxShape.circle,
-                        ),
-                        child: Icon(tile.$2, color: tile.$5.foreground),
+                      AppIconTile(
+                        icon: tile.$2,
+                        tint: tile.$5,
+                        size: AppTileSize.lg,
+                        circle: true,
                       ),
-                      const SizedBox(height: 6),
+                      const SizedBox(height: AppSpacing.xs),
                       Text(
                         tile.$3,
                         maxLines: 1,

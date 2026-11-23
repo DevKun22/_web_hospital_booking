@@ -40,13 +40,13 @@ class BookingPatientContactFields extends StatelessWidget {
         autofillHints: const [AutofillHints.name],
         decoration: const InputDecoration(
           labelText: 'Họ và tên *',
-          prefixIcon: Icon(Icons.person_outline_rounded),
+          prefixIcon: Icon(Icons.person_outline_outlined),
         ),
         validator: (value) => (value?.trim().length ?? 0) < 2
             ? 'Họ tên tối thiểu 2 ký tự.'
             : null,
       ),
-      const SizedBox(height: 12),
+      const SizedBox(height: AppSpacing.sm),
       TextFormField(
         controller: phone,
         readOnly: isRelative || skipsOtp,
@@ -58,14 +58,14 @@ class BookingPatientContactFields extends StatelessWidget {
           prefixIcon: const Icon(Icons.phone_outlined),
           // Người đã đăng nhập luôn đặt bằng số của tài khoản.
           helperText: skipsOtp ? 'Số điện thoại của tài khoản bạn.' : null,
-          suffixIcon: skipsOtp ? const Icon(Icons.lock_outline_rounded) : null,
+          suffixIcon: skipsOtp ? const Icon(Icons.lock_outline) : null,
         ),
         validator: (value) =>
             RegExp(r'^(0|\+84)[0-9]{9,10}$').hasMatch(value?.trim() ?? '')
             ? null
             : 'Số điện thoại không hợp lệ.',
       ),
-      const SizedBox(height: 12),
+      const SizedBox(height: AppSpacing.sm),
       TextFormField(
         controller: email,
         readOnly: isRelative,
@@ -86,7 +86,7 @@ class BookingPatientContactFields extends StatelessWidget {
         },
       ),
       if (!skipsOtp) ...[
-        const SizedBox(height: 18),
+        const SizedBox(height: AppSpacing.lg),
         Row(
           children: [
             Icon(
@@ -94,7 +94,7 @@ class BookingPatientContactFields extends StatelessWidget {
               size: 18,
               color: Theme.of(context).colorScheme.primary,
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: AppSpacing.xs),
             Expanded(
               child: Text(
                 'Mã xác thực sẽ gửi qua email.',
@@ -144,7 +144,12 @@ class BookingPatientExtraSection extends StatelessWidget {
       leading: const Icon(Icons.badge_outlined),
       title: const Text('Thông tin bổ sung'),
       subtitle: const Text('BHYT và thông tin tiếp nhận'),
-      childrenPadding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+      childrenPadding: const EdgeInsets.fromLTRB(
+        AppSpacing.md,
+        AppSpacing.xs,
+        AppSpacing.md,
+        AppSpacing.md,
+      ),
       children: [
         AppSegmentedChoice<String>(
           label: 'Giới tính',
@@ -157,7 +162,7 @@ class BookingPatientExtraSection extends StatelessWidget {
           },
           onChanged: isRelative ? null : onGenderChanged,
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: AppSpacing.md),
         ValueListenableBuilder<TextEditingValue>(
           valueListenable: dateOfBirth,
           builder: (context, value, _) {
@@ -171,7 +176,7 @@ class BookingPatientExtraSection extends StatelessWidget {
             );
           },
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: AppSpacing.md),
         TextFormField(
           controller: cccd,
           readOnly: isRelative,
@@ -181,7 +186,7 @@ class BookingPatientExtraSection extends StatelessWidget {
             prefixIcon: Icon(Icons.credit_card_outlined),
           ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: AppSpacing.md),
         TextFormField(
           controller: address,
           readOnly: isRelative,
@@ -190,7 +195,7 @@ class BookingPatientExtraSection extends StatelessWidget {
             prefixIcon: Icon(Icons.location_on_outlined),
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: AppSpacing.xs),
         SwitchListTile(
           contentPadding: EdgeInsets.zero,
           value: hasBhyt,
@@ -198,7 +203,7 @@ class BookingPatientExtraSection extends StatelessWidget {
           subtitle: const Text('Nhập mã thẻ để cơ sở khám chuẩn bị thủ tục.'),
           onChanged: isRelative ? null : onHasBhytChanged,
         ),
-        if (hasBhyt) const SizedBox(height: 8),
+        if (hasBhyt) const SizedBox(height: AppSpacing.xs),
         if (hasBhyt) ...[
           TextFormField(
             controller: insuranceCode,
@@ -208,7 +213,7 @@ class BookingPatientExtraSection extends StatelessWidget {
                 ? 'Vui lòng nhập mã thẻ BHYT.'
                 : null,
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: AppSpacing.sm),
           TextFormField(
             controller: registeredHospital,
             readOnly: isRelative,
@@ -266,13 +271,13 @@ class BookingPatientSubmitSection extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         if (error != null && !slotTaken) ...[
-          const SizedBox(height: 8),
+          const SizedBox(height: AppSpacing.xs),
           AppErrorBanner(error: error!, onDismiss: onDismissError),
         ],
         if (slotTaken) ...[
-          const SizedBox(height: 8),
+          const SizedBox(height: AppSpacing.xs),
           Container(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.all(AppSpacing.sm),
             decoration: BoxDecoration(
               color: colors.warningContainer,
               borderRadius: BorderRadius.circular(AppRadius.md),
@@ -280,7 +285,7 @@ class BookingPatientSubmitSection extends StatelessWidget {
             child: Row(
               children: [
                 Icon(Icons.event_busy_outlined, color: colors.warning),
-                const SizedBox(width: 10),
+                const SizedBox(width: AppSpacing.sm),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -296,7 +301,7 @@ class BookingPatientSubmitSection extends StatelessWidget {
                     ],
                   ),
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: AppSpacing.xs),
                 FilledButton.tonal(
                   onPressed: onReselectSlot,
                   child: const Text('Chọn giờ khác'),
@@ -305,8 +310,11 @@ class BookingPatientSubmitSection extends StatelessWidget {
             ),
           ),
         ],
-        if (termsConsent != null) ...[const SizedBox(height: 4), termsConsent!],
-        const SizedBox(height: 6),
+        if (termsConsent != null) ...[
+          const SizedBox(height: AppSpacing.xxs),
+          termsConsent!,
+        ],
+        const SizedBox(height: AppSpacing.xs),
         Row(
           children: [
             Column(
@@ -323,7 +331,7 @@ class BookingPatientSubmitSection extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(width: 16),
+            const SizedBox(width: AppSpacing.md),
             Expanded(
               child: FilledButton.icon(
                 style: FilledButton.styleFrom(
@@ -350,7 +358,7 @@ class BookingPatientSubmitSection extends StatelessWidget {
           ],
         ),
         if (skipsOtp || termsConsent == null) ...[
-          const SizedBox(height: 6),
+          const SizedBox(height: AppSpacing.xs),
           Text(
             skipsOtp
                 ? 'Cơ sở khám sẽ xác nhận lịch của bạn sau khi tiếp nhận.'

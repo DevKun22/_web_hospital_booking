@@ -1,3 +1,4 @@
+import 'package:hospital_booking_mobile/core/widgets/app_filter_tabs.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -66,7 +67,7 @@ class _PackageListScreenState extends ConsumerState<PackageListScreen> {
               'So sánh quyền lợi, chi phí và chọn gói phù hợp với nhu cầu.',
           badge: state.total > 0 ? '${state.total} gói khám' : null,
         ),
-        const SizedBox(height: 18),
+        const SizedBox(height: AppSpacing.lg),
         AppSearchField(
           key: const Key('package-catalog-search'),
           controller: _searchController,
@@ -78,23 +79,23 @@ class _PackageListScreenState extends ConsumerState<PackageListScreen> {
             controller.load(query: '');
           },
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: AppSpacing.sm),
         Wrap(
           spacing: 8,
           runSpacing: 8,
           children: [
-            _FilterChip(
+            AppFilterChip(
               label: 'Tất cả',
               selected: state.filter == PackageCatalogFilter.all,
               onTap: () => controller.load(filter: PackageCatalogFilter.all),
             ),
-            _FilterChip(
+            AppFilterChip(
               label: 'Phổ biến',
               selected: state.filter == PackageCatalogFilter.popular,
               onTap: () =>
                   controller.load(filter: PackageCatalogFilter.popular),
             ),
-            _FilterChip(
+            AppFilterChip(
               label: 'Hỗ trợ BHYT',
               selected: state.filter == PackageCatalogFilter.bhyt,
               onTap: () => controller.load(filter: PackageCatalogFilter.bhyt),
@@ -102,22 +103,22 @@ class _PackageListScreenState extends ConsumerState<PackageListScreen> {
           ],
         ),
         if (state.error != null) ...[
-          const SizedBox(height: 14),
+          const SizedBox(height: AppSpacing.md),
           AppErrorBanner(
             error: state.error!,
             onDismiss: controller.dismissError,
           ),
         ],
         if (state.isLoading && state.items.isNotEmpty) ...[
-          const SizedBox(height: 12),
+          const SizedBox(height: AppSpacing.sm),
           const LinearProgressIndicator(minHeight: 2),
         ],
-        const SizedBox(height: 18),
+        const SizedBox(height: AppSpacing.lg),
         if (state.isLoading && state.items.isEmpty)
           ...List.generate(
             3,
             (_) => const Padding(
-              padding: EdgeInsets.only(bottom: 12),
+              padding: EdgeInsets.only(bottom: AppSpacing.sm),
               child: AppLoadingSkeleton(height: 220),
             ),
           )
@@ -132,42 +133,23 @@ class _PackageListScreenState extends ConsumerState<PackageListScreen> {
                 setState(() {});
                 controller.load(query: '', filter: PackageCatalogFilter.all);
               },
-              icon: const Icon(Icons.restart_alt_rounded),
+              icon: const Icon(Icons.restart_alt_outlined),
               label: const Text('Đặt lại bộ lọc'),
             ),
           )
         else
           ...state.items.map(
             (item) => Padding(
-              padding: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.only(bottom: AppSpacing.sm),
               child: PackageCatalogCard(item: item),
             ),
           ),
         if (state.isLoadingMore)
           const Padding(
-            padding: EdgeInsets.symmetric(vertical: 18),
+            padding: EdgeInsets.symmetric(vertical: AppSpacing.lg),
             child: Center(child: CircularProgressIndicator()),
           ),
       ],
     );
   }
-}
-
-class _FilterChip extends StatelessWidget {
-  const _FilterChip({
-    required this.label,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) => ChoiceChip(
-    label: Text(label),
-    selected: selected,
-    onSelected: (_) => onTap(),
-  );
 }

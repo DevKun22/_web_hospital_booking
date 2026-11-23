@@ -1,3 +1,4 @@
+import 'package:hospital_booking_mobile/core/design/app_design_tokens.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -61,7 +62,7 @@ class _ChatbotScreenState extends ConsumerState<ChatbotScreen> {
             Text('Trợ lý đặt lịch'),
             Text(
               'Hỗ trợ thông tin, không thay thế chẩn đoán',
-              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w400),
+              style: TextStyle(fontWeight: AppFontWeight.regular),
             ),
           ],
         ),
@@ -69,9 +70,9 @@ class _ChatbotScreenState extends ConsumerState<ChatbotScreen> {
           IconButton(
             tooltip: 'Xóa cuộc trò chuyện và bắt đầu lại',
             onPressed: state.isSending ? null : _confirmReset,
-            icon: const Icon(Icons.refresh_rounded),
+            icon: const Icon(Icons.refresh_outlined),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: AppSpacing.xs),
         ],
       ),
       body: SafeArea(
@@ -83,21 +84,26 @@ class _ChatbotScreenState extends ConsumerState<ChatbotScreen> {
                 width: double.infinity,
                 color: Theme.of(context).colorScheme.primaryContainer,
                 padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 8,
+                  horizontal: AppSpacing.md,
+                  vertical: AppSpacing.xs,
                 ),
                 child: Text(
                   state.flowStatus!,
                   style: Theme.of(context).textTheme.labelMedium?.copyWith(
                     color: Theme.of(context).colorScheme.onPrimaryContainer,
-                    fontWeight: FontWeight.w700,
+                    fontWeight: AppFontWeight.strong,
                   ),
                 ),
               ),
             Expanded(
               child: ListView.builder(
                 controller: _scrollController,
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.md,
+                  AppSpacing.md,
+                  AppSpacing.md,
+                  AppSpacing.lg,
+                ),
                 itemCount: state.messages.length + (state.isSending ? 1 : 0),
                 itemBuilder: (context, index) {
                   if (index == state.messages.length) {
@@ -108,7 +114,7 @@ class _ChatbotScreenState extends ConsumerState<ChatbotScreen> {
                     key: index == state.messages.length - 1
                         ? _latestMessageKey
                         : null,
-                    padding: const EdgeInsets.only(bottom: 12),
+                    padding: const EdgeInsets.only(bottom: AppSpacing.sm),
                     child: ChatbotMessageBubble(
                       message: message,
                       disabled: !state.canSend,
@@ -125,23 +131,28 @@ class _ChatbotScreenState extends ConsumerState<ChatbotScreen> {
               Container(
                 key: const Key('chatbot-context-prefill-notice'),
                 width: double.infinity,
-                margin: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                margin: const EdgeInsets.fromLTRB(
+                  AppSpacing.md,
+                  0,
+                  AppSpacing.md,
+                  AppSpacing.xs,
+                ),
                 padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 9,
+                  horizontal: AppSpacing.sm,
+                  vertical: AppSpacing.xs,
                 ),
                 decoration: BoxDecoration(
                   color: Theme.of(context).colorScheme.primaryContainer,
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(AppRadius.md),
                 ),
                 child: Row(
                   children: [
                     Icon(
-                      Icons.edit_note_rounded,
+                      Icons.edit_note_outlined,
                       size: 19,
                       color: Theme.of(context).colorScheme.primary,
                     ),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: AppSpacing.xs),
                     const Expanded(
                       child: Text(
                         'Đã điền câu hỏi theo nội dung bạn vừa xem. Bạn có thể chỉnh sửa trước khi gửi.',

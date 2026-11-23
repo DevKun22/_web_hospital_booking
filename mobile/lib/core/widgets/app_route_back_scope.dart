@@ -34,7 +34,7 @@ class AppRouteBackButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) => IconButton(
     tooltip: 'Quay lại',
-    icon: const Icon(Icons.arrow_back_rounded),
+    icon: const Icon(Icons.arrow_back_outlined),
     onPressed: () {
       if (context.canPop()) {
         context.pop();

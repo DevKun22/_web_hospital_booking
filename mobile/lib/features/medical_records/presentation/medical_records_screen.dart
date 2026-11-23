@@ -29,7 +29,7 @@ class MedicalRecordsScreen extends ConsumerWidget {
           IconButton(
             tooltip: 'Làm mới',
             onPressed: state.isRefreshing ? null : controller.refresh,
-            icon: const Icon(Icons.refresh_rounded),
+            icon: const Icon(Icons.refresh_outlined),
           ),
         ],
       ),
@@ -42,7 +42,12 @@ class MedicalRecordsScreen extends ConsumerWidget {
                   physics: const AlwaysScrollableScrollPhysics(),
                   slivers: [
                     SliverPadding(
-                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 14),
+                      padding: const EdgeInsets.fromLTRB(
+                        AppSpacing.md,
+                        AppSpacing.xs,
+                        AppSpacing.md,
+                        AppSpacing.md,
+                      ),
                       sliver: SliverList.list(
                         children: [
                           AppGradientOverviewCard(
@@ -53,14 +58,14 @@ class MedicalRecordsScreen extends ConsumerWidget {
                                 : 'Dữ liệu được bảo vệ theo tài khoản người khám',
                           ),
                           if (state.error != null) ...[
-                            const SizedBox(height: 14),
+                            const SizedBox(height: AppSpacing.md),
                             AppErrorBanner(
                               error: state.error!,
                               onDismiss: controller.dismissError,
                             ),
                           ],
                           if (state.isRefreshing) ...[
-                            const SizedBox(height: 12),
+                            const SizedBox(height: AppSpacing.sm),
                             const LinearProgressIndicator(minHeight: 2),
                           ],
                         ],
@@ -78,11 +83,16 @@ class MedicalRecordsScreen extends ConsumerWidget {
                       )
                     else
                       SliverPadding(
-                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
+                        padding: const EdgeInsets.fromLTRB(
+                          AppSpacing.md,
+                          0,
+                          AppSpacing.md,
+                          AppSpacing.lg,
+                        ),
                         sliver: SliverList.separated(
                           itemCount: state.items.length,
                           separatorBuilder: (_, _) =>
-                              const SizedBox(height: 12),
+                              const SizedBox(height: AppSpacing.sm),
                           itemBuilder: (context, index) {
                             final record = state.items[index];
                             return _MedicalRecordCard(
@@ -95,7 +105,12 @@ class MedicalRecordsScreen extends ConsumerWidget {
                       ),
                     if (state.hasNextPage)
                       SliverPadding(
-                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
+                        padding: const EdgeInsets.fromLTRB(
+                          AppSpacing.md,
+                          0,
+                          AppSpacing.md,
+                          AppSpacing.xxl,
+                        ),
                         sliver: SliverToBoxAdapter(
                           child: OutlinedButton.icon(
                             onPressed: state.isLoadingMore
@@ -108,7 +123,7 @@ class MedicalRecordsScreen extends ConsumerWidget {
                                       strokeWidth: 2,
                                     ),
                                   )
-                                : const Icon(Icons.expand_more_rounded),
+                                : const Icon(Icons.expand_more_outlined),
                             label: Text(
                               state.isLoadingMore
                                   ? 'Đang tải thêm…'
@@ -136,9 +151,9 @@ class _MedicalRecordCard extends StatelessWidget {
     margin: EdgeInsets.zero,
     child: InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(18),
+      borderRadius: BorderRadius.circular(AppRadius.lg),
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(AppSpacing.md),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -154,21 +169,21 @@ class _MedicalRecordCard extends StatelessWidget {
                   record.recordCode,
                   style: Theme.of(context).textTheme.labelMedium?.copyWith(
                     color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    fontWeight: FontWeight.w700,
+                    fontWeight: AppFontWeight.strong,
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 14),
+            const SizedBox(height: AppSpacing.md),
             Text(
               record.diagnosis ?? 'Kết quả khám đã được công bố',
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
-              style: Theme.of(
-                context,
-              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                fontWeight: AppFontWeight.strong,
+              ),
             ),
-            const SizedBox(height: 5),
+            const SizedBox(height: AppSpacing.xxs),
             Text(
               record.doctorName.isEmpty
                   ? 'Bác sĩ phụ trách'
@@ -178,7 +193,7 @@ class _MedicalRecordCard extends StatelessWidget {
               ),
             ),
             if (record.careUnit.isNotEmpty) ...[
-              const SizedBox(height: 2),
+              const SizedBox(height: AppSpacing.hair),
               Text(
                 record.careUnit,
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
@@ -187,17 +202,17 @@ class _MedicalRecordCard extends StatelessWidget {
               ),
             ],
             if (record.isDependentRecord && record.patientName != null) ...[
-              const SizedBox(height: 7),
+              const SizedBox(height: AppSpacing.xs),
               _CareRecipientLabel(name: record.patientName!),
             ],
-            const SizedBox(height: 14),
+            const SizedBox(height: AppSpacing.md),
             DecoratedBox(
               decoration: BoxDecoration(
                 color: Theme.of(context).colorScheme.primaryContainer,
-                borderRadius: BorderRadius.circular(14),
+                borderRadius: BorderRadius.circular(AppRadius.md),
               ),
               child: Padding(
-                padding: const EdgeInsets.all(12),
+                padding: const EdgeInsets.all(AppSpacing.sm),
                 child: Row(
                   children: [
                     Icon(
@@ -205,24 +220,24 @@ class _MedicalRecordCard extends StatelessWidget {
                       size: 20,
                       color: Theme.of(context).colorScheme.primary,
                     ),
-                    const SizedBox(width: 10),
+                    const SizedBox(width: AppSpacing.sm),
                     Expanded(
                       child: Text(
                         '${formatDateVi(record.appointmentDate)} · ${formatTimeRange(record.startTime, record.endTime)}',
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          fontWeight: FontWeight.w700,
+                          fontWeight: AppFontWeight.strong,
                         ),
                       ),
                     ),
                     if (record.resultFile.available ||
                         record.labResults.isNotEmpty)
                       Icon(
-                        Icons.attach_file_rounded,
+                        Icons.attach_file_outlined,
                         size: 18,
                         color: Theme.of(context).colorScheme.primary,
                       ),
-                    const SizedBox(width: 4),
-                    const Icon(Icons.chevron_right_rounded),
+                    const SizedBox(width: AppSpacing.xxs),
+                    const Icon(Icons.chevron_right_outlined),
                   ],
                 ),
               ),
@@ -247,13 +262,13 @@ class _CareRecipientLabel extends StatelessWidget {
         size: 17,
         color: Theme.of(context).colorScheme.primary,
       ),
-      const SizedBox(width: 6),
+      const SizedBox(width: AppSpacing.xs),
       Expanded(
         child: Text(
           'Người khám: $name',
           style: Theme.of(
             context,
-          ).textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w700),
+          ).textTheme.labelMedium?.copyWith(fontWeight: AppFontWeight.strong),
         ),
       ),
     ],
@@ -265,9 +280,9 @@ class _MedicalRecordsLoading extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => ListView.separated(
-    padding: const EdgeInsets.all(16),
+    padding: const EdgeInsets.all(AppSpacing.md),
     itemCount: 4,
-    separatorBuilder: (_, _) => const SizedBox(height: 12),
+    separatorBuilder: (_, _) => const SizedBox(height: AppSpacing.sm),
     itemBuilder: (_, index) =>
         AppLoadingSkeleton(height: index == 0 ? 112 : 210),
   );

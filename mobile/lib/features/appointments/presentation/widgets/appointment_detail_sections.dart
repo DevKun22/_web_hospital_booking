@@ -55,7 +55,7 @@ class AppointmentStatusHeader extends StatelessWidget {
                   appointment.status.label,
                   style: text.titleSmall?.copyWith(color: foreground),
                 ),
-                const SizedBox(height: 2),
+                const SizedBox(height: AppSpacing.hair),
                 Text(
                   appointment.status.guidance,
                   style: text.bodySmall?.copyWith(color: colors.ink),
@@ -82,7 +82,7 @@ class AppointmentInformationCard extends StatelessWidget {
       _DetailRow(
         icon: appointment.isDependentBooking
             ? Icons.family_restroom_outlined
-            : Icons.person_outline_rounded,
+            : Icons.person_outline_outlined,
         label: 'Người đến khám',
         value: appointment.patientName.isEmpty
             ? 'Đang cập nhật'
@@ -165,7 +165,7 @@ class AppointmentPriceInformation extends StatelessWidget {
         value: formatVnd(appointment.finalAmount),
         emphasized: true,
       ),
-      const SizedBox(height: 6),
+      const SizedBox(height: AppSpacing.xs),
       Text(
         'Số tiền có thể thay đổi theo chỉ định thực tế tại cơ sở khám.',
         style: Theme.of(context).textTheme.bodySmall?.copyWith(
@@ -192,23 +192,23 @@ class AppointmentInfoCard extends StatelessWidget {
   Widget build(BuildContext context) => Card(
     margin: EdgeInsets.zero,
     child: Padding(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(AppSpacing.md),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
               Icon(icon, color: Theme.of(context).colorScheme.primary),
-              const SizedBox(width: 10),
+              const SizedBox(width: AppSpacing.sm),
               Text(
                 title,
-                style: Theme.of(
-                  context,
-                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  fontWeight: AppFontWeight.strong,
+                ),
               ),
             ],
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: AppSpacing.md),
           ...children,
         ],
       ),
@@ -240,7 +240,7 @@ class _DetailRow extends StatelessWidget {
             size: 20,
             color: Theme.of(context).colorScheme.onSurfaceVariant,
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: AppSpacing.sm),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -251,7 +251,7 @@ class _DetailRow extends StatelessWidget {
                     color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
                 ),
-                const SizedBox(height: 2),
+                const SizedBox(height: AppSpacing.hair),
                 Text(value, style: Theme.of(context).textTheme.bodyMedium),
               ],
             ),
@@ -259,9 +259,9 @@ class _DetailRow extends StatelessWidget {
         ],
       ),
       if (showDivider) ...[
-        const SizedBox(height: 8),
+        const SizedBox(height: AppSpacing.xs),
         const Divider(height: 1),
-        const SizedBox(height: 8),
+        const SizedBox(height: AppSpacing.xs),
       ],
     ],
   );
@@ -280,7 +280,7 @@ class _PriceRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.only(bottom: 10),
+    padding: const EdgeInsets.only(bottom: AppSpacing.sm),
     child: Row(
       children: [
         Expanded(child: Text(label)),
@@ -288,7 +288,9 @@ class _PriceRow extends StatelessWidget {
           value,
           style: Theme.of(context).textTheme.bodyLarge?.copyWith(
             color: emphasized ? Theme.of(context).colorScheme.primary : null,
-            fontWeight: emphasized ? FontWeight.w800 : FontWeight.w600,
+            fontWeight: emphasized
+                ? AppFontWeight.strong
+                : AppFontWeight.strong,
           ),
         ),
       ],
@@ -301,12 +303,12 @@ class AppointmentDetailLoading extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => ListView(
-    padding: const EdgeInsets.all(16),
+    padding: const EdgeInsets.all(AppSpacing.md),
     children: const [
       AppLoadingSkeleton(height: 140),
-      SizedBox(height: 14),
+      SizedBox(height: AppSpacing.md),
       AppLoadingSkeleton(height: 330),
-      SizedBox(height: 14),
+      SizedBox(height: AppSpacing.md),
       AppLoadingSkeleton(height: 180),
     ],
   );
@@ -325,7 +327,7 @@ class AppointmentDetailError extends StatelessWidget {
   @override
   Widget build(BuildContext context) => ListView(
     physics: const AlwaysScrollableScrollPhysics(),
-    padding: const EdgeInsets.all(20),
+    padding: const EdgeInsets.all(AppSpacing.lg),
     children: [
       AppEmptyState(
         icon: Icons.event_busy_outlined,
@@ -333,7 +335,7 @@ class AppointmentDetailError extends StatelessWidget {
         message: error.message,
         action: FilledButton.icon(
           onPressed: onRetry,
-          icon: const Icon(Icons.refresh_rounded),
+          icon: const Icon(Icons.refresh_outlined),
           label: const Text('Thử lại'),
         ),
       ),

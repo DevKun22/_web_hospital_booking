@@ -49,7 +49,7 @@ void main() {
     });
 
     test('chế độ ${entry.key}: mọi cặp ô phân loại đọc được', () {
-      for (final pair in entry.value.tintPairs) {
+      for (final pair in AppZone.values.map(entry.value.zone)) {
         expect(
           _contrast(pair.foreground, pair.background),
           greaterThanOrEqualTo(4.5),

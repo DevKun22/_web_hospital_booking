@@ -122,7 +122,12 @@ class ProfilePersonalScreen extends ConsumerWidget {
         ],
       ),
       Padding(
-        padding: const EdgeInsets.fromLTRB(4, AppSpacing.md, 4, 0),
+        padding: const EdgeInsets.fromLTRB(
+          AppSpacing.xxs,
+          AppSpacing.md,
+          AppSpacing.xxs,
+          0,
+        ),
         child: Text(
           'Chạm vào một dòng để sửa riêng dòng đó. Sửa xong là lưu ngay.',
           style: Theme.of(

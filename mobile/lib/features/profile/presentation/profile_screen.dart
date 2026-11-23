@@ -33,9 +33,9 @@ class ProfileScreen extends ConsumerWidget {
                 child: ListView(
                   physics: const AlwaysScrollableScrollPhysics(),
                   padding: const EdgeInsets.fromLTRB(
-                    16,
-                    8,
-                    16,
+                    AppSpacing.md,
+                    AppSpacing.xs,
+                    AppSpacing.md,
                     appMainContentBottomInset,
                   ),
                   children: [
@@ -44,7 +44,7 @@ class ProfileScreen extends ConsumerWidget {
                         error: state.error!,
                         onDismiss: controller.dismissError,
                       ),
-                      const SizedBox(height: 14),
+                      const SizedBox(height: AppSpacing.md),
                     ],
                     if (state.profile == null)
                       AppEmptyState(
@@ -54,14 +54,15 @@ class ProfileScreen extends ConsumerWidget {
                             'Kiểm tra kết nối mạng rồi thử đồng bộ lại hồ sơ người khám.',
                         action: FilledButton.icon(
                           onPressed: controller.refresh,
-                          icon: const Icon(Icons.refresh_rounded),
+                          icon: const Icon(Icons.refresh_outlined),
                           label: const Text('Thử lại'),
                         ),
                       )
                     else ...[
                       if (state.isRefreshing)
                         const LinearProgressIndicator(minHeight: 2),
-                      if (state.isRefreshing) const SizedBox(height: 12),
+                      if (state.isRefreshing)
+                        const SizedBox(height: AppSpacing.sm),
                       ProfileHeader(
                         profile: state.profile!,
                         onComplete: () => context.push('/profile/personal'),
@@ -86,7 +87,7 @@ class ProfileScreen extends ConsumerWidget {
                               dimension: 20,
                               child: CircularProgressIndicator(strokeWidth: 2),
                             )
-                          : const Icon(Icons.logout),
+                          : const Icon(Icons.logout_outlined),
                       label: Text(
                         isLoggingOut
                             ? 'Đang đăng xuất…'
@@ -158,7 +159,7 @@ class ProfileScreen extends ConsumerWidget {
   ) => showDialog<bool>(
     context: context,
     builder: (dialogContext) => AlertDialog(
-      icon: const Icon(Icons.logout_rounded),
+      icon: const Icon(Icons.logout_outlined),
       title: const Text('Đăng xuất khỏi thiết bị?'),
       content: const Text(
         'Bạn sẽ cần xác thực OTP khi đăng nhập lại. Các lịch khám đã đặt trên hệ thống không bị xóa.',
@@ -182,7 +183,7 @@ class ProfileScreen extends ConsumerWidget {
   }) => showDialog<bool>(
     context: context,
     builder: (dialogContext) => AlertDialog(
-      icon: const Icon(Icons.warning_amber_rounded),
+      icon: const Icon(Icons.warning_amber_outlined),
       title: const Text('Bạn còn lịch chờ xác thực'),
       content: Text(
         'Lịch $bookingCode vẫn đang được giữ và chờ OTP. Nếu tiếp tục đăng xuất, ứng dụng sẽ hủy giữ lịch trên máy chủ và giải phóng khung giờ ngay.',

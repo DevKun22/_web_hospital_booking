@@ -1,3 +1,4 @@
+import 'package:hospital_booking_mobile/core/widgets/app_filter_tabs.dart';
 import 'package:flutter/material.dart';
 import 'package:hospital_booking_mobile/core/design/app_colors.dart';
 import 'package:hospital_booking_mobile/core/design/app_design_tokens.dart';
@@ -139,14 +140,14 @@ class _DoctorPickerState extends State<_DoctorPicker> {
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: AppSpacing.page),
               children: [
-                _FilterChip(
+                AppFilterChip(
                   key: _chipKeys[0],
                   label: 'Tất cả',
                   selected: _departmentId == null,
                   onTap: () => _selectChip(0),
                 ),
                 for (var i = 0; i < widget.departments.length; i += 1)
-                  _FilterChip(
+                  AppFilterChip(
                     key: _chipKeys[i + 1],
                     label: widget.departments[i].name,
                     selected: _departmentId == widget.departments[i].id,
@@ -189,61 +190,6 @@ class _DoctorPickerState extends State<_DoctorPicker> {
           ),
         ),
       ],
-    );
-  }
-}
-
-class _FilterChip extends StatelessWidget {
-  const _FilterChip({
-    super.key,
-    required this.label,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.colors;
-    return Padding(
-      padding: const EdgeInsets.only(right: AppSpacing.xs),
-      child: Center(
-        child: Semantics(
-          button: true,
-          selected: selected,
-          label: label,
-          child: ExcludeSemantics(
-            child: Material(
-              color: selected ? colors.primary : colors.surface,
-              shape: StadiumBorder(
-                side: BorderSide(
-                  color: selected ? colors.primary : colors.border,
-                ),
-              ),
-              child: InkWell(
-                onTap: onTap,
-                customBorder: const StadiumBorder(),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 8,
-                  ),
-                  child: Text(
-                    label,
-                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                      color: selected ? colors.onPrimary : colors.ink,
-                      fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
     );
   }
 }
@@ -296,14 +242,14 @@ class _DoctorTile extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                       style: text.titleSmall,
                     ),
-                    const SizedBox(height: 2),
+                    const SizedBox(height: AppSpacing.hair),
                     Text(
                       subtitle,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: text.bodySmall?.copyWith(color: colors.muted),
                     ),
-                    const SizedBox(height: 6),
+                    const SizedBox(height: AppSpacing.xs),
                     Wrap(
                       spacing: AppSpacing.xs,
                       runSpacing: 4,
@@ -325,7 +271,7 @@ class _DoctorTile extends StatelessWidget {
                 ),
               ),
               if (selected)
-                Icon(Icons.check_circle_rounded, color: colors.primary),
+                Icon(Icons.check_circle_outlined, color: colors.primary),
             ],
           ),
         ),
@@ -367,7 +313,7 @@ class BookingDoctorAvatar extends StatelessWidget {
               initial,
               style: Theme.of(context).textTheme.titleSmall?.copyWith(
                 color: colors.primaryDark,
-                fontWeight: FontWeight.w600,
+                fontWeight: AppFontWeight.strong,
               ),
             ),
     );

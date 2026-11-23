@@ -1,3 +1,4 @@
+import 'package:hospital_booking_mobile/core/design/app_design_tokens.dart';
 import 'package:flutter/material.dart';
 
 enum BookingPatientType { self, relative }
@@ -22,23 +23,23 @@ class BookingPatientTypeSelector extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     return Container(
-      padding: const EdgeInsets.all(4),
+      padding: const EdgeInsets.all(AppSpacing.xxs),
       decoration: BoxDecoration(
         color: colors.secondaryContainer.withValues(alpha: 0.55),
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(AppRadius.md),
       ),
       child: Row(
         children: [
           Expanded(
             child: _PatientTypeOption(
               key: const Key('booking-patient-type-self'),
-              icon: Icons.person_outline_rounded,
+              icon: Icons.person_outline_outlined,
               label: 'Đặt cho bản thân',
               selected: selected == BookingPatientType.self,
               onTap: () => onChanged(BookingPatientType.self),
             ),
           ),
-          const SizedBox(width: 4),
+          const SizedBox(width: AppSpacing.xxs),
           Expanded(
             child: _PatientTypeOption(
               key: const Key('booking-patient-type-relative'),
@@ -87,16 +88,19 @@ class _PatientTypeOption extends StatelessWidget {
 
     return Material(
       color: selected ? colors.surface : Colors.transparent,
-      borderRadius: BorderRadius.circular(11),
+      borderRadius: BorderRadius.circular(AppRadius.sm),
       elevation: selected ? 1 : 0,
       shadowColor: colors.shadow.withValues(alpha: 0.08),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(11),
+        borderRadius: BorderRadius.circular(AppRadius.sm),
         child: ConstrainedBox(
           constraints: const BoxConstraints(minHeight: 52),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.xs,
+              vertical: AppSpacing.xs,
+            ),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
@@ -104,7 +108,7 @@ class _PatientTypeOption extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Icon(icon, size: 18, color: foreground),
-                    const SizedBox(width: 6),
+                    const SizedBox(width: AppSpacing.xs),
                     Flexible(
                       child: Text(
                         label,
@@ -114,30 +118,29 @@ class _PatientTypeOption extends StatelessWidget {
                             ?.copyWith(
                               color: foreground,
                               fontWeight: selected
-                                  ? FontWeight.w700
-                                  : FontWeight.w600,
+                                  ? AppFontWeight.strong
+                                  : AppFontWeight.strong,
                             ),
                       ),
                     ),
                   ],
                 ),
                 if (badge != null) ...[
-                  const SizedBox(height: 3),
+                  const SizedBox(height: AppSpacing.xxs),
                   Container(
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 5,
-                      vertical: 2,
+                      horizontal: AppSpacing.xxs,
+                      vertical: AppSpacing.hair,
                     ),
                     decoration: BoxDecoration(
                       color: colors.tertiaryContainer,
-                      borderRadius: BorderRadius.circular(999),
+                      borderRadius: BorderRadius.circular(AppRadius.pill),
                     ),
                     child: Text(
                       badge!,
                       style: Theme.of(context).textTheme.labelSmall?.copyWith(
                         color: colors.onTertiaryContainer,
-                        fontSize: 9,
-                        fontWeight: FontWeight.w700,
+                        fontWeight: AppFontWeight.strong,
                       ),
                     ),
                   ),

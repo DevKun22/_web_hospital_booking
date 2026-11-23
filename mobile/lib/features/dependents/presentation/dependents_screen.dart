@@ -1,3 +1,4 @@
+import 'package:hospital_booking_mobile/core/widgets/app_zone.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -36,9 +37,9 @@ class DependentsScreen extends ConsumerWidget {
           child: ListView(
             physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.fromLTRB(
-              16,
-              12,
-              16,
+              AppSpacing.md,
+              AppSpacing.sm,
+              AppSpacing.md,
               appMainContentBottomInset,
             ),
             children: [
@@ -47,7 +48,7 @@ class DependentsScreen extends ConsumerWidget {
                   error: state.error!,
                   onDismiss: controller.dismissError,
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: AppSpacing.sm),
               ],
               if (state.isLoading && state.items.isEmpty)
                 const Padding(
@@ -73,16 +74,16 @@ class DependentsScreen extends ConsumerWidget {
                     color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: AppSpacing.sm),
                 for (var i = 0; i < state.items.length; i += 1) ...[
                   _DependentCard(
                     dependent: state.items[i],
-                    tint: context.colors.tintPairs[(i + 4) % 6],
+                    tint: context.colors.zoneAt(i + 4),
                     disabled: state.isSaving,
                     onOpen: () =>
                         context.push('/dependents/${state.items[i].id}'),
                   ),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: AppSpacing.sm),
                 ],
               ],
             ],
@@ -146,16 +147,18 @@ class _DependentCard extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                       style: text.titleSmall,
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: AppSpacing.xxs),
                     Wrap(
                       spacing: AppSpacing.xs,
                       runSpacing: 4,
                       crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
-                        _Chip(
+                        AppPill(
                           label: dependent.relationship.label,
-                          background: tint.background,
-                          foreground: tint.foreground,
+                          tint: (
+                            background: tint.background,
+                            foreground: tint.foreground,
+                          ),
                         ),
                         if (dependent.dateOfBirth != null)
                           Text(
@@ -165,51 +168,23 @@ class _DependentCard extends StatelessWidget {
                             ),
                           ),
                         if (dependent.hasBhyt)
-                          _Chip(
+                          AppPill(
                             label: 'Có BHYT',
-                            background: colors.infoContainer,
-                            foreground: colors.info,
+                            tint: (
+                              background: colors.infoContainer,
+                              foreground: colors.info,
+                            ),
                           ),
                       ],
                     ),
                   ],
                 ),
               ),
-              Icon(Icons.chevron_right_rounded, color: colors.muted),
+              Icon(Icons.chevron_right_outlined, color: colors.muted),
             ],
           ),
         ),
       ),
     );
   }
-}
-
-class _Chip extends StatelessWidget {
-  const _Chip({
-    required this.label,
-    required this.background,
-    required this.foreground,
-  });
-
-  final String label;
-  final Color background;
-  final Color foreground;
-
-  @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-    decoration: BoxDecoration(
-      color: background,
-      borderRadius: BorderRadius.circular(AppRadius.pill),
-    ),
-    child: Text(
-      label,
-      maxLines: 1,
-      overflow: TextOverflow.ellipsis,
-      style: Theme.of(context).textTheme.labelMedium?.copyWith(
-        color: foreground,
-        fontWeight: FontWeight.w500,
-      ),
-    ),
-  );
 }
