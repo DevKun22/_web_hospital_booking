@@ -223,6 +223,20 @@ abstract final class AppTheme {
           side: BorderSide(color: c.divider),
         ),
       ),
+      segmentedButtonTheme: SegmentedButtonThemeData(
+        style: ButtonStyle(
+          backgroundColor: WidgetStateProperty.resolveWith(
+            (states) => states.contains(WidgetState.selected)
+                ? c.primarySoft
+                : c.surface,
+          ),
+          foregroundColor: WidgetStateProperty.resolveWith(
+            (states) =>
+                states.contains(WidgetState.selected) ? c.primaryDark : c.muted,
+          ),
+          side: WidgetStatePropertyAll(BorderSide(color: c.border)),
+        ),
+      ),
       chipTheme: ChipThemeData(
         backgroundColor: c.surface,
         selectedColor: c.primarySoft,
