@@ -5,6 +5,7 @@ import 'package:hospital_booking_mobile/core/design/app_colors.dart';
 import 'package:hospital_booking_mobile/features/invoices/presentation/invoice_status_visuals.dart';
 import 'package:hospital_booking_mobile/core/formatters/display_formatters.dart';
 import 'package:hospital_booking_mobile/core/widgets/app_error_banner.dart';
+import 'package:hospital_booking_mobile/core/widgets/app_filter_tabs.dart';
 import 'package:hospital_booking_mobile/core/widgets/app_ui.dart';
 import 'package:hospital_booking_mobile/features/invoices/application/invoices_controller.dart';
 import 'package:hospital_booking_mobile/features/invoices/domain/patient_invoice.dart';
@@ -66,122 +67,129 @@ class _InvoicesScreenState extends ConsumerState<InvoicesScreen> {
           ),
         ],
       ),
-      body: SafeArea(
-        child: state.isInitialLoading && !state.hasItems
-            ? const _InvoicesLoading()
-            : RefreshIndicator(
-                onRefresh: controller.refresh,
-                child: CustomScrollView(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  slivers: [
-                    SliverPadding(
-                      padding: const EdgeInsets.fromLTRB(
-                        AppSpacing.page,
-                        AppSpacing.xs,
-                        AppSpacing.page,
-                        AppSpacing.sm,
-                      ),
-                      sliver: SliverList.list(
-                        children: [
-                          _DueSummary(unpaid: unpaid),
-                          const SizedBox(height: AppSpacing.sm),
-                          _FilterBar(
-                            selected: filter,
-                            onChanged: (value) =>
-                                setState(() => _filter = value),
-                          ),
-                          if (state.error != null) ...[
+      body: AppSwipeTabs<_InvoiceFilter>(
+        items: _InvoiceFilter.values,
+        selected: filter,
+        onChanged: (value) => setState(() => _filter = value),
+        child: SafeArea(
+          child: state.isInitialLoading && !state.hasItems
+              ? const _InvoicesLoading()
+              : RefreshIndicator(
+                  onRefresh: controller.refresh,
+                  child: CustomScrollView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    slivers: [
+                      SliverPadding(
+                        padding: const EdgeInsets.fromLTRB(
+                          AppSpacing.page,
+                          AppSpacing.xs,
+                          AppSpacing.page,
+                          AppSpacing.sm,
+                        ),
+                        sliver: SliverList.list(
+                          children: [
+                            _DueSummary(unpaid: unpaid),
                             const SizedBox(height: AppSpacing.sm),
-                            AppErrorBanner(
-                              error: state.error!,
-                              onDismiss: controller.dismissError,
+                            AppFilterTabs<_InvoiceFilter>(
+                              items: _InvoiceFilter.values,
+                              selected: filter,
+                              labelOf: (item) => item.label,
+                              onChanged: (value) =>
+                                  setState(() => _filter = value),
                             ),
-                          ],
-                          if (state.isRefreshing) ...[
-                            const SizedBox(height: AppSpacing.xs),
-                            const LinearProgressIndicator(minHeight: 2),
-                          ],
-                        ],
-                      ),
-                    ),
-                    if (!state.hasItems)
-                      const SliverFillRemaining(
-                        hasScrollBody: false,
-                        child: AppEmptyState(
-                          icon: Icons.receipt_long_outlined,
-                          title: 'Chưa có hóa đơn',
-                          message:
-                              'Hóa đơn sẽ xuất hiện sau khi cơ sở khám hoàn tất chi phí khám.',
-                        ),
-                      )
-                    else if (visible.isEmpty)
-                      SliverToBoxAdapter(
-                        child: Padding(
-                          padding: const EdgeInsets.all(AppSpacing.xl),
-                          child: Text(
-                            filter == _InvoiceFilter.due
-                                ? 'Bạn không có hóa đơn nào cần thanh toán.'
-                                : 'Chưa có hóa đơn nào ở mục này.',
-                            textAlign: TextAlign.center,
-                            style: Theme.of(context).textTheme.bodyMedium
-                                ?.copyWith(color: context.colors.muted),
-                          ),
-                        ),
-                      )
-                    else
-                      SliverPadding(
-                        padding: const EdgeInsets.fromLTRB(
-                          AppSpacing.page,
-                          0,
-                          AppSpacing.page,
-                          AppSpacing.md,
-                        ),
-                        sliver: SliverList.separated(
-                          itemCount: visible.length,
-                          separatorBuilder: (_, _) =>
+                            if (state.error != null) ...[
                               const SizedBox(height: AppSpacing.sm),
-                          itemBuilder: (context, index) {
-                            final invoice = visible[index];
-                            return _InvoiceCard(
-                              invoice: invoice,
-                              onTap: () =>
-                                  context.push('/invoices/${invoice.id}'),
-                            );
-                          },
+                              AppErrorBanner(
+                                error: state.error!,
+                                onDismiss: controller.dismissError,
+                              ),
+                            ],
+                            if (state.isRefreshing) ...[
+                              const SizedBox(height: AppSpacing.xs),
+                              const LinearProgressIndicator(minHeight: 2),
+                            ],
+                          ],
                         ),
                       ),
-                    if (state.hasNextPage)
-                      SliverPadding(
-                        padding: const EdgeInsets.fromLTRB(
-                          AppSpacing.page,
-                          0,
-                          AppSpacing.page,
-                          AppSpacing.xxl,
+                      if (!state.hasItems)
+                        const SliverFillRemaining(
+                          hasScrollBody: false,
+                          child: AppEmptyState(
+                            icon: Icons.receipt_long_outlined,
+                            title: 'Chưa có hóa đơn',
+                            message:
+                                'Hóa đơn sẽ xuất hiện sau khi cơ sở khám hoàn tất chi phí khám.',
+                          ),
+                        )
+                      else if (visible.isEmpty)
+                        SliverToBoxAdapter(
+                          child: Padding(
+                            padding: const EdgeInsets.all(AppSpacing.xl),
+                            child: Text(
+                              filter == _InvoiceFilter.due
+                                  ? 'Bạn không có hóa đơn nào cần thanh toán.'
+                                  : 'Chưa có hóa đơn nào ở mục này.',
+                              textAlign: TextAlign.center,
+                              style: Theme.of(context).textTheme.bodyMedium
+                                  ?.copyWith(color: context.colors.muted),
+                            ),
+                          ),
+                        )
+                      else
+                        SliverPadding(
+                          padding: const EdgeInsets.fromLTRB(
+                            AppSpacing.page,
+                            0,
+                            AppSpacing.page,
+                            AppSpacing.md,
+                          ),
+                          sliver: SliverList.separated(
+                            itemCount: visible.length,
+                            separatorBuilder: (_, _) =>
+                                const SizedBox(height: AppSpacing.sm),
+                            itemBuilder: (context, index) {
+                              final invoice = visible[index];
+                              return _InvoiceCard(
+                                invoice: invoice,
+                                onTap: () =>
+                                    context.push('/invoices/${invoice.id}'),
+                              );
+                            },
+                          ),
                         ),
-                        sliver: SliverToBoxAdapter(
-                          child: OutlinedButton.icon(
-                            onPressed: state.isLoadingMore
-                                ? null
-                                : controller.loadMore,
-                            icon: state.isLoadingMore
-                                ? const SizedBox.square(
-                                    dimension: 18,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                    ),
-                                  )
-                                : const Icon(Icons.expand_more_rounded),
-                            label: Text(
-                              state.isLoadingMore
-                                  ? 'Đang tải thêm…'
-                                  : 'Xem thêm hóa đơn',
+                      if (state.hasNextPage)
+                        SliverPadding(
+                          padding: const EdgeInsets.fromLTRB(
+                            AppSpacing.page,
+                            0,
+                            AppSpacing.page,
+                            AppSpacing.xxl,
+                          ),
+                          sliver: SliverToBoxAdapter(
+                            child: OutlinedButton.icon(
+                              onPressed: state.isLoadingMore
+                                  ? null
+                                  : controller.loadMore,
+                              icon: state.isLoadingMore
+                                  ? const SizedBox.square(
+                                      dimension: 18,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
+                                    )
+                                  : const Icon(Icons.expand_more_rounded),
+                              label: Text(
+                                state.isLoadingMore
+                                    ? 'Đang tải thêm…'
+                                    : 'Xem thêm hóa đơn',
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
+        ),
       ),
     );
   }
@@ -250,68 +258,6 @@ class _DueSummary extends StatelessWidget {
   }
 }
 
-class _FilterBar extends StatelessWidget {
-  const _FilterBar({required this.selected, required this.onChanged});
-
-  final _InvoiceFilter selected;
-  final ValueChanged<_InvoiceFilter> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.colors;
-    return Container(
-      padding: const EdgeInsets.all(3),
-      decoration: BoxDecoration(
-        color: colors.primarySoft,
-        borderRadius: BorderRadius.circular(AppRadius.md),
-      ),
-      child: Row(
-        children: [
-          for (final filter in _InvoiceFilter.values)
-            Expanded(
-              child: Semantics(
-                button: true,
-                selected: filter == selected,
-                label: filter.label,
-                child: ExcludeSemantics(
-                  child: GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onTap: () => onChanged(filter),
-                    child: AnimatedContainer(
-                      duration: AppMotion.responsive(context, AppMotion.fast),
-                      padding: const EdgeInsets.symmetric(vertical: 9),
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        color: filter == selected
-                            ? colors.surface
-                            : Colors.transparent,
-                        borderRadius: BorderRadius.circular(AppRadius.sm),
-                      ),
-                      child: Text(
-                        filter.label,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.labelMedium
-                            ?.copyWith(
-                              color: filter == selected
-                                  ? colors.primaryDark
-                                  : colors.muted,
-                              fontWeight: filter == selected
-                                  ? FontWeight.w600
-                                  : FontWeight.w500,
-                            ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-}
-
 class _InvoiceCard extends StatelessWidget {
   const _InvoiceCard({required this.invoice, required this.onTap});
 
@@ -354,9 +300,11 @@ class _InvoiceCard extends StatelessWidget {
                       style: text.labelMedium?.copyWith(color: colors.muted),
                     ),
                   ),
-                  AppStatusBadge(
-                    label: invoice.status.label,
-                    tone: invoice.status.tone,
+                  Flexible(
+                    child: AppStatusBadge(
+                      label: invoice.status.label,
+                      tone: invoice.status.tone,
+                    ),
                   ),
                 ],
               ),

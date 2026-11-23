@@ -66,6 +66,10 @@ class AppointmentDetailScreen extends ConsumerWidget {
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
               children: [
                 AppointmentStatusHeader(appointment: appointment),
+                if (_supportsVisitActions(appointment.status)) ...[
+                  const SizedBox(height: 12),
+                  AppointmentVisitActions(appointment: appointment),
+                ],
                 if (notificationType != null) ...[
                   const SizedBox(height: 14),
                   AppointmentNotificationHistoryNotice(
@@ -81,10 +85,6 @@ class AppointmentDetailScreen extends ConsumerWidget {
                         .read(appointmentsControllerProvider.notifier)
                         .dismissError,
                   ),
-                ],
-                if (_supportsVisitActions(appointment.status)) ...[
-                  const SizedBox(height: 14),
-                  AppointmentVisitActions(appointment: appointment),
                 ],
                 const SizedBox(height: 14),
                 AppointmentJourneyTimeline(status: appointment.status),

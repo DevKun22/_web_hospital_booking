@@ -142,7 +142,6 @@ void main() {
         findsOneWidget,
       );
       expect(find.text('Đã xác nhận'), findsOneWidget);
-      expect(find.text('Hành trình lịch khám'), findsOneWidget);
       expect(find.byKey(const Key('appointment-add-calendar')), findsOneWidget);
       expect(find.byKey(const Key('appointment-show-qr')), findsOneWidget);
 
@@ -151,8 +150,17 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Vé khám QR'), findsWidgets);
-      expect(find.text('HB-1001'), findsOneWidget);
+      expect(find.text('HB-1001'), findsNWidgets(2));
       expect(find.textContaining('Không chia sẻ công khai'), findsOneWidget);
+
+      await tester.tap(find.text('Đóng'));
+      await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(
+        find.text('Hành trình lịch khám'),
+        300,
+        scrollable: find.byType(Scrollable).first,
+      );
+      expect(find.text('Hành trình lịch khám'), findsOneWidget);
     },
   );
 }
