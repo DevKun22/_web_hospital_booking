@@ -1,233 +1,117 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:hospital_booking_mobile/features/notifications/domain/push_permission_status.dart';
-import 'package:hospital_booking_mobile/core/widgets/app_ui.dart';
-import 'package:hospital_booking_mobile/features/notifications/application/push_notifications_controller.dart';
 import 'package:hospital_booking_mobile/core/design/app_colors.dart';
+import 'package:hospital_booking_mobile/features/notifications/application/push_notifications_controller.dart';
+import 'package:hospital_booking_mobile/features/notifications/domain/push_permission_status.dart';
 
-class ProfilePatientShortcuts extends StatelessWidget {
-  const ProfilePatientShortcuts({super.key});
-
-  @override
-  Widget build(BuildContext context) => Card(
-    margin: EdgeInsets.zero,
-    child: Column(
-      children: [
-        ListTile(
-          key: const Key('profile-medical-records'),
-          leading: const Icon(Icons.folder_shared_outlined),
-          title: const Text('Kết quả khám'),
-          subtitle: const Text('Hồ sơ và kết quả đã được công bố'),
-          trailing: const Icon(Icons.chevron_right_rounded),
-          onTap: () => context.push('/medical-records'),
-        ),
-        const Divider(height: 1),
-        ListTile(
-          key: const Key('profile-prescriptions'),
-          leading: const Icon(Icons.medication_outlined),
-          title: const Text('Đơn thuốc'),
-          subtitle: const Text('Hướng dẫn dùng thuốc sau buổi khám'),
-          trailing: const Icon(Icons.chevron_right_rounded),
-          onTap: () => context.push('/prescriptions'),
-        ),
-        const Divider(height: 1),
-        ListTile(
-          key: const Key('profile-invoices'),
-          leading: const Icon(Icons.receipt_long_outlined),
-          title: const Text('Hóa đơn'),
-          subtitle: const Text('Chi phí và trạng thái thanh toán'),
-          trailing: const Icon(Icons.chevron_right_rounded),
-          onTap: () => context.push('/invoices'),
-        ),
-        const Divider(height: 1),
-        ListTile(
-          key: const Key('profile-dependents'),
-          leading: const Icon(Icons.family_restroom_outlined),
-          title: const Text('Hồ sơ người thân'),
-          subtitle: const Text('Đặt lịch nhanh cho người thân'),
-          trailing: const Icon(Icons.chevron_right_rounded),
-          onTap: () => context.push('/dependents'),
-        ),
-        const Divider(height: 1),
-        ListTile(
-          key: const Key('profile-mobile-tools'),
-          leading: const Icon(Icons.phone_android_rounded),
-          title: const Text('Thẻ số & bảo mật'),
-          subtitle: const Text('QR người khám và khóa ứng dụng'),
-          trailing: const Icon(Icons.chevron_right_rounded),
-          onTap: () => context.push('/mobile-tools'),
-        ),
-      ],
-    ),
-  );
-}
-
-class ProfileGroupTitle extends StatelessWidget {
-  const ProfileGroupTitle({super.key, required this.title});
-
-  final String title;
-
-  @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.only(left: 4),
-    child: Text(
-      title,
-      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-        color: context.colors.ink,
-        fontWeight: FontWeight.w900,
-      ),
-    ),
-  );
-}
-
-class ProfileAppSupportSection extends StatelessWidget {
-  const ProfileAppSupportSection({super.key, required this.pushState});
+/// Danh sách một khối: mỗi mục một dòng (biểu tượng, tên, chữ phụ bên phải, mũi tên), ngăn bằng đường kẻ mảnh.
+class ProfileMenuList extends StatelessWidget {
+  const ProfileMenuList({
+    super.key,
+    required this.pushState,
+    this.onEditProfile,
+  });
 
   final PushNotificationsState pushState;
+  final VoidCallback? onEditProfile;
 
   @override
-  Widget build(BuildContext context) => Card(
-    margin: EdgeInsets.zero,
-    child: Column(
-      children: [
-        ListTile(
-          key: const Key('profile-notification-settings'),
-          leading: const Icon(Icons.notifications_none_rounded),
-          title: const Text('Thông báo'),
-          subtitle: const Text('Lịch khám, kết quả và hóa đơn'),
-          trailing: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                profileNotificationStatus(pushState),
-                style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                  color: pushState.isAllowed
-                      ? context.colors.primary
-                      : Theme.of(context).colorScheme.onSurfaceVariant,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              const SizedBox(width: 4),
-              const Icon(Icons.chevron_right_rounded),
-            ],
-          ),
-          onTap: () => context.push('/notification-settings'),
-        ),
-        const Divider(height: 1),
-        ListTile(
-          key: const Key('profile-support-center'),
-          leading: const Icon(Icons.support_agent_rounded),
-          title: const Text('Trung tâm hỗ trợ'),
-          subtitle: const Text('Hotline, cấp cứu và câu hỏi thường gặp'),
-          trailing: const Icon(Icons.chevron_right_rounded),
-          onTap: () => context.push('/support'),
-        ),
-      ],
-    ),
-  );
-}
-
-class ProfileSection extends StatelessWidget {
-  const ProfileSection({
-    super.key,
-    required this.title,
-    required this.icon,
-    required this.children,
-  });
-
-  final String title;
-  final IconData icon;
-  final List<Widget> children;
-
-  @override
-  Widget build(BuildContext context) => Card(
-    margin: EdgeInsets.zero,
-    child: Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(icon, color: Theme.of(context).colorScheme.primary),
-              const SizedBox(width: 10),
-              Text(
-                title,
-                style: Theme.of(
-                  context,
-                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          ...children,
-        ],
+  Widget build(BuildContext context) {
+    final items = [
+      _MenuItem(
+        key: const Key('profile-edit-row'),
+        icon: Icons.badge_outlined,
+        title: 'Thông tin cá nhân và BHYT',
+        onTap: onEditProfile,
       ),
-    ),
-  );
-}
-
-class ProfileRow extends StatelessWidget {
-  const ProfileRow({
-    super.key,
-    required this.label,
-    required this.value,
-    this.showDivider = true,
-  });
-
-  final String label;
-  final String? value;
-  final bool showDivider;
-
-  @override
-  Widget build(BuildContext context) => Column(
-    children: [
-      Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
+      _MenuItem(
+        key: const Key('profile-mobile-tools'),
+        icon: Icons.qr_code_2_rounded,
+        title: 'Thẻ số và bảo mật',
+        onTap: () => context.push('/mobile-tools'),
+      ),
+      _MenuItem(
+        key: const Key('profile-notification-settings'),
+        icon: Icons.notifications_none_rounded,
+        title: 'Thông báo',
+        trailingText: profileNotificationStatus(pushState),
+        highlight: pushState.isAllowed,
+        onTap: () => context.push('/notification-settings'),
+      ),
+      _MenuItem(
+        key: const Key('profile-support-center'),
+        icon: Icons.support_agent_rounded,
+        title: 'Trung tâm hỗ trợ',
+        onTap: () => context.push('/support'),
+      ),
+    ];
+    final colors = context.colors;
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(14),
+      child: Material(
+        color: colors.surface,
+        child: Column(
           children: [
-            SizedBox(
-              width: 118,
-              child: Text(
-                label,
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                value?.trim().isNotEmpty == true ? value! : 'Chưa cập nhật',
-                textAlign: TextAlign.right,
-                style: Theme.of(
-                  context,
-                ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
-              ),
-            ),
+            for (var i = 0; i < items.length; i += 1) ...[
+              if (i > 0) Divider(height: 0.5, thickness: 0.5, indent: 52),
+              items[i],
+            ],
           ],
         ),
       ),
-      if (showDivider) const Divider(height: 1),
-    ],
-  );
+    );
+  }
 }
 
-class ProfileLoading extends StatelessWidget {
-  const ProfileLoading({super.key});
+class _MenuItem extends StatelessWidget {
+  const _MenuItem({
+    super.key,
+    required this.icon,
+    required this.title,
+    required this.onTap,
+    this.trailingText,
+    this.highlight = false,
+  });
+
+  final IconData icon;
+  final String title;
+  final VoidCallback? onTap;
+  final String? trailingText;
+  final bool highlight;
 
   @override
-  Widget build(BuildContext context) => ListView(
-    padding: const EdgeInsets.all(16),
-    children: const [
-      AppLoadingSkeleton(height: 150),
-      SizedBox(height: 14),
-      AppLoadingSkeleton(height: 130),
-      SizedBox(height: 14),
-      AppLoadingSkeleton(height: 300),
-    ],
-  );
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    final text = Theme.of(context).textTheme;
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+        child: Row(
+          children: [
+            Icon(icon, size: 22, color: colors.primary),
+            const SizedBox(width: 14),
+            Expanded(child: Text(title, style: text.bodyLarge)),
+            if (trailingText != null) ...[
+              Flexible(
+                child: Text(
+                  trailingText!,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: text.labelMedium?.copyWith(
+                    color: highlight ? colors.primary : colors.muted,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 4),
+            ],
+            Icon(Icons.chevron_right_rounded, color: colors.muted),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 String profileNotificationStatus(PushNotificationsState state) {

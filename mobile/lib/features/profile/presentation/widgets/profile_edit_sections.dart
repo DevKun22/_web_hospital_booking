@@ -36,12 +36,6 @@ class ProfilePersonalSection extends StatelessWidget {
   Widget build(BuildContext context) => Column(
     crossAxisAlignment: CrossAxisAlignment.stretch,
     children: [
-      const ProfileEditSectionHeader(
-        icon: Icons.person_outline,
-        title: 'Thông tin cá nhân',
-        description: 'Số điện thoại đã xác thực không thể thay đổi tại đây.',
-      ),
-      const SizedBox(height: 12),
       TextFormField(
         controller: fullName,
         textInputAction: TextInputAction.next,
@@ -165,13 +159,6 @@ class ProfileInsuranceSection extends StatelessWidget {
   Widget build(BuildContext context) => Column(
     crossAxisAlignment: CrossAxisAlignment.stretch,
     children: [
-      const ProfileEditSectionHeader(
-        icon: Icons.health_and_safety_outlined,
-        title: 'Bảo hiểm y tế',
-        description:
-            'Thông tin này hỗ trợ cơ sở khám chuẩn bị thủ tục tiếp nhận.',
-      ),
-      const SizedBox(height: 10),
       Card(
         margin: EdgeInsets.zero,
         child: SwitchListTile(
@@ -244,13 +231,6 @@ class ProfileHealthSection extends StatelessWidget {
   Widget build(BuildContext context) => Column(
     crossAxisAlignment: CrossAxisAlignment.stretch,
     children: [
-      const ProfileEditSectionHeader(
-        icon: Icons.monitor_heart_outlined,
-        title: 'Thông tin sức khỏe',
-        description:
-            'Chỉ nhập thông tin bạn biết chính xác; đây không thay thế chẩn đoán của bác sĩ.',
-      ),
-      const SizedBox(height: 12),
       TextFormField(
         controller: bloodType,
         maxLength: 10,

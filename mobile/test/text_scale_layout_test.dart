@@ -9,7 +9,11 @@ import 'package:hospital_booking_mobile/features/home/presentation/widgets/home_
 import 'package:hospital_booking_mobile/features/notifications/domain/patient_notification.dart';
 import 'package:hospital_booking_mobile/features/notifications/presentation/widgets/notification_list_widgets.dart';
 import 'package:hospital_booking_mobile/core/widgets/app_filter_tabs.dart';
+import 'package:hospital_booking_mobile/features/notifications/application/push_notifications_controller.dart';
 import 'package:hospital_booking_mobile/features/packages/domain/medical_package.dart';
+import 'package:hospital_booking_mobile/features/profile/domain/patient_profile.dart';
+import 'package:hospital_booking_mobile/features/profile/presentation/widgets/profile_menu_widgets.dart';
+import 'package:hospital_booking_mobile/features/profile/presentation/widgets/profile_summary_widgets.dart';
 
 /// Chặn lỗi thẻ bị bó, chữ tràn hoặc vỡ khi người dùng đặt cỡ chữ hệ thống lớn.
 /// Mỗi màn có thẻ chứa chữ dài phải được dựng ở nhiều cỡ chữ mà không phát sinh lỗi bố cục.
@@ -197,6 +201,41 @@ void main() {
                   isRead: false,
                 ),
                 onTap: () {},
+              ),
+            ],
+          ),
+        ),
+      );
+      await tester.pump();
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('tab Tài khoản không vỡ ở cỡ chữ $scale', (tester) async {
+      tester.view.physicalSize = const Size(360, 900);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      const profile = PatientProfile(
+        id: 'p1',
+        fullName: 'Nguyễn Thị Minh Hoàng Phương Thảo',
+        phone: '0325123346',
+        isEmailVerified: true,
+        hasBhyt: false,
+      );
+      await tester.pumpWidget(
+        _host(
+          scale,
+          ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
+              ProfileHeader(profile: profile, onEdit: () {}),
+              ProfileCompletionBanner(profile: profile, onTap: () {}),
+              const ProfileQuickTiles(),
+              ProfileMenuList(
+                pushState: const PushNotificationsState(
+                  isCheckingPermission: false,
+                ),
+                onEditProfile: () {},
               ),
             ],
           ),

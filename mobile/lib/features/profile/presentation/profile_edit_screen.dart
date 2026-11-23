@@ -40,6 +40,9 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
   _ProfileFormSnapshot? _baseline;
   bool _isHydrating = false;
   bool _allowPop = false;
+
+  /// Mục nào đang mở; chốt một lần khi nạp hồ sơ (mục còn thiếu mở sẵn) để không tự co lại khi đang gõ.
+  final Map<String, bool> _expanded = {};
   bool _discardDialogOpen = false;
 
   @override
@@ -119,49 +122,82 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
                         ),
                         const SizedBox(height: 14),
                       ],
-                      ProfilePersonalSection(
-                        fullName: _fullName,
-                        phone: profile.phone ?? '',
-                        email: _email,
-                        dateOfBirth: _dateOfBirth,
-                        onSelectDateOfBirth: _selectDateOfBirth,
-                        onClearDateOfBirth: () =>
-                            setState(() => _dateOfBirth = null),
-                        gender: _gender,
-                        onGenderChanged: state.isSaving
-                            ? null
-                            : (value) => setState(() => _gender = value),
-                        cccd: _cccd,
-                        address: _address,
-                        isSaving: state.isSaving,
+                      ProfileCollapsibleSection(
+                        title: 'Thông tin cá nhân',
+                        expanded: _expanded['Thông tin cá nhân'] ?? true,
+                        onToggle: () => setState(
+                          () => _expanded['Thông tin cá nhân'] =
+                              !(_expanded['Thông tin cá nhân'] ?? true),
+                        ),
+                        description:
+                            'Còn thiếu ngày sinh, giới tính, CCCD hoặc địa chỉ.',
+                        complete: _personalComplete,
+                        child: ProfilePersonalSection(
+                          fullName: _fullName,
+                          phone: profile.phone ?? '',
+                          email: _email,
+                          dateOfBirth: _dateOfBirth,
+                          onSelectDateOfBirth: _selectDateOfBirth,
+                          onClearDateOfBirth: () =>
+                              setState(() => _dateOfBirth = null),
+                          gender: _gender,
+                          onGenderChanged: state.isSaving
+                              ? null
+                              : (value) => setState(() => _gender = value),
+                          cccd: _cccd,
+                          address: _address,
+                          isSaving: state.isSaving,
+                        ),
                       ),
-                      const SizedBox(height: 22),
-                      ProfileInsuranceSection(
-                        hasBhyt: _hasBhyt,
-                        onHasBhytChanged: state.isSaving
-                            ? null
-                            : (value) => setState(() => _hasBhyt = value),
-                        healthInsuranceCode: _healthInsuranceCode,
-                        registeredHospital: _registeredHospital,
-                        isSaving: state.isSaving,
+                      const SizedBox(height: AppSpacing.sm),
+                      ProfileCollapsibleSection(
+                        title: 'Bảo hiểm y tế',
+                        expanded: _expanded['Bảo hiểm y tế'] ?? true,
+                        onToggle: () => setState(
+                          () => _expanded['Bảo hiểm y tế'] =
+                              !(_expanded['Bảo hiểm y tế'] ?? true),
+                        ),
+                        description:
+                            'Hỗ trợ cơ sở khám chuẩn bị thủ tục tiếp nhận.',
+                        complete: _insuranceComplete,
+                        child: ProfileInsuranceSection(
+                          hasBhyt: _hasBhyt,
+                          onHasBhytChanged: state.isSaving
+                              ? null
+                              : (value) => setState(() => _hasBhyt = value),
+                          healthInsuranceCode: _healthInsuranceCode,
+                          registeredHospital: _registeredHospital,
+                          isSaving: state.isSaving,
+                        ),
                       ),
-                      const SizedBox(height: 22),
-                      ProfileHealthSection(
-                        bloodType: _bloodType,
-                        height: _height,
-                        weight: _weight,
-                        bloodPressure: _bloodPressure,
-                        allergies: _allergies,
-                        medicalHistory: _medicalHistory,
-                        familyHistory: _familyHistory,
-                        askConsent: _hasHealthText && !_hadHealthConsent,
-                        healthConsent: _healthConsent,
-                        onHealthConsentChanged: state.isSaving
-                            ? null
-                            : (value) => setState(
-                                () => _healthConsent = value ?? false,
-                              ),
-                        isSaving: state.isSaving,
+                      const SizedBox(height: AppSpacing.sm),
+                      ProfileCollapsibleSection(
+                        title: 'Thông tin sức khỏe',
+                        expanded: _expanded['Thông tin sức khỏe'] ?? true,
+                        onToggle: () => setState(
+                          () => _expanded['Thông tin sức khỏe'] =
+                              !(_expanded['Thông tin sức khỏe'] ?? true),
+                        ),
+                        description:
+                            'Chỉ nhập điều bạn biết chính xác; không thay thế chẩn đoán của bác sĩ.',
+                        complete: _healthComplete,
+                        child: ProfileHealthSection(
+                          bloodType: _bloodType,
+                          height: _height,
+                          weight: _weight,
+                          bloodPressure: _bloodPressure,
+                          allergies: _allergies,
+                          medicalHistory: _medicalHistory,
+                          familyHistory: _familyHistory,
+                          askConsent: _hasHealthText && !_hadHealthConsent,
+                          healthConsent: _healthConsent,
+                          onHealthConsentChanged: state.isSaving
+                              ? null
+                              : (value) => setState(
+                                  () => _healthConsent = value ?? false,
+                                ),
+                          isSaving: state.isSaving,
+                        ),
                       ),
                       const SizedBox(height: 24),
                       AppPrimaryButton(
@@ -202,8 +238,27 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
     _hadHealthConsent = profile.hasHealthConsent;
     _healthConsent = false;
     _baseline = _snapshot();
+    _expanded
+      ..['Thông tin cá nhân'] = !_personalComplete
+      ..['Bảo hiểm y tế'] = !_insuranceComplete
+      ..['Thông tin sức khỏe'] = !_healthComplete;
     _isHydrating = false;
   }
+
+  bool get _personalComplete =>
+      _fullName.text.trim().isNotEmpty &&
+      _dateOfBirth != null &&
+      _gender != null &&
+      _cccd.text.trim().isNotEmpty &&
+      _address.text.trim().isNotEmpty;
+
+  bool get _insuranceComplete =>
+      !_hasBhyt || _healthInsuranceCode.text.trim().isNotEmpty;
+
+  bool get _healthComplete =>
+      _bloodType.text.trim().isNotEmpty ||
+      _hasHealthText ||
+      _height.text.trim().isNotEmpty;
 
   bool get _hasUnsavedChanges => _baseline != null && _snapshot() != _baseline;
 

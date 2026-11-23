@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:hospital_booking_mobile/core/design/app_colors.dart';
 import 'package:flutter/services.dart';
 import 'package:hospital_booking_mobile/core/formatters/display_formatters.dart';
 import 'package:hospital_booking_mobile/core/widgets/app_ui.dart';
@@ -91,46 +92,101 @@ class ProfileLongTextField extends StatelessWidget {
   );
 }
 
-class ProfileEditSectionHeader extends StatelessWidget {
-  const ProfileEditSectionHeader({
+/// Mục thu gọn của form hồ sơ: dấu tích xanh khi đủ, cảnh báo vàng khi còn thiếu. Trạng thái mở hoặc thu gọn do màn
+/// chỉnh sửa giữ (nên không mất khi cuộn đi), nội dung vẫn nằm trong cây widget khi thu gọn để form kiểm tra đủ mọi ô.
+class ProfileCollapsibleSection extends StatelessWidget {
+  const ProfileCollapsibleSection({
     super.key,
-    required this.icon,
     required this.title,
     required this.description,
+    required this.complete,
+    required this.expanded,
+    required this.onToggle,
+    required this.child,
   });
 
-  final IconData icon;
   final String title;
   final String description;
+  final bool complete;
+  final bool expanded;
+  final VoidCallback onToggle;
+  final Widget child;
 
   @override
-  Widget build(BuildContext context) => Row(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      Icon(icon, color: Theme.of(context).colorScheme.primary),
-      const SizedBox(width: 10),
-      Expanded(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              title,
-              style: Theme.of(
-                context,
-              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
-            ),
-            const SizedBox(height: 3),
-            Text(
-              description,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    final text = Theme.of(context).textTheme;
+    return Container(
+      decoration: BoxDecoration(
+        color: colors.surface,
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+        border: Border.all(color: colors.border),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Semantics(
+            button: true,
+            expanded: expanded,
+            label: title,
+            child: InkWell(
+              onTap: onToggle,
+              child: Padding(
+                padding: const EdgeInsets.all(AppSpacing.sm),
+                child: Row(
+                  children: [
+                    Icon(
+                      complete
+                          ? Icons.check_circle_rounded
+                          : Icons.error_outline_rounded,
+                      color: complete ? colors.success : colors.warning,
+                    ),
+                    const SizedBox(width: AppSpacing.sm),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(title, style: text.titleSmall),
+                          Text(
+                            complete ? 'Đã đủ thông tin' : description,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: text.bodySmall?.copyWith(
+                              color: colors.muted,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Icon(
+                      expanded
+                          ? Icons.expand_less_rounded
+                          : Icons.expand_more_rounded,
+                      color: colors.muted,
+                    ),
+                  ],
+                ),
               ),
             ),
-          ],
-        ),
+          ),
+          Visibility(
+            visible: expanded,
+            maintainState: true,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.sm,
+                0,
+                AppSpacing.sm,
+                AppSpacing.sm,
+              ),
+              child: child,
+            ),
+          ),
+        ],
       ),
-    ],
-  );
+    );
+  }
 }
 
 class ProfileEditLoading extends StatelessWidget {

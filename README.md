@@ -6,8 +6,8 @@ Hệ thống đặt lịch khám trực tuyến gồm **website cho bệnh nhân
 
 | Thành phần | Địa chỉ |
 | --- | --- |
-| Website | https://hospital.ngoloi.dev |
-| Dashboard nhân sự | https://hospital.ngoloi.dev/dashboard (đăng nhập bằng tài khoản được cấp) |
+| Website | https://care.ngoloi.dev |
+| Dashboard nhân sự | https://care.ngoloi.dev/dashboard (đăng nhập bằng tài khoản được cấp) |
 | API | https://hospital-api.ngoloi.dev (liveness: `/health`, readiness: `/ready`) |
 
 > API chạy trên gói miễn phí của Render nên có thể mất khoảng 50 giây ở lần gọi đầu sau thời gian không có truy cập.

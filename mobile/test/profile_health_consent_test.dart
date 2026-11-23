@@ -64,6 +64,31 @@ Future<void> _openEditor(
   );
   await tester.tap(find.text('Mở chỉnh sửa'));
   await tester.pumpAndSettle();
+  // Mục đã đủ thông tin được thu gọn sẵn: mở hết để các bài kiểm tra nhập được vào mọi ô.
+  for (final title in const [
+    'Thông tin cá nhân',
+    'Bảo hiểm y tế',
+    'Thông tin sức khỏe',
+  ]) {
+    final label = find.text(title);
+    await tester.scrollUntilVisible(
+      label,
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    final isOpen = find
+        .descendant(
+          of: find.ancestor(of: label, matching: find.byType(InkWell)).first,
+          matching: find.byIcon(Icons.expand_less_rounded),
+        )
+        .evaluate()
+        .isNotEmpty;
+    if (isOpen) continue;
+    await tester.tap(label);
+    await tester.pumpAndSettle();
+  }
+  await tester.drag(find.byType(Scrollable).first, const Offset(0, 3000));
+  await tester.pumpAndSettle();
 }
 
 Future<void> _enterField(WidgetTester tester, String label, String text) async {

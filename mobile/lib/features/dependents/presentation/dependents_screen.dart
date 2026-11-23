@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:hospital_booking_mobile/core/design/app_colors.dart';
 import 'package:hospital_booking_mobile/core/formatters/display_formatters.dart';
 import 'package:hospital_booking_mobile/core/widgets/app_error_banner.dart';
 import 'package:hospital_booking_mobile/core/widgets/app_ui.dart';
@@ -73,13 +74,14 @@ class DependentsScreen extends ConsumerWidget {
                   ),
                 ),
                 const SizedBox(height: 12),
-                for (final dependent in state.items) ...[
+                for (var i = 0; i < state.items.length; i += 1) ...[
                   _DependentCard(
-                    dependent: dependent,
+                    dependent: state.items[i],
+                    tint: context.colors.tintPairs[(i + 4) % 6],
                     disabled: state.isSaving,
                     onEdit: () =>
-                        context.push('/dependents/${dependent.id}/edit'),
-                    onArchive: () => _archive(context, ref, dependent),
+                        context.push('/dependents/${state.items[i].id}/edit'),
+                    onArchive: () => _archive(context, ref, state.items[i]),
                   ),
                   const SizedBox(height: 10),
                 ],
@@ -130,72 +132,128 @@ class DependentsScreen extends ConsumerWidget {
 class _DependentCard extends StatelessWidget {
   const _DependentCard({
     required this.dependent,
+    required this.tint,
     required this.disabled,
     required this.onEdit,
     required this.onArchive,
   });
 
   final DependentProfile dependent;
+  final ({Color background, Color foreground}) tint;
   final bool disabled;
   final VoidCallback onEdit;
   final VoidCallback onArchive;
 
   @override
-  Widget build(BuildContext context) => Card(
-    margin: EdgeInsets.zero,
-    child: Padding(
-      padding: const EdgeInsets.fromLTRB(16, 14, 8, 14),
-      child: Row(
-        children: [
-          CircleAvatar(
-            child: Text(
-              dependent.fullName.isEmpty
-                  ? '?'
-                  : dependent.fullName.substring(0, 1).toUpperCase(),
-            ),
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    final text = Theme.of(context).textTheme;
+    return Material(
+      color: colors.surface,
+      borderRadius: BorderRadius.circular(AppRadius.lg),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+        onTap: disabled ? null : onEdit,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.sm,
+            AppSpacing.sm,
+            AppSpacing.xxs,
+            AppSpacing.sm,
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  dependent.fullName,
-                  style: Theme.of(
-                    context,
-                  ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
+          child: Row(
+            children: [
+              CircleAvatar(
+                radius: 22,
+                backgroundColor: tint.background,
+                child: Text(
+                  dependent.fullName.isEmpty
+                      ? '?'
+                      : dependent.fullName.substring(0, 1).toUpperCase(),
+                  style: text.titleSmall?.copyWith(color: tint.foreground),
                 ),
-                const SizedBox(height: 3),
-                Text(
-                  [
-                    dependent.relationship.label,
-                    if (dependent.dateOfBirth != null)
-                      formatDateVi(dependent.dateOfBirth!),
-                  ].join(' · '),
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      dependent.fullName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: text.titleSmall,
+                    ),
+                    const SizedBox(height: 4),
+                    Wrap(
+                      spacing: AppSpacing.xs,
+                      runSpacing: 4,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        _Chip(
+                          label: dependent.relationship.label,
+                          background: tint.background,
+                          foreground: tint.foreground,
+                        ),
+                        if (dependent.dateOfBirth != null)
+                          Text(
+                            formatDateVi(dependent.dateOfBirth!),
+                            style: text.bodySmall?.copyWith(
+                              color: colors.muted,
+                            ),
+                          ),
+                        if (dependent.hasBhyt)
+                          _Chip(
+                            label: 'Có BHYT',
+                            background: colors.infoContainer,
+                            foreground: colors.info,
+                          ),
+                      ],
+                    ),
+                  ],
                 ),
-                if (dependent.hasBhyt) ...[
-                  const SizedBox(height: 5),
-                  const AppStatusBadge(
-                    label: 'Có BHYT',
-                    tone: AppStatusTone.info,
-                    icon: Icons.health_and_safety_outlined,
-                  ),
+              ),
+              PopupMenuButton<String>(
+                enabled: !disabled,
+                onSelected: (value) => value == 'edit' ? onEdit() : onArchive(),
+                itemBuilder: (_) => const [
+                  PopupMenuItem(value: 'edit', child: Text('Chỉnh sửa')),
+                  PopupMenuItem(value: 'archive', child: Text('Ngừng quản lý')),
                 ],
-              ],
-            ),
-          ),
-          PopupMenuButton<String>(
-            enabled: !disabled,
-            onSelected: (value) => value == 'edit' ? onEdit() : onArchive(),
-            itemBuilder: (_) => const [
-              PopupMenuItem(value: 'edit', child: Text('Chỉnh sửa')),
-              PopupMenuItem(value: 'archive', child: Text('Ngừng quản lý')),
+              ),
             ],
           ),
-        ],
+        ),
+      ),
+    );
+  }
+}
+
+class _Chip extends StatelessWidget {
+  const _Chip({
+    required this.label,
+    required this.background,
+    required this.foreground,
+  });
+
+  final String label;
+  final Color background;
+  final Color foreground;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+    decoration: BoxDecoration(
+      color: background,
+      borderRadius: BorderRadius.circular(AppRadius.pill),
+    ),
+    child: Text(
+      label,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: Theme.of(context).textTheme.labelMedium?.copyWith(
+        color: foreground,
+        fontWeight: FontWeight.w500,
       ),
     ),
   );
