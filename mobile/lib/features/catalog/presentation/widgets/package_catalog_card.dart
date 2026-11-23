@@ -1,157 +1,133 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hospital_booking_mobile/app/navigation/booking_navigation.dart';
+import 'package:hospital_booking_mobile/core/design/app_colors.dart';
 import 'package:hospital_booking_mobile/core/formatters/display_formatters.dart';
 import 'package:hospital_booking_mobile/core/widgets/app_ui.dart';
+import 'package:hospital_booking_mobile/core/widgets/app_zone.dart';
 import 'package:hospital_booking_mobile/features/packages/domain/medical_package.dart';
-import 'package:hospital_booking_mobile/core/design/app_colors.dart';
+import 'package:hospital_booking_mobile/features/catalog/presentation/department_visuals.dart';
 
+/// Thẻ gói khám: ô biểu tượng theo khoa, tên, mô tả một đến hai dòng, nhãn gọn và giá trọn gói làm tiêu điểm.
 class PackageCatalogCard extends StatelessWidget {
   const PackageCatalogCard({required this.item, super.key});
 
   final MedicalPackage item;
 
   @override
-  Widget build(BuildContext context) => Card(
-    margin: EdgeInsets.zero,
-    clipBehavior: Clip.antiAlias,
-    shape: RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(AppRadius.card),
-      side: BorderSide(color: context.colors.border),
-    ),
-    child: InkWell(
-      onTap: item.slug == null
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    final text = Theme.of(context).textTheme;
+    final visual = item.departmentName == null
+        ? (
+            icon: Icons.health_and_safety_outlined,
+            tint: colors.zone(AppZone.primary),
+          )
+        : departmentVisual(context, name: item.departmentName!);
+    final slug = item.slug;
+    return AppSurfaceCard(
+      onTap: slug == null
           ? null
-          : () => context.push('/packages/${Uri.encodeComponent(item.slug!)}'),
-      child: Padding(
-        padding: const EdgeInsets.all(AppSpacing.md),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  width: 48,
-                  height: 48,
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [AppPalette.heroMid, AppPalette.heroCare],
-                    ),
-                    borderRadius: BorderRadius.circular(AppRadius.md),
-                  ),
-                  child: const Icon(
-                    Icons.health_and_safety_outlined,
-                    color: AppPalette.onHero,
-                  ),
-                ),
-                const SizedBox(width: AppSpacing.sm),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Wrap(
-                        spacing: 6,
-                        runSpacing: 5,
-                        children: [
-                          if (item.isPopular)
-                            const AppStatusBadge(
-                              label: 'Được quan tâm',
-                              tone: AppStatusTone.warning,
-                            ),
-                          if (item.isBhytSupport)
-                            const AppStatusBadge(
-                              label: 'Hỗ trợ BHYT',
-                              tone: AppStatusTone.success,
-                            ),
-                        ],
-                      ),
-                      if (item.isPopular || item.isBhytSupport)
-                        const SizedBox(height: AppSpacing.xs),
-                      Text(
-                        item.name,
-                        style: Theme.of(context).textTheme.titleMedium
-                            ?.copyWith(fontWeight: AppFontWeight.strong),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            if (item.summary != null) ...[
-              const SizedBox(height: AppSpacing.sm),
-              Text(
-                item.summary!,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  height: 1.35,
-                ),
+          : () => context.push('/packages/${Uri.encodeComponent(slug)}'),
+      semanticLabel: 'Gói ${item.name}, ${formatVnd(item.finalPrice)}',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              AppIconTile(
+                icon: visual.icon,
+                tint: visual.tint,
+                size: AppTileSize.lg,
               ),
-            ],
-            if (item.departmentName != null) ...[
-              const SizedBox(height: AppSpacing.sm),
-              Row(
-                children: [
-                  Icon(
-                    Icons.local_hospital_outlined,
-                    size: 17,
-                    color: context.colors.primary,
-                  ),
-                  const SizedBox(width: AppSpacing.xs),
-                  Expanded(
-                    child: Text(
-                      item.departmentName!,
-                      style: Theme.of(context).textTheme.labelMedium,
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      item.name,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: text.titleSmall,
                     ),
-                  ),
-                ],
-              ),
-            ],
-            const Divider(height: 26),
-            Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Chi phí dự kiến',
-                        style: Theme.of(context).textTheme.labelSmall,
-                      ),
+                    if (item.summary != null) ...[
                       const SizedBox(height: AppSpacing.hair),
                       Text(
-                        formatVnd(item.finalPrice),
-                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          color: context.colors.primaryDark,
-                          fontWeight: AppFontWeight.strong,
-                        ),
+                        item.summary!,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: text.bodySmall?.copyWith(color: colors.muted),
                       ),
                     ],
-                  ),
+                  ],
                 ),
-                FilledButton(
-                  style: FilledButton.styleFrom(
-                    minimumSize: const Size(116, 46),
-                  ),
-                  onPressed: () => openBookingFromCurrentRoute(
-                    context,
-                    Uri(
-                      path: '/booking',
-                      queryParameters: {
-                        'packageId': item.id,
-                        'departmentId': ?item.departmentId,
-                      },
-                    ).toString(),
-                  ),
-                  child: const Text('Chọn gói'),
-                ),
+              ),
+            ],
+          ),
+          if (item.isPopular || item.isBhytSupport) ...[
+            const SizedBox(height: AppSpacing.sm),
+            Wrap(
+              spacing: AppSpacing.xs,
+              runSpacing: AppSpacing.xxs,
+              children: [
+                if (item.isPopular)
+                  AppPill(label: 'Nổi bật', tint: colors.zone(AppZone.warning)),
+                if (item.isBhytSupport)
+                  AppPill(label: 'Có BHYT', tint: colors.zone(AppZone.success)),
               ],
             ),
           ],
-        ),
+          const SizedBox(height: AppSpacing.sm),
+          DecoratedBox(
+            decoration: BoxDecoration(
+              color: colors.surfaceMuted,
+              borderRadius: BorderRadius.circular(AppRadius.md),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.sm,
+                vertical: AppSpacing.xs,
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Giá trọn gói',
+                          style: text.labelSmall?.copyWith(color: colors.muted),
+                        ),
+                        Text(
+                          formatVnd(item.finalPrice),
+                          style: text.titleMedium?.copyWith(
+                            color: colors.primaryDark,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  FilledButton(
+                    onPressed: () => openBookingFromCurrentRoute(
+                      context,
+                      Uri(
+                        path: '/booking',
+                        queryParameters: {
+                          'packageId': item.id,
+                          'departmentId': ?item.departmentId,
+                        },
+                      ).toString(),
+                    ),
+                    child: const Text('Chọn gói'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
-    ),
-  );
+    );
+  }
 }

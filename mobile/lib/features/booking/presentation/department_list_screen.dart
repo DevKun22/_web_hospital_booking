@@ -1,11 +1,9 @@
+import 'package:hospital_booking_mobile/features/catalog/presentation/widgets/department_tile.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:hospital_booking_mobile/core/widgets/app_error_banner.dart';
 import 'package:hospital_booking_mobile/core/widgets/app_ui.dart';
-import 'package:hospital_booking_mobile/core/widgets/resized_network_image.dart';
 import 'package:hospital_booking_mobile/features/booking/application/booking_flow_controller.dart';
-import 'package:hospital_booking_mobile/core/design/app_colors.dart';
 
 class DepartmentListScreen extends ConsumerStatefulWidget {
   const DepartmentListScreen({super.key});
@@ -101,93 +99,23 @@ class _DepartmentListScreenState extends ConsumerState<DepartmentListScreen> {
                   ),
           )
         else
-          ...departments.map((department) {
-            final doctorCount = state.doctors
-                .where((doctor) => doctor.departmentId == department.id)
-                .length;
-            final imageProvider = resizedNetworkImage(
-              context,
-              department.image,
-              logicalWidth: 62,
-              logicalHeight: 62,
-            );
-            return Padding(
-              padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-              child: Card(
-                margin: EdgeInsets.zero,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(AppRadius.card),
-                  side: BorderSide(color: context.colors.border),
+          DepartmentGrid(
+            children: [
+              for (var i = 0; i < departments.length; i += 1)
+                DepartmentTile(
+                  id: departments[i].id,
+                  name: departments[i].name,
+                  slug: departments[i].slug,
+                  image: departments[i].image,
+                  index: i,
+                  doctorCount: state.doctors
+                      .where(
+                        (doctor) => doctor.departmentId == departments[i].id,
+                      )
+                      .length,
                 ),
-                clipBehavior: Clip.antiAlias,
-                child: InkWell(
-                  onTap: () => context.push(
-                    '/departments/${Uri.encodeComponent(department.id)}',
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(AppSpacing.md),
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 62,
-                          height: 62,
-                          clipBehavior: Clip.antiAlias,
-                          decoration: BoxDecoration(
-                            color: Theme.of(
-                              context,
-                            ).colorScheme.primaryContainer,
-                            borderRadius: BorderRadius.circular(AppRadius.card),
-                          ),
-                          child: imageProvider == null
-                              ? Icon(
-                                  Icons.medical_services_outlined,
-                                  color: context.colors.primary,
-                                  size: 29,
-                                )
-                              : Image(
-                                  image: imageProvider,
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (_, _, _) => Icon(
-                                    Icons.medical_services_outlined,
-                                    color: context.colors.primary,
-                                  ),
-                                ),
-                        ),
-                        const SizedBox(width: AppSpacing.sm),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                department.name,
-                                style: Theme.of(context).textTheme.titleMedium
-                                    ?.copyWith(
-                                      fontWeight: AppFontWeight.strong,
-                                    ),
-                              ),
-                              const SizedBox(height: AppSpacing.xxs),
-                              Text(
-                                doctorCount == 0
-                                    ? 'Xem thông tin chuyên khoa'
-                                    : '$doctorCount bác sĩ đang nhận lịch',
-                                style: Theme.of(context).textTheme.bodySmall
-                                    ?.copyWith(
-                                      color: Theme.of(
-                                        context,
-                                      ).colorScheme.onSurfaceVariant,
-                                    ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const Icon(Icons.chevron_right_outlined),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            );
-          }),
+            ],
+          ),
       ],
     );
   }

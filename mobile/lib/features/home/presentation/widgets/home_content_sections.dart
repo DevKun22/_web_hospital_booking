@@ -1,3 +1,4 @@
+import 'package:hospital_booking_mobile/features/catalog/presentation/department_visuals.dart';
 import 'package:hospital_booking_mobile/core/widgets/app_zone.dart';
 import 'dart:async';
 
@@ -253,11 +254,7 @@ class HomeDepartmentGrid extends StatelessWidget {
         runSpacing: gap,
         children: [
           for (final (index, item) in items.indexed)
-            _DepartmentTile(
-              width: width,
-              item: item,
-              tint: _tint(context, index),
-            ),
+            _DepartmentTile(width: width, item: item, index: index),
         ],
       );
     },
@@ -268,38 +265,46 @@ class _DepartmentTile extends StatelessWidget {
   const _DepartmentTile({
     required this.width,
     required this.item,
-    required this.tint,
+    required this.index,
   });
 
   final double width;
   final CatalogDepartment item;
-  final ({Color background, Color foreground}) tint;
+  final int index;
 
   @override
-  Widget build(BuildContext context) => _StripCard(
-    width: width,
-    onTap: () => context.push('/departments/${Uri.encodeComponent(item.id)}'),
-    child: Row(
-      children: [
-        AppIconTile(
-          icon: Icons.medical_services_outlined,
-          tint: tint,
-          size: AppTileSize.md,
-        ),
-        const SizedBox(width: AppSpacing.sm),
-        Expanded(
-          child: Text(
-            item.name,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: Theme.of(
-              context,
-            ).textTheme.labelLarge?.copyWith(color: context.colors.ink),
+  Widget build(BuildContext context) {
+    final visual = departmentVisual(
+      context,
+      name: item.name,
+      slug: item.slug,
+      index: index,
+    );
+    return _StripCard(
+      width: width,
+      onTap: () => context.push('/departments/${Uri.encodeComponent(item.id)}'),
+      child: Row(
+        children: [
+          AppIconTile(
+            icon: visual.icon,
+            tint: visual.tint,
+            size: AppTileSize.md,
           ),
-        ),
-      ],
-    ),
-  );
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: Text(
+              item.name,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(
+                context,
+              ).textTheme.labelLarge?.copyWith(color: context.colors.ink),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 /// Dải gói khám: ô biểu tượng màu, nhãn nổi bật, tên, mô tả ngắn, nhãn BHYT và giá lớn.
