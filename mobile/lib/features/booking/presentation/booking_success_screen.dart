@@ -1,3 +1,4 @@
+import 'package:hospital_booking_mobile/core/widgets/app_zone.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -72,7 +73,7 @@ class BookingSuccessScreen extends ConsumerWidget {
                       radius: 32,
                       backgroundColor: colors.success,
                       child: Icon(
-                        Icons.check_rounded,
+                        Icons.check_outlined,
                         size: 36,
                         color: colors.surface,
                       ),
@@ -97,7 +98,7 @@ class BookingSuccessScreen extends ConsumerWidget {
                           ? 'CHỜ CƠ SỞ KHÁM XÁC NHẬN'
                           : appointment.status,
                       tone: AppStatusTone.warning,
-                      icon: Icons.hourglass_top_rounded,
+                      icon: Icons.hourglass_top_outlined,
                     ),
                   ],
                 ),
@@ -125,7 +126,7 @@ class BookingSuccessScreen extends ConsumerWidget {
                               color: colors.muted,
                             ),
                           ),
-                          const SizedBox(height: 2),
+                          const SizedBox(height: AppSpacing.hair),
                           SelectableText(
                             appointment.bookingCode,
                             style: text.titleMedium?.copyWith(
@@ -149,7 +150,7 @@ class BookingSuccessScreen extends ConsumerWidget {
                           );
                         }
                       },
-                      icon: const Icon(Icons.copy_rounded, size: 18),
+                      icon: const Icon(Icons.copy_outlined, size: 18),
                       label: const Text('Sao chép'),
                     ),
                   ],
@@ -167,33 +168,33 @@ class BookingSuccessScreen extends ConsumerWidget {
                   children: [
                     _DetailRow(
                       icon: Icons.calendar_month_outlined,
-                      tint: colors.tintPairs[1],
+                      tint: colors.zone(AppZone.primary),
                       label: displayDate(appointment.appointmentDate),
                       value:
                           '${shortTime(appointment.startTime)} – ${shortTime(appointment.endTime)}',
                     ),
                     _DetailRow(
                       icon: Icons.medical_services_outlined,
-                      tint: colors.tintPairs[0],
+                      tint: colors.zone(AppZone.danger),
                       label: appointment.departmentName,
                       value: appointment.doctorName,
                     ),
                     if (appointment.packageName != null)
                       _DetailRow(
                         icon: Icons.health_and_safety_outlined,
-                        tint: colors.tintPairs[3],
+                        tint: colors.zone(AppZone.warning),
                         label: 'Gói khám',
                         value: appointment.packageName!,
                       ),
                     _DetailRow(
-                      icon: Icons.person_outline_rounded,
-                      tint: colors.tintPairs[4],
+                      icon: Icons.person_outline_outlined,
+                      tint: colors.zone(AppZone.care),
                       label: 'Người khám',
                       value: appointment.patientName,
                     ),
                     _DetailRow(
                       icon: Icons.payments_outlined,
-                      tint: colors.tintPairs[5],
+                      tint: colors.zone(AppZone.violet),
                       label: 'Chi phí dự kiến',
                       value: formatVnd(appointment.finalAmount),
                       last: true,
@@ -302,14 +303,11 @@ class _DetailRow extends StatelessWidget {
       padding: EdgeInsets.only(bottom: last ? 0 : AppSpacing.sm),
       child: Row(
         children: [
-          Container(
-            width: 38,
-            height: 38,
-            decoration: BoxDecoration(
-              color: tint.background,
-              shape: BoxShape.circle,
-            ),
-            child: Icon(icon, size: 20, color: tint.foreground),
+          AppIconTile(
+            icon: icon,
+            tint: tint,
+            size: AppTileSize.sm,
+            circle: true,
           ),
           const SizedBox(width: AppSpacing.sm),
           Expanded(

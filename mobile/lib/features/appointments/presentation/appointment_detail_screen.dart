@@ -1,3 +1,4 @@
+import 'package:hospital_booking_mobile/core/design/app_design_tokens.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hospital_booking_mobile/core/errors/api_exception.dart';
@@ -39,7 +40,7 @@ class AppointmentDetailScreen extends ConsumerWidget {
             tooltip: 'Làm mới',
             onPressed: () =>
                 ref.invalidate(appointmentDetailProvider(appointmentId)),
-            icon: const Icon(Icons.refresh_rounded),
+            icon: const Icon(Icons.refresh_outlined),
           ),
         ],
       ),
@@ -63,22 +64,27 @@ class AppointmentDetailScreen extends ConsumerWidget {
             },
             child: ListView(
               physics: const AlwaysScrollableScrollPhysics(),
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.md,
+                AppSpacing.xs,
+                AppSpacing.md,
+                AppSpacing.xxl,
+              ),
               children: [
                 AppointmentStatusHeader(appointment: appointment),
                 if (_supportsVisitActions(appointment.status)) ...[
-                  const SizedBox(height: 12),
+                  const SizedBox(height: AppSpacing.sm),
                   AppointmentVisitActions(appointment: appointment),
                 ],
                 if (notificationType != null) ...[
-                  const SizedBox(height: 14),
+                  const SizedBox(height: AppSpacing.md),
                   AppointmentNotificationHistoryNotice(
                     type: notificationType!,
                     publishedAt: notificationPublishedAt,
                   ),
                 ],
                 if (listState.error != null) ...[
-                  const SizedBox(height: 14),
+                  const SizedBox(height: AppSpacing.md),
                   AppErrorBanner(
                     error: listState.error!,
                     onDismiss: ref
@@ -86,33 +92,33 @@ class AppointmentDetailScreen extends ConsumerWidget {
                         .dismissError,
                   ),
                 ],
-                const SizedBox(height: 14),
+                const SizedBox(height: AppSpacing.md),
                 AppointmentJourneyTimeline(status: appointment.status),
-                const SizedBox(height: 14),
+                const SizedBox(height: AppSpacing.md),
                 AppointmentInformationCard(appointment: appointment),
                 if (userId != null &&
                     AppointmentPreparationCard.supports(
                       appointment.status,
                     )) ...[
-                  const SizedBox(height: 14),
+                  const SizedBox(height: AppSpacing.md),
                   AppointmentPreparationCard(
                     key: ValueKey('preparation-${appointment.id}'),
                     userId: userId,
                     appointment: appointment,
                   ),
                 ],
-                const SizedBox(height: 14),
+                const SizedBox(height: AppSpacing.md),
                 AppointmentPriceInformation(appointment: appointment),
                 if (appointment.reason != null) ...[
-                  const SizedBox(height: 14),
+                  const SizedBox(height: AppSpacing.md),
                   AppointmentInfoCard(
                     title: 'Lý do khám',
-                    icon: Icons.notes_rounded,
+                    icon: Icons.notes_outlined,
                     children: [Text(appointment.reason!)],
                   ),
                 ],
                 if (appointment.cancelledReason != null) ...[
-                  const SizedBox(height: 14),
+                  const SizedBox(height: AppSpacing.md),
                   AppointmentInfoCard(
                     title: 'Thông tin hủy lịch',
                     icon: Icons.cancel_outlined,
@@ -120,7 +126,7 @@ class AppointmentDetailScreen extends ConsumerWidget {
                   ),
                 ],
                 if (appointment.canCancel) ...[
-                  const SizedBox(height: 20),
+                  const SizedBox(height: AppSpacing.lg),
                   OutlinedButton.icon(
                     style: OutlinedButton.styleFrom(
                       foregroundColor: Theme.of(context).colorScheme.error,

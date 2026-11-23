@@ -200,7 +200,7 @@ class _BookingStartScreenState extends ConsumerState<BookingStartScreen> {
             : IconButton(
                 tooltip: 'Quay lại',
                 onPressed: () => context.go(widget.returnTo!),
-                icon: const Icon(Icons.arrow_back_rounded),
+                icon: const Icon(Icons.arrow_back_outlined),
               ),
         title: const Text('Đặt lịch khám'),
         actions: [
@@ -209,7 +209,7 @@ class _BookingStartScreenState extends ConsumerState<BookingStartScreen> {
               onPressed: controller.clearSelection,
               child: const Text('Làm lại'),
             ),
-          const SizedBox(width: 8),
+          const SizedBox(width: AppSpacing.xs),
         ],
       ),
       body: SafeArea(
@@ -217,7 +217,12 @@ class _BookingStartScreenState extends ConsumerState<BookingStartScreen> {
           onRefresh: controller.load,
           child: ListView(
             physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.lg,
+              AppSpacing.xs,
+              AppSpacing.lg,
+              AppSpacing.xxl,
+            ),
             children: [
               BookingJourneyIndicator(
                 currentStep: 0,
@@ -226,36 +231,36 @@ class _BookingStartScreenState extends ConsumerState<BookingStartScreen> {
                     ? 'Hoàn tất'
                     : 'Xác thực',
               ),
-              const SizedBox(height: 14),
+              const SizedBox(height: AppSpacing.md),
               if (submission.pending != null &&
                   submission.status != BookingSubmissionStatus.success) ...[
-                const SizedBox(height: 16),
+                const SizedBox(height: AppSpacing.md),
                 BookingPendingCard(
                   bookingCode: submission.pending!.bookingCode,
                 ),
               ],
               if (state.error != null) ...[
-                const SizedBox(height: 16),
+                const SizedBox(height: AppSpacing.md),
                 AppErrorBanner(
                   error: state.error!,
                   onDismiss: controller.dismissError,
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: AppSpacing.xs),
                 Align(
                   alignment: Alignment.centerLeft,
                   child: TextButton.icon(
                     onPressed: state.selection.date == null
                         ? controller.load
                         : controller.refreshSlots,
-                    icon: const Icon(Icons.refresh_rounded),
+                    icon: const Icon(Icons.refresh_outlined),
                     label: const Text('Thử lại'),
                   ),
                 ),
               ],
-              const SizedBox(height: 22),
+              const SizedBox(height: AppSpacing.lg),
               if (state.isCatalogLoading) ...[
                 const AppLoadingSkeleton(height: 94),
-                const SizedBox(height: 12),
+                const SizedBox(height: AppSpacing.sm),
                 const AppLoadingSkeleton(height: 190),
               ] else if (state.departments.isEmpty) ...[
                 AppEmptyState(
@@ -264,7 +269,7 @@ class _BookingStartScreenState extends ConsumerState<BookingStartScreen> {
                   message: 'Kéo xuống để tải lại danh sách từ cơ sở khám.',
                   action: FilledButton.icon(
                     onPressed: controller.load,
-                    icon: const Icon(Icons.refresh_rounded),
+                    icon: const Icon(Icons.refresh_outlined),
                     label: const Text('Tải lại'),
                   ),
                 ),
@@ -273,7 +278,7 @@ class _BookingStartScreenState extends ConsumerState<BookingStartScreen> {
                   selected: state.selection.serviceMode,
                   onSelected: controller.selectServiceMode,
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: AppSpacing.md),
                 if (isPackageMode) ...[
                   BookingPickRow(
                     key: const ValueKey('booking-pick-package'),
@@ -287,7 +292,7 @@ class _BookingStartScreenState extends ConsumerState<BookingStartScreen> {
                     enabled: state.packages.isNotEmpty,
                     onTap: () => _pickPackage(state),
                   ),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: AppSpacing.sm),
                 ],
                 BookingPickRow(
                   key: const ValueKey('booking-pick-doctor'),
@@ -310,7 +315,7 @@ class _BookingStartScreenState extends ConsumerState<BookingStartScreen> {
                   enabled: !isPackageMode || state.selectedPackage != null,
                   onTap: () => _pickDoctor(state),
                 ),
-                const SizedBox(height: 10),
+                const SizedBox(height: AppSpacing.sm),
                 BookingPickRow(
                   key: const ValueKey('booking-pick-date'),
                   icon: Icons.calendar_month_outlined,
@@ -326,13 +331,13 @@ class _BookingStartScreenState extends ConsumerState<BookingStartScreen> {
                   onTap: () => _pickDate(state),
                 ),
                 if (state.selection.date != null) ...[
-                  const SizedBox(height: 20),
+                  const SizedBox(height: AppSpacing.lg),
                   BookingStepHeader(
                     key: _slotKey,
                     number: isPackageMode ? 4 : 3,
                     title: 'Chọn khung giờ',
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: AppSpacing.sm),
                   if (state.isSlotsLoading)
                     const AppLoadingSkeleton(height: 88)
                   else if (state.slots.isEmpty)

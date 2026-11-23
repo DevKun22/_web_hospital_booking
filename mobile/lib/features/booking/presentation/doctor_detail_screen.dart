@@ -30,11 +30,11 @@ class DoctorDetailScreen extends ConsumerWidget {
         body: SafeArea(
           child: doctor.when(
             loading: () => const Padding(
-              padding: EdgeInsets.all(20),
+              padding: EdgeInsets.all(AppSpacing.lg),
               child: Column(
                 children: [
                   AppLoadingSkeleton(height: 220),
-                  SizedBox(height: 12),
+                  SizedBox(height: AppSpacing.sm),
                   AppLoadingSkeleton(height: 150),
                 ],
               ),
@@ -44,13 +44,13 @@ class DoctorDetailScreen extends ConsumerWidget {
                   ? error.message
                   : 'Không tải được hồ sơ bác sĩ.';
               return AppEmptyState(
-                icon: Icons.cloud_off_rounded,
+                icon: Icons.cloud_off_outlined,
                 title: 'Chưa tải được hồ sơ',
                 message: message,
                 action: FilledButton.icon(
                   onPressed: () =>
                       ref.invalidate(doctorDetailProvider(doctorId)),
-                  icon: const Icon(Icons.refresh_rounded),
+                  icon: const Icon(Icons.refresh_outlined),
                   label: const Text('Thử lại'),
                 ),
               );
@@ -117,18 +117,18 @@ class _DoctorDetailContent extends StatelessWidget {
                   logicalHeight: 96,
                 ),
                 child: doctor.avatar?.trim().isNotEmpty != true
-                    ? const Icon(Icons.person_outline_rounded, size: 44)
+                    ? const Icon(Icons.person_outline_outlined, size: 44)
                     : null,
               ),
-              const SizedBox(height: 14),
+              const SizedBox(height: AppSpacing.md),
               Text(
                 doctor.displayName,
                 textAlign: TextAlign.center,
-                style: Theme.of(
-                  context,
-                ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  fontWeight: AppFontWeight.strong,
+                ),
               ),
-              const SizedBox(height: 5),
+              const SizedBox(height: AppSpacing.xxs),
               Text(
                 distinctSpecialization(
                       doctor.specialization,
@@ -140,7 +140,7 @@ class _DoctorDetailContent extends StatelessWidget {
                   color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: AppSpacing.md),
               Wrap(
                 alignment: WrapAlignment.center,
                 spacing: 10,
@@ -163,9 +163,9 @@ class _DoctorDetailContent extends StatelessWidget {
           ),
         ),
       ),
-      const SizedBox(height: 18),
+      const SizedBox(height: AppSpacing.lg),
       Text('Giới thiệu', style: Theme.of(context).textTheme.titleMedium),
-      const SizedBox(height: 8),
+      const SizedBox(height: AppSpacing.xs),
       Text(
         doctor.bio ??
             'Bác sĩ đang công tác tại chuyên khoa ${doctor.departmentName}.',

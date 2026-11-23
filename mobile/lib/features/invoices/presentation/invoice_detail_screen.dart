@@ -1,3 +1,4 @@
+import 'package:hospital_booking_mobile/core/design/app_design_tokens.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hospital_booking_mobile/features/invoices/application/invoices_controller.dart';
@@ -28,7 +29,7 @@ class InvoiceDetailScreen extends ConsumerWidget {
           IconButton(
             tooltip: 'Làm mới',
             onPressed: () => ref.invalidate(invoiceDetailProvider(invoiceId)),
-            icon: const Icon(Icons.refresh_rounded),
+            icon: const Icon(Icons.refresh_outlined),
           ),
         ],
       ),
@@ -54,14 +55,19 @@ class _DetailContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => ListView(
-    padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+    padding: const EdgeInsets.fromLTRB(
+      AppSpacing.md,
+      AppSpacing.xs,
+      AppSpacing.md,
+      AppSpacing.xxl,
+    ),
     children: [
       InvoiceHeader(invoice: invoice),
-      const SizedBox(height: 14),
+      const SizedBox(height: AppSpacing.md),
       InvoicePaymentSummary(invoice: invoice),
-      const SizedBox(height: 14),
+      const SizedBox(height: AppSpacing.md),
       InvoiceInsuranceSection(invoice: invoice),
-      const SizedBox(height: 14),
+      const SizedBox(height: AppSpacing.md),
       InvoiceStatusGuidance(invoice: invoice),
     ],
   );

@@ -1,3 +1,4 @@
+import 'package:hospital_booking_mobile/core/design/app_design_tokens.dart';
 import 'package:flutter/material.dart';
 import 'package:hospital_booking_mobile/core/widgets/app_ui.dart';
 import 'package:hospital_booking_mobile/features/appointments/domain/patient_appointment.dart';
@@ -46,7 +47,7 @@ class AppointmentQrTicketDialog extends StatelessWidget {
             textAlign: TextAlign.center,
             style: Theme.of(
               context,
-            ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
+            ).textTheme.titleLarge?.copyWith(fontWeight: AppFontWeight.strong),
           ),
           const SizedBox(height: AppSpacing.xs),
           const Text(

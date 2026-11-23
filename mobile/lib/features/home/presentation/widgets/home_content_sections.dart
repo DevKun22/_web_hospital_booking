@@ -1,3 +1,4 @@
+import 'package:hospital_booking_mobile/core/widgets/app_zone.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -13,11 +14,9 @@ import 'package:hospital_booking_mobile/features/articles/domain/article_summary
 import 'package:hospital_booking_mobile/features/catalog/domain/catalog_entities.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-/// Cặp màu nền/chữ điểm nhấn lấy theo thứ tự, để các thẻ cạnh nhau có màu khác nhau (đỏ san hô, teal, xanh lá, hổ phách, xanh dương, tím).
-({Color background, Color foreground}) _tint(BuildContext context, int index) {
-  final pairs = context.colors.tintPairs;
-  return pairs[index % pairs.length];
-}
+/// Vùng màu xoay vòng theo thứ tự, để các thẻ cạnh nhau có màu khác nhau.
+({Color background, Color foreground}) _tint(BuildContext context, int index) =>
+    context.colors.zoneAt(index);
 
 /// Thẻ dùng chung của các dải ngang trên Trang chủ: viền mảnh, bo 14, nhấn vào thì co nhẹ.
 class _StripCard extends StatelessWidget {
@@ -44,35 +43,10 @@ class _StripCard extends StatelessWidget {
         ),
         child: InkWell(
           onTap: onTap,
-          child: Padding(padding: const EdgeInsets.all(12), child: child),
-        ),
-      ),
-    ),
-  );
-}
-
-/// Viên nhỏ có màu: nhãn trạng thái (sao, nổi bật, BHYT, giờ trống).
-class _Pill extends StatelessWidget {
-  const _Pill(this.text, {required this.background, required this.foreground});
-
-  final String text;
-  final Color background;
-  final Color foreground;
-
-  @override
-  Widget build(BuildContext context) => DecoratedBox(
-    decoration: BoxDecoration(
-      color: background,
-      borderRadius: BorderRadius.circular(AppRadius.pill),
-    ),
-    child: Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-      child: Text(
-        text,
-        maxLines: 1,
-        style: Theme.of(context).textTheme.labelMedium?.copyWith(
-          color: foreground,
-          fontWeight: FontWeight.w500,
+          child: Padding(
+            padding: const EdgeInsets.all(AppSpacing.sm),
+            child: child,
+          ),
         ),
       ),
     ),
@@ -123,7 +97,7 @@ class HomeDoctorStrip extends StatelessWidget {
       ListView.separated(
         scrollDirection: Axis.horizontal,
         itemCount: items.length,
-        separatorBuilder: (_, _) => const SizedBox(width: 10),
+        separatorBuilder: (_, _) => const SizedBox(width: AppSpacing.sm),
         itemBuilder: (context, index) =>
             _DoctorCard(doctor: items[index], tint: _tint(context, index + 4)),
       ),
@@ -178,14 +152,14 @@ class _DoctorCard extends StatelessWidget {
               ),
               const Spacer(),
               if (doctor.reviewCount > 0)
-                _Pill(
-                  '★ ${doctor.averageRating.toStringAsFixed(1).replaceAll('.', ',')}',
-                  background: colors.warningContainer,
-                  foreground: colors.warning,
+                AppPill(
+                  label:
+                      '★ ${doctor.averageRating.toStringAsFixed(1).replaceAll('.', ',')}',
+                  tint: colors.zone(AppZone.warning),
                 ),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: AppSpacing.xs),
           Text(
             doctor.displayName,
             maxLines: 2,
@@ -198,7 +172,7 @@ class _DoctorCard extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             style: text.bodySmall?.copyWith(color: colors.muted),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: AppSpacing.xs),
           if (shown.isEmpty)
             Text(
               'Chọn ngày khám',
@@ -209,16 +183,20 @@ class _DoctorCard extends StatelessWidget {
               spacing: 5,
               children: [
                 for (final slot in shown)
-                  _Pill(
-                    _hhmm(slot.startTime),
-                    background: colors.primarySoft,
-                    foreground: colors.primaryDark,
+                  AppPill(
+                    label: _hhmm(slot.startTime),
+                    tint: (
+                      background: colors.primarySoft,
+                      foreground: colors.primaryDark,
+                    ),
                   ),
                 if (more > 0)
-                  _Pill(
-                    '+$more',
-                    background: colors.surfaceMuted,
-                    foreground: colors.muted,
+                  AppPill(
+                    label: '+$more',
+                    tint: (
+                      background: colors.surfaceMuted,
+                      foreground: colors.muted,
+                    ),
                   ),
               ],
             ),
@@ -245,7 +223,9 @@ class _DoctorCard extends StatelessWidget {
                 ),
                 style: FilledButton.styleFrom(
                   minimumSize: const Size(0, 34),
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.md,
+                  ),
                 ),
                 child: const Text('Đặt'),
               ),
@@ -301,20 +281,12 @@ class _DepartmentTile extends StatelessWidget {
     onTap: () => context.push('/departments/${Uri.encodeComponent(item.id)}'),
     child: Row(
       children: [
-        Container(
-          width: 44,
-          height: 44,
-          decoration: BoxDecoration(
-            color: tint.background,
-            borderRadius: BorderRadius.circular(AppRadius.md),
-          ),
-          child: Icon(
-            Icons.medical_services_outlined,
-            color: tint.foreground,
-            size: 24,
-          ),
+        AppIconTile(
+          icon: Icons.medical_services_outlined,
+          tint: tint,
+          size: AppTileSize.md,
         ),
-        const SizedBox(width: 10),
+        const SizedBox(width: AppSpacing.sm),
         Expanded(
           child: Text(
             item.name,
@@ -344,7 +316,7 @@ class HomePackageStrip extends StatelessWidget {
       ListView.separated(
         scrollDirection: Axis.horizontal,
         itemCount: items.length,
-        separatorBuilder: (_, _) => const SizedBox(width: 10),
+        separatorBuilder: (_, _) => const SizedBox(width: AppSpacing.sm),
         itemBuilder: (context, index) {
           final item = items[index];
           final text = Theme.of(context).textTheme;
@@ -365,29 +337,23 @@ class HomePackageStrip extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: tint.background,
-                        borderRadius: BorderRadius.circular(AppRadius.md),
-                      ),
-                      child: Icon(
-                        Icons.inventory_2_outlined,
-                        color: tint.foreground,
-                        size: 22,
-                      ),
+                    AppIconTile(
+                      icon: Icons.inventory_2_outlined,
+                      tint: tint,
+                      size: AppTileSize.sm,
                     ),
                     const Spacer(),
                     if (item.isPopular)
-                      _Pill(
-                        'Nổi bật',
-                        background: colors.warningContainer,
-                        foreground: colors.warning,
+                      AppPill(
+                        label: 'Nổi bật',
+                        tint: (
+                          background: colors.warningContainer,
+                          foreground: colors.warning,
+                        ),
                       ),
                   ],
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: AppSpacing.xs),
                 Text(
                   item.name,
                   maxLines: 2,
@@ -395,7 +361,7 @@ class HomePackageStrip extends StatelessWidget {
                   style: text.titleSmall?.copyWith(color: colors.ink),
                 ),
                 if (item.summary != null) ...[
-                  const SizedBox(height: 2),
+                  const SizedBox(height: AppSpacing.hair),
                   Text(
                     item.summary!,
                     maxLines: 2,
@@ -417,10 +383,12 @@ class HomePackageStrip extends StatelessWidget {
                       ),
                     ),
                     if (item.isBhytSupport)
-                      _Pill(
-                        'BHYT',
-                        background: colors.primarySoft,
-                        foreground: colors.primaryDark,
+                      AppPill(
+                        label: 'BHYT',
+                        tint: (
+                          background: colors.primarySoft,
+                          foreground: colors.primaryDark,
+                        ),
                       ),
                   ],
                 ),
@@ -444,7 +412,7 @@ class HomeArticleList extends StatelessWidget {
     children: [
       for (final (index, item) in items.indexed)
         Padding(
-          padding: const EdgeInsets.only(bottom: 8),
+          padding: const EdgeInsets.only(bottom: AppSpacing.xs),
           child: _ArticleRow(item: item, tint: _tint(context, index + 5)),
         ),
     ],
@@ -483,7 +451,7 @@ class _ArticleRow extends StatelessWidget {
             ),
           ),
           child: Padding(
-            padding: const EdgeInsets.all(10),
+            padding: const EdgeInsets.all(AppSpacing.sm),
             child: Row(
               children: [
                 ClipRRect(
@@ -501,7 +469,7 @@ class _ArticleRow extends StatelessWidget {
                         : Image(image: image, fit: BoxFit.cover),
                   ),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: AppSpacing.sm),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -512,7 +480,7 @@ class _ArticleRow extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                         style: text.titleSmall?.copyWith(color: colors.ink),
                       ),
-                      const SizedBox(height: 3),
+                      const SizedBox(height: AppSpacing.xxs),
                       Row(
                         children: [
                           if (item.reviewerName != null)
@@ -524,7 +492,7 @@ class _ArticleRow extends StatelessWidget {
                             ),
                           if (item.reviewerName != null &&
                               item.publishedAt != null)
-                            const SizedBox(width: 8),
+                            const SizedBox(width: AppSpacing.xs),
                           if (item.publishedAt != null)
                             Text(
                               _shortDate(item.publishedAt!),

@@ -185,7 +185,9 @@ class _HeroCarouselState extends State<HomeHeroCarousel>
                               color: selected
                                   ? context.colors.primary
                                   : context.colors.border,
-                              borderRadius: BorderRadius.circular(999),
+                              borderRadius: BorderRadius.circular(
+                                AppRadius.pill,
+                              ),
                             ),
                           ),
                         ),
@@ -232,7 +234,7 @@ class _HeroBanner extends StatelessWidget {
           end: Alignment.bottomRight,
           colors: [AppPalette.heroDeep, AppPalette.heroMid],
         ),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(AppRadius.lg),
       ),
       child: Stack(
         children: [
@@ -275,7 +277,7 @@ class _HeroBanner extends StatelessWidget {
             ),
           ),
           Padding(
-            padding: const EdgeInsets.all(14),
+            padding: const EdgeInsets.all(AppSpacing.md),
             child: Align(
               alignment: Alignment.centerLeft,
               child: FractionallySizedBox(
@@ -290,9 +292,11 @@ class _HeroBanner extends StatelessWidget {
                           : 'Đặt lịch khám trực tuyến',
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: text.titleMedium?.copyWith(color: Colors.white),
+                      style: text.titleMedium?.copyWith(
+                        color: AppPalette.onHero,
+                      ),
                     ),
-                    const SizedBox(height: 2),
+                    const SizedBox(height: AppSpacing.hair),
                     Text(
                       banner?.subtitle ?? 'Bác sĩ, giờ trống, chi phí',
                       maxLines: 1,
@@ -301,17 +305,18 @@ class _HeroBanner extends StatelessWidget {
                         color: AppPalette.onHeroMuted,
                       ),
                     ),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: AppSpacing.sm),
                     FilledButton(
                       key: const Key('home-hero-book'),
                       style: FilledButton.styleFrom(
                         minimumSize: const Size(0, 34),
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        backgroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AppSpacing.md,
+                        ),
+                        backgroundColor: AppPalette.onHero,
                         foregroundColor: AppPalette.heroDeep,
                         textStyle: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
+                          fontWeight: AppFontWeight.strong,
                         ),
                       ),
                       onPressed: () =>

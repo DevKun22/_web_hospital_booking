@@ -1,3 +1,4 @@
+import 'package:hospital_booking_mobile/core/design/app_design_tokens.dart';
 import 'package:flutter/material.dart';
 import 'package:hospital_booking_mobile/core/formatters/display_formatters.dart';
 
@@ -15,7 +16,7 @@ class InvoiceMoneyRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 5),
+    padding: const EdgeInsets.symmetric(vertical: AppSpacing.xxs),
     child: Row(
       children: [
         Expanded(child: Text(label)),
@@ -23,7 +24,7 @@ class InvoiceMoneyRow extends StatelessWidget {
           amount < 0 ? '-${formatVnd(-amount)}' : formatVnd(amount),
           style: TextStyle(
             color: highlight ? Theme.of(context).colorScheme.primary : null,
-            fontWeight: FontWeight.w700,
+            fontWeight: AppFontWeight.strong,
           ),
         ),
       ],
@@ -39,17 +40,17 @@ class InvoiceTextRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 5),
+    padding: const EdgeInsets.symmetric(vertical: AppSpacing.xxs),
     child: Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Expanded(child: Text(label)),
-        const SizedBox(width: 12),
+        const SizedBox(width: AppSpacing.sm),
         Flexible(
           child: Text(
             value,
             textAlign: TextAlign.right,
-            style: const TextStyle(fontWeight: FontWeight.w700),
+            style: const TextStyle(fontWeight: AppFontWeight.strong),
           ),
         ),
       ],
@@ -67,7 +68,7 @@ class InvoiceIconLine extends StatelessWidget {
   Widget build(BuildContext context) => Row(
     children: [
       Icon(icon, size: 20, color: Theme.of(context).colorScheme.primary),
-      const SizedBox(width: 10),
+      const SizedBox(width: AppSpacing.sm),
       Expanded(child: Text(value)),
     ],
   );

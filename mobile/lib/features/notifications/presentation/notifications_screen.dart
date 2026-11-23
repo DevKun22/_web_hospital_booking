@@ -85,7 +85,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen>
           IconButton(
             tooltip: 'Tùy chọn thông báo',
             onPressed: () => context.push('/notification-settings'),
-            icon: const Icon(Icons.tune_rounded),
+            icon: const Icon(Icons.tune_outlined),
           ),
           if (state.unreadCount > 0 || state.isMarkingAllRead)
             TextButton(
@@ -97,7 +97,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen>
                     )
                   : const Text('Đọc tất cả'),
             ),
-          const SizedBox(width: 8),
+          const SizedBox(width: AppSpacing.xs),
         ],
       ),
       body: AppSwipeTabs<_NotificationFilter>(
@@ -112,12 +112,12 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen>
                   child: ListView(
                     physics: const AlwaysScrollableScrollPhysics(),
                     padding: EdgeInsets.fromLTRB(
-                      16,
-                      8,
-                      16,
+                      AppSpacing.md,
+                      AppSpacing.xs,
+                      AppSpacing.md,
                       widget.embeddedInMainNavigation
                           ? appMainContentBottomInset
-                          : 28,
+                          : AppSpacing.xl,
                     ),
                     children: [
                       if (!pushState.isCheckingPermission &&
@@ -144,20 +144,20 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen>
                         ),
                       ],
                       if (state.error != null) ...[
-                        const SizedBox(height: 14),
+                        const SizedBox(height: AppSpacing.md),
                         AppErrorBanner(
                           error: state.error!,
                           onDismiss: controller.dismissError,
                         ),
                       ],
                       if (state.isRefreshing) ...[
-                        const SizedBox(height: 12),
+                        const SizedBox(height: AppSpacing.sm),
                         const LinearProgressIndicator(minHeight: 2),
                       ],
                       if (!state.hasItems) ...[
-                        const SizedBox(height: 28),
+                        const SizedBox(height: AppSpacing.xl),
                         AppEmptyState(
-                          icon: Icons.notifications_none_rounded,
+                          icon: Icons.notifications_none_outlined,
                           title: state.error == null
                               ? 'Chưa có thông báo'
                               : 'Chưa tải được hộp thư',
@@ -172,7 +172,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen>
                             icon: Icon(
                               state.error == null
                                   ? Icons.calendar_month_outlined
-                                  : Icons.refresh_rounded,
+                                  : Icons.refresh_outlined,
                             ),
                             label: Text(
                               state.error == null ? 'Xem lịch khám' : 'Thử lại',
@@ -218,7 +218,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen>
                         ),
                       ],
                       if (state.hasNextPage) ...[
-                        const SizedBox(height: 8),
+                        const SizedBox(height: AppSpacing.xs),
                         OutlinedButton.icon(
                           onPressed: state.isLoadingMore
                               ? null
@@ -230,7 +230,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen>
                                     strokeWidth: 2,
                                   ),
                                 )
-                              : const Icon(Icons.expand_more_rounded),
+                              : const Icon(Icons.expand_more_outlined),
                           label: Text(
                             state.isLoadingMore
                                 ? 'Đang tải thêm…'
@@ -276,30 +276,30 @@ Future<void> _showAnnouncementDetails(
                 height: 44,
                 decoration: BoxDecoration(
                   color: item.type.background(context.colors),
-                  borderRadius: BorderRadius.circular(14),
+                  borderRadius: BorderRadius.circular(AppRadius.md),
                 ),
                 child: Icon(
                   item.type.icon,
                   color: item.type.foreground(context.colors),
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: AppSpacing.sm),
               const Expanded(
                 child: Text(
                   'Thông báo chung',
-                  style: TextStyle(fontWeight: FontWeight.w700),
+                  style: TextStyle(fontWeight: AppFontWeight.strong),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 18),
+          const SizedBox(height: AppSpacing.lg),
           Text(
             item.title,
             style: Theme.of(
               context,
-            ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
+            ).textTheme.titleLarge?.copyWith(fontWeight: AppFontWeight.strong),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: AppSpacing.sm),
           ConstrainedBox(
             constraints: BoxConstraints(
               maxHeight: MediaQuery.sizeOf(context).height * .45,
@@ -308,7 +308,7 @@ Future<void> _showAnnouncementDetails(
               child: Text(item.body, style: const TextStyle(height: 1.55)),
             ),
           ),
-          const SizedBox(height: 22),
+          const SizedBox(height: AppSpacing.lg),
           SizedBox(
             width: double.infinity,
             child: FilledButton(
@@ -340,12 +340,15 @@ List<Widget> _groupedItems(
     if (group.isEmpty) return;
     widgets.add(
       Padding(
-        padding: const EdgeInsets.only(top: AppSpacing.sm, bottom: 4),
+        padding: const EdgeInsets.only(
+          top: AppSpacing.sm,
+          bottom: AppSpacing.xxs,
+        ),
         child: Text(
           title,
           style: Theme.of(context).textTheme.labelMedium?.copyWith(
             color: context.colors.muted,
-            fontWeight: FontWeight.w600,
+            fontWeight: AppFontWeight.strong,
           ),
         ),
       ),

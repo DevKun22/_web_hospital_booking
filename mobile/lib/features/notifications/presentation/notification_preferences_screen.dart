@@ -63,17 +63,22 @@ class _NotificationPreferencesScreenState
                   onRefresh: controller.load,
                   child: ListView(
                     physics: const AlwaysScrollableScrollPhysics(),
-                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+                    padding: const EdgeInsets.fromLTRB(
+                      AppSpacing.md,
+                      AppSpacing.xs,
+                      AppSpacing.md,
+                      AppSpacing.xxl,
+                    ),
                     children: [
                       _InboxPolicyCard(pushState: pushState),
                       if (state.error != null) ...[
-                        const SizedBox(height: 14),
+                        const SizedBox(height: AppSpacing.md),
                         AppErrorBanner(
                           error: state.error!,
                           onDismiss: controller.dismissError,
                         ),
                       ],
-                      const SizedBox(height: 22),
+                      const SizedBox(height: AppSpacing.lg),
                       const AppSectionHeader(title: 'Thông báo đẩy theo nhóm'),
                       Text(
                         'Lựa chọn được đồng bộ cho tài khoản trên mọi thiết bị.',
@@ -81,16 +86,16 @@ class _NotificationPreferencesScreenState
                           color: Theme.of(context).colorScheme.onSurfaceVariant,
                         ),
                       ),
-                      const SizedBox(height: 10),
+                      const SizedBox(height: AppSpacing.sm),
                       if (state.preferences == null)
                         AppEmptyState(
-                          icon: Icons.sync_problem_rounded,
+                          icon: Icons.sync_problem_outlined,
                           title: 'Chưa tải được tùy chọn',
                           message:
                               'Kiểm tra kết nối mạng rồi tải lại. Hộp thư trong ứng dụng vẫn hoạt động bình thường.',
                           action: FilledButton.icon(
                             onPressed: controller.load,
-                            icon: const Icon(Icons.refresh_rounded),
+                            icon: const Icon(Icons.refresh_outlined),
                             label: const Text('Thử lại'),
                           ),
                         )
@@ -145,10 +150,10 @@ class _InboxPolicyCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final pushAllowed = pushState.isAllowed;
     return Container(
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.all(AppSpacing.lg),
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.primaryContainer,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(AppRadius.xl),
         border: Border.all(color: context.colors.border),
       ),
       child: Column(
@@ -162,25 +167,25 @@ class _InboxPolicyCard extends ConsumerWidget {
                     : Icons.notifications_off_outlined,
                 color: context.colors.primary,
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: AppSpacing.sm),
               Expanded(
                 child: Text(
                   pushAllowed
                       ? 'Thông báo trên thiết bị đang bật'
                       : 'Thông báo trên thiết bị đang tắt',
-                  style: Theme.of(
-                    context,
-                  ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    fontWeight: AppFontWeight.strong,
+                  ),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: AppSpacing.xs),
           const Text(
             'Các lựa chọn bên dưới chỉ kiểm soát thông báo đẩy. Thông tin nghiệp vụ vẫn được lưu đầy đủ trong hộp thư để bạn có thể xem lại.',
           ),
           if (!pushAllowed) ...[
-            const SizedBox(height: 12),
+            const SizedBox(height: AppSpacing.sm),
             OutlinedButton.icon(
               onPressed: pushState.isOpeningSettings
                   ? null
@@ -228,10 +233,13 @@ class _PreferenceTile extends StatelessWidget {
         : Icon(kind.icon, color: context.colors.primary),
     title: Text(
       kind.label,
-      style: const TextStyle(fontWeight: FontWeight.w700),
+      style: const TextStyle(fontWeight: AppFontWeight.strong),
     ),
     subtitle: Text(kind.description),
-    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+    contentPadding: const EdgeInsets.symmetric(
+      horizontal: AppSpacing.md,
+      vertical: AppSpacing.xs,
+    ),
   );
 }
 
@@ -240,10 +248,10 @@ class _PreferencesLoading extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => ListView(
-    padding: const EdgeInsets.all(16),
+    padding: const EdgeInsets.all(AppSpacing.md),
     children: const [
       AppLoadingSkeleton(height: 150),
-      SizedBox(height: 20),
+      SizedBox(height: AppSpacing.lg),
       AppLoadingSkeleton(height: 390),
     ],
   );

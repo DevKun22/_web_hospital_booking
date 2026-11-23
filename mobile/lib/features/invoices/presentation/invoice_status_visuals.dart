@@ -13,7 +13,7 @@ extension PatientInvoiceStatusVisuals on PatientInvoiceStatus {
   };
 
   IconData get icon => switch (this) {
-    PatientInvoiceStatus.paid => Icons.check_circle_outline,
+    PatientInvoiceStatus.paid => Icons.check_circle_outline_outlined,
     PatientInvoiceStatus.unpaid => Icons.schedule_outlined,
     PatientInvoiceStatus.cancelled => Icons.cancel_outlined,
     PatientInvoiceStatus.refunded => Icons.currency_exchange_outlined,

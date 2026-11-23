@@ -44,7 +44,7 @@ class BookingSearchField extends StatelessWidget {
     textInputAction: TextInputAction.search,
     decoration: InputDecoration(
       hintText: hint,
-      prefixIcon: const Icon(Icons.search_rounded),
+      prefixIcon: const Icon(Icons.search_outlined),
     ),
   );
 }
@@ -139,7 +139,10 @@ class BookingMiniChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+    padding: const EdgeInsets.symmetric(
+      horizontal: AppSpacing.xs,
+      vertical: AppSpacing.xxs,
+    ),
     decoration: BoxDecoration(
       color: background,
       borderRadius: BorderRadius.circular(AppRadius.pill),
@@ -150,7 +153,7 @@ class BookingMiniChip extends StatelessWidget {
       overflow: TextOverflow.ellipsis,
       style: Theme.of(context).textTheme.labelMedium?.copyWith(
         color: foreground,
-        fontWeight: FontWeight.w500,
+        fontWeight: AppFontWeight.medium,
       ),
     ),
   );

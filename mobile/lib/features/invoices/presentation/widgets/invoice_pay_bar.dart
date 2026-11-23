@@ -118,7 +118,7 @@ class _InvoicePayBarState extends ConsumerState<InvoicePayBar>
                   Expanded(
                     child: FilledButton.tonalIcon(
                       onPressed: notifier.reopen,
-                      icon: const Icon(Icons.open_in_new_rounded, size: 18),
+                      icon: const Icon(Icons.open_in_new_outlined, size: 18),
                       label: const Text('Mở lại trang thanh toán'),
                     ),
                   ),
@@ -126,7 +126,7 @@ class _InvoicePayBarState extends ConsumerState<InvoicePayBar>
                   IconButton.outlined(
                     tooltip: 'Kiểm tra trạng thái',
                     onPressed: state.isRefreshing ? null : notifier.refresh,
-                    icon: const Icon(Icons.refresh_rounded),
+                    icon: const Icon(Icons.refresh_outlined),
                   ),
                 ],
               )
@@ -138,7 +138,7 @@ class _InvoicePayBarState extends ConsumerState<InvoicePayBar>
                 error: (_, _) => TextButton.icon(
                   onPressed: () =>
                       ref.invalidate(patientPaymentCapabilitiesProvider),
-                  icon: const Icon(Icons.refresh_rounded),
+                  icon: const Icon(Icons.refresh_outlined),
                   label: const Text('Không tải được cổng thanh toán. Thử lại'),
                 ),
                 data: (data) => data.providers.isEmpty
@@ -197,14 +197,14 @@ class _StatusPanel extends StatelessWidget {
       PatientPaymentStatus.success => (
         'Thanh toán thành công',
         'Mã giao dịch ${payment.transactionCode}',
-        Icons.check_circle_rounded,
+        Icons.check_circle_outlined,
         colors.successContainer,
         colors.success,
       ),
       PatientPaymentStatus.failed => (
         'Chưa thanh toán được',
         'Bạn có thể thử lại.',
-        Icons.error_outline_rounded,
+        Icons.error_outline_outlined,
         colors.dangerContainer,
         colors.danger,
       ),
@@ -225,7 +225,7 @@ class _StatusPanel extends StatelessWidget {
       _ => (
         'Đang chờ cổng thanh toán xác nhận',
         'Hoàn tất ở trình duyệt rồi quay lại, ứng dụng tự cập nhật.',
-        Icons.hourglass_top_rounded,
+        Icons.hourglass_top_outlined,
         colors.infoContainer,
         colors.info,
       ),
@@ -307,7 +307,7 @@ class _CountdownState extends State<_Countdown> {
         : 'Hết hạn sau ${left.inMinutes.toString().padLeft(2, '0')}:'
               '${(left.inSeconds % 60).toString().padLeft(2, '0')}';
     return Padding(
-      padding: const EdgeInsets.only(top: 2),
+      padding: const EdgeInsets.only(top: AppSpacing.hair),
       child: Text(
         label,
         style: Theme.of(

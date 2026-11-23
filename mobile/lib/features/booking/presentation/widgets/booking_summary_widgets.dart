@@ -1,3 +1,4 @@
+import 'package:hospital_booking_mobile/core/design/app_design_tokens.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hospital_booking_mobile/core/formatters/display_formatters.dart';
@@ -83,15 +84,15 @@ class BookingPendingCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.all(16),
+    padding: const EdgeInsets.all(AppSpacing.md),
     decoration: BoxDecoration(
       color: Theme.of(context).colorScheme.tertiaryContainer,
-      borderRadius: BorderRadius.circular(18),
+      borderRadius: BorderRadius.circular(AppRadius.lg),
     ),
     child: Row(
       children: [
         const Icon(Icons.mark_email_unread_outlined),
-        const SizedBox(width: 12),
+        const SizedBox(width: AppSpacing.sm),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -100,7 +101,7 @@ class BookingPendingCard extends StatelessWidget {
                 'Lịch $bookingCode đang chờ OTP',
                 style: Theme.of(context).textTheme.titleSmall,
               ),
-              const SizedBox(height: 3),
+              const SizedBox(height: AppSpacing.xxs),
               const Text('Tiếp tục xác thực trước khi hết thời gian giữ lịch.'),
             ],
           ),
@@ -122,15 +123,15 @@ class BookingInlineEmpty extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
     width: double.infinity,
-    padding: const EdgeInsets.all(16),
+    padding: const EdgeInsets.all(AppSpacing.md),
     decoration: BoxDecoration(
       color: Theme.of(context).colorScheme.surfaceContainerHighest,
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: BorderRadius.circular(AppRadius.lg),
     ),
     child: Row(
       children: [
-        const Icon(Icons.info_outline_rounded),
-        const SizedBox(width: 10),
+        const Icon(Icons.info_outline),
+        const SizedBox(width: AppSpacing.sm),
         Expanded(child: Text(message)),
       ],
     ),

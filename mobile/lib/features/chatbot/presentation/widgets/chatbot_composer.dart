@@ -1,3 +1,4 @@
+import 'package:hospital_booking_mobile/core/design/app_design_tokens.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -16,17 +17,17 @@ class ChatbotAvailabilityBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final (icon, text, color) = switch (state.availability) {
       ChatbotAvailability.checking => (
-        Icons.sync_rounded,
+        Icons.sync_outlined,
         'Đang kiểm tra trạng thái trợ lý…',
         Theme.of(context).colorScheme.secondary,
       ),
       ChatbotAvailability.ready => (
-        Icons.circle,
+        Icons.circle_outlined,
         'Đang sẵn sàng hỗ trợ',
         context.colors.success,
       ),
       ChatbotAvailability.disabled => (
-        Icons.pause_circle_outline,
+        Icons.pause_circle_outline_outlined,
         'Trợ lý đang tạm tắt',
         Theme.of(context).colorScheme.onSurfaceVariant,
       ),
@@ -46,11 +47,14 @@ class ChatbotAvailabilityBar extends StatelessWidget {
           ),
         ),
       ),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.md,
+        vertical: AppSpacing.xs,
+      ),
       child: Row(
         children: [
           Icon(icon, size: 14, color: color),
-          const SizedBox(width: 7),
+          const SizedBox(width: AppSpacing.xs),
           Expanded(
             child: Text(
               text,
@@ -90,20 +94,25 @@ class ChatbotComposer extends StatelessWidget {
       color: Theme.of(context).colorScheme.surface,
       elevation: 8,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+        padding: const EdgeInsets.fromLTRB(
+          AppSpacing.sm,
+          AppSpacing.sm,
+          AppSpacing.sm,
+          AppSpacing.sm,
+        ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             if (state.error != null) ...[
               AppErrorBanner(error: state.error!, onDismiss: onDismissError),
-              const SizedBox(height: 8),
+              const SizedBox(height: AppSpacing.xs),
               Row(
                 children: [
                   if (onRetry != null)
                     TextButton.icon(
                       onPressed: state.isSending ? null : () => onRetry!(),
-                      icon: const Icon(Icons.refresh_rounded),
+                      icon: const Icon(Icons.refresh_outlined),
                       label: const Text('Gửi lại'),
                     )
                   else
@@ -111,7 +120,7 @@ class ChatbotComposer extends StatelessWidget {
                       onPressed: () => ProviderScope.containerOf(
                         context,
                       ).read(chatbotControllerProvider.notifier).loadSettings(),
-                      icon: const Icon(Icons.refresh_rounded),
+                      icon: const Icon(Icons.refresh_outlined),
                       label: const Text('Thử kết nối lại'),
                     ),
                 ],
@@ -146,15 +155,15 @@ class ChatbotComposer extends StatelessWidget {
                     onSubmitted: (_) => state.canSend ? onSend() : null,
                   ),
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: AppSpacing.xs),
                 IconButton.filled(
                   tooltip: 'Gửi tin nhắn',
                   onPressed: state.canSend ? onSend : null,
-                  icon: const Icon(Icons.send_rounded),
+                  icon: const Icon(Icons.send_outlined),
                 ),
               ],
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: AppSpacing.xxs),
             Text(
               'Không nhập OTP, mật khẩu hoặc thông tin quá nhạy cảm.',
               style: Theme.of(context).textTheme.labelSmall?.copyWith(

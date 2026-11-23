@@ -79,7 +79,7 @@ class _BrandMarkPainter extends CustomPainter {
   }
 
   void _paintContent(Canvas canvas) {
-    final white = Paint()..color = Colors.white;
+    final white = Paint()..color = AppPalette.onHero;
     const radius = Radius.circular(2.4);
 
     canvas

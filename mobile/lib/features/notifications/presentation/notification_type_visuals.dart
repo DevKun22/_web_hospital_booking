@@ -8,14 +8,14 @@ extension PatientNotificationTypeVisuals on PatientNotificationType {
   IconData get icon => switch (this) {
     PatientNotificationType.systemAnnouncement => Icons.campaign_outlined,
     PatientNotificationType.appointmentConfirmed => Icons.verified_outlined,
-    PatientNotificationType.appointmentRescheduled => Icons.update_rounded,
+    PatientNotificationType.appointmentRescheduled => Icons.update_outlined,
     PatientNotificationType.appointmentCancelled => Icons.event_busy_outlined,
-    PatientNotificationType.appointmentReminder => Icons.alarm_rounded,
+    PatientNotificationType.appointmentReminder => Icons.alarm_outlined,
     PatientNotificationType.appointmentNoShow => Icons.person_off_outlined,
     PatientNotificationType.appointmentCheckedIn => Icons.how_to_reg_outlined,
     PatientNotificationType.appointmentInProgress =>
       Icons.medical_services_outlined,
-    PatientNotificationType.appointmentCompleted => Icons.task_alt_rounded,
+    PatientNotificationType.appointmentCompleted => Icons.task_alt_outlined,
     PatientNotificationType.medicalResultPublished =>
       Icons.assignment_turned_in_outlined,
     PatientNotificationType.prescriptionIssued => Icons.medication_outlined,
@@ -23,8 +23,8 @@ extension PatientNotificationTypeVisuals on PatientNotificationType {
       Icons.local_pharmacy_outlined,
     PatientNotificationType.invoiceCreated => Icons.receipt_long_outlined,
     PatientNotificationType.paymentSucceeded => Icons.payments_outlined,
-    PatientNotificationType.paymentRefunded => Icons.currency_exchange_rounded,
-    PatientNotificationType.unknown => Icons.notifications_none_rounded,
+    PatientNotificationType.paymentRefunded => Icons.currency_exchange_outlined,
+    PatientNotificationType.unknown => Icons.notifications_none_outlined,
   };
 
   Color foreground(AppColors colors) => switch (this) {

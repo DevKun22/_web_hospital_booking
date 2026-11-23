@@ -29,7 +29,7 @@ class DepartmentDetailScreen extends ConsumerWidget {
           ),
           body: const SafeArea(
             child: Padding(
-              padding: EdgeInsets.all(20),
+              padding: EdgeInsets.all(AppSpacing.lg),
               child: AppLoadingSkeleton(height: 220),
             ),
           ),
@@ -45,12 +45,12 @@ class DepartmentDetailScreen extends ConsumerWidget {
             title: const Text('Chuyên khoa'),
           ),
           body: AppEmptyState(
-            icon: Icons.cloud_off_rounded,
+            icon: Icons.cloud_off_outlined,
             title: 'Chưa tải được chuyên khoa',
             message: state.error!.message,
             action: FilledButton.icon(
               onPressed: ref.read(bookingFlowControllerProvider.notifier).load,
-              icon: const Icon(Icons.refresh_rounded),
+              icon: const Icon(Icons.refresh_outlined),
               label: const Text('Thử lại'),
             ),
           ),
@@ -70,7 +70,7 @@ class DepartmentDetailScreen extends ConsumerWidget {
             title: const Text('Chuyên khoa'),
           ),
           body: AppEmptyState(
-            icon: Icons.search_off_rounded,
+            icon: Icons.search_off_outlined,
             title: 'Không tìm thấy chuyên khoa',
             message: 'Nội dung có thể đã được cập nhật trên hệ thống.',
             action: FilledButton(
@@ -94,10 +94,15 @@ class DepartmentDetailScreen extends ConsumerWidget {
         ),
         body: SafeArea(
           child: ListView(
-            padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.lg,
+              AppSpacing.xs,
+              AppSpacing.lg,
+              AppSpacing.xxl,
+            ),
             children: [
               Container(
-                padding: const EdgeInsets.all(20),
+                padding: const EdgeInsets.all(AppSpacing.lg),
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     colors: [AppPalette.heroDeep, AppPalette.heroCare],
@@ -109,30 +114,30 @@ class DepartmentDetailScreen extends ConsumerWidget {
                   children: [
                     const Icon(
                       Icons.medical_services_outlined,
-                      color: Colors.white,
+                      color: AppPalette.onHero,
                       size: 34,
                     ),
-                    const SizedBox(height: 14),
+                    const SizedBox(height: AppSpacing.md),
                     Text(
                       department.name,
                       style: Theme.of(context).textTheme.headlineSmall
                           ?.copyWith(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w800,
+                            color: AppPalette.onHero,
+                            fontWeight: AppFontWeight.strong,
                           ),
                     ),
                     if (department.description != null) ...[
-                      const SizedBox(height: 8),
+                      const SizedBox(height: AppSpacing.xs),
                       Text(
                         department.description!,
                         style: const TextStyle(color: AppPalette.onHeroMuted),
                       ),
                     ],
-                    const SizedBox(height: 16),
+                    const SizedBox(height: AppSpacing.md),
                     FilledButton.icon(
                       style: FilledButton.styleFrom(
                         minimumSize: const Size(0, 44),
-                        backgroundColor: Colors.white,
+                        backgroundColor: AppPalette.onHero,
                         foregroundColor: AppPalette.heroDeep,
                       ),
                       onPressed: () => openBookingFromCurrentRoute(
@@ -145,12 +150,12 @@ class DepartmentDetailScreen extends ConsumerWidget {
                       icon: const Icon(Icons.calendar_month_outlined),
                       label: const Text('Đặt lịch chuyên khoa này'),
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: AppSpacing.xs),
                     OutlinedButton.icon(
                       style: OutlinedButton.styleFrom(
                         minimumSize: const Size(0, 44),
-                        foregroundColor: Colors.white,
-                        side: const BorderSide(color: Colors.white),
+                        foregroundColor: AppPalette.onHero,
+                        side: const BorderSide(color: AppPalette.onHero),
                       ),
                       onPressed: () => context.push(
                         chatbotLocationForContext(
@@ -164,7 +169,7 @@ class DepartmentDetailScreen extends ConsumerWidget {
                   ],
                 ),
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: AppSpacing.xl),
               AppSectionHeader(
                 title: 'Bác sĩ (${doctors.length})',
                 actionLabel: 'Xem tất cả',
@@ -175,7 +180,7 @@ class DepartmentDetailScreen extends ConsumerWidget {
                   ).toString(),
                 ),
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: AppSpacing.sm),
               if (doctors.isEmpty)
                 const AppEmptyState(
                   icon: Icons.person_search_outlined,
@@ -185,7 +190,7 @@ class DepartmentDetailScreen extends ConsumerWidget {
               else
                 ...doctors.map(
                   (doctor) => Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
+                    padding: const EdgeInsets.only(bottom: AppSpacing.sm),
                     child: _DepartmentDoctorCard(doctor: doctor),
                   ),
                 ),
@@ -208,7 +213,7 @@ class _DepartmentDoctorCard extends StatelessWidget {
       onTap: () => context.push('/doctors/${Uri.encodeComponent(doctor.id)}'),
       borderRadius: BorderRadius.circular(AppRadius.card),
       child: Padding(
-        padding: const EdgeInsets.all(14),
+        padding: const EdgeInsets.all(AppSpacing.md),
         child: Row(
           children: [
             CircleAvatar(
@@ -221,10 +226,10 @@ class _DepartmentDoctorCard extends StatelessWidget {
                 logicalHeight: 54,
               ),
               child: doctor.avatar?.trim().isNotEmpty != true
-                  ? const Icon(Icons.person_outline_rounded)
+                  ? const Icon(Icons.person_outline_outlined)
                   : null,
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: AppSpacing.sm),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -233,7 +238,7 @@ class _DepartmentDoctorCard extends StatelessWidget {
                     doctor.displayName,
                     style: Theme.of(context).textTheme.titleSmall,
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: AppSpacing.xxs),
                   Text(
                     distinctSpecialization(
                           doctor.specialization,
@@ -247,7 +252,7 @@ class _DepartmentDoctorCard extends StatelessWidget {
                 ],
               ),
             ),
-            const Icon(Icons.chevron_right_rounded),
+            const Icon(Icons.chevron_right_outlined),
           ],
         ),
       ),

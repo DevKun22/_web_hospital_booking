@@ -75,10 +75,15 @@ class _PackageDetailBody extends StatelessWidget {
   @override
   Widget build(BuildContext context) => SafeArea(
     child: ListView(
-      padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.lg,
+        AppSpacing.xs,
+        AppSpacing.lg,
+        AppSpacing.xxl,
+      ),
       children: [
         Container(
-          padding: const EdgeInsets.all(20),
+          padding: const EdgeInsets.all(AppSpacing.lg),
           decoration: BoxDecoration(
             gradient: LinearGradient(
               colors: [AppPalette.heroDeep, AppPalette.heroCare],
@@ -106,37 +111,37 @@ class _PackageDetailBody extends StatelessWidget {
                     ),
                 ],
               ),
-              const SizedBox(height: 14),
+              const SizedBox(height: AppSpacing.md),
               Text(
                 packageItem.name,
                 style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w800,
+                  color: AppPalette.onHero,
+                  fontWeight: AppFontWeight.strong,
                 ),
               ),
               if (packageItem.summary != null) ...[
-                const SizedBox(height: 8),
+                const SizedBox(height: AppSpacing.xs),
                 Text(
                   packageItem.summary!,
                   style: const TextStyle(color: AppPalette.onHeroMuted),
                 ),
               ],
               if (packageItem.departmentName != null) ...[
-                const SizedBox(height: 14),
+                const SizedBox(height: AppSpacing.md),
                 Row(
                   children: [
                     const Icon(
                       Icons.local_hospital_outlined,
-                      color: Colors.white,
+                      color: AppPalette.onHero,
                       size: 19,
                     ),
-                    const SizedBox(width: 7),
+                    const SizedBox(width: AppSpacing.xs),
                     Expanded(
                       child: Text(
                         packageItem.departmentName!,
                         style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w700,
+                          color: AppPalette.onHero,
+                          fontWeight: AppFontWeight.strong,
                         ),
                       ),
                     ),
@@ -146,29 +151,29 @@ class _PackageDetailBody extends StatelessWidget {
             ],
           ),
         ),
-        const SizedBox(height: 18),
+        const SizedBox(height: AppSpacing.lg),
         _PriceCard(packageItem: packageItem),
         if (packageItem.description != null) ...[
-          const SizedBox(height: 22),
+          const SizedBox(height: AppSpacing.lg),
           const AppSectionHeader(title: 'Thông tin gói khám'),
-          const SizedBox(height: 8),
+          const SizedBox(height: AppSpacing.xs),
           Text(packageItem.description!),
         ],
         if (packageItem.items.isNotEmpty) ...[
-          const SizedBox(height: 22),
+          const SizedBox(height: AppSpacing.lg),
           const AppSectionHeader(title: 'Danh mục dịch vụ'),
-          const SizedBox(height: 8),
+          const SizedBox(height: AppSpacing.xs),
           ...packageItem.items.map(
             (item) => Padding(
-              padding: const EdgeInsets.only(bottom: 10),
+              padding: const EdgeInsets.only(bottom: AppSpacing.sm),
               child: _PackageItemRow(item: item),
             ),
           ),
         ],
         if (packageItem.note != null) ...[
-          const SizedBox(height: 12),
+          const SizedBox(height: AppSpacing.sm),
           Container(
-            padding: const EdgeInsets.all(15),
+            padding: const EdgeInsets.all(AppSpacing.md),
             decoration: BoxDecoration(
               color: context.colors.warningContainer,
               borderRadius: BorderRadius.circular(AppRadius.md),
@@ -179,8 +184,8 @@ class _PackageDetailBody extends StatelessWidget {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(Icons.info_outline_rounded, color: context.colors.warning),
-                const SizedBox(width: 10),
+                Icon(Icons.info_outline, color: context.colors.warning),
+                const SizedBox(width: AppSpacing.sm),
                 Expanded(child: Text(packageItem.note!)),
               ],
             ),
@@ -207,7 +212,7 @@ class _PriceCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Card(
     child: Padding(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(AppSpacing.md),
       child: Column(
         children: [
           _PriceRow(
@@ -215,7 +220,7 @@ class _PriceCard extends StatelessWidget {
             value: packageItem.basePrice,
           ),
           if (packageItem.serviceFee > 0) ...[
-            const SizedBox(height: 8),
+            const SizedBox(height: AppSpacing.xs),
             _PriceRow(label: 'Phí dịch vụ', value: packageItem.serviceFee),
           ],
           const Divider(height: 24),
@@ -231,12 +236,12 @@ class _PriceCard extends StatelessWidget {
                 formatVnd(packageItem.finalPrice),
                 style: Theme.of(context).textTheme.titleLarge?.copyWith(
                   color: context.colors.primaryDark,
-                  fontWeight: FontWeight.w800,
+                  fontWeight: AppFontWeight.strong,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: AppSpacing.xs),
           Align(
             alignment: Alignment.centerLeft,
             child: Text(
@@ -266,7 +271,7 @@ class _PriceRow extends StatelessWidget {
       Expanded(child: Text(label)),
       Text(
         formatVnd(value),
-        style: const TextStyle(fontWeight: FontWeight.w700),
+        style: const TextStyle(fontWeight: AppFontWeight.strong),
       ),
     ],
   );
@@ -279,7 +284,7 @@ class _PackageItemRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.all(14),
+    padding: const EdgeInsets.all(AppSpacing.md),
     decoration: BoxDecoration(
       color: Theme.of(context).colorScheme.surfaceContainerLowest,
       borderRadius: BorderRadius.circular(AppRadius.md),
@@ -290,24 +295,24 @@ class _PackageItemRow extends StatelessWidget {
       children: [
         Icon(
           item.included
-              ? Icons.check_circle_rounded
-              : Icons.add_circle_outline_rounded,
+              ? Icons.check_circle_outlined
+              : Icons.add_circle_outline_outlined,
           color: item.included
               ? context.colors.primary
               : context.colors.warning,
         ),
-        const SizedBox(width: 10),
+        const SizedBox(width: AppSpacing.sm),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(item.name, style: Theme.of(context).textTheme.titleSmall),
               if (item.description != null) ...[
-                const SizedBox(height: 3),
+                const SizedBox(height: AppSpacing.xxs),
                 Text(item.description!),
               ],
               if (item.price > 0) ...[
-                const SizedBox(height: 5),
+                const SizedBox(height: AppSpacing.xxs),
                 Text(
                   item.included
                       ? '${formatVnd(item.price)} · Đã bao gồm'
@@ -333,13 +338,13 @@ class _PackageDetailLoading extends StatelessWidget {
   @override
   Widget build(BuildContext context) => const SafeArea(
     child: SingleChildScrollView(
-      padding: EdgeInsets.all(20),
+      padding: EdgeInsets.all(AppSpacing.lg),
       child: Column(
         children: [
           AppLoadingSkeleton(height: 220),
-          SizedBox(height: 16),
+          SizedBox(height: AppSpacing.md),
           AppLoadingSkeleton(height: 150),
-          SizedBox(height: 16),
+          SizedBox(height: AppSpacing.md),
           AppLoadingSkeleton(height: 240),
         ],
       ),
@@ -356,13 +361,13 @@ class _PackageDetailError extends StatelessWidget {
   @override
   Widget build(BuildContext context) => SafeArea(
     child: ListView(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(AppSpacing.lg),
       children: [
         AppErrorBanner(error: error),
-        const SizedBox(height: 12),
+        const SizedBox(height: AppSpacing.sm),
         FilledButton.icon(
           onPressed: onRetry,
-          icon: const Icon(Icons.refresh_rounded),
+          icon: const Icon(Icons.refresh_outlined),
           label: const Text('Thử lại'),
         ),
       ],

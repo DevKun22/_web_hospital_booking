@@ -1,3 +1,4 @@
+import 'package:hospital_booking_mobile/core/design/app_design_tokens.dart';
 import 'package:flutter/material.dart';
 import 'package:hospital_booking_mobile/core/formatters/display_formatters.dart';
 import 'package:hospital_booking_mobile/features/chatbot/application/chatbot_controller.dart';
@@ -40,8 +41,8 @@ class ChatbotMessageBubble extends StatelessWidget {
                 ? context.colors.warningContainer
                 : Theme.of(context).colorScheme.surface,
             borderRadius: BorderRadius.only(
-              topLeft: const Radius.circular(18),
-              topRight: const Radius.circular(18),
+              topLeft: const Radius.circular(AppRadius.lg),
+              topRight: const Radius.circular(AppRadius.lg),
               bottomLeft: Radius.circular(isUser ? 18 : 5),
               bottomRight: Radius.circular(isUser ? 5 : 18),
             ),
@@ -54,7 +55,7 @@ class ChatbotMessageBubble extends StatelessWidget {
                   ),
           ),
           child: Padding(
-            padding: const EdgeInsets.all(13),
+            padding: const EdgeInsets.all(AppSpacing.sm),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -65,11 +66,11 @@ class ChatbotMessageBubble extends StatelessWidget {
                       color: isAlert
                           ? context.colors.warning
                           : Theme.of(context).colorScheme.primary,
-                      fontWeight: FontWeight.w800,
+                      fontWeight: AppFontWeight.strong,
                       letterSpacing: 0.4,
                     ),
                   ),
-                  const SizedBox(height: 5),
+                  const SizedBox(height: AppSpacing.xxs),
                 ],
                 Text(
                   message.content,
@@ -81,7 +82,7 @@ class ChatbotMessageBubble extends StatelessWidget {
                   ),
                 ),
                 if (!isUser && message.results.isNotEmpty) ...[
-                  const SizedBox(height: 12),
+                  const SizedBox(height: AppSpacing.sm),
                   ChatbotResultGroups(
                     groups: message.results,
                     disabled: disabled,
@@ -117,7 +118,7 @@ class ChatbotTypingIndicator extends StatelessWidget {
   Widget build(BuildContext context) => const Align(
     alignment: Alignment.centerLeft,
     child: Padding(
-      padding: EdgeInsets.only(bottom: 12),
+      padding: EdgeInsets.only(bottom: AppSpacing.sm),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -125,7 +126,7 @@ class ChatbotTypingIndicator extends StatelessWidget {
             dimension: 16,
             child: CircularProgressIndicator(strokeWidth: 2),
           ),
-          SizedBox(width: 9),
+          SizedBox(width: AppSpacing.xs),
           Text('Trợ lý đang trả lời…'),
         ],
       ),
@@ -152,27 +153,27 @@ class ChatbotResultGroups extends StatelessWidget {
         .where((group) => group.items.isNotEmpty)
         .map(
           (group) => Padding(
-            padding: const EdgeInsets.only(bottom: 10),
+            padding: const EdgeInsets.only(bottom: AppSpacing.sm),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   group.title,
-                  style: Theme.of(
-                    context,
-                  ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w800),
+                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                    fontWeight: AppFontWeight.strong,
+                  ),
                 ),
                 if (group.description != null) ...[
-                  const SizedBox(height: 3),
+                  const SizedBox(height: AppSpacing.xxs),
                   Text(
                     group.description!,
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                 ],
-                const SizedBox(height: 8),
+                const SizedBox(height: AppSpacing.xs),
                 ...group.items.map(
                   (item) => Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
+                    padding: const EdgeInsets.only(bottom: AppSpacing.xs),
                     child: ChatbotResultCard(
                       item: item,
                       disabled: disabled,
@@ -225,10 +226,10 @@ class ChatbotResultCard extends StatelessWidget {
       _ => 0,
     };
     return Container(
-      padding: const EdgeInsets.all(11),
+      padding: const EdgeInsets.all(AppSpacing.sm),
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surfaceContainerLowest,
-        borderRadius: BorderRadius.circular(13),
+        borderRadius: BorderRadius.circular(AppRadius.md),
         border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
       ),
       child: Column(
@@ -242,7 +243,7 @@ class ChatbotResultCard extends StatelessWidget {
                 size: 20,
                 color: context.colors.primary,
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: AppSpacing.xs),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -252,7 +253,7 @@ class ChatbotResultCard extends StatelessWidget {
                       style: Theme.of(context).textTheme.labelLarge,
                     ),
                     if (subtitle?.isNotEmpty == true) ...[
-                      const SizedBox(height: 3),
+                      const SizedBox(height: AppSpacing.xxs),
                       Text(
                         subtitle!,
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
@@ -261,13 +262,13 @@ class ChatbotResultCard extends StatelessWidget {
                       ),
                     ],
                     if (price > 0) ...[
-                      const SizedBox(height: 4),
+                      const SizedBox(height: AppSpacing.xxs),
                       Text(
                         formatVnd(price),
                         style: Theme.of(context).textTheme.labelMedium
                             ?.copyWith(
                               color: context.colors.primary,
-                              fontWeight: FontWeight.w800,
+                              fontWeight: AppFontWeight.strong,
                             ),
                       ),
                     ],
@@ -277,7 +278,7 @@ class ChatbotResultCard extends StatelessWidget {
             ],
           ),
           if (action != null) ...[
-            const SizedBox(height: 8),
+            const SizedBox(height: AppSpacing.xs),
             SizedBox(
               width: double.infinity,
               child: OutlinedButton(
@@ -298,7 +299,7 @@ class ChatbotResultCard extends StatelessWidget {
 IconData chatbotResultIcon(ChatbotResultType type) => switch (type) {
   ChatbotResultType.department => Icons.local_hospital_outlined,
   ChatbotResultType.package => Icons.health_and_safety_outlined,
-  ChatbotResultType.doctor => Icons.person_outline_rounded,
+  ChatbotResultType.doctor => Icons.person_outline_outlined,
   ChatbotResultType.slot => Icons.schedule_outlined,
   ChatbotResultType.unknown => Icons.info_outline,
 };

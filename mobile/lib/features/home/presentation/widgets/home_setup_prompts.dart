@@ -29,7 +29,12 @@ class HomeSetupPrompts extends ConsumerWidget {
     final colors = context.colors;
     return Container(
       key: const Key('home-setup-prompts'),
-      padding: const EdgeInsets.fromLTRB(14, 12, 6, 8),
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.md,
+        AppSpacing.sm,
+        AppSpacing.xs,
+        AppSpacing.xs,
+      ),
       decoration: BoxDecoration(
         color: colors.primarySoft,
         borderRadius: BorderRadius.circular(AppRadius.lg),
@@ -41,13 +46,13 @@ class HomeSetupPrompts extends ConsumerWidget {
           Row(
             children: [
               Icon(Icons.tips_and_updates_outlined, color: colors.primaryDark),
-              const SizedBox(width: 8),
+              const SizedBox(width: AppSpacing.xs),
               Expanded(
                 child: Text(
                   'Hoàn tất thiết lập',
                   style: Theme.of(context).textTheme.titleSmall?.copyWith(
                     color: colors.primaryDark,
-                    fontWeight: FontWeight.w800,
+                    fontWeight: AppFontWeight.strong,
                   ),
                 ),
               ),
@@ -85,7 +90,7 @@ class HomeSetupPrompts extends ConsumerWidget {
           if (needsLock)
             _SetupRow(
               key: const Key('home-setup-lock'),
-              icon: Icons.fingerprint_rounded,
+              icon: Icons.fingerprint_outlined,
               title: 'Khóa bằng vân tay',
               description: 'Chỉ bạn mở được lịch khám và hồ sơ trên máy này.',
               actionLabel: 'Bật',
@@ -137,7 +142,11 @@ class _SetupRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = context.colors;
     return Padding(
-      padding: const EdgeInsets.only(top: 4, right: 8, bottom: 4),
+      padding: const EdgeInsets.only(
+        top: AppSpacing.xxs,
+        right: AppSpacing.xs,
+        bottom: AppSpacing.xxs,
+      ),
       child: Row(
         children: [
           Container(
@@ -149,16 +158,16 @@ class _SetupRow extends StatelessWidget {
             ),
             child: Icon(icon, color: colors.primary, size: 22),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: AppSpacing.sm),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   title,
-                  style: Theme.of(
-                    context,
-                  ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    fontWeight: AppFontWeight.strong,
+                  ),
                 ),
                 Text(
                   description,
@@ -170,12 +179,12 @@ class _SetupRow extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: AppSpacing.xs),
           FilledButton(
             onPressed: busy ? null : onPressed,
             style: FilledButton.styleFrom(
               minimumSize: const Size(64, 40),
-              padding: const EdgeInsets.symmetric(horizontal: 14),
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
             ),
             child: busy
                 ? const SizedBox.square(

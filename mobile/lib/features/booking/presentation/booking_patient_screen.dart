@@ -205,13 +205,18 @@ class _BookingPatientScreenState extends ConsumerState<BookingPatientScreen> {
         child: Form(
           key: _formKey,
           child: ListView(
-            padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.lg,
+              AppSpacing.xs,
+              AppSpacing.lg,
+              AppSpacing.xxl,
+            ),
             children: [
               BookingJourneyIndicator(
                 currentStep: 1,
                 finalStepLabel: skipsOtp ? 'Hoàn tất' : 'Xác thực',
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: AppSpacing.lg),
               BookingCompactSelectionCard(
                 doctorName: selectedDoctor.displayName,
                 departmentName: selectedDoctor.departmentName,
@@ -221,12 +226,12 @@ class _BookingPatientScreenState extends ConsumerState<BookingPatientScreen> {
                 time:
                     '${shortTime(selectedSlot.startTime)} – ${shortTime(selectedSlot.endTime)}',
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: AppSpacing.lg),
               Text(
                 'Người đến khám',
                 style: Theme.of(context).textTheme.titleSmall,
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: AppSpacing.sm),
               BookingPatientTypeSelector(
                 selected: _patientType,
                 relativeEnabled: authenticatedUser != null,
@@ -237,7 +242,7 @@ class _BookingPatientScreenState extends ConsumerState<BookingPatientScreen> {
                 onUnavailableRelativeTap: _showRelativeLoginNotice,
               ),
               if (_selectedDependent != null) ...[
-                const SizedBox(height: 10),
+                const SizedBox(height: AppSpacing.sm),
                 Card(
                   margin: EdgeInsets.zero,
                   color: Theme.of(context).colorScheme.primaryContainer,
@@ -252,7 +257,7 @@ class _BookingPatientScreenState extends ConsumerState<BookingPatientScreen> {
                   ),
                 ),
               ],
-              const SizedBox(height: 20),
+              const SizedBox(height: AppSpacing.lg),
               Row(
                 children: [
                   Expanded(
@@ -281,7 +286,7 @@ class _BookingPatientScreenState extends ConsumerState<BookingPatientScreen> {
                     ),
                 ],
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: AppSpacing.sm),
               BookingPatientContactFields(
                 name: _nameController,
                 phone: _phoneController,
@@ -290,7 +295,7 @@ class _BookingPatientScreenState extends ConsumerState<BookingPatientScreen> {
                 isSubmitting: isSubmitting,
                 skipsOtp: skipsOtp,
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: AppSpacing.lg),
               TextFormField(
                 controller: _reasonController,
                 minLines: 2,
@@ -298,12 +303,12 @@ class _BookingPatientScreenState extends ConsumerState<BookingPatientScreen> {
                 decoration: const InputDecoration(
                   labelText: 'Lý do khám (không bắt buộc)',
                   alignLabelWithHint: true,
-                  prefixIcon: Icon(Icons.notes_rounded),
+                  prefixIcon: Icon(Icons.notes_outlined),
                 ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: AppSpacing.xs),
               BookingReasonChips(controller: _reasonController),
-              const SizedBox(height: 18),
+              const SizedBox(height: AppSpacing.lg),
               BookingPatientExtraSection(
                 isRelative: _patientType == BookingPatientType.relative,
                 gender: _gender,
@@ -336,7 +341,12 @@ class _BookingPatientScreenState extends ConsumerState<BookingPatientScreen> {
         elevation: 8,
         child: SafeArea(
           top: false,
-          minimum: const EdgeInsets.fromLTRB(20, 10, 20, 10),
+          minimum: const EdgeInsets.fromLTRB(
+            AppSpacing.lg,
+            AppSpacing.sm,
+            AppSpacing.lg,
+            AppSpacing.sm,
+          ),
           child: ConstrainedBox(
             constraints: BoxConstraints(
               maxHeight: MediaQuery.sizeOf(context).height * 0.4,

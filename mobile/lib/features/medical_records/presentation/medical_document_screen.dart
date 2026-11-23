@@ -35,7 +35,7 @@ class MedicalDocumentScreen extends ConsumerWidget {
           IconButton(
             tooltip: 'Tải lại tệp',
             onPressed: () => ref.invalidate(medicalDocumentProvider(request)),
-            icon: const Icon(Icons.refresh_rounded),
+            icon: const Icon(Icons.refresh_outlined),
           ),
         ],
       ),
@@ -123,7 +123,7 @@ class _DocumentError extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => ListView(
-    padding: const EdgeInsets.all(16),
+    padding: const EdgeInsets.all(AppSpacing.md),
     children: [
       if (error is ApiException)
         AppErrorBanner(error: error as ApiException)
@@ -133,10 +133,10 @@ class _DocumentError extends StatelessWidget {
           title: 'Không tải được tệp kết quả',
           message: 'Kiểm tra kết nối mạng rồi thử lại.',
         ),
-      const SizedBox(height: 14),
+      const SizedBox(height: AppSpacing.md),
       FilledButton.icon(
         onPressed: onRetry,
-        icon: const Icon(Icons.refresh_rounded),
+        icon: const Icon(Icons.refresh_outlined),
         label: const Text('Thử lại'),
       ),
     ],

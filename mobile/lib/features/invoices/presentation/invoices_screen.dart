@@ -63,7 +63,7 @@ class _InvoicesScreenState extends ConsumerState<InvoicesScreen> {
           IconButton(
             tooltip: 'Làm mới',
             onPressed: state.isRefreshing ? null : controller.refresh,
-            icon: const Icon(Icons.refresh_rounded),
+            icon: const Icon(Icons.refresh_outlined),
           ),
         ],
       ),
@@ -180,7 +180,7 @@ class _InvoicesScreenState extends ConsumerState<InvoicesScreen> {
                                         strokeWidth: 2,
                                       ),
                                     )
-                                  : const Icon(Icons.expand_more_rounded),
+                                  : const Icon(Icons.expand_more_outlined),
                               label: Text(
                                 state.isLoadingMore
                                     ? 'Đang tải thêm…'
@@ -229,7 +229,9 @@ class _DueSummary extends StatelessWidget {
               shape: BoxShape.circle,
             ),
             child: Icon(
-              due ? Icons.receipt_long_outlined : Icons.check_circle_outline,
+              due
+                  ? Icons.receipt_long_outlined
+                  : Icons.check_circle_outline_outlined,
               color: foreground,
             ),
           ),
@@ -325,7 +327,7 @@ class _InvoiceCard extends StatelessWidget {
                 ),
               if (invoice.isDependentInvoice && invoice.patientName != null)
                 Padding(
-                  padding: const EdgeInsets.only(top: 4),
+                  padding: const EdgeInsets.only(top: AppSpacing.xxs),
                   child: Row(
                     children: [
                       Icon(
@@ -333,7 +335,7 @@ class _InvoiceCard extends StatelessWidget {
                         size: 16,
                         color: colors.primary,
                       ),
-                      const SizedBox(width: 6),
+                      const SizedBox(width: AppSpacing.xs),
                       Expanded(
                         child: Text(
                           'Người khám: ${invoice.patientName}',
@@ -374,7 +376,9 @@ class _InvoiceCard extends StatelessWidget {
                       onPressed: onTap,
                       style: FilledButton.styleFrom(
                         minimumSize: const Size(0, 38),
-                        padding: const EdgeInsets.symmetric(horizontal: 20),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AppSpacing.lg,
+                        ),
                       ),
                       child: const Text('Thanh toán'),
                     ),

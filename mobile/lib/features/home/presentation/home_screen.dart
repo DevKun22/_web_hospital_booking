@@ -125,7 +125,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   ),
                   if (sessionError != null && restoreError == null)
                     SliverPadding(
-                      padding: const EdgeInsets.fromLTRB(14, 8, 14, 0),
+                      padding: const EdgeInsets.fromLTRB(
+                        AppSpacing.md,
+                        AppSpacing.xs,
+                        AppSpacing.md,
+                        0,
+                      ),
                       sliver: SliverToBoxAdapter(
                         child: AppErrorBanner(
                           error: sessionError,
@@ -137,7 +142,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     ),
                   if (restoreError != null)
                     SliverPadding(
-                      padding: const EdgeInsets.fromLTRB(14, 8, 14, 0),
+                      padding: const EdgeInsets.fromLTRB(
+                        AppSpacing.md,
+                        AppSpacing.xs,
+                        AppSpacing.md,
+                        0,
+                      ),
                       sliver: SliverToBoxAdapter(
                         child: HomeOfflineContentNotice(
                           message: restoreError.message,
@@ -151,7 +161,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       content != null &&
                       restoreError == null)
                     SliverPadding(
-                      padding: const EdgeInsets.fromLTRB(14, 8, 14, 0),
+                      padding: const EdgeInsets.fromLTRB(
+                        AppSpacing.md,
+                        AppSpacing.xs,
+                        AppSpacing.md,
+                        0,
+                      ),
                       sliver: SliverToBoxAdapter(
                         child: AppErrorBanner(
                           error: homeState.error!,
@@ -163,7 +178,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     ),
                   if (upcomingAppointment != null)
                     SliverPadding(
-                      padding: const EdgeInsets.fromLTRB(14, 6, 14, 0),
+                      padding: const EdgeInsets.fromLTRB(
+                        AppSpacing.md,
+                        AppSpacing.xs,
+                        AppSpacing.md,
+                        0,
+                      ),
                       sliver: SliverToBoxAdapter(
                         child: FadeSlideIn(
                           order: order++,
@@ -185,11 +205,21 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     ),
                   if (isAuthenticated)
                     const SliverPadding(
-                      padding: EdgeInsets.fromLTRB(14, 8, 14, 0),
+                      padding: EdgeInsets.fromLTRB(
+                        AppSpacing.md,
+                        AppSpacing.xs,
+                        AppSpacing.md,
+                        0,
+                      ),
                       sliver: SliverToBoxAdapter(child: HomeSetupPrompts()),
                     ),
                   SliverPadding(
-                    padding: const EdgeInsets.fromLTRB(14, 8, 14, 0),
+                    padding: const EdgeInsets.fromLTRB(
+                      AppSpacing.md,
+                      AppSpacing.xs,
+                      AppSpacing.md,
+                      0,
+                    ),
                     sliver: SliverToBoxAdapter(
                       child: FadeSlideIn(
                         order: order++,
@@ -199,20 +229,20 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   ),
                   SliverPadding(
                     padding: const EdgeInsets.fromLTRB(
-                      14,
-                      14,
-                      14,
+                      AppSpacing.md,
+                      AppSpacing.md,
+                      AppSpacing.md,
                       appMainContentBottomInset,
                     ),
                     sliver: SliverList(
                       delegate: SliverChildListDelegate([
                         if (homeState.isInitialLoading) ...[
                           const AppLoadingSkeleton(height: 110),
-                          const SizedBox(height: 10),
+                          const SizedBox(height: AppSpacing.sm),
                           const AppLoadingSkeleton(height: 90),
                         ] else if (content == null) ...[
                           AppEmptyState(
-                            icon: Icons.cloud_off_rounded,
+                            icon: Icons.cloud_off_outlined,
                             title: 'Chưa tải được nội dung',
                             message:
                                 homeState.error?.message ??
@@ -221,7 +251,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                               onPressed: ref
                                   .read(homeContentControllerProvider.notifier)
                                   .refresh,
-                              icon: const Icon(Icons.refresh_rounded),
+                              icon: const Icon(Icons.refresh_outlined),
                               label: const Text('Thử lại'),
                             ),
                           ),
@@ -229,7 +259,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           if (homeState.usingCachedData &&
                               restoreError == null) ...[
                             const HomeCachedDataIndicator(),
-                            const SizedBox(height: 8),
+                            const SizedBox(height: AppSpacing.xs),
                           ],
                           if (content.doctors.isNotEmpty)
                             _Section(
@@ -361,7 +391,7 @@ class _Section extends StatelessWidget {
   Widget build(BuildContext context) => FadeSlideIn(
     order: order,
     child: Padding(
-      padding: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.only(bottom: AppSpacing.md),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -370,7 +400,7 @@ class _Section extends StatelessWidget {
             actionLabel: 'Tất cả',
             onAction: onAction,
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: AppSpacing.xs),
           child,
         ],
       ),
@@ -412,7 +442,12 @@ class _HomeTop extends StatelessWidget {
           onNotifications: onNotifications,
         ),
         Padding(
-          padding: EdgeInsets.fromLTRB(14, bandHeight - _overlap, 14, 0),
+          padding: EdgeInsets.fromLTRB(
+            AppSpacing.md,
+            bandHeight - _overlap,
+            AppSpacing.md,
+            0,
+          ),
           child: hero,
         ),
       ],

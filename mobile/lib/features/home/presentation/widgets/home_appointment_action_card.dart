@@ -41,7 +41,7 @@ class HomeAppointmentActionCard extends StatelessWidget {
                     copy.title,
                     style: Theme.of(context).textTheme.titleSmall?.copyWith(
                       color: context.colors.ink,
-                      fontWeight: FontWeight.w800,
+                      fontWeight: AppFontWeight.strong,
                     ),
                   ),
                 ),
@@ -60,7 +60,7 @@ class HomeAppointmentActionCard extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
                 color: context.colors.ink,
-                fontWeight: FontWeight.w800,
+                fontWeight: AppFontWeight.strong,
               ),
             ),
             const SizedBox(height: AppSpacing.xxs),
@@ -83,7 +83,7 @@ class HomeAppointmentActionCard extends StatelessWidget {
                 child: Row(
                   children: [
                     Icon(
-                      Icons.schedule_rounded,
+                      Icons.schedule_outlined,
                       size: 19,
                       color: context.colors.primary,
                     ),
@@ -93,7 +93,7 @@ class HomeAppointmentActionCard extends StatelessWidget {
                         '${formatDateVi(appointment.appointmentDate)} · ${formatTimeRange(appointment.startTime, appointment.endTime)}',
                         style: Theme.of(context).textTheme.labelLarge?.copyWith(
                           color: context.colors.primaryDark,
-                          fontWeight: FontWeight.w700,
+                          fontWeight: AppFontWeight.strong,
                         ),
                       ),
                     ),
@@ -125,7 +125,7 @@ class HomeAppointmentActionCard extends StatelessWidget {
                     child: OutlinedButton.icon(
                       key: const Key('home-appointment-qr'),
                       onPressed: onShowQr,
-                      icon: const Icon(Icons.qr_code_2_rounded),
+                      icon: const Icon(Icons.qr_code_2_outlined),
                       label: const Text('Vé khám QR'),
                     ),
                   ),

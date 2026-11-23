@@ -25,7 +25,12 @@ class AppInfoSection extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(4, AppSpacing.md, 4, 6),
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.xxs,
+            AppSpacing.md,
+            AppSpacing.xxs,
+            AppSpacing.xs,
+          ),
           child: Text(
             title,
             style: text.labelLarge?.copyWith(color: colors.muted),
@@ -34,7 +39,12 @@ class AppInfoSection extends StatelessWidget {
         AppInfoCard(children: children),
         if (footer != null)
           Padding(
-            padding: const EdgeInsets.fromLTRB(4, 6, 4, 0),
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.xxs,
+              AppSpacing.xs,
+              AppSpacing.xxs,
+              0,
+            ),
             child: Text(
               footer!,
               style: text.bodySmall?.copyWith(color: colors.muted),
@@ -53,7 +63,12 @@ class AppInfoSectionTitle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.fromLTRB(4, AppSpacing.md, 4, 6),
+    padding: const EdgeInsets.fromLTRB(
+      AppSpacing.xxs,
+      AppSpacing.md,
+      AppSpacing.xxs,
+      AppSpacing.xs,
+    ),
     child: Text(
       title,
       style: Theme.of(
@@ -133,12 +148,12 @@ class AppInfoRow extends StatelessWidget {
         color: colors.primary,
       ),
       AppInfoTrailing.add => Icon(
-        Icons.add_rounded,
+        Icons.add_outlined,
         size: 22,
         color: colors.primary,
       ),
       AppInfoTrailing.locked => Icon(
-        Icons.lock_outline_rounded,
+        Icons.lock_outline,
         size: 20,
         color: colors.muted,
       ),
@@ -146,7 +161,7 @@ class AppInfoRow extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(Icons.verified_user_outlined, size: 18, color: colors.success),
-          const SizedBox(width: 4),
+          const SizedBox(width: AppSpacing.xxs),
           Flexible(
             child: Text(
               'Đã xác thực',
@@ -158,7 +173,7 @@ class AppInfoRow extends StatelessWidget {
         ],
       ),
       AppInfoTrailing.chevron => Icon(
-        Icons.chevron_right_rounded,
+        Icons.chevron_right_outlined,
         color: colors.muted,
       ),
       AppInfoTrailing.none => const SizedBox.shrink(),
@@ -189,7 +204,7 @@ class AppInfoRow extends StatelessWidget {
                             color: colors.muted,
                           ),
                         ),
-                        const SizedBox(height: 2),
+                        const SizedBox(height: AppSpacing.hair),
                         Text(
                           hasValue ? value! : (addLabel ?? 'Chưa có'),
                           maxLines: maxLines,
@@ -198,7 +213,7 @@ class AppInfoRow extends StatelessWidget {
                               ? text.bodyLarge
                               : text.bodyLarge?.copyWith(
                                   color: colors.primary,
-                                  fontWeight: FontWeight.w600,
+                                  fontWeight: AppFontWeight.strong,
                                 ),
                         ),
                       ],

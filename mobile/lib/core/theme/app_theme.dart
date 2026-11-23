@@ -31,47 +31,47 @@ abstract final class AppTheme {
     );
     final isDark = brightness == Brightness.dark;
 
-    // Chữ gọn và nhẹ: thân 14 đến 16, tiêu đề 15 đến 22, chỉ dùng độ đậm 400, 500, 600.
+    // Chữ gọn và nhẹ cho phông Be Vietnam Pro (nét rộng hơn Roboto): thân 12 đến 15, tiêu đề 14 đến 20, chỉ dùng độ đậm 400, 500, 600.
     const textTheme = TextTheme(
       displaySmall: TextStyle(
-        fontSize: 32,
+        fontSize: 30,
         height: 1.15,
-        fontWeight: FontWeight.w600,
+        fontWeight: AppFontWeight.strong,
         letterSpacing: -0.5,
       ),
       headlineMedium: TextStyle(
-        fontSize: 26,
+        fontSize: 24,
         height: 1.2,
-        fontWeight: FontWeight.w600,
+        fontWeight: AppFontWeight.strong,
         letterSpacing: -0.3,
       ),
       headlineSmall: TextStyle(
-        fontSize: 22,
+        fontSize: 20,
         height: 1.25,
-        fontWeight: FontWeight.w600,
+        fontWeight: AppFontWeight.strong,
         letterSpacing: -0.2,
       ),
       titleLarge: TextStyle(
-        fontSize: 19,
+        fontSize: 18,
         height: 1.3,
-        fontWeight: FontWeight.w600,
+        fontWeight: AppFontWeight.strong,
       ),
       titleMedium: TextStyle(
-        fontSize: 16,
-        height: 1.3,
-        fontWeight: FontWeight.w600,
-      ),
-      titleSmall: TextStyle(
         fontSize: 15,
         height: 1.3,
-        fontWeight: FontWeight.w600,
+        fontWeight: AppFontWeight.strong,
       ),
-      bodyLarge: TextStyle(fontSize: 16, height: 1.45),
-      bodyMedium: TextStyle(fontSize: 14, height: 1.45),
-      bodySmall: TextStyle(fontSize: 13, height: 1.4),
-      labelLarge: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
-      labelMedium: TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
-      labelSmall: TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+      titleSmall: TextStyle(
+        fontSize: 14,
+        height: 1.3,
+        fontWeight: AppFontWeight.strong,
+      ),
+      bodyLarge: TextStyle(fontSize: 15, height: 1.45),
+      bodyMedium: TextStyle(fontSize: 13, height: 1.45),
+      bodySmall: TextStyle(fontSize: 12, height: 1.4),
+      labelLarge: TextStyle(fontSize: 13, fontWeight: AppFontWeight.medium),
+      labelMedium: TextStyle(fontSize: 12, fontWeight: AppFontWeight.medium),
+      labelSmall: TextStyle(fontSize: 11, fontWeight: AppFontWeight.medium),
     );
 
     return ThemeData(
@@ -99,9 +99,9 @@ abstract final class AppTheme {
         toolbarHeight: 64,
         titleTextStyle: TextStyle(
           color: c.ink,
-          fontSize: 18,
+          fontSize: 17,
           height: 1.2,
-          fontWeight: FontWeight.w600,
+          fontWeight: AppFontWeight.strong,
         ),
         systemOverlayStyle: SystemUiOverlayStyle(
           statusBarColor: Colors.transparent,
@@ -165,7 +165,10 @@ abstract final class AppTheme {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(AppRadius.md),
           ),
-          textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+          textStyle: const TextStyle(
+            fontSize: 13,
+            fontWeight: AppFontWeight.strong,
+          ),
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
@@ -180,7 +183,10 @@ abstract final class AppTheme {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(AppRadius.md),
           ),
-          textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+          textStyle: const TextStyle(
+            fontSize: 13,
+            fontWeight: AppFontWeight.strong,
+          ),
         ),
       ),
       textButtonTheme: TextButtonThemeData(
@@ -191,7 +197,10 @@ abstract final class AppTheme {
           ),
           foregroundColor: c.primary,
           padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
-          textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+          textStyle: const TextStyle(
+            fontSize: 13,
+            fontWeight: AppFontWeight.strong,
+          ),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(AppRadius.sm),
           ),
@@ -221,10 +230,10 @@ abstract final class AppTheme {
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppRadius.pill),
         ),
-        labelStyle: TextStyle(color: c.ink, fontWeight: FontWeight.w500),
+        labelStyle: TextStyle(color: c.ink, fontWeight: AppFontWeight.medium),
         secondaryLabelStyle: TextStyle(
           color: c.primaryDark,
-          fontWeight: FontWeight.w600,
+          fontWeight: AppFontWeight.strong,
         ),
         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
       ),
@@ -236,7 +245,7 @@ abstract final class AppTheme {
           final selected = states.contains(WidgetState.selected);
           return TextStyle(
             color: selected ? c.primary : c.muted,
-            fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+            fontWeight: selected ? AppFontWeight.strong : AppFontWeight.medium,
           );
         }),
       ),

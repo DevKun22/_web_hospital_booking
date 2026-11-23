@@ -57,7 +57,7 @@ class _FirstRunSheet extends StatelessWidget {
       padding: const EdgeInsets.only(top: AppSpacing.sm),
       child: Row(
         children: [
-          Icon(Icons.check_circle_rounded, size: 20, color: colors.care),
+          Icon(Icons.check_circle_outlined, size: 20, color: colors.care),
           const SizedBox(width: AppSpacing.sm),
           Expanded(child: Text(label, style: text.bodyLarge)),
         ],

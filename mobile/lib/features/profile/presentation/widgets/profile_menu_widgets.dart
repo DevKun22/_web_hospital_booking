@@ -37,7 +37,7 @@ class ProfileMenuGroups extends StatelessWidget {
           children: [
             _MenuRow(
               key: const Key('profile-personal'),
-              icon: Icons.person_outline_rounded,
+              icon: Icons.person_outline_outlined,
               title: 'Thông tin cá nhân',
               onTap: () => context.push('/profile/personal'),
             ),
@@ -62,13 +62,13 @@ class ProfileMenuGroups extends StatelessWidget {
           children: [
             _MenuRow(
               key: const Key('profile-mobile-tools'),
-              icon: Icons.qr_code_2_rounded,
+              icon: Icons.qr_code_2_outlined,
               title: 'Thẻ số và bảo mật',
               onTap: () => context.push('/mobile-tools'),
             ),
             _MenuRow(
               key: const Key('profile-notification-settings'),
-              icon: Icons.notifications_none_rounded,
+              icon: Icons.notifications_none_outlined,
               title: 'Thông báo',
               trailingText: profileNotificationStatus(pushState),
               highlight: pushState.isAllowed,
@@ -76,7 +76,7 @@ class ProfileMenuGroups extends StatelessWidget {
             ),
             _MenuRow(
               key: const Key('profile-support-center'),
-              icon: Icons.support_agent_rounded,
+              icon: Icons.support_agent_outlined,
               title: 'Trung tâm hỗ trợ',
               onTap: () => context.push('/support'),
             ),
@@ -125,8 +125,8 @@ class _MenuRow extends StatelessWidget {
               if (chip != null)
                 Container(
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 3,
+                    horizontal: AppSpacing.sm,
+                    vertical: AppSpacing.xxs,
                   ),
                   decoration: BoxDecoration(
                     color: chip!.$3,
@@ -136,7 +136,7 @@ class _MenuRow extends StatelessWidget {
                     chip!.$1,
                     style: text.labelMedium?.copyWith(
                       color: chip!.$2,
-                      fontWeight: FontWeight.w600,
+                      fontWeight: AppFontWeight.strong,
                     ),
                   ),
                 ),
@@ -148,11 +148,11 @@ class _MenuRow extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: text.labelMedium?.copyWith(
                       color: highlight ? colors.primary : colors.muted,
-                      fontWeight: FontWeight.w600,
+                      fontWeight: AppFontWeight.strong,
                     ),
                   ),
                 ),
-              Icon(Icons.chevron_right_rounded, color: colors.muted),
+              Icon(Icons.chevron_right_outlined, color: colors.muted),
             ],
           ),
         ),

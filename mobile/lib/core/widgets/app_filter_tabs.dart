@@ -21,7 +21,7 @@ class AppFilterTabs<T> extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = context.colors;
     return Container(
-      padding: const EdgeInsets.all(3),
+      padding: const EdgeInsets.all(AppSpacing.xxs),
       decoration: BoxDecoration(
         color: colors.primarySoft,
         borderRadius: BorderRadius.circular(AppRadius.md),
@@ -40,7 +40,9 @@ class AppFilterTabs<T> extends StatelessWidget {
                     onTap: () => onChanged(item),
                     child: AnimatedContainer(
                       duration: AppMotion.responsive(context, AppMotion.fast),
-                      padding: const EdgeInsets.symmetric(vertical: 9),
+                      padding: const EdgeInsets.symmetric(
+                        vertical: AppSpacing.xs,
+                      ),
                       alignment: Alignment.center,
                       decoration: BoxDecoration(
                         color: item == selected
@@ -58,8 +60,8 @@ class AppFilterTabs<T> extends StatelessWidget {
                                   ? colors.primaryDark
                                   : colors.muted,
                               fontWeight: item == selected
-                                  ? FontWeight.w600
-                                  : FontWeight.w500,
+                                  ? AppFontWeight.strong
+                                  : AppFontWeight.medium,
                             ),
                       ),
                     ),
@@ -101,5 +103,26 @@ class AppSwipeTabs<T> extends StatelessWidget {
     behavior: HitTestBehavior.translucent,
     onHorizontalDragEnd: _onEnd,
     child: child,
+  );
+}
+
+/// Chip lọc chọn một: dùng cho bộ lọc theo khoa, theo loại trong các danh sách.
+class AppFilterChip extends StatelessWidget {
+  const AppFilterChip({
+    super.key,
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => ChoiceChip(
+    label: Text(label),
+    selected: selected,
+    onSelected: (_) => onTap(),
   );
 }

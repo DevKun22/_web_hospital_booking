@@ -135,7 +135,7 @@ class _TextEditSheetState extends State<_TextEditSheet> {
               children: [
                 Text(widget.title, style: text.titleMedium),
                 if (widget.description != null) ...[
-                  const SizedBox(height: 2),
+                  const SizedBox(height: AppSpacing.hair),
                   Text(
                     widget.description!,
                     style: text.bodySmall?.copyWith(color: colors.muted),
@@ -287,7 +287,7 @@ Future<OptionPick<T>?> showOptionSheet<T>(
               title: Text(labelOf(option)),
               trailing: option == selected
                   ? Icon(
-                      Icons.check_rounded,
+                      Icons.check_outlined,
                       color: sheetContext.colors.primary,
                     )
                   : null,

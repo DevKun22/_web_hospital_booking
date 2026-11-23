@@ -79,7 +79,7 @@ final List<_Group> _groups = [
       ),
       (
         label: 'Thẻ số',
-        icon: Icons.qr_code_2_rounded,
+        icon: Icons.qr_code_2_outlined,
         open: (c) => unawaited(c.push<void>('/mobile-tools')),
       ),
     ],
@@ -99,7 +99,7 @@ final List<_Group> _groups = [
       ),
       (
         label: 'Hỗ trợ',
-        icon: Icons.support_agent_rounded,
+        icon: Icons.support_agent_outlined,
         open: (c) => unawaited(c.push<void>('/support')),
       ),
       (
@@ -151,15 +151,22 @@ class _ServicesHubScreenState extends State<ServicesHubScreen> {
         body: Column(
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(14, 4, 14, 8),
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.md,
+                AppSpacing.xxs,
+                AppSpacing.md,
+                AppSpacing.xs,
+              ),
               child: TextField(
                 key: const Key('services-search'),
                 onChanged: (value) => setState(() => _query = value),
                 decoration: InputDecoration(
                   hintText: 'Tìm dịch vụ',
-                  prefixIcon: const Icon(Icons.search_rounded, size: 20),
+                  prefixIcon: const Icon(Icons.search_outlined, size: 20),
                   isDense: true,
-                  contentPadding: const EdgeInsets.symmetric(vertical: 10),
+                  contentPadding: const EdgeInsets.symmetric(
+                    vertical: AppSpacing.sm,
+                  ),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(AppRadius.pill),
                     borderSide: BorderSide.none,
@@ -221,7 +228,12 @@ class _ServiceGrid extends StatelessWidget {
       );
     }
     return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(14, 12, 14, appMainContentBottomInset),
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.md,
+        AppSpacing.sm,
+        AppSpacing.md,
+        appMainContentBottomInset,
+      ),
       child: DecoratedBox(
         decoration: BoxDecoration(
           color: context.colors.surface,
@@ -229,7 +241,10 @@ class _ServiceGrid extends StatelessWidget {
           border: Border.all(color: context.colors.border, width: 0.5),
         ),
         child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 6),
+          padding: const EdgeInsets.symmetric(
+            vertical: AppSpacing.sm,
+            horizontal: AppSpacing.xs,
+          ),
           child: Wrap(
             runSpacing: 14,
             children: [
@@ -264,7 +279,10 @@ class _ServiceTile extends StatelessWidget {
         onTap: () => item.open(context),
         borderRadius: BorderRadius.circular(AppRadius.md),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 2),
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.hair,
+            vertical: AppSpacing.hair,
+          ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -277,7 +295,7 @@ class _ServiceTile extends StatelessWidget {
                 ),
                 child: Icon(item.icon, color: context.colors.primary, size: 24),
               ),
-              const SizedBox(height: 6),
+              const SizedBox(height: AppSpacing.xs),
               Text(
                 item.label,
                 maxLines: 2,

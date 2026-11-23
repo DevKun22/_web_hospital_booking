@@ -152,7 +152,7 @@ class _PackageTile extends StatelessWidget {
                       children: [
                         Text(item.name, style: text.titleSmall),
                         if (item.summary != null) ...[
-                          const SizedBox(height: 2),
+                          const SizedBox(height: AppSpacing.hair),
                           Text(
                             item.summary!,
                             maxLines: 2,
@@ -166,7 +166,7 @@ class _PackageTile extends StatelessWidget {
                     ),
                   ),
                   if (selected)
-                    Icon(Icons.check_circle_rounded, color: colors.primary),
+                    Icon(Icons.check_circle_outlined, color: colors.primary),
                 ],
               ),
               const SizedBox(height: AppSpacing.xs),

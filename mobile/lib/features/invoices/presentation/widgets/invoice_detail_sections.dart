@@ -14,7 +14,7 @@ class InvoiceHeader extends StatelessWidget {
   Widget build(BuildContext context) => Card(
     margin: EdgeInsets.zero,
     child: Padding(
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.all(AppSpacing.lg),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -28,34 +28,34 @@ class InvoiceHeader extends StatelessWidget {
               const Spacer(),
               Text(
                 invoice.invoiceCode,
-                style: Theme.of(
-                  context,
-                ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w800),
+                style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                  fontWeight: AppFontWeight.strong,
+                ),
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: AppSpacing.md),
           InvoiceIconLine(
             icon: Icons.calendar_today_outlined,
             value:
                 '${formatDateVi(invoice.appointmentDate)} · ${formatTimeRange(invoice.startTime, invoice.endTime)}',
           ),
           if (invoice.isDependentInvoice && invoice.patientName != null) ...[
-            const SizedBox(height: 10),
+            const SizedBox(height: AppSpacing.sm),
             InvoiceIconLine(
               icon: Icons.family_restroom_outlined,
               value: 'Người đến khám: ${invoice.patientName}',
             ),
           ],
-          const SizedBox(height: 10),
+          const SizedBox(height: AppSpacing.sm),
           InvoiceIconLine(
-            icon: Icons.person_outline,
+            icon: Icons.person_outline_outlined,
             value: invoice.doctorName.isEmpty
                 ? 'Bác sĩ phụ trách'
                 : invoice.doctorName,
           ),
           if (invoice.careUnit.isNotEmpty) ...[
-            const SizedBox(height: 10),
+            const SizedBox(height: AppSpacing.sm),
             InvoiceIconLine(
               icon: Icons.local_hospital_outlined,
               value: invoice.careUnit,
@@ -76,7 +76,7 @@ class InvoicePaymentSummary extends StatelessWidget {
   Widget build(BuildContext context) => Card(
     margin: EdgeInsets.zero,
     child: Padding(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(AppSpacing.md),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -84,13 +84,13 @@ class InvoicePaymentSummary extends StatelessWidget {
             'Tổng hợp thanh toán',
             style: Theme.of(
               context,
-            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+            ).textTheme.titleMedium?.copyWith(fontWeight: AppFontWeight.strong),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: AppSpacing.sm),
           if (invoice.items.isNotEmpty) ...[
             ...invoice.items.map(
               (item) => Padding(
-                padding: const EdgeInsets.only(bottom: 8),
+                padding: const EdgeInsets.only(bottom: AppSpacing.xs),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -112,10 +112,10 @@ class InvoicePaymentSummary extends StatelessWidget {
                         ],
                       ),
                     ),
-                    const SizedBox(width: 12),
+                    const SizedBox(width: AppSpacing.sm),
                     Text(
                       formatVnd(item.amount),
-                      style: const TextStyle(fontWeight: FontWeight.w700),
+                      style: const TextStyle(fontWeight: AppFontWeight.strong),
                     ),
                   ],
                 ),
@@ -136,7 +136,7 @@ class InvoicePaymentSummary extends StatelessWidget {
                 child: Text(
                   'Thành tiền',
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w900,
+                    fontWeight: AppFontWeight.strong,
                   ),
                 ),
               ),
@@ -144,7 +144,7 @@ class InvoicePaymentSummary extends StatelessWidget {
                 formatVnd(invoice.finalAmount),
                 style: Theme.of(context).textTheme.titleLarge?.copyWith(
                   color: Theme.of(context).colorScheme.primary,
-                  fontWeight: FontWeight.w900,
+                  fontWeight: AppFontWeight.strong,
                 ),
               ),
             ],
@@ -153,11 +153,11 @@ class InvoicePaymentSummary extends StatelessWidget {
             const Divider(height: 24),
             Text(
               'Biên nhận thanh toán',
-              style: Theme.of(
-                context,
-              ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
+              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                fontWeight: AppFontWeight.strong,
+              ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: AppSpacing.xs),
             InvoiceTextRow(label: 'Mã biên nhận', value: invoice.invoiceCode),
             InvoiceTextRow(
               label: 'Phương thức',
@@ -201,7 +201,7 @@ class InvoiceInsuranceSection extends StatelessWidget {
   Widget build(BuildContext context) => Card(
     margin: EdgeInsets.zero,
     child: Padding(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(AppSpacing.md),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -211,16 +211,16 @@ class InvoiceInsuranceSection extends StatelessWidget {
                 Icons.health_and_safety_outlined,
                 color: Theme.of(context).colorScheme.primary,
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: AppSpacing.sm),
               Text(
                 'Quyền lợi BHYT',
-                style: Theme.of(
-                  context,
-                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  fontWeight: AppFontWeight.strong,
+                ),
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: AppSpacing.sm),
           if (!invoice.hasInsuranceBenefit)
             Text(
               'Hóa đơn này không ghi nhận quyền lợi BHYT.',
@@ -262,25 +262,25 @@ class InvoiceStatusGuidance extends StatelessWidget {
   Widget build(BuildContext context) {
     final isUnpaid = invoice.status == PatientInvoiceStatus.unpaid;
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
         color: isUnpaid
             ? Theme.of(context).colorScheme.tertiaryContainer
             : Theme.of(context).colorScheme.primaryContainer,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(AppRadius.lg),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Icon(invoice.status.icon),
-          const SizedBox(width: 10),
+          const SizedBox(width: AppSpacing.sm),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   invoice.status.guidance,
-                  style: const TextStyle(fontWeight: FontWeight.w700),
+                  style: const TextStyle(fontWeight: AppFontWeight.strong),
                 ),
               ],
             ),

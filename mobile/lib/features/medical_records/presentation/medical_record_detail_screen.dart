@@ -24,7 +24,7 @@ class MedicalRecordDetailScreen extends ConsumerWidget {
             tooltip: 'Làm mới',
             onPressed: () =>
                 ref.invalidate(medicalRecordDetailProvider(recordId)),
-            icon: const Icon(Icons.refresh_rounded),
+            icon: const Icon(Icons.refresh_outlined),
           ),
         ],
       ),
@@ -50,10 +50,15 @@ class _DetailContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => ListView(
-    padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+    padding: const EdgeInsets.fromLTRB(
+      AppSpacing.md,
+      AppSpacing.xs,
+      AppSpacing.md,
+      AppSpacing.xxl,
+    ),
     children: [
       _RecordHeader(record: record),
-      const SizedBox(height: 14),
+      const SizedBox(height: AppSpacing.md),
       _InfoSection(
         title: 'Kết luận khám',
         icon: Icons.medical_information_outlined,
@@ -68,7 +73,7 @@ class _DetailContent extends StatelessWidget {
         ],
       ),
       if (record.prescription != null) ...[
-        const SizedBox(height: 14),
+        const SizedBox(height: AppSpacing.md),
         _InfoSection(
           title: 'Chỉ định thuốc',
           icon: Icons.medication_outlined,
@@ -81,31 +86,31 @@ class _DetailContent extends StatelessWidget {
           ],
         ),
       ],
-      const SizedBox(height: 14),
+      const SizedBox(height: AppSpacing.md),
       _LabResultsSection(record: record),
       if (record.resultFile.available) ...[
-        const SizedBox(height: 14),
+        const SizedBox(height: AppSpacing.md),
         Card(
           margin: EdgeInsets.zero,
           child: Padding(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(AppSpacing.md),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   'Tệp kết quả tổng hợp',
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w800,
+                    fontWeight: AppFontWeight.strong,
                   ),
                 ),
-                const SizedBox(height: 6),
+                const SizedBox(height: AppSpacing.xs),
                 Text(
                   'Tệp được tải qua phiên đăng nhập bảo mật và không lưu lâu dài trên thiết bị.',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
                 ),
-                const SizedBox(height: 14),
+                const SizedBox(height: AppSpacing.md),
                 SizedBox(
                   width: double.infinity,
                   child: FilledButton.icon(
@@ -133,7 +138,7 @@ class _RecordHeader extends StatelessWidget {
   Widget build(BuildContext context) => Card(
     margin: EdgeInsets.zero,
     child: Padding(
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.all(AppSpacing.lg),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -147,41 +152,41 @@ class _RecordHeader extends StatelessWidget {
               const Spacer(),
               Text(
                 record.recordCode,
-                style: Theme.of(
-                  context,
-                ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w800),
+                style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                  fontWeight: AppFontWeight.strong,
+                ),
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: AppSpacing.md),
           _IconLine(
             icon: Icons.calendar_today_outlined,
             value:
                 '${formatDateVi(record.appointmentDate)} · ${formatTimeRange(record.startTime, record.endTime)}',
           ),
           if (record.isDependentRecord && record.patientName != null) ...[
-            const SizedBox(height: 10),
+            const SizedBox(height: AppSpacing.sm),
             _IconLine(
               icon: Icons.family_restroom_outlined,
               value: 'Người đến khám: ${record.patientName}',
             ),
           ],
-          const SizedBox(height: 10),
+          const SizedBox(height: AppSpacing.sm),
           _IconLine(
-            icon: Icons.person_outline,
+            icon: Icons.person_outline_outlined,
             value: record.doctorName.isEmpty
                 ? 'Bác sĩ phụ trách'
                 : record.doctorName,
           ),
           if (record.careUnit.isNotEmpty) ...[
-            const SizedBox(height: 10),
+            const SizedBox(height: AppSpacing.sm),
             _IconLine(
               icon: Icons.local_hospital_outlined,
               value: record.careUnit,
             ),
           ],
           if (record.publishedAt != null) ...[
-            const SizedBox(height: 10),
+            const SizedBox(height: AppSpacing.sm),
             _IconLine(
               icon: Icons.publish_outlined,
               value: 'Công bố ${formatDateTimeVi(record.publishedAt!)}',
@@ -202,7 +207,7 @@ class _LabResultsSection extends StatelessWidget {
   Widget build(BuildContext context) => Card(
     margin: EdgeInsets.zero,
     child: Padding(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(AppSpacing.md),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -212,19 +217,19 @@ class _LabResultsSection extends StatelessWidget {
                 Icons.science_outlined,
                 color: Theme.of(context).colorScheme.primary,
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: AppSpacing.sm),
               Expanded(
                 child: Text(
                   'Kết quả xét nghiệm',
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w800,
+                    fontWeight: AppFontWeight.strong,
                   ),
                 ),
               ),
               Text('${record.labResults.length} mục'),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: AppSpacing.sm),
           if (record.labResults.isEmpty)
             Text(
               'Hồ sơ này không có kết quả xét nghiệm đính kèm.',
@@ -261,14 +266,14 @@ class _LabResultTile extends StatelessWidget {
         result.testName,
         style: Theme.of(
           context,
-        ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
+        ).textTheme.titleSmall?.copyWith(fontWeight: AppFontWeight.strong),
       ),
       if (result.displayResult != null) ...[
-        const SizedBox(height: 5),
+        const SizedBox(height: AppSpacing.xxs),
         Text('Kết quả: ${result.displayResult}'),
       ],
       if (result.referenceRange != null) ...[
-        const SizedBox(height: 3),
+        const SizedBox(height: AppSpacing.xxs),
         Text(
           'Khoảng tham chiếu: ${result.referenceRange}',
           style: Theme.of(context).textTheme.bodySmall?.copyWith(
@@ -277,11 +282,11 @@ class _LabResultTile extends StatelessWidget {
         ),
       ],
       if (result.conclusion != null) ...[
-        const SizedBox(height: 6),
+        const SizedBox(height: AppSpacing.xs),
         Text(result.conclusion!),
       ],
       if (result.file.available) ...[
-        const SizedBox(height: 8),
+        const SizedBox(height: AppSpacing.xs),
         TextButton.icon(
           onPressed: () => context.push(
             '/medical-records/$recordId/lab-results/${result.id}/file',
@@ -309,23 +314,23 @@ class _InfoSection extends StatelessWidget {
   Widget build(BuildContext context) => Card(
     margin: EdgeInsets.zero,
     child: Padding(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(AppSpacing.md),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
               Icon(icon, color: Theme.of(context).colorScheme.primary),
-              const SizedBox(width: 10),
+              const SizedBox(width: AppSpacing.sm),
               Text(
                 title,
-                style: Theme.of(
-                  context,
-                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  fontWeight: AppFontWeight.strong,
+                ),
               ),
             ],
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: AppSpacing.sm),
           ...children,
         ],
       ),
@@ -349,7 +354,7 @@ class _DetailRow extends StatelessWidget {
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
       Padding(
-        padding: const EdgeInsets.symmetric(vertical: 9),
+        padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -359,7 +364,7 @@ class _DetailRow extends StatelessWidget {
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: AppSpacing.xxs),
             Text(value ?? 'Chưa có thông tin'),
           ],
         ),
@@ -379,7 +384,7 @@ class _IconLine extends StatelessWidget {
   Widget build(BuildContext context) => Row(
     children: [
       Icon(icon, size: 20, color: Theme.of(context).colorScheme.primary),
-      const SizedBox(width: 10),
+      const SizedBox(width: AppSpacing.sm),
       Expanded(child: Text(value)),
     ],
   );
@@ -393,20 +398,20 @@ class _DetailError extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => ListView(
-    padding: const EdgeInsets.all(16),
+    padding: const EdgeInsets.all(AppSpacing.md),
     children: [
       if (error is ApiException)
         AppErrorBanner(error: error as ApiException)
       else
         const AppEmptyState(
-          icon: Icons.error_outline,
+          icon: Icons.error_outline_outlined,
           title: 'Không tải được kết quả khám',
           message: 'Đã xảy ra lỗi khi đọc hồ sơ. Vui lòng thử lại.',
         ),
-      const SizedBox(height: 14),
+      const SizedBox(height: AppSpacing.md),
       FilledButton.icon(
         onPressed: onRetry,
-        icon: const Icon(Icons.refresh_rounded),
+        icon: const Icon(Icons.refresh_outlined),
         label: const Text('Thử lại'),
       ),
     ],
@@ -418,12 +423,12 @@ class _DetailLoading extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => ListView(
-    padding: const EdgeInsets.all(16),
+    padding: const EdgeInsets.all(AppSpacing.md),
     children: const [
       AppLoadingSkeleton(height: 210),
-      SizedBox(height: 14),
+      SizedBox(height: AppSpacing.md),
       AppLoadingSkeleton(height: 280),
-      SizedBox(height: 14),
+      SizedBox(height: AppSpacing.md),
       AppLoadingSkeleton(height: 220),
     ],
   );

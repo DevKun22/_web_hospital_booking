@@ -184,34 +184,39 @@ class _MainBottomNavigationBar extends StatelessWidget {
     _NavigationDestination(
       label: 'Trang chủ',
       icon: Icons.home_outlined,
-      selectedIcon: Icons.home_rounded,
+      selectedIcon: Icons.home_outlined,
     ),
     _NavigationDestination(
       label: 'Dịch vụ',
       icon: Icons.grid_view_outlined,
-      selectedIcon: Icons.grid_view_rounded,
+      selectedIcon: Icons.grid_view_outlined,
     ),
     _NavigationDestination(
       label: 'Đặt lịch',
       icon: Icons.event_available_outlined,
-      selectedIcon: Icons.event_available_rounded,
+      selectedIcon: Icons.event_available_outlined,
       isPrimaryAction: true,
     ),
     _NavigationDestination(
       label: 'Lịch hẹn',
       icon: Icons.calendar_month_outlined,
-      selectedIcon: Icons.calendar_month_rounded,
+      selectedIcon: Icons.calendar_month_outlined,
     ),
     _NavigationDestination(
       label: 'Tài khoản',
-      icon: Icons.person_outline_rounded,
-      selectedIcon: Icons.person_rounded,
+      icon: Icons.person_outline_outlined,
+      selectedIcon: Icons.person_outlined,
     ),
   ];
 
   @override
   Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+    padding: const EdgeInsets.fromLTRB(
+      AppSpacing.sm,
+      0,
+      AppSpacing.sm,
+      AppSpacing.xs,
+    ),
     child: SafeArea(
       top: false,
       child: SizedBox(
@@ -296,7 +301,12 @@ class _NavigationItem extends StatelessWidget {
         child: InkWell(
           onTap: onTap,
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(2, 10, 2, 5),
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.hair,
+              AppSpacing.sm,
+              AppSpacing.hair,
+              AppSpacing.xxs,
+            ),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
@@ -326,7 +336,7 @@ class _NavigationItem extends StatelessWidget {
                     ),
                   ),
                 ),
-                const SizedBox(height: 3),
+                const SizedBox(height: AppSpacing.xxs),
                 Text(
                   destination.label,
                   maxLines: 1,
@@ -336,9 +346,10 @@ class _NavigationItem extends StatelessWidget {
                     color: selected
                         ? context.colors.primary
                         : context.colors.muted,
-                    fontSize: 11,
                     height: 1.15,
-                    fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+                    fontWeight: selected
+                        ? AppFontWeight.strong
+                        : AppFontWeight.medium,
                   ),
                 ),
               ],
@@ -403,15 +414,14 @@ class _PrimaryNavigationItem extends StatelessWidget {
                     ),
                   ),
                 ),
-                const SizedBox(height: 2),
+                const SizedBox(height: AppSpacing.hair),
                 Text(
                   destination.label,
                   maxLines: 1,
                   style: Theme.of(context).textTheme.labelSmall?.copyWith(
                     color: context.colors.primary,
-                    fontSize: 11,
                     height: 1,
-                    fontWeight: FontWeight.w800,
+                    fontWeight: AppFontWeight.strong,
                   ),
                 ),
               ],

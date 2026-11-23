@@ -110,14 +110,14 @@ class _HomeSearchSheetState extends State<_HomeSearchSheet> {
       _HomeSearchResult(
         title: 'Tìm tất cả bác sĩ',
         subtitle: 'Kết quả đầy đủ cho “${_query.trim()}”',
-        icon: Icons.manage_search_rounded,
+        icon: Icons.manage_search_outlined,
         kind: HomeSearchHistoryKind.doctor,
         location: '/doctors?search=$encoded',
       ),
       _HomeSearchResult(
         title: 'Tìm tất cả gói khám',
         subtitle: 'Kết quả đầy đủ cho “${_query.trim()}”',
-        icon: Icons.manage_search_rounded,
+        icon: Icons.manage_search_outlined,
         kind: HomeSearchHistoryKind.medicalPackage,
         location: '/packages?search=$encoded',
       ),
@@ -159,21 +159,28 @@ class _HomeSearchSheetState extends State<_HomeSearchSheet> {
     final results = _results;
     return Material(
       color: context.colors.surface,
-      borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+      borderRadius: const BorderRadius.vertical(
+        top: Radius.circular(AppRadius.xl),
+      ),
       clipBehavior: Clip.antiAlias,
       child: Column(
         children: [
-          const SizedBox(height: 10),
+          const SizedBox(height: AppSpacing.sm),
           Container(
             width: 42,
             height: 4,
             decoration: BoxDecoration(
               color: Theme.of(context).colorScheme.outlineVariant,
-              borderRadius: BorderRadius.circular(999),
+              borderRadius: BorderRadius.circular(AppRadius.pill),
             ),
           ),
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 14, 8, 12),
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.md,
+              AppSpacing.md,
+              AppSpacing.xs,
+              AppSpacing.sm,
+            ),
             child: Row(
               children: [
                 Expanded(
@@ -181,20 +188,20 @@ class _HomeSearchSheetState extends State<_HomeSearchSheet> {
                     'Tìm dịch vụ chăm sóc',
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
                       color: context.colors.ink,
-                      fontWeight: FontWeight.w900,
+                      fontWeight: AppFontWeight.strong,
                     ),
                   ),
                 ),
                 IconButton(
                   onPressed: () => Navigator.of(context).pop(),
                   tooltip: 'Đóng',
-                  icon: const Icon(Icons.close_rounded),
+                  icon: const Icon(Icons.close_outlined),
                 ),
               ],
             ),
           ),
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
             child: TextField(
               key: const Key('home-search-field'),
               autofocus: true,
@@ -205,7 +212,7 @@ class _HomeSearchSheetState extends State<_HomeSearchSheet> {
                 filled: true,
                 fillColor: context.colors.surfaceMuted,
                 prefixIcon: Icon(
-                  Icons.search_rounded,
+                  Icons.search_outlined,
                   color: context.colors.primary,
                 ),
                 enabledBorder: OutlineInputBorder(
@@ -222,18 +229,23 @@ class _HomeSearchSheetState extends State<_HomeSearchSheet> {
               ),
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: AppSpacing.sm),
           Expanded(
             child: results.isEmpty
                 ? const AppEmptyState(
-                    icon: Icons.search_off_rounded,
+                    icon: Icons.search_off_outlined,
                     title: 'Không tìm thấy kết quả',
                     message: 'Thử từ khóa ngắn hơn hoặc chọn một dịch vụ khác.',
                   )
                 : ListView(
                     keyboardDismissBehavior:
                         ScrollViewKeyboardDismissBehavior.onDrag,
-                    padding: const EdgeInsets.fromLTRB(16, 4, 16, 28),
+                    padding: const EdgeInsets.fromLTRB(
+                      AppSpacing.md,
+                      AppSpacing.xxs,
+                      AppSpacing.md,
+                      AppSpacing.xl,
+                    ),
                     children: [
                       if (_query.trim().isEmpty && _recent.isNotEmpty) ...[
                         Row(
@@ -242,7 +254,9 @@ class _HomeSearchSheetState extends State<_HomeSearchSheet> {
                               child: Text(
                                 'Tìm gần đây',
                                 style: Theme.of(context).textTheme.titleSmall
-                                    ?.copyWith(fontWeight: FontWeight.w800),
+                                    ?.copyWith(
+                                      fontWeight: AppFontWeight.strong,
+                                    ),
                               ),
                             ),
                             TextButton(
@@ -259,10 +273,13 @@ class _HomeSearchSheetState extends State<_HomeSearchSheet> {
                             onTap: _select,
                           ),
                         const Padding(
-                          padding: EdgeInsets.only(top: 12, bottom: 6),
+                          padding: EdgeInsets.only(
+                            top: AppSpacing.sm,
+                            bottom: AppSpacing.xs,
+                          ),
                           child: Text(
                             'Gợi ý dịch vụ',
-                            style: TextStyle(fontWeight: FontWeight.w800),
+                            style: TextStyle(fontWeight: AppFontWeight.strong),
                           ),
                         ),
                       ],
@@ -332,17 +349,20 @@ class _HomeSearchResultTile extends StatelessWidget {
         key: ValueKey(
           '${isRecent ? 'home-search-recent' : 'home-search-result'}-${item.location}',
         ),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 3),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.xxs,
+          vertical: AppSpacing.xxs,
+        ),
         onTap: () => onTap(item),
         leading: Container(
           width: 42,
           height: 42,
           decoration: BoxDecoration(
             color: context.colors.primarySoft,
-            borderRadius: BorderRadius.circular(13),
+            borderRadius: BorderRadius.circular(AppRadius.md),
           ),
           child: Icon(
-            isRecent ? Icons.history_rounded : item.icon,
+            isRecent ? Icons.history_outlined : item.icon,
             color: context.colors.primary,
           ),
         ),
@@ -350,7 +370,7 @@ class _HomeSearchResultTile extends StatelessWidget {
           item.title,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: const TextStyle(fontWeight: FontWeight.w700),
+          style: const TextStyle(fontWeight: AppFontWeight.strong),
         ),
         subtitle: Text(
           item.subtitle,
@@ -358,7 +378,7 @@ class _HomeSearchResultTile extends StatelessWidget {
           overflow: TextOverflow.ellipsis,
         ),
         trailing: Icon(
-          Icons.chevron_right_rounded,
+          Icons.chevron_right_outlined,
           color: context.colors.primary,
         ),
       ),

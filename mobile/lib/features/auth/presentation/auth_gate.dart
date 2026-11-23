@@ -25,7 +25,7 @@ class AuthGate extends ConsumerWidget {
     if (auth.status == AuthStatus.bootstrapping) {
       return const _GateScaffold(
         child: Padding(
-          padding: EdgeInsets.all(16),
+          padding: EdgeInsets.all(AppSpacing.md),
           child: AppLoadingSkeleton(height: 160),
         ),
       );
@@ -34,14 +34,14 @@ class AuthGate extends ConsumerWidget {
         auth.status == AuthStatus.offlineBrowsing) {
       return _GateScaffold(
         child: AppEmptyState(
-          icon: Icons.cloud_off_rounded,
+          icon: Icons.cloud_off_outlined,
           title: 'Chưa kết nối được máy chủ',
           message: 'Kiểm tra mạng rồi thử lại để xem $title.',
           action: FilledButton.icon(
             onPressed: ref
                 .read(authControllerProvider.notifier)
                 .bootstrapSession,
-            icon: const Icon(Icons.refresh_rounded),
+            icon: const Icon(Icons.refresh_outlined),
             label: const Text('Thử lại'),
           ),
         ),
@@ -49,7 +49,7 @@ class AuthGate extends ConsumerWidget {
     }
     return _GateScaffold(
       child: AppEmptyState(
-        icon: Icons.lock_outline_rounded,
+        icon: Icons.lock_outline,
         title: 'Đăng nhập để xem $title',
         message:
             'Đăng nhập bằng email để xem lịch hẹn, hóa đơn và kết quả khám.',

@@ -1,3 +1,4 @@
+import 'package:hospital_booking_mobile/core/design/app_design_tokens.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hospital_booking_mobile/core/formatters/display_formatters.dart';
@@ -24,11 +25,11 @@ class BookingCompactSelectionCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Card(
     child: Padding(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(AppSpacing.md),
       child: Row(
         children: [
           const CircleAvatar(child: Icon(Icons.event_available_outlined)),
-          const SizedBox(width: 12),
+          const SizedBox(width: AppSpacing.sm),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -45,10 +46,10 @@ class BookingCompactSelectionCard extends StatelessWidget {
                       formatVnd(packagePrice!),
                       style: Theme.of(context).textTheme.labelMedium,
                     ),
-                  const SizedBox(height: 5),
+                  const SizedBox(height: AppSpacing.xxs),
                 ],
                 Text(doctorName, style: Theme.of(context).textTheme.titleSmall),
-                const SizedBox(height: 3),
+                const SizedBox(height: AppSpacing.xxs),
                 Text('$departmentName · ${displayDate(date)} · $time'),
               ],
             ),

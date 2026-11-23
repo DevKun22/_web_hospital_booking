@@ -1,17 +1,18 @@
+import 'package:hospital_booking_mobile/core/design/app_design_tokens.dart';
 import 'package:flutter/material.dart';
 import 'package:hospital_booking_mobile/features/chatbot/domain/chatbot_models.dart';
 
 /// Biểu tượng theo loại gợi ý: nhìn qua biết nút đưa tới việc gì.
 IconData chatbotActionIcon(String type) => switch (type) {
-  'ASK_QUESTION' => Icons.help_outline_rounded,
+  'ASK_QUESTION' => Icons.help_outline_outlined,
   'VIEW_DEPARTMENTS' || 'VIEW_DEPARTMENT' => Icons.local_hospital_outlined,
   'VIEW_DOCTOR' ||
   'VIEW_DOCTORS' ||
-  'CHANGE_DOCTOR' => Icons.person_outline_rounded,
+  'CHANGE_DOCTOR' => Icons.person_outline_outlined,
   'VIEW_PACKAGES' || 'VIEW_PACKAGE' => Icons.health_and_safety_outlined,
   'START_BOOKING' || 'CHANGE_DATE' => Icons.event_available_outlined,
   'LOOKUP_APPOINTMENT' => Icons.event_note_outlined,
-  _ => Icons.arrow_forward_rounded,
+  _ => Icons.arrow_forward_outlined,
 };
 
 /// Gợi ý trùng với thẻ kết quả đang hiện (chọn khoa, gói, bác sĩ, giờ) thì bỏ: thẻ đã là nơi chọn.
@@ -57,25 +58,25 @@ class ChatbotFollowUps extends StatelessWidget {
     if (actions.isEmpty) return const SizedBox.shrink();
     final scheme = Theme.of(context).colorScheme;
     return Padding(
-      padding: const EdgeInsets.only(top: 12),
+      padding: const EdgeInsets.only(top: AppSpacing.sm),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Divider(height: 1, color: scheme.outlineVariant),
-          const SizedBox(height: 10),
+          const SizedBox(height: AppSpacing.sm),
           if (title != null) ...[
             Text(
               title!,
               style: Theme.of(context).textTheme.labelSmall?.copyWith(
                 color: scheme.onSurfaceVariant,
-                fontWeight: FontWeight.w700,
+                fontWeight: AppFontWeight.strong,
               ),
             ),
-            const SizedBox(height: 6),
+            const SizedBox(height: AppSpacing.xs),
           ],
           for (final action in actions)
             Padding(
-              padding: const EdgeInsets.only(bottom: 6),
+              padding: const EdgeInsets.only(bottom: AppSpacing.xs),
               child: SizedBox(
                 width: double.infinity,
                 child: OutlinedButton.icon(
@@ -86,8 +87,8 @@ class ChatbotFollowUps extends StatelessWidget {
                     minimumSize: const Size.fromHeight(44),
                     alignment: Alignment.centerLeft,
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 8,
+                      horizontal: AppSpacing.sm,
+                      vertical: AppSpacing.xs,
                     ),
                   ),
                   onPressed: disabled ? null : () => onAction(action),
@@ -119,7 +120,7 @@ class ChatbotSourceChips extends StatelessWidget {
       context,
     ).textTheme.labelSmall?.copyWith(color: scheme.onSurfaceVariant);
     return Padding(
-      padding: const EdgeInsets.only(top: 10),
+      padding: const EdgeInsets.only(top: AppSpacing.sm),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -131,27 +132,27 @@ class ChatbotSourceChips extends StatelessWidget {
                 size: 14,
                 color: scheme.onSurfaceVariant,
               ),
-              const SizedBox(width: 4),
+              const SizedBox(width: AppSpacing.xxs),
               Text('Nguồn', style: style),
             ],
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: AppSpacing.xs),
           for (final source in sources.take(3))
             Padding(
-              padding: const EdgeInsets.only(bottom: 6),
+              padding: const EdgeInsets.only(bottom: AppSpacing.xs),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   DecoratedBox(
                     decoration: BoxDecoration(
                       color: scheme.surfaceContainerLow,
-                      borderRadius: BorderRadius.circular(99),
+                      borderRadius: BorderRadius.circular(AppRadius.pill),
                       border: Border.all(color: scheme.outlineVariant),
                     ),
                     child: Padding(
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 3,
+                        horizontal: AppSpacing.xs,
+                        vertical: AppSpacing.xxs,
                       ),
                       child: Text(
                         source.title,
@@ -161,7 +162,10 @@ class ChatbotSourceChips extends StatelessWidget {
                   ),
                   if (source.reviewLine != null)
                     Padding(
-                      padding: const EdgeInsets.only(left: 4, top: 3),
+                      padding: const EdgeInsets.only(
+                        left: AppSpacing.xxs,
+                        top: AppSpacing.xxs,
+                      ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
@@ -170,7 +174,7 @@ class ChatbotSourceChips extends StatelessWidget {
                             size: 13,
                             color: scheme.tertiary,
                           ),
-                          const SizedBox(width: 4),
+                          const SizedBox(width: AppSpacing.xxs),
                           Flexible(
                             child: Text(source.reviewLine!, style: style),
                           ),

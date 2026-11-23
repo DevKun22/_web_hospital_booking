@@ -1,3 +1,4 @@
+import 'package:hospital_booking_mobile/core/design/app_design_tokens.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -58,21 +59,21 @@ class _VerifyOtpScreenState extends ConsumerState<VerifyOtpScreen> {
                     .read(authControllerProvider.notifier)
                     .dismissError,
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: AppSpacing.md),
             ],
             if (config.enableNetworkLogs &&
                 auth.challenge?.debugOtp != null) ...[
               Card(
                 child: Padding(
-                  padding: const EdgeInsets.all(12),
+                  padding: const EdgeInsets.all(AppSpacing.sm),
                   child: Text(
                     'OTP local: ${auth.challenge!.debugOtp}',
                     textAlign: TextAlign.center,
-                    style: const TextStyle(fontWeight: FontWeight.w700),
+                    style: const TextStyle(fontWeight: AppFontWeight.strong),
                   ),
                 ),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: AppSpacing.sm),
             ],
             TextField(
               controller: _otpController,
@@ -81,7 +82,7 @@ class _VerifyOtpScreenState extends ConsumerState<VerifyOtpScreen> {
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                 letterSpacing: 10,
-                fontWeight: FontWeight.w700,
+                fontWeight: AppFontWeight.strong,
               ),
               decoration: const InputDecoration(
                 labelText: 'Mã OTP gồm 6 số',
@@ -89,7 +90,7 @@ class _VerifyOtpScreenState extends ConsumerState<VerifyOtpScreen> {
               ),
               onSubmitted: (_) => _submit(),
             ),
-            const SizedBox(height: 18),
+            const SizedBox(height: AppSpacing.lg),
             FilledButton(
               onPressed: isLoading ? null : _submit,
               child: isLoading
@@ -99,7 +100,7 @@ class _VerifyOtpScreenState extends ConsumerState<VerifyOtpScreen> {
                     )
                   : const Text('Xác nhận'),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppSpacing.md),
             Text(
               'Chưa thấy mã? Kiểm tra thư rác hoặc xác nhận đúng email. '
               'Nếu vẫn không nhận được, hãy liên hệ cơ sở khám.',
