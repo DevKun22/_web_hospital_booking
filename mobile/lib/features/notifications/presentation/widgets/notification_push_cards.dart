@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:hospital_booking_mobile/core/design/app_colors.dart';
+import 'package:hospital_booking_mobile/core/design/app_design_tokens.dart';
 import 'package:hospital_booking_mobile/features/notifications/domain/push_permission_status.dart';
 import 'package:hospital_booking_mobile/features/notifications/application/push_notifications_controller.dart';
 
+/// Dải vàng mỏng một dòng khi chưa bật thông báo đẩy: nút bật (hoặc mở cài đặt khi đã từ chối).
 class NotificationPushPermissionCard extends ConsumerWidget {
   const NotificationPushPermissionCard({super.key, required this.state});
 
@@ -10,89 +13,74 @@ class NotificationPushPermissionCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final colors = context.colors;
+    final text = Theme.of(context).textTheme;
     final wasDenied = state.permission == PushPermissionStatus.denied;
-    return Card(
-      margin: EdgeInsets.zero,
-      color: Theme.of(context).colorScheme.primaryContainer,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(
+    final notifier = ref.read(pushNotificationsControllerProvider.notifier);
+    return Container(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.sm,
+        AppSpacing.xs,
+        AppSpacing.xs,
+        AppSpacing.xs,
+      ),
+      decoration: BoxDecoration(
+        color: colors.warningContainer,
+        borderRadius: BorderRadius.circular(AppRadius.md),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                wasDenied
+                    ? Icons.notifications_off_outlined
+                    : Icons.notifications_active_outlined,
+                color: colors.warning,
+              ),
+              const SizedBox(width: AppSpacing.xs),
+              Expanded(
+                child: Text(
                   wasDenied
-                      ? Icons.notifications_off_outlined
-                      : Icons.notifications_active_outlined,
+                      ? 'Thông báo trên thiết bị đang tắt'
+                      : 'Nhận nhắc lịch ngay trên điện thoại',
+                  style: text.titleSmall?.copyWith(color: colors.warning),
                 ),
-                const SizedBox(width: 10),
-                Expanded(
+              ),
+              if (!wasDenied)
+                FilledButton(
+                  onPressed: state.isRequestingPermission
+                      ? null
+                      : notifier.requestPermission,
+                  style: FilledButton.styleFrom(
+                    minimumSize: const Size(0, 36),
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                  ),
                   child: Text(
-                    wasDenied
-                        ? 'Thông báo trên thiết bị đang tắt'
-                        : 'Nhận nhắc lịch ngay trên điện thoại',
-                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.w800,
-                    ),
+                    state.isRequestingPermission ? 'Đang bật…' : 'Bật',
+                  ),
+                )
+              else
+                TextButton(
+                  onPressed: state.isOpeningSettings
+                      ? null
+                      : notifier.openNotificationSettings,
+                  child: Text(
+                    state.isOpeningSettings ? 'Đang mở…' : 'Mở cài đặt',
                   ),
                 ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Text(
-              wasDenied
-                  ? 'Bạn vẫn xem được hộp thư tại đây. Để nhận thông báo đẩy, hãy bật quyền trong Cài đặt của điện thoại.'
-                  : 'Bật một lần để không bỏ lỡ xác nhận, thay đổi hoặc nhắc lịch khám.',
-            ),
-            if (!wasDenied) ...[
-              const SizedBox(height: 12),
-              FilledButton.icon(
-                onPressed: state.isRequestingPermission
-                    ? null
-                    : () => ref
-                          .read(pushNotificationsControllerProvider.notifier)
-                          .requestPermission(),
-                icon: state.isRequestingPermission
-                    ? const SizedBox.square(
-                        dimension: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.notifications_active_outlined),
-                label: Text(
-                  state.isRequestingPermission ? 'Đang bật…' : 'Bật thông báo',
-                ),
-              ),
-            ] else ...[
-              const SizedBox(height: 12),
-              OutlinedButton.icon(
-                onPressed: state.isOpeningSettings
-                    ? null
-                    : () => ref
-                          .read(pushNotificationsControllerProvider.notifier)
-                          .openNotificationSettings(),
-                icon: state.isOpeningSettings
-                    ? const SizedBox.square(
-                        dimension: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.settings_outlined),
-                label: Text(
-                  state.isOpeningSettings ? 'Đang mở…' : 'Mở cài đặt',
-                ),
-              ),
             ],
-            if (state.errorMessage != null) ...[
-              const SizedBox(height: 10),
-              Text(
+          ),
+          if (state.errorMessage != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
                 state.errorMessage!,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Theme.of(context).colorScheme.error,
-                ),
+                style: text.bodySmall?.copyWith(color: colors.danger),
               ),
-            ],
-          ],
-        ),
+            ),
+        ],
       ),
     );
   }

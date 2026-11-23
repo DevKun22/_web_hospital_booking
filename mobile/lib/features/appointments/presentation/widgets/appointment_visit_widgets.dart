@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:hospital_booking_mobile/core/design/app_colors.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 import 'package:hospital_booking_mobile/features/notifications/presentation/notification_type_visuals.dart';
 import 'package:hospital_booking_mobile/features/appointments/presentation/appointment_status_visuals.dart';
 import 'package:hospital_booking_mobile/core/formatters/display_formatters.dart';
@@ -138,48 +139,68 @@ class AppointmentVisitActions extends ConsumerWidget {
   final PatientAppointment appointment;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) => AppSurfaceCard(
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Tiện ích trước khi khám',
-          style: Theme.of(
-            context,
-          ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
-        ),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(
-              child: OutlinedButton.icon(
-                key: const Key('appointment-add-calendar'),
-                onPressed: () => _addToCalendar(context, ref),
-                icon: const Icon(Icons.edit_calendar_outlined),
-                label: const Text('Thêm vào lịch'),
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: FilledButton.icon(
+  Widget build(BuildContext context, WidgetRef ref) {
+    final colors = context.colors;
+    final text = Theme.of(context).textTheme;
+    final payload = ref
+        .read(appointmentDeviceActionsProvider)
+        .qrPayload(appointment);
+    return AppSurfaceCard(
+      child: Column(
+        children: [
+          Text('Vé khám QR', style: text.titleSmall),
+          const SizedBox(height: AppSpacing.sm),
+          Semantics(
+            button: true,
+            label: 'Phóng to vé khám QR mã ${appointment.bookingCode}',
+            child: ExcludeSemantics(
+              child: InkWell(
                 key: const Key('appointment-show-qr'),
-                onPressed: () => _showQr(context, ref),
-                icon: const Icon(Icons.qr_code_2_rounded),
-                label: const Text('Vé khám QR'),
+                borderRadius: BorderRadius.circular(AppRadius.md),
+                onTap: () => showAppointmentQrTicket(
+                  context,
+                  appointment: appointment,
+                  payload: payload,
+                ),
+                child: Container(
+                  padding: const EdgeInsets.all(AppSpacing.xs),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(AppRadius.md),
+                    border: Border.all(color: colors.border),
+                  ),
+                  child: QrImageView(data: payload, size: 150),
+                ),
               ),
             ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        Text(
-          'QR chứa mã tham chiếu của lịch khám; nhân viên tiếp nhận vẫn xác minh và cập nhật check-in trên hệ thống.',
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
           ),
-        ),
-      ],
-    ),
-  );
+          const SizedBox(height: AppSpacing.xs),
+          SelectableText(
+            appointment.bookingCode,
+            style: text.titleMedium?.copyWith(
+              color: colors.primaryDark,
+              letterSpacing: 0.6,
+            ),
+          ),
+          Text(
+            'Chạm để phóng to. Đưa mã cho nhân viên tiếp nhận.',
+            textAlign: TextAlign.center,
+            style: text.bodySmall?.copyWith(color: colors.muted),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              key: const Key('appointment-add-calendar'),
+              onPressed: () => _addToCalendar(context, ref),
+              icon: const Icon(Icons.edit_calendar_outlined),
+              label: const Text('Thêm vào lịch'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   Future<void> _addToCalendar(BuildContext context, WidgetRef ref) async {
     var opened = false;
@@ -204,15 +225,6 @@ class AppointmentVisitActions extends ConsumerWidget {
         ),
       );
   }
-
-  Future<void> _showQr(BuildContext context, WidgetRef ref) =>
-      showAppointmentQrTicket(
-        context,
-        appointment: appointment,
-        payload: ref
-            .read(appointmentDeviceActionsProvider)
-            .qrPayload(appointment),
-      );
 }
 
 class AppointmentNotificationHistoryNotice extends StatelessWidget {

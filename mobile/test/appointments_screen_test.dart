@@ -77,15 +77,77 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Đã xác nhận'), findsOneWidget);
-    expect(find.text('HB-UPCOMING'), findsOneWidget);
-    expect(find.text('02/01/2030 · 09:00 – 09:30'), findsOneWidget);
+    expect(find.textContaining('09:00 – 09:30'), findsOneWidget);
+    expect(find.byKey(const Key('appointment-next-qr')), findsOneWidget);
     expect(find.text('Bạn đã hủy'), findsNothing);
 
     await tester.tap(find.text('Đã qua'));
     await tester.pumpAndSettle();
 
     expect(find.text('Bạn đã hủy'), findsOneWidget);
-    expect(find.text('HB-HISTORY'), findsOneWidget);
     expect(find.text('Đã xác nhận'), findsNothing);
+
+    // Vuốt ngang về tab trước (Sắp tới) rồi sang tab sau (Tất cả).
+    await tester.fling(find.text('Bạn đã hủy'), const Offset(400, 0), 1500);
+    await tester.pumpAndSettle();
+    expect(find.text('Đã xác nhận'), findsOneWidget);
+    expect(find.text('Bạn đã hủy'), findsNothing);
+
+    await tester.fling(find.text('Đã xác nhận'), const Offset(-400, 0), 1500);
+    await tester.pumpAndSettle();
+    await tester.fling(find.text('Bạn đã hủy'), const Offset(-400, 0), 1500);
+    await tester.pumpAndSettle();
+    expect(find.text('Đã xác nhận'), findsOneWidget);
+    expect(find.text('Bạn đã hủy'), findsOneWidget);
+  });
+
+  testWidgets('không vỡ bố cục ở cỡ chữ lớn trên màn hẹp', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(360, 800));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final router = GoRouter(
+      initialLocation: '/appointments',
+      routes: [
+        GoRoute(
+          path: '/appointments',
+          builder: (_, _) => const AppointmentsScreen(),
+          routes: [
+            GoRoute(
+              path: ':id',
+              builder: (_, state) => Scaffold(
+                body: Text('Chi tiết ${state.pathParameters['id']}'),
+              ),
+            ),
+          ],
+        ),
+        GoRoute(
+          path: '/booking',
+          builder: (_, _) => const Scaffold(body: Text('Đặt lịch')),
+        ),
+      ],
+    );
+    addTearDown(router.dispose);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          appointmentsControllerProvider.overrideWith(
+            _LoadedAppointmentsController.new,
+          ),
+        ],
+        child: MaterialApp.router(
+          routerConfig: router,
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(
+              context,
+            ).copyWith(textScaler: const TextScaler.linear(2.0)),
+            child: child!,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+    expect(find.byKey(const Key('appointment-next-qr')), findsOneWidget);
   });
 }

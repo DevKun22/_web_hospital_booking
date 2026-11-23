@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hospital_booking_mobile/features/notifications/presentation/notification_type_visuals.dart';
 import 'package:hospital_booking_mobile/core/widgets/app_error_banner.dart';
+import 'package:hospital_booking_mobile/core/widgets/app_filter_tabs.dart';
 import 'package:hospital_booking_mobile/core/widgets/app_route_back_scope.dart';
 import 'package:hospital_booking_mobile/core/widgets/app_ui.dart';
 import 'package:hospital_booking_mobile/features/notifications/application/notifications_controller.dart';
@@ -12,6 +13,24 @@ import 'package:hospital_booking_mobile/features/notifications/application/push_
 import 'package:hospital_booking_mobile/features/notifications/domain/patient_notification.dart';
 import 'package:hospital_booking_mobile/features/notifications/presentation/widgets/notification_list_widgets.dart';
 import 'package:hospital_booking_mobile/features/notifications/presentation/widgets/notification_push_cards.dart';
+
+enum _NotificationFilter {
+  all('Tất cả'),
+  unread('Chưa đọc'),
+  appointment('Lịch hẹn');
+
+  const _NotificationFilter(this.label);
+
+  final String label;
+
+  bool matches(PatientNotification item) => switch (this) {
+    _NotificationFilter.all => true,
+    _NotificationFilter.unread => !item.isRead,
+    _NotificationFilter.appointment => item.type.apiValue.startsWith(
+      'APPOINTMENT',
+    ),
+  };
+}
 
 class NotificationsScreen extends ConsumerStatefulWidget {
   const NotificationsScreen({super.key, this.embeddedInMainNavigation = false});
@@ -25,6 +44,8 @@ class NotificationsScreen extends ConsumerStatefulWidget {
 
 class _NotificationsScreenState extends ConsumerState<NotificationsScreen>
     with WidgetsBindingObserver {
+  _NotificationFilter _filter = _NotificationFilter.all;
+
   @override
   void initState() {
     super.initState();
@@ -51,6 +72,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen>
     final state = ref.watch(notificationsControllerProvider);
     final controller = ref.read(notificationsControllerProvider.notifier);
     final pushState = ref.watch(pushNotificationsControllerProvider);
+    final visible = state.items.where(_filter.matches).toList(growable: false);
 
     final content = Scaffold(
       appBar: AppBar(
@@ -78,121 +100,148 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen>
           const SizedBox(width: 8),
         ],
       ),
-      body: SafeArea(
-        child: state.isInitialLoading && !state.hasItems
-            ? const NotificationsLoading()
-            : RefreshIndicator(
-                onRefresh: controller.refresh,
-                child: ListView(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  padding: EdgeInsets.fromLTRB(
-                    16,
-                    8,
-                    16,
-                    widget.embeddedInMainNavigation
-                        ? appMainContentBottomInset
-                        : 28,
-                  ),
-                  children: [
-                    if (!pushState.isCheckingPermission &&
-                        !pushState.isAllowed) ...[
-                      NotificationPushPermissionCard(state: pushState),
-                      const SizedBox(height: 14),
-                    ] else if (pushState.isAllowed &&
-                        (!pushState.isTokenRegistered ||
-                            pushState.isRegisteringToken)) ...[
-                      NotificationPushSyncCard(state: pushState),
-                      const SizedBox(height: 14),
-                    ],
-                    NotificationInboxOverview(
-                      unreadCount: state.unreadCount,
-                      total: state.total,
+      body: AppSwipeTabs<_NotificationFilter>(
+        items: _NotificationFilter.values,
+        selected: _filter,
+        onChanged: (value) => setState(() => _filter = value),
+        child: SafeArea(
+          child: state.isInitialLoading && !state.hasItems
+              ? const NotificationsLoading()
+              : RefreshIndicator(
+                  onRefresh: controller.refresh,
+                  child: ListView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: EdgeInsets.fromLTRB(
+                      16,
+                      8,
+                      16,
+                      widget.embeddedInMainNavigation
+                          ? appMainContentBottomInset
+                          : 28,
                     ),
-                    if (state.error != null) ...[
-                      const SizedBox(height: 14),
-                      AppErrorBanner(
-                        error: state.error!,
-                        onDismiss: controller.dismissError,
+                    children: [
+                      if (!pushState.isCheckingPermission &&
+                          !pushState.isAllowed) ...[
+                        NotificationPushPermissionCard(state: pushState),
+                        const SizedBox(height: AppSpacing.sm),
+                      ] else if (pushState.isAllowed &&
+                          (!pushState.isTokenRegistered ||
+                              pushState.isRegisteringToken)) ...[
+                        NotificationPushSyncCard(state: pushState),
+                        const SizedBox(height: AppSpacing.sm),
+                      ],
+                      NotificationInboxOverview(
+                        unreadCount: state.unreadCount,
+                        total: state.total,
                       ),
-                    ],
-                    if (state.isRefreshing) ...[
-                      const SizedBox(height: 12),
-                      const LinearProgressIndicator(minHeight: 2),
-                    ],
-                    if (!state.hasItems) ...[
-                      const SizedBox(height: 28),
-                      AppEmptyState(
-                        icon: Icons.notifications_none_rounded,
-                        title: state.error == null
-                            ? 'Chưa có thông báo'
-                            : 'Chưa tải được hộp thư',
-                        message: state.error == null
-                            ? 'Xác nhận, thay đổi và lời nhắc lịch khám sẽ được lưu tại đây.'
-                            : 'Kiểm tra kết nối mạng rồi thử tải lại.',
-                        action: OutlinedButton.icon(
-                          onPressed: state.error == null
-                              ? () => context.push('/notification-appointments')
-                              : controller.refresh,
-                          icon: Icon(
-                            state.error == null
-                                ? Icons.calendar_month_outlined
-                                : Icons.refresh_rounded,
-                          ),
-                          label: Text(
-                            state.error == null ? 'Xem lịch khám' : 'Thử lại',
-                          ),
+                      if (state.hasItems) ...[
+                        const SizedBox(height: AppSpacing.xs),
+                        AppFilterTabs<_NotificationFilter>(
+                          items: _NotificationFilter.values,
+                          selected: _filter,
+                          labelOf: (item) => item.label,
+                          onChanged: (value) => setState(() => _filter = value),
                         ),
-                      ),
-                    ] else ...[
-                      const SizedBox(height: 22),
-                      ..._groupedItems(
-                        context,
-                        state.items,
-                        onTap: (item) {
-                          controller.markRead(item.id);
-                          final destination = item.safeDestination;
-                          if (destination != null) {
-                            context.push(destination);
-                            return;
-                          }
-                          if (item.isAnnouncement) {
-                            _showAnnouncementDetails(context, item);
-                            return;
-                          }
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text(
-                                'Thông báo này chưa có nội dung chi tiết.',
-                              ),
+                      ],
+                      if (state.error != null) ...[
+                        const SizedBox(height: 14),
+                        AppErrorBanner(
+                          error: state.error!,
+                          onDismiss: controller.dismissError,
+                        ),
+                      ],
+                      if (state.isRefreshing) ...[
+                        const SizedBox(height: 12),
+                        const LinearProgressIndicator(minHeight: 2),
+                      ],
+                      if (!state.hasItems) ...[
+                        const SizedBox(height: 28),
+                        AppEmptyState(
+                          icon: Icons.notifications_none_rounded,
+                          title: state.error == null
+                              ? 'Chưa có thông báo'
+                              : 'Chưa tải được hộp thư',
+                          message: state.error == null
+                              ? 'Xác nhận, thay đổi và lời nhắc lịch khám sẽ được lưu tại đây.'
+                              : 'Kiểm tra kết nối mạng rồi thử tải lại.',
+                          action: OutlinedButton.icon(
+                            onPressed: state.error == null
+                                ? () =>
+                                      context.push('/notification-appointments')
+                                : controller.refresh,
+                            icon: Icon(
+                              state.error == null
+                                  ? Icons.calendar_month_outlined
+                                  : Icons.refresh_rounded,
                             ),
-                          );
-                        },
-                      ),
-                    ],
-                    if (state.hasNextPage) ...[
-                      const SizedBox(height: 8),
-                      OutlinedButton.icon(
-                        onPressed: state.isLoadingMore
-                            ? null
-                            : controller.loadMore,
-                        icon: state.isLoadingMore
-                            ? const SizedBox.square(
-                                dimension: 18,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                ),
-                              )
-                            : const Icon(Icons.expand_more_rounded),
-                        label: Text(
-                          state.isLoadingMore
-                              ? 'Đang tải thêm…'
-                              : 'Xem thông báo cũ hơn',
+                            label: Text(
+                              state.error == null ? 'Xem lịch khám' : 'Thử lại',
+                            ),
+                          ),
                         ),
-                      ),
+                      ] else if (visible.isEmpty) ...[
+                        Padding(
+                          padding: const EdgeInsets.all(AppSpacing.xl),
+                          child: Text(
+                            _filter == _NotificationFilter.unread
+                                ? 'Bạn đã đọc hết thông báo.'
+                                : 'Chưa có thông báo nào ở mục này.',
+                            textAlign: TextAlign.center,
+                            style: Theme.of(context).textTheme.bodyMedium
+                                ?.copyWith(color: context.colors.muted),
+                          ),
+                        ),
+                      ] else ...[
+                        const SizedBox(height: AppSpacing.xs),
+                        ..._groupedItems(
+                          context,
+                          visible,
+                          onTap: (item) {
+                            controller.markRead(item.id);
+                            final destination = item.safeDestination;
+                            if (destination != null) {
+                              context.push(destination);
+                              return;
+                            }
+                            if (item.isAnnouncement) {
+                              _showAnnouncementDetails(context, item);
+                              return;
+                            }
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                  'Thông báo này chưa có nội dung chi tiết.',
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ],
+                      if (state.hasNextPage) ...[
+                        const SizedBox(height: 8),
+                        OutlinedButton.icon(
+                          onPressed: state.isLoadingMore
+                              ? null
+                              : controller.loadMore,
+                          icon: state.isLoadingMore
+                              ? const SizedBox.square(
+                                  dimension: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : const Icon(Icons.expand_more_rounded),
+                          label: Text(
+                            state.isLoadingMore
+                                ? 'Đang tải thêm…'
+                                : 'Xem thông báo cũ hơn',
+                          ),
+                        ),
+                      ],
                     ],
-                  ],
+                  ),
                 ),
-              ),
+        ),
       ),
     );
     if (widget.embeddedInMainNavigation) return content;
@@ -289,12 +338,31 @@ List<Widget> _groupedItems(
 
   void addGroup(String title, List<PatientNotification> group) {
     if (group.isEmpty) return;
-    widgets.add(AppSectionHeader(title: title));
-    widgets.add(const SizedBox(height: 8));
-    for (final item in group) {
-      widgets.add(NotificationCard(item: item, onTap: () => onTap(item)));
-      widgets.add(const SizedBox(height: 10));
-    }
+    widgets.add(
+      Padding(
+        padding: const EdgeInsets.only(top: AppSpacing.sm, bottom: 4),
+        child: Text(
+          title,
+          style: Theme.of(context).textTheme.labelMedium?.copyWith(
+            color: context.colors.muted,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ),
+    );
+    widgets.add(
+      ClipRRect(
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        child: Column(
+          children: [
+            for (var i = 0; i < group.length; i += 1) ...[
+              if (i > 0) Divider(height: 0.5, thickness: 0.5, indent: 60),
+              NotificationCard(item: group[i], onTap: () => onTap(group[i])),
+            ],
+          ],
+        ),
+      ),
+    );
   }
 
   addGroup('Hôm nay', todayItems);

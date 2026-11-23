@@ -6,6 +6,9 @@ import 'package:hospital_booking_mobile/features/booking/presentation/widgets/bo
 import 'package:hospital_booking_mobile/features/booking/presentation/widgets/booking_package_picker.dart';
 import 'package:hospital_booking_mobile/features/catalog/domain/catalog_entities.dart';
 import 'package:hospital_booking_mobile/features/home/presentation/widgets/home_content_sections.dart';
+import 'package:hospital_booking_mobile/features/notifications/domain/patient_notification.dart';
+import 'package:hospital_booking_mobile/features/notifications/presentation/widgets/notification_list_widgets.dart';
+import 'package:hospital_booking_mobile/core/widgets/app_filter_tabs.dart';
 import 'package:hospital_booking_mobile/features/packages/domain/medical_package.dart';
 
 /// Chặn lỗi thẻ bị bó, chữ tràn hoặc vỡ khi người dùng đặt cỡ chữ hệ thống lớn.
@@ -153,6 +156,47 @@ void main() {
                         'Xét nghiệm máu, siêu âm ổ bụng, điện tim, X-quang phổi và tư vấn.',
                   ),
                 ],
+              ),
+            ],
+          ),
+        ),
+      );
+      await tester.pump();
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('thông báo và tab lọc không vỡ ở cỡ chữ $scale', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(360, 800);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      await tester.pumpWidget(
+        _host(
+          scale,
+          Column(
+            children: [
+              AppFilterTabs<String>(
+                items: const ['Tất cả', 'Chưa đọc', 'Lịch hẹn'],
+                selected: 'Chưa đọc',
+                labelOf: (item) => item,
+                onChanged: (_) {},
+              ),
+              NotificationCard(
+                item: PatientNotification(
+                  id: 'n1',
+                  type: PatientNotificationType.appointmentConfirmed,
+                  title:
+                      'Lịch khám của bạn đã được cơ sở khám xác nhận thành công',
+                  body:
+                      'Lịch LK-20261120-0042 vào 25/11 lúc 08:30 với BS Đỗ Quang Huy',
+                  publishedAt: DateTime.now().subtract(
+                    const Duration(hours: 5),
+                  ),
+                  isRead: false,
+                ),
+                onTap: () {},
               ),
             ],
           ),

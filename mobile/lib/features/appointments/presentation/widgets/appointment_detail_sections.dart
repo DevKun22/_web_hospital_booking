@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:hospital_booking_mobile/features/appointments/presentation/appointment_status_visuals.dart';
+import 'package:hospital_booking_mobile/core/design/app_colors.dart';
 import 'package:hospital_booking_mobile/core/errors/api_exception.dart';
 import 'package:hospital_booking_mobile/core/formatters/display_formatters.dart';
 import 'package:hospital_booking_mobile/core/widgets/app_ui.dart';
@@ -11,48 +12,61 @@ class AppointmentStatusHeader extends StatelessWidget {
   final PatientAppointment appointment;
 
   @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.all(18),
-    decoration: BoxDecoration(
-      color: Theme.of(context).colorScheme.surface,
-      borderRadius: BorderRadius.circular(20),
-      border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
-    ),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: AppStatusBadge(
-                  label: appointment.status.label,
-                  tone: appointment.status.tone,
-                  icon: appointment.status.icon,
-                ),
-              ),
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    final text = Theme.of(context).textTheme;
+    final tone = appointment.status.tone;
+    final background = switch (tone) {
+      AppStatusTone.success => colors.successContainer,
+      AppStatusTone.warning => colors.warningContainer,
+      AppStatusTone.danger => colors.dangerContainer,
+      _ => colors.infoContainer,
+    };
+    final foreground = switch (tone) {
+      AppStatusTone.success => colors.success,
+      AppStatusTone.warning => colors.warning,
+      AppStatusTone.danger => colors.danger,
+      _ => colors.info,
+    };
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: colors.surface,
+              shape: BoxShape.circle,
             ),
-            const SizedBox(width: 12),
-            Text(
-              appointment.bookingCode,
-              style: Theme.of(
-                context,
-              ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
-            ),
-          ],
-        ),
-        const SizedBox(height: 14),
-        Text(
-          appointment.status.guidance,
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
-            height: 1.45,
+            child: Icon(appointment.status.icon, color: foreground),
           ),
-        ),
-      ],
-    ),
-  );
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  appointment.status.label,
+                  style: text.titleSmall?.copyWith(color: foreground),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  appointment.status.guidance,
+                  style: text.bodySmall?.copyWith(color: colors.ink),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class AppointmentInformationCard extends StatelessWidget {
@@ -238,16 +252,16 @@ class _DetailRow extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 2),
-                Text(value, style: Theme.of(context).textTheme.bodyLarge),
+                Text(value, style: Theme.of(context).textTheme.bodyMedium),
               ],
             ),
           ),
         ],
       ),
       if (showDivider) ...[
-        const SizedBox(height: 12),
-        const Divider(),
-        const SizedBox(height: 12),
+        const SizedBox(height: 8),
+        const Divider(height: 1),
+        const SizedBox(height: 8),
       ],
     ],
   );
