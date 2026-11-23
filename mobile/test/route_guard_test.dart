@@ -2,17 +2,12 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hospital_booking_mobile/app/router/route_guard.dart';
 import 'package:hospital_booking_mobile/features/auth/application/auth_state.dart';
 
-String? _redirect(
-  AuthStatus status,
-  String location, {
-  bool hasChallenge = false,
-  String? returnTo,
-}) => resolveAppRedirect(
-  authStatus: status,
-  hasChallenge: hasChallenge,
-  location: location,
-  returnTo: returnTo,
-);
+String? _redirect(AuthStatus status, String location, {String? returnTo}) =>
+    resolveAppRedirect(
+      authStatus: status,
+      location: location,
+      returnTo: returnTo,
+    );
 
 void main() {
   test(
@@ -42,54 +37,27 @@ void main() {
     },
   );
 
-  test('authenticated user leaves auth routes for the return location', () {
+  test('authenticated user leaves login for the return location', () {
     expect(_redirect(AuthStatus.authenticated, '/login'), '/home');
     expect(
-      _redirect(
-        AuthStatus.authenticated,
-        '/verify-otp',
-        returnTo: '/appointments',
-      ),
+      _redirect(AuthStatus.authenticated, '/login', returnTo: '/appointments'),
       '/appointments',
     );
     expect(_redirect(AuthStatus.authenticated, '/appointments'), isNull);
   });
 
-  test('OTP flow keeps the user on verify and preserves the destination', () {
+  test('OTP step stays where the user is (login screen or gated screen)', () {
     for (final status in [AuthStatus.awaitingOtp, AuthStatus.verifyingOtp]) {
-      expect(
-        _redirect(status, '/login', hasChallenge: true, returnTo: '/invoices'),
-        '/verify-otp?from=%2Finvoices',
-      );
-      expect(
-        _redirect(
-          status,
-          '/verify-otp',
-          hasChallenge: true,
-          returnTo: '/invoices',
-        ),
-        isNull,
-      );
+      for (final location in ['/login', '/appointments', '/profile']) {
+        expect(_redirect(status, location, returnTo: '/x'), isNull);
+      }
     }
-  });
-
-  test('verify screen without a challenge goes back to login', () {
-    expect(_redirect(AuthStatus.unauthenticated, '/verify-otp'), '/login');
-    expect(
-      _redirect(
-        AuthStatus.unauthenticated,
-        '/verify-otp',
-        returnTo: '/invoices',
-      ),
-      '/login?from=%2Finvoices',
-    );
   });
 
   test('external and auth-loop return locations are rejected', () {
     expect(safeReturnLocation('https://evil.example'), isNull);
     expect(safeReturnLocation('//evil.example'), isNull);
     expect(safeReturnLocation('/login'), isNull);
-    expect(safeReturnLocation('/verify-otp'), isNull);
     expect(safeReturnLocation('/appointments?x=1'), '/appointments?x=1');
   });
 }

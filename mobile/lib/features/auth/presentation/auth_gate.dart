@@ -1,14 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
-import 'package:hospital_booking_mobile/app/router/route_guard.dart';
 import 'package:hospital_booking_mobile/core/design/app_colors.dart';
 import 'package:hospital_booking_mobile/core/widgets/app_ui.dart';
 import 'package:hospital_booking_mobile/features/auth/application/auth_controller.dart';
 import 'package:hospital_booking_mobile/features/auth/application/auth_state.dart';
+import 'package:hospital_booking_mobile/features/auth/presentation/login_panel.dart';
 
-/// Bao quanh màn hình cần tài khoản. Đã đăng nhập thì hiện màn hình; chưa thì mời đăng nhập ngay tại màn đó,
-/// không chuyển hướng đi nơi khác. Đang khôi phục phiên thì chờ, mất mạng thì cho thử lại.
+/// Bao quanh màn hình cần tài khoản. Đã đăng nhập thì hiện màn hình; chưa thì hiện thẳng khối đăng nhập tại màn đó
+/// (email rồi mã), đăng nhập xong nội dung hiện ra luôn, không chuyển hướng. Đang khôi phục phiên thì chờ, mất mạng thì cho thử lại.
 class AuthGate extends ConsumerWidget {
   const AuthGate({super.key, required this.title, required this.child});
 
@@ -48,16 +47,14 @@ class AuthGate extends ConsumerWidget {
       );
     }
     return _GateScaffold(
-      child: AppEmptyState(
-        icon: Icons.lock_outline,
-        title: 'Đăng nhập để xem $title',
-        message:
-            'Đăng nhập bằng email để xem lịch hẹn, hóa đơn và kết quả khám.',
-        action: FilledButton(
-          onPressed: () => context.push(
-            loginLocation(GoRouterState.of(context).uri.toString()),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 420),
+          child: LoginPanel(
+            reason:
+                'Đăng nhập để xem $title. Mã gửi về email, không cần mật khẩu.',
           ),
-          child: const Text('Đăng nhập'),
         ),
       ),
     );
