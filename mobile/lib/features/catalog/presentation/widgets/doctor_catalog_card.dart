@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:hospital_booking_mobile/features/catalog/domain/catalog_entities.dart';
 import 'package:hospital_booking_mobile/app/navigation/booking_navigation.dart';
+import 'package:hospital_booking_mobile/core/design/app_colors.dart';
 import 'package:hospital_booking_mobile/core/formatters/display_formatters.dart';
 import 'package:hospital_booking_mobile/core/widgets/app_ui.dart';
+import 'package:hospital_booking_mobile/core/widgets/app_zone.dart';
 import 'package:hospital_booking_mobile/core/widgets/resized_network_image.dart';
-import 'package:hospital_booking_mobile/core/design/app_colors.dart';
+import 'package:hospital_booking_mobile/features/catalog/domain/catalog_entities.dart';
 
+/// Thẻ bác sĩ trong danh sách: chạm cả thẻ để xem hồ sơ, một nút chính để đặt khám.
 class DoctorCatalogCard extends StatelessWidget {
   const DoctorCatalogCard({required this.doctor, super.key});
 
@@ -14,26 +16,31 @@ class DoctorCatalogCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final slots = doctor.todayAvailableSlots.take(2).toList(growable: false);
+    final colors = context.colors;
+    final text = Theme.of(context).textTheme;
+    final slots = doctor.todayAvailableSlots
+        .take(2)
+        .map((slot) => slot.startTime)
+        .toList(growable: false);
     return AppSurfaceCard(
-      padding: const EdgeInsets.all(AppSpacing.md),
+      onTap: () => context.push('/doctors/${Uri.encodeComponent(doctor.id)}'),
+      semanticLabel: 'Hồ sơ ${doctor.displayName}, ${doctor.departmentName}',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               CircleAvatar(
-                radius: 31,
-                backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+                radius: 28,
+                backgroundColor: colors.primarySoft,
                 backgroundImage: resizedNetworkImage(
                   context,
                   doctor.avatar,
-                  logicalWidth: 62,
-                  logicalHeight: 62,
+                  logicalWidth: 56,
+                  logicalHeight: 56,
                 ),
                 child: doctor.avatar?.trim().isNotEmpty != true
-                    ? const Icon(Icons.person_outline_outlined, size: 29)
+                    ? Icon(Icons.person_outlined, color: colors.primary)
                     : null,
               ),
               const SizedBox(width: AppSpacing.sm),
@@ -41,143 +48,98 @@ class DoctorCatalogCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
+                    Text(
+                      doctor.displayName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: text.titleSmall,
+                    ),
+                    const SizedBox(height: AppSpacing.xxs),
+                    Wrap(
+                      spacing: AppSpacing.xs,
+                      runSpacing: AppSpacing.hair,
+                      crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
-                        Expanded(
-                          child: Text(
-                            doctor.displayName,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context).textTheme.titleMedium
-                                ?.copyWith(fontWeight: AppFontWeight.strong),
-                          ),
+                        AppPill(
+                          label: doctor.departmentName,
+                          tint: colors.zone(AppZone.primary),
                         ),
-                        if (doctor.averageRating > 0)
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: AppSpacing.xs,
-                              vertical: AppSpacing.xxs,
-                            ),
-                            decoration: BoxDecoration(
-                              color: context.colors.warningContainer,
-                              borderRadius: BorderRadius.circular(AppRadius.sm),
-                            ),
-                            child: Text(
-                              '★ ${doctor.averageRating.toStringAsFixed(1)}',
-                              style: const TextStyle(
-                                fontWeight: AppFontWeight.strong,
-                              ),
+                        if (doctor.reviewCount > 0)
+                          AppPill(
+                            label:
+                                '★ ${doctor.averageRating.toStringAsFixed(1).replaceAll('.', ',')}',
+                            tint: colors.zone(AppZone.warning),
+                          ),
+                        if (doctor.experience != null)
+                          Text(
+                            '${doctor.experience} năm KN',
+                            style: text.bodySmall?.copyWith(
+                              color: colors.muted,
                             ),
                           ),
                       ],
                     ),
-                    const SizedBox(height: AppSpacing.xxs),
-                    Text(
-                      [
-                        doctor.departmentName,
-                        distinctSpecialization(
-                          doctor.specialization,
-                          doctor.departmentName,
-                        ),
-                      ].whereType<String>().join(' • '),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: context.colors.primaryDark,
-                        fontWeight: AppFontWeight.strong,
-                      ),
-                    ),
-                    if (doctor.experience != null) ...[
-                      const SizedBox(height: AppSpacing.xxs),
-                      Text(
-                        '${doctor.experience} năm kinh nghiệm',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                    ],
                   ],
                 ),
               ),
             ],
           ),
           const SizedBox(height: AppSpacing.sm),
-          Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppSpacing.sm,
-              vertical: AppSpacing.xs,
-            ),
+          DecoratedBox(
             decoration: BoxDecoration(
-              color: context.colors.infoContainer,
+              color: colors.primarySoft,
               borderRadius: BorderRadius.circular(AppRadius.md),
             ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.sm,
+                vertical: AppSpacing.xs,
+              ),
+              child: Wrap(
+                alignment: WrapAlignment.spaceBetween,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                spacing: AppSpacing.xs,
+                runSpacing: AppSpacing.hair,
+                children: [
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text(
-                        slots.isEmpty ? 'Lịch khám' : 'Giờ trống hôm nay',
-                        style: Theme.of(context).textTheme.labelSmall,
+                      Icon(
+                        Icons.schedule_outlined,
+                        size: AppIconSize.sm,
+                        color: colors.primaryDark,
                       ),
-                      const SizedBox(height: AppSpacing.xxs),
-                      Text(
-                        slots.isEmpty
-                            ? 'Xem lịch gần nhất'
-                            : slots.map((slot) => slot.startTime).join('   '),
-                        style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                          color: context.colors.primaryDark,
-                          fontWeight: AppFontWeight.strong,
+                      const SizedBox(width: AppSpacing.xs),
+                      Flexible(
+                        child: Text(
+                          slots.isEmpty
+                              ? 'Xem lịch gần nhất'
+                              : 'Hôm nay ${slots.join(' · ')}',
+                          style: text.labelLarge?.copyWith(
+                            color: colors.primaryDark,
+                          ),
                         ),
                       ),
                     ],
                   ),
-                ),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text(
-                      'Phí khám',
-                      style: Theme.of(context).textTheme.labelSmall,
-                    ),
-                    const SizedBox(height: AppSpacing.xxs),
-                    Text(
-                      formatVnd(doctor.consultationFee),
-                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        fontWeight: AppFontWeight.strong,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
+                  Text(
+                    formatVnd(doctor.consultationFee),
+                    style: text.titleSmall?.copyWith(color: colors.primaryDark),
+                  ),
+                ],
+              ),
             ),
           ),
           const SizedBox(height: AppSpacing.sm),
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton(
-                  onPressed: () => context.push(
-                    '/doctors/${Uri.encodeComponent(doctor.id)}',
-                  ),
-                  child: const Text('Xem hồ sơ'),
-                ),
-              ),
-              const SizedBox(width: AppSpacing.sm),
-              Expanded(
-                child: FilledButton(
-                  onPressed: () => openBookingFromCurrentRoute(
-                    context,
-                    Uri(
-                      path: '/booking',
-                      queryParameters: {'doctorId': doctor.id},
-                    ).toString(),
-                  ),
-                  child: const Text('Đặt khám'),
-                ),
-              ),
-            ],
+          FilledButton(
+            onPressed: () => openBookingFromCurrentRoute(
+              context,
+              Uri(
+                path: '/booking',
+                queryParameters: {'doctorId': doctor.id},
+              ).toString(),
+            ),
+            child: const Text('Đặt khám'),
           ),
         ],
       ),
