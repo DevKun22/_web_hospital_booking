@@ -1,197 +1,249 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:hospital_booking_mobile/core/design/app_colors.dart';
+import 'package:hospital_booking_mobile/core/widgets/app_motion.dart';
 import 'package:hospital_booking_mobile/core/widgets/app_ui.dart';
 import 'package:hospital_booking_mobile/features/profile/domain/patient_profile.dart';
-import 'package:hospital_booking_mobile/features/profile/presentation/widgets/profile_menu_widgets.dart';
-import 'package:hospital_booking_mobile/core/design/app_colors.dart';
 
+/// Đầu tab Tài khoản gọn một khối: chữ cái đầu, tên, số điện thoại ẩn bớt, nhãn đã xác thực và nút sửa.
 class ProfileHeader extends StatelessWidget {
-  const ProfileHeader({super.key, required this.profile});
+  const ProfileHeader({super.key, required this.profile, this.onEdit});
 
   final PatientProfile profile;
+  final VoidCallback? onEdit;
 
   @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.all(20),
-    decoration: BoxDecoration(
-      gradient: LinearGradient(
-        colors: [AppPalette.heroDeep, AppPalette.heroMid],
-      ),
-      borderRadius: BorderRadius.circular(22),
-    ),
-    child: Row(
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    final text = Theme.of(context).textTheme;
+    return Row(
       children: [
         CircleAvatar(
-          radius: 34,
-          backgroundColor: Colors.white.withValues(alpha: 0.18),
+          radius: 26,
+          backgroundColor: colors.primary,
           child: Text(
             profile.fullName.isEmpty
                 ? 'B'
                 : profile.fullName.substring(0, 1).toUpperCase(),
-            style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-              color: Colors.white,
-              fontWeight: FontWeight.w800,
-            ),
+            style: text.titleLarge?.copyWith(color: colors.onPrimary),
           ),
         ),
-        const SizedBox(width: 16),
+        const SizedBox(width: AppSpacing.sm),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
                 profile.fullName,
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w800,
-                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: text.titleMedium,
               ),
-              const SizedBox(height: 4),
-              Text(
-                profile.phone == null
-                    ? 'Chưa cập nhật số điện thoại'
-                    : maskPhone(profile.phone!),
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: Colors.white.withValues(alpha: 0.86),
-                ),
+              Wrap(
+                spacing: AppSpacing.xs,
+                runSpacing: 2,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  Text(
+                    profile.phone == null
+                        ? 'Chưa cập nhật số điện thoại'
+                        : maskPhone(profile.phone!),
+                    style: text.bodySmall?.copyWith(color: colors.muted),
+                  ),
+                  if (profile.isEmailVerified)
+                    const AppStatusBadge(
+                      label: 'Đã xác thực',
+                      tone: AppStatusTone.success,
+                    ),
+                ],
               ),
-              if (profile.isEmailVerified) ...[
-                const SizedBox(height: 8),
-                const AppStatusBadge(
-                  label: 'Đã xác thực',
-                  tone: AppStatusTone.success,
-                  icon: Icons.verified_outlined,
-                ),
-              ],
             ],
           ),
         ),
+        if (onEdit != null)
+          IconButton(
+            key: const Key('profile-edit'),
+            tooltip: 'Chỉnh sửa hồ sơ',
+            onPressed: onEdit,
+            icon: Icon(Icons.edit_outlined, color: colors.primary),
+          ),
       ],
-    ),
-  );
+    );
+  }
 }
 
-class ProfileCompletionCard extends StatelessWidget {
-  const ProfileCompletionCard({super.key, required this.profile});
+/// Dải vàng mỏng nhắc hoàn thiện hồ sơ; chỉ hiện khi hồ sơ chưa đủ, chạm để mở màn chỉnh sửa.
+class ProfileCompletionBanner extends StatelessWidget {
+  const ProfileCompletionBanner({
+    super.key,
+    required this.profile,
+    required this.onTap,
+  });
 
   final PatientProfile profile;
+  final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) => Card(
-    margin: EdgeInsets.zero,
-    child: Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Icon(Icons.fact_check_outlined),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  'Mức độ hoàn thiện hồ sơ',
-                  style: Theme.of(
-                    context,
-                  ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
-                ),
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    final text = Theme.of(context).textTheme;
+    final percent = profile.completionPercent;
+    return Semantics(
+      button: true,
+      label: 'Hồ sơ mới đủ $percent phần trăm. Bổ sung thông tin',
+      child: ExcludeSemantics(
+        child: Material(
+          color: colors.warningContainer,
+          borderRadius: BorderRadius.circular(AppRadius.md),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(AppRadius.md),
+            onTap: onTap,
+            child: Padding(
+              padding: const EdgeInsets.all(AppSpacing.sm),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          'Hồ sơ mới đủ $percent%',
+                          style: text.titleSmall?.copyWith(
+                            color: colors.warning,
+                          ),
+                        ),
+                      ),
+                      Text(
+                        'Bổ sung',
+                        style: text.labelLarge?.copyWith(
+                          color: colors.warning,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: AppSpacing.xs),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(AppRadius.pill),
+                    child: LinearProgressIndicator(
+                      value: percent / 100,
+                      minHeight: 5,
+                      backgroundColor: colors.surface,
+                      color: colors.warning,
+                    ),
+                  ),
+                ],
               ),
-              Text(
-                '${profile.completionPercent}%',
-                style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                  color: Theme.of(context).colorScheme.primary,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          LinearProgressIndicator(
-            value: profile.completionPercent / 100,
-            minHeight: 8,
-            borderRadius: BorderRadius.circular(999),
-          ),
-          const SizedBox(height: 10),
-          Text(
-            profile.completionPercent >= 90
-                ? 'Hồ sơ đã đủ thông tin để hỗ trợ tiếp nhận nhanh hơn.'
-                : 'Bổ sung thông tin còn thiếu để cơ sở khám tiếp nhận thuận tiện hơn.',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
             ),
           ),
-        ],
+        ),
       ),
-    ),
-  );
+    );
+  }
 }
 
-class ProfileInsuranceCard extends StatelessWidget {
-  const ProfileInsuranceCard({super.key, required this.profile});
-
-  final PatientProfile profile;
+/// Bốn lối tắt màu: kết quả khám, đơn thuốc, hóa đơn, người thân.
+class ProfileQuickTiles extends StatelessWidget {
+  const ProfileQuickTiles({super.key});
 
   @override
-  Widget build(BuildContext context) => ProfileSection(
-    title: 'Bảo hiểm y tế',
-    icon: Icons.health_and_safety_outlined,
-    children: [
-      ProfileRow(
-        label: 'Trạng thái',
-        value: profile.hasBhyt ? 'Có sử dụng BHYT' : 'Không sử dụng BHYT',
+  Widget build(BuildContext context) {
+    final tints = context.colors.tintPairs;
+    final tiles = [
+      (
+        const Key('profile-medical-records'),
+        Icons.folder_shared_outlined,
+        'Kết quả khám',
+        '/medical-records',
+        tints[1],
       ),
-      if (profile.hasBhyt) ...[
-        ProfileRow(
-          label: 'Mã thẻ BHYT',
-          value: maskInsuranceCode(profile.healthInsuranceCode),
-        ),
-        ProfileRow(
-          label: 'Nơi đăng ký KCB',
-          value: profile.registeredHospital,
-          showDivider: false,
-        ),
-      ] else
-        const ProfileRow(
-          label: 'Thông tin',
-          value: 'Có thể bổ sung khi chỉnh sửa hồ sơ',
-          showDivider: false,
-        ),
-    ],
-  );
+      (
+        const Key('profile-prescriptions'),
+        Icons.medication_outlined,
+        'Đơn thuốc',
+        '/prescriptions',
+        tints[5],
+      ),
+      (
+        const Key('profile-invoices'),
+        Icons.receipt_long_outlined,
+        'Hóa đơn',
+        '/invoices',
+        tints[3],
+      ),
+      (
+        const Key('profile-dependents'),
+        Icons.family_restroom_outlined,
+        'Người thân',
+        '/dependents',
+        tints[4],
+      ),
+    ];
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        const gap = AppSpacing.xs;
+        final width = (constraints.maxWidth - gap) / 2;
+        return Wrap(
+          spacing: gap,
+          runSpacing: gap,
+          children: [
+            for (final tile in tiles)
+              SizedBox(
+                width: width,
+                child: PressScale(
+                  child: Material(
+                    color: tile.$5.background,
+                    borderRadius: BorderRadius.circular(AppRadius.md),
+                    child: InkWell(
+                      key: tile.$1,
+                      borderRadius: BorderRadius.circular(AppRadius.md),
+                      onTap: () => context.push(tile.$4),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AppSpacing.sm,
+                          vertical: AppSpacing.sm,
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(tile.$2, color: tile.$5.foreground),
+                            const SizedBox(width: AppSpacing.xs),
+                            Expanded(
+                              child: Text(
+                                tile.$3,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: Theme.of(context).textTheme.titleSmall
+                                    ?.copyWith(color: tile.$5.foreground),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        );
+      },
+    );
+  }
 }
 
-class ProfileHealthSnapshot extends StatelessWidget {
-  const ProfileHealthSnapshot({super.key, required this.profile});
-
-  final PatientProfile profile;
+class ProfileLoading extends StatelessWidget {
+  const ProfileLoading({super.key});
 
   @override
-  Widget build(BuildContext context) => ProfileSection(
-    title: 'Thông tin sức khỏe',
-    icon: Icons.monitor_heart_outlined,
-    children: [
-      ProfileRow(label: 'Nhóm máu', value: profile.bloodType),
-      ProfileRow(
-        label: 'Chiều cao / Cân nặng',
-        value: profile.height == null && profile.weight == null
-            ? null
-            : '${profileNumber(profile.height)} cm · ${profileNumber(profile.weight)} kg',
-      ),
-      ProfileRow(label: 'Huyết áp', value: profile.bloodPressure),
-      ProfileRow(label: 'Dị ứng', value: profile.allergies),
-      ProfileRow(
-        label: 'Tiền sử sức khỏe',
-        value: profile.medicalHistory,
-        showDivider: false,
-      ),
+  Widget build(BuildContext context) => ListView(
+    padding: const EdgeInsets.all(AppSpacing.page),
+    children: const [
+      AppLoadingSkeleton(height: 64),
+      SizedBox(height: AppSpacing.sm),
+      AppLoadingSkeleton(height: 56),
+      SizedBox(height: AppSpacing.sm),
+      AppLoadingSkeleton(height: 120),
     ],
   );
-}
-
-String profileNumber(double? value) {
-  if (value == null) return '—';
-  return value == value.roundToDouble()
-      ? value.toInt().toString()
-      : value.toStringAsFixed(1);
 }
 
 /// Che giữa mã thẻ BHYT, chỉ để lại 3 ký tự đầu và cuối.

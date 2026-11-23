@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:hospital_booking_mobile/core/formatters/display_formatters.dart';
 import 'package:hospital_booking_mobile/core/widgets/app_error_banner.dart';
 import 'package:hospital_booking_mobile/core/widgets/app_ui.dart';
 import 'package:hospital_booking_mobile/features/auth/application/auth_controller.dart';
@@ -25,19 +24,7 @@ class ProfileScreen extends ConsumerWidget {
     final pushState = ref.watch(pushNotificationsControllerProvider);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Hồ sơ người khám'),
-        actions: [
-          if (state.profile != null)
-            IconButton(
-              tooltip: 'Chỉnh sửa hồ sơ',
-              onPressed: state.isSaving
-                  ? null
-                  : () => _openEditor(context, ref),
-              icon: const Icon(Icons.edit_outlined),
-            ),
-        ],
-      ),
+      appBar: AppBar(title: const Text('Hồ sơ người khám')),
       body: SafeArea(
         child: state.isInitialLoading && state.profile == null
             ? const ProfileLoading()
@@ -75,54 +62,32 @@ class ProfileScreen extends ConsumerWidget {
                       if (state.isRefreshing)
                         const LinearProgressIndicator(minHeight: 2),
                       if (state.isRefreshing) const SizedBox(height: 12),
-                      ProfileHeader(profile: state.profile!),
-                      const SizedBox(height: 14),
-                      ProfileCompletionCard(profile: state.profile!),
-                      const SizedBox(height: 14),
-                      ProfileSection(
-                        title: 'Thông tin cá nhân',
-                        icon: Icons.badge_outlined,
-                        children: [
-                          ProfileRow(
-                            label: 'Ngày sinh',
-                            value: state.profile!.dateOfBirth == null
-                                ? null
-                                : formatDateVi(state.profile!.dateOfBirth!),
-                          ),
-                          ProfileRow(
-                            label: 'Giới tính',
-                            value: state.profile!.gender?.label,
-                          ),
-                          ProfileRow(label: 'CCCD', value: state.profile!.cccd),
-                          ProfileRow(
-                            label: 'Địa chỉ',
-                            value: state.profile!.address,
-                            showDivider: false,
-                          ),
-                        ],
+                      ProfileHeader(
+                        profile: state.profile!,
+                        onEdit: state.isSaving
+                            ? null
+                            : () => _openEditor(context, ref),
                       ),
-                      const SizedBox(height: 14),
-                      ProfileInsuranceCard(profile: state.profile!),
-                      const SizedBox(height: 14),
-                      ProfileHealthSnapshot(profile: state.profile!),
-                      const SizedBox(height: 14),
-                      const ProfileGroupTitle(title: 'Tiện ích trên máy'),
-                      const SizedBox(height: 8),
-                      ProfilePatientShortcuts(),
-                      const SizedBox(height: 14),
-                      const ProfileGroupTitle(title: 'Ứng dụng & hỗ trợ'),
-                      const SizedBox(height: 8),
-                      ProfileAppSupportSection(pushState: pushState),
-                      const SizedBox(height: 20),
-                      FilledButton.icon(
-                        onPressed: () => _openEditor(context, ref),
-                        icon: const Icon(Icons.edit_outlined),
-                        label: const Text('Chỉnh sửa hồ sơ'),
+                      if (state.profile!.completionPercent < 90) ...[
+                        const SizedBox(height: AppSpacing.sm),
+                        ProfileCompletionBanner(
+                          profile: state.profile!,
+                          onTap: () => _openEditor(context, ref),
+                        ),
+                      ],
+                      const SizedBox(height: AppSpacing.sm),
+                      const ProfileQuickTiles(),
+                      const SizedBox(height: AppSpacing.sm),
+                      ProfileMenuList(
+                        pushState: pushState,
+                        onEditProfile: state.isSaving
+                            ? null
+                            : () => _openEditor(context, ref),
                       ),
-                      const SizedBox(height: 12),
                     ],
-                    OutlinedButton.icon(
-                      style: OutlinedButton.styleFrom(
+                    const SizedBox(height: AppSpacing.xs),
+                    TextButton.icon(
+                      style: TextButton.styleFrom(
                         foregroundColor: Theme.of(context).colorScheme.error,
                       ),
                       onPressed: isLoggingOut
