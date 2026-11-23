@@ -88,15 +88,18 @@ class _InvoicesScreenState extends ConsumerState<InvoicesScreen> {
                         ),
                         sliver: SliverList.list(
                           children: [
-                            _DueSummary(unpaid: unpaid),
-                            const SizedBox(height: AppSpacing.sm),
-                            AppFilterTabs<_InvoiceFilter>(
-                              items: _InvoiceFilter.values,
-                              selected: filter,
-                              labelOf: (item) => item.label,
-                              onChanged: (value) =>
-                                  setState(() => _filter = value),
-                            ),
+                            // Chưa có hóa đơn nào thì chỉ hiện trạng thái trống, không cần tổng tiền và bộ lọc.
+                            if (state.hasItems) ...[
+                              _DueSummary(unpaid: unpaid),
+                              const SizedBox(height: AppSpacing.sm),
+                              AppFilterTabs<_InvoiceFilter>(
+                                items: _InvoiceFilter.values,
+                                selected: filter,
+                                labelOf: (item) => item.label,
+                                onChanged: (value) =>
+                                    setState(() => _filter = value),
+                              ),
+                            ],
                             if (state.error != null) ...[
                               const SizedBox(height: AppSpacing.sm),
                               AppErrorBanner(

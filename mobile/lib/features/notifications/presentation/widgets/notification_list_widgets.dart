@@ -111,6 +111,7 @@ class NotificationCard extends StatelessWidget {
                           ),
                           const SizedBox(width: 6),
                           RelativeTimeText(
+                            compact: true,
                             value: item.publishedAt,
                             style: text.labelMedium?.copyWith(
                               color: colors.muted,
@@ -170,10 +171,18 @@ class NotificationsLoading extends StatelessWidget {
 /// Nhãn thời gian tương đối ("Vừa xong", "5 phút trước"), tự làm mới mỗi 30 giây khi
 /// thông báo còn mới (dưới 1 giờ) để không bị đứng hình khi màn đang mở.
 class RelativeTimeText extends StatefulWidget {
-  const RelativeTimeText({super.key, required this.value, this.style});
+  const RelativeTimeText({
+    super.key,
+    required this.value,
+    this.style,
+    this.compact = false,
+  });
 
   final DateTime value;
   final TextStyle? style;
+
+  /// Dạng rất ngắn cho dòng thông báo ("5 phút", "Hôm qua").
+  final bool compact;
 
   @override
   State<RelativeTimeText> createState() => _RelativeTimeTextState();
@@ -214,6 +223,10 @@ class _RelativeTimeTextState extends State<RelativeTimeText> {
   }
 
   @override
-  Widget build(BuildContext context) =>
-      Text(formatRelativeVietnamTime(widget.value), style: widget.style);
+  Widget build(BuildContext context) => Text(
+    widget.compact
+        ? formatCompactVietnamTime(widget.value)
+        : formatRelativeVietnamTime(widget.value),
+    style: widget.style,
+  );
 }

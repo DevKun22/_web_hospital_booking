@@ -39,3 +39,19 @@ String formatRelativeVietnamTime(DateTime value, {DateTime? now}) {
   if (day == today.subtract(const Duration(days: 1))) return 'Hôm qua · $time';
   return '${_two(at.day)}/${_two(at.month)}/${at.year} · $time';
 }
+
+/// Giờ rút gọn cho dòng thông báo: "Vừa xong", "5 phút", giờ trong ngày, "Hôm qua", rồi ngày/tháng.
+String formatCompactVietnamTime(DateTime value, {DateTime? now}) {
+  final at = toVietnamTime(value);
+  final current = vietnamNow(now);
+  final age = current.difference(at);
+  if (!age.isNegative && age < const Duration(minutes: 1)) return 'Vừa xong';
+  if (!age.isNegative && age < const Duration(hours: 1)) {
+    return '${age.inMinutes} phút';
+  }
+  final today = vietnamToday(now);
+  final day = vietnamDateOf(value);
+  if (day == today) return '${_two(at.hour)}:${_two(at.minute)}';
+  if (day == today.subtract(const Duration(days: 1))) return 'Hôm qua';
+  return '${_two(at.day)}/${_two(at.month)}';
+}

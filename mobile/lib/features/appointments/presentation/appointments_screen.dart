@@ -481,7 +481,10 @@ class _AppointmentRow extends StatelessWidget {
                           children: [
                             Expanded(
                               child: Text(
-                                '${formatTimeRange(appointment.startTime, appointment.endTime)} · ${appointment.careUnit}',
+                                formatTimeRange(
+                                  appointment.startTime,
+                                  appointment.endTime,
+                                ),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: text.titleSmall,
@@ -499,9 +502,9 @@ class _AppointmentRow extends StatelessWidget {
                         const SizedBox(height: 2),
                         Text(
                           appointment.doctorName.isEmpty
-                              ? 'Bác sĩ đang được cập nhật'
-                              : appointment.doctorName,
-                          maxLines: 1,
+                              ? appointment.careUnit
+                              : '${appointment.doctorName} · ${appointment.careUnit}',
+                          maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                           style: text.bodySmall?.copyWith(color: colors.muted),
                         ),
