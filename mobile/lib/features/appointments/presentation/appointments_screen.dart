@@ -1,3 +1,4 @@
+import 'package:hospital_booking_mobile/features/appointments/presentation/appointment_labels.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -276,34 +277,6 @@ String _monthLabel(PatientAppointment item) {
       : '';
 }
 
-String _weekday(PatientAppointment item) {
-  final date = DateTime.tryParse(item.appointmentDate);
-  if (date == null) return '';
-  return switch (date.weekday) {
-    DateTime.monday => 'T2',
-    DateTime.tuesday => 'T3',
-    DateTime.wednesday => 'T4',
-    DateTime.thursday => 'T5',
-    DateTime.friday => 'T6',
-    DateTime.saturday => 'T7',
-    _ => 'CN',
-  };
-}
-
-String _countdown(PatientAppointment item) {
-  final start = item.scheduledStart;
-  if (start == null) return '';
-  final now = DateTime.now();
-  final days = DateTime(
-    start.year,
-    start.month,
-    start.day,
-  ).difference(DateTime(now.year, now.month, now.day)).inDays;
-  if (days <= 0) return start.isAfter(now) ? 'Hôm nay' : 'Đang diễn ra';
-  if (days == 1) return 'Ngày mai';
-  return 'Còn $days ngày';
-}
-
 /// Thẻ xanh đầu trang: lịch khám gần nhất, kèm hai việc cần nhất là mở vé QR và thêm vào lịch máy.
 class _NextAppointmentCard extends ConsumerWidget {
   const _NextAppointmentCard({required this.appointment});
@@ -350,7 +323,7 @@ class _NextAppointmentCard extends ConsumerWidget {
                         borderRadius: BorderRadius.circular(AppRadius.pill),
                       ),
                       child: Text(
-                        _countdown(appointment),
+                        appointmentCountdown(appointment),
                         style: text.labelMedium?.copyWith(
                           color: colors.primaryDark,
                           fontWeight: AppFontWeight.strong,
@@ -361,7 +334,7 @@ class _NextAppointmentCard extends ConsumerWidget {
                 ),
                 const SizedBox(height: AppSpacing.xs),
                 Text(
-                  '${_weekday(appointment)}, ${formatDateVi(appointment.appointmentDate)} · ${_hhmm(appointment.startTime)}',
+                  '${appointmentWeekday(appointment)}, ${formatDateVi(appointment.appointmentDate)} · ${appointmentHhmm(appointment.startTime)}',
                   style: text.titleMedium?.copyWith(color: colors.onPrimary),
                 ),
                 Text(
@@ -435,8 +408,6 @@ class _NextAppointmentCard extends ConsumerWidget {
   }
 }
 
-String _hhmm(String value) => value.length >= 5 ? value.substring(0, 5) : value;
-
 /// Một lịch khám dạng hàng: cột ngày bên trái, thẻ gọn có vạch màu theo trạng thái bên phải.
 class _AppointmentRow extends StatelessWidget {
   const _AppointmentRow({required this.appointment, required this.onTap});
@@ -470,7 +441,7 @@ class _AppointmentRow extends StatelessWidget {
                   style: text.titleMedium?.copyWith(color: colors.primaryDark),
                 ),
                 Text(
-                  _weekday(appointment),
+                  appointmentWeekday(appointment),
                   style: text.labelMedium?.copyWith(color: colors.muted),
                 ),
               ],

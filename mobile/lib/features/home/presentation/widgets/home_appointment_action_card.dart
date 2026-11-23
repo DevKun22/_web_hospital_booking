@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:hospital_booking_mobile/features/appointments/presentation/appointment_status_visuals.dart';
-import 'package:hospital_booking_mobile/core/formatters/display_formatters.dart';
-import 'package:hospital_booking_mobile/core/widgets/app_ui.dart';
-import 'package:hospital_booking_mobile/features/appointments/domain/patient_appointment.dart';
 import 'package:hospital_booking_mobile/core/design/app_colors.dart';
+import 'package:hospital_booking_mobile/core/design/app_design_tokens.dart';
+import 'package:hospital_booking_mobile/core/formatters/display_formatters.dart';
+import 'package:hospital_booking_mobile/features/appointments/domain/patient_appointment.dart';
+import 'package:hospital_booking_mobile/features/appointments/presentation/appointment_labels.dart';
 
+/// Thẻ nhắc lịch ở Trang chủ: nền theo vùng màu của trạng thái, ô ngày bên trái, chữ gọn và một đến hai nút.
 class HomeAppointmentActionCard extends StatelessWidget {
   const HomeAppointmentActionCard({
     required this.appointment,
@@ -19,136 +20,215 @@ class HomeAppointmentActionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
+    final text = Theme.of(context).textTheme;
     final copy = _HomeAppointmentCopy.from(appointment);
+    final tint = switch (copy.zone) {
+      final zone? => colors.zone(zone),
+      null => (background: colors.surfaceMuted, foreground: colors.ink),
+    };
+    final countdown = copy.showCountdown
+        ? appointmentCountdown(appointment)
+        : '';
     return Semantics(
       container: true,
       label:
           'Lịch khám sắp tới, ${appointment.doctorName}, ${appointment.status.label}',
-      child: AppSurfaceCard(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
+      child: Material(
+        color: tint.background,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppRadius.lg),
+          side: BorderSide(
+            color: copy.emphasis ? tint.foreground : colors.border,
+            width: copy.emphasis ? 1.5 : 0.5,
+          ),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onOpen,
+          child: Padding(
+            padding: const EdgeInsets.all(AppSpacing.md),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Icon(
-                  Icons.event_available_outlined,
-                  size: 20,
-                  color: context.colors.primary,
-                ),
-                const SizedBox(width: AppSpacing.xs),
-                Expanded(
-                  child: Text(
-                    copy.title,
-                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                      color: context.colors.ink,
-                      fontWeight: AppFontWeight.strong,
-                    ),
-                  ),
-                ),
-                AppStatusBadge(
-                  label: appointment.status.label,
-                  tone: appointment.status.tone,
-                ),
-              ],
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            Text(
-              appointment.doctorName.isEmpty
-                  ? 'Bác sĩ đang được cập nhật'
-                  : appointment.doctorName,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                color: context.colors.ink,
-                fontWeight: AppFontWeight.strong,
-              ),
-            ),
-            const SizedBox(height: AppSpacing.xxs),
-            Text(
-              appointment.careUnit,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(
-                context,
-              ).textTheme.bodyMedium?.copyWith(color: context.colors.muted),
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            DecoratedBox(
-              decoration: BoxDecoration(
-                color: context.colors.primarySoft,
-                borderRadius: BorderRadius.circular(AppRadius.md),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.all(AppSpacing.sm),
-                child: Row(
+                Row(
                   children: [
-                    Icon(
-                      Icons.schedule_outlined,
-                      size: 19,
-                      color: context.colors.primary,
-                    ),
-                    const SizedBox(width: AppSpacing.xs),
+                    _DateTile(appointment: appointment, copy: copy, tint: tint),
+                    const SizedBox(width: AppSpacing.sm),
                     Expanded(
-                      child: Text(
-                        '${formatDateVi(appointment.appointmentDate)} · ${formatTimeRange(appointment.startTime, appointment.endTime)}',
-                        style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                          color: context.colors.primaryDark,
-                          fontWeight: AppFontWeight.strong,
-                        ),
-                      ),
-                    ),
-                    Text(
-                      appointment.bookingCode,
-                      style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                        color: context.colors.muted,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            copy.title(appointment),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: text.titleSmall?.copyWith(color: colors.ink),
+                          ),
+                          Text(
+                            appointment.doctorName.isEmpty
+                                ? 'Bác sĩ đang được cập nhật'
+                                : appointment.doctorName,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: text.bodySmall?.copyWith(
+                              color: colors.textSoft,
+                            ),
+                          ),
+                          if (countdown.isNotEmpty &&
+                              countdown != 'Hôm nay') ...[
+                            const SizedBox(height: AppSpacing.xxs),
+                            DecoratedBox(
+                              decoration: BoxDecoration(
+                                color: colors.surface,
+                                borderRadius: BorderRadius.circular(
+                                  AppRadius.pill,
+                                ),
+                              ),
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: AppSpacing.xs,
+                                  vertical: AppSpacing.hair,
+                                ),
+                                child: Text(
+                                  countdown,
+                                  style: text.labelMedium?.copyWith(
+                                    color: tint.foreground,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
                     ),
                   ],
                 ),
-              ),
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            if (copy.guidance != null) ...[
-              Text(
-                copy.guidance!,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: context.colors.muted,
-                  height: 1.35,
-                ),
-              ),
-              const SizedBox(height: AppSpacing.sm),
-            ],
-            if (copy.showQr)
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      key: const Key('home-appointment-qr'),
-                      onPressed: onShowQr,
-                      icon: const Icon(Icons.qr_code_2_outlined),
-                      label: const Text('Vé khám QR'),
+                if (copy.showTime) ...[
+                  const SizedBox(height: AppSpacing.sm),
+                  DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: colors.surface,
+                      borderRadius: BorderRadius.circular(AppRadius.md),
                     ),
-                  ),
-                  const SizedBox(width: AppSpacing.xs),
-                  Expanded(
-                    child: FilledButton.icon(
-                      key: const Key('home-appointment-prepare'),
-                      onPressed: onOpen,
-                      icon: Icon(copy.primaryIcon),
-                      label: Text(copy.primaryLabel),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.sm,
+                        vertical: AppSpacing.xs,
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.schedule_outlined,
+                            size: AppIconSize.sm,
+                            color: tint.foreground,
+                          ),
+                          const SizedBox(width: AppSpacing.xs),
+                          Expanded(
+                            child: Text(
+                              formatTimeRange(
+                                appointment.startTime,
+                                appointment.endTime,
+                              ),
+                              style: text.labelLarge?.copyWith(
+                                color: colors.ink,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ],
-              )
-            else
-              FilledButton.icon(
-                key: const Key('home-appointment-follow'),
-                onPressed: onOpen,
-                icon: Icon(copy.primaryIcon),
-                label: Text(copy.primaryLabel),
-              ),
-          ],
+                if (copy.guidance != null) ...[
+                  const SizedBox(height: AppSpacing.sm),
+                  Text(
+                    copy.guidance!,
+                    style: text.bodySmall?.copyWith(color: colors.textSoft),
+                  ),
+                ],
+                const SizedBox(height: AppSpacing.sm),
+                if (copy.showQr)
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          key: const Key('home-appointment-qr'),
+                          style: OutlinedButton.styleFrom(
+                            backgroundColor: colors.surface,
+                          ),
+                          onPressed: onShowQr,
+                          icon: const Icon(Icons.qr_code_2_outlined),
+                          label: const Text('Mở vé QR'),
+                        ),
+                      ),
+                      const SizedBox(width: AppSpacing.xs),
+                      Expanded(
+                        child: FilledButton(
+                          key: const Key('home-appointment-prepare'),
+                          onPressed: onOpen,
+                          child: Text(copy.primaryLabel),
+                        ),
+                      ),
+                    ],
+                  )
+                else
+                  FilledButton(
+                    key: const Key('home-appointment-follow'),
+                    onPressed: onOpen,
+                    child: Text(copy.primaryLabel),
+                  ),
+              ],
+            ),
+          ),
         ),
+      ),
+    );
+  }
+}
+
+/// Ô bên trái: ngày và thứ khi lịch còn ở phía trước; dấu hiệu khi đã đến hoặc đang khám.
+class _DateTile extends StatelessWidget {
+  const _DateTile({
+    required this.appointment,
+    required this.copy,
+    required this.tint,
+  });
+
+  final PatientAppointment appointment;
+  final _HomeAppointmentCopy copy;
+  final ({Color background, Color foreground}) tint;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    final text = Theme.of(context).textTheme;
+    final strong = copy.emphasis;
+    final foreground = strong ? colors.onPrimary : colors.ink;
+    final caption = strong ? colors.onPrimary : colors.muted;
+    return Container(
+      width: 56,
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.xxs),
+      decoration: BoxDecoration(
+        color: strong ? colors.primary : colors.surface,
+        borderRadius: BorderRadius.circular(AppRadius.md),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (copy.tileIcon != null)
+            Icon(copy.tileIcon, size: AppIconSize.lg, color: tint.foreground)
+          else
+            Text(
+              appointmentDay(appointment),
+              style: text.titleLarge?.copyWith(color: foreground, height: 1.1),
+            ),
+          Text(
+            copy.tileCaption ?? appointmentWeekday(appointment),
+            maxLines: 1,
+            style: text.labelSmall?.copyWith(color: caption),
+          ),
+        ],
       ),
     );
   }
@@ -158,68 +238,90 @@ class _HomeAppointmentCopy {
   const _HomeAppointmentCopy({
     required this.title,
     required this.primaryLabel,
-    required this.primaryIcon,
     required this.showQr,
+    required this.zone,
     this.guidance,
+    this.showTime = false,
+    this.showCountdown = false,
+    this.emphasis = false,
+    this.tileIcon,
+    this.tileCaption,
   });
 
   factory _HomeAppointmentCopy.from(PatientAppointment appointment) {
     switch (appointment.status) {
       case PatientAppointmentStatus.pendingConfirm:
-        return const _HomeAppointmentCopy(
-          title: 'Lịch đang chờ xác nhận',
+        return _HomeAppointmentCopy(
+          title: (_) => 'Chờ xác nhận',
           primaryLabel: 'Xem lịch',
-          primaryIcon: Icons.event_note_outlined,
           showQr: true,
-          guidance: 'Cơ sở khám đang kiểm tra yêu cầu đặt khám của bạn.',
+          zone: AppZone.warning,
+          showTime: true,
+          guidance: 'Cơ sở khám đang kiểm tra yêu cầu của bạn.',
         );
       case PatientAppointmentStatus.checkedIn:
-        return const _HomeAppointmentCopy(
-          title: 'Bạn đã check-in',
+        return _HomeAppointmentCopy(
+          title: (_) => 'Đã check-in',
           primaryLabel: 'Theo dõi tiến trình',
-          primaryIcon: Icons.how_to_reg_outlined,
           showQr: false,
-          guidance: 'Vui lòng chờ hướng dẫn tiếp nhận tại cơ sở khám.',
+          zone: AppZone.success,
+          tileIcon: Icons.check_circle_outlined,
+          tileCaption: 'Đã đến',
+          guidance: 'Chờ hướng dẫn tại cơ sở khám.',
         );
       case PatientAppointmentStatus.inProgress:
-        return const _HomeAppointmentCopy(
-          title: 'Buổi khám đang diễn ra',
+        return _HomeAppointmentCopy(
+          title: (_) => 'Buổi khám đang diễn ra',
           primaryLabel: 'Xem tiến trình',
-          primaryIcon: Icons.medical_services_outlined,
           showQr: false,
-          guidance: 'Kết quả sẽ hiển thị sau khi cơ sở khám phát hành.',
+          zone: null,
+          tileIcon: Icons.play_circle_outlined,
+          tileCaption: 'Đang',
+          guidance: 'Kết quả hiện sau khi cơ sở phát hành.',
         );
       case PatientAppointmentStatus.confirmed:
       case PatientAppointmentStatus.rescheduled:
-        final scheduledStart = appointment.scheduledStart;
+        final start = appointment.scheduledStart;
         final now = DateTime.now();
         final isToday =
-            scheduledStart != null &&
-            scheduledStart.year == now.year &&
-            scheduledStart.month == now.month &&
-            scheduledStart.day == now.day;
+            start != null &&
+            start.year == now.year &&
+            start.month == now.month &&
+            start.day == now.day;
         return _HomeAppointmentCopy(
-          title: isToday ? 'Lịch khám hôm nay' : 'Lịch khám sắp tới',
+          title: (item) => isToday
+              ? 'Khám hôm nay lúc ${appointmentHhmm(item.startTime)}'
+              : 'Lịch khám sắp tới',
           primaryLabel: isToday ? 'Sẵn sàng đi khám' : 'Chuẩn bị',
-          primaryIcon: Icons.fact_check_outlined,
           showQr: true,
+          zone: AppZone.primary,
+          emphasis: isToday,
+          showTime: !isToday,
+          showCountdown: !isToday,
+          tileCaption: isToday ? 'Nay' : null,
           guidance: isToday
               ? 'Nên có mặt trước giờ khám để làm thủ tục.'
               : null,
         );
       default:
-        return const _HomeAppointmentCopy(
-          title: 'Lịch khám sắp tới',
+        return _HomeAppointmentCopy(
+          title: (_) => 'Lịch khám sắp tới',
           primaryLabel: 'Xem lịch',
-          primaryIcon: Icons.event_note_outlined,
           showQr: false,
+          zone: AppZone.primary,
+          showTime: true,
         );
     }
   }
 
-  final String title;
+  final String Function(PatientAppointment) title;
   final String primaryLabel;
-  final IconData primaryIcon;
   final bool showQr;
+  final AppZone? zone;
   final String? guidance;
+  final bool showTime;
+  final bool showCountdown;
+  final bool emphasis;
+  final IconData? tileIcon;
+  final String? tileCaption;
 }
