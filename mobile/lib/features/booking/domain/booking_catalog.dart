@@ -46,11 +46,14 @@ class BookingDoctor {
     this.specialization,
     this.avatar,
     this.experience,
+    this.averageRating = 0,
+    this.reviewCount = 0,
   });
 
   factory BookingDoctor.fromJson(Map<String, dynamic> json) {
     final user = jsonMap(json['user']);
     final department = jsonMap(json['department']);
+    final reviewSummary = jsonMap(json['reviewSummary']);
     return BookingDoctor(
       id: json['id']?.toString() ?? '',
       fullName: user['fullName']?.toString() ?? '',
@@ -62,6 +65,8 @@ class BookingDoctor {
       specialization: jsonNullableString(json['specialization']),
       avatar: jsonNullableString(user['avatar']),
       experience: _nullableInt(json['experience']),
+      averageRating: jsonNumber(reviewSummary['averageRating']),
+      reviewCount: _nullableInt(reviewSummary['count']) ?? 0,
     );
   }
 
@@ -75,6 +80,8 @@ class BookingDoctor {
   final String? specialization;
   final String? avatar;
   final int? experience;
+  final double averageRating;
+  final int reviewCount;
 
   String get displayName =>
       formatProfessionalName(title: title, fullName: fullName);

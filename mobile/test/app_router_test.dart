@@ -503,7 +503,7 @@ void main() {
 
     container.read(appRouterProvider).go('/departments/department-1');
     await tester.pumpAndSettle();
-    expect(find.text('Đặt lịch chuyên khoa này'), findsOneWidget);
+    expect(find.text('Đặt lịch chuyên khoa'), findsOneWidget);
     expect(find.text('Nguyễn Văn An'), findsOneWidget);
   });
 
@@ -557,7 +557,7 @@ void main() {
     await tester.ensureVisible(departmentLink);
     await tester.tap(departmentLink);
     await tester.pumpAndSettle();
-    expect(find.text('Đặt lịch chuyên khoa này'), findsOneWidget);
+    expect(find.text('Đặt lịch chuyên khoa'), findsOneWidget);
 
     await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();

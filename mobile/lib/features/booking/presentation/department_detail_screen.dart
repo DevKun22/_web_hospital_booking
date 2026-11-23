@@ -1,3 +1,7 @@
+import 'package:hospital_booking_mobile/features/packages/domain/medical_package.dart';
+import 'package:hospital_booking_mobile/features/catalog/presentation/department_visuals.dart';
+import 'package:hospital_booking_mobile/core/widgets/app_zone.dart';
+import 'package:hospital_booking_mobile/core/widgets/app_detail.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -84,6 +88,16 @@ class DepartmentDetailScreen extends ConsumerWidget {
     final doctors = state.doctors
         .where((item) => item.departmentId == departmentId)
         .toList(growable: false);
+    final packages = state.packages
+        .where((item) => item.departmentId == departmentId)
+        .toList(growable: false);
+    final colors = context.colors;
+    final text = Theme.of(context).textTheme;
+    final visual = departmentVisual(
+      context,
+      name: department.name,
+      slug: department.slug,
+    );
 
     return AppRouteBackScope(
       fallbackLocation: '/departments',
@@ -95,106 +109,83 @@ class DepartmentDetailScreen extends ConsumerWidget {
         body: SafeArea(
           child: ListView(
             padding: const EdgeInsets.fromLTRB(
-              AppSpacing.lg,
+              AppSpacing.md,
               AppSpacing.xs,
-              AppSpacing.lg,
-              AppSpacing.xxl,
+              AppSpacing.md,
+              AppSpacing.xl,
             ),
             children: [
-              Container(
-                padding: const EdgeInsets.all(AppSpacing.lg),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [AppPalette.heroDeep, AppPalette.heroCare],
+              AppDetailHeader(
+                tint: visual.tint,
+                leading: AppIconTile(
+                  icon: visual.icon,
+                  tint: (
+                    background: colors.surface,
+                    foreground: visual.tint.foreground,
                   ),
-                  borderRadius: BorderRadius.circular(AppRadius.xl),
+                  size: AppTileSize.xl,
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Icon(
-                      Icons.medical_services_outlined,
-                      color: AppPalette.onHero,
-                      size: 34,
-                    ),
-                    const SizedBox(height: AppSpacing.md),
-                    Text(
-                      department.name,
-                      style: Theme.of(context).textTheme.headlineSmall
-                          ?.copyWith(
-                            color: AppPalette.onHero,
-                            fontWeight: AppFontWeight.strong,
-                          ),
-                    ),
-                    if (department.description != null) ...[
-                      const SizedBox(height: AppSpacing.xs),
-                      Text(
-                        department.description!,
-                        style: const TextStyle(color: AppPalette.onHeroMuted),
-                      ),
-                    ],
-                    const SizedBox(height: AppSpacing.md),
-                    FilledButton.icon(
-                      style: FilledButton.styleFrom(
-                        minimumSize: const Size(0, 44),
-                        backgroundColor: AppPalette.onHero,
-                        foregroundColor: AppPalette.heroDeep,
-                      ),
-                      onPressed: () => openBookingFromCurrentRoute(
-                        context,
-                        Uri(
-                          path: '/booking',
-                          queryParameters: {'departmentId': department.id},
-                        ).toString(),
-                      ),
-                      icon: const Icon(Icons.calendar_month_outlined),
-                      label: const Text('Đặt lịch chuyên khoa này'),
-                    ),
-                    const SizedBox(height: AppSpacing.xs),
-                    OutlinedButton.icon(
-                      style: OutlinedButton.styleFrom(
-                        minimumSize: const Size(0, 44),
-                        foregroundColor: AppPalette.onHero,
-                        side: const BorderSide(color: AppPalette.onHero),
-                      ),
-                      onPressed: () => context.push(
-                        chatbotLocationForContext(
-                          kind: ChatbotEntryKind.department,
-                          displayName: department.name,
-                        ),
-                      ),
-                      icon: const Icon(Icons.smart_toy_outlined),
-                      label: const Text('Hỏi trợ lý về chuyên khoa'),
-                    ),
-                  ],
-                ),
+                title: department.name,
+                subtitle: department.description,
+                chips: [
+                  AppDetailChip(
+                    label: doctors.isEmpty
+                        ? 'Chưa có bác sĩ nhận lịch'
+                        : '${doctors.length} bác sĩ nhận lịch',
+                  ),
+                ],
               ),
-              const SizedBox(height: AppSpacing.xl),
-              AppSectionHeader(
+              const SizedBox(height: AppSpacing.sm),
+              AppDetailSection(
                 title: 'Bác sĩ (${doctors.length})',
-                actionLabel: 'Xem tất cả',
+                actionLabel: doctors.isEmpty ? null : 'Xem tất cả',
                 onAction: () => context.push(
                   Uri(
                     path: '/doctors',
                     queryParameters: {'departmentId': department.id},
                   ).toString(),
                 ),
+                child: doctors.isEmpty
+                    ? Text(
+                        'Vui lòng quay lại sau hoặc chọn chuyên khoa khác.',
+                        style: text.bodyMedium?.copyWith(color: colors.muted),
+                      )
+                    : Column(
+                        children: [
+                          for (final doctor in doctors)
+                            _DepartmentDoctorRow(doctor: doctor),
+                        ],
+                      ),
               ),
-              const SizedBox(height: AppSpacing.sm),
-              if (doctors.isEmpty)
-                const AppEmptyState(
-                  icon: Icons.person_search_outlined,
-                  title: 'Chưa có bác sĩ nhận lịch',
-                  message: 'Vui lòng quay lại sau hoặc chọn chuyên khoa khác.',
-                )
-              else
-                ...doctors.map(
-                  (doctor) => Padding(
-                    padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-                    child: _DepartmentDoctorCard(doctor: doctor),
+              if (packages.isNotEmpty) ...[
+                const SizedBox(height: AppSpacing.sm),
+                AppDetailSection(
+                  title: 'Gói khám của khoa',
+                  child: Column(
+                    children: [
+                      for (final item in packages)
+                        _DepartmentPackageRow(item: item),
+                    ],
                   ),
                 ),
+              ],
             ],
+          ),
+        ),
+        bottomNavigationBar: AppDetailBar(
+          primaryLabel: 'Đặt lịch chuyên khoa',
+          onPrimary: () => openBookingFromCurrentRoute(
+            context,
+            Uri(
+              path: '/booking',
+              queryParameters: {'departmentId': department.id},
+            ).toString(),
+          ),
+          onAssistant: () => context.push(
+            chatbotLocationForContext(
+              kind: ChatbotEntryKind.department,
+              displayName: department.name,
+            ),
           ),
         ),
       ),
@@ -202,31 +193,32 @@ class DepartmentDetailScreen extends ConsumerWidget {
   }
 }
 
-class _DepartmentDoctorCard extends StatelessWidget {
-  const _DepartmentDoctorCard({required this.doctor});
+class _DepartmentDoctorRow extends StatelessWidget {
+  const _DepartmentDoctorRow({required this.doctor});
 
   final BookingDoctor doctor;
 
   @override
-  Widget build(BuildContext context) => Card(
-    child: InkWell(
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    final text = Theme.of(context).textTheme;
+    return InkWell(
       onTap: () => context.push('/doctors/${Uri.encodeComponent(doctor.id)}'),
-      borderRadius: BorderRadius.circular(AppRadius.card),
       child: Padding(
-        padding: const EdgeInsets.all(AppSpacing.md),
+        padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
         child: Row(
           children: [
             CircleAvatar(
-              radius: 27,
-              backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+              radius: 22,
+              backgroundColor: colors.primarySoft,
               backgroundImage: resizedNetworkImage(
                 context,
                 doctor.avatar,
-                logicalWidth: 54,
-                logicalHeight: 54,
+                logicalWidth: 44,
+                logicalHeight: 44,
               ),
               child: doctor.avatar?.trim().isNotEmpty != true
-                  ? const Icon(Icons.person_outline_outlined)
+                  ? Icon(Icons.person_outlined, color: colors.primary)
                   : null,
             ),
             const SizedBox(width: AppSpacing.sm),
@@ -236,26 +228,52 @@ class _DepartmentDoctorCard extends StatelessWidget {
                 children: [
                   Text(
                     doctor.displayName,
-                    style: Theme.of(context).textTheme.titleSmall,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: text.titleSmall,
                   ),
-                  const SizedBox(height: AppSpacing.xxs),
                   Text(
-                    distinctSpecialization(
-                          doctor.specialization,
-                          doctor.departmentName,
-                        ) ??
-                        doctor.departmentName,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
+                    formatVnd(doctor.consultationFee),
+                    style: text.bodySmall?.copyWith(color: colors.muted),
                   ),
                 ],
               ),
             ),
-            const Icon(Icons.chevron_right_outlined),
+            Icon(Icons.chevron_right_outlined, color: colors.muted),
           ],
         ),
       ),
-    ),
-  );
+    );
+  }
+}
+
+class _DepartmentPackageRow extends StatelessWidget {
+  const _DepartmentPackageRow({required this.item});
+
+  final MedicalPackage item;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    final text = Theme.of(context).textTheme;
+    final slug = item.slug;
+    return InkWell(
+      onTap: slug == null
+          ? null
+          : () => context.push('/packages/${Uri.encodeComponent(slug)}'),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
+        child: Row(
+          children: [
+            Expanded(child: Text(item.name, style: text.titleSmall)),
+            const SizedBox(width: AppSpacing.sm),
+            Text(
+              formatVnd(item.finalPrice),
+              style: text.labelLarge?.copyWith(color: colors.primaryDark),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }

@@ -1,3 +1,6 @@
+import 'package:hospital_booking_mobile/features/catalog/presentation/department_visuals.dart';
+import 'package:hospital_booking_mobile/core/widgets/app_zone.dart';
+import 'package:hospital_booking_mobile/core/widgets/app_detail.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -43,22 +46,19 @@ class PackageDetailScreen extends ConsumerWidget {
         bottomNavigationBar: detail.when(
           loading: () => null,
           error: (_, _) => null,
-          data: (packageItem) => AppStickyActionBar(
-            eyebrow: 'Tổng dự kiến',
-            value: formatVnd(packageItem.finalPrice),
-            secondaryLabel: 'Hỏi trợ lý',
-            secondaryIcon: Icons.smart_toy_outlined,
-            onSecondary: () => context.push(
+          data: (packageItem) => AppDetailBar(
+            priceLabel: 'Giá trọn gói',
+            price: formatVnd(packageItem.finalPrice),
+            primaryLabel: 'Chọn gói',
+            onPrimary: () => openBookingFromCurrentRoute(
+              context,
+              _bookingLocation(packageItem),
+            ),
+            onAssistant: () => context.push(
               chatbotLocationForContext(
                 kind: ChatbotEntryKind.medicalPackage,
                 displayName: packageItem.name,
               ),
-            ),
-            primaryLabel: 'Đặt gói này',
-            primaryIcon: Icons.calendar_month_outlined,
-            onPrimary: () => openBookingFromCurrentRoute(
-              context,
-              _bookingLocation(packageItem),
             ),
           ),
         ),
@@ -73,127 +73,148 @@ class _PackageDetailBody extends StatelessWidget {
   final MedicalPackage packageItem;
 
   @override
-  Widget build(BuildContext context) => SafeArea(
-    child: ListView(
-      padding: const EdgeInsets.fromLTRB(
-        AppSpacing.lg,
-        AppSpacing.xs,
-        AppSpacing.lg,
-        AppSpacing.xxl,
-      ),
-      children: [
-        Container(
-          padding: const EdgeInsets.all(AppSpacing.lg),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [AppPalette.heroDeep, AppPalette.heroCare],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    final text = Theme.of(context).textTheme;
+    final visual = packageItem.departmentName == null
+        ? (
+            icon: Icons.health_and_safety_outlined,
+            tint: colors.zone(AppZone.primary),
+          )
+        : departmentVisual(
+            context,
+            name: packageItem.departmentName!,
+            slug: packageItem.departmentSlug,
+          );
+    final included = packageItem.items
+        .where((item) => item.included)
+        .toList(growable: false);
+    final extras = packageItem.items
+        .where((item) => !item.included)
+        .toList(growable: false);
+    return SafeArea(
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(
+          AppSpacing.md,
+          AppSpacing.xs,
+          AppSpacing.md,
+          AppSpacing.xl,
+        ),
+        children: [
+          AppDetailHeader(
+            tint: visual.tint,
+            leading: AppIconTile(
+              icon: visual.icon,
+              tint: (
+                background: colors.surface,
+                foreground: visual.tint.foreground,
+              ),
+              size: AppTileSize.xl,
             ),
-            borderRadius: BorderRadius.circular(AppRadius.hero),
+            title: packageItem.name,
+            subtitle: packageItem.summary,
+            chips: [
+              if (packageItem.isPopular) const AppDetailChip(label: 'Nổi bật'),
+              if (packageItem.isBhytSupport)
+                const AppDetailChip(label: 'Có BHYT'),
+              if (packageItem.departmentName != null)
+                AppDetailChip(label: packageItem.departmentName!),
+            ],
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
+          if (packageItem.description != null) ...[
+            const SizedBox(height: AppSpacing.sm),
+            AppDetailSection(
+              title: 'Thông tin gói khám',
+              child: Text(
+                packageItem.description!,
+                style: text.bodyMedium?.copyWith(color: colors.textSoft),
+              ),
+            ),
+          ],
+          if (included.isNotEmpty) ...[
+            const SizedBox(height: AppSpacing.sm),
+            AppDetailSection(
+              title: 'Gồm ${included.length} dịch vụ',
+              child: Column(
                 children: [
-                  if (packageItem.isPopular)
-                    const AppStatusBadge(
-                      label: 'PHỔ BIẾN',
-                      tone: AppStatusTone.warning,
-                    ),
-                  if (packageItem.isBhytSupport)
-                    const AppStatusBadge(
-                      label: 'HỖ TRỢ BHYT',
-                      tone: AppStatusTone.info,
-                    ),
+                  for (final item in included) _PackageItemRow(item: item),
                 ],
               ),
-              const SizedBox(height: AppSpacing.md),
-              Text(
-                packageItem.name,
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  color: AppPalette.onHero,
-                  fontWeight: AppFontWeight.strong,
-                ),
+            ),
+          ],
+          if (extras.isNotEmpty) ...[
+            const SizedBox(height: AppSpacing.sm),
+            AppDetailSection(
+              title: 'Dịch vụ tính thêm khi chọn',
+              child: Column(
+                children: [
+                  for (final item in extras) _PackageItemRow(item: item),
+                ],
               ),
-              if (packageItem.summary != null) ...[
+            ),
+          ],
+          const SizedBox(height: AppSpacing.sm),
+          AppDetailSection(
+            title: 'Chi phí',
+            child: Column(
+              children: [
+                _PriceRow(
+                  label: 'Giá dịch vụ trong gói',
+                  value: packageItem.basePrice,
+                ),
+                if (packageItem.serviceFee > 0)
+                  _PriceRow(
+                    label: 'Phí dịch vụ',
+                    value: packageItem.serviceFee,
+                  ),
+                const Divider(height: AppSpacing.lg),
+                _PriceRow(
+                  label: 'Tổng dự kiến',
+                  value: packageItem.finalPrice,
+                  strong: true,
+                ),
                 const SizedBox(height: AppSpacing.xs),
-                Text(
-                  packageItem.summary!,
-                  style: const TextStyle(color: AppPalette.onHeroMuted),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    packageItem.isBhytSupport
+                        ? 'Gói có hỗ trợ BHYT; mức giảm thực tế được xác nhận khi tiếp nhận.'
+                        : 'Chi phí thực tế được xác nhận lại khi cơ sở khám tiếp nhận.',
+                    style: text.bodySmall?.copyWith(color: colors.muted),
+                  ),
                 ),
               ],
-              if (packageItem.departmentName != null) ...[
-                const SizedBox(height: AppSpacing.md),
-                Row(
+            ),
+          ),
+          if (packageItem.note != null) ...[
+            const SizedBox(height: AppSpacing.sm),
+            DecoratedBox(
+              decoration: BoxDecoration(
+                color: colors.warningContainer,
+                borderRadius: BorderRadius.circular(AppRadius.lg),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(AppSpacing.md),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Icon(
-                      Icons.local_hospital_outlined,
-                      color: AppPalette.onHero,
-                      size: 19,
-                    ),
-                    const SizedBox(width: AppSpacing.xs),
+                    Icon(Icons.info_outline, color: colors.warning),
+                    const SizedBox(width: AppSpacing.sm),
                     Expanded(
                       child: Text(
-                        packageItem.departmentName!,
-                        style: const TextStyle(
-                          color: AppPalette.onHero,
-                          fontWeight: AppFontWeight.strong,
-                        ),
+                        packageItem.note!,
+                        style: text.bodyMedium?.copyWith(color: colors.warning),
                       ),
                     ),
                   ],
                 ),
-              ],
-            ],
-          ),
-        ),
-        const SizedBox(height: AppSpacing.lg),
-        _PriceCard(packageItem: packageItem),
-        if (packageItem.description != null) ...[
-          const SizedBox(height: AppSpacing.lg),
-          const AppSectionHeader(title: 'Thông tin gói khám'),
-          const SizedBox(height: AppSpacing.xs),
-          Text(packageItem.description!),
-        ],
-        if (packageItem.items.isNotEmpty) ...[
-          const SizedBox(height: AppSpacing.lg),
-          const AppSectionHeader(title: 'Danh mục dịch vụ'),
-          const SizedBox(height: AppSpacing.xs),
-          ...packageItem.items.map(
-            (item) => Padding(
-              padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-              child: _PackageItemRow(item: item),
-            ),
-          ),
-        ],
-        if (packageItem.note != null) ...[
-          const SizedBox(height: AppSpacing.sm),
-          Container(
-            padding: const EdgeInsets.all(AppSpacing.md),
-            decoration: BoxDecoration(
-              color: context.colors.warningContainer,
-              borderRadius: BorderRadius.circular(AppRadius.md),
-              border: Border.all(
-                color: context.colors.warning.withValues(alpha: 0.4),
               ),
             ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Icon(Icons.info_outline, color: context.colors.warning),
-                const SizedBox(width: AppSpacing.sm),
-                Expanded(child: Text(packageItem.note!)),
-              ],
-            ),
-          ),
+          ],
         ],
-      ],
-    ),
-  );
+      ),
+    );
+  }
 }
 
 String _bookingLocation(MedicalPackage packageItem) => Uri(
@@ -204,77 +225,44 @@ String _bookingLocation(MedicalPackage packageItem) => Uri(
   },
 ).toString();
 
-class _PriceCard extends StatelessWidget {
-  const _PriceCard({required this.packageItem});
-
-  final MedicalPackage packageItem;
-
-  @override
-  Widget build(BuildContext context) => Card(
-    child: Padding(
-      padding: const EdgeInsets.all(AppSpacing.md),
-      child: Column(
-        children: [
-          _PriceRow(
-            label: 'Giá dịch vụ trong gói',
-            value: packageItem.basePrice,
-          ),
-          if (packageItem.serviceFee > 0) ...[
-            const SizedBox(height: AppSpacing.xs),
-            _PriceRow(label: 'Phí dịch vụ', value: packageItem.serviceFee),
-          ],
-          const Divider(height: 24),
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  'Tổng dự kiến',
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-              ),
-              Text(
-                formatVnd(packageItem.finalPrice),
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  color: context.colors.primaryDark,
-                  fontWeight: AppFontWeight.strong,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.xs),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: Text(
-              packageItem.isBhytSupport
-                  ? 'Gói có hỗ trợ BHYT; mức giảm thực tế được xác nhận khi tiếp nhận.'
-                  : 'Chi phí thực tế được xác nhận lại khi cơ sở khám tiếp nhận.',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
-            ),
-          ),
-        ],
-      ),
-    ),
-  );
-}
-
 class _PriceRow extends StatelessWidget {
-  const _PriceRow({required this.label, required this.value});
+  const _PriceRow({
+    required this.label,
+    required this.value,
+    this.strong = false,
+  });
 
   final String label;
   final double value;
+  final bool strong;
 
   @override
-  Widget build(BuildContext context) => Row(
-    children: [
-      Expanded(child: Text(label)),
-      Text(
-        formatVnd(value),
-        style: const TextStyle(fontWeight: AppFontWeight.strong),
+  Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+    final colors = context.colors;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.hair),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              label,
+              style: strong
+                  ? text.titleSmall
+                  : text.bodyMedium?.copyWith(color: colors.textSoft),
+            ),
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          Text(
+            formatVnd(value),
+            style: strong
+                ? text.titleMedium?.copyWith(color: colors.primaryDark)
+                : text.labelLarge,
+          ),
+        ],
       ),
-    ],
-  );
+    );
+  }
 }
 
 class _PackageItemRow extends StatelessWidget {
@@ -283,53 +271,44 @@ class _PackageItemRow extends StatelessWidget {
   final MedicalPackageItem item;
 
   @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.all(AppSpacing.md),
-    decoration: BoxDecoration(
-      color: Theme.of(context).colorScheme.surfaceContainerLowest,
-      borderRadius: BorderRadius.circular(AppRadius.md),
-      border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
-    ),
-    child: Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Icon(
-          item.included
-              ? Icons.check_circle_outlined
-              : Icons.add_circle_outline_outlined,
-          color: item.included
-              ? context.colors.primary
-              : context.colors.warning,
-        ),
-        const SizedBox(width: AppSpacing.sm),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(item.name, style: Theme.of(context).textTheme.titleSmall),
-              if (item.description != null) ...[
-                const SizedBox(height: AppSpacing.xxs),
-                Text(item.description!),
-              ],
-              if (item.price > 0) ...[
-                const SizedBox(height: AppSpacing.xxs),
-                Text(
-                  item.included
-                      ? '${formatVnd(item.price)} · Đã bao gồm'
-                      : '${formatVnd(item.price)} · Tính thêm khi chọn',
-                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                    color: item.included
-                        ? context.colors.primaryDark
-                        : context.colors.warning,
-                  ),
-                ),
-              ],
-            ],
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    final text = Theme.of(context).textTheme;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.xxs),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(
+            item.included
+                ? Icons.check_circle_outlined
+                : Icons.add_circle_outline_outlined,
+            size: AppIconSize.md,
+            color: item.included ? colors.success : colors.warning,
           ),
-        ),
-      ],
-    ),
-  );
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(item.name, style: text.titleSmall),
+                if (item.description != null)
+                  Text(
+                    item.description!,
+                    style: text.bodySmall?.copyWith(color: colors.muted),
+                  ),
+                if (!item.included && item.price > 0)
+                  Text(
+                    formatVnd(item.price),
+                    style: text.labelMedium?.copyWith(color: colors.warning),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _PackageDetailLoading extends StatelessWidget {

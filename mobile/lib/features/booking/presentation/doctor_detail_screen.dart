@@ -5,6 +5,7 @@ import 'package:hospital_booking_mobile/app/navigation/booking_navigation.dart';
 import 'package:hospital_booking_mobile/core/errors/api_exception.dart';
 import 'package:hospital_booking_mobile/core/formatters/display_formatters.dart';
 import 'package:hospital_booking_mobile/core/widgets/app_route_back_scope.dart';
+import 'package:hospital_booking_mobile/core/widgets/app_detail.dart';
 import 'package:hospital_booking_mobile/core/widgets/app_ui.dart';
 import 'package:hospital_booking_mobile/core/widgets/resized_network_image.dart';
 import 'package:hospital_booking_mobile/features/booking/application/booking_flow_controller.dart';
@@ -61,21 +62,16 @@ class DoctorDetailScreen extends ConsumerWidget {
         bottomNavigationBar: doctor.when(
           loading: () => null,
           error: (_, _) => null,
-          data: (doctor) => AppStickyActionBar(
-            eyebrow: 'Phí khám dự kiến',
-            value: formatVnd(doctor.consultationFee),
-            secondaryLabel: 'Hỏi trợ lý',
-            secondaryIcon: Icons.smart_toy_outlined,
-            onSecondary: () => context.push(
+          data: (doctor) => AppDetailBar(
+            primaryLabel: 'Đặt khám với bác sĩ',
+            onPrimary: () =>
+                openBookingFromCurrentRoute(context, _bookingLocation(doctor)),
+            onAssistant: () => context.push(
               chatbotLocationForContext(
                 kind: ChatbotEntryKind.doctor,
                 displayName: doctor.displayName,
               ),
             ),
-            primaryLabel: 'Đặt khám',
-            primaryIcon: Icons.calendar_month_outlined,
-            onPrimary: () =>
-                openBookingFromCurrentRoute(context, _bookingLocation(doctor)),
           ),
         ),
       ),
@@ -89,97 +85,82 @@ class _DoctorDetailContent extends StatelessWidget {
   final BookingDoctor doctor;
 
   @override
-  Widget build(BuildContext context) => ListView(
-    padding: const EdgeInsets.fromLTRB(
-      AppSpacing.lg,
-      AppSpacing.xs,
-      AppSpacing.lg,
-      AppSpacing.xxl,
-    ),
-    children: [
-      Card(
-        color: context.colors.successContainer,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppRadius.xl),
-          side: BorderSide(color: context.colors.border),
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    final text = Theme.of(context).textTheme;
+    final facts = <(String, String)>[
+      (formatVnd(doctor.consultationFee), 'Phí khám'),
+      if (doctor.experience != null)
+        ('${doctor.experience} năm', 'Kinh nghiệm'),
+      if (doctor.reviewCount > 0)
+        (
+          doctor.averageRating.toStringAsFixed(1).replaceAll('.', ','),
+          '${doctor.reviewCount} đánh giá',
         ),
-        child: Padding(
-          padding: const EdgeInsets.all(AppSpacing.lg),
-          child: Column(
+    ];
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.md,
+        AppSpacing.xs,
+        AppSpacing.md,
+        AppSpacing.xl,
+      ),
+      children: [
+        AppDetailHeader(
+          tint: colors.zone(AppZone.primary),
+          leading: CircleAvatar(
+            radius: 32,
+            backgroundColor: colors.surface,
+            backgroundImage: resizedNetworkImage(
+              context,
+              doctor.avatar,
+              logicalWidth: 64,
+              logicalHeight: 64,
+            ),
+            child: doctor.avatar?.trim().isNotEmpty != true
+                ? Icon(Icons.person_outlined, color: colors.primary)
+                : null,
+          ),
+          title: doctor.displayName,
+          subtitle:
+              distinctSpecialization(
+                doctor.specialization,
+                doctor.departmentName,
+              ) ??
+              doctor.departmentName,
+          chips: [AppDetailChip(label: doctor.departmentName)],
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        AppDetailFacts(facts: facts),
+        const SizedBox(height: AppSpacing.sm),
+        AppDetailSection(
+          title: 'Giới thiệu',
+          child: Text(
+            doctor.bio ??
+                'Bác sĩ đang công tác tại chuyên khoa ${doctor.departmentName}.',
+            style: text.bodyMedium?.copyWith(color: colors.textSoft),
+          ),
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        AppSurfaceCard(
+          onTap: () => context.push(
+            '/departments/${Uri.encodeComponent(doctor.departmentId)}',
+          ),
+          child: Row(
             children: [
-              CircleAvatar(
-                radius: 48,
-                backgroundColor: Theme.of(context).colorScheme.primaryContainer,
-                backgroundImage: resizedNetworkImage(
-                  context,
-                  doctor.avatar,
-                  logicalWidth: 96,
-                  logicalHeight: 96,
-                ),
-                child: doctor.avatar?.trim().isNotEmpty != true
-                    ? const Icon(Icons.person_outline_outlined, size: 44)
-                    : null,
-              ),
-              const SizedBox(height: AppSpacing.md),
-              Text(
-                doctor.displayName,
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  fontWeight: AppFontWeight.strong,
+              Expanded(
+                child: Text(
+                  'Xem chuyên khoa ${doctor.departmentName}',
+                  style: text.labelLarge,
                 ),
               ),
-              const SizedBox(height: AppSpacing.xxs),
-              Text(
-                distinctSpecialization(
-                      doctor.specialization,
-                      doctor.departmentName,
-                    ) ??
-                    doctor.departmentName,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
-              ),
-              const SizedBox(height: AppSpacing.md),
-              Wrap(
-                alignment: WrapAlignment.center,
-                spacing: 10,
-                runSpacing: 8,
-                children: [
-                  if (doctor.experience != null)
-                    AppStatusBadge(
-                      label: '${doctor.experience} năm kinh nghiệm',
-                      tone: AppStatusTone.info,
-                      icon: Icons.workspace_premium_outlined,
-                    ),
-                  AppStatusBadge(
-                    label: formatVnd(doctor.consultationFee),
-                    tone: AppStatusTone.success,
-                    icon: Icons.payments_outlined,
-                  ),
-                ],
-              ),
+              Icon(Icons.chevron_right_outlined, color: colors.muted),
             ],
           ),
         ),
-      ),
-      const SizedBox(height: AppSpacing.lg),
-      Text('Giới thiệu', style: Theme.of(context).textTheme.titleMedium),
-      const SizedBox(height: AppSpacing.xs),
-      Text(
-        doctor.bio ??
-            'Bác sĩ đang công tác tại chuyên khoa ${doctor.departmentName}.',
-        style: Theme.of(context).textTheme.bodyLarge?.copyWith(height: 1.5),
-      ),
-      const SizedBox(height: AppSpacing.xl),
-      OutlinedButton(
-        onPressed: () => context.push(
-          '/departments/${Uri.encodeComponent(doctor.departmentId)}',
-        ),
-        child: Text('Xem chuyên khoa ${doctor.departmentName}'),
-      ),
-    ],
-  );
+      ],
+    );
+  }
 }
 
 String _bookingLocation(BookingDoctor doctor) => Uri(
