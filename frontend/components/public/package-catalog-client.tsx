@@ -110,7 +110,7 @@ export function PackageCatalogClient() {
           onReset={reset}
           onBrand
           canReset={hasActiveFilters || Boolean(searchDraft)}
-          placeholder="Tìm gói khám, chuyên khoa hoặc hạng mục"
+          placeholder="Tìm gói khám hoặc hạng mục"
           controls={
             <>
               <FlatSelect label="Chuyên khoa" value={departmentId} onChange={changeDepartment}>
