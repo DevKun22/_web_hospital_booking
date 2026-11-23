@@ -12,8 +12,8 @@ import 'package:hospital_booking_mobile/core/widgets/app_filter_tabs.dart';
 import 'package:hospital_booking_mobile/features/notifications/application/push_notifications_controller.dart';
 import 'package:hospital_booking_mobile/features/packages/domain/medical_package.dart';
 import 'package:hospital_booking_mobile/core/widgets/app_form.dart';
+import 'package:hospital_booking_mobile/core/widgets/app_info_list.dart';
 import 'package:hospital_booking_mobile/features/profile/domain/patient_profile.dart';
-import 'package:hospital_booking_mobile/features/profile/presentation/widgets/profile_edit_sections.dart';
 import 'package:hospital_booking_mobile/features/profile/presentation/widgets/profile_menu_widgets.dart';
 import 'package:hospital_booking_mobile/features/profile/presentation/widgets/profile_summary_widgets.dart';
 
@@ -222,7 +222,7 @@ void main() {
         fullName: 'Nguyễn Thị Minh Hoàng Phương Thảo',
         phone: '0325123346',
         isEmailVerified: true,
-        hasBhyt: false,
+        hasBhyt: true,
       );
       await tester.pumpWidget(
         _host(
@@ -230,14 +230,13 @@ void main() {
           ListView(
             padding: const EdgeInsets.all(16),
             children: [
-              ProfileHeader(profile: profile, onEdit: () {}),
-              ProfileCompletionBanner(profile: profile, onTap: () {}),
+              ProfileHeader(profile: profile, onComplete: () {}),
               const ProfileQuickTiles(),
-              ProfileMenuList(
+              ProfileMenuGroups(
+                profile: profile,
                 pushState: const PushNotificationsState(
                   isCheckingPermission: false,
                 ),
-                onEditProfile: () {},
               ),
             ],
           ),
@@ -247,19 +246,13 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('form hồ sơ và dòng tùy chọn không vỡ ở cỡ chữ $scale', (
+    testWidgets('dòng xem hồ sơ và dòng tùy chọn không vỡ ở cỡ chữ $scale', (
       tester,
     ) async {
       tester.view.physicalSize = const Size(360, 1200);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.resetPhysicalSize);
       addTearDown(tester.view.resetDevicePixelRatio);
-      final name = TextEditingController(
-        text: 'Nguyễn Thị Minh Hoàng Phương Thảo',
-      );
-      final phone = TextEditingController(text: '0325123346');
-      addTearDown(name.dispose);
-      addTearDown(phone.dispose);
       await tester.pumpWidget(
         _host(
           scale,
@@ -267,30 +260,35 @@ void main() {
             padding: const EdgeInsets.all(16),
             child: Column(
               children: [
-                ProfileBasicsSection(
-                  fullName: name,
-                  phone: phone,
-                  email: 'nguoikham.tenrataidai@example.com',
-                  dateOfBirth: '1993-09-09',
-                  onSelectDateOfBirth: () {},
-                  onClearDateOfBirth: () {},
-                  gender: PatientGender.female,
-                  onGenderChanged: (_) {},
+                AppInfoSection(
+                  title: 'Cơ bản',
+                  children: [
+                    AppInfoRow(
+                      label: 'Họ và tên',
+                      value: 'Nguyễn Thị Minh Hoàng Phương Thảo',
+                      onTap: () {},
+                    ),
+                    AppInfoRow(
+                      label: 'Email đăng nhập',
+                      value: 'nguoikham.tenrataidai@example.com',
+                      trailing: AppInfoTrailing.verified,
+                    ),
+                    AppInfoRow(
+                      label: 'Địa chỉ',
+                      value: null,
+                      addLabel: 'Thêm địa chỉ theo thẻ căn cước công dân',
+                      onTap: () {},
+                    ),
+                  ],
                 ),
-                AppFormGroupRow(
-                  icon: Icons.badge_outlined,
-                  title: 'CCCD và địa chỉ',
-                  summary: 'Chưa có',
-                  expanded: false,
-                  onToggle: () {},
-                  child: const SizedBox(),
-                ),
-                AppFormToggleRow(
-                  icon: Icons.health_and_safety_outlined,
-                  title: 'Có thẻ BHYT',
-                  value: true,
-                  onChanged: (_) {},
-                  child: const Text('Mã thẻ'),
+                AppInfoCard(
+                  children: [
+                    AppInfoSwitchRow(
+                      title: 'Tôi có dùng bảo hiểm y tế để khám',
+                      value: true,
+                      onChanged: (_) {},
+                    ),
+                  ],
                 ),
                 AppChoiceChips<String>(
                   items: const [

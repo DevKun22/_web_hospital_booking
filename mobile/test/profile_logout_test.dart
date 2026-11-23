@@ -164,7 +164,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('0912 ••• 678'), findsOneWidget);
+    expect(find.text('an@example.test'), findsOneWidget);
     await tester.scrollUntilVisible(
       find.text('Trung tâm hỗ trợ'),
       300,
@@ -181,7 +181,7 @@ void main() {
     await tester.tap(find.text('Ở lại'));
     await tester.pumpAndSettle();
     expect(auth.logoutCalls, 0);
-    expect(find.text('Hồ sơ người khám'), findsOneWidget);
+    expect(find.text('Đăng xuất thiết bị này'), findsOneWidget);
 
     await _scrollToLogout(tester);
     await tester.tap(find.text('Đăng xuất thiết bị này'));

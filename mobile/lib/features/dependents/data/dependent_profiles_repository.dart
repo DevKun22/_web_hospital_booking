@@ -28,14 +28,15 @@ class DependentProfilesRepository {
     });
   }
 
+  /// Gửi riêng những trường vừa sửa; bật BHYT phải kèm mã thẻ trong cùng yêu cầu (máy chủ bắt buộc).
   Future<DependentProfile> update(
     String id,
-    DependentProfileDraft draft,
+    Map<String, Object?> fields,
   ) async {
     return guardApi(() async {
       final response = await _dio.patch<dynamic>(
         '/me/dependents/$id',
-        data: draft.toRequestJson(),
+        data: fields,
       );
       return DependentProfile.fromJson(requireDataMap(response.data));
     });

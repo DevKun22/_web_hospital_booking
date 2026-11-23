@@ -79,9 +79,8 @@ class DependentsScreen extends ConsumerWidget {
                     dependent: state.items[i],
                     tint: context.colors.tintPairs[(i + 4) % 6],
                     disabled: state.isSaving,
-                    onEdit: () =>
-                        context.push('/dependents/${state.items[i].id}/edit'),
-                    onArchive: () => _archive(context, ref, state.items[i]),
+                    onOpen: () =>
+                        context.push('/dependents/${state.items[i].id}'),
                   ),
                   const SizedBox(height: 10),
                 ],
@@ -92,41 +91,6 @@ class DependentsScreen extends ConsumerWidget {
       ),
     );
   }
-
-  Future<void> _archive(
-    BuildContext context,
-    WidgetRef ref,
-    DependentProfile dependent,
-  ) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        icon: const Icon(Icons.person_remove_outlined),
-        title: const Text('Ngừng quản lý hồ sơ?'),
-        content: Text(
-          'Hồ sơ ${dependent.fullName} sẽ không còn xuất hiện khi đặt lịch. Các lịch và kết quả đã có vẫn được giữ nguyên.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('Giữ lại'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text('Ngừng quản lý'),
-          ),
-        ],
-      ),
-    );
-    if (confirmed != true || !context.mounted) return;
-    final success = await ref
-        .read(dependentProfilesControllerProvider.notifier)
-        .archive(dependent.id);
-    if (!context.mounted || !success) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Đã ngừng quản lý hồ sơ người thân.')),
-    );
-  }
 }
 
 class _DependentCard extends StatelessWidget {
@@ -134,15 +98,13 @@ class _DependentCard extends StatelessWidget {
     required this.dependent,
     required this.tint,
     required this.disabled,
-    required this.onEdit,
-    required this.onArchive,
+    required this.onOpen,
   });
 
   final DependentProfile dependent;
   final ({Color background, Color foreground}) tint;
   final bool disabled;
-  final VoidCallback onEdit;
-  final VoidCallback onArchive;
+  final VoidCallback onOpen;
 
   @override
   Widget build(BuildContext context) {
@@ -153,12 +115,12 @@ class _DependentCard extends StatelessWidget {
       borderRadius: BorderRadius.circular(AppRadius.lg),
       child: InkWell(
         borderRadius: BorderRadius.circular(AppRadius.lg),
-        onTap: disabled ? null : onEdit,
+        onTap: disabled ? null : onOpen,
         child: Padding(
           padding: const EdgeInsets.fromLTRB(
             AppSpacing.sm,
             AppSpacing.sm,
-            AppSpacing.xxs,
+            AppSpacing.sm,
             AppSpacing.sm,
           ),
           child: Row(
@@ -213,14 +175,7 @@ class _DependentCard extends StatelessWidget {
                   ],
                 ),
               ),
-              PopupMenuButton<String>(
-                enabled: !disabled,
-                onSelected: (value) => value == 'edit' ? onEdit() : onArchive(),
-                itemBuilder: (_) => const [
-                  PopupMenuItem(value: 'edit', child: Text('Chỉnh sửa')),
-                  PopupMenuItem(value: 'archive', child: Text('Ngừng quản lý')),
-                ],
-              ),
+              Icon(Icons.chevron_right_rounded, color: colors.muted),
             ],
           ),
         ),

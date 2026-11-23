@@ -69,43 +69,6 @@ void main() {
   });
 
   testWidgets(
-    'ô chọn: chọn từ danh sách, xóa, và giữ giá trị cũ ngoài danh sách',
-    (tester) async {
-      String? value = 'Nhóm lạ';
-      await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: StatefulBuilder(
-              builder: (context, setState) => AppSelectField(
-                label: 'Nhóm máu',
-                placeholder: 'Chọn nhóm máu',
-                options: const ['A+', 'O+'],
-                value: value,
-                onChanged: (chosen) => setState(() => value = chosen),
-              ),
-            ),
-          ),
-        ),
-      );
-      expect(find.text('Nhóm lạ'), findsOneWidget);
-
-      await tester.tap(find.text('Nhóm lạ'));
-      await tester.pumpAndSettle();
-      // Giá trị cũ vẫn là một lựa chọn cạnh danh sách chuẩn.
-      expect(find.text('A+'), findsOneWidget);
-      expect(find.text('Nhóm lạ'), findsWidgets);
-      await tester.tap(find.text('O+'));
-      await tester.pumpAndSettle();
-      expect(value, 'O+');
-
-      await tester.tap(find.byTooltip('Xóa Nhóm máu'));
-      await tester.pumpAndSettle();
-      expect(value, isNull);
-      expect(find.text('Chọn nhóm máu'), findsOneWidget);
-    },
-  );
-
-  testWidgets(
     'chọn giới tính: chạm đổi giá trị, chạm lại mục đang chọn thì bỏ chọn',
     (tester) async {
       String? selected;

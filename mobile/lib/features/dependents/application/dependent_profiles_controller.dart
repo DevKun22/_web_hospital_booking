@@ -91,14 +91,24 @@ class DependentProfilesController
     }
   }
 
-  Future<bool> save(DependentProfileDraft draft, {String? id}) async {
-    if (_ownerId == null || state.isSaving) return false;
+  /// Thêm hồ sơ người thân mới; trả hồ sơ vừa tạo, null khi máy chủ từ chối (xem [DependentProfilesState.error]).
+  Future<DependentProfile?> create(DependentProfileDraft draft) =>
+      _save(() => ref.read(dependentProfilesRepositoryProvider).create(draft));
+
+  /// Sửa riêng các trường vừa đổi của một hồ sơ.
+  Future<bool> updateFields(String id, Map<String, Object?> fields) async =>
+      await _save(
+        () => ref.read(dependentProfilesRepositoryProvider).update(id, fields),
+      ) !=
+      null;
+
+  Future<DependentProfile?> _save(
+    Future<DependentProfile> Function() action,
+  ) async {
+    if (_ownerId == null || state.isSaving) return null;
     state = state.copyWith(isSaving: true, clearError: true);
     try {
-      final repository = ref.read(dependentProfilesRepositoryProvider);
-      final saved = id == null
-          ? await repository.create(draft)
-          : await repository.update(id, draft);
+      final saved = await action();
       final next = [...state.items];
       final index = next.indexWhere((item) => item.id == saved.id);
       if (index < 0) {
@@ -111,10 +121,10 @@ class DependentProfilesController
         loaded: true,
         lastSyncedAt: DateTime.now(),
       );
-      return true;
+      return saved;
     } on ApiException catch (error) {
       state = state.copyWith(isSaving: false, error: error);
-      return false;
+      return null;
     }
   }
 
