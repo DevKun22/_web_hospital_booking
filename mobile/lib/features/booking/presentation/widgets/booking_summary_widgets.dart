@@ -61,6 +61,11 @@ class BookingStickySummary extends StatelessWidget {
             const SizedBox(height: AppSpacing.xs),
             FilledButton(
               key: const Key('booking-sticky-continue'),
+              style: FilledButton.styleFrom(
+                minimumSize: const Size.fromHeight(
+                  AppSize.primaryControlHeight,
+                ),
+              ),
               onPressed: () => context.push('/booking/patient'),
               child: const Text('Tiếp tục'),
             ),

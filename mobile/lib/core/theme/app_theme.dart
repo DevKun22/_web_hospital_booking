@@ -120,9 +120,10 @@ abstract final class AppTheme {
         hintStyle: TextStyle(color: c.muted),
         prefixIconColor: c.muted,
         suffixIconColor: c.primary,
+        constraints: const BoxConstraints(minHeight: AppSize.fieldHeight),
         contentPadding: const EdgeInsets.symmetric(
           horizontal: AppSpacing.md,
-          vertical: AppSpacing.md,
+          vertical: AppSpacing.sm,
         ),
         // Kiểu filled của Material 3: nhãn nổi nằm trong ô, không đè lên viền như kiểu outline.
         border: UnderlineInputBorder(
@@ -254,6 +255,34 @@ abstract final class AppTheme {
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppRadius.xl),
         ),
+      ),
+      datePickerTheme: DatePickerThemeData(
+        backgroundColor: c.surface,
+        surfaceTintColor: Colors.transparent,
+        headerBackgroundColor: c.primary,
+        headerForegroundColor: c.onPrimary,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppRadius.xl),
+        ),
+        todayBorder: BorderSide(color: c.primary),
+        todayForegroundColor: WidgetStatePropertyAll(c.primary),
+        dayForegroundColor: WidgetStateProperty.resolveWith(
+          (states) => states.contains(WidgetState.selected)
+              ? c.onPrimary
+              : (states.contains(WidgetState.disabled) ? c.muted : c.ink),
+        ),
+        dayBackgroundColor: WidgetStateProperty.resolveWith(
+          (states) => states.contains(WidgetState.selected) ? c.primary : null,
+        ),
+        yearForegroundColor: WidgetStateProperty.resolveWith(
+          (states) =>
+              states.contains(WidgetState.selected) ? c.onPrimary : c.ink,
+        ),
+        yearBackgroundColor: WidgetStateProperty.resolveWith(
+          (states) => states.contains(WidgetState.selected) ? c.primary : null,
+        ),
+        cancelButtonStyle: TextButton.styleFrom(foregroundColor: c.primary),
+        confirmButtonStyle: TextButton.styleFrom(foregroundColor: c.primary),
       ),
       bottomSheetTheme: BottomSheetThemeData(
         backgroundColor: c.surface,

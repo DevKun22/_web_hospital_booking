@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:hospital_booking_mobile/core/design/app_colors.dart';
 import 'package:flutter/services.dart';
 import 'package:hospital_booking_mobile/core/formatters/display_formatters.dart';
 import 'package:hospital_booking_mobile/core/widgets/app_form.dart';
@@ -18,25 +17,13 @@ class ProfileDateField extends StatelessWidget {
   final VoidCallback onClear;
 
   @override
-  Widget build(BuildContext context) => InkWell(
+  Widget build(BuildContext context) => AppPickerField(
+    label: 'Ngày sinh',
+    placeholder: 'Chọn ngày sinh',
+    value: value == null ? null : formatDateVi(value!),
+    icon: Icons.calendar_month_outlined,
     onTap: onSelect,
-    borderRadius: BorderRadius.circular(14),
-    child: InputDecorator(
-      decoration: InputDecoration(
-        labelText: 'Ngày sinh',
-        suffixIcon: value == null
-            ? const Icon(Icons.calendar_month_outlined)
-            : IconButton(
-                tooltip: 'Xóa ngày sinh',
-                onPressed: onClear,
-                icon: const Icon(Icons.close_rounded),
-              ),
-      ),
-      child: Text(
-        value == null ? 'Chọn ngày sinh' : formatDateVi(value!),
-        style: value == null ? TextStyle(color: context.colors.muted) : null,
-      ),
-    ),
+    onClear: onClear,
   );
 }
 

@@ -1,17 +1,26 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hospital_booking_mobile/core/formatters/vietnam_time.dart';
 import 'package:hospital_booking_mobile/core/widgets/app_form.dart';
 import 'package:hospital_booking_mobile/core/widgets/birth_date_picker.dart';
 
 void main() {
-  testWidgets('chọn ngày sinh theo thập niên, năm, tháng, ngày', (
+  Widget viApp(Widget home) => MaterialApp(
+    locale: const Locale('vi'),
+    supportedLocales: const [Locale('vi')],
+    localizationsDelegates: GlobalMaterialLocalizations.delegates,
+    home: home,
+  );
+
+  testWidgets('lịch chuẩn: mở ở khoảng 30 năm trước và trả ngày khi bấm Xong', (
     tester,
   ) async {
+    final today = vietnamToday();
     DateTime? result;
     await tester.pumpWidget(
-      MaterialApp(
-        home: Builder(
+      viApp(
+        Builder(
           builder: (context) => TextButton(
             onPressed: () async => result = await showBirthDatePicker(context),
             child: const Text('mở'),
@@ -21,28 +30,25 @@ void main() {
     );
     await tester.tap(find.text('mở'));
     await tester.pumpAndSettle();
+    expect(find.text('Chọn ngày sinh'), findsOneWidget);
 
-    await tester.tap(find.byKey(const ValueKey('birth-decade-1990')));
+    await tester.tap(find.text('Xong'));
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('birth-year-1993')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('birth-month-9')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('birth-day-9')));
-    await tester.pumpAndSettle();
-
-    expect(result, DateTime(1993, 9, 9));
+    expect(result, DateTime(today.year - 30, today.month, today.day));
   });
 
-  testWidgets('không cho chọn ngày hôm nay hoặc tương lai', (tester) async {
+  testWidgets('ngày mở sẵn không bao giờ rơi vào hôm nay hoặc tương lai', (
+    tester,
+  ) async {
     final today = vietnamToday();
+    DateTime? result;
     await tester.pumpWidget(
-      MaterialApp(
-        home: Builder(
+      viApp(
+        Builder(
           builder: (context) => TextButton(
-            onPressed: () => showBirthDatePicker(
+            onPressed: () async => result = await showBirthDatePicker(
               context,
-              initial: DateTime(today.year, today.month, 1),
+              initial: DateTime(today.year + 1, 1, 1),
             ),
             child: const Text('mở'),
           ),
@@ -51,15 +57,53 @@ void main() {
     );
     await tester.tap(find.text('mở'));
     await tester.pumpAndSettle();
+    await tester.tap(find.text('Xong'));
+    await tester.pumpAndSettle();
 
-    // Ngày hôm nay và các ngày sau trong tháng hiện tại không có nút chọn.
-    expect(find.byKey(ValueKey('birth-day-${today.day}')), findsNothing);
-    if (today.day > 1) {
-      expect(find.byKey(const ValueKey('birth-day-1')), findsOneWidget);
-    }
-    // Năm sau năm nay không xuất hiện.
-    expect(find.byKey(ValueKey('birth-year-${today.year + 1}')), findsNothing);
+    final yesterday = DateTime(
+      today.year,
+      today.month,
+      today.day,
+    ).subtract(const Duration(days: 1));
+    expect(result, yesterday);
   });
+
+  testWidgets(
+    'ô chọn: chọn từ danh sách, xóa, và giữ giá trị cũ ngoài danh sách',
+    (tester) async {
+      String? value = 'Nhóm lạ';
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: StatefulBuilder(
+              builder: (context, setState) => AppSelectField(
+                label: 'Nhóm máu',
+                placeholder: 'Chọn nhóm máu',
+                options: const ['A+', 'O+'],
+                value: value,
+                onChanged: (chosen) => setState(() => value = chosen),
+              ),
+            ),
+          ),
+        ),
+      );
+      expect(find.text('Nhóm lạ'), findsOneWidget);
+
+      await tester.tap(find.text('Nhóm lạ'));
+      await tester.pumpAndSettle();
+      // Giá trị cũ vẫn là một lựa chọn cạnh danh sách chuẩn.
+      expect(find.text('A+'), findsOneWidget);
+      expect(find.text('Nhóm lạ'), findsWidgets);
+      await tester.tap(find.text('O+'));
+      await tester.pumpAndSettle();
+      expect(value, 'O+');
+
+      await tester.tap(find.byTooltip('Xóa Nhóm máu'));
+      await tester.pumpAndSettle();
+      expect(value, isNull);
+      expect(find.text('Chọn nhóm máu'), findsOneWidget);
+    },
+  );
 
   testWidgets(
     'chọn giới tính: chạm đổi giá trị, chạm lại mục đang chọn thì bỏ chọn',

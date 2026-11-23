@@ -69,7 +69,7 @@ class AppSegmentedChoice<T> extends StatelessWidget {
         Container(
           padding: const EdgeInsets.all(3),
           decoration: BoxDecoration(
-            color: colors.surfaceMuted,
+            color: colors.primarySoft,
             borderRadius: BorderRadius.circular(AppRadius.md),
           ),
           child: Row(
@@ -91,7 +91,7 @@ class AppSegmentedChoice<T> extends StatelessWidget {
                             context,
                             AppMotion.fast,
                           ),
-                          padding: const EdgeInsets.symmetric(vertical: 11),
+                          height: AppSize.segmentHeight - 6,
                           alignment: Alignment.center,
                           decoration: BoxDecoration(
                             color: item == selected
@@ -163,18 +163,29 @@ class AppChoiceChips<T> extends StatelessWidget {
                 child: InkWell(
                   customBorder: const StadiumBorder(),
                   onTap: onChanged == null ? null : () => onChanged!(item),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 10,
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(
+                      minHeight: AppSize.chipHeight,
                     ),
-                    child: Text(
-                      labelOf(item),
-                      style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                        color: item == selected ? colors.onPrimary : colors.ink,
-                        fontWeight: item == selected
-                            ? FontWeight.w600
-                            : FontWeight.w500,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 8,
+                      ),
+                      child: Center(
+                        widthFactor: 1,
+                        child: Text(
+                          labelOf(item),
+                          style: Theme.of(context).textTheme.labelLarge
+                              ?.copyWith(
+                                color: item == selected
+                                    ? colors.onPrimary
+                                    : colors.ink,
+                                fontWeight: item == selected
+                                    ? FontWeight.w600
+                                    : FontWeight.w500,
+                              ),
+                        ),
                       ),
                     ),
                   ),
@@ -229,31 +240,38 @@ class AppFormGroupRow extends StatelessWidget {
             label: title,
             child: InkWell(
               onTap: onToggle,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.sm,
-                  vertical: 14,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(
+                  minHeight: AppSize.optionRowHeight,
                 ),
-                child: Row(
-                  children: [
-                    Icon(icon, size: 20, color: colors.primary),
-                    const SizedBox(width: AppSpacing.sm),
-                    Expanded(child: Text(title, style: text.bodyLarge)),
-                    Flexible(
-                      child: Text(
-                        summary,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: text.labelMedium?.copyWith(color: colors.muted),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.sm,
+                    vertical: AppSpacing.xs,
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(icon, size: 20, color: colors.primary),
+                      const SizedBox(width: AppSpacing.sm),
+                      Expanded(child: Text(title, style: text.bodyLarge)),
+                      Flexible(
+                        child: Text(
+                          summary,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: text.labelMedium?.copyWith(
+                            color: colors.muted,
+                          ),
+                        ),
                       ),
-                    ),
-                    Icon(
-                      expanded
-                          ? Icons.expand_less_rounded
-                          : Icons.expand_more_rounded,
-                      color: colors.muted,
-                    ),
-                  ],
+                      Icon(
+                        expanded
+                            ? Icons.expand_less_rounded
+                            : Icons.expand_more_rounded,
+                        color: colors.muted,
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -308,14 +326,19 @@ class AppFormToggleRow extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          SwitchListTile(
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: AppSpacing.sm,
+          ConstrainedBox(
+            constraints: const BoxConstraints(
+              minHeight: AppSize.optionRowHeight,
             ),
-            secondary: Icon(icon, size: 20, color: colors.primary),
-            title: Text(title, style: Theme.of(context).textTheme.bodyLarge),
-            value: value,
-            onChanged: onChanged,
+            child: SwitchListTile(
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.sm,
+              ),
+              secondary: Icon(icon, size: 20, color: colors.primary),
+              title: Text(title, style: Theme.of(context).textTheme.bodyLarge),
+              value: value,
+              onChanged: onChanged,
+            ),
           ),
           if (value && child != null)
             Padding(
@@ -331,4 +354,174 @@ class AppFormToggleRow extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Ô để CHỌN (không gõ): nhãn nhỏ, giá trị bên dưới, mũi tên hoặc biểu tượng màu chính, nền xanh nhạt.
+/// Ô gõ có nền xám xanh; hai kiểu nền khác nhau để người dùng biết ô nào chạm để chọn.
+class AppPickerField extends StatelessWidget {
+  const AppPickerField({
+    super.key,
+    required this.label,
+    required this.placeholder,
+    required this.onTap,
+    this.value,
+    this.icon = Icons.expand_more_rounded,
+    this.onClear,
+  });
+
+  final String label;
+  final String placeholder;
+  final String? value;
+  final IconData icon;
+  final VoidCallback? onTap;
+
+  /// Có thì hiện nút xóa thay cho biểu tượng khi đã có giá trị.
+  final VoidCallback? onClear;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    final text = Theme.of(context).textTheme;
+    final hasValue = value != null && value!.isNotEmpty;
+    return Semantics(
+      button: true,
+      label: hasValue ? '$label: $value' : '$label: $placeholder',
+      child: ExcludeSemantics(
+        child: Material(
+          color: colors.primarySoft,
+          borderRadius: BorderRadius.circular(AppRadius.field),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(AppRadius.field),
+            onTap: onTap,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(minHeight: AppSize.fieldHeight),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.md,
+                  vertical: AppSpacing.sm,
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            label,
+                            style: text.labelMedium?.copyWith(
+                              color: colors.muted,
+                            ),
+                          ),
+                          Text(
+                            hasValue ? value! : placeholder,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: text.bodyLarge?.copyWith(
+                              color: hasValue ? colors.ink : colors.muted,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (hasValue && onClear != null)
+                      IconButton(
+                        tooltip: 'Xóa $label',
+                        onPressed: onClear,
+                        icon: Icon(Icons.close_rounded, color: colors.primary),
+                      )
+                    else
+                      Icon(icon, color: colors.primary),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Ô chọn một giá trị từ danh sách ngắn: chạm mở bảng lựa chọn. Giá trị đã lưu mà không có trong danh sách
+/// (dữ liệu cũ) vẫn được giữ và hiện như một lựa chọn để không mất khi lưu lại.
+class AppSelectField extends StatelessWidget {
+  const AppSelectField({
+    super.key,
+    required this.label,
+    required this.placeholder,
+    required this.options,
+    required this.value,
+    required this.onChanged,
+  });
+
+  final String label;
+  final String placeholder;
+  final List<String> options;
+  final String? value;
+  final ValueChanged<String?>? onChanged;
+
+  @override
+  Widget build(BuildContext context) => AppPickerField(
+    label: label,
+    placeholder: placeholder,
+    value: value,
+    onClear: onChanged == null || value == null || value!.isEmpty
+        ? null
+        : () => onChanged!(null),
+    onTap: onChanged == null
+        ? null
+        : () async {
+            final all = [
+              ...options,
+              if (value != null &&
+                  value!.isNotEmpty &&
+                  !options.contains(value))
+                value!,
+            ];
+            final chosen = await showModalBottomSheet<String>(
+              context: context,
+              useRootNavigator: true,
+              showDragHandle: true,
+              builder: (sheetContext) => SafeArea(
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxHeight: MediaQuery.sizeOf(sheetContext).height * 0.7,
+                  ),
+                  child: ListView(
+                    shrinkWrap: true,
+                    padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(
+                          AppSpacing.page,
+                          0,
+                          AppSpacing.page,
+                          AppSpacing.xs,
+                        ),
+                        child: Text(
+                          label,
+                          style: Theme.of(sheetContext).textTheme.titleMedium,
+                        ),
+                      ),
+                      for (final option in all)
+                        ListTile(
+                          minTileHeight: AppSize.optionRowHeight,
+                          title: Text(option),
+                          trailing: option == value
+                              ? Icon(
+                                  Icons.check_rounded,
+                                  color: sheetContext.colors.primary,
+                                )
+                              : null,
+                          onTap: () => Navigator.of(sheetContext).pop(option),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+            if (chosen != null) onChanged!(chosen);
+          },
+  );
 }

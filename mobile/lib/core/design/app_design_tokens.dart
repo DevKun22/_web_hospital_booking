@@ -32,8 +32,22 @@ abstract final class AppRadius {
 
 abstract final class AppSize {
   static const double minimumTouchTarget = 48;
-  static const double controlHeight = 44;
-  static const double primaryControlHeight = 48;
+  static const double controlHeight = 48;
+
+  /// Nút hành động chính (Lưu, Tiếp tục) và thanh lưu dính đáy.
+  static const double primaryControlHeight = 52;
+
+  /// Ô nhập, ô chọn và ô ngày dùng cùng một chiều cao tối thiểu trong cả app.
+  static const double fieldHeight = 56;
+
+  /// Dòng tùy chọn mở rộng và dòng công tắc trong form.
+  static const double optionRowHeight = 52;
+
+  /// Nhóm nút chọn liền nhau (giới tính, bộ lọc).
+  static const double segmentHeight = 48;
+
+  /// Chip chọn một trong vài giá trị (mối quan hệ).
+  static const double chipHeight = 40;
   static const double bottomNavigationHeight = 80;
 }
 
