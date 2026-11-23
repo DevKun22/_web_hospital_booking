@@ -1,3 +1,4 @@
+import 'package:hospital_booking_mobile/features/booking/presentation/booking_patient_form_model.dart';
 import 'package:flutter/material.dart';
 import 'package:hospital_booking_mobile/core/widgets/birth_date_picker.dart';
 import 'package:hospital_booking_mobile/features/legal/legal.dart';
@@ -9,7 +10,6 @@ import 'package:hospital_booking_mobile/features/auth/application/auth_controlle
 import 'package:hospital_booking_mobile/features/booking/application/booking_flow_controller.dart';
 import 'package:hospital_booking_mobile/features/booking/application/booking_patient_prefill.dart';
 import 'package:hospital_booking_mobile/features/booking/application/booking_submission_controller.dart';
-import 'package:hospital_booking_mobile/features/booking/domain/booking_submission.dart';
 import 'package:hospital_booking_mobile/features/booking/presentation/booking_date_format.dart';
 import 'package:hospital_booking_mobile/features/booking/presentation/widgets/booking_patient_type_selector.dart';
 import 'package:hospital_booking_mobile/features/booking/presentation/widgets/booking_journey_indicator.dart';
@@ -22,17 +22,6 @@ import 'package:hospital_booking_mobile/features/booking/presentation/widgets/bo
 import 'package:hospital_booking_mobile/features/booking/presentation/widgets/booking_patient_sections.dart';
 import 'package:hospital_booking_mobile/features/booking/presentation/widgets/booking_compact_selection_card.dart';
 
-enum _BookingPatientField {
-  fullName,
-  phone,
-  email,
-  dateOfBirth,
-  cccd,
-  address,
-  healthInsuranceCode,
-  registeredHospital,
-}
-
 class BookingPatientScreen extends ConsumerStatefulWidget {
   const BookingPatientScreen({super.key});
 
@@ -43,49 +32,12 @@ class BookingPatientScreen extends ConsumerStatefulWidget {
 
 class _BookingPatientScreenState extends ConsumerState<BookingPatientScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _nameController = TextEditingController();
-  final _phoneController = TextEditingController();
-  final _emailController = TextEditingController();
-  final _reasonController = TextEditingController();
-  final _dateOfBirthController = TextEditingController();
-  final _cccdController = TextEditingController();
-  final _addressController = TextEditingController();
-  final _insuranceCodeController = TextEditingController();
-  final _registeredHospitalController = TextEditingController();
-  String? _gender;
-  bool _hasBhyt = false;
+  final _form = BookingPatientFormModel();
   bool _termsAccepted = false;
   bool _prefilled = false;
   bool _isRevalidatingSlot = false;
-  bool _applyingPrefill = false;
-  bool _genderEdited = false;
-  bool _bhytEdited = false;
-  bool _profilePrefillApplied = false;
   BookingPatientType _patientType = BookingPatientType.self;
   DependentProfile? _selectedDependent;
-  final Set<_BookingPatientField> _editedFields = {};
-
-  late final Map<_BookingPatientField, TextEditingController>
-  _prefillControllers = {
-    _BookingPatientField.fullName: _nameController,
-    _BookingPatientField.phone: _phoneController,
-    _BookingPatientField.email: _emailController,
-    _BookingPatientField.dateOfBirth: _dateOfBirthController,
-    _BookingPatientField.cccd: _cccdController,
-    _BookingPatientField.address: _addressController,
-    _BookingPatientField.healthInsuranceCode: _insuranceCodeController,
-    _BookingPatientField.registeredHospital: _registeredHospitalController,
-  };
-
-  @override
-  void initState() {
-    super.initState();
-    for (final entry in _prefillControllers.entries) {
-      entry.value.addListener(() {
-        if (!_applyingPrefill) _editedFields.add(entry.key);
-      });
-    }
-  }
 
   @override
   void didChangeDependencies() {
@@ -99,15 +51,7 @@ class _BookingPatientScreenState extends ConsumerState<BookingPatientScreen> {
 
   @override
   void dispose() {
-    _nameController.dispose();
-    _phoneController.dispose();
-    _emailController.dispose();
-    _reasonController.dispose();
-    _dateOfBirthController.dispose();
-    _cccdController.dispose();
-    _addressController.dispose();
-    _insuranceCodeController.dispose();
-    _registeredHospitalController.dispose();
+    _form.dispose();
     super.dispose();
   }
 
@@ -271,7 +215,7 @@ class _BookingPatientScreenState extends ConsumerState<BookingPatientScreen> {
                       dimension: 16,
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
-                  else if (_profilePrefillApplied)
+                  else if (_form.profilePrefillApplied)
                     Chip(
                       avatar: const Icon(
                         Icons.verified_user_outlined,
@@ -288,9 +232,9 @@ class _BookingPatientScreenState extends ConsumerState<BookingPatientScreen> {
               ),
               const SizedBox(height: AppSpacing.sm),
               BookingPatientContactFields(
-                name: _nameController,
-                phone: _phoneController,
-                email: _emailController,
+                name: _form.name,
+                phone: _form.phone,
+                email: _form.email,
                 isRelative: _patientType == BookingPatientType.relative,
                 isSubmitting: isSubmitting,
                 skipsOtp: skipsOtp,
@@ -299,7 +243,7 @@ class _BookingPatientScreenState extends ConsumerState<BookingPatientScreen> {
               ),
               const SizedBox(height: AppSpacing.lg),
               TextFormField(
-                controller: _reasonController,
+                controller: _form.reason,
                 minLines: 2,
                 maxLines: 4,
                 decoration: const InputDecoration(
@@ -309,30 +253,30 @@ class _BookingPatientScreenState extends ConsumerState<BookingPatientScreen> {
                 ),
               ),
               const SizedBox(height: AppSpacing.xs),
-              BookingReasonChips(controller: _reasonController),
+              BookingReasonChips(controller: _form.reason),
               const SizedBox(height: AppSpacing.lg),
               BookingPatientExtraSection(
                 isRelative: _patientType == BookingPatientType.relative,
-                gender: _gender,
+                gender: _form.gender,
                 onGenderChanged: _patientType == BookingPatientType.relative
                     ? null
                     : (value) => setState(() {
-                        _genderEdited = true;
-                        _gender = value;
+                        _form.genderEdited = true;
+                        _form.gender = value;
                       }),
-                dateOfBirth: _dateOfBirthController,
+                dateOfBirth: _form.dateOfBirth,
                 onPickDateOfBirth: _pickDateOfBirth,
-                cccd: _cccdController,
-                address: _addressController,
-                hasBhyt: _hasBhyt,
+                cccd: _form.cccd,
+                address: _form.address,
+                hasBhyt: _form.hasBhyt,
                 onHasBhytChanged: _patientType == BookingPatientType.relative
                     ? null
                     : (value) => setState(() {
-                        _bhytEdited = true;
-                        _hasBhyt = value;
+                        _form.bhytEdited = true;
+                        _form.hasBhyt = value;
                       }),
-                insuranceCode: _insuranceCodeController,
-                registeredHospital: _registeredHospitalController,
+                insuranceCode: _form.insuranceCode,
+                registeredHospital: _form.registeredHospital,
               ),
             ],
           ),
@@ -394,67 +338,23 @@ class _BookingPatientScreenState extends ConsumerState<BookingPatientScreen> {
   Future<void> _pickDateOfBirth() async {
     final selected = await showBirthDatePicker(
       context,
-      initial: DateTime.tryParse(_dateOfBirthController.text),
+      initial: DateTime.tryParse(_form.dateOfBirth.text),
     );
     if (selected != null) {
-      _dateOfBirthController.text = formatApiDate(selected);
+      _form.dateOfBirth.text = formatApiDate(selected);
     }
   }
 
   void _applyPrefill(BookingPatientPrefill prefill) {
     if (!mounted) return;
-    var stateChanged = false;
-    _applyingPrefill = true;
-    try {
-      _setPrefillText(_BookingPatientField.fullName, prefill.fullName);
-      _setPrefillText(_BookingPatientField.phone, prefill.phone);
-      _setPrefillText(_BookingPatientField.email, prefill.email);
-      _setPrefillText(_BookingPatientField.dateOfBirth, prefill.dateOfBirth);
-      _setPrefillText(_BookingPatientField.cccd, prefill.cccd);
-      _setPrefillText(_BookingPatientField.address, prefill.address);
-      _setPrefillText(
-        _BookingPatientField.healthInsuranceCode,
-        prefill.healthInsuranceCode,
-      );
-      _setPrefillText(
-        _BookingPatientField.registeredHospital,
-        prefill.registeredHospital,
-      );
-      if (!_genderEdited &&
-          prefill.gender != null &&
-          _gender != prefill.gender) {
-        _gender = prefill.gender;
-        stateChanged = true;
-      }
-      if (!_bhytEdited && _hasBhyt != prefill.hasBhyt) {
-        _hasBhyt = prefill.hasBhyt;
-        stateChanged = true;
-      }
-      if (prefill.fromProfile && !_profilePrefillApplied) {
-        _profilePrefillApplied = true;
-        stateChanged = true;
-      }
-    } finally {
-      _applyingPrefill = false;
-    }
-    if (stateChanged) setState(() {});
-  }
-
-  void _setPrefillText(_BookingPatientField field, String? value) {
-    if (value == null || _editedFields.contains(field)) return;
-    final controller = _prefillControllers[field]!;
-    if (controller.text != value) controller.text = value;
+    if (_form.applyPrefill(prefill)) setState(() {});
   }
 
   void _selectSelf() {
     if (_patientType == BookingPatientType.self) return;
-    _clearPatientSnapshot();
+    _form.resetForSelf();
     _patientType = BookingPatientType.self;
     _selectedDependent = null;
-    _genderEdited = false;
-    _bhytEdited = false;
-    _profilePrefillApplied = false;
-    _editedFields.clear();
     _applyPrefill(
       BookingPatientPrefill.from(
         user: ref.read(authControllerProvider).user,
@@ -489,46 +389,17 @@ class _BookingPatientScreenState extends ConsumerState<BookingPatientScreen> {
   }
 
   void _applyDependent(DependentProfile dependent) {
-    final ownerPrefill = BookingPatientPrefill.from(
-      user: ref.read(authControllerProvider).user,
-      profile: ref.read(patientProfileControllerProvider).profile,
+    _form.applyDependent(
+      dependent,
+      BookingPatientPrefill.from(
+        user: ref.read(authControllerProvider).user,
+        profile: ref.read(patientProfileControllerProvider).profile,
+      ),
     );
-    _applyingPrefill = true;
-    try {
-      _nameController.text = dependent.fullName;
-      _phoneController.text = ownerPrefill.phone ?? '';
-      _emailController.text = ownerPrefill.email ?? '';
-      _dateOfBirthController.text = dependent.dateOfBirth ?? '';
-      _cccdController.text = dependent.cccd ?? '';
-      _addressController.text = dependent.address ?? '';
-      _insuranceCodeController.text = dependent.healthInsuranceCode ?? '';
-      _registeredHospitalController.text = dependent.registeredHospital ?? '';
-    } finally {
-      _applyingPrefill = false;
-    }
-    _editedFields.addAll(_BookingPatientField.values);
     setState(() {
       _patientType = BookingPatientType.relative;
       _selectedDependent = dependent;
-      _gender = dependent.gender;
-      _hasBhyt = dependent.hasBhyt;
-      _genderEdited = true;
-      _bhytEdited = true;
-      _profilePrefillApplied = true;
     });
-  }
-
-  void _clearPatientSnapshot() {
-    _applyingPrefill = true;
-    try {
-      for (final controller in _prefillControllers.values) {
-        controller.clear();
-      }
-    } finally {
-      _applyingPrefill = false;
-    }
-    _gender = null;
-    _hasBhyt = false;
   }
 
   Future<void> _showRelativeLoginNotice() => showRelativeLoginNotice(context);
@@ -576,20 +447,7 @@ class _BookingPatientScreenState extends ConsumerState<BookingPatientScreen> {
           selection: selection,
           authenticated: authenticated,
           termsVersion: terms?.version,
-          patient: BookingPatientDraft(
-            dependentProfileId: _selectedDependent?.id,
-            patientName: _nameController.text,
-            patientPhone: _phoneController.text,
-            patientEmail: _emailController.text,
-            reason: _reasonController.text,
-            gender: _gender,
-            dateOfBirth: _dateOfBirthController.text,
-            cccd: _cccdController.text,
-            address: _addressController.text,
-            hasBhyt: _hasBhyt,
-            healthInsuranceCode: _insuranceCodeController.text,
-            registeredHospital: _registeredHospitalController.text,
-          ),
+          patient: _form.toDraft(dependentProfileId: _selectedDependent?.id),
         );
     if (!mounted) return;
     final code = ref.read(bookingSubmissionControllerProvider).error?.code;
