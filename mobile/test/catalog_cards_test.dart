@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hospital_booking_mobile/core/design/app_colors.dart';
 import 'package:hospital_booking_mobile/core/theme/app_theme.dart';
+import 'package:hospital_booking_mobile/core/widgets/app_detail.dart';
 import 'package:hospital_booking_mobile/features/catalog/domain/catalog_entities.dart';
 import 'package:hospital_booking_mobile/features/catalog/presentation/department_visuals.dart';
 import 'package:hospital_booking_mobile/features/catalog/presentation/widgets/department_tile.dart';
@@ -137,6 +139,62 @@ void main() {
                 index: 2,
               ),
             ],
+          ),
+        ),
+      );
+      await tester.pump();
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('khung màn chi tiết không vỡ ở cỡ chữ $scale', (tester) async {
+      tester.view.physicalSize = const Size(360, 900);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      await tester.pumpWidget(
+        _host(
+          scale,
+          Builder(
+            builder: (context) => Column(
+              children: [
+                AppDetailHeader(
+                  tint: context.colors.zone(AppZone.danger),
+                  leading: const Icon(Icons.favorite_outline),
+                  title:
+                      'Gói khám sức khỏe tổng quát nâng cao dành cho người trên bốn mươi tuổi',
+                  subtitle:
+                      'Khám lâm sàng, xét nghiệm máu và nước tiểu, điện tim.',
+                  chips: const [
+                    AppDetailChip(label: 'Nổi bật'),
+                    AppDetailChip(
+                      label: 'Khoa cơ xương khớp và phục hồi chức năng',
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                const AppDetailFacts(
+                  facts: [
+                    ('350.000 đ', 'Phí khám'),
+                    ('22 năm', 'Kinh nghiệm'),
+                    ('4,8', '12 đánh giá'),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                AppDetailSection(
+                  title: 'Bác sĩ (12)',
+                  actionLabel: 'Xem tất cả',
+                  onAction: () {},
+                  child: const Text('Nội dung'),
+                ),
+                AppDetailBar(
+                  priceLabel: 'Giá trọn gói',
+                  price: '2.810.000 đ',
+                  primaryLabel: 'Đặt lịch chuyên khoa',
+                  onPrimary: () {},
+                  onAssistant: () {},
+                ),
+              ],
+            ),
           ),
         ),
       );

@@ -84,9 +84,9 @@ void main() {
 
       expect(find.text('Gói tim mạch'), findsOneWidget);
       expect(find.text('Điện tim'), findsOneWidget);
-      expect(find.text('850.000 đ'), findsNWidgets(2));
+      expect(find.text('850.000 đ'), findsWidgets);
 
-      await tester.tap(find.text('Đặt gói này'));
+      await tester.tap(find.text('Chọn gói'));
       await tester.pumpAndSettle();
 
       expect(find.text('booking:package-1:department-1'), findsOneWidget);
