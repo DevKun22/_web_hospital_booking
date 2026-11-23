@@ -294,6 +294,8 @@ class _BookingPatientScreenState extends ConsumerState<BookingPatientScreen> {
                 isRelative: _patientType == BookingPatientType.relative,
                 isSubmitting: isSubmitting,
                 skipsOtp: skipsOtp,
+                accountPhone:
+                    profileState.profile?.phone ?? authenticatedUser?.phone,
               ),
               const SizedBox(height: AppSpacing.lg),
               TextFormField(
