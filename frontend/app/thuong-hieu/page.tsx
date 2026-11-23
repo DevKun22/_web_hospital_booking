@@ -33,7 +33,7 @@ export default function BrandPreviewPage() {
           <BrandLogo variant="horizontal" size="sm" />
           <figcaption className="text-sm text-slate-600">logo-horizontal: thanh đầu trang (không kèm khẩu hiệu)</figcaption>
         </figure>
-        <figure className="rounded-2xl bg-[#0b2a4a] p-6">
+        <figure className="rounded-2xl bg-[var(--footer-to)] p-6">
           <BrandLogo variant="light" size="lg" />
           <figcaption className="mt-3 text-sm text-slate-200">logo-light: nền tối</figcaption>
         </figure>

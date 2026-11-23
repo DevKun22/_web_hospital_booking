@@ -290,7 +290,7 @@ class _HomeAppointmentCopy {
             start.day == now.day;
         return _HomeAppointmentCopy(
           title: (item) => isToday
-              ? 'Khám hôm nay lúc ${appointmentHhmm(item.startTime)}'
+              ? 'Khám hôm nay lúc ${formatTimeShort(item.startTime)}'
               : 'Lịch khám sắp tới',
           primaryLabel: isToday ? 'Sẵn sàng đi khám' : 'Chuẩn bị',
           showQr: true,

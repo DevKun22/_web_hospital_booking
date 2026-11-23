@@ -1,8 +1,8 @@
+import 'package:hospital_booking_mobile/core/formatters/display_formatters.dart';
 import 'package:flutter/material.dart';
 import 'package:hospital_booking_mobile/core/design/app_colors.dart';
 import 'package:hospital_booking_mobile/core/design/app_design_tokens.dart';
 import 'package:hospital_booking_mobile/features/booking/domain/booking_catalog.dart';
-import 'package:hospital_booking_mobile/features/booking/presentation/booking_date_format.dart';
 
 /// Buổi trong ngày dùng để nhóm khung giờ.
 enum SlotPeriod { morning, afternoon, evening }
@@ -189,7 +189,8 @@ class _SlotTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
-    final label = '${shortTime(slot.startTime)} – ${shortTime(slot.endTime)}';
+    final label =
+        '${formatTimeShort(slot.startTime)} – ${formatTimeShort(slot.endTime)}';
     return Semantics(
       key: ValueKey('booking-slot-${slot.id}'),
       button: true,

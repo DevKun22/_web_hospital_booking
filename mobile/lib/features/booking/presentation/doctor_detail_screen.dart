@@ -1,3 +1,4 @@
+import 'package:hospital_booking_mobile/features/catalog/domain/catalog_entities.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -9,7 +10,6 @@ import 'package:hospital_booking_mobile/core/widgets/app_detail.dart';
 import 'package:hospital_booking_mobile/core/widgets/app_ui.dart';
 import 'package:hospital_booking_mobile/core/widgets/resized_network_image.dart';
 import 'package:hospital_booking_mobile/features/booking/application/booking_flow_controller.dart';
-import 'package:hospital_booking_mobile/features/booking/domain/booking_catalog.dart';
 import 'package:hospital_booking_mobile/features/chatbot/domain/chatbot_entry_context.dart';
 import 'package:hospital_booking_mobile/core/design/app_colors.dart';
 
@@ -82,7 +82,7 @@ class DoctorDetailScreen extends ConsumerWidget {
 class _DoctorDetailContent extends StatelessWidget {
   const _DoctorDetailContent({required this.doctor});
 
-  final BookingDoctor doctor;
+  final CatalogDoctor doctor;
 
   @override
   Widget build(BuildContext context) {
@@ -170,7 +170,7 @@ class _DoctorDetailContent extends StatelessWidget {
   }
 }
 
-String _bookingLocation(BookingDoctor doctor) => Uri(
+String _bookingLocation(CatalogDoctor doctor) => Uri(
   path: '/booking',
   queryParameters: {'departmentId': doctor.departmentId, 'doctorId': doctor.id},
 ).toString();

@@ -1,3 +1,4 @@
+import 'package:hospital_booking_mobile/features/catalog/domain/catalog_entities.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -8,19 +9,19 @@ import 'package:hospital_booking_mobile/features/booking/domain/booking_catalog.
 import 'package:hospital_booking_mobile/features/packages/domain/medical_package.dart';
 
 const _departments = [
-  BookingDepartment(id: 'department-1', name: 'Tim mạch'),
-  BookingDepartment(id: 'department-2', name: 'Nhi khoa'),
+  CatalogDepartment(id: 'department-1', name: 'Tim mạch'),
+  CatalogDepartment(id: 'department-2', name: 'Nhi khoa'),
 ];
 
 const _doctors = [
-  BookingDoctor(
+  CatalogDoctor(
     id: 'doctor-1',
     fullName: 'Nguyễn Văn An',
     departmentId: 'department-1',
     departmentName: 'Tim mạch',
     consultationFee: 250000,
   ),
-  BookingDoctor(
+  CatalogDoctor(
     id: 'doctor-2',
     fullName: 'Trần Thị Bình',
     departmentId: 'department-2',

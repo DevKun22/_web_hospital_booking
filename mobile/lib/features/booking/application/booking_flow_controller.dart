@@ -1,3 +1,4 @@
+import 'package:hospital_booking_mobile/features/catalog/domain/catalog_entities.dart';
 import 'dart:async';
 
 import 'package:hospital_booking_mobile/core/formatters/vietnam_time.dart';
@@ -21,7 +22,7 @@ final bookingCatalogRepositoryProvider = Provider<BookingCatalogRepository>(
 );
 
 final doctorDetailProvider = FutureProvider.autoDispose
-    .family<BookingDoctor, String>(
+    .family<CatalogDoctor, String>(
       (ref, doctorId) =>
           ref.watch(bookingCatalogRepositoryProvider).fetchDoctor(doctorId),
     );
@@ -64,8 +65,8 @@ class BookingFlowState {
     this.isSlotsLoading = false,
   });
 
-  final List<BookingDepartment> departments;
-  final List<BookingDoctor> doctors;
+  final List<CatalogDepartment> departments;
+  final List<CatalogDoctor> doctors;
   final List<MedicalPackage> packages;
   final List<BookingSlot> slots;
   final BookingSelection selection;
@@ -73,7 +74,7 @@ class BookingFlowState {
   final bool isCatalogLoading;
   final bool isSlotsLoading;
 
-  List<BookingDoctor> get visibleDoctors {
+  List<CatalogDoctor> get visibleDoctors {
     final departmentId = selection.departmentId;
     if (departmentId == null) return doctors;
     return doctors
@@ -84,12 +85,12 @@ class BookingFlowState {
   MedicalPackage? get selectedPackage =>
       _firstWhereOrNull(packages, (item) => item.id == selection.packageId);
 
-  BookingDepartment? get selectedDepartment => _firstWhereOrNull(
+  CatalogDepartment? get selectedDepartment => _firstWhereOrNull(
     departments,
     (item) => item.id == selection.departmentId,
   );
 
-  BookingDoctor? get selectedDoctor =>
+  CatalogDoctor? get selectedDoctor =>
       _firstWhereOrNull(doctors, (item) => item.id == selection.doctorId);
 
   BookingSlot? get selectedSlot =>

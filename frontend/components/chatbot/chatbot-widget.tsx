@@ -101,7 +101,7 @@ export function ChatbotWidget() {
                   Kun
                 </h2>
                 <p className="flex items-center gap-1.5 truncate text-xs text-white/85">
-                  <span className={`h-2 w-2 shrink-0 rounded-full ${online ? "bg-[#7ee2b8]" : "bg-white/50"}`} aria-hidden="true" />
+                  <span className={`h-2 w-2 shrink-0 rounded-full ${online ? "bg-[var(--footer-accent)]" : "bg-white/50"}`} aria-hidden="true" />
                   Trợ lý ảo · {statusText}
                 </p>
               </div>

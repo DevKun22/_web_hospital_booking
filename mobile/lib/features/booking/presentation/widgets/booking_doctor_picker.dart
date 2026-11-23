@@ -1,3 +1,4 @@
+import 'package:hospital_booking_mobile/features/catalog/domain/catalog_entities.dart';
 import 'package:hospital_booking_mobile/core/widgets/app_filter_tabs.dart';
 import 'package:flutter/material.dart';
 import 'package:hospital_booking_mobile/core/design/app_colors.dart';
@@ -5,15 +6,14 @@ import 'package:hospital_booking_mobile/core/design/app_design_tokens.dart';
 import 'package:hospital_booking_mobile/core/formatters/display_formatters.dart';
 import 'package:hospital_booking_mobile/core/formatters/search_text.dart';
 import 'package:hospital_booking_mobile/core/widgets/resized_network_image.dart';
-import 'package:hospital_booking_mobile/features/booking/domain/booking_catalog.dart';
 import 'package:hospital_booking_mobile/features/booking/presentation/widgets/booking_picker_parts.dart';
 
 /// Bảng chọn bác sĩ: tìm theo tên hoặc chuyên khoa, lọc theo chuyên khoa, tải thêm khi cuộn.
 /// [lockedDepartmentId] khác null khi gói khám đã định chuyên khoa.
 Future<void> showBookingDoctorPicker(
   BuildContext context, {
-  required List<BookingDoctor> doctors,
-  required List<BookingDepartment> departments,
+  required List<CatalogDoctor> doctors,
+  required List<CatalogDepartment> departments,
   required ValueChanged<String> onSelected,
   String? selectedId,
   String? lockedDepartmentId,
@@ -42,8 +42,8 @@ class _DoctorPicker extends StatefulWidget {
     this.lockedDepartmentId,
   });
 
-  final List<BookingDoctor> doctors;
-  final List<BookingDepartment> departments;
+  final List<CatalogDoctor> doctors;
+  final List<CatalogDepartment> departments;
   final ScrollController scrollController;
   final ValueChanged<String> onSelected;
   final String? selectedId;
@@ -94,7 +94,7 @@ class _DoctorPickerState extends State<_DoctorPicker> {
     _departmentId = widget.lockedDepartmentId;
   }
 
-  List<BookingDoctor> get _filtered => widget.doctors
+  List<CatalogDoctor> get _filtered => widget.doctors
       .where((doctor) {
         if (_departmentId != null && doctor.departmentId != _departmentId) {
           return false;
@@ -177,7 +177,7 @@ class _DoctorPickerState extends State<_DoctorPicker> {
           child: GestureDetector(
             behavior: HitTestBehavior.translucent,
             onHorizontalDragEnd: locked ? null : _onSwipe,
-            child: BookingPagedList<BookingDoctor>(
+            child: BookingPagedList<CatalogDoctor>(
               items: filtered,
               scrollController: widget.scrollController,
               emptyMessage: 'Không tìm thấy bác sĩ phù hợp. Thử từ khóa khác.',
@@ -201,7 +201,7 @@ class _DoctorTile extends StatelessWidget {
     required this.onTap,
   });
 
-  final BookingDoctor doctor;
+  final CatalogDoctor doctor;
   final bool selected;
   final VoidCallback onTap;
 
@@ -288,7 +288,7 @@ class BookingDoctorAvatar extends StatelessWidget {
     required this.radius,
   });
 
-  final BookingDoctor doctor;
+  final CatalogDoctor doctor;
   final double radius;
 
   @override

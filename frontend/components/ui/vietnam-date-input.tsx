@@ -97,7 +97,7 @@ export function VietnamDateInput({ value, onChange, className = "", min, max, re
           width: fullWidth ? "100%" : undefined,
           minWidth: 120,
           // Ngày gõ sai hiện viền đỏ ngay để người dùng thấy, không chỉ báo cho trình đọc màn hình.
-          ...(invalid ? { borderColor: "#b3261e", boxShadow: "0 0 0 1px #b3261e" } : {}),
+          ...(invalid ? { borderColor: "var(--destructive)", boxShadow: "0 0 0 1px #b3261e" } : {}),
         }}
       />
       <button

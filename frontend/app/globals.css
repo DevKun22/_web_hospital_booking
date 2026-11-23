@@ -23,7 +23,7 @@
 }
 
 :root {
-  --app-font-sans: "Inter Variable", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --app-font-sans: "Be Vietnam Pro", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   /* Chữ có chân chỉ dùng cho nội dung đọc dài (thân bài viết kiến thức), không dùng cho giao diện. */
   --app-font-serif: "Source Serif 4 Variable", Georgia, "Times New Roman", serif;
   --brand-primary: #0369a1;
@@ -33,6 +33,15 @@
   --brand-secondary: #0f766e;
   --brand-secondary-soft: #e0f5f2;
   --brand-warm: #f2b66d;
+  /* Vùng màu cho thẻ khoa, gói khám và loại kết quả tìm kiếm: cặp (nền sáng, nền đậm) từng vùng. */
+  --tone-blue: #2f7fc4;
+  --tone-blue-deep: #1d5a96;
+  --tone-teal: #2aa198;
+  --tone-teal-deep: #177d74;
+  --tone-amber: #d98a3d;
+  --tone-amber-deep: #b36a22;
+  --tone-violet: #6c63c7;
+  --tone-violet-deep: #4a43a0;
   --status-success: #15803d;
   --status-success-soft: #e4f5ef;
   --status-warning: #b45309;
@@ -1483,7 +1492,7 @@ button:disabled {
   box-shadow: inset 0 0 0 3px var(--public-primary-soft);
 }
 
-/* Chữ phần công khai: Inter, thang cỡ chữ ít bậc, độ đậm tối đa 600, không co khít chữ, không viết hoa kéo giãn.
+/* Chữ phần công khai: Be Vietnam Pro, thang cỡ chữ ít bậc, độ đậm tối đa 600, không co khít chữ, không viết hoa kéo giãn.
    Dùng biến của Tailwind nên mọi lớp text-* và font-* trong .public-site tự đổi theo, không phải sửa từng nơi. */
 .public-site {
   --text-xs: 0.8125rem;

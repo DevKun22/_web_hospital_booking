@@ -224,7 +224,7 @@ class _BookingPatientScreenState extends ConsumerState<BookingPatientScreen> {
                 packagePrice: selectedPackage?.finalPrice,
                 date: selectedSlot.date,
                 time:
-                    '${shortTime(selectedSlot.startTime)} – ${shortTime(selectedSlot.endTime)}',
+                    '${formatTimeShort(selectedSlot.startTime)} – ${formatTimeShort(selectedSlot.endTime)}',
               ),
               const SizedBox(height: AppSpacing.lg),
               Text(

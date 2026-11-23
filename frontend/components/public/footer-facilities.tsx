@@ -37,12 +37,12 @@ export function FooterFacilities({ fallbackAddress, fallbackMapUrl }: { fallback
       <ul className="mt-4 space-y-4 text-sm leading-6 text-white/80">
         {items.map((item) => (
           <li key={item.key} className="flex items-start gap-2.5">
-            <MapPin className="mt-1 h-4 w-4 shrink-0 text-[#7fe0cf]" aria-hidden="true" />
+            <MapPin className="mt-1 h-4 w-4 shrink-0 text-[var(--footer-accent)]" aria-hidden="true" />
             <span>
               {item.name ? <strong className="block font-medium text-white">{item.name}</strong> : null}
               {item.address}
               {item.mapUrl ? (
-                <a href={externalUrl(item.mapUrl)} target="_blank" rel="noreferrer" className="mt-1 block font-medium text-white underline underline-offset-4 hover:text-[#7fe0cf]">
+                <a href={externalUrl(item.mapUrl)} target="_blank" rel="noreferrer" className="mt-1 block font-medium text-white underline underline-offset-4 hover:text-[var(--footer-accent)]">
                   Xem chỉ đường
                 </a>
               ) : null}

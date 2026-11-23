@@ -6,6 +6,7 @@ class CatalogDepartment {
     required this.id,
     required this.name,
     this.slug,
+    this.description,
     this.image,
   });
 
@@ -14,18 +15,21 @@ class CatalogDepartment {
         id: jsonString(json['id']),
         name: jsonString(json['name']),
         slug: jsonNullableString(json['slug']),
+        description: jsonNullableString(json['description']),
         image: jsonNullableString(json['image']),
       );
 
   final String id;
   final String name;
   final String? slug;
+  final String? description;
   final String? image;
 
   Map<String, dynamic> toJson() => {
     'id': id,
     'name': name,
     'slug': slug,
+    'description': description,
     'image': image,
   };
 }
@@ -36,7 +40,9 @@ class CatalogDoctor {
     required this.fullName,
     required this.departmentName,
     required this.consultationFee,
+    this.departmentId = '',
     this.title,
+    this.bio,
     this.specialization,
     this.avatar,
     this.experience,
@@ -52,9 +58,11 @@ class CatalogDoctor {
     return CatalogDoctor(
       id: jsonString(json['id']),
       fullName: jsonString(user['fullName']),
+      departmentId: jsonString(department['id']),
       departmentName: jsonString(department['name']),
       consultationFee: jsonNumber(json['consultationFee']),
       title: jsonNullableString(json['title']),
+      bio: jsonNullableString(json['bio']),
       specialization: jsonNullableString(json['specialization']),
       avatar: jsonNullableString(user['avatar']),
       experience: jsonNullableInt(json['experience']),
@@ -69,9 +77,11 @@ class CatalogDoctor {
 
   final String id;
   final String fullName;
+  final String departmentId;
   final String departmentName;
   final double consultationFee;
   final String? title;
+  final String? bio;
   final String? specialization;
   final String? avatar;
   final int? experience;
@@ -85,6 +95,7 @@ class CatalogDoctor {
   Map<String, dynamic> toJson() => {
     'id': id,
     'title': title,
+    'bio': bio,
     'specialization': specialization,
     'experience': experience,
     'consultationFee': consultationFee,
@@ -93,7 +104,7 @@ class CatalogDoctor {
         .map((slot) => slot.toJson())
         .toList(growable: false),
     'user': {'fullName': fullName, 'avatar': avatar},
-    'department': {'name': departmentName},
+    'department': {'id': departmentId, 'name': departmentName},
   };
 }
 

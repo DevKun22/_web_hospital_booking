@@ -1,3 +1,4 @@
+import 'package:hospital_booking_mobile/features/catalog/domain/catalog_entities.dart';
 import 'package:hospital_booking_mobile/features/packages/domain/medical_package.dart';
 import 'package:hospital_booking_mobile/features/catalog/presentation/department_visuals.dart';
 import 'package:hospital_booking_mobile/core/widgets/app_zone.dart';
@@ -10,7 +11,6 @@ import 'package:hospital_booking_mobile/core/widgets/app_route_back_scope.dart';
 import 'package:hospital_booking_mobile/core/widgets/app_ui.dart';
 import 'package:hospital_booking_mobile/core/widgets/resized_network_image.dart';
 import 'package:hospital_booking_mobile/features/booking/application/booking_flow_controller.dart';
-import 'package:hospital_booking_mobile/features/booking/domain/booking_catalog.dart';
 import 'package:hospital_booking_mobile/features/chatbot/domain/chatbot_entry_context.dart';
 import 'package:hospital_booking_mobile/core/design/app_colors.dart';
 import 'package:hospital_booking_mobile/core/formatters/display_formatters.dart';
@@ -196,7 +196,7 @@ class DepartmentDetailScreen extends ConsumerWidget {
 class _DepartmentDoctorRow extends StatelessWidget {
   const _DepartmentDoctorRow({required this.doctor});
 
-  final BookingDoctor doctor;
+  final CatalogDoctor doctor;
 
   @override
   Widget build(BuildContext context) {

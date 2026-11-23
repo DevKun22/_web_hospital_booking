@@ -82,7 +82,7 @@ export function VietnamDateTimeInput({ value, onChange, className = "", min, req
         aria-invalid={timeInvalid || undefined}
         title={timeInvalid ? "Giờ không hợp lệ" : undefined}
         className={className}
-        style={{ width: 84, ...(timeInvalid ? { borderColor: "#b3261e", boxShadow: "0 0 0 1px #b3261e" } : {}) }}
+        style={{ width: 84, ...(timeInvalid ? { borderColor: "var(--destructive)", boxShadow: "0 0 0 1px #b3261e" } : {}) }}
         onChange={(event) => {
           const next = maskTime(event.target.value);
           setTime(next);

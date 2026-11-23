@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 import 'package:hospital_booking_mobile/core/formatters/display_formatters.dart';
 import 'package:hospital_booking_mobile/core/widgets/app_ui.dart';
 import 'package:hospital_booking_mobile/features/booking/application/booking_flow_controller.dart';
-import 'package:hospital_booking_mobile/features/booking/presentation/booking_date_format.dart';
 import 'package:hospital_booking_mobile/core/design/app_colors.dart';
 
 class BookingStickySummary extends StatelessWidget {
@@ -39,7 +38,7 @@ class BookingStickySummary extends StatelessWidget {
               children: [
                 Expanded(
                   child: Text(
-                    '${displayDate(slot.date)} · ${shortTime(slot.startTime)}',
+                    '${formatDateVi(slot.date)} · ${formatTimeShort(slot.startTime)}',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: text.titleSmall,
