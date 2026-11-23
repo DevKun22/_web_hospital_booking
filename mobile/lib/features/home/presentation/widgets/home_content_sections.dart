@@ -88,6 +88,25 @@ String _initials(String name) {
       .toUpperCase();
 }
 
+/// Thẻ trong dải ngang là thẻ chữ dày đặc nên chỉ phóng chữ đến mức này; lớn hơn thì chữ tràn khỏi thẻ.
+const _stripMaxTextScale = 1.3;
+
+/// Chiều cao dải ngang theo cỡ chữ của máy (đã giới hạn): chữ lớn thì thẻ cao hơn, không bị cắt hay bó lại.
+double _stripHeight(BuildContext context, double base) {
+  final scaler = MediaQuery.textScalerOf(
+    context,
+  ).clamp(maxScaleFactor: _stripMaxTextScale);
+  final scaled = scaler.scale(base);
+  return scaled < base ? base : scaled;
+}
+
+/// Giới hạn cỡ chữ bên trong một dải ngang.
+Widget _clampedStrip(BuildContext context, Widget child) =>
+    MediaQuery.withClampedTextScaling(
+      maxScaleFactor: _stripMaxTextScale,
+      child: child,
+    );
+
 String _hhmm(String value) => value.length >= 5 ? value.substring(0, 5) : value;
 
 /// Dải bác sĩ nổi bật: ảnh (hoặc chữ cái đầu có màu), sao đánh giá, tên, khoa và số năm kinh nghiệm, giờ trống hôm nay, giá khám.
@@ -98,13 +117,16 @@ class HomeDoctorStrip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => SizedBox(
-    height: 228,
-    child: ListView.separated(
-      scrollDirection: Axis.horizontal,
-      itemCount: items.length,
-      separatorBuilder: (_, _) => const SizedBox(width: 10),
-      itemBuilder: (context, index) =>
-          _DoctorCard(doctor: items[index], tint: _tint(context, index + 4)),
+    height: _stripHeight(context, 246),
+    child: _clampedStrip(
+      context,
+      ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: items.length,
+        separatorBuilder: (_, _) => const SizedBox(width: 10),
+        itemBuilder: (context, index) =>
+            _DoctorCard(doctor: items[index], tint: _tint(context, index + 4)),
+      ),
     ),
   );
 }
@@ -133,7 +155,7 @@ class _DoctorCard extends StatelessWidget {
       logicalHeight: 52,
     );
     return _StripCard(
-      width: 184,
+      width: 204,
       onTap: () => context.push('/doctors/${Uri.encodeComponent(doctor.id)}'),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -166,7 +188,7 @@ class _DoctorCard extends StatelessWidget {
           const SizedBox(height: 8),
           Text(
             doctor.displayName,
-            maxLines: 1,
+            maxLines: 2,
             overflow: TextOverflow.ellipsis,
             style: text.titleSmall?.copyWith(color: colors.ink),
           ),
@@ -316,94 +338,97 @@ class HomePackageStrip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => SizedBox(
-    height: 214,
-    child: ListView.separated(
-      scrollDirection: Axis.horizontal,
-      itemCount: items.length,
-      separatorBuilder: (_, _) => const SizedBox(width: 10),
-      itemBuilder: (context, index) {
-        final item = items[index];
-        final text = Theme.of(context).textTheme;
-        final colors = context.colors;
-        final tint = _tint(context, index + 3);
-        return _StripCard(
-          width: 204,
-          onTap: item.slug == null
-              ? () => openBookingFromCurrentRoute(
-                  context,
-                  '/booking?packageId=${item.id}',
-                )
-              : () => context.push(
-                  '/packages/${Uri.encodeComponent(item.slug!)}',
-                ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: tint.background,
-                      borderRadius: BorderRadius.circular(AppRadius.md),
-                    ),
-                    child: Icon(
-                      Icons.inventory_2_outlined,
-                      color: tint.foreground,
-                      size: 22,
-                    ),
+    height: _stripHeight(context, 226),
+    child: _clampedStrip(
+      context,
+      ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: items.length,
+        separatorBuilder: (_, _) => const SizedBox(width: 10),
+        itemBuilder: (context, index) {
+          final item = items[index];
+          final text = Theme.of(context).textTheme;
+          final colors = context.colors;
+          final tint = _tint(context, index + 3);
+          return _StripCard(
+            width: 216,
+            onTap: item.slug == null
+                ? () => openBookingFromCurrentRoute(
+                    context,
+                    '/booking?packageId=${item.id}',
+                  )
+                : () => context.push(
+                    '/packages/${Uri.encodeComponent(item.slug!)}',
                   ),
-                  const Spacer(),
-                  if (item.isPopular)
-                    _Pill(
-                      'Nổi bật',
-                      background: colors.warningContainer,
-                      foreground: colors.warning,
-                    ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Text(
-                item.name,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: text.titleSmall?.copyWith(color: colors.ink),
-              ),
-              if (item.summary != null) ...[
-                const SizedBox(height: 2),
-                Text(
-                  item.summary!,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: text.bodySmall?.copyWith(color: colors.muted),
-                ),
-              ],
-              const Spacer(),
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      formatVnd(item.finalPrice),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: text.titleMedium?.copyWith(
-                        color: colors.primaryDark,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: tint.background,
+                        borderRadius: BorderRadius.circular(AppRadius.md),
+                      ),
+                      child: Icon(
+                        Icons.inventory_2_outlined,
+                        color: tint.foreground,
+                        size: 22,
                       ),
                     ),
+                    const Spacer(),
+                    if (item.isPopular)
+                      _Pill(
+                        'Nổi bật',
+                        background: colors.warningContainer,
+                        foreground: colors.warning,
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  item.name,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: text.titleSmall?.copyWith(color: colors.ink),
+                ),
+                if (item.summary != null) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    item.summary!,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: text.bodySmall?.copyWith(color: colors.muted),
                   ),
-                  if (item.isBhytSupport)
-                    _Pill(
-                      'BHYT',
-                      background: colors.primarySoft,
-                      foreground: colors.primaryDark,
-                    ),
                 ],
-              ),
-            ],
-          ),
-        );
-      },
+                const Spacer(),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        formatVnd(item.finalPrice),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: text.titleMedium?.copyWith(
+                          color: colors.primaryDark,
+                        ),
+                      ),
+                    ),
+                    if (item.isBhytSupport)
+                      _Pill(
+                        'BHYT',
+                        background: colors.primarySoft,
+                        foreground: colors.primaryDark,
+                      ),
+                  ],
+                ),
+              ],
+            ),
+          );
+        },
+      ),
     ),
   );
 }

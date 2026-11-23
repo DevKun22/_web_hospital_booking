@@ -4,7 +4,8 @@ import 'package:hospital_booking_mobile/features/invoices/application/invoices_c
 import 'package:hospital_booking_mobile/features/invoices/domain/patient_invoice.dart';
 import 'package:hospital_booking_mobile/features/invoices/presentation/widgets/invoice_detail_sections.dart';
 import 'package:hospital_booking_mobile/features/invoices/presentation/widgets/invoice_detail_states.dart';
-import 'package:hospital_booking_mobile/features/invoices/presentation/widgets/invoice_online_payment_card.dart';
+import 'package:hospital_booking_mobile/features/invoices/application/invoice_payment_controller.dart';
+import 'package:hospital_booking_mobile/features/invoices/presentation/widgets/invoice_pay_bar.dart';
 
 class InvoiceDetailScreen extends ConsumerWidget {
   const InvoiceDetailScreen({required this.invoiceId, super.key});
@@ -14,6 +15,12 @@ class InvoiceDetailScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final detail = ref.watch(invoiceDetailProvider(invoiceId));
+    final invoice = detail.value;
+    // Giữ thanh đáy cả sau khi trả xong để người dùng còn thấy kết quả giao dịch.
+    final showPayBar =
+        invoice != null &&
+        (invoice.status == PatientInvoiceStatus.unpaid ||
+            ref.watch(invoicePaymentProvider(invoiceId)).transaction != null);
     return Scaffold(
       appBar: AppBar(
         title: const Text('Chi tiết hóa đơn'),
@@ -35,6 +42,7 @@ class InvoiceDetailScreen extends ConsumerWidget {
           data: (invoice) => _DetailContent(invoice: invoice),
         ),
       ),
+      bottomNavigationBar: showPayBar ? InvoicePayBar(invoice: invoice) : null,
     );
   }
 }
@@ -55,10 +63,6 @@ class _DetailContent extends StatelessWidget {
       InvoiceInsuranceSection(invoice: invoice),
       const SizedBox(height: 14),
       InvoiceStatusGuidance(invoice: invoice),
-      if (invoice.status == PatientInvoiceStatus.unpaid) ...[
-        const SizedBox(height: 14),
-        InvoiceOnlinePaymentCard(invoice: invoice),
-      ],
     ],
   );
 }
