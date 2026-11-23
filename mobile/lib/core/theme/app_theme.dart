@@ -20,7 +20,13 @@ abstract final class AppTheme {
       primaryContainer: c.primarySoft,
       onPrimaryContainer: c.primaryDark,
       secondary: c.care,
-      secondaryContainer: c.careSoft,
+      // Nền phụ của Material (nút chọn, thanh tiến độ, ô nhắc) dùng cùng xanh da trời với màu chính;
+      // xanh ngọc chỉ dùng qua AppZone.care. Màu tertiary dành cho trạng thái cần chú ý (chưa thanh toán, nhãn phụ).
+      secondaryContainer: c.primarySoft,
+      onSecondaryContainer: c.primaryDark,
+      tertiary: c.warning,
+      tertiaryContainer: c.warningContainer,
+      onTertiaryContainer: c.warning,
       surface: c.surface,
       onSurface: c.ink,
       onSurfaceVariant: c.muted,

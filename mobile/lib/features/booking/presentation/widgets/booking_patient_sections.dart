@@ -1,3 +1,4 @@
+import 'package:go_router/go_router.dart';
 import 'package:hospital_booking_mobile/core/formatters/display_formatters.dart';
 import 'package:flutter/material.dart';
 import 'package:hospital_booking_mobile/core/widgets/app_form.dart';
@@ -16,6 +17,7 @@ class BookingPatientContactFields extends StatelessWidget {
     required this.isRelative,
     required this.isSubmitting,
     this.skipsOtp = false,
+    this.accountPhone,
   });
 
   final TextEditingController name;
@@ -29,83 +31,104 @@ class BookingPatientContactFields extends StatelessWidget {
   /// Người đã đăng nhập đặt cho chính mình: không cần OTP nên không hiện dòng nhắc gửi mã.
   final bool skipsOtp;
 
+  /// Số điện thoại của tài khoản (nếu có). Máy chủ ưu tiên số này, chỉ dùng số nhập ở đây khi tài khoản chưa có.
+  final String? accountPhone;
+
   @override
-  Widget build(BuildContext context) => Column(
-    crossAxisAlignment: CrossAxisAlignment.stretch,
-    children: [
-      TextFormField(
-        controller: name,
-        readOnly: isRelative,
-        textInputAction: TextInputAction.next,
-        autofillHints: const [AutofillHints.name],
-        decoration: const InputDecoration(
-          labelText: 'Họ và tên *',
-          prefixIcon: Icon(Icons.person_outline_outlined),
+  Widget build(BuildContext context) {
+    final signedIn = isRelative || skipsOtp;
+    final phoneLocked = signedIn && (accountPhone?.trim().isNotEmpty ?? false);
+    final emailLocked = signedIn;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        TextFormField(
+          controller: name,
+          readOnly: isRelative,
+          textInputAction: TextInputAction.next,
+          autofillHints: const [AutofillHints.name],
+          decoration: const InputDecoration(
+            labelText: 'Họ và tên *',
+            prefixIcon: Icon(Icons.person_outline_outlined),
+          ),
+          validator: (value) => (value?.trim().length ?? 0) < 2
+              ? 'Họ tên tối thiểu 2 ký tự.'
+              : null,
         ),
-        validator: (value) => (value?.trim().length ?? 0) < 2
-            ? 'Họ tên tối thiểu 2 ký tự.'
-            : null,
-      ),
-      const SizedBox(height: AppSpacing.sm),
-      TextFormField(
-        controller: phone,
-        readOnly: isRelative || skipsOtp,
-        keyboardType: TextInputType.phone,
-        textInputAction: TextInputAction.next,
-        autofillHints: const [AutofillHints.telephoneNumber],
-        decoration: InputDecoration(
-          labelText: 'Số điện thoại *',
-          prefixIcon: const Icon(Icons.phone_outlined),
-          // Người đã đăng nhập luôn đặt bằng số của tài khoản.
-          helperText: skipsOtp ? 'Số điện thoại của tài khoản bạn.' : null,
-          suffixIcon: skipsOtp ? const Icon(Icons.lock_outline) : null,
+        const SizedBox(height: AppSpacing.sm),
+        TextFormField(
+          controller: phone,
+          readOnly: phoneLocked,
+          keyboardType: TextInputType.phone,
+          textInputAction: TextInputAction.next,
+          autofillHints: const [AutofillHints.telephoneNumber],
+          decoration: InputDecoration(
+            labelText: 'Số điện thoại *',
+            prefixIcon: const Icon(Icons.phone_outlined),
+            helperText: phoneLocked
+                ? 'Số điện thoại của tài khoản. Muốn đổi, vào Hồ sơ.'
+                : (signedIn
+                      ? 'Tài khoản chưa có số điện thoại; số này dùng để cơ sở khám liên hệ.'
+                      : null),
+            suffixIcon: phoneLocked
+                ? IconButton(
+                    tooltip: 'Đổi số trong Hồ sơ',
+                    onPressed: () => context.push('/profile/personal'),
+                    icon: const Icon(Icons.edit_outlined),
+                  )
+                : null,
+          ),
+          validator: (value) =>
+              RegExp(r'^(0|\+84)[0-9]{9,10}$').hasMatch(value?.trim() ?? '')
+              ? null
+              : 'Số điện thoại không hợp lệ.',
         ),
-        validator: (value) =>
-            RegExp(r'^(0|\+84)[0-9]{9,10}$').hasMatch(value?.trim() ?? '')
-            ? null
-            : 'Số điện thoại không hợp lệ.',
-      ),
-      const SizedBox(height: AppSpacing.sm),
-      TextFormField(
-        controller: email,
-        readOnly: isRelative,
-        keyboardType: TextInputType.emailAddress,
-        textInputAction: TextInputAction.next,
-        autofillHints: const [AutofillHints.email],
-        decoration: const InputDecoration(
-          labelText: 'Email *',
-          prefixIcon: Icon(Icons.email_outlined),
+        const SizedBox(height: AppSpacing.sm),
+        TextFormField(
+          controller: email,
+          readOnly: emailLocked,
+          keyboardType: TextInputType.emailAddress,
+          textInputAction: TextInputAction.next,
+          autofillHints: const [AutofillHints.email],
+          decoration: InputDecoration(
+            labelText: emailLocked ? 'Email đăng nhập *' : 'Email *',
+            prefixIcon: const Icon(Icons.email_outlined),
+            helperText: emailLocked
+                ? 'Lịch hẹn gửi về email đăng nhập, không đổi ở đây.'
+                : null,
+            suffixIcon: emailLocked ? const Icon(Icons.lock_outline) : null,
+          ),
+          validator: (value) {
+            final email = value?.trim() ?? '';
+            if (email.isEmpty) return 'Email là bắt buộc.';
+            if (!RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(email)) {
+              return 'Email không hợp lệ.';
+            }
+            return null;
+          },
         ),
-        validator: (value) {
-          final email = value?.trim() ?? '';
-          if (email.isEmpty) return 'Email là bắt buộc.';
-          if (!RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(email)) {
-            return 'Email không hợp lệ.';
-          }
-          return null;
-        },
-      ),
-      if (!skipsOtp) ...[
-        const SizedBox(height: AppSpacing.lg),
-        Row(
-          children: [
-            Icon(
-              Icons.email_outlined,
-              size: 18,
-              color: Theme.of(context).colorScheme.primary,
-            ),
-            const SizedBox(width: AppSpacing.xs),
-            Expanded(
-              child: Text(
-                'Mã xác thực sẽ gửi qua email.',
-                style: Theme.of(context).textTheme.bodyMedium,
+        if (!skipsOtp) ...[
+          const SizedBox(height: AppSpacing.lg),
+          Row(
+            children: [
+              Icon(
+                Icons.email_outlined,
+                size: 18,
+                color: Theme.of(context).colorScheme.primary,
               ),
-            ),
-          ],
-        ),
+              const SizedBox(width: AppSpacing.xs),
+              Expanded(
+                child: Text(
+                  'Mã xác thực sẽ gửi qua email.',
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
+              ),
+            ],
+          ),
+        ],
       ],
-    ],
-  );
+    );
+  }
 }
 
 /// Thông tin bổ sung (giới tính, ngày sinh, CCCD, địa chỉ, BHYT) thu gọn trong một thẻ.

@@ -1,3 +1,5 @@
+import 'package:hospital_booking_mobile/features/appointments/presentation/appointment_status_visuals.dart';
+import 'package:hospital_booking_mobile/features/appointments/domain/patient_appointment.dart';
 import 'package:hospital_booking_mobile/core/widgets/app_zone.dart';
 import 'dart:async';
 
@@ -39,6 +41,8 @@ class BookingSuccessScreen extends ConsumerWidget {
       );
     }
 
+    final status = PatientAppointmentStatus.fromApi(appointment.status);
+    final isPending = status == PatientAppointmentStatus.pendingConfirm;
     final colors = context.colors;
     final text = Theme.of(context).textTheme;
     final authenticated = ref.watch(authControllerProvider).isAuthenticated;
@@ -79,7 +83,9 @@ class BookingSuccessScreen extends ConsumerWidget {
                     ),
                     const SizedBox(height: AppSpacing.md),
                     Text(
-                      'Đã tiếp nhận lịch khám',
+                      isPending
+                          ? 'Đã tiếp nhận lịch khám'
+                          : 'Đặt lịch thành công',
                       textAlign: TextAlign.center,
                       style: text.headlineSmall?.copyWith(
                         color: colors.success,
@@ -87,17 +93,19 @@ class BookingSuccessScreen extends ConsumerWidget {
                     ),
                     const SizedBox(height: AppSpacing.xs),
                     Text(
-                      'Cơ sở khám sẽ kiểm tra và xác nhận lịch của bạn.',
+                      isPending
+                          ? 'Cơ sở khám sẽ kiểm tra và xác nhận lịch của bạn.'
+                          : 'Lịch của bạn đã được xác nhận. Vui lòng đến sớm để làm thủ tục.',
                       textAlign: TextAlign.center,
                       style: text.bodyMedium?.copyWith(color: colors.ink),
                     ),
                     const SizedBox(height: AppSpacing.sm),
                     AppStatusBadge(
-                      label: appointment.status == 'PENDING_CONFIRM'
+                      label: isPending
                           ? 'CHỜ CƠ SỞ KHÁM XÁC NHẬN'
-                          : appointment.status,
-                      tone: AppStatusTone.warning,
-                      icon: Icons.hourglass_top_outlined,
+                          : status.label,
+                      tone: status.tone,
+                      icon: status.icon,
                     ),
                   ],
                 ),
