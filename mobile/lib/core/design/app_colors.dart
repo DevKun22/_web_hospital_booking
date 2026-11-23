@@ -9,9 +9,9 @@ abstract final class AppPalette {
   static const star = Color(0xFFE09B2D);
 
   /// Nền hero (gradient xanh đậm). Chữ trên nền này luôn là [onHero].
-  static const heroDeep = Color(0xFF084C46);
-  static const heroMid = Color(0xFF0A6F65);
-  static const heroCare = Color(0xFF0B7F73);
+  static const heroDeep = Color(0xFF0C4A6E);
+  static const heroMid = Color(0xFF075985);
+  static const heroCare = Color(0xFF0369A1);
   static const onHero = Color(0xFFFFFFFF);
   static const onHeroMuted = Color(0xDFFFFFFF);
   static const onHeroSubtle = Color(0xBFFFFFFF);
@@ -80,26 +80,26 @@ class AppColors extends ThemeExtension<AppColors> {
   final Color shadowTint;
 
   static const light = AppColors(
-    primary: Color(0xFF0B7F73),
+    primary: Color(0xFF0369A1),
     onPrimary: Color(0xFFFFFFFF),
-    primaryDark: Color(0xFF0A5F57),
-    primarySoft: Color(0xFFE0F4F1),
-    care: Color(0xFF0B5FA8),
-    careSoft: Color(0xFFE4F2FF),
-    ink: Color(0xFF10302D),
-    textSoft: Color(0xFF2B4743),
-    muted: Color(0xFF4F6663),
-    canvas: Color(0xFFF3F8F7),
+    primaryDark: Color(0xFF0C4A6E),
+    primarySoft: Color(0xFFE0F2FE),
+    care: Color(0xFF0F766E),
+    careSoft: Color(0xFFE0F5F2),
+    ink: Color(0xFF0F172A),
+    textSoft: Color(0xFF334155),
+    muted: Color(0xFF5B6B7F),
+    canvas: Color(0xFFF8FAFC),
     surface: Color(0xFFFFFFFF),
-    surfaceMuted: Color(0xFFE6F0EE),
-    border: Color(0xFFD2E3E0),
-    divider: Color(0xFFE2EDEB),
-    success: Color(0xFF1E7B34),
-    successContainer: Color(0xFFE3F3E7),
-    warning: Color(0xFF8A4B00),
-    warningContainer: Color(0xFFFFF3DD),
-    danger: Color(0xFFA32D2D),
-    dangerContainer: Color(0xFFFBE9E9),
+    surfaceMuted: Color(0xFFF1F5F9),
+    border: Color(0xFFE2E8F0),
+    divider: Color(0xFFEEF2F6),
+    success: Color(0xFF15803D),
+    successContainer: Color(0xFFDCFCE7),
+    warning: Color(0xFFB45309),
+    warningContainer: Color(0xFFFEF3C7),
+    danger: Color(0xFFB91C1C),
+    dangerContainer: Color(0xFFFEE2E2),
     info: Color(0xFF07549C),
     infoContainer: Color(0xFFE3EEF9),
     violet: Color(0xFF5B4A9E),
@@ -108,20 +108,20 @@ class AppColors extends ThemeExtension<AppColors> {
   );
 
   static const dark = AppColors(
-    primary: Color(0xFF4CCBBB),
-    onPrimary: Color(0xFF032925),
-    primaryDark: Color(0xFF9CE4DA),
-    primarySoft: Color(0xFF123734),
-    care: Color(0xFF86BDF2),
-    careSoft: Color(0xFF16304A),
-    ink: Color(0xFFE6F2F0),
-    textSoft: Color(0xFFC3D6D2),
-    muted: Color(0xFF9DB5B0),
-    canvas: Color(0xFF0B1918),
-    surface: Color(0xFF132624),
-    surfaceMuted: Color(0xFF1B332F),
-    border: Color(0xFF2F4A46),
-    divider: Color(0xFF223A36),
+    primary: Color(0xFF38BDF8),
+    onPrimary: Color(0xFF082F49),
+    primaryDark: Color(0xFF7DD3FC),
+    primarySoft: Color(0xFF0C2A40),
+    care: Color(0xFF2DD4BF),
+    careSoft: Color(0xFF0F3A36),
+    ink: Color(0xFFF1F5F9),
+    textSoft: Color(0xFFCBD5E1),
+    muted: Color(0xFF94A3B8),
+    canvas: Color(0xFF0B1120),
+    surface: Color(0xFF1E293B),
+    surfaceMuted: Color(0xFF273449),
+    border: Color(0xFF334155),
+    divider: Color(0xFF2A3749),
     success: Color(0xFF72D08A),
     successContainer: Color(0xFF16341F),
     warning: Color(0xFFF2B863),
