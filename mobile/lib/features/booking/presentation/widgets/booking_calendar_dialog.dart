@@ -157,7 +157,7 @@ class _BookingCalendarDialogState extends ConsumerState<BookingCalendarDialog> {
                   width: 8,
                   height: 8,
                   decoration: BoxDecoration(
-                    color: colors.primary,
+                    color: colors.success,
                     shape: BoxShape.circle,
                   ),
                 ),
@@ -269,11 +269,12 @@ class _MonthGrid extends StatelessWidget {
                   ),
                   if (pickable)
                     Container(
-                      width: 4,
-                      height: 4,
+                      width: 5,
+                      height: 5,
                       margin: const EdgeInsets.only(top: AppSpacing.hair),
+                      // Chấm xanh lá là dấu "còn giờ trống"; ngày đang chọn đổi sang trắng để không chìm vào nền xanh.
                       decoration: BoxDecoration(
-                        color: selected ? colors.onPrimary : colors.primary,
+                        color: selected ? colors.onPrimary : colors.success,
                         shape: BoxShape.circle,
                       ),
                     ),
