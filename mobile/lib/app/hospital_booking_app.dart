@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter/services.dart';
 import 'package:hospital_booking_mobile/app/app_orientation_policy.dart';
 import 'package:hospital_booking_mobile/core/design/app_colors.dart';
@@ -129,6 +130,9 @@ class _HospitalBookingAppState extends ConsumerState<HospitalBookingApp>
       theme: AppTheme.light,
       darkTheme: AppTheme.dark,
       themeMode: ThemeMode.system,
+      locale: const Locale('vi'),
+      supportedLocales: const [Locale('vi')],
+      localizationsDelegates: GlobalMaterialLocalizations.delegates,
       scaffoldMessengerKey: rootScaffoldMessengerKey,
       routerConfig: router,
       builder: (context, child) => AppOrientationPolicy(

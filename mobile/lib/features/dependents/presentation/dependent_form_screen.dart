@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:hospital_booking_mobile/core/formatters/display_formatters.dart';
 import 'package:hospital_booking_mobile/core/widgets/app_error_banner.dart';
 import 'package:hospital_booking_mobile/core/widgets/app_form.dart';
 import 'package:hospital_booking_mobile/core/widgets/birth_date_picker.dart';
@@ -135,6 +136,11 @@ class _DependentFormScreenState extends ConsumerState<DependentFormScreen> {
                   controlAffinity: ListTileControlAffinity.leading,
                 ),
               FilledButton.icon(
+                style: FilledButton.styleFrom(
+                  minimumSize: const Size.fromHeight(
+                    AppSize.primaryControlHeight,
+                  ),
+                ),
                 onPressed: state.isSaving ? null : _save,
                 icon: state.isSaving
                     ? const SizedBox.square(
@@ -196,22 +202,15 @@ class _DependentFormScreenState extends ConsumerState<DependentFormScreen> {
                       : null,
                 ),
                 const SizedBox(height: AppSpacing.sm),
-                TextFormField(
-                  controller: _dateOfBirth,
-                  readOnly: true,
-                  decoration: InputDecoration(
-                    labelText: 'Ngày sinh',
-                    hintText: 'Chọn ngày sinh',
-                    suffixIcon: _dateOfBirth.text.isEmpty
-                        ? const Icon(Icons.calendar_month_outlined)
-                        : IconButton(
-                            tooltip: 'Xóa ngày sinh',
-                            onPressed: () =>
-                                setState(() => _dateOfBirth.clear()),
-                            icon: const Icon(Icons.close_rounded),
-                          ),
-                  ),
+                AppPickerField(
+                  label: 'Ngày sinh',
+                  placeholder: 'Chọn ngày sinh',
+                  value: _dateOfBirth.text.isEmpty
+                      ? null
+                      : formatDateVi(_dateOfBirth.text),
+                  icon: Icons.calendar_month_outlined,
                   onTap: _pickDate,
+                  onClear: () => setState(() => _dateOfBirth.clear()),
                 ),
                 const SizedBox(height: AppSpacing.sm),
                 AppSegmentedChoice<String>(

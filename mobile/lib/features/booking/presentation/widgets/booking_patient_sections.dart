@@ -158,28 +158,18 @@ class BookingPatientExtraSection extends StatelessWidget {
           onChanged: isRelative ? null : onGenderChanged,
         ),
         const SizedBox(height: 16),
-        InkWell(
-          onTap: isRelative ? null : onPickDateOfBirth,
-          borderRadius: BorderRadius.circular(14),
-          child: InputDecorator(
-            decoration: const InputDecoration(
-              labelText: 'Ngày sinh',
-              prefixIcon: Icon(Icons.cake_outlined),
-              suffixIcon: Icon(Icons.calendar_month_outlined),
-            ),
-            child: ValueListenableBuilder<TextEditingValue>(
-              valueListenable: dateOfBirth,
-              builder: (context, value, _) {
-                final text = value.text.trim();
-                return Text(
-                  text.isEmpty ? 'Chọn ngày sinh' : displayDate(text),
-                  style: text.isEmpty
-                      ? TextStyle(color: context.colors.muted)
-                      : null,
-                );
-              },
-            ),
-          ),
+        ValueListenableBuilder<TextEditingValue>(
+          valueListenable: dateOfBirth,
+          builder: (context, value, _) {
+            final text = value.text.trim();
+            return AppPickerField(
+              label: 'Ngày sinh',
+              placeholder: 'Chọn ngày sinh',
+              value: text.isEmpty ? null : displayDate(text),
+              icon: Icons.calendar_month_outlined,
+              onTap: isRelative ? null : onPickDateOfBirth,
+            );
+          },
         ),
         const SizedBox(height: 16),
         TextFormField(
@@ -336,6 +326,11 @@ class BookingPatientSubmitSection extends StatelessWidget {
             const SizedBox(width: 16),
             Expanded(
               child: FilledButton.icon(
+                style: FilledButton.styleFrom(
+                  minimumSize: const Size.fromHeight(
+                    AppSize.primaryControlHeight,
+                  ),
+                ),
                 onPressed: isBusy ? null : onSubmit,
                 icon: isBusy
                     ? const SizedBox.square(

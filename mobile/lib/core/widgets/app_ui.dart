@@ -30,6 +30,9 @@ class AppPrimaryButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) => FilledButton(
     onPressed: loading ? null : onPressed,
+    style: FilledButton.styleFrom(
+      minimumSize: const Size.fromHeight(AppSize.primaryControlHeight),
+    ),
     child: loading
         ? const SizedBox.square(
             dimension: 22,

@@ -229,14 +229,16 @@ class ProfileHealthSection extends StatelessWidget {
         ).textTheme.bodySmall?.copyWith(color: context.colors.muted),
       ),
       const SizedBox(height: AppSpacing.sm),
-      TextFormField(
-        controller: bloodType,
-        maxLength: 10,
-        buildCounter: nearLimitCounter,
-        textCapitalization: TextCapitalization.characters,
-        decoration: const InputDecoration(
-          labelText: 'Nhóm máu',
-          hintText: 'Ví dụ: O+',
+      ValueListenableBuilder<TextEditingValue>(
+        valueListenable: bloodType,
+        builder: (context, value, _) => AppSelectField(
+          label: 'Nhóm máu',
+          placeholder: 'Chọn nhóm máu',
+          options: const ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'],
+          value: value.text.trim().isEmpty ? null : value.text.trim(),
+          onChanged: isSaving
+              ? null
+              : (chosen) => bloodType.text = chosen ?? '',
         ),
       ),
       const SizedBox(height: AppSpacing.sm),
