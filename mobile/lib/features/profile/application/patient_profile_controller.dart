@@ -115,7 +115,8 @@ class PatientProfileController extends SyncedNotifier<PatientProfileState> {
     }
   }
 
-  Future<bool> save(PatientProfileDraft draft) async {
+  /// Lưu riêng các trường vừa sửa; trả false (kèm [PatientProfileState.error]) khi máy chủ từ chối.
+  Future<bool> saveFields(Map<String, Object?> fields) async {
     if (_patientId == null || state.isSaving) return false;
     final requestVersion = _requestVersion;
     final patientId = _patientId;
@@ -123,7 +124,7 @@ class PatientProfileController extends SyncedNotifier<PatientProfileState> {
     try {
       final profile = await ref
           .read(patientProfileRepositoryProvider)
-          .updateProfile(draft);
+          .updateProfile(fields);
       if (requestVersion != _requestVersion ||
           patientId != _patientId ||
           profile.id != patientId) {

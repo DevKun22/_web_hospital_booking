@@ -114,92 +114,28 @@ class PatientProfile {
     isEmailVerified: isEmailVerified,
   );
 
-  int get completionPercent {
-    final checks = <bool>[
-      fullName.trim().isNotEmpty,
-      phone != null,
-      email != null,
-      dateOfBirth != null,
-      gender != null,
-      cccd != null,
-      address != null,
-      !hasBhyt || healthInsuranceCode != null,
-      bloodType != null,
-      height != null && weight != null,
-      allergies != null,
-      medicalHistory != null,
-    ];
-    final completed = checks.where((value) => value).length;
-    return ((completed / checks.length) * 100).round();
-  }
-}
+  /// Có thông tin sức khỏe nào chưa: nhóm máu, chiều cao, cân nặng, huyết áp, dị ứng hoặc tiền sử.
+  bool get hasHealthInfo =>
+      bloodType != null ||
+      height != null ||
+      weight != null ||
+      bloodPressure != null ||
+      allergies != null ||
+      medicalHistory != null ||
+      familyHistory != null;
 
-class PatientProfileDraft {
-  const PatientProfileDraft({
-    required this.fullName,
-    required this.hasBhyt,
-    this.phone,
-    this.dateOfBirth,
-    this.gender,
-    this.cccd,
-    this.address,
-    this.healthInsuranceCode,
-    this.registeredHospital,
-    this.bloodType,
-    this.height,
-    this.weight,
-    this.allergies,
-    this.medicalHistory,
-    this.familyHistory,
-    this.bloodPressure,
-    this.healthConsent = false,
-  });
+  /// Sáu mục để cơ sở khám tiếp nhận thuận tiện: ngày sinh, giới tính, số điện thoại, CCCD, địa chỉ, sức khỏe.
+  List<bool> get completionChecks => [
+    dateOfBirth != null,
+    gender != null,
+    phone != null,
+    cccd != null,
+    address != null,
+    hasHealthInfo,
+  ];
 
-  final String fullName;
-
-  /// Số điện thoại liên hệ (không xác minh); null hoặc rỗng là xóa số.
-  final String? phone;
-  final String? dateOfBirth;
-  final PatientGender? gender;
-  final String? cccd;
-  final String? address;
-  final bool hasBhyt;
-  final String? healthInsuranceCode;
-  final String? registeredHospital;
-  final String? bloodType;
-  final double? height;
-  final double? weight;
-  final String? allergies;
-  final String? medicalHistory;
-  final String? familyHistory;
-  final String? bloodPressure;
-
-  /// Người dùng vừa tick đồng ý lưu thông tin sức khỏe ở lần lưu này.
-  final bool healthConsent;
-
-  Map<String, dynamic> toRequestJson() => {
-    'fullName': fullName.trim(),
-    'phone': jsonNullableString(phone),
-    'dateOfBirth': jsonNullableString(dateOfBirth),
-    'gender': gender?.apiValue,
-    'cccd': jsonNullableString(cccd),
-    'address': jsonNullableString(address),
-    'hasBHYT': hasBhyt,
-    'healthInsuranceCode': hasBhyt
-        ? jsonNullableString(healthInsuranceCode)
-        : null,
-    'registeredHospital': hasBhyt
-        ? jsonNullableString(registeredHospital)
-        : null,
-    'bloodType': jsonNullableString(bloodType),
-    'height': height,
-    'weight': weight,
-    'allergies': jsonNullableString(allergies),
-    'medicalHistory': jsonNullableString(medicalHistory),
-    'familyHistory': jsonNullableString(familyHistory),
-    'bloodPressure': jsonNullableString(bloodPressure),
-    if (healthConsent) 'healthConsent': true,
-  };
+  int get completedCount => completionChecks.where((done) => done).length;
+  int get totalCount => completionChecks.length;
 }
 
 double? _nullableDouble(dynamic value) =>

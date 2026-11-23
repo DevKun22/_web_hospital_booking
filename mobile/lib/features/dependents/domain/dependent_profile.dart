@@ -98,25 +98,6 @@ class DependentProfileDraft {
     this.consentConfirmed = false,
   });
 
-  factory DependentProfileDraft.fromProfile(DependentProfile profile) =>
-      DependentProfileDraft(
-        fullName: profile.fullName,
-        relationship: profile.relationship,
-        hasBhyt: profile.hasBhyt,
-        phone: profile.phone,
-        email: profile.email,
-        dateOfBirth: profile.dateOfBirth,
-        gender: profile.gender,
-        cccd: profile.cccd,
-        address: profile.address,
-        healthInsuranceCode: profile.healthInsuranceCode,
-        registeredHospital: profile.registeredHospital,
-        allergies: profile.allergies,
-        medicalHistory: profile.medicalHistory,
-        familyHistory: profile.familyHistory,
-        consentConfirmed: true,
-      );
-
   final String fullName;
   final DependentRelationship relationship;
   final String? phone;

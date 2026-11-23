@@ -61,19 +61,10 @@ void main() {
       final repository = PatientProfileRepository(dio);
 
       final profile = await repository.getProfile();
-      final updated = await repository.updateProfile(
-        const PatientProfileDraft(
-          fullName: '  Nguyễn Văn Bình  ',
-          phone: '  0987654321  ',
-          dateOfBirth: '1995-05-20',
-          gender: PatientGender.male,
-          hasBhyt: false,
-          healthInsuranceCode: 'SHOULD_BE_CLEARED',
-          registeredHospital: 'SHOULD_BE_CLEARED',
-          height: 171,
-          weight: 66.5,
-        ),
-      );
+      final updated = await repository.updateProfile({
+        'phone': '0987654321',
+        'height': 171.0,
+      });
 
       expect(profile.dateOfBirth, '1995-05-20');
       expect(profile.gender, PatientGender.male);
@@ -82,22 +73,8 @@ void main() {
       expect(updated.fullName, 'Nguyễn Văn Bình');
       expect(requests.map((request) => request.method), ['GET', 'PATCH']);
       expect(Map<String, dynamic>.from(requests.last.data as Map), {
-        'fullName': 'Nguyễn Văn Bình',
         'phone': '0987654321',
-        'dateOfBirth': '1995-05-20',
-        'gender': 'MALE',
-        'cccd': null,
-        'address': null,
-        'hasBHYT': false,
-        'healthInsuranceCode': null,
-        'registeredHospital': null,
-        'bloodType': null,
         'height': 171.0,
-        'weight': 66.5,
-        'allergies': null,
-        'medicalHistory': null,
-        'familyHistory': null,
-        'bloodPressure': null,
       });
 
       dio.close(force: true);

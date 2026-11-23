@@ -48,9 +48,9 @@ class _FakeProfileRepository extends PatientProfileRepository {
   }
 
   @override
-  Future<PatientProfile> updateProfile(PatientProfileDraft draft) async {
+  Future<PatientProfile> updateProfile(Map<String, Object?> fields) async {
     updateCalls += 1;
-    return _profile(fullName: draft.fullName.trim());
+    return _profile(fullName: (fields['fullName'] as String).trim());
   }
 }
 
@@ -92,12 +92,7 @@ void main() {
 
       final saved = await container
           .read(patientProfileControllerProvider.notifier)
-          .save(
-            const PatientProfileDraft(
-              fullName: '  Nguyễn Văn Bình  ',
-              hasBhyt: false,
-            ),
-          );
+          .saveFields({'fullName': 'Nguyễn Văn Bình'});
 
       expect(saved, isTrue);
       expect(repository.updateCalls, 1);

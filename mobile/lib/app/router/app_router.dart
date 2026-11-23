@@ -16,7 +16,8 @@ import 'package:hospital_booking_mobile/features/booking/presentation/doctor_det
 import 'package:hospital_booking_mobile/features/chatbot/presentation/chatbot_screen.dart';
 import 'package:hospital_booking_mobile/features/catalog/presentation/doctor_list_screen.dart';
 import 'package:hospital_booking_mobile/features/catalog/presentation/package_list_screen.dart';
-import 'package:hospital_booking_mobile/features/dependents/presentation/dependent_form_screen.dart';
+import 'package:hospital_booking_mobile/features/dependents/presentation/dependent_detail_screen.dart';
+import 'package:hospital_booking_mobile/features/dependents/presentation/dependent_wizard_screen.dart';
 import 'package:hospital_booking_mobile/features/dependents/presentation/dependents_screen.dart';
 import 'package:hospital_booking_mobile/features/auth/application/auth_controller.dart';
 import 'package:hospital_booking_mobile/features/auth/presentation/login_screen.dart';
@@ -35,7 +36,8 @@ import 'package:hospital_booking_mobile/features/notifications/domain/patient_no
 import 'package:hospital_booking_mobile/features/onboarding/presentation/first_run_gate.dart';
 import 'package:hospital_booking_mobile/features/packages/presentation/package_detail_screen.dart';
 import 'package:hospital_booking_mobile/features/profile/presentation/profile_screen.dart';
-import 'package:hospital_booking_mobile/features/profile/presentation/profile_edit_screen.dart';
+import 'package:hospital_booking_mobile/features/profile/presentation/profile_health_screen.dart';
+import 'package:hospital_booking_mobile/features/profile/presentation/profile_personal_screen.dart';
 import 'package:hospital_booking_mobile/features/prescriptions/presentation/prescription_detail_screen.dart';
 import 'package:hospital_booking_mobile/features/prescriptions/presentation/prescriptions_screen.dart';
 import 'package:hospital_booking_mobile/features/services/presentation/services_hub_screen.dart';
@@ -337,9 +339,18 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         ],
       ),
       GoRoute(
-        path: '/profile/edit',
-        builder: (_, _) =>
-            const AuthGate(title: 'hồ sơ', child: ProfileEditScreen()),
+        path: '/profile/personal',
+        builder: (_, _) => const AuthGate(
+          title: 'thông tin cá nhân',
+          child: ProfilePersonalScreen(),
+        ),
+      ),
+      GoRoute(
+        path: '/profile/health',
+        builder: (_, _) => const AuthGate(
+          title: 'bảo hiểm và sức khỏe',
+          child: ProfileHealthScreen(),
+        ),
       ),
       GoRoute(
         path: '/mobile-tools',
@@ -357,14 +368,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             path: 'new',
             builder: (_, _) => const AuthGate(
               title: 'hồ sơ người thân',
-              child: DependentFormScreen(),
+              child: DependentWizardScreen(),
             ),
           ),
           GoRoute(
-            path: ':dependentId/edit',
+            path: ':dependentId',
             builder: (_, state) => AuthGate(
               title: 'hồ sơ người thân',
-              child: DependentFormScreen(
+              child: DependentDetailScreen(
                 dependentId: state.pathParameters['dependentId']!,
               ),
             ),

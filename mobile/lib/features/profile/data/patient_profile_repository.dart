@@ -16,12 +16,10 @@ class PatientProfileRepository {
     });
   }
 
-  Future<PatientProfile> updateProfile(PatientProfileDraft draft) async {
+  /// Gửi riêng những trường vừa sửa (máy chủ chỉ cập nhật trường có trong yêu cầu; null là xóa).
+  Future<PatientProfile> updateProfile(Map<String, Object?> fields) async {
     return guardApi(() async {
-      final response = await _dio.patch<dynamic>(
-        '/me',
-        data: draft.toRequestJson(),
-      );
+      final response = await _dio.patch<dynamic>('/me', data: fields);
       return PatientProfile.fromJson(requireDataMap(response.data));
     });
   }

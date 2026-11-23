@@ -24,7 +24,7 @@ class ProfileScreen extends ConsumerWidget {
     final pushState = ref.watch(pushNotificationsControllerProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Hồ sơ người khám')),
+      appBar: AppBar(title: const Text('Tài khoản')),
       body: SafeArea(
         child: state.isInitialLoading && state.profile == null
             ? const ProfileLoading()
@@ -64,25 +64,13 @@ class ProfileScreen extends ConsumerWidget {
                       if (state.isRefreshing) const SizedBox(height: 12),
                       ProfileHeader(
                         profile: state.profile!,
-                        onEdit: state.isSaving
-                            ? null
-                            : () => _openEditor(context, ref),
+                        onComplete: () => context.push('/profile/personal'),
                       ),
-                      if (state.profile!.completionPercent < 90) ...[
-                        const SizedBox(height: AppSpacing.sm),
-                        ProfileCompletionBanner(
-                          profile: state.profile!,
-                          onTap: () => _openEditor(context, ref),
-                        ),
-                      ],
                       const SizedBox(height: AppSpacing.sm),
                       const ProfileQuickTiles(),
-                      const SizedBox(height: AppSpacing.sm),
-                      ProfileMenuList(
+                      ProfileMenuGroups(
+                        profile: state.profile!,
                         pushState: pushState,
-                        onEditProfile: state.isSaving
-                            ? null
-                            : () => _openEditor(context, ref),
                       ),
                     ],
                     const SizedBox(height: AppSpacing.xs),
@@ -110,16 +98,6 @@ class ProfileScreen extends ConsumerWidget {
               ),
       ),
     );
-  }
-
-  Future<void> _openEditor(BuildContext context, WidgetRef ref) async {
-    final updated = await context.push<bool>('/profile/edit');
-    if (!context.mounted || updated != true) return;
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        const SnackBar(content: Text('Đã cập nhật hồ sơ người khám.')),
-      );
   }
 
   Future<void> _requestLogout(BuildContext context, WidgetRef ref) async {
