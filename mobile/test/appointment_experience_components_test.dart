@@ -96,7 +96,7 @@ void main() {
       ),
     );
 
-    expect(find.text('Bạn đã check-in'), findsOneWidget);
+    expect(find.text('Đã check-in'), findsOneWidget);
     expect(find.byKey(const Key('home-appointment-follow')), findsOneWidget);
     expect(find.text('Theo dõi tiến trình'), findsOneWidget);
     expect(find.byKey(const Key('home-appointment-qr')), findsNothing);
