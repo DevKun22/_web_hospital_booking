@@ -204,7 +204,7 @@ class _HomeAppointmentCopy {
           primaryIcon: Icons.fact_check_outlined,
           showQr: true,
           guidance: isToday
-              ? 'Nên có mặt trước giờ khám khoảng 15 phút.'
+              ? 'Nên có mặt trước giờ khám để làm thủ tục.'
               : null,
         );
       default:

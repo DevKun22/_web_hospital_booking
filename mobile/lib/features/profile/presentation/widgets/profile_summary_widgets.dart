@@ -52,7 +52,7 @@ class ProfileHeader extends StatelessWidget {
                   ),
                   if (profile.isEmailVerified)
                     const AppStatusBadge(
-                      label: 'Đã xác thực',
+                      label: 'Email đã xác thực',
                       tone: AppStatusTone.success,
                     ),
                 ],

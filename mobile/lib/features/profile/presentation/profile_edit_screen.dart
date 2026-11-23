@@ -18,7 +18,7 @@ class ProfileEditScreen extends ConsumerStatefulWidget {
 class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
   final _formKey = GlobalKey<FormState>();
   final _fullName = TextEditingController();
-  final _email = TextEditingController();
+  final _phone = TextEditingController();
   final _cccd = TextEditingController();
   final _address = TextEditingController();
   final _healthInsuranceCode = TextEditingController();
@@ -55,7 +55,7 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
 
   List<TextEditingController> get _textControllers => [
     _fullName,
-    _email,
+    _phone,
     _cccd,
     _address,
     _healthInsuranceCode,
@@ -134,8 +134,8 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
                         complete: _personalComplete,
                         child: ProfilePersonalSection(
                           fullName: _fullName,
-                          phone: profile.phone ?? '',
-                          email: _email,
+                          phone: _phone,
+                          email: profile.email ?? '',
                           dateOfBirth: _dateOfBirth,
                           onSelectDateOfBirth: _selectDateOfBirth,
                           onClearDateOfBirth: () =>
@@ -220,7 +220,7 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
     _isHydrating = true;
     _hydratedProfileId = profile.id;
     _fullName.text = profile.fullName;
-    _email.text = profile.email ?? '';
+    _phone.text = profile.phone ?? '';
     _cccd.text = profile.cccd ?? '';
     _address.text = profile.address ?? '';
     _healthInsuranceCode.text = profile.healthInsuranceCode ?? '';
@@ -282,7 +282,7 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
 
   _ProfileFormSnapshot _snapshot() => (
     fullName: _fullName.text.trim(),
-    email: _email.text.trim(),
+    phone: _phone.text.trim(),
     cccd: _cccd.text.trim(),
     address: _address.text.trim(),
     healthInsuranceCode: _hasBhyt ? _healthInsuranceCode.text.trim() : '',
@@ -379,7 +379,7 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
     }
     final draft = PatientProfileDraft(
       fullName: _fullName.text,
-      email: _email.text,
+      phone: _phone.text,
       dateOfBirth: _dateOfBirth,
       gender: _gender,
       cccd: _cccd.text,
@@ -409,7 +409,7 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
 
 typedef _ProfileFormSnapshot = ({
   String fullName,
-  String email,
+  String phone,
   String cccd,
   String address,
   String healthInsuranceCode,

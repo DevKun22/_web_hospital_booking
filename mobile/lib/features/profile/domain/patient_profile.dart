@@ -138,7 +138,7 @@ class PatientProfileDraft {
   const PatientProfileDraft({
     required this.fullName,
     required this.hasBhyt,
-    this.email,
+    this.phone,
     this.dateOfBirth,
     this.gender,
     this.cccd,
@@ -156,7 +156,9 @@ class PatientProfileDraft {
   });
 
   final String fullName;
-  final String? email;
+
+  /// Số điện thoại liên hệ (không xác minh); null hoặc rỗng là xóa số.
+  final String? phone;
   final String? dateOfBirth;
   final PatientGender? gender;
   final String? cccd;
@@ -177,7 +179,7 @@ class PatientProfileDraft {
 
   Map<String, dynamic> toRequestJson() => {
     'fullName': fullName.trim(),
-    'email': jsonNullableString(email),
+    'phone': jsonNullableString(phone),
     'dateOfBirth': jsonNullableString(dateOfBirth),
     'gender': gender?.apiValue,
     'cccd': jsonNullableString(cccd),

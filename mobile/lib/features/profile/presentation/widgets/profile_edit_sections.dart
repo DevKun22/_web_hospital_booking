@@ -21,8 +21,10 @@ class ProfilePersonalSection extends StatelessWidget {
   });
 
   final TextEditingController fullName;
-  final String phone;
-  final TextEditingController email;
+  final TextEditingController phone;
+
+  /// Email đăng nhập, đã xác thực bằng OTP; không đổi được ở đây.
+  final String email;
   final String? dateOfBirth;
   final VoidCallback onSelectDateOfBirth;
   final VoidCallback onClearDateOfBirth;
@@ -55,28 +57,29 @@ class ProfilePersonalSection extends StatelessWidget {
       ),
       const SizedBox(height: 12),
       TextFormField(
-        initialValue: phone,
+        initialValue: email,
         enabled: false,
         decoration: const InputDecoration(
-          labelText: 'Số điện thoại đã xác thực',
+          labelText: 'Email đăng nhập (đã xác thực)',
           prefixIcon: Icon(Icons.verified_user_outlined),
         ),
       ),
       const SizedBox(height: 12),
       TextFormField(
-        controller: email,
-        keyboardType: TextInputType.emailAddress,
+        controller: phone,
+        keyboardType: TextInputType.phone,
         textInputAction: TextInputAction.next,
-        maxLength: 254,
+        maxLength: 12,
         decoration: const InputDecoration(
-          labelText: 'Email',
-          prefixIcon: Icon(Icons.email_outlined),
+          labelText: 'Số điện thoại liên hệ',
+          helperText: 'Dùng để cơ sở khám liên hệ khi cần.',
+          prefixIcon: Icon(Icons.phone_outlined),
         ),
         validator: (value) {
-          final email = value?.trim() ?? '';
-          if (email.isEmpty) return null;
-          if (!RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(email)) {
-            return 'Email không đúng định dạng.';
+          final text = value?.trim() ?? '';
+          if (text.isEmpty) return null;
+          if (!RegExp(r'^(0|\+84)[0-9]{9,10}$').hasMatch(text)) {
+            return 'Số điện thoại không đúng định dạng.';
           }
           return null;
         },

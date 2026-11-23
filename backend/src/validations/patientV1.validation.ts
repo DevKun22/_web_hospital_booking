@@ -40,6 +40,8 @@ export const patientPushTokenSchema = z.object({
 export const patientProfileUpdateSchema = z
   .object({
     fullName: z.string().trim().min(2).max(120).optional(),
+    // Số điện thoại liên hệ, không xác minh (định danh đăng nhập là email nên không đổi được qua hồ sơ).
+    phone: z.string().trim().regex(phoneRegex, "Số điện thoại không hợp lệ").nullable().optional(),
     dateOfBirth: z.string().date().nullable().optional(),
     gender: z.enum(["MALE", "FEMALE", "OTHER"]).nullable().optional(),
     cccd: z.string().trim().min(9).max(20).nullable().optional(),

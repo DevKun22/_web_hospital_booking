@@ -23,7 +23,7 @@ enum AppointmentPreparationItem {
   arriveEarly(
     id: 'arrive_early',
     title: 'Sắp xếp đến sớm',
-    description: 'Nên có mặt trước giờ khám khoảng 15 phút để làm thủ tục.',
+    description: 'Nên có mặt trước giờ khám để làm thủ tục.',
   );
 
   const AppointmentPreparationItem({

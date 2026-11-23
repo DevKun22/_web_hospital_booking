@@ -6,6 +6,8 @@ import { paginationMeta } from "../utils/pagination.js";
 import { parseDateOnly } from "../utils/time.js";
 import PatientAppointmentReadRepository from "../repositories/patientAppointmentRead.repository.js";
 import AppointmentService, { HEALTH_CONSENT_VERSION } from "./appointment.service.js";
+import PolicyService from "./policy.service.js";
+import { cancelDeadlineOf } from "../utils/cancelDeadline.js";
 
 const medicalRecordSelect = {
   id: true,
@@ -222,8 +224,10 @@ class PatientPortalService {
     }
 
     // Email là định danh đăng nhập (đã xác minh bằng OTP) nên không đổi được qua hồ sơ.
+    // Số điện thoại chỉ là thông tin liên hệ (không xác minh, không unique) nên sửa được; null là xóa số.
     const userData = {
       fullName: input.fullName as string | undefined,
+      phone: input.phone as string | null | undefined,
     };
     const profileData = {
       dateOfBirth,
@@ -314,13 +318,22 @@ class PatientPortalService {
       patientId,
       ...input,
     });
-    return { items, meta: paginationMeta(input.page, input.limit, total) };
+    // Mốc cuối để tự hủy tính ở máy chủ (chính sách có thể đổi), để app không phải đoán và hiện nút hủy khi máy chủ sẽ từ chối.
+    const { patientCancelCutoffHours } = await PolicyService.get();
+    return {
+      items: items.map((item) => ({
+        ...item,
+        cancelDeadline: cancelDeadlineOf(item, patientCancelCutoffHours),
+      })),
+      meta: paginationMeta(input.page, input.limit, total),
+    };
   }
 
   async getAppointment(patientId: string, id: string) {
     const item = await PatientAppointmentReadRepository.findById(patientId, id);
     if (!item) throw new AppError("Không tìm thấy lịch hẹn", 404);
-    return item;
+    const { patientCancelCutoffHours } = await PolicyService.get();
+    return { ...item, cancelDeadline: cancelDeadlineOf(item, patientCancelCutoffHours) };
   }
 
   async cancelAppointment(patientId: string, id: string, reason: string) {
