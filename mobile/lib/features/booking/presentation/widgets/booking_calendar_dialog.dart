@@ -153,19 +153,23 @@ class _BookingCalendarDialogState extends ConsumerState<BookingCalendarDialog> {
             const SizedBox(height: AppSpacing.sm),
             Row(
               children: [
-                Container(
-                  width: 8,
-                  height: 8,
-                  decoration: BoxDecoration(
-                    color: colors.success,
-                    shape: BoxShape.circle,
-                  ),
-                ),
-                const SizedBox(width: AppSpacing.xs),
                 Expanded(
-                  child: Text(
-                    'Ngày còn khung giờ trống',
-                    style: text.bodySmall?.copyWith(color: colors.muted),
+                  child: Text.rich(
+                    TextSpan(
+                      style: text.bodySmall?.copyWith(color: colors.muted),
+                      children: [
+                        TextSpan(
+                          text: 'Số xanh',
+                          style: TextStyle(
+                            color: colors.success,
+                            fontWeight: AppFontWeight.strong,
+                          ),
+                        ),
+                        const TextSpan(
+                          text: ' dưới ngày là số khung giờ còn trống',
+                        ),
+                      ],
+                    ),
                   ),
                 ),
                 TextButton(
@@ -253,32 +257,35 @@ class _MonthGrid extends StatelessWidget {
                     : (pickable ? colors.primarySoft : Colors.transparent),
                 shape: BoxShape.circle,
               ),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    '$day',
-                    style: text.bodyMedium?.copyWith(
-                      color: selected
-                          ? colors.onPrimary
-                          : (pickable ? colors.primaryDark : colors.muted),
-                      fontWeight: pickable
-                          ? AppFontWeight.strong
-                          : AppFontWeight.regular,
-                    ),
-                  ),
-                  if (pickable)
-                    Container(
-                      width: 5,
-                      height: 5,
-                      margin: const EdgeInsets.only(top: AppSpacing.hair),
-                      // Chấm xanh lá là dấu "còn giờ trống"; ngày đang chọn đổi sang trắng để không chìm vào nền xanh.
-                      decoration: BoxDecoration(
-                        color: selected ? colors.onPrimary : colors.success,
-                        shape: BoxShape.circle,
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      '$day',
+                      style: text.bodyMedium?.copyWith(
+                        color: selected
+                            ? colors.onPrimary
+                            : (pickable ? colors.primaryDark : colors.muted),
+                        fontWeight: pickable
+                            ? AppFontWeight.strong
+                            : AppFontWeight.regular,
+                        height: 1.1,
                       ),
                     ),
-                ],
+                    if (pickable)
+                      // Số khung giờ còn trống của ngày; màu xanh lá, đổi sang trắng khi ngày đang chọn.
+                      Text(
+                        '$count',
+                        style: text.labelSmall?.copyWith(
+                          color: selected ? colors.onPrimary : colors.success,
+                          fontWeight: AppFontWeight.strong,
+                          height: 1.1,
+                        ),
+                      ),
+                  ],
+                ),
               ),
             ),
           ),
