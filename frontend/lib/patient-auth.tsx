@@ -18,7 +18,7 @@ type OtpChallenge = {
 type PatientAuthContextValue = {
   user: PatientUser | null;
   loading: boolean;
-  requestOtp: (email: string, terms?: { termsAccepted?: boolean; termsVersion?: string }) => Promise<OtpChallenge>;
+  requestOtp: (email: string, terms?: PatientTermsPayload) => Promise<OtpChallenge>;
   verifyOtp: (challengeId: string, otp: string) => Promise<PatientUser>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<PatientUser | null>;
@@ -32,6 +32,22 @@ const PatientAuthContext = createContext<PatientAuthContextValue | null>(null);
 
 const patientFetch = async <T,>(path: string, init?: RequestInit) =>
   (await patientApiRequest<T>(path, init)).data;
+
+// Email là định danh đăng nhập và nơi nhận OTP; chưa có tài khoản thì tạo khi xác thực thành công.
+// Dùng được cả ngoài PatientAuthProvider (popup đăng nhập ở đầu trang công khai).
+export type PatientTermsPayload = { termsAccepted?: boolean; termsVersion?: string };
+
+export const requestPatientOtp = (email: string, terms?: PatientTermsPayload) =>
+  patientFetch<OtpChallenge>("/auth/request-otp", {
+    method: "POST",
+    body: JSON.stringify({ email: email.trim().toLowerCase(), ...terms }),
+  });
+
+export const verifyPatientOtp = async (challengeId: string, otp: string) =>
+  (await patientFetch<{ user: PatientUser }>("/auth/verify-otp", {
+    method: "POST",
+    body: JSON.stringify({ challengeId, otp }),
+  })).user;
 
 export function PatientAuthProvider({ children }: { children: React.ReactNode }) {
   const queryClient = useQueryClient();
@@ -62,23 +78,15 @@ export function PatientAuthProvider({ children }: { children: React.ReactNode })
     return () => window.clearTimeout(timer);
   }, [refreshUser]);
 
-  // Email là định danh đăng nhập và nơi nhận OTP; chưa có tài khoản thì tạo khi xác thực thành công.
-  const requestOtp = useCallback((email: string, terms?: { termsAccepted?: boolean; termsVersion?: string }) =>
-    patientFetch<OtpChallenge>("/auth/request-otp", {
-      method: "POST",
-      body: JSON.stringify({ email: email.trim().toLowerCase(), ...terms }),
-    }), []);
+  const requestOtp = requestPatientOtp;
 
   const verifyOtp = useCallback(async (challengeId: string, otp: string) => {
-    const result = await patientFetch<{ user: PatientUser }>("/auth/verify-otp", {
-      method: "POST",
-      body: JSON.stringify({ challengeId, otp }),
-    });
-    setUser(result.user);
+    const user = await verifyPatientOtp(challengeId, otp);
+    setUser(user);
     setIdleWarning(false);
     lastServerActivityRef.current = Date.now();
-    queryClient.setQueryData(patientSessionQueryKey, result.user);
-    return result.user;
+    queryClient.setQueryData(patientSessionQueryKey, user);
+    return user;
   }, [queryClient]);
 
   const logout = useCallback(async () => {
