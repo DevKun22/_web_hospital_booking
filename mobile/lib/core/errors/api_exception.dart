@@ -33,6 +33,7 @@ class ApiException implements Exception {
     this.requestId,
     this.statusCode,
     this.errors = const [],
+    this.retryAfterSeconds,
   });
 
   factory ApiException.fromDio(DioException error) {
@@ -86,6 +87,10 @@ class ApiException implements Exception {
       code: json['code']?.toString(),
       requestId: json['requestId']?.toString(),
       errors: errors,
+      retryAfterSeconds: switch (json['retryAfterSeconds']) {
+        final num value when value > 0 => value.ceil(),
+        _ => null,
+      },
       message:
           json['message']?.toString() ??
           switch (kind) {
@@ -106,6 +111,9 @@ class ApiException implements Exception {
   final String? requestId;
   final int? statusCode;
   final List<FieldError> errors;
+
+  /// Số giây máy chủ yêu cầu chờ trước khi thử lại (vd. gửi lại OTP); null khi không có.
+  final int? retryAfterSeconds;
 
   bool get invalidatesSession =>
       kind == ApiErrorKind.unauthorized ||

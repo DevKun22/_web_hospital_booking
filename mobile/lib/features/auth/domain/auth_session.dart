@@ -32,11 +32,17 @@ class OtpChallenge {
     this.maskedTarget,
   });
 
+  // Hạn mã tính từ `expiresIn` (số giây) cộng giờ của máy lúc nhận: giờ máy lệch với máy chủ vẫn đếm ngược đúng.
   factory OtpChallenge.fromJson(Map<String, dynamic> json) => OtpChallenge(
     challengeId: json['challengeId']?.toString() ?? '',
-    expiresAt:
-        DateTime.tryParse(json['expiresAt']?.toString() ?? '') ??
-        DateTime.now().add(const Duration(minutes: 5)),
+    expiresAt: switch (json['expiresIn']) {
+      final num seconds when seconds > 0 => DateTime.now().add(
+        Duration(seconds: seconds.toInt()),
+      ),
+      _ =>
+        DateTime.tryParse(json['expiresAt']?.toString() ?? '')?.toLocal() ??
+            DateTime.now().add(const Duration(minutes: 5)),
+    },
     deliveryStatus: json['deliveryStatus']?.toString(),
     debugOtp: json['debugOtp']?.toString(),
     maskedTarget: json['maskedTarget']?.toString(),

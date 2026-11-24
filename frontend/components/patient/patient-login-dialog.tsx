@@ -47,6 +47,7 @@ export function PatientLoginDialog({
   const [seconds, setSeconds] = useState(0);
   const [resendIn, setResendIn] = useState(0);
   const [submitting, setSubmitting] = useState(false);
+  const [resending, setResending] = useState(false);
   const [error, setError] = useState("");
   const [termsAccepted, setTermsAccepted] = useState(false);
   const legalQuery = useLegal();
@@ -109,13 +110,16 @@ export function PatientLoginDialog({
 
   if (!open) return null;
 
+  // Gửi mã ở bước email, và gửi lại ở bước nhập mã. Gửi lại thất bại thì giữ nguyên mã đang có (máy chủ chỉ đóng mã cũ
+  // khi mã mới đã gửi được); máy chủ báo còn phải chờ thì đếm ngược theo đúng số giây trả về.
   const sendOtp = async () => {
     setError("");
     if (terms && !termsAccepted) {
       setError(TERMS_REQUIRED_MESSAGE);
       return;
     }
-    setSubmitting(true);
+    const isResend = step === "otp";
+    (isResend ? setResending : setSubmitting)(true);
     try {
       const challenge = await requestPatientOtp(email, termsPayload(terms, termsAccepted));
       setChallengeId(challenge.challengeId);
@@ -128,13 +132,17 @@ export function PatientLoginDialog({
       window.requestAnimationFrame(() => otpRef.current?.focus());
     } catch (cause) {
       if (cause instanceof PatientApiError && cause.code === "TERMS_OUTDATED") {
-        // Điều khoản vừa được cập nhật: tải lại bản mới và bắt đồng ý lại.
+        // Điều khoản vừa được cập nhật: tải lại bản mới, quay về bước email để đồng ý lại.
         setTermsAccepted(false);
+        setStep("email");
         void legalQuery.refetch();
+      }
+      if (cause instanceof PatientApiError && cause.code === "OTP_COOLDOWN" && cause.retryAfterSeconds) {
+        setResendIn(cause.retryAfterSeconds);
       }
       setError(cause instanceof Error ? cause.message : "Không thể gửi mã xác thực.");
     } finally {
-      setSubmitting(false);
+      (isResend ? setResending : setSubmitting)(false);
     }
   };
 
@@ -248,14 +256,15 @@ export function PatientLoginDialog({
               </span>
             </label>
             {debugOtp ? <DebugOtpBox otp={debugOtp} onFill={setOtp} /> : null}
-            <button disabled={submitting || otp.length !== OTP_LENGTH} className="public-button-primary flex min-h-12 w-full items-center justify-center gap-2 rounded-lg px-4 text-base font-semibold disabled:cursor-not-allowed disabled:opacity-60">
+            <button disabled={submitting || otp.length !== OTP_LENGTH || seconds === 0} className="public-button-primary flex min-h-12 w-full items-center justify-center gap-2 rounded-lg px-4 text-base font-semibold disabled:cursor-not-allowed disabled:opacity-60">
               {submitting ? <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" /> : null} Xác nhận
             </button>
             <p className="text-sm text-[var(--public-muted)]" aria-live="polite">
-              {seconds > 0 ? `Mã hết hạn sau ${formatCountdown(seconds)}` : "Mã đã hết hạn"}
+              {seconds > 0 ? `Mã hết hạn sau ${formatCountdown(seconds)}` : <span className="text-[var(--public-danger)]">Mã đã hết hạn, hãy gửi lại mã</span>}
               {" · "}
-              <button type="button" disabled={resendIn > 0 || submitting} onClick={sendOtp} className="inline-flex min-h-11 items-center gap-1 font-semibold text-[var(--public-primary)] disabled:text-[var(--public-muted)]">
-                <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" /> {resendIn > 0 ? `Gửi lại sau ${resendIn}s` : "Gửi lại mã"}
+              <button type="button" disabled={resendIn > 0 || submitting || resending} onClick={sendOtp} className="inline-flex min-h-11 items-center gap-1 font-semibold text-[var(--public-primary)] disabled:text-[var(--public-muted)]">
+                {resending ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" /> : <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />}
+                {resending ? "Đang gửi lại mã" : resendIn > 0 ? `Gửi lại sau ${resendIn}s` : "Gửi lại mã"}
               </button>
             </p>
           </form>

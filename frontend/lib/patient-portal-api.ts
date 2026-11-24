@@ -13,16 +13,20 @@ type PortalEnvelope<T> = {
   };
   message?: string;
   code?: string;
+  retryAfterSeconds?: number;
 };
 
 export class PatientApiError extends Error {
   status: number;
   code?: string;
+  /** Số giây máy chủ yêu cầu chờ trước khi thử lại (vd. gửi lại OTP). */
+  retryAfterSeconds?: number;
 
-  constructor(message: string, status: number, code?: string) {
+  constructor(message: string, status: number, code?: string, retryAfterSeconds?: number) {
     super(message);
     this.status = status;
     this.code = code;
+    this.retryAfterSeconds = retryAfterSeconds;
   }
 }
 
@@ -47,7 +51,7 @@ export async function patientApiRequest<T>(
   });
   const payload = (await response.json().catch(() => null)) as PortalEnvelope<T> | null;
   if (!response.ok || !payload || payload.success === false || (!allowEmpty && payload.data === undefined)) {
-    throw new PatientApiError(payload?.message || DEFAULT_ERROR, response.status, payload?.code);
+    throw new PatientApiError(payload?.message || DEFAULT_ERROR, response.status, payload?.code, payload?.retryAfterSeconds);
   }
   return { data: payload.data as T, meta: payload.meta };
 }

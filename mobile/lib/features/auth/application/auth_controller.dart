@@ -100,6 +100,38 @@ class AuthController extends Notifier<AuthState> {
     }
   }
 
+  /// Gửi lại mã khi đang ở bước nhập mã. Giữ nguyên thử thách hiện tại cho tới khi có mã mới, nên gửi lại
+  /// thất bại (còn trong thời gian chờ, quá giới hạn, mất mạng) không làm mất mã người dùng đang có trong email.
+  Future<bool> resendOtp({String? termsVersion}) async {
+    final email = state.email;
+    if (email == null ||
+        state.challenge == null ||
+        state.status != AuthStatus.awaitingOtp) {
+      return false;
+    }
+    state = state.copyWith(clearError: true);
+    try {
+      final challenge = await ref
+          .read(authRepositoryProvider)
+          .requestOtp(email, termsVersion: termsVersion);
+      // Người dùng đã đổi email hoặc rời luồng trong lúc chờ: bỏ kết quả.
+      if (state.status != AuthStatus.awaitingOtp || state.email != email) {
+        return false;
+      }
+      state = state.copyWith(challenge: challenge, clearError: true);
+      return true;
+    } on ApiException catch (error) {
+      if (state.status != AuthStatus.awaitingOtp || state.email != email) {
+        return false;
+      }
+      state = state.copyWith(
+        error: error,
+        errorOrigin: AuthErrorOrigin.requestOtp,
+      );
+      return false;
+    }
+  }
+
   Future<bool> verifyOtp(String otp) async {
     final challenge = state.challenge;
     if (challenge == null) {
