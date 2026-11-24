@@ -184,7 +184,7 @@ test("đường lùi cho chuyên khoa nối thành một đoạn và kèm lưu �
 });
 
 test("bộ nhớ đệm: hết hạn theo thời gian, theo phiên bản kho và loại mục cũ nhất khi đầy", async () => {
-  const { TtlCache } = await import("../../src/services/chatbot/rag/ttl-cache.js");
+  const { TtlCache } = await import("../../src/utils/ttlCache.js");
   const cache = new TtlCache<string>(2, 30);
   cache.set("a", "1", 1);
   assert.equal(cache.get("a", 1), "1");

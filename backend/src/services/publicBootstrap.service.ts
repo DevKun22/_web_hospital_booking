@@ -1,3 +1,4 @@
+import { bumpPublicContentVersion } from "./publicContentVersion.js";
 import BannerService from "./banner.service.js";
 import PackageService from "./package.service.js";
 import PublicDepartmentService from "./publicDepartment.service.js";
@@ -38,9 +39,10 @@ class PublicBootstrapService {
     Promise<PublicBootstrapData>
   >();
 
-  // Quản trị sửa nội dung công khai: bỏ cache trang chủ và đánh dấu chỉ mục tìm kiếm hết hạn.
+  // Quản trị sửa nội dung công khai: bỏ cache trang chủ, bộ đệm danh mục (qua phiên bản nội dung) và chỉ mục tìm kiếm.
   invalidate() {
     this.cache.clear();
+    bumpPublicContentVersion();
     PublicSearchService.invalidateIndex();
   }
 

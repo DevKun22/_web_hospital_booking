@@ -1,3 +1,5 @@
+import { TtlCache } from "../utils/ttlCache.js";
+import { getPublicContentVersion } from "./publicContentVersion.js";
 import { createFoldedMatcher } from "../utils/textSearch.js";
 import { Prisma } from "../../generated/prisma/client.js";
 import { prisma } from "../config/prisma.js";
@@ -129,6 +131,11 @@ const publicPackageSelect = {
     },
   },
 } satisfies Prisma.PackageSelect;
+
+// Danh mục gói công khai đổi ít; quản trị sửa gói thì phiên bản nội dung đổi và bản đệm bị bỏ ngay.
+const publicPackageCache = new TtlCache<
+  Prisma.PackageGetPayload<{ select: typeof publicPackageSelect }>[]
+>(1, 30_000);
 
 const getIncludedItemsTotal = (
   items?: { price: number; included: boolean }[],
@@ -446,15 +453,20 @@ class PackageService {
   }) {
     const page = Math.max(Math.trunc(query.page || 1), 1);
     const limit = Math.min(Math.max(Math.trunc(query.limit || 10), 1), 50);
-    // Một truy vấn cho cả danh mục: phần tóm tắt cần toàn bộ gói, còn lọc và tìm không dấu chạy trên bộ nhớ.
-    const allPackages = await prisma.package.findMany({
-      where: {
-        isActive: true,
-        AND: [publicCompletePackageWhere],
-      },
-      select: publicPackageSelect,
-      orderBy: [{ isPopular: "desc" }, { basePrice: "asc" }],
-    });
+    // Một truy vấn (đệm 30 giây) cho cả danh mục: phần tóm tắt cần toàn bộ gói, còn lọc và tìm không dấu chạy trên bộ nhớ.
+    const allPackages = await publicPackageCache.getOrLoad(
+      "all",
+      () =>
+        prisma.package.findMany({
+          where: {
+            isActive: true,
+            AND: [publicCompletePackageWhere],
+          },
+          select: publicPackageSelect,
+          orderBy: [{ isPopular: "desc" }, { basePrice: "asc" }],
+        }),
+      getPublicContentVersion(),
+    );
     const matches = createFoldedMatcher(query.search);
     const matchingPackages = allPackages.filter(
       (item) =>
