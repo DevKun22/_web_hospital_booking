@@ -20,6 +20,7 @@ type ApiEnvelope<T> = {
   data?: T;
   meta?: { total?: number };
   code?: string;
+  retryAfterSeconds?: number;
 };
 
 type PatientSessionTokens = {
@@ -159,6 +160,8 @@ export function patientErrorResponse(
       success: false,
       message: payload?.message || "Không thể xử lý yêu cầu. Vui lòng thử lại.",
       code: payload?.code,
+      // Số giây phải chờ (vd. gửi lại OTP) để giao diện đếm ngược đúng với máy chủ.
+      ...(payload?.retryAfterSeconds ? { retryAfterSeconds: payload.retryAfterSeconds } : {}),
     },
     { status },
   );

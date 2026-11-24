@@ -99,6 +99,29 @@ class PatientAuthService {
         { challengeId: challenge.id, userId: user.id, decoy: isDecoy },
       );
 
+      // Gửi thẳng (hàng đợi hỏng) mà nhà cung cấp email từ chối: báo ngay thay vì để người dùng chờ một mã không bao giờ tới.
+      // Khối catch xóa thử thách, kéo theo bản ghi mã (cascade), nên không còn gì giữ thời gian chờ: bấm gửi lại được ngay.
+      // Môi trường phát triển và kiểm thử trả mã thử nghiệm (debugOtp) nên vẫn đăng nhập được dù không có dịch vụ email.
+      if (otp.deliveryStatus === "FAILED" && !otp.debugOtp) {
+        throw new AppError(
+          "Chưa gửi được mã tới email. Vui lòng thử lại sau ít phút.",
+          503,
+          "OTP_DELIVERY_FAILED",
+        );
+      }
+
+      // Chỉ mã mới nhất dùng được: thử thách đăng nhập cũ chưa dùng của cùng tài khoản bị đóng lại,
+      // để mã trong các email gửi trước (có thể đến muộn hoặc bị lộ) không còn giá trị.
+      await prisma.dashboardLoginChallenge.updateMany({
+        where: {
+          userId: user.id,
+          purpose: "PATIENT_PORTAL_LOGIN",
+          usedAt: null,
+          id: { not: challenge.id },
+        },
+        data: { usedAt: new Date() },
+      });
+
       return {
         challengeId: challenge.id,
         maskedTarget: maskEmail(email),
@@ -108,7 +131,7 @@ class PatientAuthService {
         debugOtp: otp.debugOtp,
       };
     } catch (error) {
-      await prisma.dashboardLoginChallenge.delete({
+      await prisma.dashboardLoginChallenge.deleteMany({
         where: { id: challenge.id },
       });
       throw error;

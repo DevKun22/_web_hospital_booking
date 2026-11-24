@@ -36,7 +36,8 @@ class _LoginPanelState extends ConsumerState<LoginPanel> {
   final _otpController = TextEditingController();
   final _otpFocus = FocusNode();
   bool _termsAccepted = false;
-  Timer? _ticker;
+  bool _resending = false;
+  late final Timer _ticker;
   DateTime? _resendAt;
 
   @override
@@ -44,11 +45,30 @@ class _LoginPanelState extends ConsumerState<LoginPanel> {
     super.initState();
     _emailController.text = ref.read(authControllerProvider).email ?? '';
     _otpController.addListener(_onOtpChanged);
+    // Một nhịp mỗi giây cho cả hai đồng hồ ở bước nhập mã: hạn của mã và thời gian chờ gửi lại.
+    _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted && _isOtpStep(ref.read(authControllerProvider))) {
+        setState(() {});
+      }
+    });
+  }
+
+  static bool _isOtpStep(AuthState auth) =>
+      auth.challenge != null &&
+      (auth.status == AuthStatus.awaitingOtp ||
+          auth.status == AuthStatus.verifyingOtp);
+
+  /// Số giây còn lại của mã đang dùng; 0 là mã đã hết hạn.
+  int _secondsUntilExpiry(AuthState auth) {
+    final expiresAt = auth.challenge?.expiresAt;
+    if (expiresAt == null) return 0;
+    final left = expiresAt.difference(DateTime.now()).inSeconds;
+    return left < 0 ? 0 : left;
   }
 
   @override
   void dispose() {
-    _ticker?.cancel();
+    _ticker.cancel();
     _emailController.dispose();
     _otpController.dispose();
     _otpFocus.dispose();
@@ -60,19 +80,14 @@ class _LoginPanelState extends ConsumerState<LoginPanel> {
     final auth = ref.read(authControllerProvider);
     // Đủ 6 số (gõ hoặc dán từ email) thì tự xác nhận.
     if (_otpController.text.length == _otpLength &&
-        auth.status == AuthStatus.awaitingOtp) {
+        auth.status == AuthStatus.awaitingOtp &&
+        _secondsUntilExpiry(auth) > 0) {
       unawaited(_verify());
     }
   }
 
-  void _startResendCountdown() {
-    _resendAt = DateTime.now().add(_resendCooldown);
-    _ticker?.cancel();
-    _ticker = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (!mounted) return timer.cancel();
-      if (_secondsUntilResend == 0) timer.cancel();
-      setState(() {});
-    });
+  void _startResendCountdown([Duration wait = _resendCooldown]) {
+    setState(() => _resendAt = DateTime.now().add(wait));
   }
 
   int get _secondsUntilResend {
@@ -90,16 +105,40 @@ class _LoginPanelState extends ConsumerState<LoginPanel> {
     await _request(terms?.version);
   }
 
-  Future<void> _resend() => _request(
-    requiredTerms(ref)?.version,
-    email: ref.read(authControllerProvider).email,
-  );
+  /// Gửi lại mã ở bước nhập mã: mã cũ vẫn dùng được cho tới khi mã mới gửi thành công.
+  /// Máy chủ báo còn phải chờ thì đếm ngược theo đúng số giây máy chủ trả về.
+  Future<void> _resend() async {
+    setState(() => _resending = true);
+    final sent = await ref
+        .read(authControllerProvider.notifier)
+        .resendOtp(termsVersion: requiredTerms(ref)?.version);
+    if (!mounted) return;
+    setState(() => _resending = false);
+    if (sent) {
+      _otpController.clear();
+      _startResendCountdown();
+      _otpFocus.requestFocus();
+      return;
+    }
+    final error = ref
+        .read(authControllerProvider)
+        .errorFor(AuthErrorOrigin.requestOtp);
+    final retryAfter = error?.retryAfterSeconds;
+    if (error?.code == 'OTP_COOLDOWN' && retryAfter != null) {
+      _startResendCountdown(Duration(seconds: retryAfter));
+    } else if (refreshIfTermsOutdated(ref, error?.code)) {
+      // Điều khoản vừa đổi: quay về bước email để đồng ý bản mới rồi gửi mã.
+      _changeEmail();
+      setState(() => _termsAccepted = false);
+      showTermsRequired(context);
+    }
+  }
 
-  Future<void> _request(String? termsVersion, {String? email}) async {
+  Future<void> _request(String? termsVersion) async {
     final sent = await ref
         .read(authControllerProvider.notifier)
         .requestOtp(
-          (email ?? _emailController.text).trim(),
+          _emailController.text.trim(),
           returnTo: widget.returnTo,
           termsVersion: termsVersion,
         );
@@ -128,7 +167,6 @@ class _LoginPanelState extends ConsumerState<LoginPanel> {
   void _changeEmail() {
     ref.read(authControllerProvider.notifier).restartLogin();
     _otpController.clear();
-    _ticker?.cancel();
     _resendAt = null;
   }
 
@@ -137,12 +175,11 @@ class _LoginPanelState extends ConsumerState<LoginPanel> {
     final auth = ref.watch(authControllerProvider);
     final colors = context.colors;
     final text = Theme.of(context).textTheme;
-    final onOtpStep =
-        auth.challenge != null &&
-        (auth.status == AuthStatus.awaitingOtp ||
-            auth.status == AuthStatus.verifyingOtp);
+    final onOtpStep = _isOtpStep(auth);
+    // Ở bước nhập mã, lỗi có thể đến từ xác nhận mã hoặc từ gửi lại mã.
     final error = onOtpStep
-        ? auth.errorFor(AuthErrorOrigin.verifyOtp)
+        ? auth.errorFor(AuthErrorOrigin.verifyOtp) ??
+              auth.errorFor(AuthErrorOrigin.requestOtp)
         : auth.errorFor(AuthErrorOrigin.requestOtp) ??
               auth.errorFor(AuthErrorOrigin.session);
 
@@ -244,11 +281,25 @@ class _LoginPanelState extends ConsumerState<LoginPanel> {
         ? auth.challenge?.debugOtp
         : null;
     final wait = _secondsUntilResend;
+    final expiresIn = _secondsUntilExpiry(auth);
+    final expired = expiresIn == 0;
+    final text = Theme.of(context).textTheme;
+    final colors = context.colors;
     return [
       OtpCodeField(
         controller: _otpController,
         focusNode: _otpFocus,
-        enabled: !verifying,
+        enabled: !verifying && !expired,
+      ),
+      const SizedBox(height: AppSpacing.sm),
+      Text(
+        expired
+            ? 'Mã đã hết hạn. Hãy gửi lại mã mới.'
+            : 'Mã hết hạn sau ${expiresIn ~/ 60}:${(expiresIn % 60).toString().padLeft(2, '0')}',
+        textAlign: TextAlign.center,
+        style: text.bodySmall?.copyWith(
+          color: expired ? colors.danger : colors.muted,
+        ),
       ),
       if (debugOtp != null) ...[
         const SizedBox(height: AppSpacing.sm),
@@ -262,22 +313,33 @@ class _LoginPanelState extends ConsumerState<LoginPanel> {
       AppPrimaryButton(
         label: 'Xác nhận',
         loading: verifying,
-        onPressed: _otpController.text.length == _otpLength ? _verify : null,
+        onPressed: _otpController.text.length == _otpLength && !expired
+            ? _verify
+            : null,
       ),
       const SizedBox(height: AppSpacing.xs),
       Center(
         child: TextButton.icon(
-          onPressed: wait > 0 || verifying ? null : _resend,
-          icon: const Icon(Icons.refresh_outlined),
-          label: Text(wait > 0 ? 'Gửi lại mã sau ${wait}s' : 'Gửi lại mã'),
+          onPressed: wait > 0 || verifying || _resending ? null : _resend,
+          icon: _resending
+              ? const SizedBox.square(
+                  dimension: AppIconSize.sm,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Icon(Icons.refresh_outlined),
+          label: Text(
+            _resending
+                ? 'Đang gửi lại mã'
+                : wait > 0
+                ? 'Gửi lại mã sau ${wait}s'
+                : 'Gửi lại mã',
+          ),
         ),
       ),
       Text(
         'Chưa thấy thư? Xem cả mục thư rác. Mã dán từ email sẽ tự điền.',
         textAlign: TextAlign.center,
-        style: Theme.of(
-          context,
-        ).textTheme.bodySmall?.copyWith(color: context.colors.muted),
+        style: text.bodySmall?.copyWith(color: colors.muted),
       ),
     ];
   }
