@@ -363,7 +363,8 @@ class ChatbotService {
   /** Đổi chủ đề giữa lúc đặt lịch (hỏi giá, hỏi chính sách): bản nháp vẫn giữ, kèm nút quay lại đặt lịch. */
   private withResume(output: AIChatbotOutput, draft: ChatBookingDraft): AIChatbotOutput {
     const resume = resumeBookingAction(draft).filter((action) => !output.suggestedActions.some((item) => item.type === action.type));
-    return { ...output, draft: { ...draft, ...output.draft }, suggestedActions: [...output.suggestedActions, ...resume] };
+    // Nút quay lại đứng đầu: danh sách nút bị giới hạn (maxSuggestedActions), không được để nó bị cắt mất.
+    return { ...output, draft: { ...draft, ...output.draft }, suggestedActions: [...resume, ...output.suggestedActions] };
   }
 
   private async finish(input: {
