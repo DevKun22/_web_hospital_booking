@@ -1,3 +1,4 @@
+import { bumpPublicContentVersion } from "../../../src/services/publicContentVersion.js";
 import assert from "node:assert/strict";
 import { after, before, beforeEach, test } from "node:test";
 
@@ -107,6 +108,8 @@ export const resetDatabase = async () => {
   await prisma.$executeRawUnsafe(
     `TRUNCATE TABLE ${targetTables} RESTART IDENTITY CASCADE`,
   );
+  // Dữ liệu vừa xóa sạch: bộ đệm danh mục công khai của ca trước không còn đúng.
+  bumpPublicContentVersion();
 };
 
 // Email là định danh tài khoản; test vẫn nhận biết người dùng theo số điện thoại nên sinh email ổn định từ số đó.

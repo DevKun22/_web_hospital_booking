@@ -86,6 +86,14 @@ const countBy = <T extends string | null>(
   }));
 
 
+// Lịch không diễn ra: các kiểu hủy và người khám không đến.
+const CANCELLED_STATUSES: readonly AppointmentStatus[] = [
+  "CANCELLED_BY_PATIENT",
+  "CANCELLED_BY_DOCTOR",
+  "CANCELLED_BY_ADMIN",
+  "NO_SHOW",
+];
+
 class DashboardStatisticsService {
   async getDoctorWorkspace(date: string, actor: DashboardActor) {
     const [
@@ -153,22 +161,27 @@ class DashboardStatisticsService {
       ),
     );
 
+    // Đếm lịch và hóa đơn theo trạng thái bằng một câu groupBy mỗi loại, thay vì một câu đếm cho từng trạng thái.
     const [
-      totalAppointments,
-      pendingConfirmAppointments,
+      appointmentStatusGroups,
+      invoiceStatusGroups,
       todayAppointments,
-      completedAppointments,
-      cancelledAppointments,
       newPatients,
-      unpaidInvoices,
       completedWithoutInvoiceAppointments,
-      paidInvoiceAggregate,
-      refundedInvoiceAggregate,
       latestAppointments,
     ] = await prisma.$transaction([
-      prisma.appointment.count({ where: { appointmentDate } }),
-      prisma.appointment.count({
-        where: { appointmentDate, status: "PENDING_CONFIRM" },
+      prisma.appointment.groupBy({
+        by: ["status"],
+        where: { appointmentDate },
+        _count: { _all: true },
+        orderBy: { status: "asc" },
+      }),
+      prisma.invoice.groupBy({
+        by: ["status"],
+        where: { createdAt },
+        _count: { _all: true },
+        _sum: { finalAmount: true },
+        orderBy: { status: "asc" },
       }),
       prisma.appointment.count({
         where: {
@@ -178,43 +191,18 @@ class DashboardStatisticsService {
           },
         },
       }),
-      prisma.appointment.count({
-        where: { appointmentDate, status: "COMPLETED" },
-      }),
-      prisma.appointment.count({
-        where: {
-          appointmentDate,
-          status: {
-            in: [
-              "CANCELLED_BY_ADMIN",
-              "CANCELLED_BY_DOCTOR",
-              "CANCELLED_BY_PATIENT",
-              "NO_SHOW",
-            ],
-          },
-        },
-      }),
       prisma.user.count({
         where: {
           role: "PATIENT",
           createdAt,
         },
       }),
-      prisma.invoice.count({ where: { createdAt, status: "UNPAID" } }),
       prisma.appointment.count({
         where: {
           appointmentDate,
           status: "COMPLETED",
           invoice: null,
         },
-      }),
-      prisma.invoice.aggregate({
-        where: { createdAt, status: { in: ["PAID", "REFUNDED"] } },
-        _sum: { finalAmount: true },
-      }),
-      prisma.invoice.aggregate({
-        where: { createdAt, status: "REFUNDED" },
-        _sum: { finalAmount: true },
       }),
       prisma.appointment.findMany({
         where: { appointmentDate },
@@ -244,17 +232,29 @@ class DashboardStatisticsService {
       }),
     ]);
 
-    const collectedAmount = sumAmount(paidInvoiceAggregate._sum.finalAmount);
-    const refundedAmount = sumAmount(refundedInvoiceAggregate._sum.finalAmount);
+    const appointmentsWith = (statuses: readonly AppointmentStatus[]) =>
+      appointmentStatusGroups
+        .filter((group) => statuses.includes(group.status))
+        .reduce((total, group) => total + group._count._all, 0);
+    const invoiceGroup = (status: InvoiceStatus) =>
+      invoiceStatusGroups.find((group) => group.status === status);
+    const paidAmount = sumAmount(invoiceGroup("PAID")?._sum?.finalAmount);
+    const refundedAmount = sumAmount(invoiceGroup("REFUNDED")?._sum?.finalAmount);
+    // Tiền đã thu gồm cả hóa đơn đã hoàn (thu rồi mới hoàn); tiền ròng trừ phần hoàn.
+    const collectedAmount = paidAmount + refundedAmount;
+    const unpaidInvoices = (invoiceGroup("UNPAID")?._count._all ?? 0);
 
     return {
       range,
       metrics: {
-        totalAppointments,
-        pendingConfirmAppointments,
+        totalAppointments: appointmentStatusGroups.reduce(
+          (total, group) => total + group._count._all,
+          0,
+        ),
+        pendingConfirmAppointments: appointmentsWith(["PENDING_CONFIRM"]),
         todayAppointments,
-        completedAppointments,
-        cancelledAppointments,
+        completedAppointments: appointmentsWith(["COMPLETED"]),
+        cancelledAppointments: appointmentsWith(CANCELLED_STATUSES),
         newPatients,
         unpaidInvoices,
         completedWithoutInvoiceAppointments,
@@ -307,7 +307,6 @@ class DashboardStatisticsService {
       dailyMap.set(date, { total: 0, completed: 0, cancelled: 0 });
     }
 
-    const CANCELLED_STATUSES: readonly AppointmentStatus[] = ["CANCELLED_BY_PATIENT", "CANCELLED_BY_DOCTOR", "CANCELLED_BY_ADMIN", "NO_SHOW"];
     for (const group of dailyGroups) {
       const key = toDateOnly(group.appointmentDate);
       const item = dailyMap.get(key) || { total: 0, completed: 0, cancelled: 0 };
@@ -370,8 +369,9 @@ class DashboardStatisticsService {
         _count: { paymentMethod: true },
         _sum: { finalAmount: true },
       }),
+      // Chỉ hóa đơn đã thu (kể cả đã hoàn) mới góp vào doanh thu theo ngày; hóa đơn chưa thu, đã hủy không cần kéo về.
       prisma.invoice.findMany({
-        where: { createdAt },
+        where: { createdAt, status: { in: ["PAID", "REFUNDED"] } },
         select: {
           createdAt: true,
           status: true,
@@ -381,14 +381,11 @@ class DashboardStatisticsService {
       }),
     ]);
 
-    const collectedAmount = invoices
-      .filter(
-        (invoice) => invoice.status === "PAID" || invoice.status === "REFUNDED",
-      )
-      .reduce((total, invoice) => total + invoice.finalAmount, 0);
-    const refundedAmount = invoices
-      .filter((invoice) => invoice.status === "REFUNDED")
-      .reduce((total, invoice) => total + invoice.finalAmount, 0);
+    // Tổng tiền lấy từ nhóm theo trạng thái (đã cộng trong cơ sở dữ liệu), không cộng lại từng hóa đơn.
+    const amountOf = (status: InvoiceStatus) =>
+      sumAmount(statusGroups.find((group) => group.status === status)?._sum.finalAmount);
+    const refundedAmount = amountOf("REFUNDED");
+    const collectedAmount = amountOf("PAID") + refundedAmount;
 
     const dailyMap = new Map<
       string,
@@ -426,7 +423,10 @@ class DashboardStatisticsService {
         collectedAmount,
         refundedAmount,
         netAmount: collectedAmount - refundedAmount,
-        invoiceCount: invoices.length,
+        invoiceCount: statusGroups.reduce(
+          (total, group) => total + group._count.status,
+          0,
+        ),
       },
       byStatus: statuses.map((status) => {
         const group = statusGroups.find((item) => item.status === status);

@@ -3,7 +3,7 @@ import { logger } from "../../../observability/logger.js";
 import type { AIChatbotOutput, ChatBookingDraft, ChatbotResponseSource, SuggestedAction } from "../chatbot.types.js";
 import { summarizeArticleText } from "../rag/generator.js";
 import KnowledgeService from "../rag/knowledge.service.js";
-import { TtlCache } from "../rag/ttl-cache.js";
+import { TtlCache } from "../../../utils/ttlCache.js";
 import { vary } from "../rules/variants.js";
 import { withFocus } from "./follow-up.js";
 

@@ -3,7 +3,7 @@ import KnowledgeService from "../rag/knowledge.service.js";
 import { answerFromSources, extractiveAnswer, type GroundedAnswer } from "../rag/generator.js";
 import { logger } from "../../../observability/logger.js";
 import { foldVietnamese } from "../rules/text-normalizer.js";
-import { TtlCache } from "../rag/ttl-cache.js";
+import { TtlCache } from "../../../utils/ttlCache.js";
 import FollowUp, { withFocus } from "./follow-up.js";
 import { vary } from "../rules/variants.js";
 import type { ChatbotSource, RetrievedChunk } from "../rag/rag.types.js";
