@@ -73,9 +73,20 @@ export class KnowledgeIndex {
 
   search(
     query: string,
-    options: { queryVector?: number[] | null; types?: KnowledgeSourceType[]; limit?: number } = {},
+    options: {
+      queryVector?: number[] | null;
+      types?: KnowledgeSourceType[];
+      limit?: number;
+      /** Chỉ để đánh giá so sánh: "lexical" bỏ vector, "semantic" bỏ phần tìm theo từ. Chạy thật luôn là "hybrid". */
+      mode?: "hybrid" | "lexical" | "semantic";
+    } = {},
   ): RetrievedChunk[] {
-    const { words, all } = tokenize(query);
+    const mode = options.mode ?? "hybrid";
+    if (mode === "lexical") options = { ...options, queryVector: null };
+    if (mode === "semantic" && !options.queryVector) return [];
+    const { words: queryWords, all: queryAll } = tokenize(query);
+    const words = mode === "semantic" ? [] : queryWords;
+    const all = mode === "semantic" ? [] : queryAll;
     if (!all.length && !options.queryVector) return [];
     const wanted = options.types ? new Set<string>(options.types) : null;
     const limit = options.limit ?? 5;

@@ -22,6 +22,7 @@
     "seed:clinic": "tsx src/scripts/seedClinicData.ts",
     "seed:demo": "tsx src/scripts/seedDemoFlows.ts",
     "seed:chatbot-faq": "tsx src/scripts/seedChatbotFAQ.ts",
+    "eval:chatbot": "tsx src/scripts/evalChatbot.ts",
     "check:queue-redis": "tsx src/scripts/checkQueueRedis.ts",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev --name init",

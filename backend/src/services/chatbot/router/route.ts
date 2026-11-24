@@ -22,7 +22,7 @@ export const routeByRules = (message: string): RuleRoute => {
 // ("hủy lịch trước bao lâu", "có được đổi lịch không") có từ để hỏi nên không bị bắt ở đây mà đi kho tri thức.
 const POLICY_QUESTION = /\b(bao lau|truoc may|duoc khong|co duoc|the nao|nhu the nao|quy dinh|chinh sach|phi|mat phi|hoan tien)\b/;
 const CANCEL_MINE = /\b(huy|xoa) (giup |cho )?(toi |minh |em )?(cai )?(lich|lich hen|lich kham|cuoc hen)\b/;
-const RESCHEDULE_MINE = /\b(doi|doi lai|chuyen|doi sang|dời|lui|doi ngay) (giup |cho )?(toi |minh |em )?(lich|lich hen|lich kham|cuoc hen)\b|\bdoi lich\b|\bdoi gio kham\b/;
+const RESCHEDULE_MINE = /\b(doi|doi lai|chuyen|doi sang|lui|doi ngay) (giup |cho )?(toi |minh |em )?(lich|lich hen|lich kham|cuoc hen)\b|\bdoi lich\b|\bdoi gio kham\b/;
 const LOOKUP_MINE = /\b(lich hen|lich kham) (cua )?(toi|minh|em)\b|\b(xem|tra cuu|kiem tra) (lai )?(lich hen|lich kham|lich da dat)\b|\bBK\d{14}\b/i;
 
 export const routeByHeuristics = (message: string): ChatOperation | null => {
