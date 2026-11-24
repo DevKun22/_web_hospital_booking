@@ -79,6 +79,7 @@ class ChatbotDraftReducer {
       Boolean(patch.departmentId) && patch.departmentId !== base.departmentId;
     const doctorChanged = Boolean(patch.doctorId) && patch.doctorId !== base.doctorId;
     const dateChanged = Boolean(patch.date) && patch.date !== base.date;
+    const timeChanged = Boolean(patch.preferredTime) && patch.preferredTime !== base.preferredTime;
     const periodChanged =
       Boolean(patch.timePeriod) && patch.timePeriod !== base.timePeriod;
 
@@ -95,7 +96,7 @@ class ChatbotDraftReducer {
             timeSlotId: undefined,
           }
         : {}),
-      ...(doctorChanged || dateChanged || periodChanged
+      ...(doctorChanged || dateChanged || periodChanged || timeChanged
         ? { timeSlotId: undefined }
         : {}),
     };

@@ -28,7 +28,8 @@ const emergencyPhrases = [
 const phrasePattern = (phrase: string) => new RegExp(`(^|[^a-z0-9])${phrase.split(" ").join("[ ]+")}([^a-z0-9]|$)`);
 const emergencyPatterns = emergencyPhrases.map(phrasePattern);
 
-const LETTER_BOUNDARY = "[^\p{L}\p{N}]";
+// Chuỗi thường "[^\p{L}\p{N}]" mất dấu gạch chéo (thành "[^p{L}p{N}]") nên từng khớp nhầm "ngấtngây"; String.raw giữ nguyên.
+const LETTER_BOUNDARY = String.raw`[^\p{L}\p{N}]`;
 // Có dấu: khớp đúng từ "ngất" (không bắt "ngạt", "ngắt").
 const FAINT_ACCENTED = new RegExp(`(^|${LETTER_BOUNDARY})ngất(${LETTER_BOUNDARY}|$)`, "u");
 // Gõ không dấu: "ngat" là từ nhập nhằng; chỉ coi là ngất khi cả tin không có dấu nào và không đi với "mũi", "thở" (ngạt mũi, ngạt thở).

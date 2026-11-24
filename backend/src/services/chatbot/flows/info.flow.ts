@@ -1,6 +1,6 @@
 import type { AIChatbotOutput, ChatBookingDraft, ChatbotResponseSource } from "../chatbot.types.js";
 import KnowledgeService from "../rag/knowledge.service.js";
-import { answerFromSources, extractiveAnswer, type GroundedAnswer } from "../rag/generator.js";
+import { answerFromSources, extractiveAnswer, numbersAreGrounded, type GroundedAnswer } from "../rag/generator.js";
 import { logger } from "../../../observability/logger.js";
 import { foldVietnamese } from "../rules/text-normalizer.js";
 import { TtlCache } from "../../../utils/ttlCache.js";
@@ -12,7 +12,28 @@ import { loadSourceMeta, sourceMetaKey } from "../rag/source-meta.js";
 // Hỏi thông tin (giá, giờ làm việc, chính sách, bác sĩ, quy trình): truy hồi trong kho tri thức rồi để AI trả lời có căn cứ.
 // AI không dùng được thì trả nguyên văn đoạn khớp nhất; không có đoạn đủ liên quan thì nói thẳng là chưa có thông tin.
 
-type InfoResult = { output: AIChatbotOutput; source: ChatbotResponseSource; sourceIds: string[] };
+/** Điểm truy hồi của từng đoạn, ghi vào vết để soi vì sao câu trả lời dựa vào đoạn đó. */
+export type RetrievalTrace = { id: string; type: string; score: number; coverage: number; similarity: number | null };
+
+type InfoResult = {
+  output: AIChatbotOutput;
+  source: ChatbotResponseSource;
+  sourceIds: string[];
+  retrieval: RetrievalTrace[];
+  /** Có gọi AI sinh câu trả lời và AI có trả lời được không. */
+  ai: { called: boolean; ok: boolean; ms: number } | null;
+  /** Câu trả lời AI bị bỏ vì có con số không có trong nguồn. */
+  numericRejected?: boolean;
+};
+
+const toRetrievalTrace = (chunks: RetrievedChunk[]): RetrievalTrace[] =>
+  chunks.map((item) => ({
+    id: item.chunk.id,
+    type: item.chunk.sourceType,
+    score: Number(item.score.toFixed(5)),
+    coverage: Number(item.coverage.toFixed(3)),
+    similarity: item.similarity === null ? null : Number(item.similarity.toFixed(3)),
+  }));
 
 const RETRIEVED_LIMIT = 5;
 
@@ -100,9 +121,6 @@ export const isNoInformationOutput = (output: AIChatbotOutput, source: ChatbotRe
   source === "FALLBACK" ||
   (source === "SYSTEM" && output.intent === "GENERAL_HOSPITAL_INFO" && output.confidence <= 0.3 && !output.sources?.length);
 
-/** Kết quả một lần nhờ AI sinh câu trả lời: có câu trả lời, AI báo không đủ căn cứ (grounded null), hoặc không gọi được AI (failed). */
-export type Generation = { grounded: GroundedAnswer | null; failed: boolean };
-
 class InfoFlow {
   /** Câu trả lời đã có trong bộ nhớ đệm cho đúng câu hỏi này, nếu có. */
   cached(input: { message: string; draft: ChatBookingDraft; aiEnabled: boolean; model?: string }): InfoResult | null {
@@ -111,53 +129,46 @@ class InfoFlow {
     return hit ? { ...hit, output: { ...hit.output, draft: withFocus(input.draft, hit.output.draft.focus) } } : null;
   }
 
-  /** Truy hồi các đoạn tri thức cho câu hỏi; tách riêng để chạy song song với việc AI phân tích ý định. */
+  /** Truy hồi các đoạn tri thức cho câu hỏi. */
   retrieve(message: string) {
     return KnowledgeService.retrieve(message, { limit: RETRIEVED_LIMIT });
   }
 
   /**
-   * Nhờ AI sinh câu trả lời từ các đoạn tìm được. Không bao giờ ném lỗi (lỗi thành `failed`), để có thể bắt đầu sớm,
-   * chạy song song với việc AI phân tích ý định, và bỏ kết quả đi nếu câu hóa ra không phải câu hỏi thông tin.
+   * Trả lời một câu hỏi thông tin; null khi kho không có đoạn nào liên quan hoặc không có câu trả lời kiểm chứng được.
+   * Chỉ chạy khi bộ điều phối đã xác định đây là câu hỏi thông tin (không sinh trước "phòng hờ" song song với phân tích ý định).
    */
-  generate(input: { message: string; chunks: RetrievedChunk[]; model?: string }): Promise<Generation> {
-    return answerFromSources({ question: input.message, chunks: input.chunks, model: input.model })
-      .then((grounded) => ({ grounded, failed: false }))
-      .catch((error) => {
-        logger.warn("[CHATBOT_RAG] Không gọi được AI, dùng đoạn khớp nhất:", error);
-        return { grounded: null, failed: true };
-      });
-  }
-
-  /**
-   * Trả lời một câu hỏi thông tin; null khi kho không có đoạn nào liên quan. `chunks` có sẵn thì khỏi truy hồi lại;
-   * `generation` có sẵn (đã bắt đầu từ trước) thì chờ nó thay vì gọi AI lần nữa.
-   */
-  async answer(input: {
-    message: string;
-    draft: ChatBookingDraft;
-    aiEnabled: boolean;
-    model?: string;
-    chunks?: RetrievedChunk[] | null;
-    generation?: Promise<Generation | null> | null;
-  }): Promise<InfoResult | null> {
+  async answer(input: { message: string; draft: ChatBookingDraft; aiEnabled: boolean; model?: string }): Promise<InfoResult | null> {
     const version = KnowledgeService.version;
-    const chunks = input.chunks ?? (await this.retrieve(input.message));
+    const chunks = await this.retrieve(input.message);
     if (!chunks.length) return null;
+    const retrieval = toRetrievalTrace(chunks);
 
     // AI trả lời "không đủ căn cứ" thì tôn trọng; chỉ khi AI tắt hoặc không gọi được mới trả nguyên văn đoạn khớp nhất.
     let grounded: GroundedAnswer | null = null;
     let aiFailed = !input.aiEnabled;
-    if (input.generation) {
-      const generation = await input.generation;
-      if (generation) {
-        grounded = generation.grounded;
-        aiFailed = generation.failed;
+    let ai: InfoResult["ai"] = null;
+    let numericRejected = false;
+    if (input.aiEnabled) {
+      const startedAt = Date.now();
+      try {
+        grounded = await answerFromSources({ question: input.message, chunks, model: input.model });
+        ai = { called: true, ok: true, ms: Date.now() - startedAt };
+      } catch (error) {
+        logger.warn("[CHATBOT_RAG] Không gọi được AI, dùng đoạn khớp nhất:", error instanceof Error ? error.message : "lỗi không rõ");
+        aiFailed = true;
+        ai = { called: true, ok: false, ms: Date.now() - startedAt };
       }
-    } else if (input.aiEnabled) {
-      const generation = await this.generate({ message: input.message, chunks, model: input.model });
-      grounded = generation.grounded;
-      aiFailed = generation.failed;
+      // Kiểm số liệu: câu trả lời có con số không nằm trong đoạn nguồn đã dẫn thì bỏ, chuyển sang trích nguyên văn.
+      if (grounded) {
+        const cited = chunks.filter((item) => grounded!.sourceIds.includes(item.chunk.id)).map((item) => `${item.chunk.title} ${item.chunk.content}`);
+        if (!numbersAreGrounded(grounded.reply, cited)) {
+          logger.warn("[CHATBOT_RAG] Câu trả lời của AI có số liệu không có trong nguồn, bỏ.");
+          grounded = null;
+          aiFailed = true;
+          numericRejected = true;
+        }
+      }
     }
     const answer = grounded ?? (aiFailed ? extractiveAnswer(chunks) : null);
     if (!answer) return null;
@@ -180,8 +191,11 @@ class InfoFlow {
       },
       source: grounded ? "AI" : hasFaq ? "FAQ" : "SYSTEM",
       sourceIds: answer.sourceIds,
+      retrieval,
+      ai,
+      numericRejected,
     };
-    // Chỉ nhớ câu trả lời do AI sinh (đường lùi rẻ sẵn); phiên bản kho đã đổi giữa chừng thì không nhớ.
+    // Chỉ nhớ câu trả lời do AI sinh đã qua kiểm số liệu (đường lùi rẻ sẵn); phiên bản kho đã đổi giữa chừng thì không nhớ.
     if (grounded && version === KnowledgeService.version) {
       answerCache.set(cacheKey(input.message, input.aiEnabled, input.model), result, version);
     }

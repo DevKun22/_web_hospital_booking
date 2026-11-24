@@ -1,10 +1,7 @@
 import { TtlCache } from "../../utils/ttlCache.js";
 import { prisma } from "../../config/prisma.js";
 import type { Prisma } from "../../../generated/prisma/client.js";
-import {
-  isSlotStartInPastVietnamTime,
-  parseDateOnly,
-} from "../../utils/time.js";
+import { getVietnamNowParts, parseDateOnly } from "../../utils/time.js";
 import type { ChatBookingDraft, ChatIntent } from "./chatbot.types.js";
 import type { NLUCatalog } from "./ai/nlu.service.js";
 import { getRuntimeConfig } from "../../config/runtimeConfig.js";
@@ -46,31 +43,8 @@ export type ChatbotContext = {
   }[];
 };
 
-const toDateOnly = (date: Date) => {
-  const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone: "Asia/Ho_Chi_Minh",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).formatToParts(date);
-  const values = Object.fromEntries(
-    parts.map((part) => [part.type, part.value]),
-  );
-
-  return `${values.year}-${values.month}-${values.day}`;
-};
-
-const matchesTimePeriod = (
-  startTime: string,
-  period: ChatBookingDraft["timePeriod"],
-) => {
-  if (!period) return true;
-
-  const hour = Number(startTime.slice(0, 2));
-  if (period === "MORNING") return hour < 12;
-  if (period === "AFTERNOON") return hour >= 12 && hour < 18;
-  return hour >= 18;
-};
+// Cột ngày lưu lúc 00:00 UTC (xem parseDateOnly), nên cắt chuỗi ISO là ra đúng ngày.
+const toDateOnly = (date: Date) => date.toISOString().slice(0, 10);
 
 const nluCatalogCache = new TtlCache<NLUCatalog>(1, 60_000);
 
@@ -293,10 +267,16 @@ class ChatbotContextService {
     }));
   }
 
-  private async getAvailableSlots(draft: ChatBookingDraft) {
-    const today = toDateOnly(new Date());
-    const requestedDate =
-      draft.date && draft.date >= today ? draft.date : undefined;
+  private async getAvailableSlots(draft: ChatBookingDraft): Promise<ChatbotContext["availableSlots"]> {
+    const now = getVietnamNowParts();
+    const today = now.date;
+    const requestedDate = draft.date && draft.date >= today ? draft.date : undefined;
+    // Lọc buổi, giờ và giờ đã qua NGAY TRONG TRUY VẤN rồi mới giới hạn số dòng: lọc sau `take` từng làm mất hết lịch buổi chiều
+    // (20 khung đầu ngày toàn buổi sáng). Giờ lưu dạng chuỗi HH:mm đủ hai chữ số nên so sánh chuỗi đúng thứ tự thời gian.
+    const periodFilter = draft.preferredTime ? {} : startTimeOfPeriod(draft.timePeriod);
+    const notPast: Prisma.DoctorTimeSlotWhereInput = {
+      OR: [{ date: { gt: parseDateOnly(today) } }, { date: parseDateOnly(today), startTime: { gt: now.time } }],
+    };
     const baseWhere: Prisma.DoctorTimeSlotWhereInput = {
       ...(draft.doctorId ? { doctorId: draft.doctorId } : {}),
       status: "AVAILABLE",
@@ -304,57 +284,58 @@ class ChatbotContextService {
       doctor: {
         ...(draft.departmentId ? { departmentId: draft.departmentId } : {}),
         isAvailable: true,
-        user: {
-          isActive: true,
-        },
+        user: { isActive: true },
       },
+      ...(Object.keys(periodFilter).length ? { startTime: periodFilter } : {}),
+      AND: [notPast],
     };
 
-    const select = {
-      id: true,
-      doctorId: true,
-      date: true,
-      startTime: true,
-      endTime: true,
-    } as const;
-
-    const findSlots = (date: Date | { gte: Date }, take = 20) =>
+    const findSlots = (date: Date | { gte: Date }, take: number) =>
       prisma.doctorTimeSlot.findMany({
-        where: {
-          ...baseWhere,
-          date,
-        },
-        select,
+        where: { ...baseWhere, date },
+        select: { id: true, doctorId: true, date: true, startTime: true, endTime: true },
         orderBy: [{ date: "asc" }, { startTime: "asc" }],
         take,
       });
 
-    const slots = requestedDate
-      ? await findSlots(parseDateOnly(requestedDate))
-      : await findSlots({ gte: parseDateOnly(today) });
+    // Hỏi đúng một giờ: lấy cả ngày đó rồi xếp theo độ gần với giờ muốn, giờ khớp đúng đứng đầu, kèm vài giờ gần nhất để chọn thay.
+    const limit = draft.preferredTime ? 60 : SLOT_RESULT_LIMIT;
+    let slots = requestedDate ? await findSlots(parseDateOnly(requestedDate), limit) : await findSlots({ gte: parseDateOnly(today) }, limit);
+    // Ngày yêu cầu không còn lịch phù hợp: tìm từ ngày đó trở đi (luồng sẽ nói rõ là ngày khác).
+    if (requestedDate && !slots.length) slots = await findSlots({ gte: parseDateOnly(requestedDate) }, limit);
 
-    const usableSlots = slots.filter(
-      (slot) =>
-        !isSlotStartInPastVietnamTime(slot.date, slot.startTime) &&
-        matchesTimePeriod(slot.startTime, draft.timePeriod),
-    );
-    const fallbackSlots =
-      requestedDate && !usableSlots.length
-        ? (await findSlots({ gte: parseDateOnly(requestedDate) })).filter(
-            (slot) =>
-              !isSlotStartInPastVietnamTime(slot.date, slot.startTime) &&
-              matchesTimePeriod(slot.startTime, draft.timePeriod),
-          )
-        : usableSlots;
-
-    return fallbackSlots.map((slot) => ({
+    let mapped = slots.map((slot) => ({
       id: slot.id,
       doctorId: slot.doctorId,
       date: toDateOnly(slot.date),
       startTime: slot.startTime,
       endTime: slot.endTime,
     }));
+    if (draft.preferredTime) {
+      const wanted = minutesOf(draft.preferredTime);
+      const firstDate = mapped[0]?.date;
+      mapped = mapped
+        .filter((slot) => slot.date === firstDate)
+        .sort((a, b) => Math.abs(minutesOf(a.startTime) - wanted) - Math.abs(minutesOf(b.startTime) - wanted) || a.startTime.localeCompare(b.startTime))
+        .slice(0, PREFERRED_TIME_ALTERNATIVES);
+    }
+    return mapped;
   }
 }
+
+/** Số khung giờ nạp cho một lần trả lời (khung chat chỉ hiện vài khung đầu). */
+const SLOT_RESULT_LIMIT = 20;
+/** Hỏi một giờ cụ thể: trả giờ đó (nếu còn) và tối đa chừng này giờ gần nhất. */
+const PREFERRED_TIME_ALTERNATIVES = 6;
+
+const minutesOf = (time: string) => Number(time.slice(0, 2)) * 60 + Number(time.slice(3, 5));
+
+/** Điều kiện giờ bắt đầu của từng buổi, áp ở truy vấn DB: sáng trước 12:00, chiều 12:00–17:59, tối từ 18:00. */
+export const startTimeOfPeriod = (period: ChatBookingDraft["timePeriod"]): Prisma.StringFilter => {
+  if (period === "MORNING") return { lt: "12:00" };
+  if (period === "AFTERNOON") return { gte: "12:00", lt: "18:00" };
+  if (period === "EVENING") return { gte: "18:00" };
+  return {};
+};
 
 export default new ChatbotContextService();

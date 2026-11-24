@@ -19,6 +19,10 @@ model ChatbotLog {
   // Câu trả lời là "chưa có thông tin" (để đo tỉ lệ kho tri thức không đáp ứng được).
   noInformation Boolean @default(false)
 
+  // Vết xử lý đã làm sạch (traceId, thao tác, handler, trạng thái trước/sau, mã và điểm đoạn tri thức, lượt gọi AI, độ trễ).
+  // Không chứa nội dung tin nhắn, mã OTP, token hay thông tin lịch hẹn cá nhân; chỉ người có quyền chatbot.view xem được.
+  trace Json?
+
   // Phản hồi của người dùng về câu trả lời: HELPFUL | NOT_HELPFUL; chỉ lưu giá trị và thời điểm, không thêm nội dung nào.
   feedback   String?
   feedbackAt DateTime?
@@ -66,6 +70,13 @@ model ChatbotSession {
   lastActions   Json?
   lastMessage   String?
   lastResponse  String?
+
+  // Vài lượt gần nhất (tin đã che thông tin cá nhân + ý định) để phân tích câu nối tiếp; tối đa 5 lượt.
+  history       Json    @default("[]")
+  // Thao tác đang chờ người dùng xác nhận (hủy lịch): gắn với tài khoản, lịch hẹn, phiên, hạn và mã dùng một lần.
+  pendingAction Json?
+  // Tăng mỗi lượt ghi; lượt ghi đến sau mà phiên đã đổi (yêu cầu đồng thời) thì không ghi đè trạng thái.
+  version       Int     @default(0)
 
   isActive  Boolean   @default(true)
   expiresAt DateTime?

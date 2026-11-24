@@ -27,7 +27,7 @@ export const greetingOutput = (draft: ChatBookingDraft): AIChatbotOutput => ({
 
 export const capabilitiesOutput = (draft: ChatBookingDraft): AIChatbotOutput => ({
   reply:
-    "Mình có thể gợi ý chuyên khoa từ triệu chứng, tìm bác sĩ và gói khám, xem lịch trống rồi giúp bạn đặt lịch. Mình cũng trả lời về giá, giờ làm việc, chính sách và cách tra cứu lịch hẹn, kèm nguồn để bạn kiểm tra lại. Mình không chẩn đoán bệnh hay kê đơn thay bác sĩ nhé. Bạn muốn bắt đầu từ đâu?",
+    "Mình có thể gợi ý chuyên khoa từ triệu chứng, tìm bác sĩ và gói khám, xem lịch trống rồi giúp bạn đặt lịch. Mình cũng trả lời về giá, giờ làm việc và chính sách kèm nguồn để bạn kiểm tra lại; khi bạn đã đăng nhập, mình xem và hủy lịch hẹn giúp bạn (luôn hỏi xác nhận trước khi hủy). Mình không chẩn đoán bệnh hay kê đơn thay bác sĩ nhé. Bạn muốn bắt đầu từ đâu?",
   intent: "GENERAL_HOSPITAL_INFO",
   state: "BOOKING_GUIDE",
   nextStep: "SHOW_BOOKING_GUIDE",
@@ -50,27 +50,33 @@ export const resetOutput = (): AIChatbotOutput => ({
   ],
 });
 
-export const emergencyOutput = (draft: ChatBookingDraft): AIChatbotOutput => ({
-  reply:
-    "Triệu chứng bạn kể có thể cần được xử lý khẩn cấp. Bạn hãy gọi cấp cứu hoặc đến cơ sở y tế gần nhất ngay để được hỗ trợ kịp thời.",
+/** Số cấp cứu quốc gia; luôn có trong câu trả lời cấp cứu, không phụ thuộc dữ liệu cấu hình. */
+export const NATIONAL_EMERGENCY_NUMBER = "115";
+
+export const emergencyOutput = (draft: ChatBookingDraft, facilityHotline?: string | null): AIChatbotOutput => ({
+  reply: [
+    `Triệu chứng bạn kể có thể cần xử lý khẩn cấp. Bạn hãy gọi ngay ${NATIONAL_EMERGENCY_NUMBER} (cấp cứu) hoặc đến cơ sở y tế gần nhất, đừng chờ đặt lịch khám.`,
+    facilityHotline ? `Đường dây cấp cứu của cơ sở: ${facilityHotline}.` : null,
+    "Nếu có người ở cạnh, hãy nhờ họ hỗ trợ bạn.",
+  ]
+    .filter(Boolean)
+    .join(" "),
   intent: "SYMPTOM_TRIAGE",
   state: "EMERGENCY_CARE",
   nextStep: "EMERGENCY_CARE",
   confidence: 1,
   draft,
   suggestedActions: [
-    {
-      type: "EMERGENCY_ADVICE",
-      label: "Đến cơ sở y tế gần nhất",
-      payload: {},
-    },
-    {
-      type: "CONTACT_STAFF",
-      label: "Liên hệ nhân viên hỗ trợ",
-      payload: {},
-    },
+    { type: "EMERGENCY_ADVICE", label: `Gọi ${NATIONAL_EMERGENCY_NUMBER}`, payload: { phone: NATIONAL_EMERGENCY_NUMBER } },
+    ...(facilityHotline ? [{ type: "EMERGENCY_ADVICE" as const, label: "Gọi cấp cứu của cơ sở", payload: { phone: facilityHotline } }] : []),
   ],
 });
+
+/** Đang đặt lịch dở (đã chọn khoa/bác sĩ/giờ) mà hỏi sang chuyện khác: luôn có nút quay lại đúng chỗ đang dừng. */
+export const resumeBookingAction = (draft: ChatBookingDraft): SuggestedAction[] =>
+  draft.departmentId || draft.packageId || draft.doctorId || draft.timeSlotId
+    ? [{ type: "RESUME_BOOKING", label: "Tiếp tục đặt lịch", payload: {} }]
+    : [];
 
 export const fallbackOutput = (
   draft: ChatBookingDraft,
@@ -88,6 +94,7 @@ export const fallbackOutput = (
   confidence: 0.3,
   draft,
   suggestedActions: [
+    ...resumeBookingAction(draft),
     { type: "ASK_QUESTION", label: "Tôi có triệu chứng", payload: { question: "Tôi muốn mô tả triệu chứng để được gợi ý chuyên khoa" } },
     { type: "VIEW_PACKAGES", label: "Khám sức khỏe định kỳ", payload: {} },
     { type: "VIEW_DEPARTMENTS", label: "Xem chuyên khoa", payload: {} },

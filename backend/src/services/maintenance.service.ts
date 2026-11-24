@@ -13,6 +13,10 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 const AUTH_ARTIFACT_RETENTION_DAYS = 30;
 // Tài khoản người khám chưa xác thực email và không có dữ liệu gì được giữ chừng này ngày.
 const UNVERIFIED_PATIENT_RETENTION_DAYS = 14;
+// Trợ lý ảo: phiên hết hạn giữ thêm ít ngày rồi xóa (nhật ký còn lại tách khỏi phiên, khóa ngoại SetNull); nhật ký trò chuyện
+// (tin đã che thông tin cá nhân, vết xử lý) giữ chừng này ngày để đo chất lượng rồi xóa. Đổi bằng biến môi trường nếu cần.
+const CHATBOT_SESSION_RETENTION_DAYS = Number(process.env.CHATBOT_SESSION_RETENTION_DAYS) || 30;
+const CHATBOT_LOG_RETENTION_DAYS = Number(process.env.CHATBOT_LOG_RETENTION_DAYS) || 180;
 const LOCK_TRANSACTION_TIMEOUT_MS = 5 * 60 * 1000;
 
 let lastInvoiceReminderAt = 0;
@@ -44,6 +48,17 @@ class MaintenanceService {
       prisma.dashboardLoginChallenge.deleteMany({ where: { expiresAt: { lt: challengeCutoff } } }),
     ]);
     return { sessions: sessions.count, challenges: challenges.count };
+  }
+
+  // Dọn phiên trò chuyện đã hết hạn quá hạn giữ và nhật ký trò chuyện cũ (quyền riêng tư: không giữ hội thoại vô thời hạn).
+  async cleanupChatbotData(now = new Date()) {
+    const sessionCutoff = new Date(now.getTime() - CHATBOT_SESSION_RETENTION_DAYS * DAY_MS);
+    const logCutoff = new Date(now.getTime() - CHATBOT_LOG_RETENTION_DAYS * DAY_MS);
+    const [sessions, logs] = await Promise.all([
+      prisma.chatbotSession.deleteMany({ where: { OR: [{ expiresAt: { lt: sessionCutoff } }, { isActive: false, updatedAt: { lt: sessionCutoff } }] } }),
+      prisma.chatbotLog.deleteMany({ where: { createdAt: { lt: logCutoff } } }),
+    ]);
+    return { sessions: sessions.count, logs: logs.count };
   }
 
   // Gửi OTP đăng nhập người khám tạo sẵn tài khoản cho email chưa có (xác thực xong mới dùng được), nên ai cũng có thể sinh ra tài khoản
@@ -110,6 +125,13 @@ class MaintenanceService {
       return { sessions: 0, challenges: 0 };
     });
     await this.cleanupUnverifiedPatients().catch((error) => logger.error("[UNVERIFIED_PATIENT_CLEANUP] failed:", error));
+    const chatbotCleanup = await this.cleanupChatbotData().catch((error) => {
+      logger.error("[CHATBOT_CLEANUP] failed:", error);
+      return { sessions: 0, logs: 0 };
+    });
+    if (chatbotCleanup.sessions > 0 || chatbotCleanup.logs > 0) {
+      logger.info(`[CHATBOT_CLEANUP] sessionsDeleted=${chatbotCleanup.sessions} logsDeleted=${chatbotCleanup.logs}`);
+    }
 
     if (noShows.marked > 0 || otpCleanup.deleted > 0 || authCleanup.sessions > 0 || authCleanup.challenges > 0) {
       logger.info(

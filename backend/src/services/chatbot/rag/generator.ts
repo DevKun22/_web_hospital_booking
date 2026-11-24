@@ -32,6 +32,8 @@ Quy tắc bắt buộc:
 - Viết ngắn gọn, ấm áp, tối đa 4 câu, không dùng Markdown hay danh sách.
 - Nếu người dùng so sánh hai bác sĩ, hai gói khám hay hai chuyên khoa, nêu điểm khác nhau chính có trong SOURCES (giá, hạng mục, chuyên môn) và không phán đoán bên nào tốt hơn.
 - Nếu câu hỏi nêu một nhóm người (trẻ em, người cao tuổi, phụ nữ mang thai), chỉ nêu điều SOURCES có nói về nhóm đó.
+- "Giờ làm việc/giờ mở cửa" (thông tin liên hệ) khác "lịch khám có thể đặt online" (ca của bác sĩ): hỏi ngày nào khám được hay đặt lịch được thì dựa vào đoạn lịch khám; hai nguồn khác nhau thì nêu cả hai, không tự gộp.
+- Không bao giờ nói còn hay hết lịch trống ở một giờ cụ thể, và không nói đã giữ chỗ hay đã đặt lịch cho người dùng.
 - Mỗi thông tin nêu ra phải có trong ít nhất một đoạn; liệt kê mã các đoạn đã dùng ở "sources" (ví dụ ["S1","S3"]).
 - Chỉ trả JSON hợp lệ: {"answerable":true|false,"reply":"...","sources":["S1"]}.
 `;
@@ -70,6 +72,18 @@ export const answerFromSources = async (input: {
     logger.warn("[CHATBOT_RAG] Phản hồi của AI không đúng định dạng, bỏ qua:", error);
     return null;
   }
+};
+
+/** Các con số trong văn bản sau khi bỏ dấu phân cách hàng nghìn ("1.250.000" → "1250000"), chỉ lấy số từ 2 chữ số. */
+const numbersIn = (text: string) => (text.replace(/(\d)[.,](?=\d{3}\b)/g, "$1").match(/\d{2,}/g) ?? []);
+
+/**
+ * Kiểm số liệu của câu trả lời: mọi con số (giá, giờ, số điện thoại, số ngày) phải xuất hiện trong các đoạn nguồn đã dùng.
+ * AI diễn đạt đúng ý nhưng tự đổi một con số là lỗi nguy hiểm nhất của RAG ở đây, nên câu trả lời có số lạ bị bỏ.
+ */
+export const numbersAreGrounded = (reply: string, sources: string[]) => {
+  const known = new Set(sources.flatMap(numbersIn));
+  return numbersIn(reply).every((value) => known.has(value));
 };
 
 /** Đường lùi chỉ dùng khi đoạn đầu khớp rất rõ (phủ phần lớn từ khóa hoặc rất gần về ý nghĩa): trả lời sai còn tệ hơn nói chưa có thông tin. */

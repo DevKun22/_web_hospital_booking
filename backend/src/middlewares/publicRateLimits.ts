@@ -52,7 +52,7 @@ export const chatbotMessageLimiter = rateLimit({
   max: 30,
   degraded: { mode: "enforce", max: 10 },
   failureMode: "deny",
-  key: (req) => getClientIp(req),
+  key: (req) => (req.patient?.userId ? `user:${req.patient.userId}` : getClientIp(req)),
 });
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;

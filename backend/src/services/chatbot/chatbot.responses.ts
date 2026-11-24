@@ -1,12 +1,6 @@
 import { vary } from "./rules/variants.js";
 
 export const chatbotReplies = {
-  appointmentLookupGuide:
-    "Bạn có thể tra cứu lịch hẹn bằng mã đặt lịch và số điện thoại. Nếu quên mã lịch, hãy dùng tab quên mã để nhận OTP và xem lịch gần đây.",
-
-  paymentGuide:
-    "Bạn có thể thanh toán theo hướng dẫn trên hóa đơn hoặc liên hệ nhân viên nếu cần kiểm tra giao dịch. Nếu đã có mã hóa đơn, hãy mở trang tra cứu lịch hẹn để xem thông tin thanh toán.",
-
   changeDatePrompt:
     "Bạn muốn đổi ngày khám. Hãy nhập ngày mong muốn, ví dụ: hôm nay, ngày mai hoặc 2026-06-10.",
 
@@ -56,8 +50,8 @@ export const chatbotReplies = {
 
   get slotSelected() {
     return vary([
-      "Mình đã giữ khung giờ này cho bạn xem. Bấm đặt lịch để nhập thông tin người khám và xác thực OTP nhé.",
-      "Khung giờ này ổn rồi. Bạn bấm đặt lịch để điền thông tin người khám, rồi xác thực OTP là xong.",
+      "Bạn đã chọn khung giờ này. Khung giờ CHƯA được giữ chỗ: bấm đặt lịch để nhập thông tin người khám và xác thực OTP, lịch chỉ được ghi nhận sau bước đó.",
+      "Mình ghi nhận khung giờ bạn chọn (chưa giữ chỗ). Bạn bấm đặt lịch để điền thông tin người khám rồi xác thực OTP là xong.",
     ]);
   },
 

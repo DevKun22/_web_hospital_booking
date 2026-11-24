@@ -3,14 +3,14 @@ import FAQService from "../../faq.service.js";
 import LegalService from "../../legal.service.js";
 import PolicyService from "../../policy.service.js";
 import SiteSettingsService from "../../siteSettings.service.js";
-import { articleDocs, departmentDoc, departmentSectionDocs, doctorDoc, faqDoc, legalDocs, packageDoc, policyDoc, siteDoc } from "./chunker.js";
+import { articleDocs, bookingScheduleDoc, departmentDoc, departmentSectionDocs, doctorDoc, faqDoc, legalDocs, packageDoc, policyDoc, siteDoc } from "./chunker.js";
 import type { KnowledgeDoc } from "./rag.types.js";
 
 // Đọc các nguồn dữ liệu nghiệp vụ đang hoạt động (chỉ đọc) để dựng kho tri thức; cách dựng từng đoạn nằm ở chunker.ts.
 
 /** Đọc mọi nguồn đang hoạt động và dựng thành các đoạn tri thức. */
 export const buildKnowledgeDocs = async (): Promise<KnowledgeDoc[]> => {
-  const [articles, faqs, departments, doctors, packages, policy, site, legal] = await Promise.all([
+  const [articles, faqs, departments, doctors, packages, policy, site, legal, schedules] = await Promise.all([
     // Chỉ bài đã xuất bản (đã có người duyệt nội dung chuyên môn) mới thành tri thức của chatbot.
     prisma.article.findMany({
       where: { status: "PUBLISHED" },
@@ -65,7 +65,12 @@ export const buildKnowledgeDocs = async (): Promise<KnowledgeDoc[]> => {
     PolicyService.get(),
     SiteSettingsService.get(),
     LegalService.get(),
+    prisma.doctorSchedule.findMany({
+      where: { isActive: true, doctor: { isAvailable: true, user: { isActive: true } } },
+      select: { dayOfWeek: true, startTime: true, endTime: true },
+    }),
   ]);
+  const schedule = bookingScheduleDoc(schedules);
 
   const siteValue = site.value as Parameters<typeof siteDoc>[0];
   const siteInfo = siteDoc(siteValue && typeof siteValue === "object" ? siteValue : {});
@@ -77,6 +82,7 @@ export const buildKnowledgeDocs = async (): Promise<KnowledgeDoc[]> => {
     ...packages.map(packageDoc),
     ...articles.flatMap(articleDocs),
     policyDoc(policy),
+    ...(schedule ? [schedule] : []),
     ...legalDocs("terms", legal.terms),
     ...legalDocs("privacy", legal.privacy),
     ...(siteInfo ? [siteInfo] : []),
