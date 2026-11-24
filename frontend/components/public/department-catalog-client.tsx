@@ -2,13 +2,12 @@
 
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { Stethoscope } from "lucide-react";
 import { useMemo, useState } from "react";
 import { PublicCatalogSearch, PublicPagination } from "@/components/public/public-catalog-controls";
 import { CatalogHeader, CatalogStatusBar, ChatbotHint, ChipRow, FilterChip, FlatSelect } from "@/components/public/catalog-parts";
 import { PublicEmptyState } from "@/components/public/public-page-layout";
 import type { PublicDepartmentCatalogItem } from "@/components/public/public-home-types";
-import { toneGradient } from "@/lib/dept-tone";
+import { EntityMark } from "@/components/public/entity-mark";
 import { usePublicDepartmentCatalog } from "@/lib/public-lists-query";
 import { openPublicChatbot } from "@/lib/public-ui-events";
 
@@ -160,7 +159,7 @@ function CardSkeleton() {
   );
 }
 
-// Thẻ chuyên khoa: ảnh (hoặc ô biểu tượng màu khi chưa có ảnh), tên, mô tả, số liệu thật; cả thẻ là một vùng bấm vào trang chi tiết.
+// Thẻ chuyên khoa: ảnh (hoặc chữ viết tắt trên nền xanh nhạt khi chưa có ảnh), tên, mô tả, số liệu thật; cả thẻ là một vùng bấm vào trang chi tiết.
 // Còn lịch trống thì nút chính là Đặt lịch; hết lịch thì nút chính đổi thành Xem bác sĩ (không đẩy người dùng vào luồng đặt khi chưa có giờ).
 function DepartmentCard({ department, index }: { department: PublicDepartmentCatalogItem; index: number }) {
   const detailUrl = department.slug ? `/chuyen-khoa/${department.slug}` : `/bac-si?departmentId=${department.id}`;
@@ -177,12 +176,10 @@ function DepartmentCard({ department, index }: { department: PublicDepartmentCat
           // eslint-disable-next-line @next/next/no-img-element
           <img src={department.image} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover transition-transform duration-300 group-hover/dept:scale-105" />
         ) : (
-          <span className="flex h-full w-full items-center justify-center" style={{ background: toneGradient(department.name) }}>
-            <Stethoscope className="h-10 w-10 text-white/90" aria-hidden="true" />
-          </span>
+          <EntityMark name={department.name} className="text-4xl" />
         )}
       </Link>
-      <div className="flex min-w-0 flex-1 flex-col p-3.5">
+      <div className="flex min-w-0 flex-1 flex-col items-center p-3.5 text-center">
         <h2 className="text-lg font-semibold leading-snug"><Link href={detailUrl} className="hover:text-[var(--public-primary)]">{department.name}</Link></h2>
         <p className="mt-1 line-clamp-2 text-base leading-7 text-[var(--public-text-soft)]">{department.description || "Thông tin chuyên khoa đang được cập nhật."}</p>
         {meta ? <p className="mt-2 text-sm text-[var(--public-muted)]">{meta}</p> : null}
@@ -193,7 +190,7 @@ function DepartmentCard({ department, index }: { department: PublicDepartmentCat
             <span className="text-[var(--public-muted)]">Chưa có lịch trống</span>
           )}
         </p>
-        <div className="mt-auto flex flex-wrap gap-2 pt-4">
+        <div className="mt-auto flex flex-wrap justify-center gap-2 pt-4">
           {hasSlots ? (
             <>
               <Link href={`/dat-lich?departmentId=${department.id}`} className="public-button-primary inline-flex min-h-11 items-center rounded-lg px-4 text-sm font-semibold">Đặt lịch</Link>

@@ -41,6 +41,7 @@ class MedicalPackage {
     this.slug,
     this.description,
     this.summary,
+    this.image,
     this.note,
     this.departmentId,
     this.departmentName,
@@ -66,6 +67,7 @@ class MedicalPackage {
       slug: jsonNullableString(json['slug']),
       description: jsonNullableString(json['description']),
       summary: jsonNullableString(json['summary']),
+      image: jsonNullableString(json['image']),
       note: jsonNullableString(json['note']),
       departmentId: jsonNullableString(department['id']),
       departmentName: jsonNullableString(department['name']),
@@ -85,6 +87,9 @@ class MedicalPackage {
   final String? slug;
   final String? description;
   final String? summary;
+
+  /// Ảnh gói do quản trị tải lên; chưa có thì hiện chữ viết tắt.
+  final String? image;
   final String? note;
   final String? departmentId;
   final String? departmentName;

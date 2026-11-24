@@ -3,12 +3,7 @@ import 'package:hospital_booking_mobile/core/design/app_colors.dart';
 import 'package:hospital_booking_mobile/core/design/app_design_tokens.dart';
 import 'package:hospital_booking_mobile/core/widgets/app_motion.dart';
 
-/// Phần dùng chung của các dải ngang ở Trang chủ: thẻ, vùng màu, chiều cao và giới hạn cỡ chữ.
-/// Vùng màu xoay vòng theo thứ tự, để các thẻ cạnh nhau có màu khác nhau.
-({Color background, Color foreground}) homeTint(
-  BuildContext context,
-  int index,
-) => context.colors.zoneAt(index);
+/// Phần dùng chung của các dải ngang ở Trang chủ: thẻ, chiều cao và giới hạn cỡ chữ.
 
 /// Thẻ dùng chung của các dải ngang trên Trang chủ: viền mảnh, bo 14, nhấn vào thì co nhẹ.
 class HomeStripCard extends StatelessWidget {

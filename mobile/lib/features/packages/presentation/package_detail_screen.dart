@@ -1,5 +1,4 @@
-import 'package:hospital_booking_mobile/features/catalog/presentation/department_visuals.dart';
-import 'package:hospital_booking_mobile/core/widgets/app_zone.dart';
+import 'package:hospital_booking_mobile/core/widgets/app_entity_mark.dart';
 import 'package:hospital_booking_mobile/core/widgets/app_detail.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -76,16 +75,6 @@ class _PackageDetailBody extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = context.colors;
     final text = Theme.of(context).textTheme;
-    final visual = packageItem.departmentName == null
-        ? (
-            icon: Icons.health_and_safety_outlined,
-            tint: colors.zone(AppZone.primary),
-          )
-        : departmentVisual(
-            context,
-            name: packageItem.departmentName!,
-            slug: packageItem.departmentSlug,
-          );
     final included = packageItem.items
         .where((item) => item.included)
         .toList(growable: false);
@@ -102,14 +91,12 @@ class _PackageDetailBody extends StatelessWidget {
         ),
         children: [
           AppDetailHeader(
-            tint: visual.tint,
-            leading: AppIconTile(
-              icon: visual.icon,
-              tint: (
-                background: colors.surface,
-                foreground: visual.tint.foreground,
-              ),
+            tint: colors.zone(AppZone.primary),
+            leading: AppEntityMark(
+              name: packageItem.name,
+              image: packageItem.image,
               size: AppTileSize.xl,
+              onTinted: true,
             ),
             title: packageItem.name,
             subtitle: packageItem.summary,

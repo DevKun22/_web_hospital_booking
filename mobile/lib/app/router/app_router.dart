@@ -22,7 +22,6 @@ import 'package:hospital_booking_mobile/features/dependents/presentation/depende
 import 'package:hospital_booking_mobile/features/auth/application/auth_controller.dart';
 import 'package:hospital_booking_mobile/features/auth/presentation/login_screen.dart';
 import 'package:hospital_booking_mobile/features/auth/presentation/auth_gate.dart';
-import 'package:hospital_booking_mobile/features/auth/presentation/verify_otp_screen.dart';
 import 'package:hospital_booking_mobile/features/home/presentation/home_screen.dart';
 import 'package:hospital_booking_mobile/features/invoices/presentation/invoice_detail_screen.dart';
 import 'package:hospital_booking_mobile/features/invoices/presentation/invoices_screen.dart';
@@ -62,7 +61,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       final returnTo = routeState.uri.queryParameters['from'] ?? auth.returnTo;
       return resolveAppRedirect(
         authStatus: auth.status,
-        hasChallenge: auth.challenge != null,
         location: location,
         returnTo: returnTo,
       );
@@ -71,12 +69,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/login',
         builder: (_, state) => LoginScreen(
-          returnTo: safeReturnLocation(state.uri.queryParameters['from']),
-        ),
-      ),
-      GoRoute(
-        path: '/verify-otp',
-        builder: (_, state) => VerifyOtpScreen(
           returnTo: safeReturnLocation(state.uri.queryParameters['from']),
         ),
       ),

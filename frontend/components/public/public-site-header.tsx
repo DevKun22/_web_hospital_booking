@@ -13,17 +13,19 @@ import {
   X,
 } from "lucide-react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { PublicGlobalSearch } from "@/components/public/public-global-search";
+import { PatientLoginDialog } from "@/components/patient/patient-login-dialog";
 import { MobileSheet } from "@/components/public/mobile-sheet";
 import { ServiceNavInline, ServiceNavProgress, useServiceNav } from "@/components/public/public-sub-nav";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import type { PatientUser } from "@/lib/patient-portal-types";
 import {
   loadOptionalPatientSession,
+  PATIENT_APPOINTMENTS_PATH,
   patientLookupLink,
   patientSessionQueryKey,
 } from "@/lib/patient-session-client";
@@ -78,29 +80,24 @@ function getPatientDisplayName(fullName: string) {
   return parts.at(-1) || "Người khám";
 }
 
+// Đã đăng nhập: liên kết vào cổng người khám. Chưa đăng nhập: nút mở popup đăng nhập, không rời trang đang xem.
 function PatientIdentity({
   user,
   mobile = false,
   onNavigate,
+  onLogin,
 }: {
   user: PatientUser | null | undefined;
   mobile?: boolean;
   onNavigate?: () => void;
+  onLogin: () => void;
 }) {
-  const href = user ? "/tai-khoan" : "/tai-khoan/dang-nhap";
   const label = user ? `Mở cổng người khám của ${user.fullName}` : "Đăng nhập cổng người khám";
-
-  return (
-    <Link
-      href={href}
-      onClick={onNavigate}
-      aria-label={label}
-      title={user?.fullName || "Đăng nhập"}
-      className={mobile
-        ? "flex min-h-12 items-center gap-3 rounded-xl px-4 py-2.5 text-sm font-medium text-[var(--public-text-soft)] hover:bg-[var(--public-surface-muted)]"
-        : "inline-flex min-h-11 min-w-11 items-center justify-center gap-2 rounded-lg px-2 py-1.5 text-sm font-medium text-[var(--public-text-soft)] transition hover:bg-[var(--public-surface-muted)] hover:text-[var(--public-primary)]"
-      }
-    >
+  const className = mobile
+    ? "flex min-h-12 w-full items-center gap-3 rounded-xl px-4 py-2.5 text-left text-sm font-medium text-[var(--public-text-soft)] hover:bg-[var(--public-surface-muted)]"
+    : "inline-flex min-h-11 min-w-11 items-center justify-center gap-2 rounded-lg px-2 py-1.5 text-sm font-medium text-[var(--public-text-soft)] transition hover:bg-[var(--public-surface-muted)] hover:text-[var(--public-primary)]";
+  const content = (
+    <>
       {user ? (
         user.avatar ? (
           <span className="relative h-8 w-8 shrink-0 overflow-hidden rounded-full border border-[var(--public-border)] bg-[var(--public-primary-soft)]">
@@ -124,6 +121,19 @@ function PatientIdentity({
           </span>
         </span>
       ) : null}
+    </>
+  );
+
+  if (!user) {
+    return (
+      <button type="button" onClick={() => { onNavigate?.(); onLogin(); }} aria-label={label} title="Đăng nhập" aria-haspopup="dialog" className={className}>
+        {content}
+      </button>
+    );
+  }
+  return (
+    <Link href="/tai-khoan" onClick={onNavigate} aria-label={label} title={user.fullName} className={className}>
+      {content}
     </Link>
   );
 }
@@ -169,6 +179,17 @@ export function PublicSiteHeader({
     refetchOnWindowFocus: true,
   });
   const lookup = patientLookupLink(patientSessionQuery.data);
+  // Popup đăng nhập; `next` là trang cần mở sau khi đăng nhập (vd. bấm "Tra cứu lịch hẹn" khi chưa đăng nhập).
+  const router = useRouter();
+  const [login, setLogin] = useState<{ next?: string } | null>(null);
+  const closeLogin = useCallback(() => setLogin(null), []);
+  const openLogin = (next?: string) => setLogin({ next });
+  // Chưa đăng nhập thì "Tra cứu lịch hẹn" mở popup thay vì chuyển sang trang đăng nhập.
+  const onLookupClick = (event: React.MouseEvent) => {
+    if (patientSessionQuery.data !== null) return;
+    event.preventDefault();
+    openLogin(PATIENT_APPOINTMENTS_PATH);
+  };
   // Chỉ hiện số điện thoại khi cơ sở đã cấu hình; không dùng số giả để lấp chỗ trống.
   const hotline = settings?.hotline?.trim() || settings?.emergencyHotline?.trim() || "";
   const workingHours = settings?.workingHours?.trim() || "";
@@ -257,9 +278,10 @@ export function PublicSiteHeader({
             >
               {searchOpen ? <X className="h-5 w-5" aria-hidden="true" /> : <Search className="h-5 w-5" aria-hidden="true" />}
             </button>
-            {accountSlot ?? <PatientIdentity user={patientSessionQuery.data} />}
+            {accountSlot ?? <PatientIdentity user={patientSessionQuery.data} onLogin={() => openLogin()} />}
             <Link
               href={lookup.href}
+              onClick={onLookupClick}
               className="public-button-secondary inline-flex min-h-11 items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold"
             >
               <CalendarCheck className="h-4 w-4" aria-hidden="true" />
@@ -334,10 +356,10 @@ export function PublicSiteHeader({
           <Link href="/tim-kiem" onClick={() => setMobileOpen(false)} className="block min-h-12 rounded-xl px-4 py-3 text-sm font-medium text-[var(--public-text-soft)] hover:bg-[var(--public-surface-muted)]">
             Tìm kiếm dịch vụ
           </Link>
-          <Link href={lookup.href} onClick={() => setMobileOpen(false)} className="block min-h-12 rounded-xl px-4 py-3 text-sm font-medium text-[var(--public-text-soft)] hover:bg-[var(--public-surface-muted)]">
+          <Link href={lookup.href} onClick={(event) => { setMobileOpen(false); onLookupClick(event); }} className="block min-h-12 rounded-xl px-4 py-3 text-sm font-medium text-[var(--public-text-soft)] hover:bg-[var(--public-surface-muted)]">
             {lookup.label}
           </Link>
-          <PatientIdentity user={patientSessionQuery.data} mobile onNavigate={() => setMobileOpen(false)} />
+          <PatientIdentity user={patientSessionQuery.data} mobile onNavigate={() => setMobileOpen(false)} onLogin={() => openLogin()} />
           <ThemeToggle showLabel className="w-full justify-start px-4" />
           <button
             type="button"
@@ -359,6 +381,15 @@ export function PublicSiteHeader({
           </div>
         </nav>
       </MobileSheet>
+      <PatientLoginDialog
+        open={login !== null}
+        onClose={closeLogin}
+        onSuccess={() => {
+          const next = login?.next;
+          setLogin(null);
+          if (next) router.push(next);
+        }}
+      />
     </>
   );
 }

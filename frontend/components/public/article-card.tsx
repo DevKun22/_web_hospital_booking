@@ -1,19 +1,18 @@
 /* eslint-disable @next/next/no-img-element */
 import Link from "next/link";
 import { BookOpenText, ShieldCheck } from "lucide-react";
-import { toneGradient } from "@/lib/dept-tone";
 import type { ArticleSummary } from "@/lib/types";
 
 const formatDate = (value: string | null) => (value ? new Date(value).toLocaleDateString("vi-VN") : "");
 
-// Thẻ bài viết: ảnh bìa (hoặc ô biểu tượng màu theo chuyên mục khi chưa có ảnh), chuyên mục, tiêu đề, tóm tắt và dấu "bác sĩ duyệt" cùng ngày đăng.
+// Thẻ bài viết: ảnh bìa (hoặc biểu tượng trên nền xanh nhạt khi chưa có ảnh), chuyên mục, tiêu đề, tóm tắt và dấu "bác sĩ duyệt" cùng ngày đăng.
 // Biến thể featured là thẻ ngang cho bài mới nhất. Không hiện số phút đọc ở danh sách (không có trong dữ liệu danh sách).
 export function ArticleCard({ article, featured = false, index = 0, className = "" }: { article: ArticleSummary; featured?: boolean; index?: number; className?: string }) {
   const category = article.category || "Kiến thức sức khỏe";
   const cover = article.coverImage ? (
     <img src={article.coverImage} alt="" width={featured ? 800 : 640} height={featured ? 450 : 256} loading="lazy" decoding="async" className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105 motion-reduce:transition-none motion-reduce:group-hover:scale-100" />
   ) : (
-    <span className="flex h-full w-full items-center justify-center text-white/90" style={{ background: toneGradient(category) }}>
+    <span className="flex h-full w-full items-center justify-center bg-[var(--public-primary-soft)] text-[var(--public-primary)]">
       <BookOpenText className={featured ? "h-14 w-14" : "h-9 w-9"} aria-hidden="true" />
     </span>
   );

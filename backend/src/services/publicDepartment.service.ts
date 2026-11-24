@@ -1,6 +1,7 @@
 import { Prisma } from "../../generated/prisma/client.js";
 import { prisma } from "../config/prisma.js";
 import { AppError } from "../utils/appError.js";
+import { createFoldedMatcher } from "../utils/textSearch.js";
 import {
   buildFeaturedSlotWhere,
   publicBookableDoctorWhere,
@@ -124,18 +125,9 @@ class PublicDepartmentService {
       ...(query.available ? { doctors: { some: doctorWhere } } : {}),
     };
 
-    if (query.search?.trim()) {
-      const search = query.search.trim();
-      where.OR = [
-        { name: { contains: search, mode: "insensitive" } },
-        { slug: { contains: search, mode: "insensitive" } },
-        { description: { contains: search, mode: "insensitive" } },
-        { triageDescription: { contains: search, mode: "insensitive" } },
-        { symptomKeywords: { has: search } },
-      ];
-    }
+    const matches = createFoldedMatcher(query.search);
 
-    const [departments, publicDoctorCount, publicPackageCount, activeDepartmentCount, departmentsWithSlots] =
+    const [loadedDepartments, publicDoctorCount, publicPackageCount, activeDepartmentCount, departmentsWithSlots] =
       await Promise.all([
         prisma.department.findMany({
           where,
@@ -162,6 +154,18 @@ class PublicDepartmentService {
           select: { departmentId: true },
         }),
       ]);
+
+    const departments = matches
+      ? loadedDepartments.filter((department) =>
+          matches([
+            department.name,
+            department.slug,
+            department.description,
+            department.triageDescription,
+            ...department.symptomKeywords,
+          ]),
+        )
+      : loadedDepartments;
 
     // Đếm đánh giá và giờ trống NGAY TRONG cơ sở dữ liệu (groupBy theo bác sĩ, tối đa một dòng mỗi bác sĩ) rồi gộp theo khoa.
     // Cách cũ kéo về từng dòng đánh giá và từng khung giờ trống của 14 ngày tới (hàng nghìn dòng) chỉ để cộng lại.

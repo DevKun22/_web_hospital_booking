@@ -29,11 +29,12 @@ const typeLabels: Record<PublicSearchItem["type"], string> = {
 };
 
 // Ô biểu tượng màu theo loại kết quả; nhóm hiện theo thứ tự này ở mục Tất cả.
-const typeStyle: Record<PublicSearchItem["type"], { color: string; icon: LucideIcon }> = {
-  department: { color: "var(--tone-teal)", icon: Stethoscope },
-  doctor: { color: "var(--tone-blue)", icon: UserRound },
-  package: { color: "var(--tone-amber)", icon: Package },
-  faq: { color: "var(--tone-violet)", icon: CircleHelp },
+// Loại kết quả phân biệt bằng biểu tượng; màu dùng chung một tông thương hiệu cho hài hòa.
+const typeStyle: Record<PublicSearchItem["type"], { icon: LucideIcon }> = {
+  department: { icon: Stethoscope },
+  doctor: { icon: UserRound },
+  package: { icon: Package },
+  faq: { icon: CircleHelp },
 };
 const groupOrder: PublicSearchItem["type"][] = ["department", "doctor", "package", "faq"];
 
@@ -157,11 +158,11 @@ export default function SearchClient() {
             <div className="space-y-6">
               <ul className="grid grid-cols-2 gap-3 md:grid-cols-4">
                 {entryLinks.map((entry, index) => {
-                  const { color, icon: Icon } = typeStyle[entry.type];
+                  const { icon: Icon } = typeStyle[entry.type];
                   return (
                     <li key={entry.href} style={{ "--i": index } as React.CSSProperties} className="catalog-rise">
                       <Link href={entry.href} className="flex flex-col items-center gap-2 rounded-2xl border border-[var(--public-border)] bg-[var(--public-surface)] p-4 text-center text-sm font-semibold transition hover:-translate-y-0.5 hover:border-[var(--public-primary)] hover:shadow-md motion-reduce:transition-none motion-reduce:hover:translate-y-0">
-                        <span className="flex h-11 w-11 items-center justify-center rounded-xl text-white" style={{ background: color }}><Icon className="h-5 w-5" aria-hidden="true" /></span>
+                        <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-[var(--public-primary-soft)] text-[var(--public-primary)]"><Icon className="h-5 w-5" aria-hidden="true" /></span>
                         {entry.label}
                       </Link>
                     </li>
@@ -188,11 +189,11 @@ export default function SearchClient() {
 
 // Một dòng kết quả: ô biểu tượng màu theo loại, tên và mô tả có tô nổi từ khóa, giá (gói khám) bên phải.
 function ResultRow({ item, query }: { item: PublicSearchItem; query: string }) {
-  const { color, icon: Icon } = typeStyle[item.type];
+  const { icon: Icon } = typeStyle[item.type];
   return (
     <li>
       <Link href={item.url} className="flex items-start gap-3 p-4 hover:bg-[var(--public-surface-muted)]">
-        <span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-white" style={{ background: color }} aria-hidden="true"><Icon className="h-5 w-5" /></span>
+        <span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[var(--public-primary-soft)] text-[var(--public-primary)]" aria-hidden="true"><Icon className="h-5 w-5" /></span>
         <span className="min-w-0 flex-1">
           <span className="flex flex-wrap items-center gap-x-2 text-sm text-[var(--public-muted)]">
             <span className="font-medium text-[var(--public-primary-dark)]">{typeLabels[item.type]}</span>

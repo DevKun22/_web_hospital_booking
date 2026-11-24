@@ -14,12 +14,26 @@ class CatalogRepository {
 
   final Dio _dio;
 
-  Future<List<CatalogDepartment>> fetchDepartments() async {
+  /// Danh mục chuyên khoa theo trang; máy chủ trả sẵn số bác sĩ, số gói và giờ trống của từng khoa.
+  Future<CatalogPage<CatalogDepartment>> fetchDepartmentCatalog({
+    String? search,
+    bool availableOnly = false,
+    bool alphabetical = false,
+    int page = 1,
+    int limit = 20,
+  }) async {
     return guardApi(() async {
-      final response = await _dio.get<dynamic>('/departments');
-      return requireDataList(
-        response.data,
-      ).map(CatalogDepartment.fromJson).toList(growable: false);
+      final response = await _dio.get<dynamic>(
+        '/departments/catalog',
+        queryParameters: {
+          'search': ?_nonEmpty(search),
+          if (availableOnly) 'available': true,
+          if (alphabetical) 'sort': 'NAME_ASC',
+          'page': page,
+          'limit': limit,
+        },
+      );
+      return _decodePage(response.data, CatalogDepartment.fromJson);
     });
   }
 

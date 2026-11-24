@@ -1,3 +1,4 @@
+import 'package:hospital_booking_mobile/core/widgets/app_entity_mark.dart';
 import 'package:hospital_booking_mobile/core/widgets/app_zone.dart';
 
 import 'package:flutter/material.dart';
@@ -10,7 +11,7 @@ import 'package:hospital_booking_mobile/features/catalog/domain/catalog_entities
 
 import 'package:hospital_booking_mobile/features/home/presentation/widgets/home_strip_parts.dart';
 
-/// Dải gói khám: ô biểu tượng màu, nhãn nổi bật, tên, mô tả ngắn, nhãn BHYT và giá lớn.
+/// Dải gói khám: ảnh hoặc chữ viết tắt, nhãn nổi bật, tên, mô tả ngắn, nhãn BHYT và giá lớn.
 class HomePackageStrip extends StatelessWidget {
   const HomePackageStrip({super.key, required this.items});
 
@@ -29,7 +30,6 @@ class HomePackageStrip extends StatelessWidget {
           final item = items[index];
           final text = Theme.of(context).textTheme;
           final colors = context.colors;
-          final tint = homeTint(context, index + 3);
           return HomeStripCard(
             width: 216,
             onTap: item.slug == null
@@ -45,9 +45,9 @@ class HomePackageStrip extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    AppIconTile(
-                      icon: Icons.inventory_2_outlined,
-                      tint: tint,
+                    AppEntityMark(
+                      name: item.name,
+                      image: item.image,
                       size: AppTileSize.sm,
                     ),
                     const Spacer(),

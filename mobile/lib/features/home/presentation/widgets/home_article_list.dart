@@ -9,8 +9,6 @@ import 'package:hospital_booking_mobile/core/widgets/resized_network_image.dart'
 import 'package:hospital_booking_mobile/features/articles/domain/article_summary.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-import 'package:hospital_booking_mobile/features/home/presentation/widgets/home_strip_parts.dart';
-
 /// Bài viết mới: ô ảnh vuông 64 (ảnh bìa hoặc biểu tượng màu), tiêu đề, dấu bác sĩ duyệt và ngày. Chạm mở bài trên website.
 class HomeArticleList extends StatelessWidget {
   const HomeArticleList({super.key, required this.items});
@@ -20,10 +18,13 @@ class HomeArticleList extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Column(
     children: [
-      for (final (index, item) in items.indexed)
+      for (final item in items)
         Padding(
           padding: const EdgeInsets.only(bottom: AppSpacing.xs),
-          child: _ArticleRow(item: item, tint: homeTint(context, index + 5)),
+          child: _ArticleRow(
+            item: item,
+            tint: context.colors.zone(AppZone.primary),
+          ),
         ),
     ],
   );

@@ -141,7 +141,7 @@ class _CatalogBookingFlowController extends BookingFlowController {
 
 void main() {
   testWidgets(
-    'requesting OTP stays on login then opens verification directly',
+    'requesting OTP switches the login screen to the code step in place',
     (tester) async {
       final container = ProviderContainer(
         overrides: [
@@ -176,7 +176,7 @@ void main() {
       await tester.pumpAndSettle();
 
       await tester.enterText(find.byType(EditableText), 'an@example.test');
-      await tester.tap(find.text('Gửi mã OTP'));
+      await tester.tap(find.text('Gửi mã'));
       await tester.pump();
 
       expect(find.text('Đăng nhập người khám'), findsOneWidget);
@@ -188,7 +188,7 @@ void main() {
       authController.completeRequest();
       await tester.pumpAndSettle();
 
-      expect(find.text('Xác thực OTP'), findsOneWidget);
+      expect(find.text('Nhập mã 6 số'), findsOneWidget);
       expect(find.text('Chăm sóc sức khỏe dễ dàng hơn'), findsNothing);
     },
   );
@@ -434,17 +434,12 @@ void main() {
 
     container.read(appRouterProvider).go('/appointments');
     await tester.pumpAndSettle();
-    expect(find.text('Đăng nhập để xem lịch hẹn'), findsOneWidget);
-    await tester.tap(find.widgetWithText(FilledButton, 'Đăng nhập'));
-    await tester.pumpAndSettle();
+    // Khối đăng nhập nằm ngay trong màn lịch hẹn.
+    expect(find.textContaining('Đăng nhập để xem lịch hẹn'), findsOneWidget);
     expect(find.text('Đăng nhập người khám'), findsOneWidget);
-    expect(
-      find.text('Vui lòng đăng nhập để xem và quản lý lịch khám của bạn.'),
-      findsOneWidget,
-    );
 
     await tester.enterText(find.byType(EditableText), 'an@example.test');
-    await tester.tap(find.text('Gửi mã OTP'));
+    await tester.tap(find.text('Gửi mã'));
     await tester.pump();
     final authController =
         container.read(authControllerProvider.notifier)
@@ -452,8 +447,8 @@ void main() {
     authController.completeRequest();
     await tester.pumpAndSettle();
 
+    // Đủ 6 số thì tự xác nhận, không cần bấm nút.
     await tester.enterText(find.byType(EditableText), '123456');
-    await tester.tap(find.text('Xác nhận'));
     await tester.pumpAndSettle();
 
     expect(find.text('Lịch khám của tôi'), findsWidgets);

@@ -1,3 +1,4 @@
+import { createFoldedMatcher } from "../utils/textSearch.js";
 import { Prisma } from "../../generated/prisma/client.js";
 import { prisma } from "../config/prisma.js";
 import { AppError } from "../utils/appError.js";
@@ -445,54 +446,33 @@ class PackageService {
   }) {
     const page = Math.max(Math.trunc(query.page || 1), 1);
     const limit = Math.min(Math.max(Math.trunc(query.limit || 10), 1), 50);
-    const where: Prisma.PackageWhereInput = {
-      isActive: true,
-      isPopular: query.isPopular,
-      isBHYTSupport: query.isBhytSupport,
-      departmentId: query.departmentId,
-      AND: [publicCompletePackageWhere],
-    };
-
-    if (query.search) {
-      where.OR = [
-        { name: { contains: query.search, mode: "insensitive" } },
-        { slug: { contains: query.search, mode: "insensitive" } },
-        { summary: { contains: query.search, mode: "insensitive" } },
-        { description: { contains: query.search, mode: "insensitive" } },
-        { note: { contains: query.search, mode: "insensitive" } },
-        { department: { name: { contains: query.search, mode: "insensitive" } } },
-        {
-          items: {
-            some: {
-              OR: [
-                { name: { contains: query.search, mode: "insensitive" } },
-                {
-                  description: {
-                    contains: query.search,
-                    mode: "insensitive",
-                  },
-                },
-              ],
-            },
-          },
-        },
-      ];
-    }
-
-    const [matchingPackages, allPackages] = await prisma.$transaction([
-      prisma.package.findMany({
-        where,
-        select: publicPackageSelect,
-      }),
-      prisma.package.findMany({
-        where: {
-          isActive: true,
-          AND: [publicCompletePackageWhere],
-        },
-        select: publicPackageSelect,
-        orderBy: [{ isPopular: "desc" }, { basePrice: "asc" }],
-      }),
-    ]);
+    // Một truy vấn cho cả danh mục: phần tóm tắt cần toàn bộ gói, còn lọc và tìm không dấu chạy trên bộ nhớ.
+    const allPackages = await prisma.package.findMany({
+      where: {
+        isActive: true,
+        AND: [publicCompletePackageWhere],
+      },
+      select: publicPackageSelect,
+      orderBy: [{ isPopular: "desc" }, { basePrice: "asc" }],
+    });
+    const matches = createFoldedMatcher(query.search);
+    const matchingPackages = allPackages.filter(
+      (item) =>
+        (query.isPopular === undefined || item.isPopular === query.isPopular) &&
+        (query.isBhytSupport === undefined ||
+          item.isBHYTSupport === query.isBhytSupport) &&
+        (!query.departmentId || item.department?.id === query.departmentId) &&
+        (!matches ||
+          matches([
+            item.name,
+            item.slug,
+            item.summary,
+            item.description,
+            item.note,
+            item.department?.name,
+            ...item.items.flatMap((entry) => [entry.name, entry.description]),
+          ])),
+    );
 
     const normalizedPackages = matchingPackages.map(withFinalPrice);
     const sort = query.sort || "POPULAR_DESC";

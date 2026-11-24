@@ -4,7 +4,7 @@ import 'package:hospital_booking_mobile/core/design/app_colors.dart';
 import 'package:hospital_booking_mobile/core/theme/app_theme.dart';
 import 'package:hospital_booking_mobile/core/widgets/app_detail.dart';
 import 'package:hospital_booking_mobile/features/catalog/domain/catalog_entities.dart';
-import 'package:hospital_booking_mobile/features/catalog/presentation/department_visuals.dart';
+import 'package:hospital_booking_mobile/core/widgets/app_entity_mark.dart';
 import 'package:hospital_booking_mobile/features/catalog/presentation/widgets/department_tile.dart';
 import 'package:hospital_booking_mobile/features/catalog/presentation/widgets/doctor_catalog_card.dart';
 import 'package:hospital_booking_mobile/features/catalog/presentation/widgets/package_catalog_card.dart';
@@ -58,31 +58,13 @@ const _package = MedicalPackage(
 );
 
 void main() {
-  testWidgets('bảng biểu tượng khớp tên khoa có dấu và không dấu', (
-    tester,
-  ) async {
-    late BuildContext context;
-    await tester.pumpWidget(
-      MaterialApp(
-        theme: AppTheme.light,
-        home: Builder(
-          builder: (c) {
-            context = c;
-            return const SizedBox();
-          },
-        ),
-      ),
-    );
-    IconData icon(String name, [String? slug]) =>
-        departmentVisual(context, name: name, slug: slug).icon;
-
-    expect(icon('Khoa nhi'), Icons.child_care_outlined);
-    expect(icon('Khoa tim mạch'), Icons.monitor_heart_outlined);
-    expect(icon('Khoa', 'tim-mach'), Icons.monitor_heart_outlined);
-    expect(icon('Tai mũi họng'), Icons.hearing_outlined);
-    expect(icon('Khoa tổng quát'), Icons.health_and_safety_outlined);
-    // Khoa chưa có trong bảng dùng biểu tượng chung; "nhiễm" không bị nhầm với "nhi".
-    expect(icon('Khoa truyền nhiễm'), Icons.medical_services_outlined);
+  test('chữ viết tắt bỏ từ chung đầu tên khoa, gói', () {
+    expect(entityInitials('Khoa Tim mạch'), 'TM');
+    expect(entityInitials('Gói khám tổng quát cơ bản'), 'TQ');
+    expect(entityInitials('Chuyên khoa Da liễu'), 'DL');
+    expect(entityInitials('Nhi'), 'N');
+    expect(entityInitials('Khoa'), 'K');
+    expect(entityInitials('   '), '?');
   });
 
   for (final scale in _scales) {
@@ -121,22 +103,23 @@ void main() {
           const DepartmentGrid(
             children: [
               DepartmentTile(
-                id: '1',
-                name: 'Khoa cơ xương khớp và phục hồi chức năng',
-                doctorCount: 12,
-                index: 0,
+                department: CatalogDepartment(
+                  id: '1',
+                  name: 'Khoa cơ xương khớp và phục hồi chức năng',
+                  doctorCount: 12,
+                  packageCount: 3,
+                  availableSlotCount: 20,
+                ),
               ),
               DepartmentTile(
-                id: '2',
-                name: 'Khoa nhi',
-                doctorCount: 0,
-                index: 1,
+                department: CatalogDepartment(id: '2', name: 'Khoa nhi'),
               ),
               DepartmentTile(
-                id: '3',
-                name: 'Tai mũi họng',
-                doctorCount: 1,
-                index: 2,
+                department: CatalogDepartment(
+                  id: '3',
+                  name: 'Tai mũi họng',
+                  doctorCount: 1,
+                ),
               ),
             ],
           ),

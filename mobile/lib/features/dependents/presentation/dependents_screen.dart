@@ -78,7 +78,7 @@ class DependentsScreen extends ConsumerWidget {
                 for (var i = 0; i < state.items.length; i += 1) ...[
                   _DependentCard(
                     dependent: state.items[i],
-                    tint: context.colors.zoneAt(i + 4),
+                    tint: context.colors.zone(AppZone.primary),
                     disabled: state.isSaving,
                     onOpen: () =>
                         context.push('/dependents/${state.items[i].id}'),
