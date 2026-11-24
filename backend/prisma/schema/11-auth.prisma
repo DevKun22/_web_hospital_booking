@@ -32,6 +32,7 @@ model OtpCode {
   deliveryError  String?
   deliveredAt    DateTime?
 
+  // Dấu vân tay HMAC của IP người yêu cầu (không lưu IP dạng rõ), dùng để giới hạn số lần gửi theo mạng.
   ipAddress   String?
   challengeId String?
   challenge   DashboardLoginChallenge? @relation(fields: [challengeId], references: [id], onDelete: Cascade)
@@ -60,6 +61,7 @@ model OtpSecurityBlock {
   id String @id @default(uuid())
 
   targetType String
+  // Email khi targetType = TARGET; dấu vân tay HMAC của IP khi targetType = IP.
   target     String
   reason     String
   purpose    OtpPurpose?

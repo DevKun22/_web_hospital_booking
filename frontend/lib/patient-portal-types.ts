@@ -88,7 +88,6 @@ export type PatientInvoice = {
   finalAmount: number;
   totalAmount?: number;
   bhytDiscount?: number;
-  insuranceDiscountAmount?: number;
   status: string;
   paymentMethod?: string | null;
   paidAt?: string | null;

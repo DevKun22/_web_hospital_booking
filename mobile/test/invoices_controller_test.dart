@@ -25,7 +25,6 @@ PatientInvoice _invoice(String id) => PatientInvoice(
   finalAmount: 250000,
   insuranceEligibleAmount: 0,
   insuranceCoverageRate: 0,
-  insuranceDiscountAmount: 0,
   items: const [],
   status: PatientInvoiceStatus.unpaid,
   appointmentId: 'appointment-$id',

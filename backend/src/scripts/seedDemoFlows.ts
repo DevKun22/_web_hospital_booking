@@ -113,7 +113,7 @@ async function main() {
     }
 
     const slot = await prisma.doctorTimeSlot.findFirst({
-      where: { doctorId: doctor.id, status: "AVAILABLE", isActive: true, date: { gte: tomorrow } },
+      where: { doctorId: doctor.id, status: "AVAILABLE", date: { gte: tomorrow } },
       orderBy: [{ date: "asc" }, { startTime: "asc" }],
     });
     if (!slot) throw new Error("Hết khung giờ trống của bác sĩ. Chạy lại `npm run seed:clinic`.");

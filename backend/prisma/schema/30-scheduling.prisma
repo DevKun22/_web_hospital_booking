@@ -100,8 +100,7 @@ model DoctorTimeSlot {
   startTime String
   endTime   String
 
-  status   TimeSlotStatus @default(AVAILABLE)
-  isActive Boolean        @default(true)
+  status TimeSlotStatus @default(AVAILABLE)
 
   // Lý do khóa/hủy slot, ví dụ: bác sĩ nghỉ đột xuất, họp chuyên môn
   lockReason String?
@@ -121,7 +120,7 @@ model DoctorTimeSlot {
 
   @@unique([doctorId, date, startTime])
   @@index([date])
-  @@index([status, isActive, date, startTime])
+  @@index([status, date, startTime])
   @@index([scheduleId])
   @@index([facilityId])
 }

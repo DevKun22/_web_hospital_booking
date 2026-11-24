@@ -68,7 +68,6 @@ const paymentTransactionSelect = {
       finalAmount: true,
       insuranceEligibleAmount: true,
       insuranceCoverageRate: true,
-      insuranceDiscountAmount: true,
       insuranceRouteType: true,
       insuranceNote: true,
       status: true,

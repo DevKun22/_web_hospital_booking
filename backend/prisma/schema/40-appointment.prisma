@@ -125,14 +125,14 @@ model AppointmentPatientInfo {
 model Review {
   id String @id @default(uuid())
 
-  // Diem tong hop do he thong tinh tu ba tieu chi, de phuc vu thong ke nhanh.
+  // Điểm tổng hợp do hệ thống tính từ ba tiêu chí, phục vụ thống kê nhanh.
   rating         Float
   doctorRating   Int
   serviceRating  Int
   facilityRating Int
   comment        String?
 
-  // Nhan vien co the an danh gia khoi bao cao noi bo khi can kiem duyet.
+  // Nhân viên có thể ẩn đánh giá khỏi báo cáo nội bộ khi cần kiểm duyệt.
   isVisible      Boolean   @default(false)
   moderationNote String?
   moderatedAt    DateTime?

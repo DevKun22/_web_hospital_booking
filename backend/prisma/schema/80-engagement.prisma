@@ -31,6 +31,13 @@ enum NotificationDeliveryStatus {
   INVALID_TOKEN
 }
 
+enum OutboxEventStatus {
+  PENDING
+  PROCESSING
+  PROCESSED
+  FAILED
+}
+
 // Side effect ra hệ thống ngoài được ghi cùng transaction nghiệp vụ rồi worker xử lý.
 // Payload không chứa secret; dedupeKey bảo đảm một sự kiện nghiệp vụ chỉ được xếp một lần.
 model OutboxEvent {
@@ -40,9 +47,9 @@ model OutboxEvent {
   dedupeKey String @unique
   payload   Json
 
-  status      String    @default("PENDING")
-  attempts    Int       @default(0)
-  availableAt DateTime  @default(now())
+  status      OutboxEventStatus @default(PENDING)
+  attempts    Int               @default(0)
+  availableAt DateTime          @default(now())
   lockedAt    DateTime?
   processedAt DateTime?
   lastError   String?

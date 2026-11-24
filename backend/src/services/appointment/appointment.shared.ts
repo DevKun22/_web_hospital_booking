@@ -286,7 +286,6 @@ export const appointmentSelect = {
       finalAmount: true,
       insuranceEligibleAmount: true,
       insuranceCoverageRate: true,
-      insuranceDiscountAmount: true,
       insuranceRouteType: true,
       insuranceNote: true,
       status: true,

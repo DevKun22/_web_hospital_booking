@@ -11,7 +11,6 @@ Map<String, dynamic> _invoiceJson({String id = 'invoice-1'}) => {
   'finalAmount': 260000,
   'insuranceEligibleAmount': 300000,
   'insuranceCoverageRate': 80,
-  'insuranceDiscountAmount': 240000,
   'insuranceRouteType': 'RIGHT_ROUTE',
   'status': 'PAID',
   'paymentMethod': 'BANK_TRANSFER',
@@ -86,7 +85,7 @@ void main() {
     expect(detail.status, PatientInvoiceStatus.paid);
     expect(detail.paymentMethod, PatientPaymentMethod.bankTransfer);
     expect(detail.insuranceRouteType, PatientInsuranceRoute.rightRoute);
-    expect(detail.appliedInsuranceDiscount, 240000);
+    expect(detail.bhytDiscount, 240000);
     expect(detail.finalAmount, 260000);
     expect(detail.hasInsuranceBenefit, isTrue);
     expect(detail.doctorName, 'BS. CKI Trần Minh');

@@ -1,12 +1,7 @@
 import type { Request, Response } from "express";
 import PublicDepartmentService from "../services/publicDepartment.service.js";
-import { getRequiredPathParam, parseStringQuery } from "../shared/http/requestParsers.js";
+import { getRequiredPathParam, parseNumberQuery, parseStringQuery } from "../shared/http/requestParsers.js";
 
-const parseNumberQuery = (value: unknown) => {
-  if (typeof value !== "string") return undefined;
-  const number = Number(value);
-  return Number.isFinite(number) ? number : undefined;
-};
 
 
 export const listPublicDepartmentsHandler = async (

@@ -88,7 +88,6 @@ const readDraft = (value: unknown): ChatBookingDraft => {
 
 export const getOrCreateChatSession = async (
   sessionId?: string,
-  phone?: string,
   sessionExpiresDays = DEFAULT_SESSION_EXPIRES_DAYS,
 ) => {
   if (sessionId) {
@@ -108,7 +107,6 @@ export const getOrCreateChatSession = async (
             lastMessage: null,
             lastResponse: null,
             isActive: true,
-            guestPhone: phone,
             expiresAt: getSessionExpiresAt(sessionExpiresDays),
           },
         });
@@ -133,7 +131,6 @@ export const getOrCreateChatSession = async (
   const session = await prisma.chatbotSession.create({
     data: {
       id: sessionId || randomUUID(),
-      guestPhone: phone,
       expiresAt: getSessionExpiresAt(sessionExpiresDays),
     },
   });
@@ -150,13 +147,11 @@ export const updateChatSession = async (
   sessionId: string,
   response: ChatbotResponse,
   message: string,
-  phone?: string,
   sessionExpiresDays = DEFAULT_SESSION_EXPIRES_DAYS,
 ) => {
   await prisma.chatbotSession.update({
     where: { id: sessionId },
     data: {
-      guestPhone: phone,
       draft: toPrismaJson(response.draft),
       currentIntent: response.intent,
       currentState: response.state,

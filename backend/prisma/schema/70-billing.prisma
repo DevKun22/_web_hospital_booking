@@ -48,7 +48,7 @@ model Invoice {
   id String @id @default(uuid())
 
   invoiceCode String @unique
-  barcode     String @unique // Mã vạch hóa đơn dùng để đăng nhập nhanh vào portal
+  barcode     String @unique // Mã vạch in trên hóa đơn, quầy thu ngân quét để tra hóa đơn trên dashboard
 
   appointmentId String      @unique
   appointment   Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
@@ -57,12 +57,12 @@ model Invoice {
   patient   User   @relation("PatientInvoices", fields: [patientId], references: [id])
 
   totalAmount  Int
+  // Tiền quỹ BHYT chi trả (giảm trừ), tính từ insuranceEligibleAmount x insuranceCoverageRate.
   bhytDiscount Int @default(0)
   finalAmount  Int
 
   insuranceEligibleAmount Int                 @default(0)
   insuranceCoverageRate   Int                 @default(0)
-  insuranceDiscountAmount Int                 @default(0)
   insuranceRouteType      InsuranceRouteType?
   insuranceNote           String?
 

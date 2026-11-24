@@ -182,7 +182,6 @@ export type ChatbotResultGroup = {
 export type ChatbotRequestInput = {
   sessionId?: string;
   message: string;
-  phone?: string;
   draft?: ChatBookingDraft;
   action?: ChatAction;
 };

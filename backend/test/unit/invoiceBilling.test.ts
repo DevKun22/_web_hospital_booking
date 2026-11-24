@@ -29,7 +29,7 @@ test("insurance is calculated from the eligible amount and rate, and the final a
     200_000,
     withInsurance,
   );
-  assert.equal(result.insuranceDiscountAmount, 80_000);
+  assert.equal(result.bhytDiscount, 80_000);
   assert.equal(result.bhytDiscount, 80_000);
   assert.equal(result.finalAmount, 120_000);
 });
@@ -61,6 +61,6 @@ test("insurance is refused when it exceeds the total, when the visit has no BHYT
 
 test("the fallback discount is used when the input carries no insurance data", () => {
   const result = calculateInsurance({}, 200_000, withInsurance, 20_000);
-  assert.equal(result.insuranceDiscountAmount, 20_000);
+  assert.equal(result.bhytDiscount, 20_000);
   assert.equal(result.finalAmount, 180_000);
 });

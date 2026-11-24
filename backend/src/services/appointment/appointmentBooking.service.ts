@@ -172,7 +172,6 @@ export class AppointmentBookingUseCases extends AppointmentServiceSupport {
         startTime: true,
         endTime: true,
         status: true,
-        isActive: true,
         facilityId: true,
         appointment: { select: { id: true } },
       },
@@ -189,7 +188,6 @@ export class AppointmentBookingUseCases extends AppointmentServiceSupport {
       !timeSlot ||
       timeSlot.doctorId !== input.doctorId ||
       timeSlot.status !== "AVAILABLE" ||
-      !timeSlot.isActive ||
       timeSlot.appointment
     ) {
       throw new AppError("Khung giờ không khả dụng", 409);
@@ -264,7 +262,6 @@ export class AppointmentBookingUseCases extends AppointmentServiceSupport {
           where: {
             id: input.timeSlotId,
             status: "AVAILABLE",
-            isActive: true,
           },
           data: {
             status: "BOOKED",

@@ -2,29 +2,10 @@ import type { Request, Response } from "express";
 import DashboardChatbotService from "../services/dashboardChatbot.service.js";
 import ChatbotSettingsService from "../services/chatbot/chatbot.settings.js";
 import KnowledgeService from "../services/chatbot/rag/knowledge.service.js";
-import { getRequiredPathParam, parseStringQuery } from "../shared/http/requestParsers.js";
+import { getRequiredPathParam, parseBooleanQuery, parseDateQuery, parseNumberQuery, parseStringQuery } from "../shared/http/requestParsers.js";
 
-const parseBooleanQuery = (value: unknown) => {
-  if (value === "true") return true;
-  if (value === "false") return false;
-  return undefined;
-};
 
-const parseNumberQuery = (value: unknown) => {
-  if (typeof value !== "string") return undefined;
 
-  const number = Number(value);
-  return Number.isFinite(number) ? number : undefined;
-};
-
-const parseDateQuery = (value: unknown, endOfDay = false) => {
-  if (typeof value !== "string") return undefined;
-
-  const date = new Date(
-    endOfDay ? `${value}T23:59:59.999Z` : `${value}T00:00:00.000Z`,
-  );
-  return Number.isNaN(date.getTime()) ? undefined : date;
-};
 
 
 export const getDashboardChatbotKnowledgeHandler = async (_req: Request, res: Response) => {
@@ -87,8 +68,6 @@ export const listDashboardChatbotLogsHandler = async (
       parseStringQuery(req.query.search),
     sessionId:
       parseStringQuery(req.query.sessionId),
-    guestPhone:
-      parseStringQuery(req.query.guestPhone),
     intent:
       parseStringQuery(req.query.intent),
     dateFrom: parseDateQuery(req.query.dateFrom),
@@ -110,8 +89,6 @@ export const listDashboardChatbotSessionsHandler = async (
   const result = await DashboardChatbotService.listSessions({
     search:
       parseStringQuery(req.query.search),
-    guestPhone:
-      parseStringQuery(req.query.guestPhone),
     intent:
       parseStringQuery(req.query.intent),
     state: parseStringQuery(req.query.state),

@@ -1,3 +1,4 @@
+import { TtlCache } from "../../utils/ttlCache.js";
 import { prisma } from "../../config/prisma.js";
 import type { Prisma } from "../../../generated/prisma/client.js";
 import {
@@ -71,89 +72,63 @@ const matchesTimePeriod = (
   return hour >= 18;
 };
 
-let nluCatalogCache:
-  | { value: NLUCatalog; expiresAt: number }
-  | undefined;
+const nluCatalogCache = new TtlCache<NLUCatalog>(1, 60_000);
 
 const contextCacheTtlMs = getRuntimeConfig().chatbot.contextCacheTtlMs;
 
-type ContextCacheEntry<T> = { value: T; expiresAt: number };
-const contextCache = new Map<string, ContextCacheEntry<unknown>>();
-const contextLoads = new Map<string, Promise<unknown>>();
+// Đệm danh mục cho trợ lý ảo; các yêu cầu cùng lúc với cùng khóa dùng chung một lần tải. TTL 0 là tắt đệm.
+const contextCache = new TtlCache<unknown>(200, contextCacheTtlMs);
 
-const loadCached = async <T>(key: string, loader: () => Promise<T>) => {
-  if (!contextCacheTtlMs) return loader();
-
-  const cached = contextCache.get(key) as ContextCacheEntry<T> | undefined;
-  if (cached && cached.expiresAt > Date.now()) return cached.value;
-
-  const pending = contextLoads.get(key) as Promise<T> | undefined;
-  if (pending) return pending;
-
-  const load = loader()
-    .then((value) => {
-      contextCache.set(key, {
-        value,
-        expiresAt: Date.now() + contextCacheTtlMs,
-      });
-      return value;
-    })
-    .finally(() => contextLoads.delete(key));
-  contextLoads.set(key, load);
-  return load;
-};
+const loadCached = <T>(key: string, loader: () => Promise<T>) =>
+  contextCacheTtlMs
+    ? (contextCache.getOrLoad(key, loader) as Promise<T>)
+    : loader();
 
 class ChatbotContextService {
   /** Xóa bộ nhớ đệm danh mục (khoa, gói, bác sĩ, lịch trống) để lần sau đọc lại từ DB. */
   invalidate() {
     contextCache.clear();
-    nluCatalogCache = undefined;
+    nluCatalogCache.clear();
   }
 
-  async loadNLUCatalog(): Promise<NLUCatalog> {
-    if (nluCatalogCache && nluCatalogCache.expiresAt > Date.now()) {
-      return nluCatalogCache.value;
-    }
-    const [departments, packages, doctors] = await Promise.all([
-      prisma.department.findMany({
-        where: { isActive: true },
-        select: { name: true },
-        orderBy: { name: "asc" },
-        take: 50,
-      }),
-      prisma.package.findMany({
-        where: { isActive: true },
-        select: { name: true },
-        orderBy: { name: "asc" },
-        take: 50,
-      }),
-      prisma.doctorProfile.findMany({
-        where: { isAvailable: true, user: { isActive: true } },
-        select: {
-          title: true,
-          user: { select: { fullName: true } },
-        },
-        orderBy: { user: { fullName: "asc" } },
-        take: 50,
-      }),
-    ]);
+  loadNLUCatalog(): Promise<NLUCatalog> {
+    return nluCatalogCache.getOrLoad("catalog", async () => {
+      const [departments, packages, doctors] = await Promise.all([
+        prisma.department.findMany({
+          where: { isActive: true },
+          select: { name: true },
+          orderBy: { name: "asc" },
+          take: 50,
+        }),
+        prisma.package.findMany({
+          where: { isActive: true },
+          select: { name: true },
+          orderBy: { name: "asc" },
+          take: 50,
+        }),
+        prisma.doctorProfile.findMany({
+          where: { isAvailable: true, user: { isActive: true } },
+          select: {
+            title: true,
+            user: { select: { fullName: true } },
+          },
+          orderBy: { user: { fullName: "asc" } },
+          take: 50,
+        }),
+      ]);
 
-    // AI receives only lightweight names for language resolution. IDs, prices
-    // and slots stay server-side and are verified after extraction.
-    const value: NLUCatalog = {
-      departments: departments.map((item) => item.name),
-      packages: packages.map((item) => item.name),
-      doctors: doctors.map((item) =>
-        [item.title, item.user.fullName].filter(Boolean).join(" "),
-      ),
-    };
+      // AI receives only lightweight names for language resolution. IDs, prices
+      // and slots stay server-side and are verified after extraction.
+      const value: NLUCatalog = {
+        departments: departments.map((item) => item.name),
+        packages: packages.map((item) => item.name),
+        doctors: doctors.map((item) =>
+          [item.title, item.user.fullName].filter(Boolean).join(" "),
+        ),
+      };
 
-    nluCatalogCache = {
-      value,
-      expiresAt: Date.now() + 60_000,
-    };
-
-    return value;
+      return value;
+    });
   }
 
   async load(
@@ -325,7 +300,6 @@ class ChatbotContextService {
     const baseWhere: Prisma.DoctorTimeSlotWhereInput = {
       ...(draft.doctorId ? { doctorId: draft.doctorId } : {}),
       status: "AVAILABLE",
-      isActive: true,
       appointment: { is: null },
       doctor: {
         ...(draft.departmentId ? { departmentId: draft.departmentId } : {}),
