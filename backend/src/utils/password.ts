@@ -1,5 +1,4 @@
 import argon2 from "argon2";
-import bcrypt from "bcrypt";
 
 const ARGON2ID_OPTIONS = {
   type: argon2.argon2id,
@@ -9,17 +8,16 @@ const ARGON2ID_OPTIONS = {
   hashLength: 32,
 } as const;
 
-type PasswordHashAlgorithm = "argon2id" | "bcrypt" | "unsupported";
+type PasswordHashAlgorithm = "argon2id" | "unsupported";
 
 export const getPasswordHashAlgorithm = (
   hashedPassword: string,
 ): PasswordHashAlgorithm => {
   if (hashedPassword.startsWith("$argon2id$")) return "argon2id";
-  if (/^\$2[aby]\$/.test(hashedPassword)) return "bcrypt";
   return "unsupported";
 };
 
-// Mọi mật khẩu mới đều dùng Argon2id. bcrypt chỉ còn để xác thực hash cũ đã lưu sẵn.
+// Mật khẩu băm bằng Argon2id; định dạng khác (kể cả bcrypt cũ, nay không còn tài khoản nào dùng) không bao giờ khớp.
 export const hashPassword = async (password: string) =>
   argon2.hash(password, ARGON2ID_OPTIONS);
 
@@ -30,8 +28,6 @@ export const comparePassword = async (
   switch (getPasswordHashAlgorithm(hashedPassword)) {
     case "argon2id":
       return argon2.verify(hashedPassword, password);
-    case "bcrypt":
-      return bcrypt.compare(password, hashedPassword);
     default:
       return false;
   }
