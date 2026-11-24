@@ -1,4 +1,5 @@
-import { AppointmentService, AuthOtpService, AuthSessionService, InvoiceService, MedicalRecordService, NotificationService, PolicyService, PrescriptionService, RbacService, ScheduleReconciliationService, activeDatabase, activeDatabaseMarker, activeDatabaseSchema, activeDatabaseUrl, after, assert, authCookie, bcrypt, before, beforeEach, bookingBody, buildVnpayCallbackQuery, buildVnpayQueryResponse, buildVnpayRefundResponse, callVnpayRefund, createApp, createDashboardUser, createIssuedPrescription, createMedicineViaApi, createPayableInvoice, createStoredAppointment, createVnpayPaidInvoice, createVnpayPayment, dashboardCall, dashboardHeaders, dateOnly, emailBookingBody, fixture, futureDate, generateDashboardAccessToken, generatePatientAccessToken, getCookie, http, isFirebaseAdminConfigured, isoDateFromToday, jwt, loginPatient, moveAppointmentStart, prisma, receiveViaApi, resetDatabase, seedFixture, startHttpServer, test, vietnamClock, vnpayIpn, withStubbedVnpayQuery, withStubbedVnpayRefund, appointmentLogs, emailOf } from "./support/context.js";
+import { AppointmentService, AuthOtpService, AuthSessionService, InvoiceService, MedicalRecordService, NotificationService, PolicyService, PrescriptionService, RbacService, ScheduleReconciliationService, activeDatabase, activeDatabaseMarker, activeDatabaseSchema, activeDatabaseUrl, after, assert, authCookie, before, beforeEach, bookingBody, buildVnpayCallbackQuery, buildVnpayQueryResponse, buildVnpayRefundResponse, callVnpayRefund, createApp, createDashboardUser, createIssuedPrescription, createMedicineViaApi, createPayableInvoice, createStoredAppointment, createVnpayPaidInvoice, createVnpayPayment, dashboardCall, dashboardHeaders, dateOnly, emailBookingBody, fixture, futureDate, generateDashboardAccessToken, generatePatientAccessToken, getCookie, http, isFirebaseAdminConfigured, isoDateFromToday, jwt, loginPatient, moveAppointmentStart, prisma, receiveViaApi, resetDatabase, seedFixture, startHttpServer, test, vietnamClock, vnpayIpn, withStubbedVnpayQuery, withStubbedVnpayRefund, appointmentLogs, emailOf } from "./support/context.js";
+import { comparePassword, hashPassword } from "../../src/utils/password.js";
 
 test("booking OTP verification moves PENDING_OTP to CONFIRMED (auto-confirm)", async () => {
   const booking = await http.request("/api/v1/appointments", {
@@ -593,7 +594,7 @@ test("password reset by an admin forces a change, revokes sessions and is audite
 test("password reset rolls back when session revocation fails", async () => {
   const adminCookie = await authCookie(fixture.adminUser.id, "ADMIN");
   const target = await createDashboardUser("STAFF", "0900000103");
-  const originalPasswordHash = await bcrypt.hash(fixture.password, 4);
+  const originalPasswordHash = await hashPassword(fixture.password);
   await prisma.user.update({
     where: { id: target.id },
     data: { password: originalPasswordHash },
@@ -641,8 +642,8 @@ test("password reset rolls back when session revocation fails", async () => {
   }
 
   const stored = await prisma.user.findUniqueOrThrow({ where: { id: target.id } });
-  assert.equal(await bcrypt.compare(fixture.password, stored.password || ""), true);
-  assert.equal(await bcrypt.compare("AtomicPass123", stored.password || ""), false);
+  assert.equal(await comparePassword(fixture.password, stored.password || ""), true);
+  assert.equal(await comparePassword("AtomicPass123", stored.password || ""), false);
   assert.equal((await dashboardCall("GET", "/api/v1/dashboard/invoices", targetCookie)).status, 200);
   assert.equal(
     await prisma.auditLog.count({

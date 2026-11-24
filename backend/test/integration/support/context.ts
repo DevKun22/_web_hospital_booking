@@ -2,7 +2,6 @@ import { bumpPublicContentVersion } from "../../../src/services/publicContentVer
 import assert from "node:assert/strict";
 import { after, before, beforeEach, test } from "node:test";
 
-import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 
 import { getCookie, startHttpServer } from "../../support/http.js";
@@ -12,7 +11,8 @@ import {
   buildVnpayRefundResponse,
 } from "../../support/vnpay.js";
 import { toAppointmentAuditAction } from "../../../src/services/appointmentLog.service.js";
-export { assert, after, before, beforeEach, test, bcrypt, jwt, getCookie, startHttpServer, buildVnpayCallbackQuery, buildVnpayQueryResponse, buildVnpayRefundResponse };
+import { hashPassword } from "../../../src/utils/password.js";
+export { assert, after, before, beforeEach, test, jwt, getCookie, startHttpServer, buildVnpayCallbackQuery, buildVnpayQueryResponse, buildVnpayRefundResponse };
 
 
 if (process.env.NODE_ENV !== "test") {
@@ -154,7 +154,7 @@ export const appointmentLogs = {
 
 export async function seedFixture() {
   const password = "phase0-password";
-  const passwordHash = await bcrypt.hash(password, 4);
+  const passwordHash = await hashPassword(password);
   const department = await prisma.department.create({
     data: {
       name: "Phase 0 Test Department",
