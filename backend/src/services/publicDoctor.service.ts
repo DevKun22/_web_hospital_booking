@@ -321,7 +321,6 @@ class PublicDoctorService {
           date: today,
           startTime: { gt: vietnamNow.time },
           status: "AVAILABLE",
-          isActive: true,
         },
         select: {
           id: true,

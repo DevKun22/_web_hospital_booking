@@ -22,7 +22,7 @@ export class AppointmentServiceSupport {
       if (appointment.timeSlotId) {
         await tx.doctorTimeSlot.update({
           where: { id: appointment.timeSlotId },
-          data: { status: "AVAILABLE", isActive: true, lockReason: null },
+          data: { status: "AVAILABLE", lockReason: null },
         });
       }
     });
@@ -59,7 +59,7 @@ export class AppointmentServiceSupport {
 
     await tx.doctorTimeSlot.update({
       where: { id: timeSlotId },
-      data: { status: "AVAILABLE", isActive: true, lockReason: null },
+      data: { status: "AVAILABLE", lockReason: null },
     });
   }
 
