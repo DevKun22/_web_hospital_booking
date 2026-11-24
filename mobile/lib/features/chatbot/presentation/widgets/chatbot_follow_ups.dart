@@ -11,7 +11,12 @@ IconData chatbotActionIcon(String type) => switch (type) {
   'CHANGE_DOCTOR' => Icons.person_outline_outlined,
   'VIEW_PACKAGES' || 'VIEW_PACKAGE' => Icons.health_and_safety_outlined,
   'START_BOOKING' || 'CHANGE_DATE' => Icons.event_available_outlined,
-  'LOOKUP_APPOINTMENT' => Icons.event_note_outlined,
+  'LOOKUP_APPOINTMENT' || 'SELECT_APPOINTMENT' => Icons.event_note_outlined,
+  'LOGIN_REQUIRED' => Icons.login_outlined,
+  'CONFIRM_CANCEL_APPOINTMENT' => Icons.event_busy_outlined,
+  'DISMISS_PENDING_ACTION' => Icons.close_outlined,
+  'RESUME_BOOKING' => Icons.replay_outlined,
+  'EMERGENCY_ADVICE' => Icons.call_outlined,
   _ => Icons.arrow_forward_outlined,
 };
 
@@ -32,7 +37,10 @@ List<ChatbotAction> visibleChatbotActions(
   return actions
       .where(
         (action) =>
-            !covered.contains(action.type) && action.type != 'EMERGENCY_ADVICE',
+            !covered.contains(action.type) &&
+            // Nút cấp cứu chỉ hiện khi có số để gọi (115, số của cơ sở).
+            (action.type != 'EMERGENCY_ADVICE' ||
+                (action.payload['phone']?.toString().isNotEmpty ?? false)),
       )
       .take(4)
       .toList(growable: false);

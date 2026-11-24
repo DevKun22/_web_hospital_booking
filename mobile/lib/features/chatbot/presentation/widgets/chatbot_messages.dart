@@ -218,6 +218,13 @@ class ChatbotResultCard extends StatelessWidget {
         item.date == null ? null : formatDateVi(item.date!),
         '${item.startTime ?? ''}-${item.endTime ?? ''}',
       ].whereType<String>().where((value) => value.isNotEmpty).join(' · '),
+      ChatbotResultType.appointment => [
+        item.date == null ? null : formatDateVi(item.date!),
+        '${item.startTime ?? ''}-${item.endTime ?? ''}',
+        item.doctorName,
+        item.departmentName,
+        chatbotAppointmentStatusLabels[item.status] ?? item.status,
+      ].whereType<String>().where((value) => value.isNotEmpty).join(' · '),
       _ => item.description,
     };
     final price = switch (item.type) {
@@ -301,6 +308,7 @@ IconData chatbotResultIcon(ChatbotResultType type) => switch (type) {
   ChatbotResultType.package => Icons.health_and_safety_outlined,
   ChatbotResultType.doctor => Icons.person_outline_outlined,
   ChatbotResultType.slot => Icons.schedule_outlined,
+  ChatbotResultType.appointment => Icons.event_note_outlined,
   ChatbotResultType.unknown => Icons.info_outline,
 };
 
@@ -309,5 +317,6 @@ String chatbotResultActionLabel(ChatbotResultType type) => switch (type) {
   ChatbotResultType.package => 'Chọn gói khám',
   ChatbotResultType.doctor => 'Chọn bác sĩ',
   ChatbotResultType.slot => 'Chọn khung giờ',
+  ChatbotResultType.appointment => 'Xem lịch hẹn',
   ChatbotResultType.unknown => 'Xem thêm',
 };

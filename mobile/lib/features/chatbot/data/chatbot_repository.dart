@@ -20,16 +20,15 @@ class ChatbotRepository {
   Future<ChatbotResponse> sendMessage({
     required String message,
     String? sessionId,
-    ChatBookingDraft? draft,
     ChatbotAction? action,
   }) async {
     return guardApi(() async {
+      // Trạng thái hội thoại do máy chủ giữ; danh tính lấy từ token của authDio (khách thì không có token).
       final response = await _dio.post<dynamic>(
         '/chatbot/message',
         data: {
           'sessionId': ?sessionId,
           'message': message.trim(),
-          'draft': ?draft?.toJson(),
           'action': ?action?.toJson(),
         },
       );

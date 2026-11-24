@@ -76,7 +76,6 @@ void main() {
       final response = await repository.sendMessage(
         message: 'Tôi bị đau ngực',
         sessionId: 'previous-session',
-        draft: const ChatBookingDraft(symptoms: ['đau ngực']),
         action: const ChatbotAction(type: 'ASK_MORE_INFO', label: 'Mô tả thêm'),
       );
 
@@ -91,7 +90,8 @@ void main() {
       ]);
       final body = Map<String, dynamic>.from(requests.last.data as Map);
       expect(body['sessionId'], 'previous-session');
-      expect((body['draft'] as Map)['symptoms'], ['đau ngực']);
+      // Máy chủ giữ trạng thái hội thoại: client không gửi bản nháp.
+      expect(body.containsKey('draft'), isFalse);
       expect((body['action'] as Map)['type'], 'ASK_MORE_INFO');
       dio.close(force: true);
     },

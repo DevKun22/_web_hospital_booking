@@ -215,7 +215,6 @@ class ChatbotController extends Notifier<ChatbotState> {
           .sendMessage(
             message: request.message,
             sessionId: state.sessionId,
-            draft: state.draft,
             action: request.action,
           );
       if (requestVersion != _requestVersion) return false;

@@ -22,7 +22,6 @@ class _ScreenChatbotRepository extends ChatbotRepository {
   Future<ChatbotResponse> sendMessage({
     required String message,
     String? sessionId,
-    ChatBookingDraft? draft,
     ChatbotAction? action,
   }) async => const ChatbotResponse(
     sessionId: 'session-1',

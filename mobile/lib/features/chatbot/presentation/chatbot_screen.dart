@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hospital_booking_mobile/app/navigation/booking_navigation.dart';
+import 'package:hospital_booking_mobile/features/support/application/support_action_launcher.dart';
 import 'package:hospital_booking_mobile/features/chatbot/application/chatbot_controller.dart';
 import 'package:hospital_booking_mobile/features/chatbot/domain/chatbot_models.dart';
 
@@ -190,6 +191,21 @@ class _ChatbotScreenState extends ConsumerState<ChatbotScreen> {
   }
 
   Future<void> _sendAction(ChatbotAction action) async {
+    // Nút gọi cấp cứu (115, số của cơ sở): mở trình gọi điện ngay, không chờ máy chủ.
+    if (action.type == 'EMERGENCY_ADVICE') {
+      final phone = action.payload['phone']?.toString().trim();
+      if (phone != null && phone.isNotEmpty) {
+        unawaited(
+          ref.read(supportActionLauncherProvider).openPhoneDialer(phone),
+        );
+        return;
+      }
+    }
+    // Cần đăng nhập để xem/hủy lịch của mình: mở lịch hẹn, bộ chặn tuyến tự chuyển qua đăng nhập rồi quay lại.
+    if (action.type == 'LOGIN_REQUIRED') {
+      unawaited(context.push('/appointments'));
+      return;
+    }
     final succeeded = await ref
         .read(chatbotControllerProvider.notifier)
         .sendAction(action);

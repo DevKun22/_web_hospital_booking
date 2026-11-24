@@ -27,7 +27,6 @@ class _FakeChatbotRepository extends ChatbotRepository {
   Future<ChatbotResponse> sendMessage({
     required String message,
     String? sessionId,
-    ChatBookingDraft? draft,
     ChatbotAction? action,
   }) {
     sendCalls += 1;
