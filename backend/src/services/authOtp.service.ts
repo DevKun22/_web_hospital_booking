@@ -292,14 +292,11 @@ class AuthOtpService {
 
     await this.assertNotBlocked(target, purpose, ipAddress);
 
-    // Mã giao thất bại (nhà cung cấp email lỗi) không tính thời gian chờ: người dùng chưa nhận được gì, phải gửi lại được ngay.
-    // Mã thất bại vẫn tính vào giới hạn số lần gửi bên dưới, nên không thể lợi dụng để gửi dồn.
     const lastOtp = await prisma.otpCode.findFirst({
       where: {
         email: target,
         purpose,
         ipAddress,
-        deliveryStatus: { not: "FAILED" },
       },
       orderBy: {
         createdAt: "desc",

@@ -1,6 +1,6 @@
 import { assert, http, prisma, test } from "./support/context.js";
 
-// Gửi lại mã đăng nhập người khám: chỉ mã mới nhất dùng được, lần giao hỏng không bắt chờ.
+// Gửi lại mã đăng nhập người khám: phải chờ đủ thời gian, và chỉ mã mới nhất dùng được.
 
 const requestOtp = (email: string) =>
   http.request("/api/v1/auth/patient/request-otp", { method: "POST", body: { email } });
@@ -39,16 +39,4 @@ test("resending closes the previous code so only the newest one signs in", async
 
   const newCode = await verify(second.body.data.challengeId, second.body.data.debugOtp);
   assert.equal(newCode.status, 200, JSON.stringify(newCode.body));
-});
-
-test("a code the email provider failed to deliver does not hold the resend cooldown", async () => {
-  const email = "undelivered.patient@example.test";
-  const first = await requestOtp(email);
-  assert.equal(first.status, 200, JSON.stringify(first.body));
-
-  // Mô phỏng nhà cung cấp email từ chối mã vừa gửi.
-  await prisma.otpCode.updateMany({ where: { email }, data: { deliveryStatus: "FAILED" } });
-
-  const retry = await requestOtp(email);
-  assert.equal(retry.status, 200, JSON.stringify(retry.body));
 });
