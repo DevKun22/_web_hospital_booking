@@ -1,4 +1,4 @@
-import type { NextFunction, Request, Response } from "express";
+import type { Request, Response } from "express";
 import PatientDependentService from "../services/patientDependent.service.js";
 import { AppError } from "../utils/appError.js";
 
@@ -17,63 +17,43 @@ const dependentId = (req: Request) => {
 export const listPatientDependentsHandler = async (
   req: Request,
   res: Response,
-  next: NextFunction,
 ) => {
-  try {
-    return res.json({
-      success: true,
-      data: await PatientDependentService.list(ownerId(req)),
-    });
-  } catch (error) {
-    next(error);
-  }
+  return res.json({
+    success: true,
+    data: await PatientDependentService.list(ownerId(req)),
+  });
 };
 
 export const createPatientDependentHandler = async (
   req: Request,
   res: Response,
-  next: NextFunction,
 ) => {
-  try {
-    return res.status(201).json({
-      success: true,
-      data: await PatientDependentService.create(ownerId(req), req.body),
-    });
-  } catch (error) {
-    next(error);
-  }
+  return res.status(201).json({
+    success: true,
+    data: await PatientDependentService.create(ownerId(req), req.body),
+  });
 };
 
 export const updatePatientDependentHandler = async (
   req: Request,
   res: Response,
-  next: NextFunction,
 ) => {
-  try {
-    return res.json({
-      success: true,
-      data: await PatientDependentService.update(
-        ownerId(req),
-        dependentId(req),
-        req.body,
-      ),
-    });
-  } catch (error) {
-    next(error);
-  }
+  return res.json({
+    success: true,
+    data: await PatientDependentService.update(
+      ownerId(req),
+      dependentId(req),
+      req.body,
+    ),
+  });
 };
 
 export const archivePatientDependentHandler = async (
   req: Request,
   res: Response,
-  next: NextFunction,
 ) => {
-  try {
-    return res.json({
-      success: true,
-      data: await PatientDependentService.archive(ownerId(req), dependentId(req)),
-    });
-  } catch (error) {
-    next(error);
-  }
+  return res.json({
+    success: true,
+    data: await PatientDependentService.archive(ownerId(req), dependentId(req)),
+  });
 };

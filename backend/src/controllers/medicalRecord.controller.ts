@@ -1,5 +1,5 @@
-import type { Request, Response, NextFunction } from "express";
-import type {
+import type { Request, Response } from "express";
+import {
   MedicalResultStatus,
   Role,
 } from "../../generated/prisma/enums.js";
@@ -7,6 +7,7 @@ import MedicalRecordService from "../services/medicalRecord.service.js";
 import SecureMedicalFileService, { sendMedicalFile } from "../services/secureMedicalFile.service.js";
 import { auditClinicalView } from "../utils/auditClinicalView.js";
 import { AppError } from "../utils/appError.js";
+import { getRequiredPathParam, parseEnumQuery, parseStringQuery } from "../shared/http/requestParsers.js";
 
 const parseNumberQuery = (value: unknown) => {
   if (typeof value !== "string") return undefined;
@@ -15,15 +16,6 @@ const parseNumberQuery = (value: unknown) => {
   return Number.isFinite(number) ? number : undefined;
 };
 
-const getParam = (value: string | string[] | undefined, name = "id") => {
-  const param = Array.isArray(value) ? value[0] : value;
-
-  if (!param) {
-    throw new AppError(`Thiếu ${name}`, 400);
-  }
-
-  return param;
-};
 
 const getActor = (req: Request) => {
   if (!req.user?.userId || !req.user.role) {
@@ -39,189 +31,141 @@ const getActor = (req: Request) => {
 export const listMedicalRecordsHandler = async (
   req: Request,
   res: Response,
-  next: NextFunction,
 ) => {
-  try {
-    const result = await MedicalRecordService.list(
-      {
-        status:
-          typeof req.query.status === "string"
-            ? (req.query.status as MedicalResultStatus)
-            : undefined,
-        doctorId:
-          typeof req.query.doctorId === "string"
-            ? req.query.doctorId
-            : undefined,
-        patientId:
-          typeof req.query.patientId === "string"
-            ? req.query.patientId
-            : undefined,
-        recordCode:
-          typeof req.query.recordCode === "string"
-            ? req.query.recordCode
-            : undefined,
-        q: typeof req.query.q === "string" ? req.query.q : undefined,
-        date: typeof req.query.date === "string" ? req.query.date : undefined,
-        page: parseNumberQuery(req.query.page),
-        limit: parseNumberQuery(req.query.limit),
-      },
-      getActor(req),
-    );
+  const result = await MedicalRecordService.list(
+    {
+      status:
+        parseEnumQuery(req.query.status, MedicalResultStatus, "status"),
+      doctorId:
+        parseStringQuery(req.query.doctorId),
+      patientId:
+        parseStringQuery(req.query.patientId),
+      recordCode:
+        parseStringQuery(req.query.recordCode),
+      q: parseStringQuery(req.query.q),
+      date: parseStringQuery(req.query.date),
+      page: parseNumberQuery(req.query.page),
+      limit: parseNumberQuery(req.query.limit),
+    },
+    getActor(req),
+  );
 
-    return res.json({ success: true, data: result });
-  } catch (error) {
-    next(error);
-  }
+  return res.json({ success: true, data: result });
 };
 
 export const getMedicalRecordHandler = async (
   req: Request,
   res: Response,
-  next: NextFunction,
 ) => {
-  try {
-    const record = await MedicalRecordService.getById(
-      getParam(req.params.id),
-      getActor(req),
-    );
+  const record = await MedicalRecordService.getById(
+    getRequiredPathParam(req.params.id),
+    getActor(req),
+  );
 
-    await auditClinicalView(req, "MEDICAL_RECORD_VIEWED", "MEDICAL_RECORD", record.id);
+  await auditClinicalView(req, "MEDICAL_RECORD_VIEWED", "MEDICAL_RECORD", record.id);
 
-    return res.json({ success: true, data: record });
-  } catch (error) {
-    next(error);
-  }
+  return res.json({ success: true, data: record });
 };
 
 export const updateMedicalRecordHandler = async (
   req: Request,
   res: Response,
-  next: NextFunction,
 ) => {
-  try {
-    const record = await MedicalRecordService.update(
-      getParam(req.params.id),
-      req.body,
-      getActor(req),
-    );
+  const record = await MedicalRecordService.update(
+    getRequiredPathParam(req.params.id),
+    req.body,
+    getActor(req),
+  );
 
-    return res.json({
-      success: true,
-      message: "Cập nhật hồ sơ khám thành công",
-      data: record,
-    });
-  } catch (error) {
-    next(error);
-  }
+  return res.json({
+    success: true,
+    message: "Cập nhật hồ sơ khám thành công",
+    data: record,
+  });
 };
 
 export const publishMedicalRecordHandler = async (
   req: Request,
   res: Response,
-  next: NextFunction,
 ) => {
-  try {
-    const record = await MedicalRecordService.publish(
-      getParam(req.params.id),
-      getActor(req),
-    );
+  const record = await MedicalRecordService.publish(
+    getRequiredPathParam(req.params.id),
+    getActor(req),
+  );
 
-    return res.json({
-      success: true,
-      message: "Phát hành kết quả khám thành công",
-      data: record,
-    });
-  } catch (error) {
-    next(error);
-  }
+  return res.json({
+    success: true,
+    message: "Phát hành kết quả khám thành công",
+    data: record,
+  });
 };
 
 export const archiveMedicalRecordHandler = async (
   req: Request,
   res: Response,
-  next: NextFunction,
 ) => {
-  try {
-    const record = await MedicalRecordService.archive(
-      getParam(req.params.id),
-      getActor(req),
-    );
+  const record = await MedicalRecordService.archive(
+    getRequiredPathParam(req.params.id),
+    getActor(req),
+  );
 
-    return res.json({
-      success: true,
-      message: "Lưu trữ hồ sơ khám thành công",
-      data: record,
-    });
-  } catch (error) {
-    next(error);
-  }
+  return res.json({
+    success: true,
+    message: "Lưu trữ hồ sơ khám thành công",
+    data: record,
+  });
 };
 
 export const createLabResultHandler = async (
   req: Request,
   res: Response,
-  next: NextFunction,
 ) => {
-  try {
-    const labResult = await MedicalRecordService.createLabResult(
-      getParam(req.params.id, "medicalRecordId"),
-      req.body,
-      getActor(req),
-    );
+  const labResult = await MedicalRecordService.createLabResult(
+    getRequiredPathParam(req.params.id, "medicalRecordId"),
+    req.body,
+    getActor(req),
+  );
 
-    return res.status(201).json({
-      success: true,
-      message: "Tạo kết quả cận lâm sàng thành công",
-      data: labResult,
-    });
-  } catch (error) {
-    next(error);
-  }
+  return res.status(201).json({
+    success: true,
+    message: "Tạo kết quả cận lâm sàng thành công",
+    data: labResult,
+  });
 };
 
 export const updateLabResultHandler = async (
   req: Request,
   res: Response,
-  next: NextFunction,
 ) => {
-  try {
-    const labResult = await MedicalRecordService.updateLabResult(
-      getParam(req.params.id, "medicalRecordId"),
-      getParam(req.params.labResultId, "labResultId"),
-      req.body,
-      getActor(req),
-    );
+  const labResult = await MedicalRecordService.updateLabResult(
+    getRequiredPathParam(req.params.id, "medicalRecordId"),
+    getRequiredPathParam(req.params.labResultId, "labResultId"),
+    req.body,
+    getActor(req),
+  );
 
-    return res.json({
-      success: true,
-      message: "Cập nhật kết quả cận lâm sàng thành công",
-      data: labResult,
-    });
-  } catch (error) {
-    next(error);
-  }
+  return res.json({
+    success: true,
+    message: "Cập nhật kết quả cận lâm sàng thành công",
+    data: labResult,
+  });
 };
 
 export const deleteLabResultHandler = async (
   req: Request,
   res: Response,
-  next: NextFunction,
 ) => {
-  try {
-    const labResult = await MedicalRecordService.deleteLabResult(
-      getParam(req.params.id, "medicalRecordId"),
-      getParam(req.params.labResultId, "labResultId"),
-      getActor(req),
-    );
+  const labResult = await MedicalRecordService.deleteLabResult(
+    getRequiredPathParam(req.params.id, "medicalRecordId"),
+    getRequiredPathParam(req.params.labResultId, "labResultId"),
+    getActor(req),
+  );
 
-    return res.json({
-      success: true,
-      message: "Xóa kết quả cận lâm sàng thành công",
-      data: labResult,
-    });
-  } catch (error) {
-    next(error);
-  }
+  return res.json({
+    success: true,
+    message: "Xóa kết quả cận lâm sàng thành công",
+    data: labResult,
+  });
 };
 
 // Mở tệp kết quả (đính kèm hồ sơ hoặc của một kết quả cận lâm sàng) qua máy chủ: tệp riêng tư
@@ -229,18 +173,13 @@ export const deleteLabResultHandler = async (
 export const downloadMedicalFileHandler = async (
   req: Request,
   res: Response,
-  next: NextFunction,
 ) => {
-  try {
-    const source = await MedicalRecordService.getFileSource(
-      getParam(req.params.id),
-      getActor(req),
-      req.params.labResultId ? getParam(req.params.labResultId, "labResultId") : undefined,
-    );
-    const file = await SecureMedicalFileService.fetch(source.url);
-    await auditClinicalView(req, "MEDICAL_RECORD_VIEWED", "MEDICAL_RECORD", source.recordId);
-    return sendMedicalFile(res, file, source.fileName);
-  } catch (error) {
-    next(error);
-  }
+  const source = await MedicalRecordService.getFileSource(
+    getRequiredPathParam(req.params.id),
+    getActor(req),
+    req.params.labResultId ? getRequiredPathParam(req.params.labResultId, "labResultId") : undefined,
+  );
+  const file = await SecureMedicalFileService.fetch(source.url);
+  await auditClinicalView(req, "MEDICAL_RECORD_VIEWED", "MEDICAL_RECORD", source.recordId);
+  return sendMedicalFile(res, file, source.fileName);
 };

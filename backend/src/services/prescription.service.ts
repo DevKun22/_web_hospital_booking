@@ -3,7 +3,7 @@ import { Prisma } from "../../generated/prisma/client.js";
 import type { PrescriptionStatus } from "../../generated/prisma/enums.js";
 import { prisma } from "../config/prisma.js";
 import { AppError } from "../utils/appError.js";
-import { generatePrescriptionCode } from "../utils/prescriptionCode.js";
+import { CODE_PREFIX, generateDatedCode } from "../utils/datedCode.js";
 import InvoiceMedicineService from "./invoiceMedicine.service.js";
 import MedicineAvailabilityService from "./medicineAvailability.service.js";
 import PatientEventNotificationService from "./patientEventNotification.service.js";
@@ -643,7 +643,7 @@ class PrescriptionService {
 
   private generateUniquePrescriptionCode(tx: Prisma.TransactionClient) {
     return generateUniqueCode(
-      generatePrescriptionCode,
+      () => generateDatedCode(CODE_PREFIX.prescription),
       async (prescriptionCode) => Boolean(await tx.prescription.findUnique({ where: { prescriptionCode }, select: { id: true } })),
       "Không thể tạo mã đơn thuốc",
     );

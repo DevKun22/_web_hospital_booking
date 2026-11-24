@@ -12,7 +12,7 @@ import { prisma } from "../config/prisma.js";
 import InvoiceService from "../services/invoice.service.js";
 import MedicalRecordService from "../services/medicalRecord.service.js";
 import PrescriptionService from "../services/prescription.service.js";
-import { generateBookingCode } from "../utils/bookingCode.js";
+import { CODE_PREFIX, generateDatedCode } from "../utils/datedCode.js";
 
 type Actor = { userId: string; role: "DOCTOR" | "ADMIN" };
 type Line = { code: string; quantity: number; dosage?: string };
@@ -123,7 +123,7 @@ async function main() {
       await tx.doctorTimeSlot.update({ where: { id: slot.id }, data: { status: "BOOKED" } });
       return tx.appointment.create({
         data: {
-          bookingCode: generateBookingCode(),
+          bookingCode: generateDatedCode(CODE_PREFIX.booking),
           appointmentDate: slot.date,
           startTime: slot.startTime,
           endTime: slot.endTime,

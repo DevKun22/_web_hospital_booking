@@ -1,4 +1,4 @@
-import type { NextFunction, Request, Response } from "express";
+import type { Request, Response } from "express";
 import { isFirebaseAdminConfigured } from "../config/firebaseAdmin.js";
 import type { AppointmentStatus, InvoiceStatus } from "../../generated/prisma/enums.js";
 import PatientPortalService from "../services/patientPortal.service.js";
@@ -41,94 +41,70 @@ const optionalEnumQuery = <T extends string>(
   return value as T;
 };
 
-export const getPatientProfileHandler = async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    return res.json({ success: true, data: await PatientPortalService.getProfile(requirePatientId(req)) });
-  } catch (error) { next(error); }
+export const getPatientProfileHandler = async (req: Request, res: Response) => {
+  return res.json({ success: true, data: await PatientPortalService.getProfile(requirePatientId(req)) });
 };
 
-export const updatePatientProfileHandler = async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    return res.json({ success: true, data: await PatientPortalService.updateProfile(requirePatientId(req), req.body) });
-  } catch (error) { next(error); }
+export const updatePatientProfileHandler = async (req: Request, res: Response) => {
+  return res.json({ success: true, data: await PatientPortalService.updateProfile(requirePatientId(req), req.body) });
 };
 
-export const listPatientAppointmentsHandler = async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const pagination = parsePagination(req.query);
-    const result = await PatientPortalService.listAppointments(requirePatientId(req), {
-      ...pagination,
-      status: optionalEnumQuery(req.query.status, appointmentStatuses, "status"),
-    });
-    return res.json({ success: true, data: result.items, meta: result.meta });
-  } catch (error) { next(error); }
+export const listPatientAppointmentsHandler = async (req: Request, res: Response) => {
+  const pagination = parsePagination(req.query);
+  const result = await PatientPortalService.listAppointments(requirePatientId(req), {
+    ...pagination,
+    status: optionalEnumQuery(req.query.status, appointmentStatuses, "status"),
+  });
+  return res.json({ success: true, data: result.items, meta: result.meta });
 };
 
-export const getPatientAppointmentHandler = async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    return res.json({ success: true, data: await PatientPortalService.getAppointment(requirePatientId(req), param(req, "id")) });
-  } catch (error) { next(error); }
+export const getPatientAppointmentHandler = async (req: Request, res: Response) => {
+  return res.json({ success: true, data: await PatientPortalService.getAppointment(requirePatientId(req), param(req, "id")) });
 };
 
-export const cancelPatientAppointmentHandler = async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    return res.json({ success: true, data: await PatientPortalService.cancelAppointment(requirePatientId(req), param(req, "id"), req.body.reason) });
-  } catch (error) { next(error); }
+export const cancelPatientAppointmentHandler = async (req: Request, res: Response) => {
+  return res.json({ success: true, data: await PatientPortalService.cancelAppointment(requirePatientId(req), param(req, "id"), req.body.reason) });
 };
 
-export const listPatientMedicalRecordsHandler = async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const result = await PatientPortalService.listMedicalRecords(requirePatientId(req), parsePagination(req.query));
-    return res.json({ success: true, data: result.items, meta: result.meta });
-  } catch (error) { next(error); }
+export const listPatientMedicalRecordsHandler = async (req: Request, res: Response) => {
+  const result = await PatientPortalService.listMedicalRecords(requirePatientId(req), parsePagination(req.query));
+  return res.json({ success: true, data: result.items, meta: result.meta });
 };
 
-export const getPatientMedicalRecordHandler = async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    return res.json({ success: true, data: await PatientPortalService.getMedicalRecord(requirePatientId(req), param(req, "id")) });
-  } catch (error) { next(error); }
+export const getPatientMedicalRecordHandler = async (req: Request, res: Response) => {
+  return res.json({ success: true, data: await PatientPortalService.getMedicalRecord(requirePatientId(req), param(req, "id")) });
 };
 
-export const downloadPatientMedicalFileHandler = async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const source = await PatientPortalService.getMedicalFileSource(
-      requirePatientId(req),
-      param(req, "id"),
-      req.params.labResultId ? param(req, "labResultId") : undefined,
-    );
-    const file = await SecureMedicalFileService.fetch(source.url);
-    return sendMedicalFile(res, file, source.fileName);
-  } catch (error) { next(error); }
+export const downloadPatientMedicalFileHandler = async (req: Request, res: Response) => {
+  const source = await PatientPortalService.getMedicalFileSource(
+    requirePatientId(req),
+    param(req, "id"),
+    req.params.labResultId ? param(req, "labResultId") : undefined,
+  );
+  const file = await SecureMedicalFileService.fetch(source.url);
+  return sendMedicalFile(res, file, source.fileName);
 };
 
-export const listPatientPrescriptionsHandler = async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const result = await PatientPortalService.listPrescriptions(requirePatientId(req), parsePagination(req.query));
-    return res.json({ success: true, data: result.items, meta: result.meta });
-  } catch (error) { next(error); }
+export const listPatientPrescriptionsHandler = async (req: Request, res: Response) => {
+  const result = await PatientPortalService.listPrescriptions(requirePatientId(req), parsePagination(req.query));
+  return res.json({ success: true, data: result.items, meta: result.meta });
 };
 
-export const getPatientPrescriptionHandler = async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    return res.json({ success: true, data: await PatientPortalService.getPrescription(requirePatientId(req), param(req, "id")) });
-  } catch (error) { next(error); }
+export const getPatientPrescriptionHandler = async (req: Request, res: Response) => {
+  return res.json({ success: true, data: await PatientPortalService.getPrescription(requirePatientId(req), param(req, "id")) });
 };
 
-export const listPatientInvoicesHandler = async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const pagination = parsePagination(req.query);
-    const result = await PatientPortalService.listInvoices(requirePatientId(req), {
-      ...pagination,
-      status: optionalEnumQuery(req.query.status, invoiceStatuses, "status"),
-    });
-    return res.json({ success: true, data: result.items, meta: result.meta });
-  } catch (error) { next(error); }
+export const listPatientInvoicesHandler = async (req: Request, res: Response) => {
+  const pagination = parsePagination(req.query);
+  const result = await PatientPortalService.listInvoices(requirePatientId(req), {
+    ...pagination,
+    status: optionalEnumQuery(req.query.status, invoiceStatuses, "status"),
+  });
+  return res.json({ success: true, data: result.items, meta: result.meta });
 };
 
-export const getPatientInvoiceHandler = async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    return res.json({ success: true, data: await PatientPortalService.getInvoice(requirePatientId(req), param(req, "id")) });
-  } catch (error) { next(error); }
+export const getPatientInvoiceHandler = async (req: Request, res: Response) => {
+  return res.json({ success: true, data: await PatientPortalService.getInvoice(requirePatientId(req), param(req, "id")) });
 };
 
 export const patientCapabilitiesHandler = (_req: Request, res: Response) => {

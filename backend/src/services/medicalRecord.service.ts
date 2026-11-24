@@ -7,7 +7,7 @@ import type {
 import { prisma } from "../config/prisma.js";
 import { AppError } from "../utils/appError.js";
 import { parseDateOnly } from "../utils/time.js";
-import { generateRecordCode } from "../utils/recordCode.js";
+import { CODE_PREFIX, generateDatedCode } from "../utils/datedCode.js";
 import MediaAssetService from "./mediaAsset.service.js";
 import PatientEventNotificationService from "./patientEventNotification.service.js";
 import { normalizeOptionalString } from "../utils/text.js";
@@ -517,7 +517,7 @@ class MedicalRecordService {
 
   private generateUniqueRecordCode(tx: Prisma.TransactionClient) {
     return generateUniqueCode(
-      generateRecordCode,
+      () => generateDatedCode(CODE_PREFIX.medicalRecord),
       async (recordCode) => Boolean(await tx.medicalRecord.findUnique({ where: { recordCode }, select: { id: true } })),
       "Không thể tạo mã hồ sơ khám",
     );

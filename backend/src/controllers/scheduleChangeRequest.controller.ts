@@ -1,10 +1,11 @@
-import type { NextFunction, Request, Response } from "express";
-import type {
+import type { Request, Response } from "express";
+import {
   Role,
   ScheduleChangeRequestStatus,
 } from "../../generated/prisma/enums.js";
 import ScheduleChangeRequestService from "../services/scheduleChangeRequest.service.js";
 import { AppError } from "../utils/appError.js";
+import { parseEnumQuery, parseStringQuery } from "../shared/http/requestParsers.js";
 
 const getActor = (req: Request) => {
   if (!req.user?.userId || !req.user.role)
@@ -26,94 +27,70 @@ const numberQuery = (value: unknown) =>
 export const listScheduleChangeRequestsHandler = async (
   req: Request,
   res: Response,
-  next: NextFunction,
 ) => {
-  try {
-    const data = await ScheduleChangeRequestService.list(
-      {
-        status:
-          typeof req.query.status === "string"
-            ? (req.query.status as ScheduleChangeRequestStatus)
-            : undefined,
-        doctorId:
-          typeof req.query.doctorId === "string"
-            ? req.query.doctorId
-            : undefined,
-        page: numberQuery(req.query.page),
-        limit: numberQuery(req.query.limit),
-      },
-      getActor(req),
-    );
-    return res.json({ success: true, data });
-  } catch (error) {
-    next(error);
-  }
+  const data = await ScheduleChangeRequestService.list(
+    {
+      status:
+        parseEnumQuery(req.query.status, ScheduleChangeRequestStatus, "status"),
+      doctorId:
+        parseStringQuery(req.query.doctorId),
+      page: numberQuery(req.query.page),
+      limit: numberQuery(req.query.limit),
+    },
+    getActor(req),
+  );
+  return res.json({ success: true, data });
 };
 
 export const createScheduleChangeRequestHandler = async (
   req: Request,
   res: Response,
-  next: NextFunction,
 ) => {
-  try {
-    const data = await ScheduleChangeRequestService.create(
-      req.body,
-      getActor(req),
-    );
-    return res
-      .status(201)
-      .json({
-        success: true,
-        message:
-          "Đã gửi yêu cầu đổi lịch để chờ duyệt",
-        data,
-      });
-  } catch (error) {
-    next(error);
-  }
+  const data = await ScheduleChangeRequestService.create(
+    req.body,
+    getActor(req),
+  );
+  return res
+    .status(201)
+    .json({
+      success: true,
+      message:
+        "Đã gửi yêu cầu đổi lịch để chờ duyệt",
+      data,
+    });
 };
 
 export const reviewScheduleChangeRequestHandler = async (
   req: Request,
   res: Response,
-  next: NextFunction,
 ) => {
-  try {
-    const data = await ScheduleChangeRequestService.review(
-      getId(req.params.id),
-      req.body,
-      getActor(req),
-    );
-    return res.json({
-      success: true,
-      message:
-        req.body.status === "APPROVED"
-          ? "Đã duyệt và áp dụng lịch mẫu"
-          : "Đã từ chối yêu cầu đổi lịch",
-      data,
-    });
-  } catch (error) {
-    next(error);
-  }
+  const data = await ScheduleChangeRequestService.review(
+    getId(req.params.id),
+    req.body,
+    getActor(req),
+  );
+  return res.json({
+    success: true,
+    message:
+      req.body.status === "APPROVED"
+        ? "Đã duyệt và áp dụng lịch mẫu"
+        : "Đã từ chối yêu cầu đổi lịch",
+    data,
+  });
 };
 
 export const cancelScheduleChangeRequestHandler = async (
   req: Request,
   res: Response,
-  next: NextFunction,
 ) => {
-  try {
-    const data = await ScheduleChangeRequestService.cancel(
-      getId(req.params.id),
-      getActor(req),
-    );
-    return res.json({
-      success: true,
-      message:
-        "Đã hủy yêu cầu đổi lịch",
-      data,
-    });
-  } catch (error) {
-    next(error);
-  }
+  const data = await ScheduleChangeRequestService.cancel(
+    getId(req.params.id),
+    getActor(req),
+  );
+  return res.json({
+    success: true,
+    message:
+      "Đã hủy yêu cầu đổi lịch",
+    data,
+  });
 };

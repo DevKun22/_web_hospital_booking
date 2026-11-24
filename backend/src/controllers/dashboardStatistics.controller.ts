@@ -1,7 +1,9 @@
-import type { Request, Response, NextFunction } from "express";
+import type { Request, Response } from "express";
 import DashboardStatisticsService from "../services/dashboardStatistics.service.js";
 import { AppError } from "../utils/appError.js";
 import type { Role } from "../../generated/prisma/enums.js";
+import { getVietnamNowParts } from "../utils/time.js";
+import { parseStringQuery } from "../shared/http/requestParsers.js";
 
 const parseDateQuery = (value: unknown, endOfDay = false) => {
   if (typeof value !== "string") return undefined;
@@ -28,116 +30,78 @@ const getActor = (req: Request) => {
 export const getDoctorWorkspaceHandler = async (
   req: Request,
   res: Response,
-  next: NextFunction,
 ) => {
-  try {
-    const date =
-      typeof req.query.date === "string"
-        ? req.query.date
-        : new Date().toISOString().slice(0, 10);
-    const data = await DashboardStatisticsService.getDoctorWorkspace(
-      date,
-      getActor(req),
-    );
+  const date = parseStringQuery(req.query.date) ?? getVietnamNowParts().date;
+  const data = await DashboardStatisticsService.getDoctorWorkspace(
+    date,
+    getActor(req),
+  );
 
-    return res.json({ success: true, data });
-  } catch (error) {
-    next(error);
-  }
+  return res.json({ success: true, data });
 };
 
 export const getDashboardStatisticsWorkspaceHandler = async (
   req: Request,
   res: Response,
-  next: NextFunction,
 ) => {
-  try {
-    const data = await DashboardStatisticsService.getWorkspace(
-      getRangeQuery(req),
-    );
+  const data = await DashboardStatisticsService.getWorkspace(
+    getRangeQuery(req),
+  );
 
-    return res.json({ success: true, data });
-  } catch (error) {
-    next(error);
-  }
+  return res.json({ success: true, data });
 };
 
 export const getDashboardStatisticsOverviewHandler = async (
   req: Request,
   res: Response,
-  next: NextFunction,
 ) => {
-  try {
-    const data = await DashboardStatisticsService.getOverview(
-      getRangeQuery(req),
-    );
+  const data = await DashboardStatisticsService.getOverview(
+    getRangeQuery(req),
+  );
 
-    return res.json({ success: true, data });
-  } catch (error) {
-    next(error);
-  }
+  return res.json({ success: true, data });
 };
 
 export const getDashboardAppointmentStatisticsHandler = async (
   req: Request,
   res: Response,
-  next: NextFunction,
 ) => {
-  try {
-    const data = await DashboardStatisticsService.getAppointments(
-      getRangeQuery(req),
-    );
+  const data = await DashboardStatisticsService.getAppointments(
+    getRangeQuery(req),
+  );
 
-    return res.json({ success: true, data });
-  } catch (error) {
-    next(error);
-  }
+  return res.json({ success: true, data });
 };
 
 export const getDashboardRevenueStatisticsHandler = async (
   req: Request,
   res: Response,
-  next: NextFunction,
 ) => {
-  try {
-    const data = await DashboardStatisticsService.getRevenue(
-      getRangeQuery(req),
-    );
+  const data = await DashboardStatisticsService.getRevenue(
+    getRangeQuery(req),
+  );
 
-    return res.json({ success: true, data });
-  } catch (error) {
-    next(error);
-  }
+  return res.json({ success: true, data });
 };
 
 export const getDashboardDoctorStatisticsHandler = async (
   req: Request,
   res: Response,
-  next: NextFunction,
 ) => {
-  try {
-    const data = await DashboardStatisticsService.getDoctors(
-      getRangeQuery(req),
-    );
+  const data = await DashboardStatisticsService.getDoctors(
+    getRangeQuery(req),
+  );
 
-    return res.json({ success: true, data });
-  } catch (error) {
-    next(error);
-  }
+  return res.json({ success: true, data });
 };
 
 export const getDashboardDepartmentStatisticsHandler = async (
   req: Request,
   res: Response,
-  next: NextFunction,
 ) => {
-  try {
-    const data = await DashboardStatisticsService.getDepartments(
-      getRangeQuery(req),
-    );
+  const data = await DashboardStatisticsService.getDepartments(
+    getRangeQuery(req),
+  );
 
-    return res.json({ success: true, data });
-  } catch (error) {
-    next(error);
-  }
+  return res.json({ success: true, data });
 };

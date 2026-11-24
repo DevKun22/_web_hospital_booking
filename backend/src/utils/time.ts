@@ -64,13 +64,13 @@ export const buildTimeSlots = (
 
 export const parseDateOnly = (date: string) => {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
-    throw new AppError("Ngay phai co dinh dang YYYY-MM-DD", 400);
+    throw new AppError("Ngày phải có định dạng YYYY-MM-DD", 400);
   }
 
   const parsedDate = new Date(`${date}T00:00:00.000Z`);
 
   if (Number.isNaN(parsedDate.getTime())) {
-    throw new AppError("Ngay khong hop le", 400);
+    throw new AppError("Ngày không hợp lệ", 400);
   }
 
   return parsedDate;
@@ -91,6 +91,10 @@ export const getVietnamNowParts = (now = new Date()) => {
       .padStart(2, "0")}`,
   };
 };
+
+/** Ngày hôm nay theo giờ Việt Nam, dạng Date lúc 00:00 UTC (khớp cách lưu cột ngày như appointmentDate, date). */
+export const getVietnamToday = (now = new Date()) =>
+  parseDateOnly(getVietnamNowParts(now).date);
 
 export const isSlotStartInPastVietnamTime = (date: Date, startTime: string) => {
   const now = getVietnamNowParts();

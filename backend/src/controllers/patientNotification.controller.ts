@@ -1,4 +1,4 @@
-import type { NextFunction, Request, Response } from "express";
+import type { Request, Response } from "express";
 import NotificationService from "../services/notification.service.js";
 import NotificationPreferenceService, {
   notificationPreferenceKeys,
@@ -81,93 +81,63 @@ const parsePreferenceChanges = (
 export const listPatientNotificationsHandler = async (
   req: Request,
   res: Response,
-  next: NextFunction,
 ) => {
-  try {
-    const pagination = parsePagination(req.query);
-    const result = await NotificationService.listForPatient({
-      userId: requirePatientId(req),
-      page: pagination.page,
-      limit: pagination.limit,
-      unreadOnly: parseUnreadOnly(req.query.unread),
-    });
-    return res.json({ success: true, data: result.items, meta: result.meta });
-  } catch (error) {
-    next(error);
-  }
+  const pagination = parsePagination(req.query);
+  const result = await NotificationService.listForPatient({
+    userId: requirePatientId(req),
+    page: pagination.page,
+    limit: pagination.limit,
+    unreadOnly: parseUnreadOnly(req.query.unread),
+  });
+  return res.json({ success: true, data: result.items, meta: result.meta });
 };
 
 export const getPatientUnreadNotificationCountHandler = async (
   req: Request,
   res: Response,
-  next: NextFunction,
 ) => {
-  try {
-    const unreadCount = await NotificationService.unreadCount(
-      requirePatientId(req),
-    );
-    return res.json({ success: true, data: { unreadCount } });
-  } catch (error) {
-    next(error);
-  }
+  const unreadCount = await NotificationService.unreadCount(
+    requirePatientId(req),
+  );
+  return res.json({ success: true, data: { unreadCount } });
 };
 
 export const markPatientNotificationReadHandler = async (
   req: Request,
   res: Response,
-  next: NextFunction,
 ) => {
-  try {
-    const data = await NotificationService.markRead(
-      requirePatientId(req),
-      notificationId(req),
-    );
-    return res.json({ success: true, data });
-  } catch (error) {
-    next(error);
-  }
+  const data = await NotificationService.markRead(
+    requirePatientId(req),
+    notificationId(req),
+  );
+  return res.json({ success: true, data });
 };
 
 export const markAllPatientNotificationsReadHandler = async (
   req: Request,
   res: Response,
-  next: NextFunction,
 ) => {
-  try {
-    const data = await NotificationService.markAllRead(requirePatientId(req));
-    return res.json({ success: true, data });
-  } catch (error) {
-    next(error);
-  }
+  const data = await NotificationService.markAllRead(requirePatientId(req));
+  return res.json({ success: true, data });
 };
 
 export const getPatientNotificationPreferencesHandler = async (
   req: Request,
   res: Response,
-  next: NextFunction,
 ) => {
-  try {
-    const data = await NotificationPreferenceService.get(
-      requirePatientId(req),
-    );
-    return res.json({ success: true, data });
-  } catch (error) {
-    next(error);
-  }
+  const data = await NotificationPreferenceService.get(
+    requirePatientId(req),
+  );
+  return res.json({ success: true, data });
 };
 
 export const updatePatientNotificationPreferencesHandler = async (
   req: Request,
   res: Response,
-  next: NextFunction,
 ) => {
-  try {
-    const data = await NotificationPreferenceService.update(
-      requirePatientId(req),
-      parsePreferenceChanges(req.body),
-    );
-    return res.json({ success: true, data });
-  } catch (error) {
-    next(error);
-  }
+  const data = await NotificationPreferenceService.update(
+    requirePatientId(req),
+    parsePreferenceChanges(req.body),
+  );
+  return res.json({ success: true, data });
 };

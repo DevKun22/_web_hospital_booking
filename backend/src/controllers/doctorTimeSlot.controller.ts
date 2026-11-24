@@ -1,9 +1,10 @@
 import SlotPlannerService from "../services/slotPlanner.service.js";
-import type { Request, Response, NextFunction } from "express";
-import type { Role, TimeSlotStatus } from "../../generated/prisma/enums.js";
+import type { Request, Response } from "express";
+import { Role, TimeSlotStatus } from "../../generated/prisma/enums.js";
 import DoctorTimeSlotService from "../services/doctorTimeSlot.service.js";
 import ScheduleReconciliationService from "../services/scheduleReconciliation.service.js";
 import { AppError } from "../utils/appError.js";
+import { getRequiredPathParam, parseEnumQuery, parseStringQuery } from "../shared/http/requestParsers.js";
 
 const parseBooleanQuery = (value: unknown) => {
   if (value === "true") return true;
@@ -18,15 +19,6 @@ const parseNumberQuery = (value: unknown) => {
   return Number.isFinite(number) ? number : undefined;
 };
 
-const getParam = (value: string | string[] | undefined, name = "id") => {
-  const param = Array.isArray(value) ? value[0] : value;
-
-  if (!param) {
-    throw new AppError(`Thiếu ${name}`, 400);
-  }
-
-  return param;
-};
 
 const getActor = (req: Request) => {
   if (!req.user?.userId || !req.user.role) {
@@ -42,208 +34,154 @@ const getActor = (req: Request) => {
 export const listDoctorTimeSlotsHandler = async (
   req: Request,
   res: Response,
-  next: NextFunction,
 ) => {
-  try {
-    const result = await DoctorTimeSlotService.list(
-      {
-        doctorId:
-          typeof req.query.doctorId === "string"
-            ? req.query.doctorId
-            : undefined,
-        date: typeof req.query.date === "string" ? req.query.date : undefined,
-        status:
-          typeof req.query.status === "string"
-            ? (req.query.status as TimeSlotStatus)
-            : undefined,
-        isActive: parseBooleanQuery(req.query.isActive),
-        page: parseNumberQuery(req.query.page),
-        limit: parseNumberQuery(req.query.limit),
-      },
-      getActor(req),
-    );
+  const result = await DoctorTimeSlotService.list(
+    {
+      doctorId:
+        parseStringQuery(req.query.doctorId),
+      date: parseStringQuery(req.query.date),
+      status:
+        parseEnumQuery(req.query.status, TimeSlotStatus, "status"),
+      isActive: parseBooleanQuery(req.query.isActive),
+      page: parseNumberQuery(req.query.page),
+      limit: parseNumberQuery(req.query.limit),
+    },
+    getActor(req),
+  );
 
-    return res.json({ success: true, data: result });
-  } catch (error) {
-    next(error);
-  }
+  return res.json({ success: true, data: result });
 };
 
 export const getDoctorTimeSlotHandler = async (
   req: Request,
   res: Response,
-  next: NextFunction,
 ) => {
-  try {
-    const slot = await DoctorTimeSlotService.getById(
-      getParam(req.params.id),
-      getActor(req),
-    );
+  const slot = await DoctorTimeSlotService.getById(
+    getRequiredPathParam(req.params.id),
+    getActor(req),
+  );
 
-    return res.json({ success: true, data: slot });
-  } catch (error) {
-    next(error);
-  }
+  return res.json({ success: true, data: slot });
 };
 
 export const generateDoctorTimeSlotsHandler = async (
   req: Request,
   res: Response,
-  next: NextFunction,
 ) => {
-  try {
-    const result = await DoctorTimeSlotService.generate(req.body);
+  const result = await DoctorTimeSlotService.generate(req.body);
 
-    return res.status(201).json({
-      success: true,
-      message: "Tạo slot khám thành công",
-      data: result,
-    });
-  } catch (error) {
-    next(error);
-  }
+  return res.status(201).json({
+    success: true,
+    message: "Tạo slot khám thành công",
+    data: result,
+  });
 };
 
 export const updateDoctorTimeSlotStatusHandler = async (
   req: Request,
   res: Response,
-  next: NextFunction,
 ) => {
-  try {
-    const slot = await DoctorTimeSlotService.updateStatus(
-      getParam(req.params.id),
-      req.body.status,
-      req.body.lockReason,
-    );
+  const slot = await DoctorTimeSlotService.updateStatus(
+    getRequiredPathParam(req.params.id),
+    req.body.status,
+    req.body.lockReason,
+  );
 
-    return res.json({
-      success: true,
-      message: "Cập nhật trạng thái slot thành công",
-      data: slot,
-    });
-  } catch (error) {
-    next(error);
-  }
+  return res.json({
+    success: true,
+    message: "Cập nhật trạng thái slot thành công",
+    data: slot,
+  });
 };
 
 export const lockDoctorTimeSlotHandler = async (
   req: Request,
   res: Response,
-  next: NextFunction,
 ) => {
-  try {
-    const slot = await DoctorTimeSlotService.lock(
-      getParam(req.params.id),
-      req.body.lockReason,
-      getActor(req),
-    );
+  const slot = await DoctorTimeSlotService.lock(
+    getRequiredPathParam(req.params.id),
+    req.body.lockReason,
+    getActor(req),
+  );
 
-    return res.json({
-      success: true,
-      message: "Khóa slot thành công",
-      data: slot,
-    });
-  } catch (error) {
-    next(error);
-  }
+  return res.json({
+    success: true,
+    message: "Khóa slot thành công",
+    data: slot,
+  });
 };
 
 export const unlockDoctorTimeSlotHandler = async (
   req: Request,
   res: Response,
-  next: NextFunction,
 ) => {
-  try {
-    const slot = await DoctorTimeSlotService.unlock(
-      getParam(req.params.id),
-      getActor(req),
-    );
+  const slot = await DoctorTimeSlotService.unlock(
+    getRequiredPathParam(req.params.id),
+    getActor(req),
+  );
 
-    return res.json({
-      success: true,
-      message: "Mở khóa slot thành công",
-      data: slot,
-    });
-  } catch (error) {
-    next(error);
-  }
+  return res.json({
+    success: true,
+    message: "Mở khóa slot thành công",
+    data: slot,
+  });
 };
 
 export const deleteDoctorTimeSlotHandler = async (
   req: Request,
   res: Response,
-  next: NextFunction,
 ) => {
-  try {
-    const slot = await DoctorTimeSlotService.delete(getParam(req.params.id));
+  const slot = await DoctorTimeSlotService.delete(getRequiredPathParam(req.params.id));
 
-    return res.json({
-      success: true,
-      message: "Xóa slot thành công",
-      data: slot,
-    });
-  } catch (error) {
-    next(error);
-  }
+  return res.json({
+    success: true,
+    message: "Xóa slot thành công",
+    data: slot,
+  });
 };
 
 export const reconcileDoctorTimeSlotsHandler = async (
   req: Request,
   res: Response,
-  next: NextFunction,
 ) => {
-  try {
-    const result = await ScheduleReconciliationService.reconcile({
-      repair: req.body?.repair !== false,
-      batchSize:
-        typeof req.body?.batchSize === "number" ? req.body.batchSize : undefined,
-    });
-    return res.json({
-      success: true,
-      message: "Đã đối soát tính nhất quán của slot khám",
-      data: result,
-    });
-  } catch (error) {
-    next(error);
-  }
+  const result = await ScheduleReconciliationService.reconcile({
+    repair: req.body?.repair !== false,
+    batchSize:
+      typeof req.body?.batchSize === "number" ? req.body.batchSize : undefined,
+  });
+  return res.json({
+    success: true,
+    message: "Đã đối soát tính nhất quán của slot khám",
+    data: result,
+  });
 };
 
 export const listPublicAvailableSlotsHandler = async (
   req: Request,
   res: Response,
-  next: NextFunction,
 ) => {
-  try {
-    const slots = await DoctorTimeSlotService.getPublicAvailableSlots(
-      getParam(req.params.id, "doctorId"),
-      typeof req.query.date === "string" ? req.query.date : "",
-    );
+  const slots = await DoctorTimeSlotService.getPublicAvailableSlots(
+    getRequiredPathParam(req.params.id, "doctorId"),
+    typeof req.query.date === "string" ? req.query.date : "",
+  );
 
-    return res.json({
-      success: true,
-      data: slots,
-    });
-  } catch (error) {
-    next(error);
-  }
+  return res.json({
+    success: true,
+    data: slots,
+  });
 };
 
 export const listPublicAvailableDatesHandler = async (
   req: Request,
   res: Response,
-  next: NextFunction,
 ) => {
-  try {
-    const dates = await DoctorTimeSlotService.getPublicAvailableDates(
-      getParam(req.params.id, "doctorId"),
-      typeof req.query.from === "string" ? req.query.from : "",
-      typeof req.query.to === "string" ? req.query.to : "",
-    );
+  const dates = await DoctorTimeSlotService.getPublicAvailableDates(
+    getRequiredPathParam(req.params.id, "doctorId"),
+    typeof req.query.from === "string" ? req.query.from : "",
+    typeof req.query.to === "string" ? req.query.to : "",
+  );
 
-    return res.json({ success: true, data: dates });
-  } catch (error) {
-    next(error);
-  }
+  return res.json({ success: true, data: dates });
 };
 
 const requireActor = (req: Request) => {
@@ -251,29 +189,17 @@ const requireActor = (req: Request) => {
   return { userId: req.user.userId, role: req.user.role as Role };
 };
 
-export const generateRangeHandler = async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const data = await SlotPlannerService.generateForRange(req.body);
-    return res.status(201).json({ success: true, message: "Đã sinh khung giờ", data });
-  } catch (error) {
-    next(error);
-  }
+export const generateRangeHandler = async (req: Request, res: Response) => {
+  const data = await SlotPlannerService.generateForRange(req.body);
+  return res.status(201).json({ success: true, message: "Đã sinh khung giờ", data });
 };
 
-export const closeRangeHandler = async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const data = await SlotPlannerService.closeRange(req.body, requireActor(req));
-    return res.json({ success: true, message: "Đã đóng lịch trong khoảng ngày", data });
-  } catch (error) {
-    next(error);
-  }
+export const closeRangeHandler = async (req: Request, res: Response) => {
+  const data = await SlotPlannerService.closeRange(req.body, requireActor(req));
+  return res.json({ success: true, message: "Đã đóng lịch trong khoảng ngày", data });
 };
 
-export const reopenRangeHandler = async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const data = await SlotPlannerService.reopenRange(req.body, requireActor(req));
-    return res.json({ success: true, message: "Đã mở lại lịch trong khoảng ngày", data });
-  } catch (error) {
-    next(error);
-  }
+export const reopenRangeHandler = async (req: Request, res: Response) => {
+  const data = await SlotPlannerService.reopenRange(req.body, requireActor(req));
+  return res.json({ success: true, message: "Đã mở lại lịch trong khoảng ngày", data });
 };

@@ -1,7 +1,7 @@
 import { Prisma } from "../../generated/prisma/client.js";
 import { prisma } from "../config/prisma.js";
 import { AppError } from "../utils/appError.js";
-import { hasTimeOverlap, validateTimeRange } from "../utils/time.js";
+import { getVietnamToday, hasTimeOverlap, validateTimeRange } from "../utils/time.js";
 import FacilityService from "./facility.service.js";
 import SlotPlannerService from "./slotPlanner.service.js";
 import type { Actor } from "../types/actor.js";
@@ -212,7 +212,7 @@ class DoctorScheduleService {
     if (nextFacilityId !== undefined && nextFacilityId !== current.facilityId) {
       // Khung giờ trống sắp tới đi theo cơ sở mới; khung giờ đã có người đặt hoặc bị khóa giữ nguyên để lịch hẹn không đổi nơi khám.
       await prisma.doctorTimeSlot.updateMany({
-        where: { scheduleId: id, status: "AVAILABLE", date: { gte: new Date(new Date().toISOString().slice(0, 10)) } },
+        where: { scheduleId: id, status: "AVAILABLE", date: { gte: getVietnamToday() } },
         data: { facilityId: nextFacilityId },
       });
     }

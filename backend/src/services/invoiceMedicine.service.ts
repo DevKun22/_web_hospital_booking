@@ -3,7 +3,7 @@ import { writeAppointmentLog } from "./appointmentLog.service.js";
 import { prisma } from "../config/prisma.js";
 import { AppError } from "../utils/appError.js";
 import { desiredMedicineLine, diffMedicineLines, type BillableItem } from "../utils/medicineBilling.js";
-import { generateInvoiceCode } from "../utils/invoiceCode.js";
+import { CODE_PREFIX, generateDatedCode } from "../utils/datedCode.js";
 import { normalizeOptionalString } from "../utils/text.js";
 import { generateUniqueCode } from "../utils/uniqueCode.js";
 import AuditLogService from "./auditLog.service.js";
@@ -317,7 +317,7 @@ class InvoiceMedicineService {
 
   private generateUniqueSupplementCode(tx: Prisma.TransactionClient) {
     return generateUniqueCode(
-      () => `BS${generateInvoiceCode().replace(/^INV/, "")}`,
+      () => generateDatedCode(CODE_PREFIX.invoiceSupplement),
       async (supplementCode) => Boolean(await tx.invoiceSupplement.findUnique({ where: { supplementCode }, select: { id: true } })),
       "Không thể tạo mã hóa đơn bổ sung",
     );

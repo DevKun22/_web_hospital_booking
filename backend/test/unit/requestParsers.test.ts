@@ -3,7 +3,9 @@ import test from "node:test";
 import {
   getRequiredPathParam,
   parseBooleanQuery,
+  parseEnumQuery,
   parseNumberQuery,
+  parseStringQuery,
 } from "../../src/shared/http/requestParsers.js";
 import { AppError } from "../../src/utils/appError.js";
 
@@ -32,9 +34,28 @@ test("parseBooleanQuery only accepts the existing true and false values", () => 
   assert.equal(parseBooleanQuery(true), undefined);
 });
 
-test("parseNumberQuery preserves the current optional number behaviour", () => {
+test("parseNumberQuery reads optional numbers and treats blank as missing", () => {
   assert.equal(parseNumberQuery("20"), 20);
-  assert.equal(parseNumberQuery(""), 0);
+  assert.equal(parseNumberQuery(""), undefined);
+  assert.equal(parseNumberQuery("  "), undefined);
   assert.equal(parseNumberQuery("Infinity"), undefined);
   assert.equal(parseNumberQuery(20), undefined);
+});
+
+test("parseStringQuery keeps a single string value only", () => {
+  assert.equal(parseStringQuery("tim mach"), "tim mach");
+  assert.equal(parseStringQuery(["a", "b"]), undefined);
+  assert.equal(parseStringQuery(undefined), undefined);
+});
+
+test("parseEnumQuery accepts known values and rejects the rest with 400", () => {
+  const Status = { OPEN: "OPEN", CLOSED: "CLOSED" } as const;
+  assert.equal(parseEnumQuery("OPEN", Status, "status"), "OPEN");
+  assert.equal(parseEnumQuery("CLOSED", ["OPEN", "CLOSED"] as const, "status"), "CLOSED");
+  assert.equal(parseEnumQuery(undefined, Status, "status"), undefined);
+  assert.equal(parseEnumQuery("", Status, "status"), undefined);
+  assert.throws(
+    () => parseEnumQuery("DROP TABLE", Status, "status"),
+    (error: unknown) => error instanceof AppError && error.statusCode === 400 && error.code === "INVALID_FILTER",
+  );
 });

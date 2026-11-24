@@ -5,7 +5,7 @@ import { writeAppointmentLog, type AppointmentLogAction } from "../appointmentLo
 import { prisma } from "../../config/prisma.js";
 import { getBookingHoldMinutes } from "../../config/environment.js";
 import { AppError } from "../../utils/appError.js";
-import { generateBookingCode } from "../../utils/bookingCode.js";
+import { CODE_PREFIX, generateDatedCode } from "../../utils/datedCode.js";
 import NotificationService from "../notification.service.js";
 import { appointmentSelect, flattenPatientInfo, type Actor } from "./appointment.shared.js";
 export class AppointmentServiceSupport {
@@ -386,7 +386,7 @@ export class AppointmentServiceSupport {
 
   protected async generateUniqueBookingCode(tx: Prisma.TransactionClient) {
     for (let index = 0; index < 10; index += 1) {
-      const bookingCode = generateBookingCode();
+      const bookingCode = generateDatedCode(CODE_PREFIX.booking);
       const existing = await tx.appointment.findUnique({
         where: { bookingCode },
         select: { id: true },

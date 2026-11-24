@@ -1,4 +1,4 @@
-import type { NextFunction, Request, Response } from "express";
+import type { Request, Response } from "express";
 import ReviewService from "../services/review.service.js";
 import { AppError } from "../utils/appError.js";
 
@@ -16,37 +16,27 @@ const requirePatientId = (req: Request) => {
 export const getPatientAppointmentReviewHandler = async (
   req: Request,
   res: Response,
-  next: NextFunction,
 ) => {
-  try {
-    const data = await ReviewService.getForPatient(
-      getAppointmentId(req),
-      requirePatientId(req),
-    );
-    return res.json({ success: true, data });
-  } catch (error) {
-    next(error);
-  }
+  const data = await ReviewService.getForPatient(
+    getAppointmentId(req),
+    requirePatientId(req),
+  );
+  return res.json({ success: true, data });
 };
 
 export const createPatientAppointmentReviewHandler = async (
   req: Request,
   res: Response,
-  next: NextFunction,
 ) => {
-  try {
-    const data = await ReviewService.create({
-      appointmentId: getAppointmentId(req),
-      patientId: requirePatientId(req),
-      doctorRating: req.body.doctorRating,
-      serviceRating: req.body.serviceRating,
-      facilityRating: req.body.facilityRating,
-      comment: req.body.comment,
-    });
-    return res
-      .status(201)
-      .json({ success: true, message: "Cảm ơn bạn đã gửi đánh giá", data });
-  } catch (error) {
-    next(error);
-  }
+  const data = await ReviewService.create({
+    appointmentId: getAppointmentId(req),
+    patientId: requirePatientId(req),
+    doctorRating: req.body.doctorRating,
+    serviceRating: req.body.serviceRating,
+    facilityRating: req.body.facilityRating,
+    comment: req.body.comment,
+  });
+  return res
+    .status(201)
+    .json({ success: true, message: "Cảm ơn bạn đã gửi đánh giá", data });
 };

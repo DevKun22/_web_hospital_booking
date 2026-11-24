@@ -8,7 +8,7 @@ import { prisma } from "../config/prisma.js";
 import { getReconciliationConcurrency } from "../config/environment.js";
 import { AppError } from "../utils/appError.js";
 import { mapWithConcurrency } from "../utils/concurrency.js";
-import { generatePaymentTransactionCode } from "../utils/paymentCode.js";
+import { CODE_PREFIX, generateDatedCode } from "../utils/datedCode.js";
 import {
   assertPaymentProviderAvailable,
   getPaymentProviderAdapter,
@@ -689,7 +689,7 @@ class PaymentService {
 
   private generateUniqueTransactionCode(tx: Prisma.TransactionClient) {
     return generateUniqueCode(
-      generatePaymentTransactionCode,
+      () => generateDatedCode(CODE_PREFIX.payment),
       async (transactionCode) => Boolean(await tx.paymentTransaction.findUnique({ where: { transactionCode }, select: { id: true } })),
       "Không thể tạo mã giao dịch thanh toán",
     );

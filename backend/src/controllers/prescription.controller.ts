@@ -1,9 +1,10 @@
-import type { Request, Response, NextFunction } from "express";
-import type { PrescriptionStatus, Role } from "../../generated/prisma/enums.js";
+import type { Request, Response } from "express";
+import { PrescriptionStatus, Role } from "../../generated/prisma/enums.js";
 import MedicineAvailabilityService from "../services/medicineAvailability.service.js";
 import PrescriptionService from "../services/prescription.service.js";
 import { auditClinicalView } from "../utils/auditClinicalView.js";
 import { AppError } from "../utils/appError.js";
+import { getRequiredPathParam, parseEnumQuery, parseStringQuery } from "../shared/http/requestParsers.js";
 
 const parseNumberQuery = (value: unknown) => {
   if (typeof value !== "string") return undefined;
@@ -12,15 +13,6 @@ const parseNumberQuery = (value: unknown) => {
   return Number.isFinite(number) ? number : undefined;
 };
 
-const getParam = (value: string | string[] | undefined, name = "id") => {
-  const param = Array.isArray(value) ? value[0] : value;
-
-  if (!param) {
-    throw new AppError(`Thiếu ${name}`, 400);
-  }
-
-  return param;
-};
 
 const getActor = (req: Request) => {
   if (!req.user?.userId || !req.user.role) {
@@ -36,257 +28,190 @@ const getActor = (req: Request) => {
 export const listPrescriptionsHandler = async (
   req: Request,
   res: Response,
-  next: NextFunction,
 ) => {
-  try {
-    const result = await PrescriptionService.list(
-      {
-        status:
-          typeof req.query.status === "string"
-            ? (req.query.status as PrescriptionStatus)
-            : undefined,
-        doctorId:
-          typeof req.query.doctorId === "string"
-            ? req.query.doctorId
-            : undefined,
-        patientId:
-          typeof req.query.patientId === "string"
-            ? req.query.patientId
-            : undefined,
-        medicalRecordId:
-          typeof req.query.medicalRecordId === "string"
-            ? req.query.medicalRecordId
-            : undefined,
-        appointmentId:
-          typeof req.query.appointmentId === "string"
-            ? req.query.appointmentId
-            : undefined,
-        prescriptionCode:
-          typeof req.query.prescriptionCode === "string"
-            ? req.query.prescriptionCode
-            : undefined,
-        q: typeof req.query.q === "string" ? req.query.q : undefined,
-        page: parseNumberQuery(req.query.page),
-        limit: parseNumberQuery(req.query.limit),
-      },
-      getActor(req),
-    );
+  const result = await PrescriptionService.list(
+    {
+      status:
+        parseEnumQuery(req.query.status, PrescriptionStatus, "status"),
+      doctorId:
+        parseStringQuery(req.query.doctorId),
+      patientId:
+        parseStringQuery(req.query.patientId),
+      medicalRecordId:
+        parseStringQuery(req.query.medicalRecordId),
+      appointmentId:
+        parseStringQuery(req.query.appointmentId),
+      prescriptionCode:
+        parseStringQuery(req.query.prescriptionCode),
+      q: parseStringQuery(req.query.q),
+      page: parseNumberQuery(req.query.page),
+      limit: parseNumberQuery(req.query.limit),
+    },
+    getActor(req),
+  );
 
-    return res.json({ success: true, data: result });
-  } catch (error) {
-    next(error);
-  }
+  return res.json({ success: true, data: result });
 };
 
 export const getPrescriptionHandler = async (
   req: Request,
   res: Response,
-  next: NextFunction,
 ) => {
-  try {
-    const prescription = await PrescriptionService.getById(
-      getParam(req.params.id),
-      getActor(req),
-    );
+  const prescription = await PrescriptionService.getById(
+    getRequiredPathParam(req.params.id),
+    getActor(req),
+  );
 
-    await auditClinicalView(req, "PRESCRIPTION_VIEWED", "PRESCRIPTION", prescription.id);
+  await auditClinicalView(req, "PRESCRIPTION_VIEWED", "PRESCRIPTION", prescription.id);
 
-    return res.json({ success: true, data: prescription });
-  } catch (error) {
-    next(error);
-  }
+  return res.json({ success: true, data: prescription });
 };
 
 export const createPrescriptionHandler = async (
   req: Request,
   res: Response,
-  next: NextFunction,
 ) => {
-  try {
-    const prescription = await PrescriptionService.createForMedicalRecord(
-      getParam(req.params.id, "medicalRecordId"),
-      req.body,
-      getActor(req),
-    );
+  const prescription = await PrescriptionService.createForMedicalRecord(
+    getRequiredPathParam(req.params.id, "medicalRecordId"),
+    req.body,
+    getActor(req),
+  );
 
-    return res.status(201).json({
-      success: true,
-      message: "Tạo đơn thuốc thành công",
-      data: prescription,
-    });
-  } catch (error) {
-    next(error);
-  }
+  return res.status(201).json({
+    success: true,
+    message: "Tạo đơn thuốc thành công",
+    data: prescription,
+  });
 };
 
 export const updatePrescriptionHandler = async (
   req: Request,
   res: Response,
-  next: NextFunction,
 ) => {
-  try {
-    const prescription = await PrescriptionService.update(
-      getParam(req.params.id),
-      req.body,
-      getActor(req),
-    );
+  const prescription = await PrescriptionService.update(
+    getRequiredPathParam(req.params.id),
+    req.body,
+    getActor(req),
+  );
 
-    return res.json({
-      success: true,
-      message: "Cập nhật đơn thuốc thành công",
-      data: prescription,
-    });
-  } catch (error) {
-    next(error);
-  }
+  return res.json({
+    success: true,
+    message: "Cập nhật đơn thuốc thành công",
+    data: prescription,
+  });
 };
 
 export const issuePrescriptionHandler = async (
   req: Request,
   res: Response,
-  next: NextFunction,
 ) => {
-  try {
-    const prescription = await PrescriptionService.issue(
-      getParam(req.params.id),
-      getActor(req),
-      { acknowledgeShortage: req.body?.acknowledgeShortage === true },
-    );
+  const prescription = await PrescriptionService.issue(
+    getRequiredPathParam(req.params.id),
+    getActor(req),
+    { acknowledgeShortage: req.body?.acknowledgeShortage === true },
+  );
 
-    return res.json({
-      success: true,
-      message: "Phát hành đơn thuốc thành công",
-      data: prescription,
-    });
-  } catch (error) {
-    next(error);
-  }
+  return res.json({
+    success: true,
+    message: "Phát hành đơn thuốc thành công",
+    data: prescription,
+  });
 };
 
 export const cancelPrescriptionHandler = async (
   req: Request,
   res: Response,
-  next: NextFunction,
 ) => {
-  try {
-    const prescription = await PrescriptionService.cancel(
-      getParam(req.params.id),
-      getActor(req),
-    );
+  const prescription = await PrescriptionService.cancel(
+    getRequiredPathParam(req.params.id),
+    getActor(req),
+  );
 
-    return res.json({
-      success: true,
-      message: "Hủy đơn thuốc thành công",
-      data: prescription,
-    });
-  } catch (error) {
-    next(error);
-  }
+  return res.json({
+    success: true,
+    message: "Hủy đơn thuốc thành công",
+    data: prescription,
+  });
 };
 
 export const createPrescriptionItemHandler = async (
   req: Request,
   res: Response,
-  next: NextFunction,
 ) => {
-  try {
-    const prescription = await PrescriptionService.createItem(
-      getParam(req.params.id, "prescriptionId"),
-      req.body,
-      getActor(req),
-    );
+  const prescription = await PrescriptionService.createItem(
+    getRequiredPathParam(req.params.id, "prescriptionId"),
+    req.body,
+    getActor(req),
+  );
 
-    return res.status(201).json({
-      success: true,
-      message: "Thêm thuốc vào đơn thành công",
-      data: prescription,
-    });
-  } catch (error) {
-    next(error);
-  }
+  return res.status(201).json({
+    success: true,
+    message: "Thêm thuốc vào đơn thành công",
+    data: prescription,
+  });
 };
 
 export const updatePrescriptionItemHandler = async (
   req: Request,
   res: Response,
-  next: NextFunction,
 ) => {
-  try {
-    const prescription = await PrescriptionService.updateItem(
-      getParam(req.params.id, "prescriptionId"),
-      getParam(req.params.itemId, "itemId"),
-      req.body,
-      getActor(req),
-    );
+  const prescription = await PrescriptionService.updateItem(
+    getRequiredPathParam(req.params.id, "prescriptionId"),
+    getRequiredPathParam(req.params.itemId, "itemId"),
+    req.body,
+    getActor(req),
+  );
 
-    return res.json({
-      success: true,
-      message: "Cập nhật thuốc trong đơn thành công",
-      data: prescription,
-    });
-  } catch (error) {
-    next(error);
-  }
+  return res.json({
+    success: true,
+    message: "Cập nhật thuốc trong đơn thành công",
+    data: prescription,
+  });
 };
 
 export const resolvePrescriptionItemHandler = async (
   req: Request,
   res: Response,
-  next: NextFunction,
 ) => {
-  try {
-    const prescription = await PrescriptionService.resolveItem(
-      getParam(req.params.id, "prescriptionId"),
-      getParam(req.params.itemId, "itemId"),
-      req.body,
-      getActor(req),
-    );
+  const prescription = await PrescriptionService.resolveItem(
+    getRequiredPathParam(req.params.id, "prescriptionId"),
+    getRequiredPathParam(req.params.itemId, "itemId"),
+    req.body,
+    getActor(req),
+  );
 
-    return res.json({
-      success: true,
-      message: "Đã cập nhật dòng thuốc",
-      data: prescription,
-    });
-  } catch (error) {
-    next(error);
-  }
+  return res.json({
+    success: true,
+    message: "Đã cập nhật dòng thuốc",
+    data: prescription,
+  });
 };
 
 export const deletePrescriptionItemHandler = async (
   req: Request,
   res: Response,
-  next: NextFunction,
 ) => {
-  try {
-    const item = await PrescriptionService.deleteItem(
-      getParam(req.params.id, "prescriptionId"),
-      getParam(req.params.itemId, "itemId"),
-      getActor(req),
-    );
+  const item = await PrescriptionService.deleteItem(
+    getRequiredPathParam(req.params.id, "prescriptionId"),
+    getRequiredPathParam(req.params.itemId, "itemId"),
+    getActor(req),
+  );
 
-    return res.json({
-      success: true,
-      message: "Xóa thuốc khỏi đơn thành công",
-      data: item,
-    });
-  } catch (error) {
-    next(error);
-  }
+  return res.json({
+    success: true,
+    message: "Xóa thuốc khỏi đơn thành công",
+    data: item,
+  });
 };
 
 // Danh mục thuốc cho bác sĩ khi kê đơn: chỉ tên, đơn vị và mức khả dụng, không có số tồn, giá hay lô.
 export const listMedicineOptionsHandler = async (
   req: Request,
   res: Response,
-  next: NextFunction,
 ) => {
-  try {
-    const data = await MedicineAvailabilityService.listOptions({
-      q: typeof req.query.q === "string" ? req.query.q : undefined,
-      limit: parseNumberQuery(req.query.limit),
-    });
-    return res.status(200).json({ success: true, data });
-  } catch (error) {
-    return next(error);
-  }
+  const data = await MedicineAvailabilityService.listOptions({
+    q: parseStringQuery(req.query.q),
+    limit: parseNumberQuery(req.query.limit),
+  });
+  return res.status(200).json({ success: true, data });
 };

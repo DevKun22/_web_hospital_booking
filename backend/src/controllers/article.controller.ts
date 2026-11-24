@@ -1,13 +1,9 @@
-import type { NextFunction, Request, Response } from "express";
+import type { Request, Response } from "express";
 import ArticleService from "../services/article.service.js";
 import { AppError } from "../utils/appError.js";
 import { paginationMeta, parsePagination } from "../utils/pagination.js";
+import { getRequiredPathParam } from "../shared/http/requestParsers.js";
 
-const getParam = (value: string | string[] | undefined) => {
-  const param = Array.isArray(value) ? value[0] : value;
-  if (!param) throw new AppError("Thiếu mã bài viết", 400);
-  return param;
-};
 
 const text = (value: unknown) => (typeof value === "string" && value.trim() ? value.trim() : undefined);
 
@@ -18,96 +14,56 @@ const actorOf = (req: Request) => {
 
 // ---- Công khai ----
 
-export const listPublicArticlesHandler = async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const { page, limit, skip } = parsePagination(req.query, { defaultLimit: 12, maxLimit: 30 });
-    const result = await ArticleService.listPublic({
-      category: text(req.query.category),
-      departmentId: text(req.query.departmentId),
-      search: text(req.query.q),
-      skip,
-      limit,
-    });
-    return res.json({ success: true, data: { items: result.items, categories: result.categories, pagination: paginationMeta(page, limit, result.total) } });
-  } catch (error) {
-    next(error);
-  }
+export const listPublicArticlesHandler = async (req: Request, res: Response) => {
+  const { page, limit, skip } = parsePagination(req.query, { defaultLimit: 12, maxLimit: 30 });
+  const result = await ArticleService.listPublic({
+    category: text(req.query.category),
+    departmentId: text(req.query.departmentId),
+    search: text(req.query.q),
+    skip,
+    limit,
+  });
+  return res.json({ success: true, data: { items: result.items, categories: result.categories, pagination: paginationMeta(page, limit, result.total) } });
 };
 
-export const getPublicArticleHandler = async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    return res.json({ success: true, data: await ArticleService.getPublicBySlug(getParam(req.params.slug)) });
-  } catch (error) {
-    next(error);
-  }
+export const getPublicArticleHandler = async (req: Request, res: Response) => {
+  return res.json({ success: true, data: await ArticleService.getPublicBySlug(getRequiredPathParam(req.params.slug, "mã bài viết")) });
 };
 
 // ---- Dashboard ----
 
-export const listDashboardArticlesHandler = async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const { page, limit, skip } = parsePagination(req.query, { defaultLimit: 20, maxLimit: 50 });
-    const stage = req.query.stage === "PENDING_REVIEW" || req.query.stage === "READY" || req.query.stage === "PUBLISHED" ? req.query.stage : undefined;
-    const result = await ArticleService.listDashboard({ stage, search: text(req.query.q), skip, limit });
-    return res.json({ success: true, data: { items: result.items, pagination: paginationMeta(page, limit, result.total) } });
-  } catch (error) {
-    next(error);
-  }
+export const listDashboardArticlesHandler = async (req: Request, res: Response) => {
+  const { page, limit, skip } = parsePagination(req.query, { defaultLimit: 20, maxLimit: 50 });
+  const stage = req.query.stage === "PENDING_REVIEW" || req.query.stage === "READY" || req.query.stage === "PUBLISHED" ? req.query.stage : undefined;
+  const result = await ArticleService.listDashboard({ stage, search: text(req.query.q), skip, limit });
+  return res.json({ success: true, data: { items: result.items, pagination: paginationMeta(page, limit, result.total) } });
 };
 
-export const getDashboardArticleHandler = async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    return res.json({ success: true, data: await ArticleService.getById(getParam(req.params.id)) });
-  } catch (error) {
-    next(error);
-  }
+export const getDashboardArticleHandler = async (req: Request, res: Response) => {
+  return res.json({ success: true, data: await ArticleService.getById(getRequiredPathParam(req.params.id, "mã bài viết")) });
 };
 
-export const createArticleHandler = async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    return res.status(201).json({ success: true, data: await ArticleService.create(req.body, actorOf(req)) });
-  } catch (error) {
-    next(error);
-  }
+export const createArticleHandler = async (req: Request, res: Response) => {
+  return res.status(201).json({ success: true, data: await ArticleService.create(req.body, actorOf(req)) });
 };
 
-export const updateArticleHandler = async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    return res.json({ success: true, data: await ArticleService.update(getParam(req.params.id), req.body, actorOf(req)) });
-  } catch (error) {
-    next(error);
-  }
+export const updateArticleHandler = async (req: Request, res: Response) => {
+  return res.json({ success: true, data: await ArticleService.update(getRequiredPathParam(req.params.id, "mã bài viết"), req.body, actorOf(req)) });
 };
 
-export const reviewArticleHandler = async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    return res.json({ success: true, data: await ArticleService.review(getParam(req.params.id), actorOf(req)) });
-  } catch (error) {
-    next(error);
-  }
+export const reviewArticleHandler = async (req: Request, res: Response) => {
+  return res.json({ success: true, data: await ArticleService.review(getRequiredPathParam(req.params.id, "mã bài viết"), actorOf(req)) });
 };
 
-export const publishArticleHandler = async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    return res.json({ success: true, data: await ArticleService.publish(getParam(req.params.id)) });
-  } catch (error) {
-    next(error);
-  }
+export const publishArticleHandler = async (req: Request, res: Response) => {
+  return res.json({ success: true, data: await ArticleService.publish(getRequiredPathParam(req.params.id, "mã bài viết")) });
 };
 
-export const unpublishArticleHandler = async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    return res.json({ success: true, data: await ArticleService.unpublish(getParam(req.params.id)) });
-  } catch (error) {
-    next(error);
-  }
+export const unpublishArticleHandler = async (req: Request, res: Response) => {
+  return res.json({ success: true, data: await ArticleService.unpublish(getRequiredPathParam(req.params.id, "mã bài viết")) });
 };
 
-export const deleteArticleHandler = async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    await ArticleService.remove(getParam(req.params.id));
-    return res.json({ success: true, message: "Đã xóa bài viết" });
-  } catch (error) {
-    next(error);
-  }
+export const deleteArticleHandler = async (req: Request, res: Response) => {
+  await ArticleService.remove(getRequiredPathParam(req.params.id, "mã bài viết"));
+  return res.json({ success: true, message: "Đã xóa bài viết" });
 };

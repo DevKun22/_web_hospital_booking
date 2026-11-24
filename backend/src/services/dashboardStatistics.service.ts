@@ -10,6 +10,7 @@ import AppointmentService from "./appointment.service.js";
 import DoctorTimeSlotService from "./doctorTimeSlot.service.js";
 import MedicalRecordService from "./medicalRecord.service.js";
 import PrescriptionService from "./prescription.service.js";
+import { getVietnamToday, toDateOnly } from "../utils/time.js";
 
 type DateRangeInput = {
   from?: Date;
@@ -21,7 +22,6 @@ type DashboardActor = {
   role: Role;
 };
 
-const toDateOnly = (date: Date) => date.toISOString().slice(0, 10);
 
 const getDefaultRange = () => {
   const now = new Date();
@@ -145,21 +145,8 @@ class DashboardStatisticsService {
     const range = normalizeRange(input);
     const appointmentDate = buildDateTimeRange(range);
     const createdAt = buildDateTimeRange(range);
-    const today = new Date();
-    const todayStart = new Date(
-      Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()),
-    );
-    const todayEnd = new Date(
-      Date.UTC(
-        today.getUTCFullYear(),
-        today.getUTCMonth(),
-        today.getUTCDate(),
-        23,
-        59,
-        59,
-        999,
-      ),
-    );
+    // "Hôm nay" theo giờ Việt Nam: trước 7 giờ sáng, ngày UTC vẫn là hôm qua.
+    const vietnamToday = getVietnamToday();
 
     // Đếm lịch và hóa đơn theo trạng thái bằng một câu groupBy mỗi loại, thay vì một câu đếm cho từng trạng thái.
     const [
@@ -185,10 +172,7 @@ class DashboardStatisticsService {
       }),
       prisma.appointment.count({
         where: {
-          appointmentDate: {
-            gte: todayStart,
-            lte: todayEnd,
-          },
+          appointmentDate: vietnamToday,
         },
       }),
       prisma.user.count({

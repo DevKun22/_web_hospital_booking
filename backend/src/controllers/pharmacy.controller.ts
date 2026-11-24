@@ -1,147 +1,121 @@
-import type { NextFunction, Request, Response } from "express";
+import type { Request, Response } from "express";
 import PharmacyService from "../services/pharmacy.service.js";
 import PharmacyDispenseService from "../services/pharmacyDispense.service.js";
 import PharmacyImportService, { type ImportKind } from "../services/pharmacyImport.service.js";
 import { getClientIp } from "../utils/clientIp.js";
 import { AppError } from "../utils/appError.js";
+import {
+  getRequiredPathParam,
+  parseBooleanQuery,
+  parseNumberQuery,
+  parseStringQuery,
+} from "../shared/http/requestParsers.js";
 
-const param = (value: string | string[] | undefined) => {
-  const item = Array.isArray(value) ? value[0] : value;
-  if (!item) throw new AppError("Thiếu id", 400);
-  return item;
-};
 const actorOf = (req: Request) => {
   if (!req.user?.userId || !req.user.role) throw new AppError("Chưa đăng nhập", 401);
   return { userId: req.user.userId, role: req.user.role };
 };
-const num = (value: unknown) => {
-  if (typeof value !== "string" || value === "") return undefined;
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : undefined;
-};
-const bool = (value: unknown) => (value === "true" ? true : value === "false" ? false : undefined);
-const str = (value: unknown) => (typeof value === "string" ? value : undefined);
 
-type Handler = (req: Request, res: Response) => Promise<unknown>;
-const wrap =
-  (handler: Handler) => async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      await handler(req, res);
-    } catch (error) {
-      next(error);
-    }
-  };
 
-export const listMedicinesHandler = wrap(async (req, res) =>
+export const listMedicinesHandler = async (req: Request, res: Response) =>
   res.json({
     success: true,
     data: await PharmacyService.listMedicines({
-      q: str(req.query.q),
-      lowStock: bool(req.query.lowStock),
-      isActive: bool(req.query.isActive),
-      page: num(req.query.page),
-      limit: num(req.query.limit),
+      q: parseStringQuery(req.query.q),
+      lowStock: parseBooleanQuery(req.query.lowStock),
+      isActive: parseBooleanQuery(req.query.isActive),
+      page: parseNumberQuery(req.query.page),
+      limit: parseNumberQuery(req.query.limit),
     }),
-  }),
-);
+  });
 
-export const getMedicineHandler = wrap(async (req, res) =>
-  res.json({ success: true, data: await PharmacyService.getMedicine(param(req.params.id)) }),
-);
+export const getMedicineHandler = async (req: Request, res: Response) =>
+  res.json({ success: true, data: await PharmacyService.getMedicine(getRequiredPathParam(req.params.id)) });
 
-export const createMedicineHandler = wrap(async (req, res) =>
+export const createMedicineHandler = async (req: Request, res: Response) =>
   res.status(201).json({
     success: true,
     message: "Đã thêm thuốc",
     data: await PharmacyService.createMedicine(req.body),
-  }),
-);
+  });
 
-export const updateMedicineHandler = wrap(async (req, res) =>
+export const updateMedicineHandler = async (req: Request, res: Response) =>
   res.json({
     success: true,
     message: "Đã cập nhật thuốc",
-    data: await PharmacyService.updateMedicine(param(req.params.id), req.body),
-  }),
-);
+    data: await PharmacyService.updateMedicine(getRequiredPathParam(req.params.id), req.body),
+  });
 
-export const listMovementsHandler = wrap(async (req, res) =>
+export const listMovementsHandler = async (req: Request, res: Response) =>
   res.json({
     success: true,
-    data: await PharmacyService.listMovements(param(req.params.id), {
-      page: num(req.query.page),
-      limit: num(req.query.limit),
+    data: await PharmacyService.listMovements(getRequiredPathParam(req.params.id), {
+      page: parseNumberQuery(req.query.page),
+      limit: parseNumberQuery(req.query.limit),
     }),
-  }),
-);
+  });
 
-export const receiveStockHandler = wrap(async (req, res) =>
+export const receiveStockHandler = async (req: Request, res: Response) =>
   res.status(201).json({
     success: true,
     message: "Đã nhập kho",
     data: await PharmacyService.receive(
-      param(req.params.id),
+      getRequiredPathParam(req.params.id),
       req.body.quantity,
       req.body.reason,
       actorOf(req),
       { batchNumber: req.body.batchNumber, expiryDate: req.body.expiryDate },
     ),
-  }),
-);
+  });
 
-export const adjustStockHandler = wrap(async (req, res) =>
+export const adjustStockHandler = async (req: Request, res: Response) =>
   res.status(201).json({
     success: true,
     message: "Đã điều chỉnh tồn kho",
     data: await PharmacyService.adjust(
-      param(req.params.id),
+      getRequiredPathParam(req.params.id),
       req.body.delta,
       req.body.reason,
       actorOf(req),
       req.body.batchId,
     ),
-  }),
-);
+  });
 
-export const listBatchesHandler = wrap(async (req, res) =>
-  res.json({ success: true, data: await PharmacyService.listBatches(param(req.params.id)) }),
-);
+export const listBatchesHandler = async (req: Request, res: Response) =>
+  res.json({ success: true, data: await PharmacyService.listBatches(getRequiredPathParam(req.params.id)) });
 
-export const expiryAlertsHandler = wrap(async (req, res) =>
-  res.json({ success: true, data: await PharmacyService.expiryAlerts(num(req.query.days)) }),
-);
+export const expiryAlertsHandler = async (req: Request, res: Response) =>
+  res.json({ success: true, data: await PharmacyService.expiryAlerts(parseNumberQuery(req.query.days)) });
 
-export const listPrescriptionsHandler = wrap(async (req, res) => {
-  const status = str(req.query.dispenseStatus);
+export const listPrescriptionsHandler = async (req: Request, res: Response) => {
+  const status = parseStringQuery(req.query.dispenseStatus);
   res.json({
     success: true,
     data: await PharmacyDispenseService.listPrescriptions({
       dispenseStatus:
         status === "DISPENSED" || status === "NOT_DISPENSED" ? status : undefined,
-      q: str(req.query.q),
-      page: num(req.query.page),
-      limit: num(req.query.limit),
+      q: parseStringQuery(req.query.q),
+      page: parseNumberQuery(req.query.page),
+      limit: parseNumberQuery(req.query.limit),
     }),
   });
-});
+};
 
-export const getPrescriptionHandler = wrap(async (req, res) =>
+export const getPrescriptionHandler = async (req: Request, res: Response) =>
   res.json({
     success: true,
-    data: await PharmacyDispenseService.getPrescription(param(req.params.id)),
-  }),
-);
+    data: await PharmacyDispenseService.getPrescription(getRequiredPathParam(req.params.id)),
+  });
 
-export const dispensePrescriptionHandler = wrap(async (req, res) =>
+export const dispensePrescriptionHandler = async (req: Request, res: Response) =>
   res.json({
     success: true,
     message: "Đã cấp thuốc",
-    data: await PharmacyDispenseService.dispense(param(req.params.id), req.body, actorOf(req)),
-  }),
-);
+    data: await PharmacyDispenseService.dispense(getRequiredPathParam(req.params.id), req.body, actorOf(req)),
+  });
 
 const importHandler = (kind: ImportKind) =>
-  wrap(async (req, res) => {
+  async (req: Request, res: Response) => {
     const apply = req.body.apply === true;
     const data = await PharmacyImportService.run(kind, req.body.csv, apply, actorOf(req), getClientIp(req));
     return res.json({
@@ -149,7 +123,7 @@ const importHandler = (kind: ImportKind) =>
       message: data.applied ? "Đã nhập dữ liệu" : "Đã kiểm tra tệp",
       data,
     });
-  });
+  };
 
 export const importCatalogHandler = importHandler("catalog");
 export const importReceiptsHandler = importHandler("receipts");
