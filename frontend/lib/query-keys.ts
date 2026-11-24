@@ -122,7 +122,6 @@ export const queryKeys = {
   dashboardChatbotSettings: ["dashboard", "chatbot", "settings"] as const,
   dashboardChatbotSessions: (filters?: {
     search?: string;
-    guestPhone?: string;
     intent?: string;
     state?: string;
     isActive?: string;
@@ -136,7 +135,6 @@ export const queryKeys = {
   dashboardChatbotLogs: (filters?: {
     search?: string;
     sessionId?: string;
-    guestPhone?: string;
     intent?: string;
     dateFrom?: string;
     dateTo?: string;

@@ -9,8 +9,6 @@ model ChatbotLog {
   sessionId String?
   session   ChatbotSession? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
 
-  guestPhone String?
-
   message  String
   response String
   intent   String?
@@ -61,8 +59,6 @@ model ChatbotSession {
 
   userId String?
   user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
-
-  guestPhone String?
 
   draft         Json    @default("{}")
   currentIntent String?

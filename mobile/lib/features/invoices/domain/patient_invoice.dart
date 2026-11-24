@@ -120,7 +120,6 @@ class PatientInvoice {
     required this.finalAmount,
     required this.insuranceEligibleAmount,
     required this.insuranceCoverageRate,
-    required this.insuranceDiscountAmount,
     required this.items,
     required this.status,
     required this.appointmentId,
@@ -167,7 +166,6 @@ class PatientInvoice {
       finalAmount: jsonInt(json['finalAmount']),
       insuranceEligibleAmount: jsonInt(json['insuranceEligibleAmount']),
       insuranceCoverageRate: jsonInt(json['insuranceCoverageRate']),
-      insuranceDiscountAmount: jsonInt(json['insuranceDiscountAmount']),
       items: items,
       insuranceRouteType: json['insuranceRouteType'] == null
           ? null
@@ -205,7 +203,6 @@ class PatientInvoice {
   final int finalAmount;
   final int insuranceEligibleAmount;
   final int insuranceCoverageRate;
-  final int insuranceDiscountAmount;
   final List<PatientInvoiceItem> items;
   final PatientInsuranceRoute? insuranceRouteType;
   final PatientInvoiceStatus status;
@@ -227,13 +224,10 @@ class PatientInvoice {
   final String departmentName;
   final String? packageName;
 
-  int get appliedInsuranceDiscount =>
-      insuranceDiscountAmount > 0 ? insuranceDiscountAmount : bhytDiscount;
-
   bool get hasInsuranceBenefit =>
       insuranceEligibleAmount > 0 ||
       insuranceCoverageRate > 0 ||
-      appliedInsuranceDiscount > 0 ||
+      bhytDiscount > 0 ||
       insuranceRouteType != null;
 
   String get careUnit => packageName ?? departmentName;

@@ -219,7 +219,6 @@ export type DoctorTimeSlot = {
   startTime: string;
   endTime: string;
   status: TimeSlotStatus;
-  isActive: boolean;
   lockReason: string | null;
   createdAt: string;
   updatedAt: string;
@@ -409,7 +408,6 @@ export type PublicAppointmentInvoice = {
   finalAmount: number;
   insuranceEligibleAmount: number;
   insuranceCoverageRate: number;
-  insuranceDiscountAmount: number;
   insuranceRouteType: InsuranceRouteType | null;
   insuranceNote: string | null;
   status: InvoiceStatus;
@@ -437,7 +435,6 @@ export type PaymentTransaction = PublicInvoicePaymentTransaction & {
     finalAmount: number;
     insuranceEligibleAmount: number;
     insuranceCoverageRate: number;
-    insuranceDiscountAmount: number;
     insuranceRouteType: InsuranceRouteType | null;
     insuranceNote: string | null;
     status: InvoiceStatus;
@@ -461,7 +458,6 @@ export type Invoice = {
   finalAmount: number;
   insuranceEligibleAmount: number;
   insuranceCoverageRate: number;
-  insuranceDiscountAmount: number;
   insuranceRouteType: InsuranceRouteType | null;
   insuranceNote: string | null;
   status: InvoiceStatus;
@@ -703,7 +699,6 @@ export type ChatbotParticipant = {
 export type ChatbotLog = {
   id: string;
   sessionId: string | null;
-  guestPhone: string | null;
   message: string;
   response: string;
   intent: string | null;
@@ -714,7 +709,6 @@ export type ChatbotLog = {
 export type ChatbotSession = {
   id: string;
   userId: string | null;
-  guestPhone: string | null;
   draft: unknown;
   currentIntent: string | null;
   currentState: string | null;

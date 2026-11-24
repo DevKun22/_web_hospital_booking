@@ -1,13 +1,8 @@
 import type { Request, Response } from "express";
 import PublicDoctorService from "../services/publicDoctor.service.js";
-import { getRequiredPathParam, parseStringQuery } from "../shared/http/requestParsers.js";
+import { getRequiredPathParam, parseNumberQuery, parseStringQuery } from "../shared/http/requestParsers.js";
 
 
-const parseNumberQuery = (value: unknown) => {
-  if (typeof value !== "string") return undefined;
-  const number = Number(value);
-  return Number.isFinite(number) ? number : undefined;
-};
 
 export const listPublicDoctorsHandler = async (
   req: Request,

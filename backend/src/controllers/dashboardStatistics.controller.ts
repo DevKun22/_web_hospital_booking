@@ -3,16 +3,8 @@ import DashboardStatisticsService from "../services/dashboardStatistics.service.
 import { AppError } from "../utils/appError.js";
 import type { Role } from "../../generated/prisma/enums.js";
 import { getVietnamNowParts } from "../utils/time.js";
-import { parseStringQuery } from "../shared/http/requestParsers.js";
+import { parseDateQuery, parseStringQuery } from "../shared/http/requestParsers.js";
 
-const parseDateQuery = (value: unknown, endOfDay = false) => {
-  if (typeof value !== "string") return undefined;
-
-  const date = new Date(
-    endOfDay ? `${value}T23:59:59.999Z` : `${value}T00:00:00.000Z`,
-  );
-  return Number.isNaN(date.getTime()) ? undefined : date;
-};
 
 const getRangeQuery = (req: Request) => ({
   from: parseDateQuery(req.query.from || req.query.dateFrom),

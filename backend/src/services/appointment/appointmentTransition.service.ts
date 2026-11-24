@@ -123,7 +123,6 @@ export class AppointmentTransitionUseCases extends AppointmentServiceSupport {
           startTime: true,
           endTime: true,
           status: true,
-          isActive: true,
           appointment: { select: { id: true } },
         },
       });
@@ -131,7 +130,6 @@ export class AppointmentTransitionUseCases extends AppointmentServiceSupport {
         !targetSlot ||
         targetSlot.doctorId !== current.doctorId ||
         targetSlot.status !== "AVAILABLE" ||
-        !targetSlot.isActive ||
         targetSlot.appointment ||
         isSlotStartInPastVietnamTime(targetSlot.date, targetSlot.startTime)
       ) {
@@ -147,7 +145,6 @@ export class AppointmentTransitionUseCases extends AppointmentServiceSupport {
           id: targetSlot.id,
           doctorId: current.doctorId,
           status: "AVAILABLE",
-          isActive: true,
         },
         data: { status: "BOOKED" },
       });
@@ -181,7 +178,7 @@ export class AppointmentTransitionUseCases extends AppointmentServiceSupport {
       if (current.timeSlotId) {
         await tx.doctorTimeSlot.update({
           where: { id: current.timeSlotId },
-          data: { status: "AVAILABLE", isActive: true, lockReason: null },
+          data: { status: "AVAILABLE", lockReason: null },
         });
       }
       await this.cancelAppointmentReminders(tx, current.id);

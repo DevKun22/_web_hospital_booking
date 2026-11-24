@@ -48,7 +48,6 @@ const draftSchema = z.object({
 export const chatbotMessageSchema = z.object({
   sessionId: z.string().uuid("Session không hợp lệ").optional(),
   message: boundedText(2_000).min(1, "Tin nhắn không được để trống"),
-  phone: boundedText(32).optional(),
   draft: draftSchema.optional(),
   action: z
     .object({

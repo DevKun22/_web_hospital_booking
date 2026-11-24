@@ -126,8 +126,8 @@ class InvoicePaymentSummary extends StatelessWidget {
           InvoiceMoneyRow(label: 'Tổng chi phí', amount: invoice.totalAmount),
           InvoiceMoneyRow(
             label: 'BHYT giảm trừ',
-            amount: -invoice.appliedInsuranceDiscount,
-            highlight: invoice.appliedInsuranceDiscount > 0,
+            amount: -invoice.bhytDiscount,
+            highlight: invoice.bhytDiscount > 0,
           ),
           const Divider(height: 24),
           Row(
@@ -239,7 +239,7 @@ class InvoiceInsuranceSection extends StatelessWidget {
             ),
             InvoiceTextRow(
               label: 'Số tiền được giảm',
-              value: formatVnd(invoice.appliedInsuranceDiscount),
+              value: formatVnd(invoice.bhytDiscount),
             ),
             if (invoice.insuranceRouteType != null)
               InvoiceTextRow(

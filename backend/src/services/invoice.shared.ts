@@ -34,7 +34,6 @@ export const invoiceSelect = {
   finalAmount: true,
   insuranceEligibleAmount: true,
   insuranceCoverageRate: true,
-  insuranceDiscountAmount: true,
   insuranceRouteType: true,
   insuranceNote: true,
   status: true,

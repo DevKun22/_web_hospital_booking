@@ -68,7 +68,7 @@ export function InvoiceDetailCards({
                 { label: "Phần đủ điều kiện", value: formatCurrency(invoice.insuranceEligibleAmount) },
                 { label: "Mức hưởng", value: `${invoice.insuranceCoverageRate}%` },
                 { label: "Tuyến/loại", value: invoice.insuranceRouteType ? insuranceRouteLabel[invoice.insuranceRouteType] : "-" },
-                { label: "Quỹ BHYT giảm", value: formatCurrency(invoice.insuranceDiscountAmount) },
+                { label: "Quỹ BHYT giảm", value: formatCurrency(invoice.bhytDiscount) },
               ]}
             />
             {invoice.insuranceNote ? (

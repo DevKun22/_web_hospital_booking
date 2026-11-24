@@ -364,8 +364,8 @@ class _InvoiceCard extends StatelessWidget {
                       ),
                       Text(
                         formatDateVi(invoice.appointmentDate) +
-                            (invoice.appliedInsuranceDiscount > 0
-                                ? ' · BHYT giảm ${formatVnd(invoice.appliedInsuranceDiscount)}'
+                            (invoice.bhytDiscount > 0
+                                ? ' · BHYT giảm ${formatVnd(invoice.bhytDiscount)}'
                                 : ''),
                         style: text.bodySmall?.copyWith(color: colors.muted),
                       ),

@@ -1,20 +1,9 @@
 import type { Request, Response } from "express";
 import DepartmentService from "../services/department.service.js";
 import PublicBootstrapService from "../services/publicBootstrap.service.js";
-import { getRequiredPathParam, parseStringQuery } from "../shared/http/requestParsers.js";
+import { getRequiredPathParam, parseBooleanQuery, parseNumberQuery, parseStringQuery } from "../shared/http/requestParsers.js";
 
-const parseBooleanQuery = (value: unknown) => {
-  if (value === "true") return true;
-  if (value === "false") return false;
-  return undefined;
-};
 
-const parseNumberQuery = (value: unknown) => {
-  if (typeof value !== "string") return undefined;
-
-  const number = Number(value);
-  return Number.isFinite(number) ? number : undefined;
-};
 
 
 export const listDepartmentsHandler = async (

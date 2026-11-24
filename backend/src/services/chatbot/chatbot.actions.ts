@@ -191,7 +191,6 @@ class ChatbotActionService {
         where: {
           id: timeSlotId,
           status: "AVAILABLE",
-          isActive: true,
         },
         select: { id: true, date: true, startTime: true },
       });

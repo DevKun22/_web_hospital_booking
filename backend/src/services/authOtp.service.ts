@@ -9,7 +9,7 @@ import {
   resolveOtpSecret,
 } from "../config/environment.js";
 import { shouldExposeDebugOtp } from "../config/otpChannels.js";
-import AuthAttemptService from "./authAttempt.service.js";
+import AuthAttemptService, { fingerprint } from "./authAttempt.service.js";
 import { getRuntimeConfig } from "../config/runtimeConfig.js";
 import { logger } from "../observability/logger.js";
 
@@ -127,7 +127,7 @@ class AuthOtpService {
             ? [
                 {
                   targetType: "IP",
-                  target: ipAddress,
+                  target: fingerprint("ip", ipAddress),
                   OR: [{ purpose }, { purpose: null }],
                 },
               ]
@@ -163,7 +163,8 @@ class AuthOtpService {
     await prisma.otpSecurityBlock.create({
       data: {
         targetType: input.targetType,
-        target: input.target,
+        // Khóa theo IP lưu dấu vân tay HMAC của IP (như bảng lượt thử), không lưu IP dạng rõ.
+        target: input.targetType === "IP" ? fingerprint("ip", input.target) : input.target,
         purpose: input.purpose,
         reason: input.reason,
         blockedUntil: this.getBlockUntil(),
@@ -177,11 +178,12 @@ class AuthOtpService {
     ipAddress: string,
   ) {
     const windowStart = new Date(Date.now() - OTP_WINDOW_MINUTES * 60 * 1000);
+    const ipKey = fingerprint("ip", ipAddress);
 
     const recentCodes = await prisma.otpCode.findMany({
       where: {
         createdAt: { gte: windowStart },
-        OR: [{ email: target, purpose }, { ipAddress }],
+        OR: [{ email: target, purpose }, { ipAddress: ipKey }],
       },
       select: {
         email: true,
@@ -193,10 +195,10 @@ class AuthOtpService {
       item.email === target && item.purpose === purpose;
     const targetCount = recentCodes.filter(matchesTarget).length;
     const pairCount = recentCodes.filter(
-      (item) => matchesTarget(item) && item.ipAddress === ipAddress,
+      (item) => matchesTarget(item) && item.ipAddress === ipKey,
     ).length;
     const ipCount = recentCodes.filter(
-      (item) => item.ipAddress === ipAddress,
+      (item) => item.ipAddress === ipKey,
     ).length;
 
     if (ipCount >= MAX_OTP_SENDS_PER_IP_WINDOW) {
@@ -291,12 +293,13 @@ class AuthOtpService {
     const target = normalizeEmail(targetInput);
 
     await this.assertNotBlocked(target, purpose, ipAddress);
+    const ipKey = fingerprint("ip", ipAddress);
 
     const lastOtp = await prisma.otpCode.findFirst({
       where: {
         email: target,
         purpose,
-        ipAddress,
+        ipAddress: ipKey,
       },
       orderBy: {
         createdAt: "desc",
@@ -326,7 +329,7 @@ class AuthOtpService {
         email: target,
         code: hashOtp(otp),
         purpose,
-        ipAddress,
+        ipAddress: ipKey,
         challengeId: options.challengeId,
         userId: options.userId,
         expiresAt,

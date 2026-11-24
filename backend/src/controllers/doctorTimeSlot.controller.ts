@@ -4,20 +4,9 @@ import { Role, TimeSlotStatus } from "../../generated/prisma/enums.js";
 import DoctorTimeSlotService from "../services/doctorTimeSlot.service.js";
 import ScheduleReconciliationService from "../services/scheduleReconciliation.service.js";
 import { AppError } from "../utils/appError.js";
-import { getRequiredPathParam, parseEnumQuery, parseStringQuery } from "../shared/http/requestParsers.js";
+import { getRequiredPathParam, parseEnumQuery, parseNumberQuery, parseStringQuery } from "../shared/http/requestParsers.js";
 
-const parseBooleanQuery = (value: unknown) => {
-  if (value === "true") return true;
-  if (value === "false") return false;
-  return undefined;
-};
 
-const parseNumberQuery = (value: unknown) => {
-  if (typeof value !== "string") return undefined;
-
-  const number = Number(value);
-  return Number.isFinite(number) ? number : undefined;
-};
 
 
 const getActor = (req: Request) => {
@@ -42,7 +31,6 @@ export const listDoctorTimeSlotsHandler = async (
       date: parseStringQuery(req.query.date),
       status:
         parseEnumQuery(req.query.status, TimeSlotStatus, "status"),
-      isActive: parseBooleanQuery(req.query.isActive),
       page: parseNumberQuery(req.query.page),
       limit: parseNumberQuery(req.query.limit),
     },

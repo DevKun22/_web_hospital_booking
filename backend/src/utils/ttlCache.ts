@@ -27,6 +27,12 @@ export class TtlCache<T> {
     this.items.set(key, { value, expiresAt: Date.now() + this.ttlMs, version });
   }
 
+  /** Bỏ mọi mục đã lưu (dữ liệu gốc vừa được sửa). Lần tải đang chạy vẫn hoàn tất nhưng kết quả của nó không bị dùng lại sau đó. */
+  clear() {
+    this.items.clear();
+    this.loading.clear();
+  }
+
   /**
    * Lấy từ đệm, chưa có thì gọi `load` một lần: các yêu cầu đến cùng lúc với cùng khóa dùng chung một lần tải,
    * không dồn nhiều truy vấn giống nhau vào cơ sở dữ liệu. Tải lỗi thì không lưu gì.

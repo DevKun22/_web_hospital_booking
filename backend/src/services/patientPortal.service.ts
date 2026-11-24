@@ -108,7 +108,6 @@ const invoiceSelect = {
   finalAmount: true,
   insuranceEligibleAmount: true,
   insuranceCoverageRate: true,
-  insuranceDiscountAmount: true,
   insuranceRouteType: true,
   status: true,
   paymentMethod: true,

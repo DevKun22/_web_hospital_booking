@@ -41,7 +41,6 @@ class ScheduleReconciliationService {
         OR: [
           { status: "BOOKED", appointment: { is: null } },
           { status: { not: "BOOKED" }, appointment: { isNot: null } },
-          { isActive: false, appointment: { isNot: null } },
           { appointment: { is: { status: { in: terminalStatuses } } } },
         ],
       },
@@ -81,7 +80,6 @@ class ScheduleReconciliationService {
         startTime: true,
         endTime: true,
         status: true,
-        isActive: true,
         appointment: {
           select: {
             id: true,
@@ -139,7 +137,7 @@ class ScheduleReconciliationService {
           };
         }
 
-        if (slot.status !== "BOOKED" || !slot.isActive) {
+        if (slot.status !== "BOOKED") {
           return {
             type: "LINKED_SLOT_NOT_BOOKED",
             slotId: slot.id,
@@ -173,7 +171,7 @@ class ScheduleReconciliationService {
   private async releaseOrphanSlot(slotId: string) {
     const result = await prisma.doctorTimeSlot.updateMany({
       where: { id: slotId, status: "BOOKED", appointment: { is: null } },
-      data: { status: "AVAILABLE", isActive: true, lockReason: null },
+      data: { status: "AVAILABLE", lockReason: null },
     });
     return result.count === 1;
   }
@@ -181,7 +179,7 @@ class ScheduleReconciliationService {
   private async markLinkedSlotBooked(slotId: string, appointmentId: string) {
     const result = await prisma.doctorTimeSlot.updateMany({
       where: { id: slotId, appointment: { is: { id: appointmentId } } },
-      data: { status: "BOOKED", isActive: true, lockReason: null },
+      data: { status: "BOOKED", lockReason: null },
     });
     return result.count === 1;
   }
@@ -200,7 +198,7 @@ class ScheduleReconciliationService {
 
       await tx.doctorTimeSlot.update({
         where: { id: slotId },
-        data: { status: "AVAILABLE", isActive: true, lockReason: null },
+        data: { status: "AVAILABLE", lockReason: null },
       });
       return true;
     });

@@ -122,7 +122,6 @@ export const calculateInsurance = (
   return {
     insuranceEligibleAmount: eligibleAmount,
     insuranceCoverageRate: coverageRate,
-    insuranceDiscountAmount: discountAmount,
     insuranceRouteType: routeType,
     insuranceNote: note,
     bhytDiscount: discountAmount,

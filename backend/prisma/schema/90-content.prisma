@@ -50,11 +50,11 @@ enum ArticleStatus {
 model Article {
   id String @id @default(uuid())
 
-  slug     String  @unique
-  title    String
-  summary  String?
-  content  String // Markdown
-  category String?
+  slug       String  @unique
+  title      String
+  summary    String?
+  content    String // Markdown
+  category   String?
   // Ảnh bìa hiện ở trang chủ, danh sách và đầu bài; tải lên qua kho ảnh (MediaAsset, owner ARTICLE).
   coverImage String?
 

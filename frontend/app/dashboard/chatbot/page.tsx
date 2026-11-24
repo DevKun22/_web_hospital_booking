@@ -79,7 +79,7 @@ const summarizeJson = (value: unknown) => {
   }
 };
 
-const displayParticipant = (item: ChatbotSession | ChatbotSessionDetail | ChatbotLog) => item.guestPhone || item.user?.phone || item.user?.fullName || "Khách";
+const displayParticipant = (item: ChatbotSession | ChatbotSessionDetail | ChatbotLog) => item.user?.phone || item.user?.fullName || "Khách";
 
 function Bar({ label, count, max, color }: { label: string; count: number; max: number; color: string }) {
   return (
@@ -221,7 +221,7 @@ export default function ChatbotPage() {
       header: "Người dùng",
       cell: (row) => (
         <div>
-          <strong>{row.guestPhone || row.user?.phone || "-"}</strong>
+          <strong>{row.user?.phone || "-"}</strong>
           <div style={{ color: "var(--ds-muted)", fontSize: 12 }}>{row.user?.fullName || "Khách"}</div>
         </div>
       ),
@@ -328,7 +328,7 @@ export default function ChatbotPage() {
             {sessions.map((item) => (
               <button key={item.id} type="button" role="option" className="ds-listrow" aria-selected={item.id === selectedSessionId} onClick={() => openSession(item)}>
                 <span className="ds-listrow__main">
-                  <strong>{item.guestPhone || item.user?.phone || "Khách"}</strong>
+                  <strong>{item.user?.phone || "Khách"}</strong>
                   <small>{item.lastMessage || "-"}</small>
                 </span>
                 <DsStatusPill tone={item.isActive ? "good" : "neutral"}>{item._count.logs} tin</DsStatusPill>

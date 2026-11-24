@@ -4,14 +4,8 @@ import MedicineAvailabilityService from "../services/medicineAvailability.servic
 import PrescriptionService from "../services/prescription.service.js";
 import { auditClinicalView } from "../utils/auditClinicalView.js";
 import { AppError } from "../utils/appError.js";
-import { getRequiredPathParam, parseEnumQuery, parseStringQuery } from "../shared/http/requestParsers.js";
+import { getRequiredPathParam, parseEnumQuery, parseNumberQuery, parseStringQuery } from "../shared/http/requestParsers.js";
 
-const parseNumberQuery = (value: unknown) => {
-  if (typeof value !== "string") return undefined;
-
-  const number = Number(value);
-  return Number.isFinite(number) ? number : undefined;
-};
 
 
 const getActor = (req: Request) => {

@@ -10,7 +10,6 @@ type DateRange = {
 const logSelect = {
   id: true,
   sessionId: true,
-  guestPhone: true,
   message: true,
   response: true,
   intent: true,
@@ -31,7 +30,6 @@ const logSelect = {
 const sessionListSelect = {
   id: true,
   userId: true,
-  guestPhone: true,
   draft: true,
   currentIntent: true,
   currentState: true,
@@ -91,7 +89,6 @@ class DashboardChatbotService {
   async listLogs(query: {
     search?: string;
     sessionId?: string;
-    guestPhone?: string;
     intent?: string;
     dateFrom?: Date;
     dateTo?: Date;
@@ -102,7 +99,6 @@ class DashboardChatbotService {
 
     const where: Prisma.ChatbotLogWhereInput = {
       sessionId: query.sessionId,
-      guestPhone: query.guestPhone,
       intent: query.intent,
       createdAt: buildCreatedAtRange({
         from: query.dateFrom,
@@ -114,7 +110,6 @@ class DashboardChatbotService {
       where.OR = [
         { message: { contains: query.search, mode: "insensitive" } },
         { response: { contains: query.search, mode: "insensitive" } },
-        { guestPhone: { contains: query.search, mode: "insensitive" } },
       ];
     }
 
@@ -144,7 +139,6 @@ class DashboardChatbotService {
 
   async listSessions(query: {
     search?: string;
-    guestPhone?: string;
     intent?: string;
     state?: string;
     isActive?: boolean;
@@ -156,7 +150,6 @@ class DashboardChatbotService {
     const { page, limit, skip } = getPagination(query.page, query.limit);
 
     const where: Prisma.ChatbotSessionWhereInput = {
-      guestPhone: query.guestPhone,
       currentIntent: query.intent,
       currentState: query.state,
       isActive: query.isActive,
@@ -168,7 +161,6 @@ class DashboardChatbotService {
 
     if (query.search) {
       where.OR = [
-        { guestPhone: { contains: query.search, mode: "insensitive" } },
         { lastMessage: { contains: query.search, mode: "insensitive" } },
         { lastResponse: { contains: query.search, mode: "insensitive" } },
       ];

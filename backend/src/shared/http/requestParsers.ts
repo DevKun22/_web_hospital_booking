@@ -57,3 +57,13 @@ export const parseEnumQuery = <T extends string>(
   }
   return value as T;
 };
+
+/**
+ * Tham số truy vấn dạng ngày YYYY-MM-DD thành mốc đầu ngày (hoặc cuối ngày khi `endOfDay`) theo UTC,
+ * khớp cách lưu cột ngày; sai định dạng là undefined.
+ */
+export const parseDateQuery = (value: unknown, endOfDay = false) => {
+  if (typeof value !== "string") return undefined;
+  const date = new Date(endOfDay ? `${value}T23:59:59.999Z` : `${value}T00:00:00.000Z`);
+  return Number.isNaN(date.getTime()) ? undefined : date;
+};

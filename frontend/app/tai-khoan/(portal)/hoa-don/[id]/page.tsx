@@ -23,7 +23,7 @@ export default function InvoiceDetailPage() {
   const invoice = query.data;
   const providers = providersQuery.data ?? [];
   const status = invoiceStatusDisplay(invoice.status);
-  const discount = invoice.insuranceDiscountAmount || invoice.bhytDiscount || 0;
+  const discount = invoice.bhytDiscount || 0;
   const { appointment } = invoice;
   const meta = [
     appointment.patientName ? `Khám cho ${appointment.patientName}` : null,

@@ -84,7 +84,7 @@ class ChatbotService {
     }
 
     const settings = runtimeSetting.value;
-    const session = await getOrCreateChatSession(input.sessionId, input.phone, settings.sessionExpiresDays);
+    const session = await getOrCreateChatSession(input.sessionId, settings.sessionExpiresDays);
     const sessionId = session.id;
     const requestDraft = sanitizeBookingDraft(mergeDrafts(session.draft, input.draft));
     const actionDraft = ChatbotDraftReducer.reduceAction(requestDraft, input.action);
@@ -106,7 +106,7 @@ class ChatbotService {
       let messageId: string | undefined;
       // Lưu phiên và nhật ký chỉ là ghi nhận: lỗi ghi không được làm mất câu trả lời đã có.
       await Promise.all([
-        updateChatSession(sessionId, response, input.message, input.phone, settings.sessionExpiresDays).catch((error) =>
+        updateChatSession(sessionId, response, input.message, settings.sessionExpiresDays).catch((error) =>
           logger.warn("[CHATBOT] Không lưu được phiên trò chuyện:", error),
         ),
         this.saveLog(input, response, sourceIds, isNoInformationOutput(output, source))
@@ -285,7 +285,6 @@ class ChatbotService {
   private async saveLog(input: ChatbotRequestInput, response: ChatbotResponse, sourceIds: string[], noInformation: boolean) {
     const log = await prisma.chatbotLog.create({
       data: {
-        guestPhone: input.phone,
         sessionId: response.sessionId,
         message: input.message,
         response: response.reply,

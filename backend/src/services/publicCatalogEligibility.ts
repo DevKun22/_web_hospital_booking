@@ -22,7 +22,6 @@ export const buildFeaturedSlotWhere = (
 
   return {
     status: "AVAILABLE",
-    isActive: true,
     OR: [
       {
         date: today,

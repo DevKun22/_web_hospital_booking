@@ -20,7 +20,6 @@ const doctorTimeSlotSelect = {
   startTime: true,
   endTime: true,
   status: true,
-  isActive: true,
   lockReason: true,
   createdAt: true,
   updatedAt: true,
@@ -63,7 +62,6 @@ const doctorTimeSlotMutationSelect = {
   startTime: true,
   endTime: true,
   status: true,
-  isActive: true,
   lockReason: true,
   updatedAt: true,
 } satisfies Prisma.DoctorTimeSlotSelect;
@@ -74,7 +72,6 @@ class DoctorTimeSlotService {
       doctorId?: string;
       date?: string;
       status?: TimeSlotStatus;
-      isActive?: boolean;
       page?: number;
       limit?: number;
     },
@@ -88,7 +85,6 @@ class DoctorTimeSlotService {
       doctorId: query.doctorId,
       date: query.date ? parseDateOnly(query.date) : undefined,
       status: query.status,
-      isActive: query.isActive,
     };
 
     if (actor.role === "DOCTOR") {
@@ -240,7 +236,6 @@ class DoctorTimeSlotService {
       data: {
         status,
         lockReason: status === "LOCKED" ? lockReason || slot.lockReason : null,
-        isActive: status !== "CANCELLED",
       },
       select: doctorTimeSlotSelect,
     });
@@ -260,7 +255,7 @@ class DoctorTimeSlotService {
     const updated = await prisma.$transaction(async (tx) => {
       const locked = await tx.doctorTimeSlot.update({
         where: { id },
-        data: { status: "LOCKED", lockReason, isActive: true },
+        data: { status: "LOCKED", lockReason },
         select: doctorTimeSlotMutationSelect,
       });
       await AuditLogService.record(
@@ -293,7 +288,7 @@ class DoctorTimeSlotService {
     return prisma.$transaction(async (tx) => {
       const unlocked = await tx.doctorTimeSlot.update({
         where: { id },
-        data: { status: "AVAILABLE", lockReason: null, isActive: true },
+        data: { status: "AVAILABLE", lockReason: null },
         select: doctorTimeSlotMutationSelect,
       });
       await AuditLogService.record(
@@ -331,7 +326,6 @@ class DoctorTimeSlotService {
         doctorId,
         date,
         status: "AVAILABLE",
-        isActive: true,
         doctor: {
           isAvailable: true,
           user: {
@@ -374,7 +368,6 @@ class DoctorTimeSlotService {
         doctorId,
         date: { gte: from, lte: to },
         status: "AVAILABLE",
-        isActive: true,
         doctor: { isAvailable: true, user: { isActive: true }, department: { isActive: true } },
       },
       select: { date: true, startTime: true },

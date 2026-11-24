@@ -3,20 +3,9 @@ import { Role } from "../../generated/prisma/enums.js";
 import DashboardUserService from "../services/dashboardUser.service.js";
 import { AppError } from "../utils/appError.js";
 import { getClientIp } from "../utils/clientIp.js";
-import { getRequiredPathParam, parseEnumQuery, parseStringQuery } from "../shared/http/requestParsers.js";
+import { getRequiredPathParam, parseBooleanQuery, parseEnumQuery, parseNumberQuery, parseStringQuery } from "../shared/http/requestParsers.js";
 
-const parseBooleanQuery = (value: unknown) => {
-  if (value === "true") return true;
-  if (value === "false") return false;
-  return undefined;
-};
 
-const parseNumberQuery = (value: unknown) => {
-  if (typeof value !== "string") return undefined;
-
-  const number = Number(value);
-  return Number.isFinite(number) ? number : undefined;
-};
 
 
 const getActor = (req: Request) => {

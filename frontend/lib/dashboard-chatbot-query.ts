@@ -19,7 +19,6 @@ export type DashboardChatbotOverviewFilters = {
 
 export type DashboardChatbotSessionFilters = {
   search?: string;
-  guestPhone?: string;
   intent?: string;
   state?: string;
   isActive?: string;
@@ -32,7 +31,6 @@ export type DashboardChatbotSessionFilters = {
 export type DashboardChatbotLogFilters = {
   search?: string;
   sessionId?: string;
-  guestPhone?: string;
   intent?: string;
   dateFrom?: string;
   dateTo?: string;

@@ -1,13 +1,8 @@
 import type { Request, Response } from "express";
 import BannerService from "../services/banner.service.js";
 import PublicBootstrapService from "../services/publicBootstrap.service.js";
-import { getRequiredPathParam, parseStringQuery } from "../shared/http/requestParsers.js";
+import { getRequiredPathParam, parseBooleanQuery, parseStringQuery } from "../shared/http/requestParsers.js";
 
-const parseBooleanQuery = (value: unknown) => {
-  if (value === "true") return true;
-  if (value === "false") return false;
-  return undefined;
-};
 
 
 export const listPublicBannersHandler = async (

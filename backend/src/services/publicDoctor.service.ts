@@ -94,7 +94,6 @@ class PublicDoctorService {
         FROM ${doctorTimeSlotTable} AS slot
         WHERE slot."doctorId" IN (${Prisma.join(doctorIds)})
           AND slot."status" = 'AVAILABLE'
-          AND slot."isActive" = true
           AND (
             (slot."date" = ${today} AND slot."startTime" > ${nowTime})
             OR (slot."date" >= ${tomorrow} AND slot."date" < ${endExclusive})

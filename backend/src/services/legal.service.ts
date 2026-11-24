@@ -1,3 +1,4 @@
+import { TtlCache } from "../utils/ttlCache.js";
 import type { Prisma } from "../../generated/prisma/client.js";
 import { prisma } from "../config/prisma.js";
 import { AppError } from "../utils/appError.js";
@@ -33,22 +34,21 @@ const normalize = (stored: unknown): LegalDocuments => {
   return { terms: pick("terms"), privacy: pick("privacy") };
 };
 
-let cache: { documents: LegalDocuments; expiresAt: number } | null = null;
+const cache = new TtlCache<LegalDocuments>(1, CACHE_TTL_MS);
 
 class LegalService {
   invalidate() {
-    cache = null;
+    cache.clear();
   }
 
-  async get(): Promise<LegalDocuments> {
-    if (cache && cache.expiresAt > Date.now()) return cache.documents;
-    const setting = await prisma.appSetting.findUnique({
-      where: { scope_key: { scope: "SITE", key: LEGAL_KEY } },
-      select: { value: true, isActive: true },
+  get(): Promise<LegalDocuments> {
+    return cache.getOrLoad("documents", async () => {
+      const setting = await prisma.appSetting.findUnique({
+        where: { scope_key: { scope: "SITE", key: LEGAL_KEY } },
+        select: { value: true, isActive: true },
+      });
+      return normalize(setting?.isActive ? setting.value : undefined);
     });
-    const documents = normalize(setting?.isActive ? setting.value : undefined);
-    cache = { documents, expiresAt: Date.now() + CACHE_TTL_MS };
-    return documents;
   }
 
   // Quản trị sửa: văn bản để trống nội dung nghĩa là tắt văn bản đó. Mỗi lần lưu tạo phiên bản mới.

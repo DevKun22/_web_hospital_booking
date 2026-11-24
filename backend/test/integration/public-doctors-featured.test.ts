@@ -18,7 +18,7 @@ test("featured doctors are ranked by their earliest available slot and ignore un
     data: { doctorId: fixture.doctorOne.id, date: dateOnly(futureDate(1)), startTime: "07:00", endTime: "07:30", status: "LOCKED" },
   });
   await prisma.doctorTimeSlot.create({
-    data: { doctorId: fixture.doctorOne.id, date: dateOnly(futureDate(2)), startTime: "07:30", endTime: "08:00", isActive: false },
+    data: { doctorId: fixture.doctorOne.id, date: dateOnly(futureDate(2)), startTime: "07:30", endTime: "08:00", status: "CANCELLED" },
   });
   await prisma.doctorTimeSlot.create({
     data: { doctorId: fixture.doctorTwo.id, date: dateOnly(futureDate(3)), startTime: "08:00", endTime: "08:30" },

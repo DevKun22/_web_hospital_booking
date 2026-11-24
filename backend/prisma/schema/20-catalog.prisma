@@ -1,20 +1,20 @@
 // Danh mục công khai: chuyên khoa, bác sĩ, gói khám.
 
 model Department {
-  id                String   @id @default(uuid())
-  name              String   @unique
-  slug              String   @unique
-  description       String?
-  image             String?
+  id                  String    @id @default(uuid())
+  name                String    @unique
+  slug                String    @unique
+  description         String?
+  image               String?
   // Nội dung giới thiệu theo mục có tiêu đề, dựng thành các tab ở trang chuyên khoa: [{ title, body (Markdown) }].
-  sections          Json     @default("[]")
+  sections            Json      @default("[]")
   // Người duyệt nội dung chuyên môn (tên hiển thị công khai) và thời điểm cập nhật nội dung.
   contentReviewerName String?
   contentUpdatedAt    DateTime?
-  symptomKeywords   String[] @default([])
-  triageDescription String?
-  isTriageFallback  Boolean  @default(false)
-  isActive          Boolean  @default(true)
+  symptomKeywords     String[]  @default([])
+  triageDescription   String?
+  isTriageFallback    Boolean   @default(false)
+  isActive            Boolean   @default(true)
 
   doctors      DoctorProfile[]
   appointments Appointment[]
