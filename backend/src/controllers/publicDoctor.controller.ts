@@ -1,16 +1,8 @@
-import type { Request, Response, NextFunction } from "express";
+import type { Request, Response } from "express";
 import PublicDoctorService from "../services/publicDoctor.service.js";
 import { AppError } from "../utils/appError.js";
+import { getRequiredPathParam, parseStringQuery } from "../shared/http/requestParsers.js";
 
-const getParam = (value: string | string[] | undefined, name: string) => {
-  const param = Array.isArray(value) ? value[0] : value;
-
-  if (!param) {
-    throw new AppError(`Thiếu ${name}`, 400);
-  }
-
-  return param;
-};
 
 const parseNumberQuery = (value: unknown) => {
   if (typeof value !== "string") return undefined;
@@ -21,77 +13,56 @@ const parseNumberQuery = (value: unknown) => {
 export const listPublicDoctorsHandler = async (
   req: Request,
   res: Response,
-  next: NextFunction,
 ) => {
-  try {
-    const doctors = await PublicDoctorService.list({
-      search:
-        typeof req.query.search === "string" ? req.query.search : undefined,
-      departmentSlug:
-        typeof req.query.departmentSlug === "string"
-          ? req.query.departmentSlug
-          : undefined,
-      departmentId:
-        typeof req.query.departmentId === "string"
-          ? req.query.departmentId
-          : undefined,
-      includeHighlights: req.query.includeHighlights === "true",
-      limit: parseNumberQuery(req.query.limit),
-    });
+  const doctors = await PublicDoctorService.list({
+    search:
+      parseStringQuery(req.query.search),
+    departmentSlug:
+      parseStringQuery(req.query.departmentSlug),
+    departmentId:
+      parseStringQuery(req.query.departmentId),
+    includeHighlights: req.query.includeHighlights === "true",
+    limit: parseNumberQuery(req.query.limit),
+  });
 
-    return res.json({
-      success: true,
-      data: doctors,
-    });
-  } catch (error) {
-    next(error);
-  }
+  return res.json({
+    success: true,
+    data: doctors,
+  });
 };
 
 export const listPublicDoctorCatalogHandler = async (
   req: Request,
   res: Response,
-  next: NextFunction,
 ) => {
-  try {
-    const result = await PublicDoctorService.listCatalog({
-      search:
-        typeof req.query.search === "string" ? req.query.search : undefined,
-      departmentId:
-        typeof req.query.departmentId === "string"
-          ? req.query.departmentId
-          : undefined,
-      minExperience: parseNumberQuery(req.query.minExperience),
-      availableToday: req.query.availableToday === "true",
-      sort:
-        req.query.sort === "EXPERIENCE_DESC" || req.query.sort === "NAME_ASC"
-          ? req.query.sort
-          : undefined,
-      page: parseNumberQuery(req.query.page),
-      limit: parseNumberQuery(req.query.limit),
-    });
+  const result = await PublicDoctorService.listCatalog({
+    search:
+      parseStringQuery(req.query.search),
+    departmentId:
+      parseStringQuery(req.query.departmentId),
+    minExperience: parseNumberQuery(req.query.minExperience),
+    availableToday: req.query.availableToday === "true",
+    sort:
+      req.query.sort === "EXPERIENCE_DESC" || req.query.sort === "NAME_ASC"
+        ? req.query.sort
+        : undefined,
+    page: parseNumberQuery(req.query.page),
+    limit: parseNumberQuery(req.query.limit),
+  });
 
-    return res.json({ success: true, data: result });
-  } catch (error) {
-    next(error);
-  }
+  return res.json({ success: true, data: result });
 };
 
 export const getPublicDoctorHandler = async (
   req: Request,
   res: Response,
-  next: NextFunction,
 ) => {
-  try {
-    const doctor = await PublicDoctorService.getByIdentifier(
-      getParam(req.params.id, "mã bác sĩ"),
-    );
+  const doctor = await PublicDoctorService.getByIdentifier(
+    getRequiredPathParam(req.params.id, "mã bác sĩ"),
+  );
 
-    return res.json({
-      success: true,
-      data: doctor,
-    });
-  } catch (error) {
-    next(error);
-  }
+  return res.json({
+    success: true,
+    data: doctor,
+  });
 };

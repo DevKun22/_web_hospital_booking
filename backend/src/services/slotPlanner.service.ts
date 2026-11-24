@@ -5,7 +5,7 @@ import { AppError } from "../utils/appError.js";
 import {
   buildTimeSlots,
   getUtcDayOfWeek,
-  getVietnamNowParts,
+  getVietnamToday,
   isSlotStartInPastVietnamTime,
   parseDateOnly,
   toDateOnly,
@@ -23,7 +23,6 @@ const ROLLING_THROTTLE_MS = 30 * 60 * 1000;
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const addDays = (date: Date, days: number) => new Date(date.getTime() + days * DAY_MS);
-const vietnamToday = () => parseDateOnly(getVietnamNowParts().date);
 const overlaps = (aStart: string, aEnd: string, bStart: string, bEnd: string) =>
   aStart < bEnd && bStart < aEnd;
 
@@ -71,7 +70,7 @@ class SlotPlannerService {
    * còn giữ lại vì đã có người đặt).
    */
   async generateRange(doctorId: string, fromInput: Date, toInput: Date) {
-    const today = vietnamToday();
+    const today = getVietnamToday();
     const from = fromInput < today ? today : fromInput;
     if (toInput < from) return { generatedCount: 0, days: 0 };
     const days = this.assertRange(from, toInput);
@@ -139,7 +138,7 @@ class SlotPlannerService {
       },
       select: { id: true },
     });
-    const today = vietnamToday();
+    const today = getVietnamToday();
     let generatedCount = 0;
     for (const doctor of doctors) {
       try {
@@ -166,7 +165,7 @@ class SlotPlannerService {
 
   private async futureSlotsOfSchedule(scheduleId: string) {
     return prisma.doctorTimeSlot.findMany({
-      where: { scheduleId, date: { gte: vietnamToday() } },
+      where: { scheduleId, date: { gte: getVietnamToday() } },
       select: {
         id: true,
         status: true,
@@ -229,7 +228,7 @@ class SlotPlannerService {
 
   /** Sau khi tạo/sửa ca mẫu: sinh lại cửa sổ khung giờ cho bác sĩ đó. */
   async refreshDoctor(doctorId: string) {
-    const today = vietnamToday();
+    const today = getVietnamToday();
     return this.generateRange(doctorId, today, addDays(today, ROLLING_WINDOW_DAYS - 1));
   }
 
@@ -244,7 +243,7 @@ class SlotPlannerService {
     input: { doctorId: string; from: string; to: string; reason: string },
     actor: Actor,
   ) {
-    const today = vietnamToday();
+    const today = getVietnamToday();
     const from = parseDateOnly(input.from);
     const to = parseDateOnly(input.to);
     if (from < today) throw new AppError("Chỉ đóng lịch từ hôm nay trở đi", 409, "RANGE_IN_PAST");
@@ -300,7 +299,7 @@ class SlotPlannerService {
 
   /** Mở lại các khung giờ đã khóa trong khoảng ngày (không đụng khung giờ đã có lịch). */
   async reopenRange(input: { doctorId: string; from: string; to: string }, actor: Actor) {
-    const today = vietnamToday();
+    const today = getVietnamToday();
     const from = parseDateOnly(input.from);
     const to = parseDateOnly(input.to);
     if (to < today) throw new AppError("Khoảng ngày đã qua", 409, "RANGE_IN_PAST");

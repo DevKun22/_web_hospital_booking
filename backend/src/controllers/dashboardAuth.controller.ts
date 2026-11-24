@@ -59,54 +59,44 @@ const clearDashboardAuthCookies = (res: Response) => {
 export const loginHandler = async (
   req: Request,
   res: Response,
-  next: NextFunction,
 ) => {
-  try {
-    const { email, password } = req.body;
+  const { email, password } = req.body;
 
-    const result = await DashboardAuthService.login(
-      email,
-      password,
-      getRequestMeta(req).ipAddress,
-    );
+  const result = await DashboardAuthService.login(
+    email,
+    password,
+    getRequestMeta(req).ipAddress,
+  );
 
-    return res.json({
-      success: true,
-      message: "OTP đã được gửi",
-      data: result,
-    });
-  } catch (error) {
-    next(error);
-  }
+  return res.json({
+    success: true,
+    message: "OTP đã được gửi",
+    data: result,
+  });
 };
 
 export const verifyOtpHandler = async (
   req: Request,
   res: Response,
-  next: NextFunction,
 ) => {
-  try {
-    const { challengeId, otp } = req.body;
+  const { challengeId, otp } = req.body;
 
-    const result = await DashboardAuthService.verifyOtp(
-      challengeId,
-      otp,
-      getRequestMeta(req),
-    );
+  const result = await DashboardAuthService.verifyOtp(
+    challengeId,
+    otp,
+    getRequestMeta(req),
+  );
 
-    setDashboardAuthCookies(res, result);
+  setDashboardAuthCookies(res, result);
 
-    return res.json({
-      success: true,
-      message: "Đăng nhập thành công",
-      data: {
-        user: result.user,
-        redirectPath: result.redirectPath,
-      },
-    });
-  } catch (error) {
-    next(error);
-  }
+  return res.json({
+    success: true,
+    message: "Đăng nhập thành công",
+    data: {
+      user: result.user,
+      redirectPath: result.redirectPath,
+    },
+  });
 };
 
 export const refreshHandler = async (
@@ -148,27 +138,22 @@ export const refreshHandler = async (
 export const meHandler = async (
   req: Request,
   res: Response,
-  next: NextFunction,
 ) => {
-  try {
-    const userId = req.user?.userId;
+  const userId = req.user?.userId;
 
-    if (!userId) {
-      return res.status(401).json({
-        success: false,
-        message: "Chưa đăng nhập",
-      });
-    }
-
-    const user = await DashboardAuthService.getCurrentUser(userId);
-
-    return res.json({
-      success: true,
-      data: user,
+  if (!userId) {
+    return res.status(401).json({
+      success: false,
+      message: "Chưa đăng nhập",
     });
-  } catch (error) {
-    next(error);
   }
+
+  const user = await DashboardAuthService.getCurrentUser(userId);
+
+  return res.json({
+    success: true,
+    data: user,
+  });
 };
 
 export const logoutHandler = async (req: Request, res: Response) => {
@@ -184,22 +169,17 @@ export const logoutHandler = async (req: Request, res: Response) => {
 export const changePasswordHandler = async (
   req: Request,
   res: Response,
-  next: NextFunction,
 ) => {
-  try {
-    if (!req.user?.userId) {
-      return res.status(401).json({ success: false, message: "Chưa đăng nhập" });
-    }
-    await DashboardAuthService.changePassword({
-      userId: req.user.userId,
-      sessionId: req.user.sessionId,
-      role: req.user.role,
-      currentPassword: req.body.currentPassword,
-      newPassword: req.body.newPassword,
-      ipAddress: getClientIp(req),
-    });
-    return res.json({ success: true, message: "Đã đổi mật khẩu" });
-  } catch (error) {
-    next(error);
+  if (!req.user?.userId) {
+    return res.status(401).json({ success: false, message: "Chưa đăng nhập" });
   }
+  await DashboardAuthService.changePassword({
+    userId: req.user.userId,
+    sessionId: req.user.sessionId,
+    role: req.user.role,
+    currentPassword: req.body.currentPassword,
+    newPassword: req.body.newPassword,
+    ipAddress: getClientIp(req),
+  });
+  return res.json({ success: true, message: "Đã đổi mật khẩu" });
 };

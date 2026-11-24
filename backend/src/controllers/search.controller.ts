@@ -1,4 +1,4 @@
-import type { NextFunction, Request, Response } from "express";
+import type { Request, Response } from "express";
 import PublicSearchService from "../services/search/search.service.js";
 import {
   SEARCH_DOCUMENT_TYPES,
@@ -51,20 +51,15 @@ const parseSearchQuery = (value: unknown) => {
 export const publicSearchHandler = async (
   req: Request,
   res: Response,
-  next: NextFunction,
 ) => {
-  try {
-    const result = await PublicSearchService.search({
-      q: parseSearchQuery(req.query.q),
-      type: parseType(req.query.type),
-      limit: parseLimit(req.query.limit),
-    });
+  const result = await PublicSearchService.search({
+    q: parseSearchQuery(req.query.q),
+    type: parseType(req.query.type),
+    limit: parseLimit(req.query.limit),
+  });
 
-    return res.json({
-      success: true,
-      data: result,
-    });
-  } catch (error) {
-    next(error);
-  }
+  return res.json({
+    success: true,
+    data: result,
+  });
 };

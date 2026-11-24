@@ -1,5 +1,5 @@
-import type { Request, Response, NextFunction } from "express";
-import type {
+import type { Request, Response } from "express";
+import {
   InvoiceStatus,
   PaymentMethod,
 } from "../../generated/prisma/enums.js";
@@ -8,6 +8,7 @@ import InvoiceMedicineService from "../services/invoiceMedicine.service.js";
 import InvoiceRefundService from "../services/invoiceRefund.service.js";
 import { AppError } from "../utils/appError.js";
 import { getClientIp } from "../utils/clientIp.js";
+import { getRequiredPathParam, parseEnumQuery, parseStringQuery } from "../shared/http/requestParsers.js";
 
 const parseNumberQuery = (value: unknown) => {
   if (typeof value !== "string") return undefined;
@@ -16,15 +17,6 @@ const parseNumberQuery = (value: unknown) => {
   return Number.isFinite(number) ? number : undefined;
 };
 
-const getParam = (value: string | string[] | undefined, name = "id") => {
-  const param = Array.isArray(value) ? value[0] : value;
-
-  if (!param) {
-    throw new AppError(`Thiếu ${name}`, 400);
-  }
-
-  return param;
-};
 
 const getActorId = (req: Request) => {
   if (!req.user?.userId) throw new AppError("Chưa đăng nhập", 401);
@@ -34,244 +26,179 @@ const getActorId = (req: Request) => {
 export const listInvoicesHandler = async (
   req: Request,
   res: Response,
-  next: NextFunction,
 ) => {
-  try {
-    const result = await InvoiceService.list({
-      status:
-        typeof req.query.status === "string"
-          ? (req.query.status as InvoiceStatus)
-          : undefined,
-      paymentMethod:
-        typeof req.query.paymentMethod === "string"
-          ? (req.query.paymentMethod as PaymentMethod)
-          : undefined,
-      patientId:
-        typeof req.query.patientId === "string"
-          ? req.query.patientId
-          : undefined,
-      appointmentId:
-        typeof req.query.appointmentId === "string"
-          ? req.query.appointmentId
-          : undefined,
-      invoiceCode:
-        typeof req.query.invoiceCode === "string"
-          ? req.query.invoiceCode
-          : undefined,
-      q: typeof req.query.q === "string" ? req.query.q : undefined,
-      barcode:
-        typeof req.query.barcode === "string" ? req.query.barcode : undefined,
-      phone: typeof req.query.phone === "string" ? req.query.phone : undefined,
-      page: parseNumberQuery(req.query.page),
-      limit: parseNumberQuery(req.query.limit),
-    });
+  const result = await InvoiceService.list({
+    status:
+      parseEnumQuery(req.query.status, InvoiceStatus, "status"),
+    paymentMethod:
+      parseEnumQuery(req.query.paymentMethod, PaymentMethod, "paymentMethod"),
+    patientId:
+      parseStringQuery(req.query.patientId),
+    appointmentId:
+      parseStringQuery(req.query.appointmentId),
+    invoiceCode:
+      parseStringQuery(req.query.invoiceCode),
+    q: parseStringQuery(req.query.q),
+    barcode:
+      parseStringQuery(req.query.barcode),
+    phone: parseStringQuery(req.query.phone),
+    page: parseNumberQuery(req.query.page),
+    limit: parseNumberQuery(req.query.limit),
+  });
 
-    return res.json({ success: true, data: result });
-  } catch (error) {
-    next(error);
-  }
+  return res.json({ success: true, data: result });
 };
 
 export const getInvoiceHandler = async (
   req: Request,
   res: Response,
-  next: NextFunction,
 ) => {
-  try {
-    const invoice = await InvoiceService.getById(getParam(req.params.id));
+  const invoice = await InvoiceService.getById(getRequiredPathParam(req.params.id));
 
-    return res.json({ success: true, data: invoice });
-  } catch (error) {
-    next(error);
-  }
+  return res.json({ success: true, data: invoice });
 };
 
 export const createInvoiceForAppointmentHandler = async (
   req: Request,
   res: Response,
-  next: NextFunction,
 ) => {
-  try {
-    const invoice = await InvoiceService.createForAppointment(
-      getParam(req.params.appointmentId, "appointmentId"),
-      req.body,
-    );
+  const invoice = await InvoiceService.createForAppointment(
+    getRequiredPathParam(req.params.appointmentId, "appointmentId"),
+    req.body,
+  );
 
-    return res.status(201).json({
-      success: true,
-      message: "Tạo hóa đơn thành công",
-      data: invoice,
-    });
-  } catch (error) {
-    next(error);
-  }
+  return res.status(201).json({
+    success: true,
+    message: "Tạo hóa đơn thành công",
+    data: invoice,
+  });
 };
 
 export const updateInvoiceHandler = async (
   req: Request,
   res: Response,
-  next: NextFunction,
 ) => {
-  try {
-    const invoice = await InvoiceService.updateFinancials(
-      getParam(req.params.id),
-      req.body,
-      { userId: getActorId(req), role: req.user!.role },
-      getClientIp(req),
-    );
+  const invoice = await InvoiceService.updateFinancials(
+    getRequiredPathParam(req.params.id),
+    req.body,
+    { userId: getActorId(req), role: req.user!.role },
+    getClientIp(req),
+  );
 
-    return res.json({
-      success: true,
-      message: "Cập nhật hóa đơn thành công",
-      data: invoice,
-    });
-  } catch (error) {
-    next(error);
-  }
+  return res.json({
+    success: true,
+    message: "Cập nhật hóa đơn thành công",
+    data: invoice,
+  });
 };
 
 export const paySupplementHandler = async (
   req: Request,
   res: Response,
-  next: NextFunction,
 ) => {
-  try {
-    const invoice = await InvoiceMedicineService.paySupplement(
-      getParam(req.params.id),
-      getParam(req.params.supplementId, "supplementId"),
-      req.body,
-      getActorId(req),
-    );
+  const invoice = await InvoiceMedicineService.paySupplement(
+    getRequiredPathParam(req.params.id),
+    getRequiredPathParam(req.params.supplementId, "supplementId"),
+    req.body,
+    getActorId(req),
+  );
 
-    return res.json({
-      success: true,
-      message: "Đã thu hóa đơn bổ sung tiền thuốc",
-      data: invoice,
-    });
-  } catch (error) {
-    return next(error);
-  }
+  return res.json({
+    success: true,
+    message: "Đã thu hóa đơn bổ sung tiền thuốc",
+    data: invoice,
+  });
 };
 
 export const payInvoiceHandler = async (
   req: Request,
   res: Response,
-  next: NextFunction,
 ) => {
-  try {
-    const invoice = await InvoiceService.pay(
-      getParam(req.params.id),
-      req.body,
-      getActorId(req),
-    );
+  const invoice = await InvoiceService.pay(
+    getRequiredPathParam(req.params.id),
+    req.body,
+    getActorId(req),
+  );
 
-    return res.json({
-      success: true,
-      message: "Thanh toán hóa đơn thành công",
-      data: invoice,
-    });
-  } catch (error) {
-    next(error);
-  }
+  return res.json({
+    success: true,
+    message: "Thanh toán hóa đơn thành công",
+    data: invoice,
+  });
 };
 
 export const cancelInvoiceHandler = async (
   req: Request,
   res: Response,
-  next: NextFunction,
 ) => {
-  try {
-    const invoice = await InvoiceService.cancel(
-      getParam(req.params.id),
-      getActorId(req),
-    );
+  const invoice = await InvoiceService.cancel(
+    getRequiredPathParam(req.params.id),
+    getActorId(req),
+  );
 
-    return res.json({
-      success: true,
-      message: "Hủy hóa đơn thành công",
-      data: invoice,
-    });
-  } catch (error) {
-    next(error);
-  }
+  return res.json({
+    success: true,
+    message: "Hủy hóa đơn thành công",
+    data: invoice,
+  });
 };
 
 export const refundInvoiceHandler = async (
   req: Request,
   res: Response,
-  next: NextFunction,
 ) => {
-  try {
-    const invoice = await InvoiceRefundService.refund(
-      getParam(req.params.id),
-      req.body,
-      getActorId(req),
-      { role: req.user!.role, ipAddress: getClientIp(req) },
-    );
+  const invoice = await InvoiceRefundService.refund(
+    getRequiredPathParam(req.params.id),
+    req.body,
+    getActorId(req),
+    { role: req.user!.role, ipAddress: getClientIp(req) },
+  );
 
-    return res.json({
-      success: true,
-      message: "Hoàn tiền hóa đơn thành công",
-      data: invoice,
-    });
-  } catch (error) {
-    next(error);
-  }
+  return res.json({
+    success: true,
+    message: "Hoàn tiền hóa đơn thành công",
+    data: invoice,
+  });
 };
 
 export const refundInvoiceViaVnpayHandler = async (
   req: Request,
   res: Response,
-  next: NextFunction,
 ) => {
-  try {
-    const invoice = await InvoiceRefundService.refundViaVnpay(
-      getParam(req.params.id),
-      req.body,
-      getActorId(req),
-      getClientIp(req),
-      req.user!.role,
-    );
+  const invoice = await InvoiceRefundService.refundViaVnpay(
+    getRequiredPathParam(req.params.id),
+    req.body,
+    getActorId(req),
+    getClientIp(req),
+    req.user!.role,
+  );
 
-    return res.json({
-      success: true,
-      message: "Đã gửi yêu cầu hoàn tiền tới VNPAY và ghi nhận vào hóa đơn",
-      data: invoice,
-    });
-  } catch (error) {
-    next(error);
-  }
+  return res.json({
+    success: true,
+    message: "Đã gửi yêu cầu hoàn tiền tới VNPAY và ghi nhận vào hóa đơn",
+    data: invoice,
+  });
 };
 
 // Các dòng tiền thuốc đang chờ hoàn của hóa đơn đã thanh toán.
 export const listRefundableMedicineHandler = async (
   req: Request,
   res: Response,
-  next: NextFunction,
 ) => {
-  try {
-    const data = await InvoiceMedicineService.listRefundableMedicine(getParam(req.params.id));
-    return res.json({ success: true, data });
-  } catch (error) {
-    next(error);
-  }
+  const data = await InvoiceMedicineService.listRefundableMedicine(getRequiredPathParam(req.params.id));
+  return res.json({ success: true, data });
 };
 
 // Ghi nhận đã hoàn tiền thuốc một phần (tiền được hoàn ở cổng thanh toán hoặc tiền mặt).
 export const recordMedicineRefundHandler = async (
   req: Request,
   res: Response,
-  next: NextFunction,
 ) => {
-  try {
-    const data = await InvoiceMedicineService.recordMedicineRefund(
-      getParam(req.params.id),
-      req.body,
-      { userId: getActorId(req) as string, role: req.user!.role },
-      getClientIp(req),
-    );
-    return res.json({ success: true, message: "Đã ghi nhận hoàn tiền thuốc", data });
-  } catch (error) {
-    next(error);
-  }
+  const data = await InvoiceMedicineService.recordMedicineRefund(
+    getRequiredPathParam(req.params.id),
+    req.body,
+    { userId: getActorId(req) as string, role: req.user!.role },
+    getClientIp(req),
+  );
+  return res.json({ success: true, message: "Đã ghi nhận hoàn tiền thuốc", data });
 };

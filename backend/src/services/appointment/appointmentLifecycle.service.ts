@@ -6,7 +6,7 @@ import {
 } from "../../config/environment.js";
 import { AppError } from "../../utils/appError.js";
 import { mapWithConcurrency } from "../../utils/concurrency.js";
-import { getVietnamNowParts, parseDateOnly } from "../../utils/time.js";
+import { getVietnamToday } from "../../utils/time.js";
 import { type Actor } from "./appointment.shared.js";
 import { AppointmentServiceSupport } from "./appointment.support.js";
 import type { AppointmentTransitionUseCases } from "./appointmentTransition.service.js";
@@ -256,7 +256,7 @@ export class AppointmentLifecycleUseCases extends AppointmentServiceSupport {
     } = {},
   ) {
     const now = options.now || new Date();
-    const vietnamToday = parseDateOnly(getVietnamNowParts(now).date);
+    const vietnamToday = getVietnamToday(now);
     const candidates = await prisma.appointment.findMany({
       where: {
         status: "PENDING_CONFIRM",

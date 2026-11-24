@@ -1,4 +1,4 @@
-import type { NextFunction, Request, Response } from "express";
+import type { Request, Response } from "express";
 import AuthSessionService from "../services/authSession.service.js";
 import PatientAuthService from "../services/patientAuth.service.js";
 import { AppError } from "../utils/appError.js";
@@ -23,142 +23,102 @@ const requirePatient = (req: Request) => {
 export const requestPatientOtpHandler = async (
   req: Request,
   res: Response,
-  next: NextFunction,
 ) => {
-  try {
-    const data = await PatientAuthService.requestOtp(
-      { email: req.body.email, termsAccepted: req.body.termsAccepted, termsVersion: req.body.termsVersion },
-      getIpAddress(req),
-    );
-    return res.json({ success: true, data });
-  } catch (error) {
-    next(error);
-  }
+  const data = await PatientAuthService.requestOtp(
+    { email: req.body.email, termsAccepted: req.body.termsAccepted, termsVersion: req.body.termsVersion },
+    getIpAddress(req),
+  );
+  return res.json({ success: true, data });
 };
 
 export const verifyPatientOtpHandler = async (
   req: Request,
   res: Response,
-  next: NextFunction,
 ) => {
-  try {
-    const data = await PatientAuthService.verifyOtp({
-      challengeId: req.body.challengeId,
-      otp: req.body.otp,
-      meta: getSessionMeta(req),
-    });
-    return res.json({ success: true, data });
-  } catch (error) {
-    next(error);
-  }
+  const data = await PatientAuthService.verifyOtp({
+    challengeId: req.body.challengeId,
+    otp: req.body.otp,
+    meta: getSessionMeta(req),
+  });
+  return res.json({ success: true, data });
 };
 
 export const refreshPatientSessionHandler = async (
   req: Request,
   res: Response,
-  next: NextFunction,
 ) => {
-  try {
-    const data = await PatientAuthService.refresh(
-      req.body.refreshToken,
-      getSessionMeta(req),
-    );
-    return res.json({ success: true, data });
-  } catch (error) {
-    next(error);
-  }
+  const data = await PatientAuthService.refresh(
+    req.body.refreshToken,
+    getSessionMeta(req),
+  );
+  return res.json({ success: true, data });
 };
 
 export const logoutPatientHandler = async (
   req: Request,
   res: Response,
-  next: NextFunction,
 ) => {
-  try {
-    await PatientAuthService.logout(req.body.refreshToken);
-    return res.json({ success: true, data: null });
-  } catch (error) {
-    next(error);
-  }
+  await PatientAuthService.logout(req.body.refreshToken);
+  return res.json({ success: true, data: null });
 };
 
 export const listPatientSessionsHandler = async (
   req: Request,
   res: Response,
-  next: NextFunction,
 ) => {
-  try {
-    const patient = requirePatient(req);
-    const data = await AuthSessionService.list(
-      patient.userId,
-      "PATIENT",
-      patient.sessionId,
-    );
-    return res.json({ success: true, data });
-  } catch (error) {
-    next(error);
-  }
+  const patient = requirePatient(req);
+  const data = await AuthSessionService.list(
+    patient.userId,
+    "PATIENT",
+    patient.sessionId,
+  );
+  return res.json({ success: true, data });
 };
 
 export const revokePatientSessionHandler = async (
   req: Request,
   res: Response,
-  next: NextFunction,
 ) => {
-  try {
-    const patient = requirePatient(req);
-    const sessionId = Array.isArray(req.params.id)
-      ? req.params.id[0]
-      : req.params.id;
-    if (!sessionId) throw new AppError("Thiếu session id", 400);
+  const patient = requirePatient(req);
+  const sessionId = Array.isArray(req.params.id)
+    ? req.params.id[0]
+    : req.params.id;
+  if (!sessionId) throw new AppError("Thiếu session id", 400);
 
-    await AuthSessionService.revokeSession({
-      sessionId,
-      userId: patient.userId,
-      kind: "PATIENT",
-      exceptSessionId: patient.sessionId,
-    });
-    return res.json({ success: true, data: null });
-  } catch (error) {
-    next(error);
-  }
+  await AuthSessionService.revokeSession({
+    sessionId,
+    userId: patient.userId,
+    kind: "PATIENT",
+    exceptSessionId: patient.sessionId,
+  });
+  return res.json({ success: true, data: null });
 };
 
 export const registerPatientPushTokenHandler = async (
   req: Request,
   res: Response,
-  next: NextFunction,
 ) => {
-  try {
-    const patient = requirePatient(req);
-    const data = await AuthSessionService.registerPushToken({
-      sessionId: patient.sessionId,
-      userId: patient.userId,
-      kind: "PATIENT",
-      pushToken: req.body.pushToken,
-      platform: req.body.platform,
-      appVersion: req.body.appVersion,
-    });
-    return res.json({ success: true, data });
-  } catch (error) {
-    next(error);
-  }
+  const patient = requirePatient(req);
+  const data = await AuthSessionService.registerPushToken({
+    sessionId: patient.sessionId,
+    userId: patient.userId,
+    kind: "PATIENT",
+    pushToken: req.body.pushToken,
+    platform: req.body.platform,
+    appVersion: req.body.appVersion,
+  });
+  return res.json({ success: true, data });
 };
 
 export const disablePatientPushTokenHandler = async (
   req: Request,
   res: Response,
-  next: NextFunction,
 ) => {
-  try {
-    const patient = requirePatient(req);
-    const data = await AuthSessionService.disablePushToken({
-      sessionId: patient.sessionId,
-      userId: patient.userId,
-      kind: "PATIENT",
-    });
-    return res.json({ success: true, data });
-  } catch (error) {
-    next(error);
-  }
+  const patient = requirePatient(req);
+  const data = await AuthSessionService.disablePushToken({
+    sessionId: patient.sessionId,
+    userId: patient.userId,
+    kind: "PATIENT",
+  });
+  return res.json({ success: true, data });
 };

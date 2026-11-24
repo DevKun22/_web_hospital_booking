@@ -1,4 +1,4 @@
-import type { NextFunction, Request, Response } from "express";
+import type { Request, Response } from "express";
 import PaymentService from "../services/payment.service.js";
 import { AppError } from "../utils/appError.js";
 
@@ -45,38 +45,28 @@ export const getPatientPaymentCapabilitiesHandler = (
 export const createPatientPaymentHandler = async (
   req: Request,
   res: Response,
-  next: NextFunction,
 ) => {
-  try {
-    const data = await PaymentService.createForInvoice(
-      param(req, "invoiceId"),
-      req.body,
-      requirePatientId(req),
-      idempotencyKey(req),
-      req.ip,
-    );
-    return res.status(201).json({
-      success: true,
-      message: "Tạo giao dịch thanh toán thành công",
-      data: toPatientPayment(data),
-    });
-  } catch (error) {
-    next(error);
-  }
+  const data = await PaymentService.createForInvoice(
+    param(req, "invoiceId"),
+    req.body,
+    requirePatientId(req),
+    idempotencyKey(req),
+    req.ip,
+  );
+  return res.status(201).json({
+    success: true,
+    message: "Tạo giao dịch thanh toán thành công",
+    data: toPatientPayment(data),
+  });
 };
 
 export const getPatientPaymentHandler = async (
   req: Request,
   res: Response,
-  next: NextFunction,
 ) => {
-  try {
-    const data = await PaymentService.getByIdWithReconciliation(
-      param(req, "paymentId"),
-      requirePatientId(req),
-    );
-    return res.json({ success: true, data: toPatientPayment(data) });
-  } catch (error) {
-    next(error);
-  }
+  const data = await PaymentService.getByIdWithReconciliation(
+    param(req, "paymentId"),
+    requirePatientId(req),
+  );
+  return res.json({ success: true, data: toPatientPayment(data) });
 };

@@ -6,10 +6,7 @@ import { getReminderDispatchConcurrency } from "../config/environment.js";
 import { AppError } from "../utils/appError.js";
 import { mapWithConcurrency } from "../utils/concurrency.js";
 import { desiredMedicineLine } from "../utils/medicineBilling.js";
-import {
-  generateInvoiceBarcode,
-  generateInvoiceCode,
-} from "../utils/invoiceCode.js";
+import { CODE_PREFIX, generateDatedCode } from "../utils/datedCode.js";
 import AuditLogService from "./auditLog.service.js";
 import MedicalRecordService from "./medicalRecord.service.js";
 import PatientEventNotificationService from "./patientEventNotification.service.js";
@@ -628,7 +625,7 @@ class InvoiceService {
 
   private generateUniqueInvoiceCode(tx: Prisma.TransactionClient) {
     return generateUniqueCode(
-      generateInvoiceCode,
+      () => generateDatedCode(CODE_PREFIX.invoice),
       async (invoiceCode) => Boolean(await tx.invoice.findUnique({ where: { invoiceCode }, select: { id: true } })),
       "Không thể tạo mã hóa đơn",
     );
@@ -636,7 +633,7 @@ class InvoiceService {
 
   private generateUniqueBarcode(tx: Prisma.TransactionClient) {
     return generateUniqueCode(
-      generateInvoiceBarcode,
+      () => generateDatedCode(CODE_PREFIX.invoiceBarcode, 9),
       async (barcode) => Boolean(await tx.invoice.findUnique({ where: { barcode }, select: { id: true } })),
       "Không thể tạo mã vạch hóa đơn",
     );
