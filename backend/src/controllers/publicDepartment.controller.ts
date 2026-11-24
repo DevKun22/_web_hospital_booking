@@ -1,6 +1,5 @@
 import type { Request, Response } from "express";
 import PublicDepartmentService from "../services/publicDepartment.service.js";
-import { AppError } from "../utils/appError.js";
 import { getRequiredPathParam, parseStringQuery } from "../shared/http/requestParsers.js";
 
 const parseNumberQuery = (value: unknown) => {

@@ -1,6 +1,5 @@
 import type { Request, Response } from "express";
 import DepartmentService from "../services/department.service.js";
-import { AppError } from "../utils/appError.js";
 import PublicBootstrapService from "../services/publicBootstrap.service.js";
 import { getRequiredPathParam, parseStringQuery } from "../shared/http/requestParsers.js";
 

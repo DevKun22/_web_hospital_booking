@@ -1,6 +1,5 @@
 import type { Request, Response } from "express";
 import PublicDoctorService from "../services/publicDoctor.service.js";
-import { AppError } from "../utils/appError.js";
 import { getRequiredPathParam, parseStringQuery } from "../shared/http/requestParsers.js";
 
 

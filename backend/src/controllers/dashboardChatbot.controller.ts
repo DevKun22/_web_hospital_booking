@@ -2,7 +2,6 @@ import type { Request, Response } from "express";
 import DashboardChatbotService from "../services/dashboardChatbot.service.js";
 import ChatbotSettingsService from "../services/chatbot/chatbot.settings.js";
 import KnowledgeService from "../services/chatbot/rag/knowledge.service.js";
-import { AppError } from "../utils/appError.js";
 import { getRequiredPathParam, parseStringQuery } from "../shared/http/requestParsers.js";
 
 const parseBooleanQuery = (value: unknown) => {
