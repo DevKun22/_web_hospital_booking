@@ -38,7 +38,6 @@
     "@prisma/adapter-pg": "^7.8.0",
     "@prisma/client": "^7.8.0",
     "argon2": "^0.45.2",
-    "bcrypt": "^6.0.0",
     "bullmq": "^5.78.0",
     "cloudinary": "^2.10.0",
     "compression": "^1.8.2",
@@ -57,7 +56,6 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
-    "@types/bcrypt": "^6.0.0",
     "@types/compression": "^1.8.1",
     "@types/cookie-parser": "^1.4.10",
     "@types/cors": "^2.8.19",

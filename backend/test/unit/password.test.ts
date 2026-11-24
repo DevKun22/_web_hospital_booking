@@ -1,8 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import bcrypt from "bcrypt";
-
 import {
   comparePassword,
   getPasswordHashAlgorithm,
@@ -20,12 +18,10 @@ test("hashPassword writes Argon2id PHC hashes with bounded parameters", async ()
   assert.equal(await comparePassword("sai-mat-khau", hash), false);
 });
 
-test("password utility still verifies legacy bcrypt hashes", async () => {
-  const hash = await bcrypt.hash(PASSWORD, 4);
-
-  assert.equal(getPasswordHashAlgorithm(hash), "bcrypt");
-  assert.equal(await comparePassword(PASSWORD, hash), true);
-  assert.equal(await comparePassword("sai-mat-khau", hash), false);
+test("legacy bcrypt hashes are no longer accepted", async () => {
+  const bcryptHash = "$2b$04$0123456789012345678901uM0vZ1i2y5m6S1H0n3Qbq3K5t8uGxW6";
+  assert.equal(getPasswordHashAlgorithm(bcryptHash), "unsupported");
+  assert.equal(await comparePassword(PASSWORD, bcryptHash), false);
 });
 
 test("password utility rejects unsupported stored hash formats", async () => {
