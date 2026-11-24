@@ -1,8 +1,11 @@
 "use client";
 
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { apiRequest } from "@/lib/api";
+import { PatientApiError, patientApiRequest } from "@/lib/patient-portal-api";
+import { loadOptionalPatientSession, patientSessionQueryKey } from "@/lib/patient-session-client";
 import {
   describeChatError,
   getAskQuestion,
@@ -76,6 +79,10 @@ type SendOptions = { action?: ChatbotSuggestedAction; echo?: boolean; echoText?:
 
 export function useChatbot({ online }: { online: boolean }) {
   const router = useRouter();
+  const queryClient = useQueryClient();
+  // Đã đăng nhập thì gửi qua máy chủ web (gắn phiên người khám) để Kun xem và hủy lịch của chính bạn; khách gọi thẳng API.
+  const sessionQuery = useQuery({ queryKey: patientSessionQueryKey, queryFn: loadOptionalPatientSession, retry: false, staleTime: 30_000 });
+  const signedIn = Boolean(sessionQuery.data);
   const [sessionId, setSessionId] = useState<string>();
   const [draft, setDraft] = useState<ChatBookingDraft>();
   const [draftSummary, setDraftSummary] = useState<ChatbotDraftSummary>();
@@ -118,7 +125,7 @@ export function useChatbot({ online }: { online: boolean }) {
       if (!text || sendingRef.current) return;
 
       // Nút chuyển trang (đặt lịch, tra cứu, liên hệ) đi thẳng tới trang đích, khỏi một vòng hỏi máy chủ.
-      const target = action ? getNavigationTarget(action, draft) : null;
+      const target = action ? getNavigationTarget(action, draft, signedIn) : null;
       if (target) {
         router.push(target);
         return;
@@ -137,10 +144,22 @@ export function useChatbot({ online }: { online: boolean }) {
       setSending(true);
 
       try {
-        const result = await apiRequest<ChatbotMessageResponse>("/chatbot/message", {
-          method: "POST",
-          body: { sessionId, message: text, draft, action: action && { type: action.type, label: action.label, payload: action.payload } },
-        });
+        // Trạng thái hội thoại do máy chủ giữ: chỉ gửi mã phiên, tin nhắn và nút vừa bấm (không gửi bản nháp).
+        const body = { sessionId, message: text, action: action && { type: action.type, label: action.label, payload: action.payload } };
+        const askGuest = () => apiRequest<ChatbotMessageResponse>("/chatbot/message", { method: "POST", body });
+        let result: ChatbotMessageResponse;
+        if (signedIn) {
+          try {
+            result = (await patientApiRequest<ChatbotMessageResponse>("/tro-ly", { method: "POST", body: JSON.stringify(body) })).data;
+          } catch (error) {
+            // Phiên đăng nhập vừa hết hạn: chuyển về chế độ khách và hỏi lại một lần.
+            if (!(error instanceof PatientApiError) || error.status !== 401) throw error;
+            queryClient.setQueryData(patientSessionQueryKey, null);
+            result = await askGuest();
+          }
+        } else {
+          result = await askGuest();
+        }
         setSessionId(result.sessionId);
         setDraft(result.draft);
         setDraftSummary(result.draftSummary);
@@ -176,7 +195,7 @@ export function useChatbot({ online }: { online: boolean }) {
         setSending(false);
       }
     },
-    [draft, online, router, sessionId],
+    [draft, online, queryClient, router, sessionId, signedIn],
   );
 
   /** Bấm một gợi ý: nút hỏi thêm gửi câu hỏi đầy đủ như người dùng gõ; các nút còn lại gửi kèm thao tác để máy chủ dựng bước kế tiếp. */

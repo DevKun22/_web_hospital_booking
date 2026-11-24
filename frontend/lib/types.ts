@@ -801,6 +801,20 @@ export type ChatbotResultItem =
       consultationFee: number;
     }
   | {
+      /** Lịch hẹn của chính người đang đăng nhập (chỉ trường cần để nhận ra lịch). */
+      type: "appointment";
+      id: string;
+      bookingCode: string;
+      date: string;
+      startTime: string;
+      endTime: string;
+      status: string;
+      doctorName: string | null;
+      departmentName: string | null;
+      canCancel: boolean;
+      cancelDeadline: string | null;
+    }
+  | {
       type: "slot";
       id: string;
       doctorId: string;
@@ -812,7 +826,7 @@ export type ChatbotResultItem =
     };
 
 export type ChatbotResultGroup = {
-  type: "departments" | "packages" | "doctors" | "slots";
+  type: "departments" | "packages" | "doctors" | "slots" | "appointments";
   title: string;
   description?: string;
   items: ChatbotResultItem[];
@@ -842,7 +856,12 @@ export type ChatbotDraftSummary = {
 };
 
 export type ChatbotMessageResponse = {
+  contractVersion?: 2;
+  /** Mã vết của lượt trả lời, để nhân viên tra cứu khi người dùng báo lỗi. */
+  traceId?: string;
   sessionId: string;
+  /** Thao tác đang chờ xác nhận (hủy lịch) và hạn của nó. */
+  pendingAction?: { type: "CANCEL_APPOINTMENT"; expiresAt: string } | null;
   source: ChatbotResponseSource;
   reply: string;
   intent: string;

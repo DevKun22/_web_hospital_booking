@@ -62,6 +62,11 @@ test("đường dẫn đặt lịch chỉ mang các giá trị có nội dung", 
 
 test("nút chuyển trang đi thẳng tới trang đích, nút khác thì để Kun xử lý", () => {
   assert.equal(getNavigationTarget({ type: "LOOKUP_APPOINTMENT", label: "", payload: {} }), "/tai-khoan/dang-nhap?next=/tai-khoan/lich-hen");
+  assert.equal(getNavigationTarget({ type: "LOOKUP_APPOINTMENT", label: "", payload: {} }, undefined, true), "/tai-khoan/lich-hen");
+  assert.equal(getNavigationTarget({ type: "LOGIN_REQUIRED", label: "", payload: { next: "/tai-khoan/lich-hen" } }), "/tai-khoan/dang-nhap?next=%2Ftai-khoan%2Flich-hen");
+  // Đích sau đăng nhập chỉ được là trang tài khoản, không chuyển hướng ra ngoài.
+  assert.equal(getNavigationTarget({ type: "LOGIN_REQUIRED", label: "", payload: { next: "https://evil.example" } }), "/tai-khoan/dang-nhap?next=%2Ftai-khoan%2Flich-hen");
+  assert.equal(getNavigationTarget({ type: "CONFIRM_CANCEL_APPOINTMENT", label: "", payload: { nonce: "x" } }), null);
   assert.equal(getNavigationTarget({ type: "CONTACT_STAFF", label: "", payload: {} }), "/ho-tro");
   assert.equal(getNavigationTarget({ type: "START_BOOKING", label: "", payload: { prefill: { doctorId: "b" } } }, { departmentId: "d1" }), "/dat-lich?departmentId=d1&doctorId=b");
   assert.equal(getNavigationTarget({ type: "VIEW_DEPARTMENTS", label: "", payload: {} }), null);

@@ -125,6 +125,8 @@ const RESULT_ACTION: Record<ChatbotResultGroup["type"], string> = {
   packages: "VIEW_PACKAGE",
   doctors: "VIEW_DOCTOR",
   slots: "VIEW_AVAILABLE_SLOTS",
+  // Thẻ lịch hẹn không có nút chọn: nút chọn lịch cần hủy luôn nằm ở gợi ý nhanh.
+  appointments: "",
 };
 
 export const getQuickReplies = (actions: ChatbotSuggestedAction[], latestResults?: ChatbotResultGroup[]) => {
@@ -157,8 +159,13 @@ export const buildBookingHref = (draft?: ChatBookingDraft, prefill?: Partial<Cha
 };
 
 /** Đường dẫn trang đích của nút gợi ý chuyển trang (không cần hỏi máy chủ); null nếu là nút trao đổi với Kun. */
-export const getNavigationTarget = (action: ChatbotSuggestedAction, draft?: ChatBookingDraft) => {
-  if (action.type === "LOOKUP_APPOINTMENT") return "/tai-khoan/dang-nhap?next=/tai-khoan/lich-hen";
+export const getNavigationTarget = (action: ChatbotSuggestedAction, draft?: ChatBookingDraft, signedIn = false) => {
+  // Đã đăng nhập thì vào thẳng lịch hẹn; chưa thì qua đăng nhập rồi quay lại.
+  if (action.type === "LOOKUP_APPOINTMENT") return signedIn ? "/tai-khoan/lich-hen" : "/tai-khoan/dang-nhap?next=/tai-khoan/lich-hen";
+  if (action.type === "LOGIN_REQUIRED") {
+    const next = typeof action.payload?.next === "string" && action.payload.next.startsWith("/tai-khoan/") ? action.payload.next : "/tai-khoan/lich-hen";
+    return `/tai-khoan/dang-nhap?next=${encodeURIComponent(next)}`;
+  }
   if (action.type === "CONTACT_STAFF") return "/ho-tro";
   if (action.type === "START_BOOKING") {
     return buildBookingHref(draft, action.payload?.prefill as Partial<ChatBookingDraft> | undefined);
