@@ -7,6 +7,7 @@ import { apiRequest } from "@/lib/api";
 import { PatientApiError, patientApiRequest } from "@/lib/patient-portal-api";
 import { loadOptionalPatientSession, patientSessionQueryKey } from "@/lib/patient-session-client";
 import {
+  CHATBOT_STORAGE_KEY,
   describeChatError,
   getAskQuestion,
   getInputPlaceholder,
@@ -26,7 +27,7 @@ import type {
 // Toàn bộ trạng thái và thao tác của cuộc trò chuyện: giữ phiên, bản nháp đặt lịch, tin nhắn (lưu trong trình duyệt),
 // gửi tin, thử lại khi lỗi, bỏ một lựa chọn. Giao diện chỉ việc hiển thị, không tự gọi máy chủ.
 
-const STORAGE_KEY = "hospital-public-chatbot";
+const STORAGE_KEY = CHATBOT_STORAGE_KEY;
 /** Chỉ nhớ phần cuối của cuộc trò chuyện để bộ nhớ trình duyệt không phình ra. */
 const MAX_STORED_MESSAGES = 40;
 /** Quá hạn này thì bắt đầu cuộc trò chuyện mới: lịch trống và lựa chọn cũ đã lỗi thời. */

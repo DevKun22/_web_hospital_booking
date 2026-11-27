@@ -5,6 +5,7 @@ import type { BookingFlow } from "@/features/booking/use-booking-flow";
 import { copyBookingCode } from "@/features/booking/components/copy-code";
 import { patientApiRequest } from "@/lib/patient-portal-api";
 import { PATIENT_APPOINTMENTS_PATH, patientSessionQueryKey } from "@/lib/patient-session-client";
+import { clearStoredChatbotConversation } from "@/lib/chatbot-ui";
 
 // Chỉ hiển thị sau khi máy chủ đã xác nhận OTP hợp lệ. Chi tiết lịch (bác sĩ, giờ, nơi khám, phí) đã có ở khung "Lịch hẹn của bạn", không lặp lại ở đây.
 export function SuccessStep({ flow }: { flow: BookingFlow }) {
@@ -18,6 +19,7 @@ export function SuccessStep({ flow }: { flow: BookingFlow }) {
   const primaryHref = signedInEmail ? detailPath : `/tai-khoan/dang-nhap?next=${encodeURIComponent(detailPath)}&email=${encodeURIComponent(email)}`;
   const signOut = async () => {
     await patientApiRequest("/auth/logout", { method: "POST", allowEmpty: true }).catch(() => null);
+    clearStoredChatbotConversation();
     queryClient.setQueryData(patientSessionQueryKey, null);
   };
 

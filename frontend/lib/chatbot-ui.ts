@@ -234,3 +234,20 @@ export const getNoInformationLinks = (contact: ChatContact = {}) => {
   if (email) links.push({ href: `mailto:${email}`, label: email });
   return links;
 };
+
+// ---- Xóa hội thoại khi đăng xuất ----
+
+/** Khóa lưu cuộc trò chuyện với Kun trong trình duyệt (dùng chung với use-chatbot). */
+export const CHATBOT_STORAGE_KEY = "hospital-public-chatbot";
+
+/**
+ * Xóa cuộc trò chuyện đã lưu khi người khám đăng xuất: nó có thể chứa thẻ lịch hẹn cá nhân, người dùng tiếp theo trên cùng
+ * trình duyệt không được thấy. Gọi ở mọi nơi đăng xuất; không lỗi nếu trình duyệt chặn bộ nhớ.
+ */
+export const clearStoredChatbotConversation = () => {
+  try {
+    window.localStorage.removeItem(CHATBOT_STORAGE_KEY);
+  } catch {
+    // Trình duyệt chặn bộ nhớ: không có gì để xóa.
+  }
+};

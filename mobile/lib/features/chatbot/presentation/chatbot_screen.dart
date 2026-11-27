@@ -214,17 +214,20 @@ class _ChatbotScreenState extends ConsumerState<ChatbotScreen> {
       unawaited(context.push('/support'));
       return;
     }
-    final succeeded = await ref
-        .read(chatbotControllerProvider.notifier)
-        .sendAction(action);
-    if (!succeeded || !mounted) return;
-
+    // Đặt lịch với lựa chọn điền sẵn: mở form ngay (giống web), không phụ thuộc máy chủ chatbot đang bận hay lỗi.
     if (action.type == 'START_BOOKING') {
       openBookingFromCurrentRoute(
         context,
         _bookingLocation(action, ref.read(chatbotControllerProvider).draft),
       );
-    } else if (action.type == 'VIEW_PACKAGE') {
+      return;
+    }
+    final succeeded = await ref
+        .read(chatbotControllerProvider.notifier)
+        .sendAction(action);
+    if (!succeeded || !mounted) return;
+
+    if (action.type == 'VIEW_PACKAGE') {
       final slug = action.payload['packageSlug']?.toString().trim();
       final packageId = action.payload['packageId']?.toString().trim();
       if (slug?.isNotEmpty == true) {

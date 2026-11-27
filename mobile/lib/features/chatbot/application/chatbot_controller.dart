@@ -11,6 +11,8 @@ final chatbotRepositoryProvider = Provider<ChatbotRepository>(
   (ref) => ChatbotRepository(
     ref.watch(authenticatedDioProvider),
     ref.watch(authDioProvider),
+    hasAccessToken: () =>
+        ref.read(accessTokenStoreProvider).accessToken?.isNotEmpty ?? false,
   ),
 );
 

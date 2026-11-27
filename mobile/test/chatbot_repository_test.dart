@@ -196,4 +196,21 @@ void main() {
     );
     expect(calls, ['authenticated']);
   });
+
+  test(
+    '401 mà app vẫn còn token (làm mới lỗi tạm thời): báo lỗi, không hạ xuống khách',
+    () async {
+      final calls = <String>[];
+      final repository = ChatbotRepository(
+        fakeDio(calls, 'authenticated', status: 401),
+        fakeDio(calls, 'public'),
+        hasAccessToken: () => true,
+      );
+      await expectLater(
+        repository.sendMessage(message: 'xin chao'),
+        throwsA(anything),
+      );
+      expect(calls, ['authenticated']);
+    },
+  );
 }

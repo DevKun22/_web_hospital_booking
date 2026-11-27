@@ -75,8 +75,11 @@ export async function getAuthorizedPatientRequest<T>(
       },
     });
 
-  let result = await request(accessToken);
-  if (result.response.status === 401 && refreshToken) {
+  // Cookie access (15 phút) đã hết mà refresh còn: làm mới TRƯỚC khi gọi. Không vậy thì yêu cầu đi không có token; với API
+  // cho phép khách (chatbot) máy chủ trả 200 như khách nên không bao giờ có 401 để làm mới, người đang đăng nhập bị coi là khách.
+  const shouldRefreshFirst = !accessToken && Boolean(refreshToken);
+  let result = shouldRefreshFirst ? null : await request(accessToken);
+  if ((!result || result.response.status === 401) && refreshToken) {
     const refresh = await backendRequest<PatientSessionTokens>("/auth/refresh", {
       method: "POST",
       body: JSON.stringify({
@@ -90,10 +93,13 @@ export async function getAuthorizedPatientRequest<T>(
       rotated = refresh.payload.data;
       accessToken = rotated.accessToken;
       result = await request(accessToken);
+    } else if (!result) {
+      // Chưa gọi lần nào và làm mới thất bại: trả kết quả làm mới (401 khi phiên đã hết hẳn, 5xx khi lỗi tạm thời).
+      result = { response: refresh.response, payload: refresh.payload as ApiEnvelope<T> | null };
     }
   }
 
-  return { ...result, rotated };
+  return { ...(result as NonNullable<typeof result>), rotated };
 }
 
 export async function getAuthorizedPatientRawRequest(path: string) {

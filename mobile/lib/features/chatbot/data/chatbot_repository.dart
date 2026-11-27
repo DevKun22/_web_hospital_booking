@@ -9,10 +9,17 @@ class ChatbotRepository {
   /// [_authenticatedDio] gắn token người khám (nếu đã đăng nhập) và tự làm mới khi hết hạn: máy chủ nhận ra
   /// đúng người để Kun xem và hủy lịch của chính họ. [_publicDio] không có token, dùng cho cài đặt công khai
   /// và để hỏi lại như khách khi phiên đăng nhập đã hỏng hẳn.
-  ChatbotRepository(this._authenticatedDio, this._publicDio);
+  ChatbotRepository(
+    this._authenticatedDio,
+    this._publicDio, {
+    bool Function()? hasAccessToken,
+  }) : _hasAccessToken = hasAccessToken ?? (() => false);
 
   final Dio _authenticatedDio;
   final Dio _publicDio;
+
+  /// App còn giữ token người khám không (sau khi đã thử làm mới).
+  final bool Function() _hasAccessToken;
 
   Future<ChatbotSettings> getSettings() async {
     return guardApi(() async {
@@ -35,8 +42,9 @@ class ChatbotRepository {
     try {
       return await _post(_authenticatedDio, body);
     } on ApiException catch (error) {
-      // Token sai và làm mới không được (phiên đã bị thu hồi/hết hạn): hỏi lại một lần như khách.
-      if (error.statusCode != 401) rethrow;
+      // Chỉ hỏi lại như khách khi phiên đăng nhập đã thật sự hết (app đã bỏ token). Làm mới lỗi tạm thời (mất mạng, máy chủ
+      // 5xx) mà token vẫn còn thì báo lỗi để người dùng thử lại, không âm thầm hạ xuống khách và mất ngữ cảnh tài khoản.
+      if (error.statusCode != 401 || _hasAccessToken()) rethrow;
       return _post(_publicDio, body);
     }
   }

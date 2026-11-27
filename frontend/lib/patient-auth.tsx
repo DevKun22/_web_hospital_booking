@@ -6,6 +6,7 @@ import type { PatientUser } from "@/lib/patient-portal-types";
 import { portalKeys } from "@/features/portal/keys";
 import { patientApiRequest } from "@/lib/patient-portal-api";
 import { patientSessionQueryKey } from "@/lib/patient-session-client";
+import { clearStoredChatbotConversation } from "@/lib/chatbot-ui";
 
 type OtpChallenge = {
   challengeId: string;
@@ -92,6 +93,7 @@ export function PatientAuthProvider({ children }: { children: React.ReactNode })
   const logout = useCallback(async () => {
     // Dù máy chủ không phản hồi, vẫn xóa phiên phía trình duyệt.
     await patientApiRequest("/auth/logout", { method: "POST", allowEmpty: true }).catch(() => undefined);
+    clearStoredChatbotConversation();
     setUser(null);
     setIdleWarning(false);
     queryClient.setQueryData(patientSessionQueryKey, null);
