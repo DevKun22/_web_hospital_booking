@@ -51,7 +51,7 @@ export function SuccessStep({ flow }: { flow: BookingFlow }) {
           Theo dõi lịch trong cổng thông tin
           <span className="rounded-full border border-dashed border-[var(--public-primary)] px-2 text-xs font-normal text-[var(--public-primary-dark)]">Không bắt buộc</span>
         </p>
-        <p className="mt-1.5 text-sm leading-6 text-[var(--public-text-soft)]">Đăng nhập bằng email đã đặt lịch để xem trạng thái, hủy hoặc đổi lịch. Hóa đơn và thanh toán trực tuyến có sau khi bệnh viện hoàn tất khám.</p>
+        <p className="mt-1.5 text-sm leading-6 text-[var(--public-text-soft)]">Đăng nhập bằng email đã đặt lịch để xem trạng thái hoặc hủy lịch. Cần đổi giờ khám, bạn liên hệ nhân viên hỗ trợ. Hóa đơn và thanh toán trực tuyến có sau khi cơ sở khám hoàn tất khám.</p>
       </div>
 
       <div className="mt-5 flex flex-col gap-2 sm:flex-row">
