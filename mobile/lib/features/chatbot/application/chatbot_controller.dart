@@ -4,8 +4,13 @@ import 'package:hospital_booking_mobile/core/providers/app_providers.dart';
 import 'package:hospital_booking_mobile/features/chatbot/data/chatbot_repository.dart';
 import 'package:hospital_booking_mobile/features/chatbot/domain/chatbot_models.dart';
 
+// Dio có token (người khám đã đăng nhập) cho tin nhắn; Dio công khai cho cài đặt và hỏi lại như khách.
+// Lưu ý: authDioProvider là Dio cơ sở của các API đăng nhập, KHÔNG gắn token.
 final chatbotRepositoryProvider = Provider<ChatbotRepository>(
-  (ref) => ChatbotRepository(ref.watch(authDioProvider)),
+  (ref) => ChatbotRepository(
+    ref.watch(authenticatedDioProvider),
+    ref.watch(authDioProvider),
+  ),
 );
 
 final chatbotControllerProvider =

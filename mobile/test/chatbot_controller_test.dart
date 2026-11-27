@@ -9,7 +9,7 @@ import 'package:hospital_booking_mobile/features/chatbot/data/chatbot_repository
 import 'package:hospital_booking_mobile/features/chatbot/domain/chatbot_models.dart';
 
 class _FakeChatbotRepository extends ChatbotRepository {
-  _FakeChatbotRepository() : super(Dio());
+  _FakeChatbotRepository() : super(Dio(), Dio());
 
   int sendCalls = 0;
   Completer<ChatbotResponse>? sendGate;

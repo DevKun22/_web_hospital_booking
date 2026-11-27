@@ -8,7 +8,7 @@ import 'package:hospital_booking_mobile/features/chatbot/domain/chatbot_models.d
 import 'package:hospital_booking_mobile/features/chatbot/presentation/chatbot_screen.dart';
 
 class _ScreenChatbotRepository extends ChatbotRepository {
-  _ScreenChatbotRepository() : super(Dio());
+  _ScreenChatbotRepository() : super(Dio(), Dio());
 
   @override
   Future<ChatbotSettings> getSettings() async => const ChatbotSettings(

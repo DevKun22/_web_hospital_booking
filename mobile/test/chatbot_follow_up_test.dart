@@ -9,7 +9,7 @@ import 'package:hospital_booking_mobile/features/chatbot/presentation/widgets/ch
 import 'package:hospital_booking_mobile/features/chatbot/presentation/widgets/chatbot_messages.dart';
 
 class _RecordingRepository extends ChatbotRepository {
-  _RecordingRepository() : super(Dio());
+  _RecordingRepository() : super(Dio(), Dio());
 
   String? lastMessage;
   ChatbotAction? lastAction;
