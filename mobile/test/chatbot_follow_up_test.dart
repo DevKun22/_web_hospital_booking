@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'helpers/fake_auth_controller.dart';
 import 'package:hospital_booking_mobile/features/chatbot/application/chatbot_controller.dart';
 import 'package:hospital_booking_mobile/features/chatbot/data/chatbot_repository.dart';
 import 'package:hospital_booking_mobile/features/chatbot/domain/chatbot_models.dart';
@@ -102,7 +103,10 @@ void main() {
     () async {
       final repository = _RecordingRepository();
       final container = ProviderContainer(
-        overrides: [chatbotRepositoryProvider.overrideWithValue(repository)],
+        overrides: [
+          chatbotRepositoryProvider.overrideWithValue(repository),
+          fakeAuthOverride,
+        ],
       );
       addTearDown(container.dispose);
       final controller = container.read(chatbotControllerProvider.notifier);

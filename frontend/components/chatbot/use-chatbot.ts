@@ -60,6 +60,8 @@ type Stored = {
   draftSummary?: ChatbotDraftSummary;
   messages?: ChatWidgetMessage[];
   savedAt?: number;
+  /** Tài khoản sở hữu cuộc trò chuyện (đã đăng nhập khi trò chuyện); khác tài khoản hiện tại thì xóa, không để lộ lịch hẹn của người trước. */
+  ownerId?: string;
 };
 
 const createId = () =>
@@ -92,6 +94,7 @@ export function useChatbot({ online }: { online: boolean }) {
   const [placeholder, setPlaceholder] = useState(getInputPlaceholder());
   const [notice, setNotice] = useState("");
   const [hydrated, setHydrated] = useState(false);
+  const [ownerId, setOwnerId] = useState<string>();
   const sendingRef = useRef(false);
   const lastRequestRef = useRef<{ content: string; action?: ChatbotSuggestedAction } | undefined>(undefined);
 
@@ -102,6 +105,7 @@ export function useChatbot({ online }: { online: boolean }) {
       if (stored.draft) setDraft(stored.draft);
       if (stored.draftSummary) setDraftSummary(stored.draftSummary);
       if (stored.messages?.length) setMessages(stored.messages);
+      if (stored.ownerId) setOwnerId(stored.ownerId);
       setHydrated(true);
     }, 0);
     return () => window.clearTimeout(timer);
@@ -112,12 +116,12 @@ export function useChatbot({ online }: { online: boolean }) {
     try {
       window.localStorage.setItem(
         STORAGE_KEY,
-        JSON.stringify({ sessionId, draft, draftSummary, messages: messages.slice(-MAX_STORED_MESSAGES), savedAt: Date.now() } satisfies Stored),
+        JSON.stringify({ sessionId, draft, draftSummary, messages: messages.slice(-MAX_STORED_MESSAGES), savedAt: Date.now(), ownerId } satisfies Stored),
       );
     } catch {
       // Trình duyệt chặn hoặc đầy bộ nhớ: cuộc trò chuyện vẫn chạy, chỉ không nhớ lại được.
     }
-  }, [draft, draftSummary, hydrated, messages, sessionId]);
+  }, [draft, draftSummary, hydrated, messages, ownerId, sessionId]);
 
   const send = useCallback(
     async (content: string, { action, echo = !action, echoText }: SendOptions = {}) => {
@@ -258,6 +262,25 @@ export function useChatbot({ online }: { online: boolean }) {
       // Không xóa được bộ nhớ trình duyệt thì bỏ qua.
     }
   }, []);
+
+  // Đăng xuất hoặc đổi tài khoản (kể cả ở thẻ khác rồi tải lại trang): cuộc trò chuyện có thể chứa thẻ lịch hẹn của người trước,
+  // nên xóa. Khách vừa đăng nhập thì giữ (cuộc trò chuyện của chính họ) và ghi nhận chủ mới. Điều chỉnh ngay khi render
+  // (mẫu "đổi state theo giá trị vào" của React), không qua effect.
+  const currentUserId = sessionQuery.isSuccess ? (sessionQuery.data?.id ?? null) : undefined;
+  const [checkedUserId, setCheckedUserId] = useState<string | null>();
+  if (hydrated && currentUserId !== undefined && currentUserId !== checkedUserId) {
+    setCheckedUserId(currentUserId);
+    if (ownerId && ownerId !== currentUserId) {
+      setSessionId(undefined);
+      setDraft(undefined);
+      setDraftSummary(undefined);
+      setMessages([WELCOME]);
+      setNotice("");
+      setOwnerId(currentUserId ?? undefined);
+    } else if (!ownerId && currentUserId) {
+      setOwnerId(currentUserId);
+    }
+  }
 
   return { messages, draft, draftSummary, sending, loadingText, placeholder, notice, send, pick, rate, retry, clearSelection, reset };
 }

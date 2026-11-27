@@ -3,7 +3,9 @@ import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'helpers/fake_auth_controller.dart';
 import 'package:hospital_booking_mobile/core/errors/api_exception.dart';
+import 'package:hospital_booking_mobile/features/auth/application/auth_controller.dart';
 import 'package:hospital_booking_mobile/features/chatbot/application/chatbot_controller.dart';
 import 'package:hospital_booking_mobile/features/chatbot/data/chatbot_repository.dart';
 import 'package:hospital_booking_mobile/features/chatbot/domain/chatbot_models.dart';
@@ -64,7 +66,10 @@ void main() {
   test('prevents duplicate sends and appends one assistant response', () async {
     final repository = _FakeChatbotRepository();
     final container = ProviderContainer(
-      overrides: [chatbotRepositoryProvider.overrideWithValue(repository)],
+      overrides: [
+        chatbotRepositoryProvider.overrideWithValue(repository),
+        fakeAuthOverride,
+      ],
     );
     addTearDown(container.dispose);
     final controller = container.read(chatbotControllerProvider.notifier);
@@ -97,7 +102,10 @@ void main() {
         message: 'Không thể kết nối máy chủ.',
       );
     final container = ProviderContainer(
-      overrides: [chatbotRepositoryProvider.overrideWithValue(repository)],
+      overrides: [
+        chatbotRepositoryProvider.overrideWithValue(repository),
+        fakeAuthOverride,
+      ],
     );
     addTearDown(container.dispose);
     final controller = container.read(chatbotControllerProvider.notifier);
@@ -122,4 +130,54 @@ void main() {
       hasLength(1),
     );
   });
+
+  test(
+    'đăng xuất hoặc đổi tài khoản thì xóa cuộc trò chuyện; khách đăng nhập thì giữ',
+    () async {
+      final repository = _FakeChatbotRepository();
+      final container = ProviderContainer(
+        overrides: [
+          chatbotRepositoryProvider.overrideWithValue(repository),
+          fakeAuthOverride,
+        ],
+      );
+      addTearDown(container.dispose);
+      final controller = container.read(chatbotControllerProvider.notifier);
+      final auth =
+          container.read(authControllerProvider.notifier) as FakeAuthController;
+      await _waitUntil(
+        () =>
+            container.read(chatbotControllerProvider).availability ==
+            ChatbotAvailability.ready,
+      );
+
+      final sent = controller.sendMessage('xem lich hen cua toi');
+      repository.sendGate!.complete(_response);
+      await sent;
+      expect(container.read(chatbotControllerProvider).messages.length, 3);
+
+      // Khách vừa đăng nhập: cuộc trò chuyện là của chính họ, giữ nguyên.
+      auth.signInAs('user-a');
+      await Future<void>.delayed(Duration.zero);
+      expect(container.read(chatbotControllerProvider).messages.length, 3);
+      expect(container.read(chatbotControllerProvider).sessionId, 'session-1');
+
+      // Đổi sang tài khoản khác: không được thấy thẻ lịch của người trước.
+      auth.signInAs('user-b');
+      await Future<void>.delayed(Duration.zero);
+      final switched = container.read(chatbotControllerProvider);
+      expect(switched.messages.length, 1);
+      expect(switched.sessionId, isNull);
+      expect(switched.availability, ChatbotAvailability.ready);
+
+      // Đăng xuất cũng xóa.
+      repository.sendGate = null;
+      final again = controller.sendMessage('xin chao');
+      repository.sendGate!.complete(_response);
+      await again;
+      auth.signOut();
+      await Future<void>.delayed(Duration.zero);
+      expect(container.read(chatbotControllerProvider).messages.length, 1);
+    },
+  );
 }

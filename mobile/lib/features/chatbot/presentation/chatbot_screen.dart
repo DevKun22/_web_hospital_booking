@@ -201,9 +201,17 @@ class _ChatbotScreenState extends ConsumerState<ChatbotScreen> {
         return;
       }
     }
-    // Cần đăng nhập để xem/hủy lịch của mình: mở lịch hẹn, bộ chặn tuyến tự chuyển qua đăng nhập rồi quay lại.
-    if (action.type == 'LOGIN_REQUIRED') {
-      unawaited(context.push('/appointments'));
+    // Nút chỉ để chuyển trang thì chuyển ngay, không gửi vòng qua máy chủ (giống web).
+    // /appointments là một tab của StatefulShellRoute: phải `go` (chuyển tab), KHÔNG `push` — push một nhánh của
+    // thanh tab chồng lên màn trợ lý dựng ra vỏ tab thứ hai có thân trống (màn trắng, thấy trên máy thật).
+    // Khách thì AuthGate của tab hiện lời mời đăng nhập rồi quay lại đúng tab.
+    if (action.type == 'LOGIN_REQUIRED' ||
+        action.type == 'LOOKUP_APPOINTMENT') {
+      context.go('/appointments');
+      return;
+    }
+    if (action.type == 'CONTACT_STAFF') {
+      unawaited(context.push('/support'));
       return;
     }
     final succeeded = await ref
@@ -227,8 +235,6 @@ class _ChatbotScreenState extends ConsumerState<ChatbotScreen> {
           '/booking?packageId=${Uri.encodeQueryComponent(packageId!)}&origin=chatbot',
         );
       }
-    } else if (action.type == 'LOOKUP_APPOINTMENT') {
-      unawaited(context.push('/appointments'));
     }
   }
 
