@@ -111,6 +111,15 @@ test("kiểm số liệu câu trả lời RAG", () => {
   assert.equal(numbersAreGrounded("Gói này giá 1.300.000 đồng.", source), false);
   assert.equal(numbersAreGrounded("Bạn gọi 1900 1234 nhé.", source), true);
   assert.equal(numbersAreGrounded("Mở cửa đến 20:00.", source), false);
+
+  // Số một chữ số đi với đơn vị (giờ khóa hủy, giờ mở cửa) cũng phải có trong nguồn; số đứng riêng thì không kiểm.
+  const policy = ["Người khám tự hủy lịch được cho đến 2 giờ trước giờ khám. Giờ làm việc 7:00–17:00."];
+  assert.equal(numbersAreGrounded("Bạn tự hủy được trước 2 giờ.", policy), true);
+  assert.equal(numbersAreGrounded("Bạn tự hủy được trước 3 giờ.", policy), false);
+  assert.equal(numbersAreGrounded("Mở cửa lúc 7h.", policy), true);
+  assert.equal(numbersAreGrounded("Mở cửa lúc 8h.", policy), false);
+  assert.equal(numbersAreGrounded("Mở cửa từ 07:00.", policy), true);
+  assert.equal(numbersAreGrounded("Có 2 cách đặt lịch.", policy), true);
 });
 
 test("cấp cứu: luôn có 115, kèm số của cơ sở khi có; sửa lỗi ranh giới chữ", () => {

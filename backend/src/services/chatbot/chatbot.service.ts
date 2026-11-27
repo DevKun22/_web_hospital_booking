@@ -80,6 +80,7 @@ const emptyNLUResult = (): NLUResult => ({
 const BOOKING_CODE = /\bBK\d{14}\b/i;
 /** Nội dung lưu thay cho câu trả lời có thông tin lịch hẹn cá nhân (phiên và nhật ký không giữ chi tiết lịch). */
 const PERSONAL_REPLY_PLACEHOLDER = "[Câu trả lời chứa thông tin lịch hẹn cá nhân, không lưu nội dung]";
+const PERSONAL_HISTORY_PLACEHOLDER = "[yêu cầu về lịch hẹn cá nhân]";
 
 const hasSelection = (draft: ChatBookingDraft) => Boolean(draft.departmentId || draft.packageId || draft.doctorId || draft.timeSlotId);
 
@@ -406,7 +407,8 @@ class ChatbotService {
     const saved = await saveChatSession(session, {
       response,
       message: input.input.message,
-      history: appendHistory(session.history, input.input.message, trace.operation),
+      // Lượt về lịch hẹn cá nhân không lưu nguyên văn vào lịch sử (lịch sử được gửi cho AI ở các lượt sau).
+      history: appendHistory(session.history, outcome.personal ? PERSONAL_HISTORY_PLACEHOLDER : input.input.message, trace.operation),
       pendingAction,
       storedReply,
       sessionExpiresDays: input.settings.sessionExpiresDays,
@@ -416,7 +418,13 @@ class ChatbotService {
     });
     if (!saved) {
       trace.conflict = true;
-      logger.warn("[CHATBOT] Phiên vừa được một yêu cầu khác cập nhật; lượt này không ghi đè trạng thái.", JSON.stringify({ traceId: trace.traceId }));
+      logger.warn("[CHATBOT] Phiên vừa được một yêu cầu khác cập nhật; lượt này không ghi đè trạng thái.", JSON.stringify({ traceId: trace.traceId, mutated: trace.mutated }));
+      // Trạng thái của lượt này không được lưu: không trả câu trả lời như thể đã lưu (client sẽ hiện bản nháp, nút không khớp máy chủ).
+      // Riêng lượt đã thay đổi dữ liệu thật (hủy lịch đã xong) thì kết quả là sự thật, vẫn phải báo cho người dùng.
+      if (!trace.mutated) {
+        logger.info("[CHATBOT_TRACE]", JSON.stringify(trace));
+        throw new AppError("Kun đang trả lời tin trước của bạn. Bạn đợi một chút rồi gửi lại nhé.", 409, "CHATBOT_CONFLICT");
+      }
     }
     const messageId = await this.saveLog({
       sessionId: session.id,

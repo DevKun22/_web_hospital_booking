@@ -42,7 +42,9 @@ export type ChatSessionState = {
  * Cách xử lý mã phiên client gửi lên, theo tài khoản đã xác thực:
  * - CREATE: không có / không tìm thấy / đã hết hạn → phiên mới với mã do máy chủ sinh (không nhận mã client tự đặt: chống cố định phiên).
  * - REUSE: phiên khách và người gửi là khách, hoặc phiên đã gắn đúng tài khoản này.
- * - ROTATE_ON_LOGIN: phiên khách, người gửi vừa đăng nhập → phiên mới gắn tài khoản, chỉ mang theo bản nháp đặt lịch và các lượt gần nhất.
+ * - ROTATE_ON_LOGIN: phiên khách, người gửi vừa đăng nhập → phiên mới gắn tài khoản, chỉ mang theo bản nháp đặt lịch (các mã đều được
+ *   kiểm lại với DB ở mỗi bước). Không mang lịch sử tin nhắn: lời của phiên khách (có thể không phải của chủ tài khoản) không được
+ *   trở thành ngữ cảnh gửi cho AI của phiên đã đăng nhập.
  * - DETACH: phiên đã gắn tài khoản nhưng người gửi là khách hoặc tài khoản khác → phiên mới trống, không mang gì theo.
  */
 export type SessionBinding = "CREATE" | "REUSE" | "ROTATE_ON_LOGIN" | "DETACH";
@@ -123,8 +125,8 @@ export const openChatSession = async (
   const binding = decideSessionBinding(existing, actor);
   if (existing && binding === "REUSE") return toState(existing, binding);
 
-  // Xoay khi đăng nhập: mang theo bản nháp đặt lịch (khoa, bác sĩ, giờ đã chọn) và các lượt gần nhất; không mang thao tác đang chờ.
-  const carried = existing && binding === "ROTATE_ON_LOGIN" ? { draft: readDraft(existing.draft), history: readHistory(existing.history) } : null;
+  // Xoay khi đăng nhập: chỉ mang theo bản nháp đặt lịch (khoa, bác sĩ, giờ đã chọn); không mang lịch sử, không mang thao tác đang chờ.
+  const carried = existing && binding === "ROTATE_ON_LOGIN" ? { draft: readDraft(existing.draft) } : null;
   const created = await prisma.$transaction(async (tx) => {
     if (existing && binding !== "CREATE") {
       await tx.chatbotSession.update({ where: { id: existing.id }, data: { isActive: false, pendingAction: Prisma.DbNull } });
@@ -134,7 +136,7 @@ export const openChatSession = async (
         id: randomUUID(),
         userId: actor?.userId ?? null,
         draft: toPrismaJson(carried?.draft ?? {}),
-        history: toPrismaJson(carried?.history ?? []),
+        history: toPrismaJson([]),
         expiresAt: getSessionExpiresAt(sessionExpiresDays),
       },
       select: sessionSelect,

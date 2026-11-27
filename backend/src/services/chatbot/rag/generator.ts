@@ -74,16 +74,32 @@ export const answerFromSources = async (input: {
   }
 };
 
-/** Các con số trong văn bản sau khi bỏ dấu phân cách hàng nghìn ("1.250.000" → "1250000"), chỉ lấy số từ 2 chữ số. */
-const numbersIn = (text: string) => (text.replace(/(\d)[.,](?=\d{3}\b)/g, "$1").match(/\d{2,}/g) ?? []);
+/** Bỏ dấu phân cách hàng nghìn ("1.250.000" → "1250000") để cùng một số viết hai kiểu vẫn so khớp được. */
+const withoutThousands = (text: string) => text.replace(/(\d)[.,](?=\d{3}\b)/g, "$1");
 
 /**
- * Kiểm số liệu của câu trả lời: mọi con số (giá, giờ, số điện thoại, số ngày) phải xuất hiện trong các đoạn nguồn đã dùng.
- * AI diễn đạt đúng ý nhưng tự đổi một con số là lỗi nguy hiểm nhất của RAG ở đây, nên câu trả lời có số lạ bị bỏ.
+ * Số cần kiểm trong câu trả lời: mọi số từ 2 chữ số, và số MỘT chữ số đi với đơn vị (2 giờ, 7h, 7:00, 3 ngày, 5%) vì đó
+ * thường là chính sách hoặc giờ giấc. Số một chữ số đứng riêng ("có 2 cách") không kiểm để tránh bỏ nhầm câu trả lời đúng.
+ */
+const factNumbersIn = (text: string) => {
+  const normalized = withoutThousands(text);
+  const multiDigit = normalized.match(/\d{2,}/g) ?? [];
+  const unitDigits = [...normalized.matchAll(/(?<![\d.,])(\d)(?=\s*(?:giờ|tiếng|phút|ngày|tuần|tháng|năm|lần|tuổi|buổi|%|h(?![\p{L}])|:\d{2}))/giu)].map(
+    (match) => match[1],
+  );
+  return [...multiDigit, ...unitDigits];
+};
+
+/**
+ * Kiểm số liệu của câu trả lời: mọi con số mang thông tin (giá, giờ, số điện thoại, số ngày, số giờ khóa hủy) phải xuất hiện
+ * trong các đoạn nguồn đã dùng. AI diễn đạt đúng ý nhưng tự đổi một con số là lỗi nguy hiểm nhất của RAG ở đây, nên câu trả lời
+ * có số lạ bị bỏ. Lưu ý: nguồn hợp lệ chỉ chứng minh AI đã dẫn đúng đoạn, không chứng minh mọi câu chữ khác là đúng.
  */
 export const numbersAreGrounded = (reply: string, sources: string[]) => {
-  const known = new Set(sources.flatMap(numbersIn));
-  return numbersIn(reply).every((value) => known.has(value));
+  // So theo giá trị, bỏ số 0 đứng đầu: "07:00" trong câu trả lời khớp "7:00" trong nguồn.
+  const canonical = (value: string) => value.replace(/^0+(?=\d)/, "");
+  const known = new Set(sources.flatMap((source) => (withoutThousands(source).match(/\d+/g) ?? []).map(canonical)));
+  return factNumbersIn(reply).every((value) => known.has(canonical(value)));
 };
 
 /** Đường lùi chỉ dùng khi đoạn đầu khớp rất rõ (phủ phần lớn từ khóa hoặc rất gần về ý nghĩa): trả lời sai còn tệ hơn nói chưa có thông tin. */

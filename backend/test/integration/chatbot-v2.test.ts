@@ -1,7 +1,9 @@
 import ChatbotContextService from "../../src/services/chatbot/chatbot.context.js";
 import KnowledgeService from "../../src/services/chatbot/rag/knowledge.service.js";
 import geminiAdapter from "../../src/services/chatbot/ai/gemini.adapter.js";
-import { assert, beforeEach, createStoredAppointment, dateOnly, fixture, futureDate, http, loginPatient, moveAppointmentStart, prisma, test } from "./support/context.js";
+import PatientPortalService from "../../src/services/patientPortal.service.js";
+import { AppError } from "../../src/utils/appError.js";
+import { assert, beforeEach, bookingBody, createStoredAppointment, dateOnly, fixture, futureDate, http, loginPatient, moveAppointmentStart, prisma, test } from "./support/context.js";
 
 // Chatbot V2 trên DB thật, AI được thay bằng bản giả (không gọi Gemini): danh tính chỉ từ token, phiên do máy chủ giữ,
 // lịch hẹn cá nhân cần đăng nhập, hủy lịch phải xác nhận đúng mã một lần, lịch trống lọc buổi trước khi giới hạn số dòng.
@@ -89,10 +91,10 @@ test("hủy lịch: hỏi xác nhận, chỉ đúng mã một lần mới hủy;
   // Hai lần bấm đồng thời với đúng mã: chỉ một lần hủy, lần còn lại báo đã xử lý.
   const sessionId = wrong.body.data.sessionId;
   const confirmBody = { sessionId, action: { type: "CONFIRM_CANCEL_APPOINTMENT", payload: confirm.payload } };
+  // Lượt thua có thể nhận 200 "đã xử lý" hoặc 409 (phiên vừa được lượt thắng cập nhật); không bao giờ có hai lần hủy.
   const [first, second] = await Promise.all([ask("Xác nhận hủy lịch", confirmBody, authorization), ask("Xác nhận hủy lịch", confirmBody, authorization)]);
-  assert.equal(first.status, 200);
-  assert.equal(second.status, 200);
-  const cancelledReplies = [first, second].filter((item) => /Mình đã hủy/.test(item.body.data.reply));
+  for (const item of [first, second]) assert.ok([200, 409].includes(item.status), String(item.status));
+  const cancelledReplies = [first, second].filter((item) => item.status === 200 && /Mình đã hủy/.test(item.body.data.reply));
   assert.equal(cancelledReplies.length, 1);
   assert.equal((await prisma.appointment.findUniqueOrThrow({ where: { id: appointment.id } })).status, "CANCELLED_BY_PATIENT");
 
@@ -134,6 +136,8 @@ test("phiên: bản nháp của client bị bỏ qua; đăng nhập thì xoay ph
   assert.equal(loggedIn.body.data.draft.departmentId, fixture.department.id);
   const rotated = await prisma.chatbotSession.findUniqueOrThrow({ where: { id: loggedIn.body.data.sessionId } });
   assert.ok(rotated.userId);
+  // Lịch sử tin của phiên khách không theo sang phiên đã đăng nhập (chỉ còn lượt vừa gửi).
+  assert.equal((rotated.history as unknown[]).length, 1);
   assert.equal((await prisma.chatbotSession.findUniqueOrThrow({ where: { id: guest.body.data.sessionId } })).isActive, false);
 
   // Khách dùng lại mã phiên đã gắn tài khoản: phiên mới, không mang ngữ cảnh của tài khoản.

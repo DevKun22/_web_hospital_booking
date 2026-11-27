@@ -122,6 +122,9 @@ test("lỗi gửi tin được phân biệt: quá nhanh, Kun tạm nghỉ, mất
   assert.match(rate.content, /13 giây/);
 
   assert.equal(describeChatError({ status: 503 }).kind, "offline");
+  // Tin gửi trùng lúc với tin trước (máy chủ trả 409): cho thử lại, không coi là mất mạng.
+  assert.equal(describeChatError({ status: 409 }).retryable, true);
+  assert.match(describeChatError({ status: 409 }).content, /tin trước/);
   assert.equal(describeChatError(new TypeError("Failed to fetch")).kind, "network");
   assert.equal(describeChatError({ status: 500 }, false).kind, "network");
   const other = describeChatError({ status: 500 });

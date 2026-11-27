@@ -202,6 +202,10 @@ export const describeChatError = (error: unknown, online = true): { content: str
     const suffix = Number.isFinite(wait) && wait > 0 ? ` Bạn thử lại sau khoảng ${Math.ceil(wait)} giây.` : " Bạn đợi một lát rồi hỏi tiếp nhé.";
     return { content: `Bạn nhắn hơi nhanh nên Kun cần nghỉ một chút.${suffix}`, kind: "rate-limited", retryable: false };
   }
+  // Hai tin cùng lúc trong một cuộc trò chuyện (vd. mở hai thẻ): máy chủ chỉ lưu một, tin còn lại cần gửi lại.
+  if (status === 409) {
+    return { content: "Kun đang trả lời tin trước của bạn nên chưa nhận tin này. Bạn bấm thử lại sau một chút nhé.", kind: "error", retryable: true };
+  }
   if (status === 503) {
     return { content: "Kun đang tạm nghỉ. Bạn xem chuyên khoa, gói khám hoặc nhờ nhân viên hỗ trợ nhé.", kind: "offline", retryable: false };
   }
