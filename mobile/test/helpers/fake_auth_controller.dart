@@ -1,4 +1,3 @@
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hospital_booking_mobile/features/auth/application/auth_controller.dart';
 import 'package:hospital_booking_mobile/features/auth/application/auth_state.dart';
 import 'package:hospital_booking_mobile/features/auth/domain/patient_user.dart';
