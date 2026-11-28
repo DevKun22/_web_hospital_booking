@@ -19,6 +19,9 @@ final chatbotRepositoryProvider = Provider<ChatbotRepository>(
   ),
 );
 
+/// Độ dài tối đa một tin gửi cho Kun; bằng giới hạn của máy chủ (`chatbotMessageSchema`).
+const chatbotMaxMessageLength = 2000;
+
 final chatbotControllerProvider =
     NotifierProvider<ChatbotController, ChatbotState>(ChatbotController.new);
 
@@ -35,6 +38,8 @@ class ChatMessage {
     this.results = const [],
     this.actions = const [],
     this.sources = const [],
+    this.messageId,
+    this.pendingExpiresAt,
   });
 
   final String id;
@@ -46,6 +51,10 @@ class ChatMessage {
   /// Gợi ý bước tiếp theo đi kèm câu trả lời này; chỉ tin mới nhất hiện cho bấm.
   final List<ChatbotAction> actions;
   final List<ChatbotSourceRef> sources;
+  final String? messageId;
+
+  /// Hạn xác nhận hủy lịch đang chờ; chỉ có ở tin mà Kun vừa hỏi xác nhận.
+  final DateTime? pendingExpiresAt;
 }
 
 /// Gợi ý ban đầu: các tình huống người khám hay gặp, mỗi nút dẫn tới một hướng khác nhau.
@@ -179,7 +188,9 @@ class ChatbotController extends Notifier<ChatbotState> {
 
   Future<bool> sendMessage(String value) {
     final message = value.trim();
-    if (message.isEmpty || message.length > 1000) return Future.value(false);
+    if (message.isEmpty || message.length > chatbotMaxMessageLength) {
+      return Future.value(false);
+    }
     return _send(ChatbotPendingRequest(message: message), appendMessage: true);
   }
 
@@ -251,6 +262,8 @@ class ChatbotController extends Notifier<ChatbotState> {
             results: response.results,
             actions: response.suggestedActions,
             sources: response.sources,
+            messageId: response.messageId,
+            pendingExpiresAt: response.pendingExpiresAt,
           ),
         ],
         actions: response.suggestedActions,
@@ -276,7 +289,7 @@ class ChatbotController extends Notifier<ChatbotState> {
       if (requestVersion != _requestVersion) return false;
       state = state.copyWith(
         isSending: false,
-        error: error,
+        error: _friendlyError(error),
         lastFailedRequest: request,
       );
       return false;
@@ -292,6 +305,23 @@ class ChatbotController extends Notifier<ChatbotState> {
 
   String _nextMessageId(String prefix) =>
       '$prefix-${DateTime.now().microsecondsSinceEpoch}-${_messageSequence++}';
+}
+
+/// Gửi quá nhanh (429): nói rõ chờ bao lâu thay cho câu chung của máy chủ.
+ApiException _friendlyError(ApiException error) {
+  if (error.kind != ApiErrorKind.rateLimited) return error;
+  final seconds = error.retryAfterSeconds;
+  return ApiException(
+    kind: error.kind,
+    statusCode: error.statusCode,
+    code: error.code,
+    requestId: error.requestId,
+    errors: error.errors,
+    retryAfterSeconds: seconds,
+    message: seconds == null
+        ? 'Bạn gửi hơi nhanh, Kun cần nghỉ một chút. Bạn thử lại sau ít giây nhé.'
+        : 'Bạn gửi hơi nhanh, Kun cần nghỉ một chút. Bạn thử lại sau khoảng $seconds giây nhé.',
+  );
 }
 
 String? _flowStatus(String state, String nextStep) {

@@ -43,6 +43,7 @@ import type {
   ChatbotResponse,
   ChatbotResponseSource,
   ChatOperation,
+  SuggestedAction,
 } from "./chatbot.types.js";
 
 // Bộ điều phối một tin nhắn. Mỗi bước chỉ chạy khi bước trước chưa trả lời được; bước rẻ và an toàn đi trước:
@@ -278,10 +279,17 @@ class ChatbotService {
     const wantsInfo =
       operationSource !== "ACTION" && settings.faqEnabled && (spec.handler === "INFO" || spec.handler === "FALLBACK" || isCombinable(operation, nlu.secondaryOperation));
     let infoOutcome: Outcome | null = null;
+    let nearby: SuggestedAction[] = [];
     if (wantsInfo) {
       const info = await InfoFlow.answer({ message: question, draft, aiEnabled: settings.aiEnabled, model: settings.model });
       mark("info");
-      if (info) {
+      if (info && "noAnswer" in info) {
+        // Có đoạn gần nghĩa nhưng không trả lời được: giữ vết truy hồi và đưa vài câu hỏi gần nhất vào câu "chưa có thông tin".
+        trace.retrieval = info.retrieval;
+        trace.numericRejected = info.numericRejected;
+        if (info.ai) trace.aiCalls.push({ purpose: "RAG_ANSWER", ok: info.ai.ok, ms: info.ai.ms });
+        nearby = info.nearby;
+      } else if (info) {
         trace.retrieval = info.retrieval;
         trace.numericRejected = Boolean(info.numericRejected);
         if (info.ai) trace.aiCalls.push({ purpose: "RAG_ANSWER", ok: info.ai.ok, ms: info.ai.ms });
@@ -291,7 +299,7 @@ class ChatbotService {
       if (!secondaryIsBooking) {
         if (infoOutcome) return finish(infoOutcome);
         if (spec.handler === "INFO") {
-          const none = repeated ? noInformationRepeatOutput(draft) : noInformationOutput(draft);
+          const none = repeated ? noInformationRepeatOutput(draft) : noInformationOutput(draft, nearby);
           return finish({ output: this.withResume(none, draft), source: "SYSTEM" });
         }
       }
@@ -313,7 +321,7 @@ class ChatbotService {
     }
     if (booking) return finish(booking);
     if (infoOutcome) return finish(infoOutcome);
-    const fallback = repeated ? noInformationRepeatOutput(draft) : fallbackOutput(draft, aiUnavailable);
+    const fallback = repeated ? noInformationRepeatOutput(draft) : fallbackOutput(draft, aiUnavailable, input.message);
     return finish({ output: this.withResume(fallback, draft), source: "FALLBACK" });
   }
 

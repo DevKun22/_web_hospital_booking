@@ -181,7 +181,11 @@ class _ChatbotScreenState extends ConsumerState<ChatbotScreen> {
   Future<void> _sendText() async {
     final value = _inputController.text.trim();
     final state = ref.read(chatbotControllerProvider);
-    if (value.isEmpty || value.length > 1000 || !state.canSend) return;
+    if (value.isEmpty ||
+        value.length > chatbotMaxMessageLength ||
+        !state.canSend) {
+      return;
+    }
     FocusManager.instance.primaryFocus?.unfocus();
     _inputController.clear();
     if (_showPrefillNotice) {
@@ -208,6 +212,13 @@ class _ChatbotScreenState extends ConsumerState<ChatbotScreen> {
     if (action.type == 'LOGIN_REQUIRED' ||
         action.type == 'LOOKUP_APPOINTMENT') {
       context.go('/appointments');
+      return;
+    }
+    if (action.type == 'VIEW_APPOINTMENT') {
+      final id = action.payload['appointmentId']?.toString();
+      if (id != null && id.isNotEmpty) {
+        unawaited(context.push('/appointments/${Uri.encodeComponent(id)}'));
+      }
       return;
     }
     if (action.type == 'CONTACT_STAFF') {

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:hospital_booking_mobile/core/design/app_design_tokens.dart';
 import 'package:flutter/material.dart';
 import 'package:hospital_booking_mobile/core/formatters/display_formatters.dart';
@@ -89,6 +90,8 @@ class ChatbotMessageBubble extends StatelessWidget {
                     onAction: onAction,
                   ),
                 ],
+                if (!isUser && isLatest && message.pendingExpiresAt != null)
+                  ChatbotConfirmDeadline(expiresAt: message.pendingExpiresAt!),
                 if (!isUser) ChatbotSourceChips(sources: message.sources),
                 if (!isUser && isLatest)
                   ChatbotFollowUps(
@@ -111,27 +114,91 @@ class ChatbotMessageBubble extends StatelessWidget {
   }
 }
 
-class ChatbotTypingIndicator extends StatelessWidget {
-  const ChatbotTypingIndicator({super.key});
+/// Kun đang trả lời. Chờ lâu hơn bình thường (AI bận) thì nói thật, để người dùng không tưởng app bị treo.
+class ChatbotTypingIndicator extends StatefulWidget {
+  const ChatbotTypingIndicator({
+    super.key,
+    this.slowAfter = const Duration(seconds: 6),
+  });
+
+  final Duration slowAfter;
 
   @override
-  Widget build(BuildContext context) => const Align(
+  State<ChatbotTypingIndicator> createState() => _ChatbotTypingIndicatorState();
+}
+
+class _ChatbotTypingIndicatorState extends State<ChatbotTypingIndicator> {
+  late final Timer _timer = Timer(widget.slowAfter, () {
+    if (mounted) setState(() => _slow = true);
+  });
+  bool _slow = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Chạm vào `_timer` để khởi tạo lười bắt đầu đếm ngay.
+    _timer.isActive;
+  }
+
+  @override
+  void dispose() {
+    _timer.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => Align(
     alignment: Alignment.centerLeft,
     child: Padding(
-      padding: EdgeInsets.only(bottom: AppSpacing.sm),
+      padding: const EdgeInsets.only(bottom: AppSpacing.sm),
       child: Row(
-        mainAxisSize: MainAxisSize.min,
         children: [
-          SizedBox.square(
+          const SizedBox.square(
             dimension: 16,
             child: CircularProgressIndicator(strokeWidth: 2),
           ),
-          SizedBox(width: AppSpacing.xs),
-          Text('Trợ lý đang trả lời…'),
+          const SizedBox(width: AppSpacing.xs),
+          Flexible(
+            child: Text(
+              _slow
+                  ? 'Câu này cần thêm chút thời gian, bạn đợi Kun một lát nhé…'
+                  : 'Kun đang trả lời…',
+            ),
+          ),
         ],
       ),
     ),
   );
+}
+
+/// Kun đã hỏi xác nhận hủy lịch: nói rõ còn hiệu lực đến mấy giờ (máy chủ cho 5 phút), hết hạn thì bấm xác nhận sẽ bị từ chối.
+class ChatbotConfirmDeadline extends StatelessWidget {
+  const ChatbotConfirmDeadline({super.key, required this.expiresAt});
+
+  final DateTime expiresAt;
+
+  @override
+  Widget build(BuildContext context) {
+    String two(int value) => value.toString().padLeft(2, '0');
+    return Padding(
+      padding: const EdgeInsets.only(top: AppSpacing.xs),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.timer_outlined, size: 14, color: context.colors.warning),
+          const SizedBox(width: AppSpacing.xxs),
+          Flexible(
+            child: Text(
+              'Xác nhận trước ${two(expiresAt.hour)}:${two(expiresAt.minute)}, quá giờ này Kun sẽ hỏi lại.',
+              style: Theme.of(
+                context,
+              ).textTheme.labelSmall?.copyWith(color: context.colors.warning),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class ChatbotResultGroups extends StatelessWidget {
@@ -317,6 +384,6 @@ String chatbotResultActionLabel(ChatbotResultType type) => switch (type) {
   ChatbotResultType.package => 'Chọn gói khám',
   ChatbotResultType.doctor => 'Chọn bác sĩ',
   ChatbotResultType.slot => 'Chọn khung giờ',
-  ChatbotResultType.appointment => 'Xem lịch hẹn',
+  ChatbotResultType.appointment => 'Xem chi tiết lịch',
   ChatbotResultType.unknown => 'Xem thêm',
 };

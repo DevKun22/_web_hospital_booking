@@ -81,9 +81,11 @@ export const resumeBookingAction = (draft: ChatBookingDraft): SuggestedAction[] 
 export const fallbackOutput = (
   draft: ChatBookingDraft,
   aiUnavailable: boolean,
+  retryMessage?: string,
 ): AIChatbotOutput => ({
+  // Lỗi tạm thời của AI khác với "Kun chưa hiểu ý": nói rõ là do Kun đang bận và cho thử lại đúng câu vừa gửi.
   reply: aiUnavailable
-    ? "Mình đang hơi chậm một chút nên chưa hiểu hết ý bạn. Bạn chọn một hướng bên dưới, mình hỗ trợ ngay nhé."
+    ? "Kun đang bận một chút nên chưa xử lý được câu này. Bạn bấm \"Thử lại\" sau ít giây, hoặc chọn một hướng bên dưới nhé."
     : vary([
         "Mình chưa nắm rõ bạn cần gì. Bạn muốn khám vì một triệu chứng, khám sức khỏe định kỳ, hay đã biết bác sĩ muốn gặp? Chọn một hướng bên dưới hoặc nói cụ thể hơn giúp mình nhé.",
         "Bạn nói rõ hơn một chút giúp mình nhé: bạn đang gặp triệu chứng nào, muốn khám tổng quát, hay muốn đặt lịch với một bác sĩ cụ thể? Mình sẽ hỗ trợ đúng hướng.",
@@ -94,6 +96,9 @@ export const fallbackOutput = (
   confidence: 0.3,
   draft,
   suggestedActions: [
+    ...(aiUnavailable && retryMessage?.trim()
+      ? [{ type: "ASK_QUESTION" as const, label: "Thử lại", payload: { question: retryMessage.trim().slice(0, 500) } }]
+      : []),
     ...resumeBookingAction(draft),
     { type: "ASK_QUESTION", label: "Tôi có triệu chứng", payload: { question: "Tôi muốn mô tả triệu chứng để được gợi ý chuyên khoa" } },
     { type: "VIEW_PACKAGES", label: "Khám sức khỏe định kỳ", payload: {} },

@@ -350,6 +350,12 @@ class ChatbotResultItem {
   };
 
   ChatbotAction? get action => switch (type) {
+    // Thẻ lịch hẹn mở thẳng chi tiết lịch trong app (không gửi vòng qua máy chủ).
+    ChatbotResultType.appointment when id.isNotEmpty => ChatbotAction(
+      type: 'VIEW_APPOINTMENT',
+      label: bookingCode ?? 'Xem lịch hẹn',
+      payload: {'appointmentId': id},
+    ),
     ChatbotResultType.department when id.isNotEmpty => ChatbotAction(
       type: 'VIEW_DEPARTMENT',
       label: name ?? 'Xem chuyên khoa',
@@ -427,6 +433,8 @@ class ChatbotResponse {
     required this.results,
     required this.suggestedActions,
     this.sources = const [],
+    this.messageId,
+    this.pendingExpiresAt,
   });
 
   factory ChatbotResponse.fromJson(Map<String, dynamic> json) =>
@@ -453,6 +461,10 @@ class ChatbotResponse {
         suggestedActions: _maps(
           json['suggestedActions'],
         ).map(ChatbotAction.fromJson).toList(growable: false),
+        messageId: jsonNullableString(json['messageId']),
+        pendingExpiresAt: DateTime.tryParse(
+          jsonMap(json['pendingAction'])['expiresAt']?.toString() ?? '',
+        )?.toLocal(),
         sources: _maps(json['sources'])
             .map(ChatbotSourceRef.fromJson)
             .where((source) => source.title.isNotEmpty)
@@ -473,6 +485,12 @@ class ChatbotResponse {
   final List<ChatbotResultGroup> results;
   final List<ChatbotAction> suggestedActions;
   final List<ChatbotSourceRef> sources;
+
+  /// Mã tin của Kun (để gửi đánh giá "hữu ích").
+  final String? messageId;
+
+  /// Hạn xác nhận hủy lịch đang chờ (máy chủ cho 5 phút); null khi không có việc nào đang chờ xác nhận.
+  final DateTime? pendingExpiresAt;
 }
 
 List<Map<String, dynamic>> _maps(dynamic value) => value is List
