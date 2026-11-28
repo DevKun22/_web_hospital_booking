@@ -37,6 +37,7 @@ export const sanitizeBookingDraft = (
   date: draft.date,
   timeSlotId: draft.timeSlotId,
   timePeriod: draft.timePeriod,
+  preferredTime: typeof draft.preferredTime === "string" && /^([01]\d|2[0-3]):[0-5]\d$/.test(draft.preferredTime) ? draft.preferredTime : undefined,
   symptoms: cleanupTerms(draft.symptoms),
   bodyParts: cleanupTerms(draft.bodyParts),
   symptomDuration: draft.symptomDuration?.trim() || undefined,

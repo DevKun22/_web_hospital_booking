@@ -1,9 +1,13 @@
 "use client";
 
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { apiRequest } from "@/lib/api";
+import { PatientApiError, patientApiRequest } from "@/lib/patient-portal-api";
+import { loadOptionalPatientSession, patientSessionQueryKey } from "@/lib/patient-session-client";
 import {
+  CHATBOT_STORAGE_KEY,
   describeChatError,
   getAskQuestion,
   getInputPlaceholder,
@@ -23,7 +27,7 @@ import type {
 // Toàn bộ trạng thái và thao tác của cuộc trò chuyện: giữ phiên, bản nháp đặt lịch, tin nhắn (lưu trong trình duyệt),
 // gửi tin, thử lại khi lỗi, bỏ một lựa chọn. Giao diện chỉ việc hiển thị, không tự gọi máy chủ.
 
-const STORAGE_KEY = "hospital-public-chatbot";
+const STORAGE_KEY = CHATBOT_STORAGE_KEY;
 /** Chỉ nhớ phần cuối của cuộc trò chuyện để bộ nhớ trình duyệt không phình ra. */
 const MAX_STORED_MESSAGES = 40;
 /** Quá hạn này thì bắt đầu cuộc trò chuyện mới: lịch trống và lựa chọn cũ đã lỗi thời. */
@@ -57,6 +61,8 @@ type Stored = {
   draftSummary?: ChatbotDraftSummary;
   messages?: ChatWidgetMessage[];
   savedAt?: number;
+  /** Tài khoản sở hữu cuộc trò chuyện (đã đăng nhập khi trò chuyện); khác tài khoản hiện tại thì xóa, không để lộ lịch hẹn của người trước. */
+  ownerId?: string;
 };
 
 const createId = () =>
@@ -76,6 +82,10 @@ type SendOptions = { action?: ChatbotSuggestedAction; echo?: boolean; echoText?:
 
 export function useChatbot({ online }: { online: boolean }) {
   const router = useRouter();
+  const queryClient = useQueryClient();
+  // Đã đăng nhập thì gửi qua máy chủ web (gắn phiên người khám) để Kun xem và hủy lịch của chính bạn; khách gọi thẳng API.
+  const sessionQuery = useQuery({ queryKey: patientSessionQueryKey, queryFn: loadOptionalPatientSession, retry: false, staleTime: 30_000 });
+  const signedIn = Boolean(sessionQuery.data);
   const [sessionId, setSessionId] = useState<string>();
   const [draft, setDraft] = useState<ChatBookingDraft>();
   const [draftSummary, setDraftSummary] = useState<ChatbotDraftSummary>();
@@ -85,6 +95,7 @@ export function useChatbot({ online }: { online: boolean }) {
   const [placeholder, setPlaceholder] = useState(getInputPlaceholder());
   const [notice, setNotice] = useState("");
   const [hydrated, setHydrated] = useState(false);
+  const [ownerId, setOwnerId] = useState<string>();
   const sendingRef = useRef(false);
   const lastRequestRef = useRef<{ content: string; action?: ChatbotSuggestedAction } | undefined>(undefined);
 
@@ -95,6 +106,7 @@ export function useChatbot({ online }: { online: boolean }) {
       if (stored.draft) setDraft(stored.draft);
       if (stored.draftSummary) setDraftSummary(stored.draftSummary);
       if (stored.messages?.length) setMessages(stored.messages);
+      if (stored.ownerId) setOwnerId(stored.ownerId);
       setHydrated(true);
     }, 0);
     return () => window.clearTimeout(timer);
@@ -105,12 +117,12 @@ export function useChatbot({ online }: { online: boolean }) {
     try {
       window.localStorage.setItem(
         STORAGE_KEY,
-        JSON.stringify({ sessionId, draft, draftSummary, messages: messages.slice(-MAX_STORED_MESSAGES), savedAt: Date.now() } satisfies Stored),
+        JSON.stringify({ sessionId, draft, draftSummary, messages: messages.slice(-MAX_STORED_MESSAGES), savedAt: Date.now(), ownerId } satisfies Stored),
       );
     } catch {
       // Trình duyệt chặn hoặc đầy bộ nhớ: cuộc trò chuyện vẫn chạy, chỉ không nhớ lại được.
     }
-  }, [draft, draftSummary, hydrated, messages, sessionId]);
+  }, [draft, draftSummary, hydrated, messages, ownerId, sessionId]);
 
   const send = useCallback(
     async (content: string, { action, echo = !action, echoText }: SendOptions = {}) => {
@@ -118,7 +130,7 @@ export function useChatbot({ online }: { online: boolean }) {
       if (!text || sendingRef.current) return;
 
       // Nút chuyển trang (đặt lịch, tra cứu, liên hệ) đi thẳng tới trang đích, khỏi một vòng hỏi máy chủ.
-      const target = action ? getNavigationTarget(action, draft) : null;
+      const target = action ? getNavigationTarget(action, draft, signedIn) : null;
       if (target) {
         router.push(target);
         return;
@@ -137,10 +149,22 @@ export function useChatbot({ online }: { online: boolean }) {
       setSending(true);
 
       try {
-        const result = await apiRequest<ChatbotMessageResponse>("/chatbot/message", {
-          method: "POST",
-          body: { sessionId, message: text, draft, action: action && { type: action.type, label: action.label, payload: action.payload } },
-        });
+        // Trạng thái hội thoại do máy chủ giữ: chỉ gửi mã phiên, tin nhắn và nút vừa bấm (không gửi bản nháp).
+        const body = { sessionId, message: text, action: action && { type: action.type, label: action.label, payload: action.payload } };
+        const askGuest = () => apiRequest<ChatbotMessageResponse>("/chatbot/message", { method: "POST", body });
+        let result: ChatbotMessageResponse;
+        if (signedIn) {
+          try {
+            result = (await patientApiRequest<ChatbotMessageResponse>("/tro-ly", { method: "POST", body: JSON.stringify(body) })).data;
+          } catch (error) {
+            // Phiên đăng nhập vừa hết hạn: chuyển về chế độ khách và hỏi lại một lần.
+            if (!(error instanceof PatientApiError) || error.status !== 401) throw error;
+            queryClient.setQueryData(patientSessionQueryKey, null);
+            result = await askGuest();
+          }
+        } else {
+          result = await askGuest();
+        }
         setSessionId(result.sessionId);
         setDraft(result.draft);
         setDraftSummary(result.draftSummary);
@@ -176,7 +200,7 @@ export function useChatbot({ online }: { online: boolean }) {
         setSending(false);
       }
     },
-    [draft, online, router, sessionId],
+    [draft, online, queryClient, router, sessionId, signedIn],
   );
 
   /** Bấm một gợi ý: nút hỏi thêm gửi câu hỏi đầy đủ như người dùng gõ; các nút còn lại gửi kèm thao tác để máy chủ dựng bước kế tiếp. */
@@ -239,6 +263,25 @@ export function useChatbot({ online }: { online: boolean }) {
       // Không xóa được bộ nhớ trình duyệt thì bỏ qua.
     }
   }, []);
+
+  // Đăng xuất hoặc đổi tài khoản (kể cả ở thẻ khác rồi tải lại trang): cuộc trò chuyện có thể chứa thẻ lịch hẹn của người trước,
+  // nên xóa. Khách vừa đăng nhập thì giữ (cuộc trò chuyện của chính họ) và ghi nhận chủ mới. Điều chỉnh ngay khi render
+  // (mẫu "đổi state theo giá trị vào" của React), không qua effect.
+  const currentUserId = sessionQuery.isSuccess ? (sessionQuery.data?.id ?? null) : undefined;
+  const [checkedUserId, setCheckedUserId] = useState<string | null>();
+  if (hydrated && currentUserId !== undefined && currentUserId !== checkedUserId) {
+    setCheckedUserId(currentUserId);
+    if (ownerId && ownerId !== currentUserId) {
+      setSessionId(undefined);
+      setDraft(undefined);
+      setDraftSummary(undefined);
+      setMessages([WELCOME]);
+      setNotice("");
+      setOwnerId(currentUserId ?? undefined);
+    } else if (!ownerId && currentUserId) {
+      setOwnerId(currentUserId);
+    }
+  }
 
   return { messages, draft, draftSummary, sending, loadingText, placeholder, notice, send, pick, rate, retry, clearSelection, reset };
 }

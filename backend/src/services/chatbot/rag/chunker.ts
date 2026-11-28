@@ -163,6 +163,39 @@ export const policyDoc = (policy: {
   ),
 });
 
+const WEEKDAY_LABELS = ["Chủ nhật", "Thứ hai", "Thứ ba", "Thứ tư", "Thứ năm", "Thứ sáu", "Thứ bảy"];
+
+/**
+ * Lịch khám đặt được trên hệ thống, dựng từ ca làm việc mẫu đang hoạt động của bác sĩ. Tách khỏi "giờ làm việc" của cơ sở
+ * (thông tin liên hệ) để chatbot không lẫn giờ mở cửa với giờ còn đặt lịch được: ngày không có ca nào được nói rõ là không nhận đặt lịch.
+ * Còn trống giờ nào thì luôn tra khung giờ trong DB, không lấy từ đoạn này.
+ */
+export const bookingScheduleDoc = (schedules: { dayOfWeek: number; startTime: string; endTime: string }[]): KnowledgeDoc | null => {
+  if (!schedules.length) return null;
+  const byDay = new Map<number, { start: string; end: string }>();
+  for (const item of schedules) {
+    const current = byDay.get(item.dayOfWeek);
+    byDay.set(item.dayOfWeek, {
+      start: !current || item.startTime < current.start ? item.startTime : current.start,
+      end: !current || item.endTime > current.end ? item.endTime : current.end,
+    });
+  }
+  const order = [1, 2, 3, 4, 5, 6, 0];
+  const open = order.filter((day) => byDay.has(day));
+  const closed = order.filter((day) => !byDay.has(day));
+  return {
+    sourceType: "POLICY",
+    sourceId: "booking-schedule",
+    title: "Lịch khám có thể đặt online",
+    url: "/dat-lich",
+    content: lines(
+      `Các ngày có lịch khám đặt online: ${open.map((day) => `${WEEKDAY_LABELS[day]} (${byDay.get(day)!.start}–${byDay.get(day)!.end})`).join(", ")}.`,
+      closed.length ? `${closed.map((day) => WEEKDAY_LABELS[day]).join(", ")}: không có lịch khám đặt online.` : null,
+      "Giờ còn trống cụ thể thay đổi liên tục; hãy xem lịch trống khi đặt lịch.",
+    ),
+  };
+};
+
 export const siteDoc = (site: {
   hospitalName?: string | null;
   hotline?: string | null;

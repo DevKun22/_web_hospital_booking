@@ -1,11 +1,19 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hospital_booking_mobile/core/errors/api_exception.dart';
 import 'package:hospital_booking_mobile/core/providers/app_providers.dart';
+import 'package:hospital_booking_mobile/features/auth/application/auth_controller.dart';
 import 'package:hospital_booking_mobile/features/chatbot/data/chatbot_repository.dart';
 import 'package:hospital_booking_mobile/features/chatbot/domain/chatbot_models.dart';
 
+// Dio có token (người khám đã đăng nhập) cho tin nhắn; Dio công khai cho cài đặt và hỏi lại như khách.
+// Lưu ý: authDioProvider là Dio cơ sở của các API đăng nhập, KHÔNG gắn token.
 final chatbotRepositoryProvider = Provider<ChatbotRepository>(
-  (ref) => ChatbotRepository(ref.watch(authDioProvider)),
+  (ref) => ChatbotRepository(
+    ref.watch(authenticatedDioProvider),
+    ref.watch(authDioProvider),
+    hasAccessToken: () =>
+        ref.read(accessTokenStoreProvider).accessToken?.isNotEmpty ?? false,
+  ),
 );
 
 final chatbotControllerProvider =
@@ -133,6 +141,14 @@ class ChatbotController extends Notifier<ChatbotState> {
 
   @override
   ChatbotState build() {
+    // Đăng xuất hoặc đổi sang tài khoản khác: xóa cuộc trò chuyện trên máy (có thể có thẻ lịch hẹn của người trước).
+    // Khách vừa đăng nhập thì giữ: đó là cuộc trò chuyện của chính họ, máy chủ tự gắn phiên vào tài khoản.
+    ref.listen<String?>(
+      authControllerProvider.select((auth) => auth.user?.id),
+      (previous, next) {
+        if (previous != null && previous != next) resetConversation();
+      },
+    );
     Future<void>.microtask(loadSettings);
     return const ChatbotState();
   }
@@ -215,7 +231,6 @@ class ChatbotController extends Notifier<ChatbotState> {
           .sendMessage(
             message: request.message,
             sessionId: state.sessionId,
-            draft: state.draft,
             action: request.action,
           );
       if (requestVersion != _requestVersion) return false;
@@ -278,6 +293,9 @@ String? _flowStatus(String state, String nextStep) {
     'READY_TO_BOOK' => 'Sẵn sàng đặt lịch',
     'BOOKING_GUIDE' => 'Hướng dẫn đặt lịch',
     'EMERGENCY_CARE' => 'Cần hỗ trợ khẩn cấp',
+    'LOGIN_REQUIRED' => 'Cần đăng nhập',
+    'SHOWING_APPOINTMENTS' => 'Lịch hẹn của bạn',
+    'AWAITING_CONFIRMATION' => 'Chờ bạn xác nhận',
     _ => null,
   };
 }

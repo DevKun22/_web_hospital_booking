@@ -20,6 +20,12 @@ export const operationFromAction = (action?: ChatAction): ChatOperation | null =
     return "SEARCH_SLOT";
   }
   if (action.type === "LOOKUP_APPOINTMENT") return "LOOKUP_APPOINTMENT";
+  // Chọn lịch cần hủy, xác nhận hoặc bỏ hủy: thuộc luồng lịch hẹn cá nhân, kiểm quyền ở handler.
+  if (action.type === "SELECT_APPOINTMENT" || action.type === "CONFIRM_CANCEL_APPOINTMENT" || action.type === "DISMISS_PENDING_ACTION") {
+    return "CANCEL_APPOINTMENT";
+  }
+  // Quay lại đặt lịch sau khi hỏi chuyện khác: bước tiếp theo suy ra từ bản nháp còn giữ.
+  if (action.type === "RESUME_BOOKING") return "CHANGE_SELECTION";
   // Người dùng bỏ một lựa chọn đã chọn: bước tiếp theo suy ra từ phần còn lại của bản nháp.
   if (action.type === "CLEAR_SELECTION") return "CHANGE_SELECTION";
   if (action.type === "START_BOOKING") return "START_BOOKING";
@@ -58,10 +64,12 @@ export const operationToIntent = (
   if (operation === "SEARCH_DOCTOR") return "DOCTOR_LIST";
   if (operation === "SEARCH_SLOT") return "AVAILABLE_SLOT_LOOKUP";
   if (operation === "START_BOOKING") return "BOOKING_START";
-  if (operation === "LOOKUP_APPOINTMENT") return "APPOINTMENT_LOOKUP_GUIDE";
-  if (operation === "ASK_PAYMENT") return "PAYMENT_GUIDE";
+  if (operation === "LOOKUP_APPOINTMENT") return "APPOINTMENT_LOOKUP";
+  if (operation === "CANCEL_APPOINTMENT") return "APPOINTMENT_CANCEL";
+  if (operation === "RESCHEDULE_APPOINTMENT") return "APPOINTMENT_RESCHEDULE";
   if (
     operation === "ASK_INFORMATION" ||
+    operation === "ASK_POLICY" ||
     operation === "ASK_CAPABILITIES" ||
     operation === "GREETING"
   ) {

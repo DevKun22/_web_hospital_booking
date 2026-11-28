@@ -22,6 +22,51 @@ type ChatbotResultCardsProps = {
 };
 
 type SlotItem = Extract<ChatbotResultItem, { type: "slot" }>;
+type AppointmentItem = Extract<ChatbotResultItem, { type: "appointment" }>;
+type RegularItem = Exclude<ChatbotResultItem, { type: "slot" } | { type: "appointment" }>;
+
+const APPOINTMENT_STATUS: Record<string, string> = {
+  PENDING_OTP: "Chờ xác thực OTP",
+  PENDING_CONFIRM: "Chờ xác nhận",
+  CONFIRMED: "Đã xác nhận",
+  CHECKED_IN: "Đã tiếp đón",
+  IN_PROGRESS: "Đang khám",
+  COMPLETED: "Đã khám xong",
+  RESCHEDULED: "Đã dời lịch",
+  CANCELLED_BY_PATIENT: "Bạn đã hủy",
+  CANCELLED_BY_DOCTOR: "Bác sĩ đã hủy",
+  CANCELLED_BY_ADMIN: "Cơ sở đã hủy",
+  NO_SHOW: "Không đến khám",
+};
+
+/** Thẻ lịch hẹn của chính người dùng: chỉ để nhận ra lịch; hủy hay xem chi tiết đi qua nút gợi ý và trang lịch hẹn. */
+function AppointmentCard({ item }: { item: AppointmentItem }) {
+  const cancelled = item.status.startsWith("CANCELLED");
+  return (
+    <article className="kun-pop rounded-md border border-[var(--border)] bg-[var(--surface-soft)] p-2">
+      <div className="flex flex-wrap items-center justify-between gap-1">
+        <p className="min-w-0 truncate text-xs font-semibold text-[var(--foreground)]">{item.bookingCode}</p>
+        <span
+          className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium ${
+            cancelled ? "bg-[var(--danger-soft)] text-[var(--destructive)]" : "bg-[var(--primary-soft)] text-[var(--primary)]"
+          }`}
+        >
+          {APPOINTMENT_STATUS[item.status] || item.status}
+        </span>
+      </div>
+      <p className="mt-1 flex items-center gap-1 text-[11px] text-[var(--text-muted)]">
+        <CalendarDays className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+        {formatChatbotDate(item.date)} · {item.startTime}–{item.endTime}
+      </p>
+      {item.doctorName || item.departmentName ? (
+        <p className="mt-0.5 flex items-center gap-1 text-[11px] text-[var(--text-muted)]">
+          <Stethoscope className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+          <span className="min-w-0 truncate">{[item.doctorName, item.departmentName].filter(Boolean).join(" · ")}</span>
+        </p>
+      ) : null}
+    </article>
+  );
+}
 
 
 const buildAction = (
@@ -87,7 +132,7 @@ function ResultCard({
   disabled,
   onAction,
 }: {
-  item: Exclude<ChatbotResultItem, { type: "slot" }>;
+  item: RegularItem;
   disabled?: boolean;
   onAction: (action: ChatbotSuggestedAction) => void;
 }) {
@@ -292,11 +337,9 @@ export function ChatbotResultCards({
         const slotItems = group.items.filter(
           (item): item is SlotItem => item.type === "slot",
         );
+        const appointmentItems = group.items.filter((item): item is AppointmentItem => item.type === "appointment");
         const regularItems = group.items.filter(
-          (
-            item,
-          ): item is Exclude<ChatbotResultItem, { type: "slot" }> =>
-            item.type !== "slot",
+          (item): item is RegularItem => item.type !== "slot" && item.type !== "appointment",
         );
 
         return (
@@ -310,7 +353,7 @@ export function ChatbotResultCards({
                   {group.description}
                 </p>
               ) : null}
-              {group.total > group.items.length ? (
+              {group.total > group.items.length && group.type !== "appointments" ? (
                 <p className="mt-0.5 text-[11px] text-[var(--text-soft)]">
                   Đang hiện {group.items.length}/{group.total} kết quả. Xem đầy đủ ở phần đặt lịch.
                 </p>
@@ -324,6 +367,14 @@ export function ChatbotResultCards({
                 disabled={disabled}
                 onAction={onAction}
               />
+            ) : null}
+
+            {appointmentItems.length ? (
+              <div className="space-y-2">
+                {appointmentItems.map((item) => (
+                  <AppointmentCard key={`appointment-${item.id}`} item={item} />
+                ))}
+              </div>
             ) : null}
 
             {regularItems.length ? (

@@ -2,13 +2,14 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'helpers/fake_auth_controller.dart';
 import 'package:hospital_booking_mobile/features/chatbot/application/chatbot_controller.dart';
 import 'package:hospital_booking_mobile/features/chatbot/data/chatbot_repository.dart';
 import 'package:hospital_booking_mobile/features/chatbot/domain/chatbot_models.dart';
 import 'package:hospital_booking_mobile/features/chatbot/presentation/chatbot_screen.dart';
 
 class _ScreenChatbotRepository extends ChatbotRepository {
-  _ScreenChatbotRepository() : super(Dio());
+  _ScreenChatbotRepository() : super(Dio(), Dio());
 
   @override
   Future<ChatbotSettings> getSettings() async => const ChatbotSettings(
@@ -22,7 +23,6 @@ class _ScreenChatbotRepository extends ChatbotRepository {
   Future<ChatbotResponse> sendMessage({
     required String message,
     String? sessionId,
-    ChatBookingDraft? draft,
     ChatbotAction? action,
   }) async => const ChatbotResponse(
     sessionId: 'session-1',
@@ -59,6 +59,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          fakeAuthOverride,
           chatbotRepositoryProvider.overrideWithValue(
             _ScreenChatbotRepository(),
           ),
@@ -94,6 +95,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          fakeAuthOverride,
           chatbotRepositoryProvider.overrideWithValue(
             _ScreenChatbotRepository(),
           ),

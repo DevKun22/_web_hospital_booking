@@ -118,3 +118,11 @@ export const getDashboardChatbotSessionHandler = async (
     data: session,
   });
 };
+
+export const getDashboardChatbotTraceHandler = async (req: Request, res: Response) => {
+  const traceId = String(req.params.traceId || "");
+  if (!/^[0-9a-f-]{36}$/i.test(traceId)) {
+    return res.status(400).json({ success: false, message: "Mã vết không hợp lệ" });
+  }
+  return res.json({ success: true, data: await DashboardChatbotService.getTrace(traceId) });
+};

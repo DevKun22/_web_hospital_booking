@@ -323,3 +323,20 @@ export const resolveBookingDraft = (
     timeSlotId: selectedSlot?.id || draft.timeSlotId,
   });
 };
+
+/**
+ * Người dùng hỏi một giờ cụ thể: nói rõ giờ đó còn hay không, và nếu không thì các giờ trong kết quả là giờ gần nhất.
+ * Chỉ dựa trên khung giờ đã tra trong DB; không bao giờ nói là đã giữ chỗ.
+ */
+export const preferredTimeReply = (context: ChatbotContext, draft: ChatBookingDraft): string | null => {
+  if (!draft.preferredTime) return null;
+  const slots = getMatchingSlots(context, draft.doctorId);
+  if (!slots.length) return null;
+  const exact = slots.find((slot) => slot.startTime === draft.preferredTime && (!draft.date || slot.date === draft.date));
+  if (exact) {
+    return `Khung ${exact.startTime} ngày ${formatDateLabel(exact.date)} còn trống. Bạn chọn khung này rồi bấm đặt lịch để nhập thông tin và xác thực OTP; lịch chỉ được giữ sau bước đó.`;
+  }
+  const dateLabel = draft.date ? ` ngày ${formatDateLabel(draft.date)}` : "";
+  const shownDate = slots[0].date !== draft.date ? ` Các giờ bên dưới thuộc ngày ${formatDateLabel(slots[0].date)}.` : "";
+  return `Không còn khung đúng ${draft.preferredTime}${dateLabel}. Đây là các giờ còn trống gần nhất với giờ bạn muốn.${shownDate}`;
+};

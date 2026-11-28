@@ -10,12 +10,19 @@ const optionalText = z.string().trim().min(1).max(160).optional().nullable();
 
 export const nluResultSchema = z.object({
   operation: z.enum(CHAT_OPERATIONS).catch("UNKNOWN"),
+  // Câu có hai yêu cầu ("giá gói tổng quát bao nhiêu, đặt cho tôi sáng mai"): thao tác thứ hai, xử lý sau thao tác chính.
+  secondaryOperation: z.enum(CHAT_OPERATIONS).optional().nullable().catch(null),
   entities: z.object({
     departmentName: optionalText,
     packageName: optionalText,
     doctorName: optionalText,
-    date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().nullable(),
+    date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().nullable().catch(null),
     timePeriod: z.enum(CHAT_TIME_PERIODS).optional().nullable(),
+    // Giờ cụ thể HH:mm; sai dạng thì bỏ (bộ phân tích ngày giờ xác định vẫn chạy song song và được ưu tiên).
+    preferredTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/).optional().nullable().catch(null),
+    // Cách người dùng nhắc tới một lịch hẹn đã đặt: mã đặt lịch hoặc mô tả ("lịch ngày mai", "lịch gần nhất"). Chỉ là gợi ý,
+    // máy chủ luôn đối chiếu với lịch của chính tài khoản đang đăng nhập.
+    appointmentRef: optionalText.catch(null),
     symptoms: z.array(z.string().trim().min(1).max(120)).max(10).default([]),
     bodyParts: z.array(z.string().trim().min(1).max(80)).max(10).default([]),
     duration: z.string().trim().min(1).max(80).optional().nullable(),

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hospital_booking_mobile/app/navigation/booking_navigation.dart';
+import 'package:hospital_booking_mobile/features/support/application/support_action_launcher.dart';
 import 'package:hospital_booking_mobile/features/chatbot/application/chatbot_controller.dart';
 import 'package:hospital_booking_mobile/features/chatbot/domain/chatbot_models.dart';
 
@@ -190,17 +191,43 @@ class _ChatbotScreenState extends ConsumerState<ChatbotScreen> {
   }
 
   Future<void> _sendAction(ChatbotAction action) async {
-    final succeeded = await ref
-        .read(chatbotControllerProvider.notifier)
-        .sendAction(action);
-    if (!succeeded || !mounted) return;
-
+    // Nút gọi cấp cứu (115, số của cơ sở): mở trình gọi điện ngay, không chờ máy chủ.
+    if (action.type == 'EMERGENCY_ADVICE') {
+      final phone = action.payload['phone']?.toString().trim();
+      if (phone != null && phone.isNotEmpty) {
+        unawaited(
+          ref.read(supportActionLauncherProvider).openPhoneDialer(phone),
+        );
+        return;
+      }
+    }
+    // Nút chỉ để chuyển trang thì chuyển ngay, không gửi vòng qua máy chủ (giống web).
+    // /appointments là một tab của StatefulShellRoute: phải `go` (chuyển tab), KHÔNG `push` — push một nhánh của
+    // thanh tab chồng lên màn trợ lý dựng ra vỏ tab thứ hai có thân trống (màn trắng, thấy trên máy thật).
+    // Khách thì AuthGate của tab hiện lời mời đăng nhập rồi quay lại đúng tab.
+    if (action.type == 'LOGIN_REQUIRED' ||
+        action.type == 'LOOKUP_APPOINTMENT') {
+      context.go('/appointments');
+      return;
+    }
+    if (action.type == 'CONTACT_STAFF') {
+      unawaited(context.push('/support'));
+      return;
+    }
+    // Đặt lịch với lựa chọn điền sẵn: mở form ngay (giống web), không phụ thuộc máy chủ chatbot đang bận hay lỗi.
     if (action.type == 'START_BOOKING') {
       openBookingFromCurrentRoute(
         context,
         _bookingLocation(action, ref.read(chatbotControllerProvider).draft),
       );
-    } else if (action.type == 'VIEW_PACKAGE') {
+      return;
+    }
+    final succeeded = await ref
+        .read(chatbotControllerProvider.notifier)
+        .sendAction(action);
+    if (!succeeded || !mounted) return;
+
+    if (action.type == 'VIEW_PACKAGE') {
       final slug = action.payload['packageSlug']?.toString().trim();
       final packageId = action.payload['packageId']?.toString().trim();
       if (slug?.isNotEmpty == true) {
@@ -211,8 +238,6 @@ class _ChatbotScreenState extends ConsumerState<ChatbotScreen> {
           '/booking?packageId=${Uri.encodeQueryComponent(packageId!)}&origin=chatbot',
         );
       }
-    } else if (action.type == 'LOOKUP_APPOINTMENT') {
-      unawaited(context.push('/appointments'));
     }
   }
 

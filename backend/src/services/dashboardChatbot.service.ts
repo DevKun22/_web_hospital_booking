@@ -86,6 +86,19 @@ const buildCreatedAtRange = (range: DateRange) => {
 };
 
 class DashboardChatbotService {
+  /**
+   * Vết xử lý của một lượt trò chuyện theo mã vết (traceId người dùng hoặc nhật ký máy chủ cung cấp). Vết chỉ có mã, nhãn, điểm số
+   * và thời gian; không có nội dung tin nhắn hay thông tin lịch hẹn. Chỉ người có quyền chatbot.view gọi được (xem route).
+   */
+  async getTrace(traceId: string) {
+    const log = await prisma.chatbotLog.findFirst({
+      where: { trace: { path: ["traceId"], equals: traceId } },
+      select: { id: true, sessionId: true, intent: true, sourceIds: true, noInformation: true, feedback: true, createdAt: true, trace: true },
+    });
+    if (!log) throw new AppError("Không tìm thấy vết xử lý", 404);
+    return log;
+  }
+
   async listLogs(query: {
     search?: string;
     sessionId?: string;

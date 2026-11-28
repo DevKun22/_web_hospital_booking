@@ -125,6 +125,8 @@ const RESULT_ACTION: Record<ChatbotResultGroup["type"], string> = {
   packages: "VIEW_PACKAGE",
   doctors: "VIEW_DOCTOR",
   slots: "VIEW_AVAILABLE_SLOTS",
+  // Thẻ lịch hẹn không có nút chọn: nút chọn lịch cần hủy luôn nằm ở gợi ý nhanh.
+  appointments: "",
 };
 
 export const getQuickReplies = (actions: ChatbotSuggestedAction[], latestResults?: ChatbotResultGroup[]) => {
@@ -157,8 +159,13 @@ export const buildBookingHref = (draft?: ChatBookingDraft, prefill?: Partial<Cha
 };
 
 /** Đường dẫn trang đích của nút gợi ý chuyển trang (không cần hỏi máy chủ); null nếu là nút trao đổi với Kun. */
-export const getNavigationTarget = (action: ChatbotSuggestedAction, draft?: ChatBookingDraft) => {
-  if (action.type === "LOOKUP_APPOINTMENT") return "/tai-khoan/dang-nhap?next=/tai-khoan/lich-hen";
+export const getNavigationTarget = (action: ChatbotSuggestedAction, draft?: ChatBookingDraft, signedIn = false) => {
+  // Đã đăng nhập thì vào thẳng lịch hẹn; chưa thì qua đăng nhập rồi quay lại.
+  if (action.type === "LOOKUP_APPOINTMENT") return signedIn ? "/tai-khoan/lich-hen" : "/tai-khoan/dang-nhap?next=/tai-khoan/lich-hen";
+  if (action.type === "LOGIN_REQUIRED") {
+    const next = typeof action.payload?.next === "string" && action.payload.next.startsWith("/tai-khoan/") ? action.payload.next : "/tai-khoan/lich-hen";
+    return `/tai-khoan/dang-nhap?next=${encodeURIComponent(next)}`;
+  }
   if (action.type === "CONTACT_STAFF") return "/ho-tro";
   if (action.type === "START_BOOKING") {
     return buildBookingHref(draft, action.payload?.prefill as Partial<ChatBookingDraft> | undefined);
@@ -195,6 +202,10 @@ export const describeChatError = (error: unknown, online = true): { content: str
     const suffix = Number.isFinite(wait) && wait > 0 ? ` Bạn thử lại sau khoảng ${Math.ceil(wait)} giây.` : " Bạn đợi một lát rồi hỏi tiếp nhé.";
     return { content: `Bạn nhắn hơi nhanh nên Kun cần nghỉ một chút.${suffix}`, kind: "rate-limited", retryable: false };
   }
+  // Hai tin cùng lúc trong một cuộc trò chuyện (vd. mở hai thẻ): máy chủ chỉ lưu một, tin còn lại cần gửi lại.
+  if (status === 409) {
+    return { content: "Kun đang trả lời tin trước của bạn nên chưa nhận tin này. Bạn bấm thử lại sau một chút nhé.", kind: "error", retryable: true };
+  }
   if (status === 503) {
     return { content: "Kun đang tạm nghỉ. Bạn xem chuyên khoa, gói khám hoặc nhờ nhân viên hỗ trợ nhé.", kind: "offline", retryable: false };
   }
@@ -222,4 +233,21 @@ export const getNoInformationLinks = (contact: ChatContact = {}) => {
   if (hotline) links.push({ href: `tel:${hotline.replace(/\s+/g, "")}`, label: `Gọi ${hotline}` });
   if (email) links.push({ href: `mailto:${email}`, label: email });
   return links;
+};
+
+// ---- Xóa hội thoại khi đăng xuất ----
+
+/** Khóa lưu cuộc trò chuyện với Kun trong trình duyệt (dùng chung với use-chatbot). */
+export const CHATBOT_STORAGE_KEY = "hospital-public-chatbot";
+
+/**
+ * Xóa cuộc trò chuyện đã lưu khi người khám đăng xuất: nó có thể chứa thẻ lịch hẹn cá nhân, người dùng tiếp theo trên cùng
+ * trình duyệt không được thấy. Gọi ở mọi nơi đăng xuất; không lỗi nếu trình duyệt chặn bộ nhớ.
+ */
+export const clearStoredChatbotConversation = () => {
+  try {
+    window.localStorage.removeItem(CHATBOT_STORAGE_KEY);
+  } catch {
+    // Trình duyệt chặn bộ nhớ: không có gì để xóa.
+  }
 };

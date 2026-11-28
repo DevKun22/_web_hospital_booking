@@ -62,6 +62,11 @@ test("đường dẫn đặt lịch chỉ mang các giá trị có nội dung", 
 
 test("nút chuyển trang đi thẳng tới trang đích, nút khác thì để Kun xử lý", () => {
   assert.equal(getNavigationTarget({ type: "LOOKUP_APPOINTMENT", label: "", payload: {} }), "/tai-khoan/dang-nhap?next=/tai-khoan/lich-hen");
+  assert.equal(getNavigationTarget({ type: "LOOKUP_APPOINTMENT", label: "", payload: {} }, undefined, true), "/tai-khoan/lich-hen");
+  assert.equal(getNavigationTarget({ type: "LOGIN_REQUIRED", label: "", payload: { next: "/tai-khoan/lich-hen" } }), "/tai-khoan/dang-nhap?next=%2Ftai-khoan%2Flich-hen");
+  // Đích sau đăng nhập chỉ được là trang tài khoản, không chuyển hướng ra ngoài.
+  assert.equal(getNavigationTarget({ type: "LOGIN_REQUIRED", label: "", payload: { next: "https://evil.example" } }), "/tai-khoan/dang-nhap?next=%2Ftai-khoan%2Flich-hen");
+  assert.equal(getNavigationTarget({ type: "CONFIRM_CANCEL_APPOINTMENT", label: "", payload: { nonce: "x" } }), null);
   assert.equal(getNavigationTarget({ type: "CONTACT_STAFF", label: "", payload: {} }), "/ho-tro");
   assert.equal(getNavigationTarget({ type: "START_BOOKING", label: "", payload: { prefill: { doctorId: "b" } } }, { departmentId: "d1" }), "/dat-lich?departmentId=d1&doctorId=b");
   assert.equal(getNavigationTarget({ type: "VIEW_DEPARTMENTS", label: "", payload: {} }), null);
@@ -117,6 +122,9 @@ test("lỗi gửi tin được phân biệt: quá nhanh, Kun tạm nghỉ, mất
   assert.match(rate.content, /13 giây/);
 
   assert.equal(describeChatError({ status: 503 }).kind, "offline");
+  // Tin gửi trùng lúc với tin trước (máy chủ trả 409): cho thử lại, không coi là mất mạng.
+  assert.equal(describeChatError({ status: 409 }).retryable, true);
+  assert.match(describeChatError({ status: 409 }).content, /tin trước/);
   assert.equal(describeChatError(new TypeError("Failed to fetch")).kind, "network");
   assert.equal(describeChatError({ status: 500 }, false).kind, "network");
   const other = describeChatError({ status: 500 });

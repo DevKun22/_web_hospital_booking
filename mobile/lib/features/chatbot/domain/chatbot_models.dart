@@ -231,7 +231,29 @@ class ChatbotSourceRef {
   }
 }
 
-enum ChatbotResultType { department, package, doctor, slot, unknown }
+enum ChatbotResultType {
+  department,
+  package,
+  doctor,
+  slot,
+  appointment,
+  unknown,
+}
+
+/// Trạng thái lịch hẹn hiển thị trong thẻ của Kun.
+const chatbotAppointmentStatusLabels = {
+  'PENDING_OTP': 'Chờ xác thực OTP',
+  'PENDING_CONFIRM': 'Chờ xác nhận',
+  'CONFIRMED': 'Đã xác nhận',
+  'CHECKED_IN': 'Đã tiếp đón',
+  'IN_PROGRESS': 'Đang khám',
+  'COMPLETED': 'Đã khám xong',
+  'RESCHEDULED': 'Đã dời lịch',
+  'CANCELLED_BY_PATIENT': 'Bạn đã hủy',
+  'CANCELLED_BY_DOCTOR': 'Bác sĩ đã hủy',
+  'CANCELLED_BY_ADMIN': 'Cơ sở đã hủy',
+  'NO_SHOW': 'Không đến khám',
+};
 
 class ChatbotResultItem {
   const ChatbotResultItem({
@@ -253,6 +275,9 @@ class ChatbotResultItem {
     this.date,
     this.startTime,
     this.endTime,
+    this.bookingCode,
+    this.status,
+    this.canCancel = false,
   });
 
   factory ChatbotResultItem.fromJson(Map<String, dynamic> json) =>
@@ -262,6 +287,7 @@ class ChatbotResultItem {
           'package' => ChatbotResultType.package,
           'doctor' => ChatbotResultType.doctor,
           'slot' => ChatbotResultType.slot,
+          'appointment' => ChatbotResultType.appointment,
           _ => ChatbotResultType.unknown,
         },
         id: json['id']?.toString() ?? '',
@@ -281,6 +307,9 @@ class ChatbotResultItem {
         date: jsonNullableString(json['date']),
         startTime: jsonNullableString(json['startTime']),
         endTime: jsonNullableString(json['endTime']),
+        bookingCode: jsonNullableString(json['bookingCode']),
+        status: jsonNullableString(json['status']),
+        canCancel: json['canCancel'] == true,
       );
 
   final ChatbotResultType type;
@@ -302,6 +331,11 @@ class ChatbotResultItem {
   final String? startTime;
   final String? endTime;
 
+  /// Chỉ có ở thẻ lịch hẹn của chính người dùng.
+  final String? bookingCode;
+  final String? status;
+  final bool canCancel;
+
   String get displayName => switch (type) {
     ChatbotResultType.doctor => formatProfessionalName(
       title: title,
@@ -311,6 +345,7 @@ class ChatbotResultItem {
       doctorName == null
           ? 'Bác sĩ phù hợp'
           : normalizeProfessionalName(doctorName!),
+    ChatbotResultType.appointment => bookingCode ?? 'Lịch hẹn',
     _ => name ?? '',
   };
 
@@ -381,6 +416,7 @@ class ChatbotResultGroup {
 class ChatbotResponse {
   const ChatbotResponse({
     required this.sessionId,
+    this.traceId,
     required this.source,
     required this.reply,
     required this.intent,
@@ -396,6 +432,7 @@ class ChatbotResponse {
   factory ChatbotResponse.fromJson(Map<String, dynamic> json) =>
       ChatbotResponse(
         sessionId: json['sessionId']?.toString() ?? '',
+        traceId: jsonNullableString(json['traceId']),
         source: switch (json['source']?.toString()) {
           'SYSTEM' => ChatbotSource.system,
           'FAQ' => ChatbotSource.faq,
@@ -423,6 +460,9 @@ class ChatbotResponse {
       );
 
   final String sessionId;
+
+  /// Mã vết của lượt trả lời, để nhân viên tra cứu khi người dùng báo lỗi.
+  final String? traceId;
   final ChatbotSource source;
   final String reply;
   final String intent;

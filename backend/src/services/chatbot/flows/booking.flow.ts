@@ -18,6 +18,7 @@ import {
   getPackageActions,
   getSlotActions,
   hasExactDateSlot,
+  preferredTimeReply,
   resolveBookingDraft,
 } from "./booking.builders.js";
 import type {
@@ -46,34 +47,6 @@ class BookingFlow {
 
     if (actionOutput) return actionOutput;
 
-    if (input.detectedIntent === "APPOINTMENT_LOOKUP_GUIDE") {
-      return createOutput({
-        reply: chatbotReplies.appointmentLookupGuide,
-        intent: "APPOINTMENT_LOOKUP_GUIDE",
-        state: "BOOKING_GUIDE",
-        nextStep: "SHOW_BOOKING_GUIDE",
-        draft,
-        suggestedActions: [
-          { type: "LOOKUP_APPOINTMENT", label: "Tra cứu lịch hẹn", payload: {} },
-          { type: "CONTACT_STAFF", label: "Liên hệ hỗ trợ", payload: {} },
-        ],
-      });
-    }
-
-    if (input.detectedIntent === "PAYMENT_GUIDE") {
-      return createOutput({
-        reply: chatbotReplies.paymentGuide,
-        intent: "PAYMENT_GUIDE",
-        state: "BOOKING_GUIDE",
-        nextStep: "SHOW_PAYMENT_GUIDE",
-        draft,
-        suggestedActions: [
-          { type: "LOOKUP_APPOINTMENT", label: "Tra cứu lịch hẹn", payload: {} },
-          { type: "CONTACT_STAFF", label: "Liên hệ hỗ trợ", payload: {} },
-        ],
-      });
-    }
-
     if (
       input.detectedIntent === "SYMPTOM_TRIAGE" ||
       input.detectedIntent === "DEPARTMENT_LIST" ||
@@ -89,9 +62,8 @@ class BookingFlow {
       return this.resolvePackageStep(input, draft);
     }
 
-    if (input.detectedIntent === "UNKNOWN" && draft.departmentId && !draft.doctorId && !draft.timeSlotId) {
-      return this.resolveDepartmentStep(input, draft);
-    }
+    // Câu chưa rõ ý (UNKNOWN) không bị ép vào luồng đặt lịch nữa: bộ điều phối trả lời dự phòng kèm nút quay lại đặt lịch.
+    if (input.detectedIntent === "UNKNOWN") return null;
 
     if (
       input.detectedIntent === "DOCTOR_LIST" ||
@@ -297,11 +269,11 @@ class BookingFlow {
       const results = buildSlotResults(input.context, draft.doctorId);
 
       return createOutput({
-        reply: draft.date && !exactDateSlot && nearestDate
+        reply: preferredTimeReply(input.context, nextDraft) ?? (draft.date && !exactDateSlot && nearestDate
           ? chatbotReplies.doctorSlotFoundAfterDateMiss(formatDateLabel(draft.date), formatDateLabel(nearestDate))
           : selectedDoctor
             ? chatbotReplies.doctorSelectedWithSlots(`${selectedDoctor.title || ""} ${selectedDoctor.fullName}`.trim())
-            : chatbotReplies.doctorSelectedWithSlots(),
+            : chatbotReplies.doctorSelectedWithSlots()),
         intent: "AVAILABLE_SLOT_LOOKUP",
         state: "CHOOSING_SLOT",
         nextStep: "CHOOSE_SLOT",
@@ -524,11 +496,11 @@ class BookingFlow {
       const results = buildSlotResults(input.context, draft.doctorId);
 
       return createOutput({
-        reply: draft.date && !exactDateSlot && nearestDate
+        reply: preferredTimeReply(input.context, draft) ?? (draft.date && !exactDateSlot && nearestDate
           ? chatbotReplies.slotLookupAfterDateMiss(formatDateLabel(draft.date), formatDateLabel(nearestDate))
           : draft.doctorId
             ? chatbotReplies.doctorSlotsFound
-            : chatbotReplies.nearestSlotsFound,
+            : chatbotReplies.nearestSlotsFound),
         intent: "AVAILABLE_SLOT_LOOKUP",
         state: "CHOOSING_SLOT",
         nextStep: "CHOOSE_SLOT",

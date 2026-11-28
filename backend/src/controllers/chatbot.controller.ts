@@ -27,7 +27,9 @@ export const sendChatbotMessageHandler = async (
   req: Request,
   res: Response,
 ) => {
-  const result = await ChatbotService.handleMessage(req.body);
+  // Danh tính chỉ lấy từ token đã xác thực (optionalAuthPatient); không có token thì là khách.
+  const actor = req.patient?.userId ? { userId: req.patient.userId } : null;
+  const result = await ChatbotService.handleMessage(req.body, actor);
 
   return res.json({
     success: true,

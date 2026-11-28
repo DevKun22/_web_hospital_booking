@@ -13,7 +13,7 @@ import 'package:hospital_booking_mobile/features/booking/presentation/booking_ve
 
 const _appointment = BookedAppointment(
   id: 'appointment-1',
-  bookingCode: 'HB-1001',
+  bookingCode: 'BK20261127771243',
   status: 'PENDING_CONFIRM',
   patientName: 'Nguyễn Văn An',
   patientPhone: '0912345678',
@@ -57,7 +57,7 @@ class _FailedDeliveryController extends BookingSubmissionController {
     status: BookingSubmissionStatus.awaitingOtp,
     pending: PendingBooking(
       appointmentId: 'appointment-1',
-      bookingCode: 'HB-1001',
+      bookingCode: 'BK20261127771243',
       patientPhone: '0912345678',
       expiresIn: 300,
       holdExpiresAt: DateTime.now().add(const Duration(minutes: 5)),
@@ -85,7 +85,7 @@ void main() {
 
     expect(find.text('Đã tiếp nhận lịch khám'), findsOneWidget);
     expect(find.text('CHỜ CƠ SỞ KHÁM XÁC NHẬN'), findsOneWidget);
-    expect(find.text('HB-1001'), findsOneWidget);
+    expect(find.text('BK20261127771243'), findsOneWidget);
     expect(find.text('250.000 đ'), findsOneWidget);
     expect(find.text('Xem lịch hẹn của tôi'), findsNothing);
   });
@@ -140,6 +140,41 @@ void main() {
       expect(find.text('Nhập mã OTP'), findsOneWidget);
       expect(find.textContaining('Máy chủ chưa gửi được OTP'), findsOneWidget);
       expect(find.textContaining('Gửi lại mã sau'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'OTP screen: mã lịch và thời gian giữ không tràn trên màn hẹp, chữ lớn',
+    (tester) async {
+      // Thấy trên máy thật (1080 px): hai chip đặt cạnh nhau tràn 2,1 px. Màn 360 dp và chữ 1,3 lần phải không tràn.
+      tester.view.physicalSize = const Size(1080, 2400);
+      tester.view.devicePixelRatio = 3;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            appConfigProvider.overrideWithValue(
+              AppConfig(
+                environment: AppEnvironment.development,
+                apiBaseUrl: 'https://example.test/api/v1',
+                connectTimeout: const Duration(seconds: 10),
+                receiveTimeout: const Duration(seconds: 15),
+                enableNetworkLogs: false,
+              ),
+            ),
+            bookingSubmissionControllerProvider.overrideWith(
+              _FailedDeliveryController.new,
+            ),
+          ],
+          child: const MediaQuery(
+            data: MediaQueryData(textScaler: TextScaler.linear(1.3)),
+            child: MaterialApp(home: BookingVerifyOtpScreen()),
+          ),
+        ),
+      );
+
+      expect(find.textContaining('MÃ LỊCH'), findsOneWidget);
+      expect(tester.takeException(), isNull);
     },
   );
 }

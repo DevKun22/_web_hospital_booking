@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'helpers/fake_auth_controller.dart';
 import 'package:hospital_booking_mobile/features/chatbot/application/chatbot_controller.dart';
 import 'package:hospital_booking_mobile/features/chatbot/data/chatbot_repository.dart';
 import 'package:hospital_booking_mobile/features/chatbot/domain/chatbot_models.dart';
@@ -9,11 +10,10 @@ import 'package:hospital_booking_mobile/features/chatbot/presentation/widgets/ch
 import 'package:hospital_booking_mobile/features/chatbot/presentation/widgets/chatbot_messages.dart';
 
 class _RecordingRepository extends ChatbotRepository {
-  _RecordingRepository() : super(Dio());
+  _RecordingRepository() : super(Dio(), Dio());
 
   String? lastMessage;
   ChatbotAction? lastAction;
-  ChatBookingDraft? lastDraft;
 
   @override
   Future<ChatbotSettings> getSettings() async => const ChatbotSettings(
@@ -27,12 +27,10 @@ class _RecordingRepository extends ChatbotRepository {
   Future<ChatbotResponse> sendMessage({
     required String message,
     String? sessionId,
-    ChatBookingDraft? draft,
     ChatbotAction? action,
   }) async {
     lastMessage = message;
     lastAction = action;
-    lastDraft = draft;
     return const ChatbotResponse(
       sessionId: 'session-1',
       source: ChatbotSource.ai,
@@ -105,7 +103,10 @@ void main() {
     () async {
       final repository = _RecordingRepository();
       final container = ProviderContainer(
-        overrides: [chatbotRepositoryProvider.overrideWithValue(repository)],
+        overrides: [
+          chatbotRepositoryProvider.overrideWithValue(repository),
+          fakeAuthOverride,
+        ],
       );
       addTearDown(container.dispose);
       final controller = container.read(chatbotControllerProvider.notifier);
@@ -134,10 +135,6 @@ void main() {
       expect(state.messages.last.actions.single.type, 'VIEW_PACKAGE');
       expect(state.messages.last.sources.single.title, 'Gói Tổng Quát');
       expect(state.draft?.focus?.name, 'Gói Tổng Quát');
-
-      // Câu kế tiếp mang chủ đề đi cùng để máy chủ hiểu "gói này".
-      await controller.sendMessage('gói này giá bao nhiêu');
-      expect(repository.lastDraft?.focus?.id, 'p1');
     },
   );
 
@@ -229,4 +226,74 @@ void sourceReviewTests() {
       isNull,
     );
   });
+
+  test(
+    'V2: đọc thẻ lịch hẹn cá nhân, mã vết; nút gọi cấp cứu chỉ hiện khi có số',
+    () {
+      final response = ChatbotResponse.fromJson({
+        'sessionId': 's2',
+        'traceId': 't1',
+        'source': 'SYSTEM',
+        'reply': 'Bạn muốn hủy lịch này?',
+        'intent': 'APPOINTMENT_CANCEL',
+        'state': 'AWAITING_CONFIRMATION',
+        'nextStep': 'CONFIRM_ACTION',
+        'confidence': 0.9,
+        'draft': {},
+        'results': [
+          {
+            'type': 'appointments',
+            'title': 'Lịch sẽ hủy',
+            'total': 1,
+            'limit': 5,
+            'items': [
+              {
+                'type': 'appointment',
+                'id': 'a1',
+                'bookingCode': 'BK20261124000001',
+                'date': '2026-11-30',
+                'startTime': '09:00',
+                'endTime': '09:30',
+                'status': 'CONFIRMED',
+                'doctorName': 'BS. An',
+                'departmentName': 'Tim mạch',
+                'canCancel': true,
+              },
+            ],
+          },
+        ],
+        'suggestedActions': [
+          {
+            'type': 'CONFIRM_CANCEL_APPOINTMENT',
+            'label': 'Xác nhận hủy lịch',
+            'payload': {'nonce': 'n1'},
+          },
+          {
+            'type': 'EMERGENCY_ADVICE',
+            'label': 'Gọi 115',
+            'payload': {'phone': '115'},
+          },
+          {
+            'type': 'EMERGENCY_ADVICE',
+            'label': 'Đến cơ sở gần nhất',
+            'payload': {},
+          },
+        ],
+      });
+      expect(response.traceId, 't1');
+      final item = response.results.single.items.single;
+      expect(item.type, ChatbotResultType.appointment);
+      expect(item.displayName, 'BK20261124000001');
+      expect(item.canCancel, isTrue);
+      expect(item.action, isNull);
+      final visible = visibleChatbotActions(
+        response.suggestedActions,
+        response.results,
+      );
+      expect(visible.map((action) => action.label), [
+        'Xác nhận hủy lịch',
+        'Gọi 115',
+      ]);
+    },
+  );
 }

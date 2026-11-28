@@ -33,7 +33,14 @@ const defaultActionLabels: Record<SuggestedActionType, string> = {
   CONTACT_STAFF: "Liên hệ hỗ trợ",
   EMERGENCY_ADVICE: "Hướng dẫn khẩn cấp",
   ASK_QUESTION: "Hỏi thêm",
+  LOGIN_REQUIRED: "Đăng nhập",
+  SELECT_APPOINTMENT: "Chọn lịch hẹn",
+  CONFIRM_CANCEL_APPOINTMENT: "Xác nhận hủy lịch",
+  DISMISS_PENDING_ACTION: "Không hủy nữa",
+  RESUME_BOOKING: "Tiếp tục đặt lịch",
 };
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const buildStartBookingAction = (
   draft: ChatBookingDraft,
@@ -92,6 +99,7 @@ class ChatbotActionService {
           getString(payload, "doctorId") || "",
           getString(payload, "timeSlotId") || "",
           getString(payload, "question") || "",
+          getString(payload, "appointmentId") || "",
         ].join(":");
 
         if (seen.has(actionKey)) continue;
@@ -105,7 +113,8 @@ class ChatbotActionService {
       }
     }
 
-    const bookingAction = buildStartBookingAction(draft);
+    // Nút đặt lịch chỉ thêm khi khung giờ trong bản nháp vẫn còn đặt được (còn trống, chưa qua giờ).
+    const bookingAction = draft.timeSlotId && (await this.isSlotBookable(draft.timeSlotId)) ? buildStartBookingAction(draft) : null;
 
     const prioritizedActions =
       bookingAction &&
@@ -185,22 +194,30 @@ class ChatbotActionService {
 
     if (type === "VIEW_AVAILABLE_SLOTS") {
       const timeSlotId = getString(payload, "timeSlotId");
-      if (!timeSlotId) return false;
-
-      const slot = await prisma.doctorTimeSlot.findFirst({
-        where: {
-          id: timeSlotId,
-          status: "AVAILABLE",
-        },
-        select: { id: true, date: true, startTime: true },
-      });
-
-      if (!slot) return false;
-
-      return !isSlotStartInPastVietnamTime(slot.date, slot.startTime);
+      return Boolean(timeSlotId) && this.isSlotBookable(timeSlotId as string);
     }
 
+    // Nút đặt lịch có khung giờ điền sẵn: khung giờ phải còn đặt được; nút mở form chỉ có khoa/ngày thì không cần.
+    if (type === "START_BOOKING") {
+      const prefill = isObject(payload.prefill) ? payload.prefill : {};
+      const timeSlotId = getString(prefill, "timeSlotId");
+      return !timeSlotId || this.isSlotBookable(timeSlotId);
+    }
+
+    // Nút gắn với lịch hẹn hoặc thao tác chờ chỉ mang mã; quyền sở hữu và hiệu lực được kiểm lại khi bấm, không tin nút.
+    if (type === "SELECT_APPOINTMENT") return UUID.test(getString(payload, "appointmentId") || "");
+    if (type === "CONFIRM_CANCEL_APPOINTMENT") return UUID.test(getString(payload, "nonce") || "");
+
     return true;
+  }
+
+  private async isSlotBookable(timeSlotId: string) {
+    if (!UUID.test(timeSlotId)) return false;
+    const slot = await prisma.doctorTimeSlot.findFirst({
+      where: { id: timeSlotId, status: "AVAILABLE", appointment: { is: null } },
+      select: { date: true, startTime: true },
+    });
+    return Boolean(slot) && !isSlotStartInPastVietnamTime(slot!.date, slot!.startTime);
   }
 }
 

@@ -154,16 +154,19 @@ class _BookingVerifyOtpScreenState
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: AppSpacing.sm),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
+              // Wrap thay Row: trên máy 1080 px với mã lịch 16 ký tự, hai chip đặt cạnh nhau tràn 2,1 px (thấy khi thử
+              // trên máy thật); không đủ chỗ thì chip thời gian giữ xuống dòng.
+              Wrap(
+                alignment: WrapAlignment.center,
+                spacing: AppSpacing.xs,
+                runSpacing: AppSpacing.xs,
                 children: [
                   AppStatusBadge(
                     label: 'MÃ LỊCH ${pending.bookingCode}',
                     tone: AppStatusTone.info,
                     icon: Icons.confirmation_number_outlined,
                   ),
-                  if (remaining != null) ...[
-                    const SizedBox(width: AppSpacing.xs),
+                  if (remaining != null)
                     AppStatusBadge(
                       label: 'GIỮ ${_formatRemaining(remaining)}',
                       tone: remaining.inMinutes < 2
@@ -171,7 +174,6 @@ class _BookingVerifyOtpScreenState
                           : AppStatusTone.success,
                       icon: Icons.timer_outlined,
                     ),
-                  ],
                 ],
               ),
               const SizedBox(height: AppSpacing.lg),

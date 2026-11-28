@@ -1,5 +1,8 @@
 import 'package:dio/dio.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hospital_booking_mobile/core/providers/app_providers.dart';
+import 'package:hospital_booking_mobile/features/chatbot/application/chatbot_controller.dart';
 import 'package:hospital_booking_mobile/features/chatbot/data/chatbot_repository.dart';
 import 'package:hospital_booking_mobile/features/chatbot/domain/chatbot_models.dart';
 
@@ -70,13 +73,12 @@ void main() {
           },
         ),
       );
-      final repository = ChatbotRepository(dio);
+      final repository = ChatbotRepository(dio, dio);
 
       final settings = await repository.getSettings();
       final response = await repository.sendMessage(
         message: 'Tôi bị đau ngực',
         sessionId: 'previous-session',
-        draft: const ChatBookingDraft(symptoms: ['đau ngực']),
         action: const ChatbotAction(type: 'ASK_MORE_INFO', label: 'Mô tả thêm'),
       );
 
@@ -91,9 +93,124 @@ void main() {
       ]);
       final body = Map<String, dynamic>.from(requests.last.data as Map);
       expect(body['sessionId'], 'previous-session');
-      expect((body['draft'] as Map)['symptoms'], ['đau ngực']);
+      // Máy chủ giữ trạng thái hội thoại: client không gửi bản nháp.
+      expect(body.containsKey('draft'), isFalse);
       expect((body['action'] as Map)['type'], 'ASK_MORE_INFO');
       dio.close(force: true);
+    },
+  );
+
+  Map<String, dynamic> okReply(String sessionId) => {
+    'success': true,
+    'data': {
+      'sessionId': sessionId,
+      'source': 'SYSTEM',
+      'reply': 'Xin chao',
+      'intent': 'GENERAL_HOSPITAL_INFO',
+      'state': 'BOOKING_GUIDE',
+      'nextStep': 'END',
+      'confidence': 1,
+      'draft': {},
+      'suggestedActions': [],
+    },
+  };
+
+  Dio fakeDio(List<String> calls, String name, {int status = 200}) {
+    final dio = Dio(BaseOptions(baseUrl: 'https://example.test/api/v1'));
+    dio.interceptors.add(
+      InterceptorsWrapper(
+        onRequest: (options, handler) {
+          calls.add(name);
+          if (status == 200) {
+            handler.resolve(
+              Response<dynamic>(
+                requestOptions: options,
+                statusCode: 200,
+                data: okReply(name),
+              ),
+            );
+          } else {
+            handler.reject(
+              DioException(
+                requestOptions: options,
+                type: DioExceptionType.badResponse,
+                response: Response<dynamic>(
+                  requestOptions: options,
+                  statusCode: status,
+                  data: {
+                    'success': false,
+                    'message': 'Phiên đăng nhập đã hết hạn',
+                  },
+                ),
+              ),
+            );
+          }
+        },
+      ),
+    );
+    return dio;
+  }
+
+  test(
+    'tin nhắn đi qua Dio có token người khám, không qua Dio công khai',
+    () async {
+      // Lỗi tìm thấy khi thử trên máy thật: trước đây Kun dùng authDioProvider (Dio không gắn token) nên luôn coi là khách.
+      final calls = <String>[];
+      final container = ProviderContainer(
+        overrides: [
+          authenticatedDioProvider.overrideWithValue(
+            fakeDio(calls, 'authenticated'),
+          ),
+          authDioProvider.overrideWithValue(fakeDio(calls, 'public')),
+        ],
+      );
+      addTearDown(container.dispose);
+      final response = await container
+          .read(chatbotRepositoryProvider)
+          .sendMessage(message: 'xem lich hen cua toi');
+      expect(calls, ['authenticated']);
+      expect(response.sessionId, 'authenticated');
+    },
+  );
+
+  test('phiên đăng nhập hỏng hẳn (401): hỏi lại một lần như khách', () async {
+    final calls = <String>[];
+    final repository = ChatbotRepository(
+      fakeDio(calls, 'authenticated', status: 401),
+      fakeDio(calls, 'public'),
+    );
+    final response = await repository.sendMessage(message: 'xin chao');
+    expect(calls, ['authenticated', 'public']);
+    expect(response.sessionId, 'public');
+  });
+
+  test('lỗi khác 401 (vd. 409 xung đột) không hỏi lại như khách', () async {
+    final calls = <String>[];
+    final repository = ChatbotRepository(
+      fakeDio(calls, 'authenticated', status: 409),
+      fakeDio(calls, 'public'),
+    );
+    await expectLater(
+      repository.sendMessage(message: 'xin chao'),
+      throwsA(anything),
+    );
+    expect(calls, ['authenticated']);
+  });
+
+  test(
+    '401 mà app vẫn còn token (làm mới lỗi tạm thời): báo lỗi, không hạ xuống khách',
+    () async {
+      final calls = <String>[];
+      final repository = ChatbotRepository(
+        fakeDio(calls, 'authenticated', status: 401),
+        fakeDio(calls, 'public'),
+        hasAccessToken: () => true,
+      );
+      await expectLater(
+        repository.sendMessage(message: 'xin chao'),
+        throwsA(anything),
+      );
+      expect(calls, ['authenticated']);
     },
   );
 }
