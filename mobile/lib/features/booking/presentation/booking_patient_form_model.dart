@@ -177,3 +177,10 @@ class BookingPatientFormModel {
     }
   }
 }
+
+/// Đặt lịch có bước OTP (và phải đồng ý điều khoản) không? Chỉ người đã đăng nhập đặt cho CHÍNH MÌNH mới bỏ qua; khách và
+/// người đặt cho người thân thì không. Khớp `canSkipBookingOtp` của máy chủ (backend/src/services/bookingIdentity.ts).
+bool bookingNeedsOtp({
+  required bool authenticated,
+  required bool forRelative,
+}) => !authenticated || forRelative;

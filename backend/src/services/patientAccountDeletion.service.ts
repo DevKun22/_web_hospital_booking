@@ -22,6 +22,14 @@ const ACTIVE_APPOINTMENT_STATUSES: AppointmentStatus[] = ["PENDING_OTP", "PENDIN
 
 const anonymousEmail = (userId: string) => `deleted-${userId}@deleted.invalid`;
 
+// Endpoint này đã đăng nhập sẵn: ứng dụng coi 401 là "phiên hết hạn" nên tự làm mới phiên rồi gửi lại đúng yêu cầu đó. Mã xác nhận sai
+// hay thử thách không hợp lệ là lỗi nhập liệu (400), không phải lỗi phiên, nên không bao giờ trả 401 ở đây.
+const INVALID_CODE_CODE = "ACCOUNT_DELETION_CODE_INVALID";
+const asInputError = (error: unknown) =>
+  error instanceof AppError && error.statusCode === 401
+    ? new AppError(error.message, 400, INVALID_CODE_CODE)
+    : error;
+
 type RequestMeta = { ipAddress: string; sessionId?: string };
 
 async function assertDeletable(userId: string) {
@@ -94,7 +102,7 @@ const PatientAccountDeletionService = {
     });
     // Thử thách phải là của chính tài khoản này và đúng mục đích xóa: mã đăng nhập hay mã của người khác không dùng được.
     if (!challenge || challenge.userId !== userId || challenge.purpose !== PURPOSE || challenge.usedAt || challenge.expiresAt <= new Date()) {
-      throw new AppError("Mã xác nhận không hợp lệ hoặc đã hết hạn", 401, "ACCOUNT_DELETION_CHALLENGE_INVALID");
+      throw new AppError("Mã xác nhận không hợp lệ hoặc đã hết hạn", 400, "ACCOUNT_DELETION_CHALLENGE_INVALID");
     }
     if (challenge.attempts >= MAX_CHALLENGE_ATTEMPTS) throw new AppError("Bạn đã nhập sai mã quá nhiều lần", 429);
 
@@ -105,11 +113,11 @@ const PatientAccountDeletionService = {
       });
     } catch (error) {
       await prisma.dashboardLoginChallenge.updateMany({ where: { id: challenge.id, usedAt: null }, data: { attempts: { increment: 1 } } });
-      throw error;
+      throw asInputError(error);
     }
 
     const claimed = await prisma.dashboardLoginChallenge.updateMany({ where: { id: challenge.id, usedAt: null }, data: { usedAt: new Date() } });
-    if (claimed.count !== 1) throw new AppError("Mã xác nhận đã được sử dụng", 401, "ACCOUNT_DELETION_CHALLENGE_INVALID");
+    if (claimed.count !== 1) throw new AppError("Mã xác nhận đã được sử dụng", 400, "ACCOUNT_DELETION_CHALLENGE_INVALID");
 
     // Kiểm lại ngay trước khi xóa: có thể vừa đặt lịch mới trong lúc chờ mã.
     await assertDeletable(userId);

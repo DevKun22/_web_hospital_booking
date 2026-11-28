@@ -17,7 +17,9 @@ test("xác nhận OTP thì đóng và ẩn danh tài khoản, giữ lịch đã 
   assert.equal(typeof debugOtp, "string");
 
   const wrong = await call("/account-deletion/confirm", authorization, { challengeId, otp: debugOtp === "000000" ? "111111" : "000000" });
-  assert.notEqual(wrong.status, 200, "sai mã thì không xóa");
+  // 400, không phải 401: 401 làm ứng dụng tự làm mới phiên rồi gửi lại đúng mã sai (tính hai lượt sai).
+  assert.equal(wrong.status, 400);
+  assert.equal(wrong.body.code, "ACCOUNT_DELETION_CODE_INVALID");
   assert.equal((await prisma.user.findUniqueOrThrow({ where: { id: auth.user.id } })).isActive, true);
 
   const confirmed = await call("/account-deletion/confirm", authorization, { challengeId, otp: debugOtp });
@@ -73,6 +75,7 @@ test("mã đăng nhập không dùng thay mã xác nhận xóa tài khoản", as
     challengeId: login.body.data.challengeId,
     otp: login.body.data.debugOtp,
   });
-  assert.equal(misuse.status, 401);
+  assert.equal(misuse.status, 400);
+  assert.equal(misuse.body.code, "ACCOUNT_DELETION_CHALLENGE_INVALID");
   assert.equal((await prisma.user.findUniqueOrThrow({ where: { id: auth.user.id } })).isActive, true);
 });

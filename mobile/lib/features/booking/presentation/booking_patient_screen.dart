@@ -58,9 +58,10 @@ class _BookingPatientScreenState extends ConsumerState<BookingPatientScreen> {
   @override
   Widget build(BuildContext context) {
     // Đã đăng nhập và đặt cho chính mình: máy chủ không đòi OTP đặt lịch.
-    final skipsOtp =
-        ref.watch(authControllerProvider).isAuthenticated &&
-        _patientType != BookingPatientType.relative;
+    final skipsOtp = !bookingNeedsOtp(
+      authenticated: ref.watch(authControllerProvider).isAuthenticated,
+      forRelative: _patientType == BookingPatientType.relative,
+    );
     final booking = ref.watch(bookingFlowControllerProvider);
     final submission = ref.watch(bookingSubmissionControllerProvider);
     final profileState = ref.watch(patientProfileControllerProvider);
@@ -407,9 +408,13 @@ class _BookingPatientScreenState extends ConsumerState<BookingPatientScreen> {
   Future<void> _submit() async {
     if (!(_formKey.currentState?.validate() ?? false)) return;
     FocusScope.of(context).unfocus();
-    // Khách chưa đăng nhập (có bước OTP) phải đồng ý điều khoản nếu cơ sở khám đã soạn.
+    // Đặt lịch có bước OTP (khách, hoặc người đã đăng nhập đặt cho người thân) phải đồng ý điều khoản nếu cơ sở khám đã soạn.
     final authenticated = ref.read(authControllerProvider).isAuthenticated;
-    final terms = requiredTerms(ref, authenticated: authenticated);
+    final needsOtp = bookingNeedsOtp(
+      authenticated: authenticated,
+      forRelative: _patientType == BookingPatientType.relative,
+    );
+    final terms = requiredTerms(ref, authenticated: !needsOtp);
     if (terms != null && !_termsAccepted) return showTermsRequired(context);
     setState(() => _isRevalidatingSlot = true);
     final slotValidation = await ref

@@ -49,15 +49,20 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    Color colorOf(DateTime day, int count) {
+    // Gần cuối tháng, ngày kế tiếp nằm ở tháng sau (lịch mở ở tháng hiện tại): sang tháng sau trước khi đọc màu.
+    Future<Color> colorOf(DateTime day, int count) async {
       final cell = find.byKey(ValueKey('booking-date-${formatApiDate(day)}'));
+      if (cell.evaluate().isEmpty) {
+        await tester.tap(find.byTooltip('Tháng sau'));
+        await tester.pumpAndSettle();
+      }
       final text = find.descendant(of: cell, matching: find.text('$count'));
       return tester.widget<Text>(text.last).style!.color!;
     }
 
     final colors = AppColors.light;
-    expect(colorOf(lowDay, 2), colors.warning);
-    expect(colorOf(plentyDay, 9), colors.success);
+    expect(await colorOf(lowDay, 2), colors.warning);
+    expect(await colorOf(plentyDay, 9), colors.success);
     expect(find.textContaining('sắp hết'), findsWidgets);
   });
 }
