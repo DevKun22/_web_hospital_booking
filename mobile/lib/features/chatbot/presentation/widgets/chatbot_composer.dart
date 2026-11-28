@@ -135,7 +135,7 @@ class ChatbotComposer extends StatelessWidget {
                     enabled: state.availability == ChatbotAvailability.ready,
                     minLines: 1,
                     maxLines: 4,
-                    maxLength: 1000,
+                    maxLength: chatbotMaxMessageLength,
                     buildCounter:
                         (
                           _, {

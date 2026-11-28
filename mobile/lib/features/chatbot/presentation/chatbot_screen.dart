@@ -10,6 +10,7 @@ import 'package:hospital_booking_mobile/features/chatbot/domain/chatbot_models.d
 
 import 'package:hospital_booking_mobile/features/chatbot/presentation/widgets/chatbot_composer.dart';
 import 'package:hospital_booking_mobile/features/chatbot/presentation/widgets/chatbot_messages.dart';
+import 'package:hospital_booking_mobile/features/chatbot/presentation/widgets/chatbot_selection_strip.dart';
 
 class ChatbotScreen extends ConsumerStatefulWidget {
   const ChatbotScreen({super.key, this.initialPrompt});
@@ -81,20 +82,9 @@ class _ChatbotScreenState extends ConsumerState<ChatbotScreen> {
           children: [
             ChatbotAvailabilityBar(state: state),
             if (state.flowStatus != null)
-              Container(
-                width: double.infinity,
-                color: Theme.of(context).colorScheme.primaryContainer,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.md,
-                  vertical: AppSpacing.xs,
-                ),
-                child: Text(
-                  state.flowStatus!,
-                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                    color: Theme.of(context).colorScheme.onPrimaryContainer,
-                    fontWeight: AppFontWeight.strong,
-                  ),
-                ),
+              ChatbotSelectionStrip(
+                status: state.flowStatus!,
+                summary: state.summary,
               ),
             Expanded(
               child: ListView.builder(
@@ -123,6 +113,7 @@ class _ChatbotScreenState extends ConsumerState<ChatbotScreen> {
                           index == state.messages.length - 1 &&
                           !state.isSending,
                       onAction: _sendAction,
+                      onRate: _rate,
                     ),
                   );
                 },
@@ -181,13 +172,30 @@ class _ChatbotScreenState extends ConsumerState<ChatbotScreen> {
   Future<void> _sendText() async {
     final value = _inputController.text.trim();
     final state = ref.read(chatbotControllerProvider);
-    if (value.isEmpty || value.length > 1000 || !state.canSend) return;
+    if (value.isEmpty ||
+        value.length > chatbotMaxMessageLength ||
+        !state.canSend) {
+      return;
+    }
     FocusManager.instance.primaryFocus?.unfocus();
     _inputController.clear();
     if (_showPrefillNotice) {
       setState(() => _showPrefillNotice = false);
     }
     await ref.read(chatbotControllerProvider.notifier).sendMessage(value);
+  }
+
+  Future<void> _rate(String messageId, ChatbotFeedback value) async {
+    final sent = await ref
+        .read(chatbotControllerProvider.notifier)
+        .rateMessage(messageId, value);
+    if (!sent && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Chưa gửi được đánh giá. Bạn thử lại sau nhé.'),
+        ),
+      );
+    }
   }
 
   Future<void> _sendAction(ChatbotAction action) async {
@@ -208,6 +216,13 @@ class _ChatbotScreenState extends ConsumerState<ChatbotScreen> {
     if (action.type == 'LOGIN_REQUIRED' ||
         action.type == 'LOOKUP_APPOINTMENT') {
       context.go('/appointments');
+      return;
+    }
+    if (action.type == 'VIEW_APPOINTMENT') {
+      final id = action.payload['appointmentId']?.toString();
+      if (id != null && id.isNotEmpty) {
+        unawaited(context.push('/appointments/${Uri.encodeComponent(id)}'));
+      }
       return;
     }
     if (action.type == 'CONTACT_STAFF') {

@@ -2,6 +2,9 @@ import 'package:hospital_booking_mobile/core/formatters/professional_name_format
 
 import 'package:hospital_booking_mobile/core/network/json_readers.dart';
 
+export 'package:hospital_booking_mobile/features/chatbot/domain/chatbot_response_extras.dart';
+import 'package:hospital_booking_mobile/features/chatbot/domain/chatbot_response_extras.dart';
+
 enum ChatbotSource { system, faq, ai, fallback, emergency, unknown }
 
 extension ChatbotSourceLabel on ChatbotSource {
@@ -350,6 +353,12 @@ class ChatbotResultItem {
   };
 
   ChatbotAction? get action => switch (type) {
+    // Thẻ lịch hẹn mở thẳng chi tiết lịch trong app (không gửi vòng qua máy chủ).
+    ChatbotResultType.appointment when id.isNotEmpty => ChatbotAction(
+      type: 'VIEW_APPOINTMENT',
+      label: bookingCode ?? 'Xem lịch hẹn',
+      payload: {'appointmentId': id},
+    ),
     ChatbotResultType.department when id.isNotEmpty => ChatbotAction(
       type: 'VIEW_DEPARTMENT',
       label: name ?? 'Xem chuyên khoa',
@@ -427,6 +436,10 @@ class ChatbotResponse {
     required this.results,
     required this.suggestedActions,
     this.sources = const [],
+    this.messageId,
+    this.pendingExpiresAt,
+    this.summary,
+    this.facts = const [],
   });
 
   factory ChatbotResponse.fromJson(Map<String, dynamic> json) =>
@@ -453,6 +466,17 @@ class ChatbotResponse {
         suggestedActions: _maps(
           json['suggestedActions'],
         ).map(ChatbotAction.fromJson).toList(growable: false),
+        summary: json['draftSummary'] is Map
+            ? ChatbotDraftSummary.fromJson(jsonMap(json['draftSummary']))
+            : null,
+        facts: _maps(json['facts'])
+            .map(ChatbotFactCard.fromJson)
+            .where((card) => card.title.isNotEmpty && card.rows.isNotEmpty)
+            .toList(growable: false),
+        messageId: jsonNullableString(json['messageId']),
+        pendingExpiresAt: DateTime.tryParse(
+          jsonMap(json['pendingAction'])['expiresAt']?.toString() ?? '',
+        )?.toLocal(),
         sources: _maps(json['sources'])
             .map(ChatbotSourceRef.fromJson)
             .where((source) => source.title.isNotEmpty)
@@ -473,6 +497,18 @@ class ChatbotResponse {
   final List<ChatbotResultGroup> results;
   final List<ChatbotAction> suggestedActions;
   final List<ChatbotSourceRef> sources;
+
+  /// Các lựa chọn đang giữ trong bản nháp đặt lịch (null khi chưa chọn gì).
+  final ChatbotDraftSummary? summary;
+
+  /// Thẻ thông tin có cấu trúc kèm câu trả lời.
+  final List<ChatbotFactCard> facts;
+
+  /// Mã tin của Kun (để gửi đánh giá "hữu ích").
+  final String? messageId;
+
+  /// Hạn xác nhận hủy lịch đang chờ (máy chủ cho 5 phút); null khi không có việc nào đang chờ xác nhận.
+  final DateTime? pendingExpiresAt;
 }
 
 List<Map<String, dynamic>> _maps(dynamic value) => value is List

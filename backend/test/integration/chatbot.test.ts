@@ -69,6 +69,15 @@ test("hỏi giá gói khám và chính sách: lấy từ dữ liệu nghiệp v�
   assert.match(price.body.data.reply, /1\.250\.000 đồng/);
   assert.equal(price.body.data.sources[0].type, "PACKAGE");
   assert.equal(price.body.data.sources[0].url, "/goi-kham/goi-tim-mach-nang-cao");
+  // Thẻ thông tin có cấu trúc lấy số liệu thẳng từ dữ liệu, không phụ thuộc câu chữ của AI.
+  const card = price.body.data.facts?.[0];
+  assert.equal(card?.kind, "package");
+  assert.equal(card?.title, "Gói Tim Mạch Nâng Cao");
+  assert.deepEqual(card?.rows.slice(0, 2), [
+    { label: "Giá", value: "1.250.000 đồng" },
+    { label: "Hạng mục", value: "2 hạng mục" },
+  ]);
+  assert.equal(card?.note, "Siêu âm tim, Điện tâm đồ");
 
   const policy = await ask("giữ lịch bao nhiêu phút để xác thực OTP");
   assert.equal(policy.body.data.sources[0].type, "POLICY");

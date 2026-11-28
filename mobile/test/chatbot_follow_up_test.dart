@@ -285,7 +285,9 @@ void sourceReviewTests() {
       expect(item.type, ChatbotResultType.appointment);
       expect(item.displayName, 'BK20261124000001');
       expect(item.canCancel, isTrue);
-      expect(item.action, isNull);
+      // Thẻ lịch hẹn có nút mở thẳng chi tiết lịch trong app (không gửi vòng qua máy chủ).
+      expect(item.action?.type, 'VIEW_APPOINTMENT');
+      expect(item.action?.payload['appointmentId'], item.id);
       final visible = visibleChatbotActions(
         response.suggestedActions,
         response.results,

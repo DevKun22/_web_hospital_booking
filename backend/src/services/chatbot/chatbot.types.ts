@@ -236,6 +236,17 @@ export type AIChatbotOutput = {
   suggestedActions: SuggestedAction[];
   /** Nguồn tri thức mà câu trả lời dựa vào (chỉ có với câu trả lời từ kho tri thức). */
   sources?: ChatbotSource[];
+  /** Thẻ thông tin có cấu trúc (giá, hạng mục, phí khám) lấy từ dữ liệu hiện hành, đi kèm câu trả lời về một gói khám hoặc bác sĩ. */
+  facts?: ChatbotFactCard[];
+};
+
+/** Một thẻ thông tin: tiêu đề, các dòng nhãn-giá trị và một ghi chú ngắn (ví dụ vài hạng mục đầu của gói). */
+export type ChatbotFactCard = {
+  kind: "package" | "doctor";
+  id: string;
+  title: string;
+  rows: { label: string; value: string }[];
+  note?: string;
 };
 
 /** Các lựa chọn đang giữ trong bản nháp đặt lịch, kèm tên để hiển thị. */

@@ -1,3 +1,6 @@
+import 'package:url_launcher/url_launcher.dart';
+import 'package:hospital_booking_mobile/core/errors/swallowed_error.dart';
+import 'package:hospital_booking_mobile/core/config/app_brand.dart';
 import 'package:hospital_booking_mobile/core/design/app_design_tokens.dart';
 import 'package:flutter/material.dart';
 import 'package:hospital_booking_mobile/features/chatbot/domain/chatbot_models.dart';
@@ -11,7 +14,9 @@ IconData chatbotActionIcon(String type) => switch (type) {
   'CHANGE_DOCTOR' => Icons.person_outline_outlined,
   'VIEW_PACKAGES' || 'VIEW_PACKAGE' => Icons.health_and_safety_outlined,
   'START_BOOKING' || 'CHANGE_DATE' => Icons.event_available_outlined,
-  'LOOKUP_APPOINTMENT' || 'SELECT_APPOINTMENT' => Icons.event_note_outlined,
+  'LOOKUP_APPOINTMENT' ||
+  'SELECT_APPOINTMENT' ||
+  'VIEW_APPOINTMENT' => Icons.event_note_outlined,
   'LOGIN_REQUIRED' => Icons.login_outlined,
   'CONFIRM_CANCEL_APPOINTMENT' => Icons.event_busy_outlined,
   'DISMISS_PENDING_ACTION' => Icons.close_outlined,
@@ -115,10 +120,29 @@ class ChatbotFollowUps extends StatelessWidget {
 }
 
 /// Nguồn tri thức của câu trả lời, dạng thẻ nhỏ; nguồn là nội dung được duyệt kèm người duyệt và ngày cập nhật.
+/// Mở trang gốc của một nguồn trên website (đường dẫn tương đối ghép với địa chỉ web của cơ sở khám).
+Future<bool> openChatbotSource(ChatbotSourceRef source) async {
+  final path = source.url?.trim();
+  if (path == null || path.isEmpty) return false;
+  final uri = path.startsWith('/')
+      ? Uri.tryParse('${AppBrand.webUrl}$path')
+      : null;
+  if (uri == null) return false;
+  try {
+    return await launchUrl(uri, mode: LaunchMode.externalApplication);
+  } catch (error) {
+    logSwallowedError('chatbot_open_source', error);
+    return false;
+  }
+}
+
 class ChatbotSourceChips extends StatelessWidget {
-  const ChatbotSourceChips({super.key, required this.sources});
+  const ChatbotSourceChips({super.key, required this.sources, this.onOpen});
 
   final List<ChatbotSourceRef> sources;
+
+  /// Mở một nguồn; mặc định mở trang web. Tách ra để kiểm thử không gọi nền tảng thật.
+  final Future<bool> Function(ChatbotSourceRef source)? onOpen;
 
   @override
   Widget build(BuildContext context) {
@@ -151,20 +175,56 @@ class ChatbotSourceChips extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  DecoratedBox(
-                    decoration: BoxDecoration(
+                  Semantics(
+                    button: source.url != null,
+                    label: 'Nguồn: ${source.title}',
+                    child: Material(
                       color: scheme.surfaceContainerLow,
-                      borderRadius: BorderRadius.circular(AppRadius.pill),
-                      border: Border.all(color: scheme.outlineVariant),
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: AppSpacing.xs,
-                        vertical: AppSpacing.xxs,
+                      shape: StadiumBorder(
+                        side: BorderSide(color: scheme.outlineVariant),
                       ),
-                      child: Text(
-                        source.title,
-                        style: style?.copyWith(color: scheme.primary),
+                      child: InkWell(
+                        customBorder: const StadiumBorder(),
+                        onTap: source.url == null
+                            ? null
+                            : () async {
+                                final opened =
+                                    await (onOpen ?? openChatbotSource)(source);
+                                if (!opened && context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text(
+                                        'Chưa mở được trang nguồn. Bạn thử lại sau nhé.',
+                                      ),
+                                    ),
+                                  );
+                                }
+                              },
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: AppSpacing.xs,
+                            vertical: AppSpacing.xxs,
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  source.title,
+                                  style: style?.copyWith(color: scheme.primary),
+                                ),
+                              ),
+                              if (source.url != null) ...[
+                                const SizedBox(width: AppSpacing.xxs),
+                                Icon(
+                                  Icons.open_in_new_outlined,
+                                  size: 12,
+                                  color: scheme.primary,
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
                       ),
                     ),
                   ),

@@ -28,6 +28,24 @@ class ChatbotRepository {
     });
   }
 
+  /// Gửi đánh giá "hữu ích / chưa đúng" cho một câu trả lời (máy chủ chỉ nhận khi mã tin thuộc đúng phiên này).
+  Future<void> sendFeedback({
+    required String sessionId,
+    required String messageId,
+    required bool helpful,
+  }) async {
+    await guardApi(() async {
+      await _publicDio.post<dynamic>(
+        '/chatbot/feedback',
+        data: {
+          'sessionId': sessionId,
+          'messageId': messageId,
+          'value': helpful ? 'HELPFUL' : 'NOT_HELPFUL',
+        },
+      );
+    });
+  }
+
   Future<ChatbotResponse> sendMessage({
     required String message,
     String? sessionId,

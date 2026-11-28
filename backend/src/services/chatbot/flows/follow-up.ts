@@ -2,6 +2,7 @@ import { prisma } from "../../../config/prisma.js";
 import type { ChatBookingDraft, ChatFocus, ChatOperation, SuggestedAction } from "../chatbot.types.js";
 import ChatbotDraftReducer from "../workflow/draft.reducer.js";
 import type { KnowledgeChunk } from "../rag/rag.types.js";
+import { foldVietnamese } from "../rules/text-normalizer.js";
 
 // Gợi ý bước tiếp theo sau một câu trả lời thông tin. Chọn bằng quy tắc từ chính đoạn tri thức đã dùng để trả lời (bác sĩ, chuyên khoa,
 // gói khám, chính sách...), không gọi thêm AI nên không tốn thời gian và không thể bịa: mã bác sĩ, khoa, gói đều đọc từ DB.
@@ -15,6 +16,22 @@ const startBooking: SuggestedAction = { type: "START_BOOKING", label: "Đặt l�
 const lookupAppointment: SuggestedAction = { type: "LOOKUP_APPOINTMENT", label: "Tra cứu lịch hẹn", payload: {} };
 
 const ask = (label: string, question: string): SuggestedAction => ({ type: "ASK_QUESTION", label, payload: { question } });
+
+const viewPackages: SuggestedAction = { type: "VIEW_PACKAGES", label: "Xem gói khám", payload: {} };
+
+// Câu hỏi về chính sách đi tới bước kế tiếp hợp lý của chính chủ đề đó, không phải bộ nút chung cho mọi câu chính sách.
+const CANCEL_TOPIC = /\b(huy|hoan|doi lich|doi gio|khoa huy|tre hen|khong den)\b/;
+const PAYMENT_TOPIC = /\b(thanh toan|hoa don|vnpay|chuyen khoan|the ngan hang|phi)\b/;
+
+/** Gợi ý khi nguồn là chính sách: theo chủ đề câu hỏi (hủy/hoàn/đổi lịch, thanh toán), còn lại là bộ mặc định. */
+export const policyActions = (question: string): SuggestedAction[] => {
+  const folded = foldVietnamese(question);
+  if (CANCEL_TOPIC.test(folded)) {
+    return [ask("Hủy lịch của tôi", "Tôi muốn hủy lịch hẹn của mình"), lookupAppointment, contact];
+  }
+  if (PAYMENT_TOPIC.test(folded)) return [viewPackages, startBooking, contact];
+  return [startBooking, lookupAppointment, contact];
+};
 
 /** Mã nguồn có thể kèm "#chỉ số đoạn" (nội dung chuyên khoa, bài viết được tách nhiều đoạn). */
 const baseId = (sourceId: string) => sourceId.split("#")[0];
@@ -45,7 +62,7 @@ class FollowUpService {
   }
 
   /** Gợi ý theo chủ đề; không có chủ đề cụ thể thì theo loại nguồn (chính sách, bài viết, câu hỏi thường gặp). */
-  actionsFor(topic: ChatFocus | null, chunks: KnowledgeChunk[]): SuggestedAction[] {
+  actionsFor(topic: ChatFocus | null, chunks: KnowledgeChunk[], question = ""): SuggestedAction[] {
     if (topic?.type === "doctor") {
       return [
         { type: "VIEW_DOCTOR", label: "Xem lịch trống của bác sĩ này", payload: { doctorId: topic.id, departmentId: topic.departmentId } },
@@ -75,15 +92,15 @@ class FollowUpService {
     }
 
     const types = new Set(chunks.map((chunk) => chunk.sourceType));
-    if (types.has("POLICY")) return [startBooking, lookupAppointment, contact];
+    if (types.has("POLICY")) return policyActions(question);
     if (types.has("ARTICLE")) return [viewDepartments, ask("Khi nào cần đi khám?", "Khi nào tôi nên đi khám thay vì tự theo dõi tại nhà?"), contact];
     if (types.has("SITE")) return [startBooking, viewDepartments];
     return [startBooking, viewDepartments, contact];
   }
 
-  async forChunks(chunks: KnowledgeChunk[]): Promise<FollowUp> {
+  async forChunks(chunks: KnowledgeChunk[], question = ""): Promise<FollowUp> {
     const topic = await this.topicOf(chunks);
-    return { actions: this.actionsFor(topic, chunks), focus: topic ?? undefined };
+    return { actions: this.actionsFor(topic, chunks, question), focus: topic ?? undefined };
   }
 }
 

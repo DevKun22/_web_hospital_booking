@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:hospital_booking_mobile/core/design/app_design_tokens.dart';
 import 'package:flutter/material.dart';
 import 'package:hospital_booking_mobile/core/formatters/display_formatters.dart';
@@ -13,12 +14,16 @@ class ChatbotMessageBubble extends StatelessWidget {
     required this.message,
     required this.disabled,
     required this.onAction,
+    this.onRate,
     this.isLatest = false,
   });
 
   final ChatMessage message;
   final bool disabled;
   final ValueChanged<ChatbotAction> onAction;
+
+  /// Gửi đánh giá cho câu trả lời; null thì không hiện hàng đánh giá.
+  final void Function(String messageId, ChatbotFeedback value)? onRate;
 
   /// Tin mới nhất: chỉ tin này hiện gợi ý bước tiếp theo, tin cũ để lại như lịch sử.
   final bool isLatest;
@@ -81,6 +86,9 @@ class ChatbotMessageBubble extends StatelessWidget {
                     height: 1.45,
                   ),
                 ),
+                for (final card
+                    in isUser ? const <ChatbotFactCard>[] : message.facts)
+                  ChatbotFactCardView(card: card),
                 if (!isUser && message.results.isNotEmpty) ...[
                   const SizedBox(height: AppSpacing.sm),
                   ChatbotResultGroups(
@@ -89,7 +97,18 @@ class ChatbotMessageBubble extends StatelessWidget {
                     onAction: onAction,
                   ),
                 ],
+                if (!isUser && isLatest && message.pendingExpiresAt != null)
+                  ChatbotConfirmDeadline(expiresAt: message.pendingExpiresAt!),
                 if (!isUser) ChatbotSourceChips(sources: message.sources),
+                if (!isUser &&
+                    !isAlert &&
+                    message.messageId != null &&
+                    onRate != null)
+                  ChatbotFeedbackRow(
+                    feedback: message.feedback,
+                    disabled: disabled,
+                    onRate: (value) => onRate!(message.messageId!, value),
+                  ),
                 if (!isUser && isLatest)
                   ChatbotFollowUps(
                     actions: visibleChatbotActions(
@@ -111,27 +130,91 @@ class ChatbotMessageBubble extends StatelessWidget {
   }
 }
 
-class ChatbotTypingIndicator extends StatelessWidget {
-  const ChatbotTypingIndicator({super.key});
+/// Kun đang trả lời. Chờ lâu hơn bình thường (AI bận) thì nói thật, để người dùng không tưởng app bị treo.
+class ChatbotTypingIndicator extends StatefulWidget {
+  const ChatbotTypingIndicator({
+    super.key,
+    this.slowAfter = const Duration(seconds: 6),
+  });
+
+  final Duration slowAfter;
 
   @override
-  Widget build(BuildContext context) => const Align(
+  State<ChatbotTypingIndicator> createState() => _ChatbotTypingIndicatorState();
+}
+
+class _ChatbotTypingIndicatorState extends State<ChatbotTypingIndicator> {
+  late final Timer _timer = Timer(widget.slowAfter, () {
+    if (mounted) setState(() => _slow = true);
+  });
+  bool _slow = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Chạm vào `_timer` để khởi tạo lười bắt đầu đếm ngay.
+    _timer.isActive;
+  }
+
+  @override
+  void dispose() {
+    _timer.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => Align(
     alignment: Alignment.centerLeft,
     child: Padding(
-      padding: EdgeInsets.only(bottom: AppSpacing.sm),
+      padding: const EdgeInsets.only(bottom: AppSpacing.sm),
       child: Row(
-        mainAxisSize: MainAxisSize.min,
         children: [
-          SizedBox.square(
+          const SizedBox.square(
             dimension: 16,
             child: CircularProgressIndicator(strokeWidth: 2),
           ),
-          SizedBox(width: AppSpacing.xs),
-          Text('Trợ lý đang trả lời…'),
+          const SizedBox(width: AppSpacing.xs),
+          Flexible(
+            child: Text(
+              _slow
+                  ? 'Câu này cần thêm chút thời gian, bạn đợi Kun một lát nhé…'
+                  : 'Kun đang trả lời…',
+            ),
+          ),
         ],
       ),
     ),
   );
+}
+
+/// Kun đã hỏi xác nhận hủy lịch: nói rõ còn hiệu lực đến mấy giờ (máy chủ cho 5 phút), hết hạn thì bấm xác nhận sẽ bị từ chối.
+class ChatbotConfirmDeadline extends StatelessWidget {
+  const ChatbotConfirmDeadline({super.key, required this.expiresAt});
+
+  final DateTime expiresAt;
+
+  @override
+  Widget build(BuildContext context) {
+    String two(int value) => value.toString().padLeft(2, '0');
+    return Padding(
+      padding: const EdgeInsets.only(top: AppSpacing.xs),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.timer_outlined, size: 14, color: context.colors.warning),
+          const SizedBox(width: AppSpacing.xxs),
+          Flexible(
+            child: Text(
+              'Xác nhận trước ${two(expiresAt.hour)}:${two(expiresAt.minute)}, quá giờ này Kun sẽ hỏi lại.',
+              style: Theme.of(
+                context,
+              ).textTheme.labelSmall?.copyWith(color: context.colors.warning),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class ChatbotResultGroups extends StatelessWidget {
@@ -317,6 +400,153 @@ String chatbotResultActionLabel(ChatbotResultType type) => switch (type) {
   ChatbotResultType.package => 'Chọn gói khám',
   ChatbotResultType.doctor => 'Chọn bác sĩ',
   ChatbotResultType.slot => 'Chọn khung giờ',
-  ChatbotResultType.appointment => 'Xem lịch hẹn',
+  ChatbotResultType.appointment => 'Xem chi tiết lịch',
   ChatbotResultType.unknown => 'Xem thêm',
 };
+
+/// Thẻ thông tin có cấu trúc: tiêu đề, các dòng nhãn-giá trị và một ghi chú. Chữ lớn thì giá trị xuống dòng, không tràn.
+class ChatbotFactCardView extends StatelessWidget {
+  const ChatbotFactCardView({super.key, required this.card});
+
+  final ChatbotFactCard card;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final text = Theme.of(context).textTheme;
+    return Container(
+      key: Key('chatbot-fact-card-${card.kind}'),
+      width: double.infinity,
+      margin: const EdgeInsets.only(top: AppSpacing.sm),
+      padding: const EdgeInsets.all(AppSpacing.sm),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        border: Border.all(color: scheme.outlineVariant),
+        color: scheme.surfaceContainerLowest,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(
+                card.kind == 'doctor'
+                    ? Icons.person_outline_outlined
+                    : Icons.health_and_safety_outlined,
+                size: 20,
+                color: context.colors.primary,
+              ),
+              const SizedBox(width: AppSpacing.xs),
+              Expanded(
+                child: Text(
+                  card.title,
+                  style: text.labelLarge?.copyWith(
+                    fontWeight: AppFontWeight.strong,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          for (final row in card.rows) ...[
+            const SizedBox(height: AppSpacing.xs),
+            Divider(height: 1, color: scheme.outlineVariant),
+            const SizedBox(height: AppSpacing.xs),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  row.label,
+                  style: text.bodySmall?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.sm),
+                Expanded(
+                  child: Text(
+                    row.value,
+                    textAlign: TextAlign.end,
+                    style: text.bodySmall?.copyWith(
+                      fontWeight: AppFontWeight.strong,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+          if (card.note != null) ...[
+            const SizedBox(height: AppSpacing.xs),
+            Divider(height: 1, color: scheme.outlineVariant),
+            const SizedBox(height: AppSpacing.xs),
+            Text(
+              card.note!,
+              style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// "Câu trả lời này thế nào?" với hai nút; đã đánh giá thì chỉ còn lời cảm ơn. Nút đủ lớn để chạm, tự xuống dòng khi chữ lớn.
+class ChatbotFeedbackRow extends StatelessWidget {
+  const ChatbotFeedbackRow({
+    super.key,
+    required this.feedback,
+    required this.onRate,
+    this.disabled = false,
+  });
+
+  final ChatbotFeedback? feedback;
+  final bool disabled;
+  final ValueChanged<ChatbotFeedback> onRate;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final label = Theme.of(
+      context,
+    ).textTheme.labelSmall?.copyWith(color: scheme.onSurfaceVariant);
+    if (feedback != null) {
+      return Padding(
+        padding: const EdgeInsets.only(top: AppSpacing.xs),
+        child: Text('Cảm ơn bạn đã phản hồi.', style: label),
+      );
+    }
+    return Padding(
+      padding: const EdgeInsets.only(top: AppSpacing.xs),
+      child: Wrap(
+        spacing: AppSpacing.xs,
+        runSpacing: AppSpacing.xxs,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          Text('Câu trả lời này thế nào?', style: label),
+          OutlinedButton.icon(
+            key: const Key('chatbot-feedback-helpful'),
+            style: OutlinedButton.styleFrom(
+              minimumSize: const Size(0, 40),
+              visualDensity: VisualDensity.compact,
+            ),
+            onPressed: disabled ? null : () => onRate(ChatbotFeedback.helpful),
+            icon: const Icon(Icons.thumb_up_outlined, size: 16),
+            label: const Text('Hữu ích'),
+          ),
+          OutlinedButton.icon(
+            key: const Key('chatbot-feedback-not-helpful'),
+            style: OutlinedButton.styleFrom(
+              minimumSize: const Size(0, 40),
+              visualDensity: VisualDensity.compact,
+              foregroundColor: scheme.onSurfaceVariant,
+            ),
+            onPressed: disabled
+                ? null
+                : () => onRate(ChatbotFeedback.notHelpful),
+            icon: const Icon(Icons.thumb_down_outlined, size: 16),
+            label: const Text('Chưa đúng'),
+          ),
+        ],
+      ),
+    );
+  }
+}

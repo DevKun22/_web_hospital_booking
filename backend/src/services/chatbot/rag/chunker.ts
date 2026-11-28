@@ -5,7 +5,7 @@ import type { KnowledgeDoc } from "./rag.types.js";
 // Dựng kho tri thức từ dữ liệu đang có: không có nguồn tri thức thứ hai để quản trị. Mỗi bản ghi nghiệp vụ thành một đoạn
 // ngắn, tự đủ nghĩa, để truy hồi trả về đúng đơn vị người dùng hỏi (một gói, một bác sĩ, một câu hỏi thường gặp).
 
-const money = (value: number) => `${value.toLocaleString("vi-VN")} đồng`;
+export const money = (value: number) => `${value.toLocaleString("vi-VN")} đồng`;
 
 // Cột JSON của nội dung công khai: dữ liệu đã qua kiểm tra khi lưu, nhưng ở đây vẫn đọc phòng thủ để dữ liệu hỏng không làm hỏng việc dựng kho tri thức.
 const asArray = (value: unknown): Record<string, unknown>[] =>

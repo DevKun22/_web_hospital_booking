@@ -7,6 +7,7 @@ import { TtlCache } from "../../../utils/ttlCache.js";
 import FollowUp, { withFocus } from "./follow-up.js";
 import { vary } from "../rules/variants.js";
 import type { ChatbotSource, RetrievedChunk } from "../rag/rag.types.js";
+import { buildFactCards } from "./fact-cards.js";
 import { loadSourceMeta, sourceMetaKey } from "../rag/source-meta.js";
 
 // Hỏi thông tin (giá, giờ làm việc, chính sách, bác sĩ, quy trình): truy hồi trong kho tri thức rồi để AI trả lời có căn cứ.
@@ -14,6 +15,15 @@ import { loadSourceMeta, sourceMetaKey } from "../rag/source-meta.js";
 
 /** Điểm truy hồi của từng đoạn, ghi vào vết để soi vì sao câu trả lời dựa vào đoạn đó. */
 export type RetrievalTrace = { id: string; type: string; score: number; coverage: number; similarity: number | null };
+
+/** Có đoạn tri thức gần nghĩa nhưng không có câu trả lời kiểm chứng được: giữ vết truy hồi và vài câu hỏi gần nhất để người dùng bấm tiếp. */
+export type InfoNoAnswer = {
+  noAnswer: true;
+  retrieval: RetrievalTrace[];
+  nearby: AIChatbotOutput["suggestedActions"];
+  ai: { called: boolean; ok: boolean; ms: number } | null;
+  numericRejected: boolean;
+};
 
 type InfoResult = {
   output: AIChatbotOutput;
@@ -36,6 +46,25 @@ const toRetrievalTrace = (chunks: RetrievedChunk[]): RetrievalTrace[] =>
   }));
 
 const RETRIEVED_LIMIT = 5;
+
+const NEARBY_MAX = 2;
+const NEARBY_MIN_COVERAGE = 0.34;
+const NEARBY_MIN_SIMILARITY = 0.55;
+const NEARBY_LABEL_MAX = 44;
+
+/**
+ * Chưa trả lời được thì gợi ý các câu hỏi thường gặp gần nghĩa nhất (tiêu đề đoạn FAQ chính là câu hỏi), để người dùng bấm hỏi tiếp
+ * thay vì tự đoán cách diễn đạt khác. Chỉ lấy đoạn đủ gần để không gợi ý lạc đề.
+ */
+export const nearbyQuestionActions = (chunks: RetrievedChunk[]): AIChatbotOutput["suggestedActions"] =>
+  chunks
+    .filter((item) => item.chunk.sourceType === "FAQ" && (item.coverage >= NEARBY_MIN_COVERAGE || (item.similarity ?? 0) >= NEARBY_MIN_SIMILARITY))
+    .slice(0, NEARBY_MAX)
+    .map((item) => {
+      const title = item.chunk.title.trim();
+      const label = title.length > NEARBY_LABEL_MAX ? `${title.slice(0, NEARBY_LABEL_MAX - 1).trimEnd()}…` : title;
+      return { type: "ASK_QUESTION" as const, label, payload: { question: title } };
+    });
 
 // Câu hỏi thông tin lặp lại (giờ làm việc, giá, chính sách) được trả từ bộ nhớ đệm, khỏi gọi AI; hết hiệu lực khi kho tri thức đồng bộ lại.
 const answerCache = new TtlCache<InfoResult>(100, 10 * 60_000);
@@ -103,17 +132,25 @@ export const noInformationRepeatOutput = (draft: ChatBookingDraft): AIChatbotOut
   ],
 });
 
-export const noInformationOutput = (draft: ChatBookingDraft): AIChatbotOutput => ({
-  reply: vary([
-    "Mình chưa tìm thấy thông tin phù hợp về câu này. Mình trả lời tốt nhất về chuyên khoa, bác sĩ, gói khám, giá, giờ làm việc và chính sách đặt lịch, hoặc bạn nhờ nhân viên hỗ trợ nhé.",
-    "Câu này nằm ngoài những gì mình có thông tin nên mình không muốn nói bừa. Bạn thử hỏi về chuyên khoa, bác sĩ, gói khám, giá hay cách đặt lịch, hoặc nhờ nhân viên hỗ trợ giúp bạn nhé.",
-  ]),
+const NO_INFORMATION_REPLIES = [
+  "Mình chưa tìm thấy thông tin phù hợp về câu này. Mình trả lời tốt nhất về chuyên khoa, bác sĩ, gói khám, giá, giờ làm việc và chính sách đặt lịch, hoặc bạn nhờ nhân viên hỗ trợ nhé.",
+  "Câu này nằm ngoài những gì mình có thông tin nên mình không muốn nói bừa. Bạn thử hỏi về chuyên khoa, bác sĩ, gói khám, giá hay cách đặt lịch, hoặc nhờ nhân viên hỗ trợ giúp bạn nhé.",
+];
+
+// Có câu hỏi thường gặp gần nghĩa: nói thẳng là chưa có đúng câu trả lời và chỉ ra câu gần nhất để bấm.
+const NO_INFORMATION_WITH_NEARBY = [
+  "Mình chưa có thông tin đúng với câu này nên không muốn nói bừa. Có thể bạn muốn hỏi một trong các câu bên dưới, hoặc bạn nhờ nhân viên hỗ trợ nhé.",
+  "Mình chưa tìm thấy câu trả lời chính xác cho điều bạn hỏi. Bạn xem thử các câu gần nghĩa bên dưới, hoặc nhờ nhân viên hỗ trợ giúp bạn nhé.",
+];
+
+export const noInformationOutput = (draft: ChatBookingDraft, nearby: AIChatbotOutput["suggestedActions"] = []): AIChatbotOutput => ({
+  reply: vary(nearby.length ? NO_INFORMATION_WITH_NEARBY : NO_INFORMATION_REPLIES),
   intent: "GENERAL_HOSPITAL_INFO",
   state: "BOOKING_GUIDE",
   nextStep: "SHOW_BOOKING_GUIDE",
   confidence: 0.3,
   draft,
-  suggestedActions: knowledgeActions(),
+  suggestedActions: [...nearby, ...knowledgeActions()].slice(0, 4),
 });
 
 /** Câu trả lời cuối là "chưa có thông tin" (đường lùi hoặc hệ thống không có căn cứ): dùng để đo tỉ lệ kho tri thức chưa đáp ứng được. */
@@ -138,7 +175,7 @@ class InfoFlow {
    * Trả lời một câu hỏi thông tin; null khi kho không có đoạn nào liên quan hoặc không có câu trả lời kiểm chứng được.
    * Chỉ chạy khi bộ điều phối đã xác định đây là câu hỏi thông tin (không sinh trước "phòng hờ" song song với phân tích ý định).
    */
-  async answer(input: { message: string; draft: ChatBookingDraft; aiEnabled: boolean; model?: string }): Promise<InfoResult | null> {
+  async answer(input: { message: string; draft: ChatBookingDraft; aiEnabled: boolean; model?: string }): Promise<InfoResult | InfoNoAnswer | null> {
     const version = KnowledgeService.version;
     const chunks = await this.retrieve(input.message);
     if (!chunks.length) return null;
@@ -171,10 +208,10 @@ class InfoFlow {
       }
     }
     const answer = grounded ?? (aiFailed ? extractiveAnswer(chunks) : null);
-    if (!answer) return null;
+    if (!answer) return { noAnswer: true, retrieval, nearby: nearbyQuestionActions(chunks), ai, numericRejected };
 
     const usedChunks = chunks.filter((item) => answer.sourceIds.includes(item.chunk.id)).map((item) => item.chunk);
-    const followUp = await FollowUp.forChunks(usedChunks);
+    const followUp = await FollowUp.forChunks(usedChunks, input.message);
     const usedTypes = usedChunks.map((chunk) => chunk.sourceType);
     const hasFaq = usedTypes.includes("FAQ");
     const reply = usedTypes.includes("ARTICLE") && !answer.reply.includes(HEALTH_DISCLAIMER) ? `${answer.reply} ${HEALTH_DISCLAIMER}` : answer.reply;
@@ -188,6 +225,7 @@ class InfoFlow {
         draft: withFocus(input.draft, followUp.focus),
         suggestedActions: followUp.actions,
         sources: await toSources(chunks, answer.sourceIds),
+        facts: await buildFactCards(followUp.focus),
       },
       source: grounded ? "AI" : hasFaq ? "FAQ" : "SYSTEM",
       sourceIds: answer.sourceIds,
