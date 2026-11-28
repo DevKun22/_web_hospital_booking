@@ -98,4 +98,14 @@ void main() {
     expect(draft.patientPhone, '0912345678');
     expect(draft.reason, 'Đau đầu');
   });
+
+  test(
+    'chỉ đặt cho chính mình khi đã đăng nhập mới bỏ qua OTP và điều khoản',
+    () {
+      expect(bookingNeedsOtp(authenticated: false, forRelative: false), isTrue);
+      expect(bookingNeedsOtp(authenticated: false, forRelative: true), isTrue);
+      expect(bookingNeedsOtp(authenticated: true, forRelative: true), isTrue);
+      expect(bookingNeedsOtp(authenticated: true, forRelative: false), isFalse);
+    },
+  );
 }

@@ -8,6 +8,15 @@ import 'package:hospital_booking_mobile/core/errors/api_exception.dart';
 import 'package:hospital_booking_mobile/core/widgets/app_error_banner.dart';
 
 /// Họ tên, số điện thoại và email (nơi nhận OTP) của người đến khám.
+
+/// Xung đột khi tạo lịch do khung giờ vừa có người đặt: máy chủ trả 409 không kèm mã riêng (mã mặc định `REQUEST_FAILED`).
+/// Xung đột có mã riêng (trùng ngày, trùng giờ, vượt giới hạn lịch, quá nhiều lịch chờ OTP, email không dùng được, điều khoản
+/// đã đổi) không phải lỗi khung giờ: hiện đúng thông điệp của máy chủ, không bảo người dùng chọn giờ khác.
+bool isSlotTakenError(ApiException? error) =>
+    error != null &&
+    error.kind == ApiErrorKind.conflict &&
+    (error.code == null || error.code == 'REQUEST_FAILED');
+
 class BookingPatientContactFields extends StatelessWidget {
   const BookingPatientContactFields({
     super.key,
@@ -289,7 +298,7 @@ class BookingPatientSubmitSection extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = context.colors;
     final text = Theme.of(context).textTheme;
-    final slotTaken = error?.kind == ApiErrorKind.conflict;
+    final slotTaken = isSlotTakenError(error);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [

@@ -1,3 +1,4 @@
+import 'package:hospital_booking_mobile/core/errors/api_exception.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hospital_booking_mobile/core/theme/app_theme.dart';
@@ -61,5 +62,38 @@ void main() {
     await tester.pumpWidget(_fields(skipsOtp: false));
     expect(_readOnly(tester, 'Email *'), isFalse);
     expect(_readOnly(tester, 'Số điện thoại *'), isFalse);
+  });
+
+  test('chỉ xung đột không mã riêng mới là khung giờ vừa có người đặt', () {
+    ApiException conflict(String? code) => ApiException(
+      kind: ApiErrorKind.conflict,
+      statusCode: 409,
+      code: code,
+      message: 'xung đột',
+    );
+
+    expect(isSlotTakenError(null), isFalse);
+    expect(isSlotTakenError(conflict(null)), isTrue);
+    expect(isSlotTakenError(conflict('REQUEST_FAILED')), isTrue);
+    for (final code in [
+      'ACTIVE_LIMIT',
+      'DUPLICATE_SAME_DAY',
+      'TIME_OVERLAP',
+      'TOO_MANY_OPEN_HOLDS',
+      'EMAIL_UNAVAILABLE',
+      'TERMS_OUTDATED',
+    ]) {
+      expect(isSlotTakenError(conflict(code)), isFalse, reason: code);
+    }
+    expect(
+      isSlotTakenError(
+        const ApiException(
+          kind: ApiErrorKind.network,
+          code: null,
+          message: 'mạng',
+        ),
+      ),
+      isFalse,
+    );
   });
 }
