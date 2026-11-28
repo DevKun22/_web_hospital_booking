@@ -4,6 +4,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'helpers/fake_auth_controller.dart';
+import 'package:hospital_booking_mobile/app/sync/patient_data_sync_coordinator.dart';
 import 'package:hospital_booking_mobile/core/errors/api_exception.dart';
 import 'package:hospital_booking_mobile/features/auth/application/auth_controller.dart';
 import 'package:hospital_booking_mobile/features/chatbot/application/chatbot_controller.dart';
@@ -53,6 +54,29 @@ const _response = ChatbotResponse(
     ChatbotAction(type: 'VIEW_DEPARTMENTS', label: 'Xem chuyên khoa'),
   ],
 );
+
+class _RecordingSync implements PatientDataSyncCoordinator {
+  int appointmentChanges = 0;
+
+  @override
+  Future<void> handleAppointmentChanged({String? appointmentId}) async =>
+      appointmentChanges += 1;
+
+  @override
+  Future<void> handleAppResumed() async {}
+
+  @override
+  Future<void> handleBookingCompleted({String? appointmentId}) async {}
+
+  @override
+  Future<void> handleMainBranchSelected(int branchIndex) async {}
+
+  @override
+  Future<void> handleRemoteChange({
+    String? entityType,
+    String? entityId,
+  }) async {}
+}
 
 Future<void> _waitUntil(bool Function() condition) async {
   for (var attempt = 0; attempt < 100; attempt++) {
@@ -180,4 +204,47 @@ void main() {
       expect(container.read(chatbotControllerProvider).messages.length, 1);
     },
   );
+
+  test('a cancel reply from Kun refreshes the appointment list', () async {
+    final repository = _FakeChatbotRepository();
+    final sync = _RecordingSync();
+    final container = ProviderContainer(
+      overrides: [
+        chatbotRepositoryProvider.overrideWithValue(repository),
+        patientDataSyncCoordinatorProvider.overrideWithValue(sync),
+        fakeAuthOverride,
+      ],
+    );
+    addTearDown(container.dispose);
+    final controller = container.read(chatbotControllerProvider.notifier);
+    await _waitUntil(
+      () =>
+          container.read(chatbotControllerProvider).availability ==
+          ChatbotAvailability.ready,
+    );
+
+    final sent = controller.sendMessage('xem chuyên khoa');
+    repository.sendGate!.complete(_response);
+    await sent;
+    expect(sync.appointmentChanges, 0);
+
+    repository.sendGate = Completer<ChatbotResponse>();
+    final cancel = controller.sendMessage('hủy lịch giúp tôi');
+    repository.sendGate!.complete(
+      const ChatbotResponse(
+        sessionId: 'session-1',
+        source: ChatbotSource.system,
+        reply: 'Mình đã hủy lịch.',
+        intent: 'APPOINTMENT_CANCEL',
+        state: 'BOOKING_GUIDE',
+        nextStep: '',
+        confidence: 1,
+        draft: ChatBookingDraft(),
+        results: [],
+        suggestedActions: [],
+      ),
+    );
+    await cancel;
+    expect(sync.appointmentChanges, 1);
+  });
 }

@@ -52,12 +52,16 @@ class InvoicePaymentState {
     this.transaction,
     this.isCreating = false,
     this.isRefreshing = false,
+    this.resumePending = false,
     this.errorMessage,
   });
 
   final PatientPaymentTransaction? transaction;
   final bool isCreating;
   final bool isRefreshing;
+
+  /// Có giao dịch đang chờ đã lưu nhưng chưa kiểm tra được (mất mạng): chưa cho tạo giao dịch mới.
+  final bool resumePending;
   final String? errorMessage;
 
   bool get isPending => transaction?.status == PatientPaymentStatus.pending;
@@ -66,12 +70,14 @@ class InvoicePaymentState {
     PatientPaymentTransaction? transaction,
     bool? isCreating,
     bool? isRefreshing,
+    bool? resumePending,
     String? errorMessage,
     bool clearError = false,
   }) => InvoicePaymentState(
     transaction: transaction ?? this.transaction,
     isCreating: isCreating ?? this.isCreating,
     isRefreshing: isRefreshing ?? this.isRefreshing,
+    resumePending: resumePending ?? this.resumePending,
     errorMessage: clearError ? null : errorMessage ?? this.errorMessage,
   );
 }
@@ -114,15 +120,41 @@ class InvoicePaymentController extends Notifier<InvoicePaymentState> {
           .read(patientPaymentControllerProvider)
           .refresh(paymentId);
       if (ref.mounted) _apply(payment);
-    } on ApiException {
-      // Không xác định được giao dịch cũ: coi như chưa có, người dùng có thể thanh toán lại.
-      await _forget();
+    } on ApiException catch (error) {
+      if (error.kind == ApiErrorKind.notFound ||
+          error.kind == ApiErrorKind.forbidden) {
+        // Máy chủ không còn giao dịch này (hoặc không thuộc tài khoản này): quên để thanh toán lại.
+        await _forget();
+        return;
+      }
+      // Mất mạng hoặc máy chủ lỗi tạm thời: giữ mã giao dịch. Quên lúc này thì người dùng tưởng chưa trả và
+      // có thể trả lần hai trong khi giao dịch cũ vẫn đang chờ ở cổng thanh toán.
+      if (ref.mounted) {
+        state = state.copyWith(
+          resumePending: true,
+          errorMessage:
+              'Chưa kiểm tra được giao dịch thanh toán đang chờ. Kiểm tra mạng rồi thử lại.',
+        );
+      }
     }
   }
 
   /// Gọi khi ứng dụng quay lại từ trình duyệt hoặc khi người dùng bấm kiểm tra.
   Future<void> refresh() async {
     final current = state.transaction;
+    if (current == null && state.resumePending && !state.isRefreshing) {
+      state = state.copyWith(
+        isRefreshing: true,
+        resumePending: false,
+        clearError: true,
+      );
+      try {
+        await _resume();
+      } finally {
+        if (ref.mounted) state = state.copyWith(isRefreshing: false);
+      }
+      return;
+    }
     if (current == null || state.isRefreshing) return;
     state = state.copyWith(isRefreshing: true);
     try {
@@ -139,6 +171,11 @@ class InvoicePaymentController extends Notifier<InvoicePaymentState> {
 
   Future<void> start(String provider) async {
     if (state.isCreating) return;
+    if (state.resumePending) {
+      // Còn giao dịch đang chờ chưa kiểm tra được: kiểm tra lại trước, không tạo giao dịch thứ hai.
+      await refresh();
+      return;
+    }
     _timer?.cancel();
     state = const InvoicePaymentState(isCreating: true);
     try {
@@ -152,7 +189,16 @@ class InvoicePaymentController extends Notifier<InvoicePaymentState> {
       if (!ref.mounted) return;
       state = InvoicePaymentState(transaction: payment);
       await ref.read(pendingPaymentStoreProvider).write(invoiceId, payment.id);
-      await _open(payment);
+      try {
+        await _open(payment);
+      } on ApiException catch (error) {
+        // Giao dịch đã tạo: giữ lại để người dùng bấm "Mở lại trang thanh toán" thay vì tạo giao dịch mới.
+        if (ref.mounted) {
+          state = state.copyWith(errorMessage: error.message);
+          _startPolling();
+        }
+        return;
+      }
       if (ref.mounted) _startPolling();
     } on ApiException catch (error) {
       if (ref.mounted) state = InvoicePaymentState(errorMessage: error.message);

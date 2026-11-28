@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hospital_booking_mobile/core/errors/api_exception.dart';
 import 'package:hospital_booking_mobile/features/invoices/application/invoice_payment_controller.dart';
 import 'package:hospital_booking_mobile/features/invoices/application/patient_payment_controller.dart';
 import 'package:hospital_booking_mobile/features/invoices/data/patient_payment_repository.dart';
@@ -10,6 +11,7 @@ class _FakeRepository implements PatientPaymentRepository {
 
   PatientPaymentStatus status;
   int created = 0;
+  ApiException? lookupError;
 
   PatientPaymentTransaction _tx() => PatientPaymentTransaction(
     id: 'pay-1',
@@ -31,7 +33,11 @@ class _FakeRepository implements PatientPaymentRepository {
   }
 
   @override
-  Future<PatientPaymentTransaction> getById(String paymentId) async => _tx();
+  Future<PatientPaymentTransaction> getById(String paymentId) async {
+    final error = lookupError;
+    if (error != null) throw error;
+    return _tx();
+  }
 
   @override
   Future<PatientPaymentCapabilities> getCapabilities() async =>
@@ -110,5 +116,86 @@ void main() {
     expect(state.transaction?.status, PatientPaymentStatus.failed);
     expect(state.isPending, isFalse);
     expect(store.values.containsKey('inv-3'), isFalse);
+  });
+
+  test(
+    'mất mạng khi mở lại màn: giữ giao dịch chờ, không cho trả lần hai',
+    () async {
+      final repo = _FakeRepository(PatientPaymentStatus.pending)
+        ..lookupError = const ApiException(
+          kind: ApiErrorKind.network,
+          code: 'NETWORK_ERROR',
+          message: 'Mất mạng',
+        );
+      final store = _MemoryStore()..values['inv-4'] = 'pay-1';
+      final container = _container(repo, store);
+      final sub = container.listen(invoicePaymentProvider('inv-4'), (_, _) {});
+      addTearDown(sub.close);
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+
+      expect(store.values['inv-4'], 'pay-1');
+      expect(
+        container.read(invoicePaymentProvider('inv-4')).resumePending,
+        isTrue,
+      );
+
+      // Bấm thanh toán khi chưa kiểm tra được: chỉ kiểm tra lại, không tạo giao dịch mới.
+      repo.lookupError = null;
+      await container
+          .read(invoicePaymentProvider('inv-4').notifier)
+          .start('VNPAY');
+
+      final state = container.read(invoicePaymentProvider('inv-4'));
+      expect(repo.created, 0);
+      expect(state.isPending, isTrue);
+      expect(state.resumePending, isFalse);
+    },
+  );
+
+  test(
+    'máy chủ không còn giao dịch đã lưu thì quên để thanh toán lại',
+    () async {
+      final repo = _FakeRepository(PatientPaymentStatus.pending)
+        ..lookupError = const ApiException(
+          kind: ApiErrorKind.notFound,
+          code: 'NOT_FOUND',
+          message: 'Không tìm thấy',
+        );
+      final store = _MemoryStore()..values['inv-5'] = 'pay-1';
+      final container = _container(repo, store);
+      final sub = container.listen(invoicePaymentProvider('inv-5'), (_, _) {});
+      addTearDown(sub.close);
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+
+      expect(store.values.containsKey('inv-5'), isFalse);
+      expect(
+        container.read(invoicePaymentProvider('inv-5')).resumePending,
+        isFalse,
+      );
+    },
+  );
+
+  test('không mở được cổng thì vẫn giữ giao dịch vừa tạo để mở lại', () async {
+    final repo = _FakeRepository(PatientPaymentStatus.pending);
+    final store = _MemoryStore();
+    final container = ProviderContainer(
+      overrides: [
+        patientPaymentRepositoryProvider.overrideWithValue(repo),
+        pendingPaymentStoreProvider.overrideWithValue(store),
+        paymentUrlLauncherProvider.overrideWithValue((_) async => false),
+      ],
+    );
+    addTearDown(container.dispose);
+    final sub = container.listen(invoicePaymentProvider('inv-6'), (_, _) {});
+    addTearDown(sub.close);
+
+    await container
+        .read(invoicePaymentProvider('inv-6').notifier)
+        .start('VNPAY');
+
+    final state = container.read(invoicePaymentProvider('inv-6'));
+    expect(state.isPending, isTrue);
+    expect(state.errorMessage, isNotNull);
+    expect(store.values['inv-6'], 'pay-1');
   });
 }

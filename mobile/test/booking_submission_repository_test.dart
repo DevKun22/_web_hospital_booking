@@ -113,6 +113,7 @@ void main() {
       expect(verified.session?.user.email, 'an@example.test');
       final verifyBody = Map<String, dynamic>.from(requests.last.data as Map);
       expect(verifyBody['issueSession'], isTrue);
+      expect(verifyBody['platform'], 'android');
 
       final createBody = Map<String, dynamic>.from(requests.first.data as Map);
       expect(createBody['departmentId'], 'department-1');
@@ -133,6 +134,16 @@ void main() {
         '/appointments/appointment-1/verify-otp',
       ]);
       expect(requests[2].method, 'DELETE');
+
+      // Đã đăng nhập: chỉ xác nhận lịch, không xin phiên và không gửi thông tin thiết bị.
+      await repository.verify(
+        pending: resent,
+        otp: '654321',
+        issueSession: false,
+      );
+      final signedInBody = Map<String, dynamic>.from(requests.last.data as Map);
+      expect(signedInBody['issueSession'], isFalse);
+      expect(signedInBody.containsKey('deviceName'), isFalse);
 
       dio.close(force: true);
     },

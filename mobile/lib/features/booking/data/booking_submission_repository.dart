@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:hospital_booking_mobile/core/config/client_platform.dart';
 import 'package:hospital_booking_mobile/core/errors/api_exception.dart';
 import 'package:hospital_booking_mobile/core/network/api_contract.dart';
 import 'package:hospital_booking_mobile/features/booking/domain/booking_catalog.dart';
@@ -10,11 +11,18 @@ import 'package:hospital_booking_mobile/core/network/json_readers.dart';
 import 'package:hospital_booking_mobile/core/network/api_guard.dart';
 
 class BookingSubmissionRepository {
-  BookingSubmissionRepository(this._publicDio, [Dio? authenticatedDio])
-    : _authenticatedDio = authenticatedDio ?? _publicDio;
+  BookingSubmissionRepository(
+    this._publicDio, [
+    Dio? authenticatedDio,
+    Future<String?> Function()? readDeviceId,
+  ]) : _authenticatedDio = authenticatedDio ?? _publicDio,
+       _readDeviceId = readDeviceId;
 
   final Dio _publicDio;
   final Dio _authenticatedDio;
+
+  /// Mã thiết bị gửi kèm khi xin phiên, giống đăng nhập thường, để danh sách thiết bị nhận đúng máy này.
+  final Future<String?> Function()? _readDeviceId;
 
   /// [authenticated]: đã đăng nhập, gửi kèm phiên để máy chủ nhận ra chủ tài khoản
   /// (đặt cho chính mình thì không cần OTP). Đặt cho người thân luôn cần phiên.
@@ -109,19 +117,25 @@ class BookingSubmissionRepository {
     });
   }
 
-  /// Xác thực OTP đặt lịch; máy chủ cấp luôn phiên người khám ([VerifiedBooking.session]) để khỏi nhập OTP lần hai.
+  /// Xác thực OTP đặt lịch. [issueSession]: xin luôn phiên người khám ([VerifiedBooking.session]) để khỏi nhập OTP lần hai;
+  /// chỉ dùng khi app chưa đăng nhập, để không thay phiên của tài khoản đang dùng.
   Future<VerifiedBooking> verify({
     required PendingBooking pending,
     required String otp,
+    bool issueSession = true,
   }) async {
     return guardApi(() async {
+      final deviceId = issueSession ? await _readDeviceId?.call() : null;
       final response = await _publicDio.post<dynamic>(
         '/appointments/${pending.appointmentId}/verify-otp',
         data: {
           'otp': otp.trim(),
-          'issueSession': true,
-          'platform': 'android',
-          'deviceName': 'Flutter android',
+          'issueSession': issueSession,
+          if (issueSession) ...{
+            'platform': clientPlatform,
+            'deviceName': clientDeviceName,
+            'deviceId': ?deviceId,
+          },
         },
       );
       final data = requireDataMap(response.data);
