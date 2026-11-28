@@ -1,6 +1,8 @@
 import { Router } from "express";
 import {
   cancelPatientAppointmentHandler,
+  confirmPatientAccountDeletionHandler,
+  requestPatientAccountDeletionHandler,
   downloadPatientMedicalFileHandler,
   getPatientAppointmentHandler,
   getPatientInvoiceHandler,
@@ -22,6 +24,7 @@ import {
   updatePatientDependentHandler,
 } from "../controllers/patientDependent.controller.js";
 import {
+  patientAccountDeletionConfirmSchema,
   patientCancelAppointmentSchema,
   patientDependentCreateSchema,
   patientDependentUpdateSchema,
@@ -45,6 +48,9 @@ router.use(authPatient);
 
 router.get("/", getPatientProfileHandler);
 router.patch("/", validate(patientProfileUpdateSchema), updatePatientProfileHandler);
+// Xóa tài khoản (đóng và ẩn danh): gửi OTP tới email của tài khoản, rồi xác nhận bằng mã đó.
+router.post("/account-deletion/otp", requestPatientAccountDeletionHandler);
+router.post("/account-deletion/confirm", validate(patientAccountDeletionConfirmSchema), confirmPatientAccountDeletionHandler);
 router.get("/dependents", listPatientDependentsHandler);
 router.post(
   "/dependents",

@@ -14,6 +14,7 @@ const purposeLabel: Record<OtpPurpose, string> = {
   DOCTOR_LOGIN: "đăng nhập dashboard bác sĩ",
   STAFF_LOGIN: "đăng nhập dashboard nhân viên",
   PHARMACIST_LOGIN: "đăng nhập dashboard dược sĩ",
+  ACCOUNT_DELETION: "xác nhận xóa tài khoản người khám",
 };
 
 const escapeHtml = (value: string) =>

@@ -22,6 +22,7 @@ export const AUDIT_ACTIONS = [
   "SCHEDULE_SLOT_LOCKED",
   "SCHEDULE_SLOT_UNLOCKED",
   "SCHEDULE_UPDATED",
+  "PATIENT_ACCOUNT_DELETED",
 ] as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
 
