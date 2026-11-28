@@ -1,11 +1,11 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:hospital_booking_mobile/core/errors/api_exception.dart';
 import 'package:hospital_booking_mobile/core/providers/app_providers.dart';
 import 'package:hospital_booking_mobile/features/auth/application/auth_controller.dart';
 import 'package:hospital_booking_mobile/features/medical_records/data/medical_records_repository.dart';
 import 'package:hospital_booking_mobile/features/medical_records/domain/patient_medical_record.dart';
 
-import 'package:hospital_booking_mobile/core/state/synced_notifier.dart';
+import 'package:hospital_booking_mobile/core/state/patient_list_controller.dart';
+import 'package:hospital_booking_mobile/core/state/patient_list_page.dart';
 
 final medicalRecordsRepositoryProvider = Provider<MedicalRecordsRepository>(
   (ref) => MedicalRecordsRepository(ref.watch(authenticatedDioProvider)),
@@ -28,149 +28,21 @@ final medicalDocumentProvider = FutureProvider.autoDispose
       return ref.watch(medicalRecordsRepositoryProvider).getDocument(request);
     });
 
-class MedicalRecordsState {
-  const MedicalRecordsState({
-    this.items = const [],
-    this.total = 0,
-    this.nextPage = 1,
-    this.hasNextPage = false,
-    this.isInitialLoading = false,
-    this.isRefreshing = false,
-    this.isLoadingMore = false,
-    this.lastSyncedAt,
-    this.error,
-  });
+typedef MedicalRecordsState = PatientListState<PatientMedicalRecord>;
 
-  final List<PatientMedicalRecord> items;
-  final int total;
-  final int nextPage;
-  final bool hasNextPage;
-  final bool isInitialLoading;
-  final bool isRefreshing;
-  final bool isLoadingMore;
-  final DateTime? lastSyncedAt;
-  final ApiException? error;
-
-  bool get hasItems => items.isNotEmpty;
-
-  MedicalRecordsState copyWith({
-    List<PatientMedicalRecord>? items,
-    int? total,
-    int? nextPage,
-    bool? hasNextPage,
-    bool? isInitialLoading,
-    bool? isRefreshing,
-    bool? isLoadingMore,
-    DateTime? lastSyncedAt,
-    ApiException? error,
-    bool clearError = false,
-  }) => MedicalRecordsState(
-    items: items ?? this.items,
-    total: total ?? this.total,
-    nextPage: nextPage ?? this.nextPage,
-    hasNextPage: hasNextPage ?? this.hasNextPage,
-    isInitialLoading: isInitialLoading ?? this.isInitialLoading,
-    isRefreshing: isRefreshing ?? this.isRefreshing,
-    isLoadingMore: isLoadingMore ?? this.isLoadingMore,
-    lastSyncedAt: lastSyncedAt ?? this.lastSyncedAt,
-    error: clearError ? null : (error ?? this.error),
-  );
-}
-
-class MedicalRecordsController extends SyncedNotifier<MedicalRecordsState> {
-  static const _pageSize = 20;
-  int _requestVersion = 0;
-  String? _patientId;
+class MedicalRecordsController
+    extends PatientListController<PatientMedicalRecord> {
+  @override
+  String? watchPatientId() =>
+      ref.watch(authControllerProvider.select((state) => state.user?.id));
 
   @override
-  MedicalRecordsState build() {
-    _requestVersion += 1;
-    _patientId = ref.watch(
-      authControllerProvider.select((state) => state.user?.id),
-    );
-    if (_patientId != null) Future<void>.microtask(load);
-    return MedicalRecordsState(isInitialLoading: _patientId != null);
-  }
-
-  Future<void> load() async {
-    if (_patientId == null) return;
-    final requestVersion = ++_requestVersion;
-    state = const MedicalRecordsState(isInitialLoading: true);
-    await _loadFirstPage(requestVersion);
-  }
+  Future<PatientListPage<PatientMedicalRecord>> fetchPage({
+    required int page,
+    required int limit,
+  }) =>
+      ref.read(medicalRecordsRepositoryProvider).list(page: page, limit: limit);
 
   @override
-  DateTime? get lastSyncedAt => state.lastSyncedAt;
-
-  @override
-  Future<void> refresh() async {
-    if (_patientId == null || state.isInitialLoading || state.isRefreshing) {
-      return;
-    }
-    final requestVersion = ++_requestVersion;
-    state = state.copyWith(
-      isInitialLoading: state.items.isEmpty,
-      isRefreshing: state.items.isNotEmpty,
-      isLoadingMore: false,
-      clearError: true,
-    );
-    await _loadFirstPage(requestVersion);
-  }
-
-  Future<void> _loadFirstPage(int requestVersion) async {
-    try {
-      final page = await ref
-          .read(medicalRecordsRepositoryProvider)
-          .list(limit: _pageSize);
-      if (requestVersion != _requestVersion) return;
-      state = MedicalRecordsState(
-        items: page.items,
-        total: page.total,
-        nextPage: page.page + 1,
-        hasNextPage: page.hasNextPage,
-        lastSyncedAt: DateTime.now(),
-      );
-    } on ApiException catch (error) {
-      if (requestVersion != _requestVersion) return;
-      state = state.copyWith(
-        isInitialLoading: false,
-        isRefreshing: false,
-        error: error,
-      );
-    }
-  }
-
-  Future<void> loadMore() async {
-    if (_patientId == null ||
-        state.isInitialLoading ||
-        state.isRefreshing ||
-        state.isLoadingMore ||
-        !state.hasNextPage) {
-      return;
-    }
-    final requestVersion = _requestVersion;
-    state = state.copyWith(isLoadingMore: true, clearError: true);
-    try {
-      final page = await ref
-          .read(medicalRecordsRepositoryProvider)
-          .list(page: state.nextPage, limit: _pageSize);
-      if (requestVersion != _requestVersion) return;
-      final byId = <String, PatientMedicalRecord>{
-        for (final item in state.items) item.id: item,
-        for (final item in page.items) item.id: item,
-      };
-      state = state.copyWith(
-        items: byId.values.toList(growable: false),
-        total: page.total,
-        nextPage: page.page + 1,
-        hasNextPage: page.hasNextPage,
-        isLoadingMore: false,
-      );
-    } on ApiException catch (error) {
-      if (requestVersion != _requestVersion) return;
-      state = state.copyWith(isLoadingMore: false, error: error);
-    }
-  }
-
-  void dismissError() => state = state.copyWith(clearError: true);
+  String idOf(PatientMedicalRecord item) => item.id;
 }

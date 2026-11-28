@@ -20,6 +20,9 @@ class PackageCatalogController
   PackageCatalogFilter get initialFilter => PackageCatalogFilter.all;
 
   @override
+  String idOf(MedicalPackage item) => item.id;
+
+  @override
   Future<CatalogPage<MedicalPackage>> fetchPage({
     required String query,
     required PackageCatalogFilter filter,

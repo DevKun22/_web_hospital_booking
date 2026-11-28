@@ -30,7 +30,7 @@ class AppointmentDetailScreen extends ConsumerWidget {
     final userId = ref.watch(
       authControllerProvider.select((state) => state.user?.id),
     );
-    final isCancelling = listState.cancellingId == appointmentId;
+    final isCancelling = listState.busyItemId == appointmentId;
 
     return Scaffold(
       appBar: AppBar(

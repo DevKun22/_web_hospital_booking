@@ -30,6 +30,9 @@ class DoctorCatalogController
   DoctorCatalogFilter get initialFilter => const DoctorCatalogFilter();
 
   @override
+  String idOf(CatalogDoctor item) => item.id;
+
+  @override
   Future<CatalogPage<CatalogDoctor>> fetchPage({
     required String query,
     required DoctorCatalogFilter filter,

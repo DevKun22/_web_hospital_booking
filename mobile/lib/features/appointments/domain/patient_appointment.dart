@@ -2,6 +2,7 @@ import 'package:hospital_booking_mobile/core/formatters/professional_name_format
 
 import 'package:hospital_booking_mobile/core/network/json_readers.dart';
 import 'package:hospital_booking_mobile/core/formatters/vietnam_time.dart';
+import 'package:hospital_booking_mobile/core/state/patient_list_page.dart';
 
 enum PatientAppointmentStatus {
   pendingOtp('PENDING_OTP'),
@@ -238,16 +239,4 @@ class PatientAppointment {
   bool get isDependentBooking => dependentProfileId != null;
 }
 
-class AppointmentPage {
-  const AppointmentPage({
-    required this.items,
-    required this.page,
-    required this.total,
-    required this.hasNextPage,
-  });
-
-  final List<PatientAppointment> items;
-  final int page;
-  final int total;
-  final bool hasNextPage;
-}
+typedef AppointmentPage = PatientListPage<PatientAppointment>;
