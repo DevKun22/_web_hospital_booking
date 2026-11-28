@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:hospital_booking_mobile/core/formatters/professional_name_formatter.dart';
 
 import 'package:hospital_booking_mobile/core/network/json_readers.dart';
+import 'package:hospital_booking_mobile/core/state/patient_list_page.dart';
 
 class MedicalFileAvailability {
   const MedicalFileAvailability({required this.available});
@@ -154,19 +155,7 @@ class PatientMedicalRecord {
   bool get isDependentRecord => dependentProfileId != null;
 }
 
-class MedicalRecordPage {
-  const MedicalRecordPage({
-    required this.items,
-    required this.page,
-    required this.total,
-    required this.hasNextPage,
-  });
-
-  final List<PatientMedicalRecord> items;
-  final int page;
-  final int total;
-  final bool hasNextPage;
-}
+typedef MedicalRecordPage = PatientListPage<PatientMedicalRecord>;
 
 class MedicalDocument {
   const MedicalDocument({

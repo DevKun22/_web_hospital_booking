@@ -22,6 +22,9 @@ class DepartmentCatalogController
   DepartmentCatalogFilter get initialFilter => DepartmentCatalogFilter.popular;
 
   @override
+  String idOf(CatalogDepartment item) => item.id;
+
+  @override
   Future<CatalogPage<CatalogDepartment>> fetchPage({
     required String query,
     required DepartmentCatalogFilter filter,

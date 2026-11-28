@@ -1,6 +1,7 @@
 import 'package:hospital_booking_mobile/core/formatters/professional_name_formatter.dart';
 
 import 'package:hospital_booking_mobile/core/network/json_readers.dart';
+import 'package:hospital_booking_mobile/core/state/patient_list_page.dart';
 
 class PrescriptionMedicine {
   const PrescriptionMedicine({
@@ -152,19 +153,7 @@ class PatientPrescription {
   bool get isDependentPrescription => dependentProfileId != null;
 }
 
-class PrescriptionPage {
-  const PrescriptionPage({
-    required this.items,
-    required this.page,
-    required this.total,
-    required this.hasNextPage,
-  });
-
-  final List<PatientPrescription> items;
-  final int page;
-  final int total;
-  final bool hasNextPage;
-}
+typedef PrescriptionPage = PatientListPage<PatientPrescription>;
 
 int? _nullableInteger(dynamic value) => value == null
     ? null

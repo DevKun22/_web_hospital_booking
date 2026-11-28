@@ -1,6 +1,7 @@
 import 'package:hospital_booking_mobile/core/formatters/professional_name_formatter.dart';
 
 import 'package:hospital_booking_mobile/core/network/json_readers.dart';
+import 'package:hospital_booking_mobile/core/state/patient_list_page.dart';
 
 enum PatientInvoiceStatus {
   unpaid('UNPAID'),
@@ -234,16 +235,4 @@ class PatientInvoice {
   bool get isDependentInvoice => dependentProfileId != null;
 }
 
-class InvoicePage {
-  const InvoicePage({
-    required this.items,
-    required this.page,
-    required this.total,
-    required this.hasNextPage,
-  });
-
-  final List<PatientInvoice> items;
-  final int page;
-  final int total;
-  final bool hasNextPage;
-}
+typedef InvoicePage = PatientListPage<PatientInvoice>;

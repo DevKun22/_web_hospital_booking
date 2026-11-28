@@ -61,6 +61,9 @@ abstract class PagedCatalogController<T, F>
 
   F get initialFilter;
 
+  /// Khóa của một mục, để bỏ mục trùng khi danh mục thay đổi giữa hai lần tải trang.
+  String idOf(T item);
+
   Future<CatalogPage<T>> fetchPage({
     required String query,
     required F filter,
@@ -114,7 +117,10 @@ abstract class PagedCatalogController<T, F>
       );
       if (requestVersion != _requestVersion) return;
       state = state.copyWith(
-        items: [...state.items, ...result.items],
+        items: {
+          for (final item in state.items) idOf(item): item,
+          for (final item in result.items) idOf(item): item,
+        }.values.toList(growable: false),
         page: result.page,
         total: result.total,
         totalPages: result.totalPages,
