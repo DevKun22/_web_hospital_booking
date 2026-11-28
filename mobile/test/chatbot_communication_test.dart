@@ -52,9 +52,14 @@ const _appointmentResponse = {
 };
 
 class _Repository extends ChatbotRepository {
-  _Repository({this.error}) : super(Dio(), Dio());
+  _Repository({this.error, Map<String, dynamic>? response})
+    : response = response ?? _appointmentResponse,
+      super(Dio(), Dio());
 
   final ApiException? error;
+  final Map<String, dynamic> response;
+  final feedback = <String>[];
+  bool failFeedback = false;
 
   @override
   Future<ChatbotSettings> getSettings() async => const ChatbotSettings(
@@ -65,6 +70,23 @@ class _Repository extends ChatbotRepository {
   );
 
   @override
+  Future<void> sendFeedback({
+    required String sessionId,
+    required String messageId,
+    required bool helpful,
+  }) async {
+    if (failFeedback) {
+      throw const ApiException(
+        kind: ApiErrorKind.network,
+        message: 'Không có mạng',
+      );
+    }
+    feedback.add(
+      '$sessionId|$messageId|${helpful ? 'HELPFUL' : 'NOT_HELPFUL'}',
+    );
+  }
+
+  @override
   Future<ChatbotResponse> sendMessage({
     required String message,
     String? sessionId,
@@ -72,9 +94,51 @@ class _Repository extends ChatbotRepository {
   }) async {
     final failure = error;
     if (failure != null) throw failure;
-    return ChatbotResponse.fromJson(_appointmentResponse);
+    return ChatbotResponse.fromJson(response);
   }
 }
+
+const _slotResponse = {
+  'sessionId': 'session-2',
+  'source': 'AI',
+  'reply': 'Gói khám tổng quát đang có giá như bên dưới.',
+  'intent': 'GENERAL_HOSPITAL_INFO',
+  'state': 'CHOOSING_SLOT',
+  'nextStep': 'CHOOSE_SLOT',
+  'confidence': 0.9,
+  'draft': <String, dynamic>{},
+  'results': <Map<String, dynamic>>[],
+  'suggestedActions': <Map<String, dynamic>>[],
+  'messageId': 'msg-2',
+  'draftSummary': {
+    'department': {'id': 'k1', 'name': 'Tim mạch'},
+    'doctor': {
+      'id': 'd1',
+      'name': 'BS. Trần Minh',
+      'departmentName': 'Tim mạch',
+      'fee': 250000,
+    },
+    'slot': {
+      'id': 's1',
+      'date': '2030-12-02',
+      'startTime': '09:00',
+      'endTime': '09:30',
+    },
+  },
+  'facts': [
+    {
+      'kind': 'package',
+      'id': 'p1',
+      'title': 'Gói khám tổng quát',
+      'rows': [
+        {'label': 'Giá', 'value': '1.250.000 đồng'},
+        {'label': 'Hạng mục', 'value': '12 hạng mục'},
+        {'label': '', 'value': 'bỏ dòng thiếu nhãn'},
+      ],
+      'note': 'Siêu âm bụng, điện tim, xét nghiệm máu, và 9 mục khác',
+    },
+  ],
+};
 
 GoRouter _router() => GoRouter(
   initialLocation: '/chatbot',
@@ -323,6 +387,179 @@ void main() {
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
       expect(find.text('Xem chi tiết lịch'), findsOneWidget);
+    },
+  );
+
+  test('phản hồi mang dải đã chọn và thẻ thông tin có cấu trúc', () {
+    final response = ChatbotResponse.fromJson(_slotResponse);
+    expect(response.summary?.chips, [
+      'Tim mạch',
+      'BS. Trần Minh',
+      '02/12/2030 · 09:00-09:30',
+    ]);
+    final card = response.facts.single;
+    expect(card.kind, 'package');
+    expect(card.rows.map((row) => row.label), [
+      'Giá',
+      'Hạng mục',
+    ], reason: 'dòng thiếu nhãn bị bỏ');
+    expect(card.note, contains('và 9 mục khác'));
+    expect(
+      ChatbotResponse.fromJson({
+        ..._slotResponse,
+        'draftSummary': null,
+        'facts': null,
+      }).facts,
+      isEmpty,
+    );
+    expect(ChatbotDraftSummary.fromJson({'date': '2030-12-02'}).chips, [
+      '02/12/2030',
+    ]);
+    expect(const ChatbotDraftSummary().chips, isEmpty);
+  });
+
+  testWidgets(
+    'đang giữa luồng đặt lịch: dải trên cùng nói bước hiện tại và những gì đã chọn',
+    (tester) async {
+      final router = _router();
+      await _pump(tester, router, _Repository(response: _slotResponse));
+      expect(find.byKey(const Key('chatbot-selection-strip')), findsNothing);
+
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(ChatbotScreen)),
+      );
+      await container
+          .read(chatbotControllerProvider.notifier)
+          .sendMessage('giá gói khám tổng quát');
+      await tester.pumpAndSettle();
+
+      final strip = find.byKey(const Key('chatbot-selection-strip'));
+      expect(strip, findsOneWidget);
+      expect(
+        find.descendant(of: strip, matching: find.text('Đang chọn lịch trống')),
+        findsOneWidget,
+      );
+      for (final chip in [
+        'Tim mạch',
+        'BS. Trần Minh',
+        '02/12/2030 · 09:00-09:30',
+      ]) {
+        expect(
+          find.descendant(of: strip, matching: find.text(chip)),
+          findsOneWidget,
+          reason: chip,
+        );
+      }
+    },
+  );
+
+  testWidgets(
+    'thẻ thông tin hiện giá, hạng mục và ghi chú, không tràn ở chữ cỡ 2.0 trên màn hẹp',
+    (tester) async {
+      tester.view.physicalSize = const Size(360, 780);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final card = ChatbotResponse.fromJson(_slotResponse).facts.single;
+      await tester.pumpWidget(
+        MaterialApp(
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(
+              context,
+            ).copyWith(textScaler: const TextScaler.linear(2)),
+            child: child!,
+          ),
+          home: Scaffold(
+            body: SingleChildScrollView(child: ChatbotFactCardView(card: card)),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      expect(find.text('Gói khám tổng quát'), findsOneWidget);
+      expect(find.text('1.250.000 đồng'), findsOneWidget);
+      expect(find.text('12 hạng mục'), findsOneWidget);
+      expect(find.textContaining('và 9 mục khác'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'đánh giá câu trả lời: hiện ngay lời cảm ơn, gửi về máy chủ một lần',
+    (tester) async {
+      final repository = _Repository(response: _slotResponse);
+      final router = _router();
+      await _pump(tester, router, repository);
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(ChatbotScreen)),
+      );
+      await container
+          .read(chatbotControllerProvider.notifier)
+          .sendMessage('giá gói khám tổng quát');
+      await tester.pumpAndSettle();
+
+      expect(find.text('Câu trả lời này thế nào?'), findsOneWidget);
+      await tester.ensureVisible(
+        find.byKey(const Key('chatbot-feedback-helpful')),
+      );
+      await tester.tap(find.byKey(const Key('chatbot-feedback-helpful')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Cảm ơn bạn đã phản hồi.'), findsOneWidget);
+      expect(find.byKey(const Key('chatbot-feedback-helpful')), findsNothing);
+      expect(repository.feedback, ['session-2|msg-2|HELPFUL']);
+      expect(
+        await container
+            .read(chatbotControllerProvider.notifier)
+            .rateMessage('msg-2', ChatbotFeedback.notHelpful),
+        isFalse,
+      );
+      expect(repository.feedback, hasLength(1));
+    },
+  );
+
+  testWidgets(
+    'gửi đánh giá lỗi thì trả lại nút để bấm lại và báo cho người dùng',
+    (tester) async {
+      final repository = _Repository(response: _slotResponse)
+        ..failFeedback = true;
+      final router = _router();
+      await _pump(tester, router, repository);
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(ChatbotScreen)),
+      );
+      await container
+          .read(chatbotControllerProvider.notifier)
+          .sendMessage('giá gói khám tổng quát');
+      await tester.pumpAndSettle();
+
+      await tester.ensureVisible(
+        find.byKey(const Key('chatbot-feedback-not-helpful')),
+      );
+      await tester.tap(find.byKey(const Key('chatbot-feedback-not-helpful')));
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('Chưa gửi được đánh giá'), findsOneWidget);
+      expect(
+        find.byKey(const Key('chatbot-feedback-not-helpful')),
+        findsOneWidget,
+      );
+      expect(find.text('Cảm ơn bạn đã phản hồi.'), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'lời chào không có hàng đánh giá; chỉ câu trả lời có mã tin mới có',
+    (tester) async {
+      final router = _router();
+      await _pump(tester, router, _Repository());
+      expect(find.text('Câu trả lời này thế nào?'), findsNothing);
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(ChatbotScreen)),
+      );
+      await container
+          .read(chatbotControllerProvider.notifier)
+          .sendMessage('lịch hẹn của tôi');
+      await tester.pumpAndSettle();
+      expect(find.text('Câu trả lời này thế nào?'), findsOneWidget);
     },
   );
 }

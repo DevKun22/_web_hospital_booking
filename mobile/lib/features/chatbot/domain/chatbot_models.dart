@@ -2,6 +2,9 @@ import 'package:hospital_booking_mobile/core/formatters/professional_name_format
 
 import 'package:hospital_booking_mobile/core/network/json_readers.dart';
 
+export 'package:hospital_booking_mobile/features/chatbot/domain/chatbot_response_extras.dart';
+import 'package:hospital_booking_mobile/features/chatbot/domain/chatbot_response_extras.dart';
+
 enum ChatbotSource { system, faq, ai, fallback, emergency, unknown }
 
 extension ChatbotSourceLabel on ChatbotSource {
@@ -435,6 +438,8 @@ class ChatbotResponse {
     this.sources = const [],
     this.messageId,
     this.pendingExpiresAt,
+    this.summary,
+    this.facts = const [],
   });
 
   factory ChatbotResponse.fromJson(Map<String, dynamic> json) =>
@@ -461,6 +466,13 @@ class ChatbotResponse {
         suggestedActions: _maps(
           json['suggestedActions'],
         ).map(ChatbotAction.fromJson).toList(growable: false),
+        summary: json['draftSummary'] is Map
+            ? ChatbotDraftSummary.fromJson(jsonMap(json['draftSummary']))
+            : null,
+        facts: _maps(json['facts'])
+            .map(ChatbotFactCard.fromJson)
+            .where((card) => card.title.isNotEmpty && card.rows.isNotEmpty)
+            .toList(growable: false),
         messageId: jsonNullableString(json['messageId']),
         pendingExpiresAt: DateTime.tryParse(
           jsonMap(json['pendingAction'])['expiresAt']?.toString() ?? '',
@@ -485,6 +497,12 @@ class ChatbotResponse {
   final List<ChatbotResultGroup> results;
   final List<ChatbotAction> suggestedActions;
   final List<ChatbotSourceRef> sources;
+
+  /// Các lựa chọn đang giữ trong bản nháp đặt lịch (null khi chưa chọn gì).
+  final ChatbotDraftSummary? summary;
+
+  /// Thẻ thông tin có cấu trúc kèm câu trả lời.
+  final List<ChatbotFactCard> facts;
 
   /// Mã tin của Kun (để gửi đánh giá "hữu ích").
   final String? messageId;

@@ -7,6 +7,7 @@ import { TtlCache } from "../../../utils/ttlCache.js";
 import FollowUp, { withFocus } from "./follow-up.js";
 import { vary } from "../rules/variants.js";
 import type { ChatbotSource, RetrievedChunk } from "../rag/rag.types.js";
+import { buildFactCards } from "./fact-cards.js";
 import { loadSourceMeta, sourceMetaKey } from "../rag/source-meta.js";
 
 // Hỏi thông tin (giá, giờ làm việc, chính sách, bác sĩ, quy trình): truy hồi trong kho tri thức rồi để AI trả lời có căn cứ.
@@ -224,6 +225,7 @@ class InfoFlow {
         draft: withFocus(input.draft, followUp.focus),
         suggestedActions: followUp.actions,
         sources: await toSources(chunks, answer.sourceIds),
+        facts: await buildFactCards(followUp.focus),
       },
       source: grounded ? "AI" : hasFaq ? "FAQ" : "SYSTEM",
       sourceIds: answer.sourceIds,

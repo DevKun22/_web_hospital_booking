@@ -29,6 +29,9 @@ enum ChatbotAvailability { checking, ready, disabled, unavailable }
 
 enum ChatMessageRole { user, assistant, alert }
 
+/// Đánh giá của người dùng cho một câu trả lời của Kun.
+enum ChatbotFeedback { helpful, notHelpful }
+
 class ChatMessage {
   const ChatMessage({
     required this.id,
@@ -40,6 +43,8 @@ class ChatMessage {
     this.sources = const [],
     this.messageId,
     this.pendingExpiresAt,
+    this.facts = const [],
+    this.feedback,
   });
 
   final String id;
@@ -55,6 +60,26 @@ class ChatMessage {
 
   /// Hạn xác nhận hủy lịch đang chờ; chỉ có ở tin mà Kun vừa hỏi xác nhận.
   final DateTime? pendingExpiresAt;
+
+  /// Thẻ thông tin có cấu trúc (giá, hạng mục, phí khám) kèm câu trả lời.
+  final List<ChatbotFactCard> facts;
+
+  /// Người dùng đã đánh giá câu trả lời này chưa (null = chưa).
+  final ChatbotFeedback? feedback;
+
+  ChatMessage withFeedback(ChatbotFeedback? value) => ChatMessage(
+    id: id,
+    role: role,
+    content: content,
+    source: source,
+    results: results,
+    actions: actions,
+    sources: sources,
+    messageId: messageId,
+    pendingExpiresAt: pendingExpiresAt,
+    facts: facts,
+    feedback: value,
+  );
 }
 
 /// Gợi ý ban đầu: các tình huống người khám hay gặp, mỗi nút dẫn tới một hướng khác nhau.
@@ -78,7 +103,7 @@ class ChatbotState {
         role: ChatMessageRole.assistant,
         source: ChatbotSource.system,
         content:
-            'Xin chào, tôi là trợ lý đặt lịch của DevKunCare. Tôi giúp bạn tìm chuyên khoa, bác sĩ, gói khám, xem lịch trống và đặt lịch. Bạn muốn bắt đầu từ đâu?',
+            'Chào bạn, mình là Kun, trợ lý ảo của DevKunCare. Mình giúp bạn tìm chuyên khoa, bác sĩ, gói khám, xem lịch trống và đặt lịch. Bạn muốn bắt đầu từ đâu?',
         actions: _starterActions,
       ),
     ],
@@ -89,6 +114,7 @@ class ChatbotState {
     this.lastFailedRequest,
     this.sessionId,
     this.draft,
+    this.summary,
   });
 
   final ChatbotAvailability availability;
@@ -100,6 +126,9 @@ class ChatbotState {
   final ChatbotPendingRequest? lastFailedRequest;
   final String? sessionId;
   final ChatBookingDraft? draft;
+
+  /// Các lựa chọn đang giữ trong bản nháp đặt lịch, bằng tên người đọc được.
+  final ChatbotDraftSummary? summary;
 
   bool get canSend => availability == ChatbotAvailability.ready && !isSending;
 
@@ -118,6 +147,8 @@ class ChatbotState {
     bool clearSessionId = false,
     ChatBookingDraft? draft,
     bool clearDraft = false,
+    ChatbotDraftSummary? summary,
+    bool clearSummary = false,
   }) => ChatbotState(
     availability: availability ?? this.availability,
     messages: messages ?? this.messages,
@@ -130,6 +161,7 @@ class ChatbotState {
         : (lastFailedRequest ?? this.lastFailedRequest),
     sessionId: clearSessionId ? null : (sessionId ?? this.sessionId),
     draft: clearDraft ? null : (draft ?? this.draft),
+    summary: clearSummary ? null : (summary ?? this.summary),
   );
 }
 
@@ -264,6 +296,7 @@ class ChatbotController extends Notifier<ChatbotState> {
             sources: response.sources,
             messageId: response.messageId,
             pendingExpiresAt: response.pendingExpiresAt,
+            facts: response.facts,
           ),
         ],
         actions: response.suggestedActions,
@@ -272,6 +305,8 @@ class ChatbotController extends Notifier<ChatbotState> {
         clearFlowStatus: flowStatus == null,
         sessionId: response.sessionId,
         draft: response.draft,
+        summary: response.summary,
+        clearSummary: response.summary == null,
         clearError: true,
         clearLastFailedRequest: true,
       );
@@ -294,6 +329,43 @@ class ChatbotController extends Notifier<ChatbotState> {
       );
       return false;
     }
+  }
+
+  /// Gửi đánh giá cho một câu trả lời. Hiện kết quả ngay, gửi lỗi thì trả lại trạng thái chưa đánh giá để người dùng bấm lại.
+  Future<bool> rateMessage(String messageId, ChatbotFeedback value) async {
+    final sessionId = state.sessionId;
+    final current = state.messages.where((m) => m.messageId == messageId);
+    if (sessionId == null ||
+        current.isEmpty ||
+        current.first.feedback != null) {
+      return false;
+    }
+    final requestVersion = _requestVersion;
+    _setFeedback(messageId, value);
+    try {
+      await ref
+          .read(chatbotRepositoryProvider)
+          .sendFeedback(
+            sessionId: sessionId,
+            messageId: messageId,
+            helpful: value == ChatbotFeedback.helpful,
+          );
+      return true;
+    } on ApiException {
+      if (requestVersion == _requestVersion) _setFeedback(messageId, null);
+      return false;
+    }
+  }
+
+  void _setFeedback(String messageId, ChatbotFeedback? value) {
+    state = state.copyWith(
+      messages: [
+        for (final message in state.messages)
+          message.messageId == messageId
+              ? message.withFeedback(value)
+              : message,
+      ],
+    );
   }
 
   void resetConversation() {
