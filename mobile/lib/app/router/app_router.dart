@@ -34,6 +34,7 @@ import 'package:hospital_booking_mobile/features/notifications/presentation/noti
 import 'package:hospital_booking_mobile/features/notifications/domain/patient_notification.dart';
 import 'package:hospital_booking_mobile/features/onboarding/presentation/first_run_gate.dart';
 import 'package:hospital_booking_mobile/features/packages/presentation/package_detail_screen.dart';
+import 'package:hospital_booking_mobile/features/profile/presentation/account_deletion_screen.dart';
 import 'package:hospital_booking_mobile/features/profile/presentation/profile_screen.dart';
 import 'package:hospital_booking_mobile/features/profile/presentation/profile_health_screen.dart';
 import 'package:hospital_booking_mobile/features/profile/presentation/profile_personal_screen.dart';
@@ -335,6 +336,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (_, _) => const AuthGate(
           title: 'thông tin cá nhân',
           child: ProfilePersonalScreen(),
+        ),
+      ),
+      GoRoute(
+        path: '/profile/delete-account',
+        builder: (_, _) => const AuthGate(
+          title: 'xóa tài khoản',
+          child: AccountDeletionScreen(),
         ),
       ),
       GoRoute(

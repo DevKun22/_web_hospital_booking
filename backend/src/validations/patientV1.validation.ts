@@ -116,3 +116,9 @@ export const patientDependentUpdateSchema = z
     message: "Cần ít nhất một trường để cập nhật",
   })
   .superRefine(validateDependentInsurance);
+
+// Xác nhận xóa tài khoản: mã thử thách vừa cấp và OTP 6 số gửi tới email của tài khoản.
+export const patientAccountDeletionConfirmSchema = z.object({
+  challengeId: z.string().uuid(),
+  otp: z.string().trim().regex(/^\d{6}$/),
+});

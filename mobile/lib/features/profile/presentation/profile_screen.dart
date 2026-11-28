@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:hospital_booking_mobile/core/design/app_colors.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hospital_booking_mobile/core/widgets/app_error_banner.dart';
 import 'package:hospital_booking_mobile/core/widgets/app_ui.dart';
@@ -93,6 +94,16 @@ class ProfileScreen extends ConsumerWidget {
                             ? 'Đang đăng xuất…'
                             : 'Đăng xuất thiết bị này',
                       ),
+                    ),
+                    TextButton(
+                      key: const Key('profile-delete-account'),
+                      style: TextButton.styleFrom(
+                        foregroundColor: context.colors.muted,
+                      ),
+                      onPressed: isLoggingOut
+                          ? null
+                          : () => context.push('/profile/delete-account'),
+                      child: const Text('Xóa tài khoản'),
                     ),
                   ],
                 ),

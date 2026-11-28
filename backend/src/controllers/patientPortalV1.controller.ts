@@ -7,6 +7,8 @@ import { AppError } from "../utils/appError.js";
 import { parsePagination } from "../utils/pagination.js";
 import PaymentService from "../services/payment.service.js";
 import { getOtpCapabilities } from "../config/otpChannels.js";
+import PatientAccountDeletionService from "../services/patientAccountDeletion.service.js";
+import { getClientIp } from "../utils/clientIp.js";
 
 const appointmentStatuses = new Set<AppointmentStatus>([
   "PENDING_OTP", "PENDING_CONFIRM", "CONFIRMED", "CHECKED_IN",
@@ -130,4 +132,14 @@ export const patientCapabilitiesHandler = (_req: Request, res: Response) => {
       pushNotifications: { enabled: pushDeliveryEnabled },
     },
   });
+};
+
+export const requestPatientAccountDeletionHandler = async (req: Request, res: Response) => {
+  const data = await PatientAccountDeletionService.requestOtp(requirePatientId(req), { ipAddress: getClientIp(req) });
+  return res.json({ success: true, data });
+};
+
+export const confirmPatientAccountDeletionHandler = async (req: Request, res: Response) => {
+  const data = await PatientAccountDeletionService.confirm(requirePatientId(req), req.body, { ipAddress: getClientIp(req) });
+  return res.json({ success: true, data });
 };
