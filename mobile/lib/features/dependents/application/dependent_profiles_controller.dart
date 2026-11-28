@@ -59,6 +59,7 @@ class DependentProfilesController
 
   @override
   DependentProfilesState build() {
+    _requestVersion += 1;
     _ownerId = ref.watch(
       authControllerProvider.select((state) => state.user?.id),
     );
@@ -106,9 +107,13 @@ class DependentProfilesController
     Future<DependentProfile> Function() action,
   ) async {
     if (_ownerId == null || state.isSaving) return null;
+    final version = _requestVersion;
+    final ownerId = _ownerId;
     state = state.copyWith(isSaving: true, clearError: true);
     try {
       final saved = await action();
+      // Đã đăng xuất hoặc đổi tài khoản trong lúc lưu: không chèn hồ sơ của người trước vào danh sách người sau.
+      if (!_isCurrent(version, ownerId)) return null;
       final next = [...state.items];
       final index = next.indexWhere((item) => item.id == saved.id);
       if (index < 0) {
@@ -123,6 +128,7 @@ class DependentProfilesController
       );
       return saved;
     } on ApiException catch (error) {
+      if (!_isCurrent(version, ownerId)) return null;
       state = state.copyWith(isSaving: false, error: error);
       return null;
     }
@@ -130,9 +136,12 @@ class DependentProfilesController
 
   Future<bool> archive(String id) async {
     if (_ownerId == null || state.isSaving) return false;
+    final version = _requestVersion;
+    final ownerId = _ownerId;
     state = state.copyWith(isSaving: true, clearError: true);
     try {
       await ref.read(dependentProfilesRepositoryProvider).archive(id);
+      if (!_isCurrent(version, ownerId)) return false;
       state = DependentProfilesState(
         items: state.items.where((item) => item.id != id).toList(),
         loaded: true,
@@ -140,10 +149,14 @@ class DependentProfilesController
       );
       return true;
     } on ApiException catch (error) {
+      if (!_isCurrent(version, ownerId)) return false;
       state = state.copyWith(isSaving: false, error: error);
       return false;
     }
   }
+
+  bool _isCurrent(int version, String? ownerId) =>
+      version == _requestVersion && ownerId == _ownerId;
 
   void dismissError() => state = state.copyWith(clearError: true);
 }

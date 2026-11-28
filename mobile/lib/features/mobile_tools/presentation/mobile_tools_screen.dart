@@ -7,7 +7,6 @@ import 'package:hospital_booking_mobile/features/profile/application/patient_pro
 import 'package:hospital_booking_mobile/features/profile/domain/patient_profile.dart';
 import 'package:hospital_booking_mobile/features/profile/presentation/widgets/profile_summary_widgets.dart';
 import 'package:hospital_booking_mobile/features/security/application/app_lock_controller.dart';
-import 'package:qr_flutter/qr_flutter.dart';
 import 'package:hospital_booking_mobile/core/design/app_colors.dart';
 
 class MobileToolsScreen extends ConsumerWidget {
@@ -142,24 +141,6 @@ class _DigitalPatientCard extends StatelessWidget {
                 ],
               ),
             ),
-            InkWell(
-              key: const Key('digital-card-qr'),
-              onTap: () => _showLargeQr(context, profile),
-              borderRadius: BorderRadius.circular(AppRadius.md),
-              child: Container(
-                padding: const EdgeInsets.all(AppSpacing.xs),
-                decoration: BoxDecoration(
-                  color: AppPalette.onHero,
-                  borderRadius: BorderRadius.circular(AppRadius.md),
-                ),
-                child: QrImageView(
-                  data: 'HB-PATIENT:${profile.id}',
-                  size: 82,
-                  padding: EdgeInsets.zero,
-                  semanticsLabel: 'Mã QR thẻ khám số, chạm để phóng to',
-                ),
-              ),
-            ),
           ],
         ),
         const SizedBox(height: AppSpacing.lg),
@@ -184,59 +165,13 @@ class _DigitalPatientCard extends StatelessWidget {
         ),
         const SizedBox(height: AppSpacing.md),
         Text(
-          'Chạm vào mã QR để phóng to và đưa cho nhân viên khi đến khám. Danh tính vẫn được xác minh theo quy trình của cơ sở khám.',
+          'Khi đến khám, bạn mở vé khám QR của lịch hẹn (tab Lịch hẹn) để nhân viên tiếp nhận quét mã đặt lịch. Danh tính vẫn được xác minh theo quy trình của cơ sở khám.',
           style: Theme.of(context).textTheme.bodySmall?.copyWith(
             color: AppPalette.onHeroMuted,
             height: 1.4,
           ),
         ),
       ],
-    ),
-  );
-}
-
-void _showLargeQr(BuildContext context, PatientProfile profile) {
-  showDialog<void>(
-    context: context,
-    builder: (dialogContext) => Dialog(
-      child: Padding(
-        padding: const EdgeInsets.all(AppSpacing.lg),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              profile.fullName,
-              style: Theme.of(dialogContext).textTheme.titleMedium?.copyWith(
-                fontWeight: AppFontWeight.strong,
-              ),
-            ),
-            const SizedBox(height: AppSpacing.md),
-            Container(
-              padding: const EdgeInsets.all(AppSpacing.sm),
-              decoration: BoxDecoration(
-                color: AppPalette.onHero,
-                borderRadius: BorderRadius.circular(AppRadius.lg),
-              ),
-              child: QrImageView(
-                data: 'HB-PATIENT:${profile.id}',
-                size: 240,
-                padding: EdgeInsets.zero,
-                semanticsLabel: 'Mã QR thẻ khám số',
-              ),
-            ),
-            const SizedBox(height: AppSpacing.xs),
-            Text(
-              'Mã hồ sơ ${_shortId(profile.id)}',
-              style: Theme.of(dialogContext).textTheme.bodySmall,
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            FilledButton(
-              onPressed: () => Navigator.of(dialogContext).pop(),
-              child: const Text('Đóng'),
-            ),
-          ],
-        ),
-      ),
     ),
   );
 }
