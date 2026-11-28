@@ -203,12 +203,22 @@ class BookingFlowController extends Notifier<BookingFlowState> {
     _presetDate = null;
     _presetTimeSlotId = null;
 
-    // A doctor/department preset represents an explicit doctor-booking intent.
-    // Do not let a previously persisted package draft block that newer intent.
-    if (packageId == null &&
-        (departmentId != null || doctorId != null) &&
-        state.selection.serviceMode != BookingServiceMode.doctor) {
-      await selectServiceMode(BookingServiceMode.doctor);
+    // Mở đặt lịch kèm gói, khoa hoặc bác sĩ (từ Kun, trang bác sĩ…) là một ý định mới: dựng bản nháp lại từ đầu
+    // theo đúng những gì đường dẫn nêu. Không ghép với bản nháp cũ, kẻo ngày giờ của lần trước còn sót khi cùng bác sĩ.
+    if (packageId != null || departmentId != null || doctorId != null) {
+      _slotRequestVersion += 1;
+      final selection = BookingSelection(
+        serviceMode: packageId != null
+            ? BookingServiceMode.package
+            : BookingServiceMode.doctor,
+      );
+      state = BookingFlowState(
+        departments: state.departments,
+        doctors: state.doctors,
+        packages: state.packages,
+        selection: selection,
+      );
+      await _persist(selection);
     }
     if (packageId != null &&
         state.packages.any((item) => item.id == packageId)) {

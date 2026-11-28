@@ -54,7 +54,7 @@ class AppointmentDeviceActions {
     return DateTime(day.year, day.month, day.day, hour, minute);
   }
 
-  String qrPayload(PatientAppointment appointment) =>
-      'devkuncare://app/appointments/${Uri.encodeComponent(appointment.id)}'
-      '?code=${Uri.encodeQueryComponent(appointment.bookingCode)}';
+  /// Nội dung QR vé khám: chỉ mã đặt lịch. Máy quét ở quầy (kiểu bàn phím) gõ thẳng mã vào ô tìm kiếm Lịch hẹn
+  /// của khu quản trị; không chứa tên, bác sĩ hay mã nội bộ của lịch.
+  String qrPayload(PatientAppointment appointment) => appointment.bookingCode;
 }

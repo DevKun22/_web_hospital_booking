@@ -7,6 +7,8 @@ import 'package:hospital_booking_mobile/features/auth/application/auth_state.dar
 import 'package:hospital_booking_mobile/features/auth/domain/patient_user.dart';
 import 'package:hospital_booking_mobile/features/security/application/app_lock_controller.dart';
 
+import 'helpers/fake_auth_controller.dart';
+
 const _user = PatientUser(
   id: 'patient-1',
   fullName: 'Nguyễn Minh Anh',
@@ -84,5 +86,39 @@ void main() {
     );
 
     expect(container.read(appLockControllerProvider).locked, isTrue);
+  });
+
+  test('opening the app with a saved session asks to unlock', () async {
+    final container = await _container();
+    addTearDown(container.dispose);
+
+    expect(container.read(appLockControllerProvider).locked, isTrue);
+  });
+
+  test('signing in with OTP inside the app does not lock right away', () async {
+    final container = ProviderContainer(
+      overrides: [
+        fakeAuthOverride,
+        appPreferencesProvider.overrideWithValue(
+          MemoryAppPreferences(appLockEnabled: true),
+        ),
+        localAuthenticationGatewayProvider.overrideWithValue(
+          _SuccessfulLocalAuthentication(),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+    final sub = container.listen(appLockControllerProvider, (_, _) {});
+    addTearDown(sub.close);
+    await Future<void>.delayed(Duration.zero);
+
+    (container.read(authControllerProvider.notifier) as FakeAuthController)
+        .signInAs('patient-1');
+    container.read(appLockControllerProvider);
+    await Future<void>.delayed(Duration.zero);
+
+    final state = container.read(appLockControllerProvider);
+    expect(state.enabled, isTrue);
+    expect(state.locked, isFalse);
   });
 }

@@ -19,6 +19,7 @@ final bookingSubmissionRepositoryProvider =
       (ref) => BookingSubmissionRepository(
         ref.watch(authDioProvider),
         ref.watch(authenticatedDioProvider),
+        ref.watch(tokenStorageProvider).getOrCreateDeviceId,
       ),
     );
 
@@ -68,6 +69,17 @@ class BookingSubmissionController extends Notifier<BookingSubmissionState> {
 
   @override
   BookingSubmissionState build() {
+    // Đổi hoặc thoát tài khoản: bỏ lịch vừa đặt đang hiện ở màn thành công (thông tin của người trước).
+    // Lịch đang giữ chờ OTP thì giữ: chỉ chủ email xác thực được, và xác thực khi đã đăng nhập không đổi phiên.
+    ref.listen<String?>(
+      authControllerProvider.select((auth) => auth.user?.id),
+      (previous, next) {
+        if (previous == null || previous == next) return;
+        if (state.status == BookingSubmissionStatus.success) {
+          state = const BookingSubmissionState.idle();
+        }
+      },
+    );
     _restoreCompleter = Completer<void>();
     Future<void>.microtask(_restorePending);
     return const BookingSubmissionState(
@@ -140,13 +152,17 @@ class BookingSubmissionController extends Notifier<BookingSubmissionState> {
       status: BookingSubmissionStatus.verifyingOtp,
       pending: pending,
     );
+    // Đã đăng nhập (có thể là tài khoản khác với email nhận OTP): chỉ xác nhận lịch, không xin phiên mới,
+    // để không thay ngầm tài khoản đang dùng bằng tài khoản của email đặt lịch.
+    final signedIn = ref.read(authControllerProvider).isAuthenticated;
     try {
       final verified = await ref
           .read(bookingSubmissionRepositoryProvider)
-          .verify(pending: pending, otp: otp);
+          .verify(pending: pending, otp: otp, issueSession: !signedIn);
       final appointment = verified.appointment;
       final session = verified.session;
-      if (session != null) {
+      if (session != null &&
+          !ref.read(authControllerProvider).isAuthenticated) {
         await ref.read(authControllerProvider.notifier).adoptSession(session);
       }
       await _clearPendingSafely();

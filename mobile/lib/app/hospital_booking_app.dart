@@ -10,6 +10,7 @@ import 'package:go_router/go_router.dart';
 import 'package:hospital_booking_mobile/app/router/app_router.dart';
 import 'package:hospital_booking_mobile/core/theme/app_theme.dart';
 import 'package:hospital_booking_mobile/app/sync/patient_data_sync_coordinator.dart';
+import 'package:hospital_booking_mobile/features/home/application/home_search_history_provider.dart';
 import 'package:hospital_booking_mobile/features/notifications/application/push_notifications_controller.dart';
 import 'package:hospital_booking_mobile/features/security/application/app_lock_controller.dart';
 import 'package:hospital_booking_mobile/features/security/presentation/app_lock_gate.dart';
@@ -95,6 +96,7 @@ class _HospitalBookingAppState extends ConsumerState<HospitalBookingApp>
   Widget build(BuildContext context) {
     final router = ref.watch(appRouterProvider);
     _bindRouter(router);
+    ref.watch(searchHistoryAccountGuardProvider);
     ref.listen(pushNotificationsControllerProvider, (previous, next) {
       final controller = ref.read(pushNotificationsControllerProvider.notifier);
       final previousEvent = previous?.messageEvent ?? 0;

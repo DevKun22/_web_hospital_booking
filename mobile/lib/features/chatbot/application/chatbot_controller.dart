@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:hospital_booking_mobile/app/sync/patient_data_sync_coordinator.dart';
 import 'package:hospital_booking_mobile/core/errors/api_exception.dart';
 import 'package:hospital_booking_mobile/core/providers/app_providers.dart';
 import 'package:hospital_booking_mobile/features/auth/application/auth_controller.dart';
@@ -259,6 +262,15 @@ class ChatbotController extends Notifier<ChatbotState> {
         clearError: true,
         clearLastFailedRequest: true,
       );
+      // Kun vừa xử lý yêu cầu hủy lịch (có thể đã hủy thật): làm mới danh sách lịch để Trang chủ và tab Lịch hẹn
+      // không còn hiện lịch cũ. Làm mới thừa khi người dùng giữ lại lịch là vô hại.
+      if (response.intent == 'APPOINTMENT_CANCEL') {
+        unawaited(
+          ref
+              .read(patientDataSyncCoordinatorProvider)
+              .handleAppointmentChanged(),
+        );
+      }
       return true;
     } on ApiException catch (error) {
       if (requestVersion != _requestVersion) return false;

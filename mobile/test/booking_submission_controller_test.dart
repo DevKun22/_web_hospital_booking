@@ -9,6 +9,9 @@ import 'package:hospital_booking_mobile/features/booking/data/pending_booking_st
 import 'package:hospital_booking_mobile/features/booking/domain/booking_catalog.dart';
 import 'package:hospital_booking_mobile/features/booking/domain/booking_submission.dart';
 import 'package:hospital_booking_mobile/core/errors/api_exception.dart';
+import 'package:hospital_booking_mobile/features/auth/application/auth_controller.dart';
+
+import 'helpers/fake_auth_controller.dart';
 
 const _selection = BookingSelection(
   departmentId: 'department-1',
@@ -58,6 +61,7 @@ class _FakeSubmissionRepository extends BookingSubmissionRepository {
   final ApiException? abandonError;
   int createCalls = 0;
   int abandonCalls = 0;
+  bool? lastIssueSession;
 
   @override
   Future<BookingCreation> create({
@@ -77,7 +81,11 @@ class _FakeSubmissionRepository extends BookingSubmissionRepository {
   Future<VerifiedBooking> verify({
     required PendingBooking pending,
     required String otp,
-  }) async => VerifiedBooking(appointment: _appointment);
+    bool issueSession = true,
+  }) async {
+    lastIssueSession = issueSession;
+    return VerifiedBooking(appointment: _appointment);
+  }
 
   @override
   Future<void> abandon(PendingBooking pending) async {
@@ -99,12 +107,91 @@ ProviderContainer _container({
   required BookingSubmissionRepository repository,
 }) => ProviderContainer(
   overrides: [
+    fakeAuthOverride,
     pendingBookingStoreProvider.overrideWithValue(store),
     bookingSubmissionRepositoryProvider.overrideWithValue(repository),
   ],
 );
 
 void main() {
+  test(
+    'verifying a guest hold while signed in keeps the current account',
+    () async {
+      final store = MemoryPendingBookingStore(_pending());
+      final repository = _FakeSubmissionRepository();
+      final container = _container(store: store, repository: repository);
+      addTearDown(container.dispose);
+
+      container.read(bookingSubmissionControllerProvider);
+      await _waitUntil(
+        () =>
+            container.read(bookingSubmissionControllerProvider).status ==
+            BookingSubmissionStatus.awaitingOtp,
+      );
+      (container.read(authControllerProvider.notifier) as FakeAuthController)
+          .signInAs('patient-b');
+
+      final verified = await container
+          .read(bookingSubmissionControllerProvider.notifier)
+          .verifyOtp('123456');
+
+      expect(verified, isTrue);
+      expect(repository.lastIssueSession, isFalse);
+      expect(container.read(authControllerProvider).user?.id, 'patient-b');
+    },
+  );
+
+  test('guest verification still asks for a session', () async {
+    final store = MemoryPendingBookingStore(_pending());
+    final repository = _FakeSubmissionRepository();
+    final container = _container(store: store, repository: repository);
+    addTearDown(container.dispose);
+
+    container.read(bookingSubmissionControllerProvider);
+    await _waitUntil(
+      () =>
+          container.read(bookingSubmissionControllerProvider).status ==
+          BookingSubmissionStatus.awaitingOtp,
+    );
+    await container
+        .read(bookingSubmissionControllerProvider.notifier)
+        .verifyOtp('123456');
+
+    expect(repository.lastIssueSession, isTrue);
+  });
+
+  test('switching account clears the just-booked appointment', () async {
+    final repository = _FakeSubmissionRepository(confirmOnCreate: true);
+    final container = _container(
+      store: MemoryPendingBookingStore(),
+      repository: repository,
+    );
+    addTearDown(container.dispose);
+    final auth =
+        container.read(authControllerProvider.notifier) as FakeAuthController;
+    auth.signInAs('patient-a');
+
+    container.read(bookingSubmissionControllerProvider);
+    await _waitUntil(
+      () =>
+          container.read(bookingSubmissionControllerProvider).status ==
+          BookingSubmissionStatus.idle,
+    );
+    await container
+        .read(bookingSubmissionControllerProvider.notifier)
+        .submit(selection: _selection, patient: _patient, authenticated: true);
+    expect(
+      container.read(bookingSubmissionControllerProvider).status,
+      BookingSubmissionStatus.success,
+    );
+
+    auth.signInAs('patient-b');
+
+    final state = container.read(bookingSubmissionControllerProvider);
+    expect(state.status, BookingSubmissionStatus.idle);
+    expect(state.appointment, isNull);
+  });
+
   test('duplicate taps can create only one pending appointment', () async {
     final gate = Completer<BookingCreation>();
     final repository = _FakeSubmissionRepository(createGate: gate);

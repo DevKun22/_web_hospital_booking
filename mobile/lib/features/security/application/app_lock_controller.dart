@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hospital_booking_mobile/core/errors/swallowed_error.dart';
 import 'package:hospital_booking_mobile/core/providers/app_providers.dart';
 import 'package:hospital_booking_mobile/features/auth/application/auth_controller.dart';
+import 'package:hospital_booking_mobile/features/auth/application/auth_state.dart';
 import 'package:local_auth/local_auth.dart';
 import 'package:local_auth_android/local_auth_android.dart';
 
@@ -81,13 +82,33 @@ class AppLockState {
 
 class AppLockController extends Notifier<AppLockState> {
   bool _authenticated = false;
+  bool _lockOnLoad = false;
+  AuthStatus? _previousStatus;
   DateTime? _backgroundedAt;
+
+  /// Trạng thái ngay trước khi vào tài khoản bằng thao tác đăng nhập trong app (OTP đăng nhập hoặc OTP đặt lịch).
+  static const _interactiveSignInStatuses = {
+    AuthStatus.unauthenticated,
+    AuthStatus.requestingOtp,
+    AuthStatus.awaitingOtp,
+    AuthStatus.verifyingOtp,
+    AuthStatus.loggedOut,
+  };
 
   @override
   AppLockState build() {
-    _authenticated = ref.watch(
-      authControllerProvider.select((state) => state.isAuthenticated),
+    final (isAuthenticated, status) = ref.watch(
+      authControllerProvider.select(
+        (state) => (state.isAuthenticated, state.status),
+      ),
     );
+    final previous = _previousStatus;
+    _previousStatus = status;
+    _authenticated = isAuthenticated;
+    // Khóa khi mở app với phiên đã lưu. Người dùng vừa xác thực OTP ngay trong app thì đã chứng minh danh tính:
+    // không bắt mở khóa thêm lần nữa.
+    _lockOnLoad =
+        isAuthenticated && !_interactiveSignInStatuses.contains(previous);
     Future<void>.microtask(_load);
     return const AppLockState();
   }
@@ -117,7 +138,7 @@ class AppLockController extends Notifier<AppLockState> {
     state = AppLockState(
       enabled: enabled,
       supported: supported,
-      locked: enabled && _authenticated,
+      locked: enabled && _lockOnLoad,
       isChecking: false,
       message: enabled && !supported
           ? 'Thiết bị hiện không cung cấp phương thức khóa màn hình phù hợp.'
